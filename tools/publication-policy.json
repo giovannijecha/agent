@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "project": {
     "name": "agent",
     "repository": "giovannijecha/agent",
@@ -12,6 +12,7 @@
     "serviceBackend": "none",
     "sessionPersistence": "disabled",
     "executionModel": "single-agent",
+    "mechanicalConcurrency": "immutable-read-phase-only",
     "externalCodeContributions": "closed-initially",
     "automatedAttribution": "none"
   },
@@ -31,6 +32,8 @@
     "docs/PROVIDER-APPLICATIONS.md",
     "docs/decisions/0010-public-project-identity.md",
     "docs/ARCHITECTURE.md",
+    "docs/ENGINEERING.md",
+    "docs/manual/07-publishing-and-governance.md",
     "docs/decisions/0013-single-agent-execution.md"
   ]
 }

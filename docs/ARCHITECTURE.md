@@ -37,18 +37,31 @@ and relative cross-package imports are forbidden.
 
 ## Single-agent execution model
 
-`agent` is one personal coding agent, not a multi-agent coordinator. One
-application controller owns one active runtime session, and that runtime admits
-one active model turn, sequential model/tool steps, and one pending approval.
-A provider adapter supplies one interchangeable model backend to this same
-execution path; it does not introduce another agent identity.
+`agent` is one personal coding agent, not a multi-agent coordinator. One agent
+identity and application controller own one active runtime session and one
+active model decision loop. A provider adapter supplies one interchangeable
+model backend to this same execution path; it does not introduce another agent
+identity.
 
-The product does not create sub-agents, delegate work to hidden workers, run a
-swarm, or merge concurrent agent conversations. Tools, TUI components, provider
-adapters, and verification jobs are bounded capabilities rather than agents.
-Changing this invariant requires the replacement architecture defined by
-decision 0013, including new identity, authority, scheduling, cancellation,
-privacy, migration, and removal contracts.
+Single-agent is an identity and authority contract, not a requirement that
+every supporting operation occupy one thread. A future implementation may
+schedule bounded controller-internal mechanics, such as immutable frame
+computation or side-effect-free I/O waits, concurrently only during a read-only
+phase and over immutable snapshots. Those mechanics cannot enter the model,
+runtime, or tool engine; own no context, plan, conversation, follow-up decision,
+or authority; and must return results to the sole controller.
+Reduction is deterministic. Any mutation excludes concurrent mechanics.
+Model turns, writes, and terminal output remain serialized. Process execution
+and approval decisions also remain serialized.
+
+The current runtime is deliberately more conservative: it admits one active
+model turn, one tool call per model step, sequential model/tool steps, and one
+pending approval. The product does not create sub-agents, delegate work to
+hidden workers, run a swarm, or merge concurrent agent conversations. Tools,
+TUI components, provider adapters, and verification jobs are bounded
+capabilities rather than agents. Changing this invariant requires the
+replacement architecture defined by decision 0013, including new identity,
+authority, scheduling, cancellation, privacy, migration, and removal contracts.
 
 ## Package contracts
 

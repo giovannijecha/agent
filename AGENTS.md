@@ -50,10 +50,16 @@ agent.”
 - `@agent/cli` owns commands, bounded display chat, the single-writer reducer,
   terminal/runtime arbitration, built-in workspace tools, raw mode, filesystem
   and process access, and all Node lifecycle; it is the only platform boundary.
-- `agent` is a single-agent product: one application controller, one active
-  runtime session, one model turn, and one pending approval. Providers are
+- `agent` is a single-agent product: one identity, one application controller,
+  one active runtime session, and one active model decision loop. Providers are
   interchangeable backends, never additional agents; do not add sub-agents,
   delegation, swarms, or concurrent agent conversations.
+- Future controller-internal concurrency may overlap only bounded independent
+  mechanics over immutable snapshots during a read-only phase. It cannot enter
+  the tool engine or overlap a mutation, and its results return to the sole
+  controller for deterministic reduction.
+- Model turns, writes, process execution, approvals, and terminal output remain
+  serialized. Current runtime remains sequential.
 - Core and TUI never depend on each other. Dependencies point inward, public
   surfaces go through `src/index.ts`, and deep cross-package imports are banned.
 - Keep modules cohesive, documented, independently testable, replaceable, and

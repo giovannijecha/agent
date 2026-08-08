@@ -75,9 +75,16 @@ by independent clients.
 
 All integrations preserve the single-agent execution model. A provider is one
 replaceable backend for the active runtime session; a tool is one bounded
-capability on its sequential trajectory. Do not introduce worker identities,
-delegation, concurrent agent turns, or inter-agent state without a superseding
-architecture decision and its complete authority and lifecycle contracts.
+capability controlled by the same agent. The sole controller may overlap only
+bounded controller-internal mechanics over immutable snapshots during a
+read-only phase, and it must reduce their results in a deterministic order.
+Such work cannot enter the model, runtime, or tool engine or own context, plans,
+conversations, follow-up decisions, or authority. Any mutation excludes
+concurrent mechanics. Model turns, writes, process execution, approvals, and
+terminal output remain serialized. Current runtime remains sequential. Do not
+introduce worker identities, delegation, concurrent agent turns, or inter-agent
+state without a superseding architecture decision and its complete authority
+and lifecycle contracts.
 
 ## Verification policy
 

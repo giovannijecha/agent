@@ -12,6 +12,7 @@ const EXPECTED_POSTURE = Object.freeze({
   serviceBackend: "none",
   sessionPersistence: "disabled",
   executionModel: "single-agent",
+  mechanicalConcurrency: "immutable-read-phase-only",
   externalCodeContributions: "closed-initially",
   automatedAttribution: "none",
 });
@@ -27,6 +28,8 @@ const EXPECTED_DOCUMENTS = Object.freeze([
   "docs/PROVIDER-APPLICATIONS.md",
   "docs/decisions/0010-public-project-identity.md",
   "docs/ARCHITECTURE.md",
+  "docs/ENGINEERING.md",
+  "docs/manual/07-publishing-and-governance.md",
   "docs/decisions/0013-single-agent-execution.md",
 ]);
 const FALSE_AUTHORSHIP_MARKERS = [
@@ -130,6 +133,9 @@ function validatePublicDocuments(context) {
       "(docs/OAUTH-REGISTRATION.md)",
       "(docs/PROVIDER-APPLICATIONS.md)",
       "single-agent execution model",
+      "Future controller-internal mechanical concurrency",
+      "Current runtime remains sequential",
+      "overlap a mutation",
     ],
     "README",
   );
@@ -142,6 +148,9 @@ function validatePublicDocuments(context) {
       "giovannijecha/agent",
       "Do not add automated tool signatures",
       "single-agent product",
+      "one active runtime session",
+      "overlap a mutation",
+      "Current runtime remains sequential",
     ],
     "AGENTS.md",
   );
@@ -152,12 +161,41 @@ function validatePublicDocuments(context) {
       "## Single-agent execution model",
       "does not create sub-agents",
       "one active runtime session",
+      "Single-agent is an identity and authority contract",
+      "Reduction is deterministic",
+      "Any mutation excludes concurrent mechanics",
+      "terminal output remain serialized",
     ],
     "architecture",
   );
   requireMarkers(
+    textFor(context, "docs/ENGINEERING.md"),
+    [
+      "All integrations preserve the single-agent execution model",
+      "Any mutation excludes",
+      "Current runtime remains sequential",
+    ],
+    "engineering policy",
+  );
+  requireMarkers(
+    textFor(context, "docs/manual/07-publishing-and-governance.md"),
+    [
+      "# 07 - Publishing and governance",
+      "The product is single-agent",
+      "Current runtime remains sequential",
+    ],
+    "publishing manual",
+  );
+  requireMarkers(
     textFor(context, "docs/decisions/0013-single-agent-execution.md"),
-    ["# 0013: Single-agent execution", "`agent` is a single-agent product"],
+    [
+      "# 0013: Single-agent execution",
+      "`agent` is a single-agent product",
+      "Mechanical concurrency does not create another agent",
+      "Any mutation excludes concurrent mechanics",
+      "Model turns and mutations remain serialized",
+      "Current runtime remains sequential",
+    ],
     "single-agent decision",
   );
 
@@ -237,7 +275,7 @@ export function validatePublicationPolicy(policy, context) {
     ["schemaVersion", "project", "posture", "licenseFile", "documents"],
     "publication policy",
   );
-  if (policy.schemaVersion !== 2 || !isRecord(context)) {
+  if (policy.schemaVersion !== 3 || !isRecord(context)) {
     fail("unsupported publication policy schema or context");
   }
   exactKeys(policy.project, Object.keys(EXPECTED_PROJECT), "publication project");
