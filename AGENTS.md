@@ -50,6 +50,10 @@ agent.”
 - `@agent/cli` owns commands, bounded display chat, the single-writer reducer,
   terminal/runtime arbitration, built-in workspace tools, raw mode, filesystem
   and process access, and all Node lifecycle; it is the only platform boundary.
+- `agent` is a single-agent product: one application controller, one active
+  runtime session, one model turn, and one pending approval. Providers are
+  interchangeable backends, never additional agents; do not add sub-agents,
+  delegation, swarms, or concurrent agent conversations.
 - Core and TUI never depend on each other. Dependencies point inward, public
   surfaces go through `src/index.ts`, and deep cross-package imports are banned.
 - Keep modules cohesive, documented, independently testable, replaceable, and
@@ -86,6 +90,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1
 
 The final command must pass before work is complete. It checks the toolchain,
 documents, manifests, lockfile, imports, source hygiene, build, tests, and CLI.
+The owned GitHub workflow runs this same command for pull requests and `main`;
+it must contain no imported action or repository secret.
 
 ## Boundaries
 

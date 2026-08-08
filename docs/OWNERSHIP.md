@@ -12,6 +12,7 @@ The permitted external substrate is deliberately narrow:
 - Node.js `>=22.19.0` and explicitly allowlisted `node:` built-ins;
 - npm `11.16.0` as offline local-workspace linker;
 - TypeScript compiler `5.9.3`, installed outside the repository;
+- GitHub-hosted Windows runners as ephemeral verification infrastructure;
 - documented operating-system services and terminal capabilities;
 - public protocol and data-format specifications required for interoperability;
 - verbatim legal terms required to license and distribute the work;
@@ -55,6 +56,7 @@ structure.
 | 2026-08-08 | [Kimi Code overview](https://www.kimi.com/code/docs/en/), [device login](https://www.kimi.com/code/docs/en/kimi-code-cli/reference/kimi-command.html), [feedback routes](https://www.kimi.com/code/docs/en/kimi-code/contact-and-feedback.html), and [issue tracker](https://github.com/MoonshotAI/kimi-code/issues) | CLI device OAuth, subscriber API keys for third-party tools, truthful client-identity rule, official feedback channels, and current restriction on new issues | Direct OAuth remains specific to Kimi Code while third parties use keys; the official private support email is the viable independent-client inquiry route | None; no source, endpoint, client identity, credential, or protocol fixture reused |
 | 2026-08-08 | [xAI Grok Build](https://docs.x.ai/build/overview), [enterprise authentication](https://docs.x.ai/build/enterprise), [Grok subscription FAQ](https://docs.x.ai/grok/faq), and [contact routes](https://x.ai/contact) | Browser and device login, headless and ACP surfaces, subscription usage, API-key separation, official product support | Grok Build is subscription-authenticated, but no public independent-client registration route is documented; basis for a private support inquiry | None; no source, endpoint, identity, credential, or protocol fixture reused |
 | 2026-08-08 | [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0.txt) | Official license terms | Verbatim legal permission, conditions, patent grant, warranty disclaimer, and redistribution text in `LICENSE` | Legal terms reproduced verbatim; no product code |
+| 2026-08-08 | [GitHub Actions workflow syntax](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax), [event references](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows), and [ruleset status checks](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets) | Workflow events, event SHA/ref behavior, permissions, concurrency, timeouts, and required-check naming | Owned continuous-verification protocol and safe activation order | None; no action, workflow sample, script, or implementation source reused |
 
 Pi implementation source was inspected with explicit user authorization because
 its provider documentation lagged current behavior. Inspection was read-only and

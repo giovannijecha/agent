@@ -17,7 +17,9 @@ automatic tool attribution.
    generated-by banner, automated tool signature, or tool co-author trailer.
 6. Enable GitHub private vulnerability reporting before the first release.
 7. Scan the complete history for secrets and inspect the rendered public files.
-8. Keep the version on `0.x` until one direct provider integration is complete
+8. Require the owned `verify` job only after it has completed successfully on
+   GitHub; never require a status name that has not run.
+9. Keep the version on `0.x` until one direct provider integration is complete
    and eligible.
 
 ## Guarantees and limits
@@ -26,6 +28,10 @@ The Apache-2.0 text, public identity, privacy posture, initial contribution
 boundary, and public document links are checked offline. The project has no
 telemetry, backend, persistent sessions, or eligible provider login. Publication
 does not change those facts and does not authorize OAuth access.
+
+The product is single-agent: providers are interchangeable backends for one
+active runtime session, not additional agent identities. The public workflow is
+also owned project code; it imports no action and receives no repository secret.
 
 No Git repository or GitHub remote is created by documentation or verification.
 The project does not claim that development occurred without tool assistance;
@@ -61,3 +67,5 @@ publish any required security notice.
 - Publication validator: `tools/lib/publication-policy.mjs`
 - Publication validator tests: `tools/test/publication-policy.test.mjs`
 - Canonical Git line endings: `.gitattributes`
+- Continuous-verification decision: `docs/decisions/0012-owned-continuous-verification.md`
+- Single-agent decision: `docs/decisions/0013-single-agent-execution.md`

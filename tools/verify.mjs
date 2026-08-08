@@ -5,12 +5,13 @@ import {
   readdirSync,
   realpathSync,
 } from "node:fs";
-import { builtinModules } from "node:module";
+import { isBuiltin } from "node:module";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import { analyzeModule } from "./lib/module-specifiers.mjs";
+import { validateCiPolicy } from "./lib/ci-policy.mjs";
 import { validateManualPolicy } from "./lib/manual-policy.mjs";
 import { validateProviderPolicy } from "./lib/provider-policy.mjs";
 import { validatePublicationPolicy } from "./lib/publication-policy.mjs";
@@ -24,6 +25,7 @@ if (
   throw new Error("usage: node tools/verify.mjs [--require-generated]");
 }
 const requireGenerated = arguments_[0] === "--require-generated";
+const ciPolicy = readJson("tools/ci-policy.json");
 const policy = readJson("tools/ownership-policy.json");
 const manualPolicy = readJson("tools/manual-policy.json");
 const providerPolicy = readJson("tools/provider-policy.json");
@@ -223,6 +225,13 @@ function verifyDocuments() {
       fail("required documentation is missing: " + document);
     }
   }
+}
+
+function verifyCiPolicy() {
+  validateCiPolicy(ciPolicy, {
+    workflowText: readText(ciPolicy.workflowPath),
+    toolchain,
+  });
 }
 
 function verifyManual() {
@@ -483,6 +492,9 @@ function verifyRepositoryLayout() {
 
   for (const file of listFiles(".")) {
     if (rootFiles.has(file)) {
+      continue;
+    }
+    if (file === ciPolicy.workflowPath) {
       continue;
     }
     if (/^docs\/(?:decisions\/)?[A-Za-z0-9-]+\.md$/u.test(file)) {
@@ -816,11 +828,7 @@ function sourceContext(file) {
 
 function verifyImport(file, specifier, line, context) {
   if (specifier.startsWith("node:")) {
-    const builtin = specifier.slice("node:".length).split("/")[0];
-    const known = new Set(
-      builtinModules.map((name) => name.replace(/^node:/u, "").split("/")[0]),
-    );
-    if (!known.has(builtin) || !context.allowedNode.includes(specifier)) {
+    if (!isBuiltin(specifier) || !context.allowedNode.includes(specifier)) {
       fail(file + ":" + String(line) + " disallowed Node import " + specifier);
     }
     return;
@@ -898,6 +906,7 @@ function verifyNodeModules() {
 
 verifyToolchain();
 verifyDocuments();
+verifyCiPolicy();
 verifyManual();
 verifyProviderPolicy();
 verifyPublicationPolicy();
@@ -913,5 +922,5 @@ verifyImports();
 verifyNodeModules();
 
 process.stdout.write(
-  "Ownership verification passed: toolchain, manual, publication, manifests, lockfile, source, imports, and workspace links.\n",
+  "Ownership verification passed: toolchain, CI, manual, publication, manifests, lockfile, source, imports, and workspace links.\n",
 );

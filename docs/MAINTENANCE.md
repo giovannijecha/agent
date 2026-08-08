@@ -35,6 +35,12 @@ maintainer, license, privacy posture, initial contribution boundary, public
 documents, and exact license digest. Product package metadata does not silently
 override that registry.
 
+Continuous verification is registered in `tools/ci-policy.json`. Its validator
+binds the only workflow to the protected branch, read-only permissions, one
+bounded Windows job, the pinned toolchain, the canonical local command, and zero
+imported actions or secrets. The workflow and local release gate are one
+contract, not separate verification implementations.
+
 ## Update or remove the streaming runtime
 
 Update model-stream events, limits, cancellation, or cleanup only with focused
@@ -191,6 +197,25 @@ publication validator, tests, decision 0010, manual chapter, and registrations;
 runtime workspaces remain unchanged. After a release, archive rather than erase
 history, retain license obligations for distributed versions, revoke provider
 registrations, and document credential deletion.
+
+## Update or remove continuous verification
+
+Change `.github/workflows/verify.yml`, `tools/ci-policy.json`, its pure validator
+and tests, decision 0012, manual evidence, and affected toolchain facts together.
+Run the full local gate before pushing. Prove the new job on a pull request
+before changing the required status check, because GitHub recognizes a workflow
+check by job name only after it has run.
+
+Preserve `contents: read`, exact event-revision checkout, ref and SHA validation,
+remote removal, no secret context, no `pull_request_target`, no `uses:`, one
+bounded job, and the canonical release command. Toolchain bootstrap may contact
+the npm registry only for the approved npm and TypeScript versions; the project
+verification itself remains offline.
+
+To remove CI, first remove the required `verify` check from the GitHub ruleset so
+the default branch is not deadlocked. Then remove the workflow, CI registry,
+validator, tests, decision 0012, and manual references. Keep the local release
+gate unchanged and passing throughout removal.
 
 ## Change a package
 

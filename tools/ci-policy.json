@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "workflowPath": ".github/workflows/verify.yml",
+  "workflowName": "verify",
+  "jobName": "verify",
+  "runner": "windows-latest",
+  "timeoutMinutes": 20,
+  "protectedBranches": [
+    "main"
+  ],
+  "canonicalCommand": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1"
+}

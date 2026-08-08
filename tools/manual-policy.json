@@ -68,6 +68,8 @@
     "docs/decisions/0008-owned-tool-execution.md",
     "docs/decisions/0010-public-project-identity.md",
     "docs/decisions/0011-verified-provider-registration-requests.md",
+    "docs/decisions/0012-owned-continuous-verification.md",
+    "docs/decisions/0013-single-agent-execution.md",
     "package-lock.json",
     "package.json",
     "packages/agent-cli/src/application.ts",
@@ -87,6 +89,8 @@
     "packages/agent-tui/src/vertical-layout.ts",
     "tools/lib/provider-policy.mjs",
     "tools/lib/publication-policy.mjs",
+    "tools/lib/ci-policy.mjs",
+    "tools/ci-policy.json",
     "tools/manual-policy.json",
     "tools/ownership-policy.json",
     "tools/provider-policy.json",
@@ -94,8 +98,10 @@
     "tools/run-tests.mjs",
     "tools/test/provider-policy.test.mjs",
     "tools/test/publication-policy.test.mjs",
+    "tools/test/ci-policy.test.mjs",
     "tools/toolchain.json",
     "tools/verify.mjs",
-    "tools/verify.ps1"
+    "tools/verify.ps1",
+    ".github/workflows/verify.yml"
   ]
 }

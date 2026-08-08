@@ -73,12 +73,21 @@ foreign runtime dependencies. A direct subscription adapter requires an
 `agent`-owned registration or a provider-documented identity expressly reusable
 by independent clients.
 
+All integrations preserve the single-agent execution model. A provider is one
+replaceable backend for the active runtime session; a tool is one bounded
+capability on its sequential trajectory. Do not introduce worker identities,
+delegation, concurrent agent turns, or inter-agent state without a superseding
+architecture decision and its complete authority and lifecycle contracts.
+
 ## Verification policy
 
 The canonical PowerShell entry point performs two ownership passes: before npm
 touches workspace links and after TypeScript emits JavaScript. It enforces:
 
 - pinned external Node, npm, and TypeScript toolchain;
+- the exact owned GitHub workflow, read-only permissions, bounded concurrency
+  and timeout, pinned toolchain bootstrap, canonical command, and absence of
+  imported actions, secrets, or `pull_request_target`;
 - exact explicit workspace manifests and lockfile entries;
 - absence of external packages and legacy stack artifacts;
 - conservative import and dangerous-loader checks, including no-substitution
@@ -95,6 +104,11 @@ touches workspace links and after TypeScript emits JavaScript. It enforces:
 
 The verifier fails closed on syntax it cannot safely analyze. Weakening or
 bypassing it requires an accepted replacing decision record.
+
+Remote verification must call the same PowerShell entry point as local work.
+The workflow may use GitHub-hosted execution and network access only to fetch the
+public event revision and provision the already approved toolchain. Workspace
+installation, builds, tests, and smoke verification remain offline.
 
 ## Terminal input policy
 

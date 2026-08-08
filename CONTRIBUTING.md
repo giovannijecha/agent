@@ -5,6 +5,10 @@ reproducible bug, documentation gap, portability problem, or narrowly scoped
 proposal are welcome after the repository is published. External code pull
 requests are not accepted during this phase.
 
+Maintainer changes use a protected branch and must pass the owned `verify` job,
+which executes the same canonical release gate as local development without
+importing third-party GitHub actions.
+
 ## Why code contributions are temporarily closed
 
 The project is establishing an independently authored, zero-third-party-package
