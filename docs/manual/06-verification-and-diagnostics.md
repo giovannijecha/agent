@@ -63,6 +63,8 @@ repairable.
 - Owned verifier: `tools/verify.mjs`
 - Workspace ownership registry: `tools/ownership-policy.json`
 - Manual registry: `tools/manual-policy.json`
+- Manual validator: `tools/lib/manual-policy.mjs`
+- Manual validator tests: `tools/test/manual-policy.test.mjs`
 - Publication registry: `tools/publication-policy.json`
 - Publication validator: `tools/lib/publication-policy.mjs`
 - Test discovery: `tools/run-tests.mjs`

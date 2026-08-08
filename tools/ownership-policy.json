@@ -26,7 +26,8 @@
     "docs/decisions/0010-public-project-identity.md",
     "docs/decisions/0011-verified-provider-registration-requests.md",
     "docs/decisions/0012-owned-continuous-verification.md",
-    "docs/decisions/0013-single-agent-execution.md"
+    "docs/decisions/0013-single-agent-execution.md",
+    "docs/decisions/0014-lean-tool-harness.md"
   ],
   "workspaces": [
     {

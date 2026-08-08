@@ -239,10 +239,12 @@ function verifyManual() {
   const manualPaths = ownedPaths.filter(
     (file) => file.startsWith("docs/manual/") && file.endsWith(".md"),
   );
+  const productSources = ownedPaths.filter((file) =>
+    /^packages\/[a-z0-9-]+\/src\/[a-z0-9-]+\.ts$/u.test(file),
+  );
   const inputs = [
     "README.md",
-    "packages/agent-cli/src/commands.ts",
-    "packages/agent-cli/src/builtin-tools.ts",
+    ...productSources,
     ...manualPaths,
   ];
   validateManualPolicy(manualPolicy, {
