@@ -22,10 +22,13 @@ approval risk, handler contracts, result containment, and one-call execution.
 Core gains immutable structured values plus explicit tool-call and tool-result
 conversation entries. No tool protocol is encoded inside message text.
 
-The CLI remains the only Node boundary and implements five initial tools:
+The CLI remains the only Node boundary and implements the tools registered under
+decision 0014. Their exact canonical names, risk classes, and current necessity
+records live in the verified operator-manual inventory.
 
-- `read_file`, `list_directory`, and `search_text` are read-only;
-- `create_file` and `replace_text` mutate workspace files.
+Decision 0014 governs this model-facing surface: every tool has one canonical
+name, a distinct capability, documented current necessity, and an independent
+removal path. Aliases and speculative convenience tools are forbidden.
 
 Direct process execution is deliberately deferred. Killing one child process
 does not prove that its descendants have stopped or released inherited pipes,
@@ -98,5 +101,6 @@ To remove tools, first stop advertising descriptors and restore the text-only
 runtime path. Remove CLI approval commands, tool status, Node handlers, and the
 runtime tool dependency. Then remove structured tool entries if no consumer
 remains, delete `@agent/tools` from every registry, remove this decision, clean
-derived artifacts, and run the canonical verifier. Text chat, TUI, and the
+derived artifacts, remove decision 0014, revise the manual-policy schema and
+evidence citations, and run the canonical verifier. Text chat, TUI, and the
 providerless CLI must remain buildable throughout rollback.

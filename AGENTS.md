@@ -66,6 +66,9 @@ agent.”
   removable without unrelated rewrites. Do not create speculative layers.
 - Every owned engine or framework must define a complete intended contract:
   lifecycle, bounds, failures, security, tests, updates, rollback, and removal.
+- Keep the model-facing harness lean: every tool needs one canonical name, a
+  distinct capability, current necessity, focused tests, and independent
+  removal. Tool aliases and speculative conveniences are forbidden.
 - Keep process execution tools disabled until cross-platform descendant
   cancellation, isolated environment, bounded output, and cleanup are proven.
 

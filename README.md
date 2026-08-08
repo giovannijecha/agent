@@ -9,11 +9,11 @@ third-party runtime or development packages.
 Single-agent streaming-runtime, tool-engine, and interactive-chat foundation.
 The repository provides immutable structured conversation state, a bounded
 transactional streaming and tool runtime, a provider-neutral schema/registry/execution
-framework, five bounded local coding tools, a complete vertical TUI framework, a
-single-writer chat reducer, fair terminal/runtime arbitration, and an owned
-verification system. Production injects no model, authenticates no provider,
-and persists no sessions; therefore its real tool engine remains inactive until
-an eligible model adapter is composed.
+framework, registered bounded local coding tools, a complete vertical TUI
+framework, a single-writer chat reducer, fair terminal/runtime arbitration, and
+an owned verification system. Production injects no model, authenticates no
+provider, and persists no sessions; therefore its real tool engine remains
+inactive until an eligible model adapter is composed.
 Requested subscription integrations remain behind a fail-closed eligibility
 policy; none is enabled with a borrowed client identity.
 
@@ -27,6 +27,11 @@ independent mechanics only over immutable snapshots during a read-only phase;
 it cannot enter the tool engine or overlap a mutation, and its results return
 for deterministic reduction. Model turns, writes, process execution, approvals,
 and terminal output remain serialized.
+
+The tool harness is deliberately lean. Every advertised tool has one canonical
+name, a distinct current purpose, and an independent removal path. Decision
+0014 forbids aliases and speculative convenience tools; verification binds the
+reviewed inventory to source and rejects duplicate declared capabilities.
 
 ## Stack
 

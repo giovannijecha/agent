@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "index": "docs/manual/README.md",
   "chapters": [
     {
@@ -42,13 +42,40 @@
     "/help",
     "/providers"
   ],
-  "tools": [
-    "create_file",
-    "list_directory",
-    "read_file",
-    "replace_text",
-    "search_text"
-  ],
+  "toolSurface": {
+    "tools": [
+      {
+        "name": "create_file",
+        "capability": "create-new-file",
+        "risk": "write",
+        "necessity": "Creates a new file without broad overwrite or process authority."
+      },
+      {
+        "name": "list_directory",
+        "capability": "enumerate-one-directory",
+        "risk": "read",
+        "necessity": "Discovers one directory without reading file contents or recursing."
+      },
+      {
+        "name": "read_file",
+        "capability": "read-one-file",
+        "risk": "read",
+        "necessity": "Inspects one known file without traversing unrelated workspace paths."
+      },
+      {
+        "name": "replace_text",
+        "capability": "replace-one-exact-match",
+        "risk": "write",
+        "necessity": "Changes one exact match without arbitrary overwrite or shell authority."
+      },
+      {
+        "name": "search_text",
+        "capability": "search-bounded-text",
+        "risk": "read",
+        "necessity": "Locates exact text with bounded traversal instead of many model-directed reads."
+      }
+    ]
+  },
   "requiredPaths": [
     ".gitattributes",
     "AGENTS.md",
@@ -70,6 +97,7 @@
     "docs/decisions/0011-verified-provider-registration-requests.md",
     "docs/decisions/0012-owned-continuous-verification.md",
     "docs/decisions/0013-single-agent-execution.md",
+    "docs/decisions/0014-lean-tool-harness.md",
     "package-lock.json",
     "package.json",
     "packages/agent-cli/src/application.ts",
@@ -90,6 +118,7 @@
     "tools/lib/provider-policy.mjs",
     "tools/lib/publication-policy.mjs",
     "tools/lib/ci-policy.mjs",
+    "tools/lib/manual-policy.mjs",
     "tools/ci-policy.json",
     "tools/manual-policy.json",
     "tools/ownership-policy.json",
@@ -99,6 +128,7 @@
     "tools/test/provider-policy.test.mjs",
     "tools/test/publication-policy.test.mjs",
     "tools/test/ci-policy.test.mjs",
+    "tools/test/manual-policy.test.mjs",
     "tools/toolchain.json",
     "tools/verify.mjs",
     "tools/verify.ps1",

@@ -3,6 +3,7 @@ import path from "node:path";
 const INDEX_PATH = "docs/manual/README.md";
 const COMMAND_SOURCE = "packages/agent-cli/src/commands.ts";
 const TOOL_SOURCE = "packages/agent-cli/src/builtin-tools.ts";
+const PRODUCT_SOURCE = /^packages\/[a-z0-9-]+\/src\/[a-z0-9-]+\.ts$/u;
 const CHAPTER_SECTIONS = Object.freeze([
   "Purpose",
   "Operator workflow",
@@ -104,16 +105,96 @@ function extractCommands(source) {
   return sorted(commands);
 }
 
-function extractTools(source) {
+function extractToolContracts(source) {
   const tools = [];
-  const pattern = /\bdescriptor\(\s*"([a-z][a-z0-9_]{0,63})"/gu;
+  const pattern =
+    /\bdescriptor\(\s*"([a-z][a-z0-9_]{0,63})"\s*,\s*"[^"\r\n]+"\s*,\s*"(read|write|execute)"/gu;
   for (const match of source.matchAll(pattern)) {
-    const tool = match.at(1);
-    if (tool !== undefined && !tools.includes(tool)) {
-      tools.push(tool);
+    const name = match.at(1);
+    const risk = match.at(2);
+    if (name !== undefined && risk !== undefined) {
+      tools.push({ name, risk });
     }
   }
-  return sorted(tools);
+  const descriptorTokens = [...source.matchAll(/\bdescriptor\s*\(/gu)].length;
+  const descriptorDeclarations = [
+    ...source.matchAll(/\bfunction\s+descriptor\s*\(/gu),
+  ].length;
+  if (
+    descriptorDeclarations !== 1 ||
+    descriptorTokens - descriptorDeclarations !== tools.length
+  ) {
+    fail("tool descriptor source contains unsupported syntax");
+  }
+  return tools.sort((left, right) => left.name.localeCompare(right.name, "en"));
+}
+
+function validateToolSurface(surface) {
+  exactKeys(surface, ["tools"], "manual tool surface");
+  if (
+    !Array.isArray(surface.tools) ||
+    surface.tools.length === 0 ||
+    surface.tools.length > 32
+  ) {
+    fail("manual tool surface contract is invalid");
+  }
+
+  const names = [];
+  const capabilities = [];
+  const necessities = [];
+  for (const tool of surface.tools) {
+    exactKeys(
+      tool,
+      ["capability", "name", "necessity", "risk"],
+      "manual tool",
+    );
+    if (
+      typeof tool.name !== "string" ||
+      !/^[a-z][a-z0-9_]{0,63}$/u.test(tool.name) ||
+      typeof tool.capability !== "string" ||
+      !/^[a-z][a-z0-9-]{0,63}$/u.test(tool.capability) ||
+      tool.name === "run_process" ||
+      (tool.risk !== "read" && tool.risk !== "write") ||
+      typeof tool.necessity !== "string" ||
+      tool.necessity !== tool.necessity.trim() ||
+      tool.necessity.length < 20 ||
+      tool.necessity.length > 240 ||
+      /[\p{Cc}\p{Cf}\p{Cs}\u2028\u2029]/u.test(tool.necessity)
+    ) {
+      fail("manual tool contract is invalid");
+    }
+    names.push(tool.name);
+    capabilities.push(tool.capability);
+    necessities.push(tool.necessity);
+  }
+  unique(names, "manual tool names");
+  unique(capabilities, "manual tool capabilities");
+  unique(necessities, "manual tool necessities");
+  same(names, sorted(names), "manual tool order");
+  return surface.tools;
+}
+
+function verifyDescriptorConstruction(context) {
+  const productSources = context.ownedPaths.filter((file) =>
+    PRODUCT_SOURCE.test(file),
+  );
+  if (productSources.length === 0) {
+    fail("product source inventory is empty");
+  }
+  let creationReferences = 0;
+  for (const file of productSources) {
+    const source = fileText(context, file);
+    const references = [
+      ...source.matchAll(/\bToolDescriptor\s*\.\s*create\b/gu),
+    ].length;
+    if (references > 0 && file !== TOOL_SOURCE) {
+      fail("tool descriptor construction escapes the registered source");
+    }
+    creationReferences += references;
+  }
+  if (creationReferences !== 1) {
+    fail("tool descriptor construction count is invalid");
+  }
 }
 
 function verifyChapter(chapter, index, context) {
@@ -201,10 +282,17 @@ function verifyLinks(policy, context) {
 export function validateManualPolicy(policy, context) {
   exactKeys(
     policy,
-    ["schemaVersion", "index", "chapters", "commands", "tools", "requiredPaths"],
+    [
+      "schemaVersion",
+      "index",
+      "chapters",
+      "commands",
+      "toolSurface",
+      "requiredPaths",
+    ],
     "manual policy",
   );
-  if (policy.schemaVersion !== 1 || policy.index !== INDEX_PATH) {
+  if (policy.schemaVersion !== 2 || policy.index !== INDEX_PATH) {
     fail("unsupported manual policy schema or index");
   }
   if (!isRecord(context) || !Array.isArray(context.manualPaths) || !Array.isArray(context.ownedPaths)) {
@@ -227,9 +315,14 @@ export function validateManualPolicy(policy, context) {
   );
 
   const commands = stringList(policy.commands, "manual commands", /^\/[a-z][a-z0-9-]*$/u);
-  const tools = stringList(policy.tools, "manual tools", /^[a-z][a-z0-9_]{0,63}$/u);
+  const tools = validateToolSurface(policy.toolSurface);
+  verifyDescriptorConstruction(context);
   same(commands, extractCommands(fileText(context, COMMAND_SOURCE)), "manual command source inventory");
-  same(tools, extractTools(fileText(context, TOOL_SOURCE)), "manual tool source inventory");
+  same(
+    tools.map((tool) => ({ name: tool.name, risk: tool.risk })),
+    extractToolContracts(fileText(context, TOOL_SOURCE)),
+    "manual tool source inventory",
+  );
 
   if (!Array.isArray(policy.requiredPaths) || policy.requiredPaths.length === 0) {
     fail("manual evidence paths must be a non-empty array");
@@ -252,9 +345,20 @@ export function validateManualPolicy(policy, context) {
   }
 
   const allManualText = [fileText(context, policy.index), ...chapterTexts].join("\n");
-  for (const capability of [...commands, ...tools]) {
+  for (const capability of commands) {
     if (!allManualText.includes("`" + capability + "`")) {
       fail("manual capability inventory is incomplete");
+    }
+  }
+  for (const tool of tools) {
+    const row =
+      "| `" + tool.name + "` | `" + tool.capability + "` | `" +
+      tool.risk + "` | " + tool.necessity + " |";
+    if (
+      !allManualText.includes(row) ||
+      allManualText.indexOf(row) !== allManualText.lastIndexOf(row)
+    ) {
+      fail("manual tool inventory is incomplete");
     }
   }
   if (!fileText(context, "README.md").includes("(docs/manual/README.md)")) {

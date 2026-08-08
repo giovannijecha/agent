@@ -117,13 +117,29 @@ single-writer application reducer, and fair two-source event arbitration. It is
 the only product package allowed to import approved `node:` APIs. It uses only
 named stdin, stdout, stderr, and exit capabilities rather than a broad process
 object. Reusable terminal mechanics belong behind the TUI contract. Model turn
-mechanics remain behind the runtime session contract. It also implements the five
-initial Node tools: bounded file read, directory list, exact text search, new-file
-creation, and single exact replacement. Every
-path is rooted, canonicalized, and denied on traversal or symlink crossing.
+mechanics remain behind the runtime session contract. It also implements the
+registered bounded Node filesystem tools. Every path is rooted, canonicalized,
+and denied on traversal or symlink crossing.
 Direct process execution is absent until a cross-platform process-tree boundary
 can prove descendant cancellation, isolated environment, bounded output, and
 complete cleanup.
+
+## Lean tool harness
+
+The model-facing tool surface is an exact capability registry, not an open-ended
+command catalog. Each tool has one canonical name, one unique capability, a
+current necessity statement, a risk class bound to its source descriptor, and
+an independent removal path. Aliases are forbidden. A rename replaces the old
+name everywhere rather than advertising both names.
+
+Admission requires evidence that the capability is not already available with
+comparable bounds, approval semantics, and model effort. Convenience or future
+possibility is insufficient. Removing one tool must leave the remaining
+registry, text-only runtime path, CLI, and TUI buildable without unrelated
+rewrites. The exact current inventory is owned by `tools/manual-policy.json` and
+verified against CLI descriptors and the operator manual under decision 0014.
+Product descriptor construction is confined to the registered CLI module; the
+generic tools workspace owns validation mechanics, not advertised product tools.
 
 ## Interactive terminal flow
 
@@ -255,11 +271,18 @@ process access remain unavailable unless the CLI composes an explicit capability
   chat-state, and chat-view modules without changing generic TUI or core.
 - Add or remove a provider at the adapter, registries, and CLI edge; core changes
   only if its owned model contract deliberately changes.
+- Remove one built-in tool by first stopping its descriptor advertisement, then
+  deleting its handler, focused tests, policy and manual entries, and unused
+  private helpers. Update decision 0008 if its execution contract or registry
+  reference changes. The remaining registry and text-only path stay buildable
+  under decision 0014.
 - Remove built-in tools by first stopping descriptor advertisement, restoring
   text-only runtime steps, and deleting CLI approval/status composition. Remove
   the runtime tool dependency, then the tools workspace and structured tool
-  entries only when no consumer remains. Core text chat and providerless CLI
-  remain buildable throughout.
+  entries only when no consumer remains. In the same removal change, revise the
+  manual-policy schema to remove its tool inventory, unregister decisions 0008
+  and 0014 and their evidence citations, and remove their ownership entries.
+  Core text chat and providerless CLI remain buildable throughout.
 
 The exact registry and derived-artifact procedure is defined in
 `docs/MAINTENANCE.md`.

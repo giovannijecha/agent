@@ -8,8 +8,10 @@ engineering rules, and decision records remain the deeper contract for changes.
 
 Every numbered chapter follows the same ordered sections: purpose, workflow,
 guarantees and limits, failure behavior, maintenance and removal, and evidence.
-The release gate checks chapter order, links, commands, tools, and cited source
-paths against `tools/manual-policy.json`.
+The release gate checks chapter order, links, commands, canonical tool names,
+risk classes, unique capabilities, unique necessity records, and cited source
+paths against `tools/manual-policy.json`. Decision 0014 makes semantic alias
+absence an explicit review obligation.
 
 ## Chapters
 
@@ -25,10 +27,13 @@ paths against `tools/manual-policy.json`.
 ## Current product boundary
 
 The production executable provides the owned CLI, TUI, runtime composition
-boundary, and five local filesystem tools. It does not currently inject a model,
-authenticate a provider, persist a session, or execute child processes. Those
-absences are deliberate fail-closed product states, not undocumented setup
-steps.
+boundary, and the registered local filesystem tools. It does not currently
+inject a model, authenticate a provider, persist a session, or execute child
+processes. Those absences are deliberate fail-closed product states, not
+undocumented setup steps.
+
+The tool inventory is intentionally lean: one canonical name per distinct,
+necessary, independently removable capability, with no aliases.
 
 Start with chapter 01 to operate the current build. Read chapter 05 before
 evaluating subscription access, and chapter 06 before treating a change as

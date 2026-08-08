@@ -34,10 +34,12 @@ function currentContext() {
   const manualPaths = ownedPaths.filter(
     (file) => file.startsWith("docs/manual/") && file.endsWith(".md"),
   );
+  const productSources = ownedPaths.filter((file) =>
+    /^packages\/[a-z0-9-]+\/src\/[a-z0-9-]+\.ts$/u.test(file),
+  );
   const needed = [
     "README.md",
-    "packages/agent-cli/src/commands.ts",
-    "packages/agent-cli/src/builtin-tools.ts",
+    ...productSources,
     ...manualPaths,
   ];
   return {
@@ -80,9 +82,117 @@ test("rejects command and tool source drift", () => {
 
   const toolContext = currentContext();
   toolContext.files["packages/agent-cli/src/builtin-tools.ts"] +=
-    '\ndescriptor("future_tool", "future", "read", schema);\n';
+    '\nconst futureRisk = "read";\n' +
+    'descriptor("future_tool", "future", futureRisk, schema);\n';
   assert.throws(
     () => validateManualPolicy(currentPolicy, toolContext),
+    ManualPolicyError,
+  );
+
+  const registeredDrift = currentContext();
+  registeredDrift.files["packages/agent-cli/src/builtin-tools.ts"] +=
+    '\ndescriptor("future_tool", "future", "read", schema);\n';
+  assert.throws(
+    () => validateManualPolicy(currentPolicy, registeredDrift),
+    {
+      message: "manual tool source inventory mismatch",
+      name: "ManualPolicyError",
+    },
+  );
+
+  const escapedAuthority = currentContext();
+  escapedAuthority.files["packages/agent-cli/src/application.ts"] +=
+    "\nToolDescriptor.create;\n";
+  assert.throws(
+    () => validateManualPolicy(currentPolicy, escapedAuthority),
+    {
+      message: "tool descriptor construction escapes the registered source",
+      name: "ManualPolicyError",
+    },
+  );
+});
+
+test("rejects duplicate or incomplete lean tool contracts", () => {
+  const duplicateCapability = structuredClone(currentPolicy);
+  duplicateCapability.toolSurface.tools.at(1).capability =
+    duplicateCapability.toolSurface.tools.at(0).capability;
+  assert.throws(
+    () => validateManualPolicy(duplicateCapability, currentContext()),
+    ManualPolicyError,
+  );
+
+  const duplicateNecessity = structuredClone(currentPolicy);
+  duplicateNecessity.toolSurface.tools.at(1).necessity =
+    duplicateNecessity.toolSurface.tools.at(0).necessity;
+  assert.throws(
+    () => validateManualPolicy(duplicateNecessity, currentContext()),
+    ManualPolicyError,
+  );
+
+  const missingNecessity = structuredClone(currentPolicy);
+  missingNecessity.toolSurface.tools.at(0).necessity = "";
+  assert.throws(
+    () => validateManualPolicy(missingNecessity, currentContext()),
+    ManualPolicyError,
+  );
+
+  const unsafeNecessity = structuredClone(currentPolicy);
+  unsafeNecessity.toolSurface.tools.at(0).necessity =
+    "Creates one bounded file without hidden\u202e display direction.";
+  assert.throws(
+    () => validateManualPolicy(unsafeNecessity, currentContext()),
+    ManualPolicyError,
+  );
+
+  const riskDrift = structuredClone(currentPolicy);
+  riskDrift.toolSurface.tools.at(0).risk = "execute";
+  assert.throws(
+    () => validateManualPolicy(riskDrift, currentContext()),
+    {
+      message: "manual tool contract is invalid",
+      name: "ManualPolicyError",
+    },
+  );
+
+  const blockedProcess = structuredClone(currentPolicy);
+  blockedProcess.toolSurface.tools.at(0).name = "run_process";
+  assert.throws(
+    () => validateManualPolicy(blockedProcess, currentContext()),
+    {
+      message: "manual tool contract is invalid",
+      name: "ManualPolicyError",
+    },
+  );
+});
+
+test("rejects an incomplete lean harness inventory", () => {
+  const capabilityContext = currentContext();
+  capabilityContext.files["docs/manual/04-tools-and-approval.md"] =
+    capabilityContext.files["docs/manual/04-tools-and-approval.md"].replace(
+      "`read-one-file`",
+      "`read-file-alias`",
+    );
+  assert.throws(
+    () => validateManualPolicy(currentPolicy, capabilityContext),
+    ManualPolicyError,
+  );
+
+  const riskContext = currentContext();
+  riskContext.files["docs/manual/04-tools-and-approval.md"] =
+    riskContext.files["docs/manual/04-tools-and-approval.md"].replace(
+      "| `create_file` | `create-new-file` | `write` |",
+      "| `create_file` | `create-new-file` | `read` |",
+    );
+  assert.throws(
+    () => validateManualPolicy(currentPolicy, riskContext),
+    ManualPolicyError,
+  );
+
+  const substringPolicy = structuredClone(currentPolicy);
+  substringPolicy.toolSurface.tools.at(0).necessity =
+    "Creates a new file without broad overwrite.";
+  assert.throws(
+    () => validateManualPolicy(substringPolicy, currentContext()),
     ManualPolicyError,
   );
 });

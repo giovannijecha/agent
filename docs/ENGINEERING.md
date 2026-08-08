@@ -102,8 +102,9 @@ touches workspace links and after TypeScript emits JavaScript. It enforces:
 - escape-aware provider checks whose low-entropy identity and credential markers
   are context-bound rather than arbitrary compacted substrings;
 - valid UTF-8, LF, final newlines, and canonical JSON;
-- registered manual chapters, fixed section order, capability coverage, local
-  links, and evidence paths;
+- registered manual chapters, fixed section order, local links, and evidence
+  paths, plus exact source-bound tool names and risk classes, unique capability
+  identifiers, and unique necessity records;
 - canonical public name, namespace, maintainer, governance posture, exact
   Apache-2.0 terms, and absence of false or automatic authorship claims;
 - strict project-reference builds and owned declaration boundaries;
@@ -138,6 +139,15 @@ cleanup without allowing one failure to mask another.
 
 ## Tool execution policy
 
+Keep the harness lean. Before adding a model-facing tool, prove that its
+capability is distinct, necessary for a current operator task, and independently
+removable. Register one canonical name and one unique capability identifier in
+`tools/manual-policy.json`; aliases, deprecated compatibility names, and
+speculative convenience tools are forbidden. A rename removes the previous name
+atomically. Provider vocabulary is translated at the adapter boundary rather
+than expanding the runtime registry. Product descriptor construction stays in
+the registered CLI module; the generic tool engine owns mechanics only.
+
 Tool descriptors and schemas are immutable provider-neutral data. Read tools may
 run automatically; every write tool requires one exact pending-call decision
 from `/approve` or `/deny`. Calls run sequentially, and no tool may use ambient
@@ -158,4 +168,6 @@ cancellation or failure must not erase the recorded truth of an attempted side
 effect. Render only descriptor-declared bounded approval fields; never render,
 log, or retain raw arguments, file content, outputs, call identifiers, or causes
 in notices or errors. Update decision 0008 whenever schemas, risk,
-approval, checkpoint, containment, or Node-tool safety changes.
+approval, checkpoint, containment, or Node-tool safety changes. Update decision
+0014, the manual registry, necessity record, focused tests, and removal guidance
+whenever the advertised surface changes.
