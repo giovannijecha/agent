@@ -3,13 +3,13 @@
 - Research date: `2026-08-08`
 - Maintainer: Giovanni Jecha
 - Repository: [github.com/giovannijecha/agent](https://github.com/giovannijecha/agent)
-- Overall submission state: no request has been submitted
+- Overall submission state: all four requests submitted
 
 These are project-authored authorization inquiries, not provider-issued
-registration forms and not evidence of approval. They are ready for the
-maintainer to copy into the official routes below after one final visual review.
-All four integrations remain blocked until the relevant provider gives a
-complete written authorization.
+registration forms and not evidence of approval. All four requests were sent
+through the recorded official routes after final visual review. All four
+integrations remain blocked until the relevant provider gives a complete
+written authorization.
 
 ## Submission rules
 
@@ -18,8 +18,10 @@ complete written authorization.
    account identifier only inside the provider-owned private form when required.
 3. Do not add account details, correspondence, tokens, or provider-issued
    identifiers to this public file.
-4. For a public route, submit only the prepared text and public repository
-   links. For a private route, keep the complete reply outside Git.
+4. For a public route, submit only the prepared text and public repository links
+   the channel permits. If a channel rejects links, use the recorded text-only
+   form without disguising URLs. For a private route, keep the complete reply
+   outside Git.
 5. Mark a request as submitted only after the official route confirms receipt.
    Submission does not change provider eligibility.
 
@@ -28,18 +30,20 @@ complete written authorization.
 ### Status
 
 - Eligibility: `blocked`
-- Request state: `ready-not-submitted`
+- Request state: `submitted`
 - Request kind: `public-client-authorization-inquiry`
 - Submission route: `openai-developer-forum`
 - Channel visibility: `public`
+- Submitted on: `2026-08-08`
+- Public reference: [Submission record](https://community.openai.com/t/independent-native-oauth-public-client-registration-request-for-agent/1389585)
 
 ### Official route
 
-Open a new topic in the
+The request was submitted as a new topic in the
 [OpenAI Developer Forum](https://community.openai.com/), which OpenAI lists as
-its developer community-support route. Ask that the inquiry be routed to the
-Codex authentication or developer-relations team. No public form specifically
-for independent Codex OAuth-client registration was found. The
+its developer community-support route. The topic addresses the Codex team and
+requests a direct authorization decision or registration process. No public form
+specifically for independent Codex OAuth-client registration was found. The
 [Codex for Open Source application](https://openai.com/form/codex-for-oss/)
 offers maintainer support, ChatGPT Pro, Codex Security, and API credits; it is
 not a substitute for this registration request.
@@ -53,8 +57,8 @@ not a substitute for this registration request.
 ```text
 Hello OpenAI Codex team,
 
-I maintain agent, an Apache-2.0 open-source personal coding agent:
-https://github.com/giovannijecha/agent
+I maintain agent, an Apache-2.0 open-source personal coding agent. The public
+repository is named giovannijecha/agent on GitHub.
 
 I am requesting written authorization and, if available, an agent-specific
 native OAuth public-client registration so users can voluntarily sign in with
@@ -83,6 +87,13 @@ the repository fails closed until authorization is complete.
 Thank you,
 Giovanni Jecha
 Maintainer, agent
+
+Public project materials are available in the GitHub repository
+giovannijecha/agent:
+
+- docs/OAUTH-REGISTRATION.md
+- PRIVACY.md
+- SECURITY.md
 ```
 
 ### Public attachments
@@ -91,6 +102,11 @@ Maintainer, agent
 - [OAuth posture](https://github.com/giovannijecha/agent/blob/main/docs/OAUTH-REGISTRATION.md)
 - [Privacy policy](https://github.com/giovannijecha/agent/blob/main/PRIVACY.md)
 - [Security policy](https://github.com/giovannijecha/agent/blob/main/SECURITY.md)
+
+The new forum account rejected posts containing links. The accepted initial
+topic therefore uses the text-only request recorded above and identifies the
+repository and document paths without disguising URLs or bypassing the forum
+restriction. These canonical links remain available for a later permitted edit.
 
 ### Required written answer
 
@@ -121,18 +137,20 @@ page, or any identifier observed in Codex source or traffic.
 ### Status
 
 - Eligibility: `blocked`
-- Request state: `ready-not-submitted`
+- Request state: `submitted`
 - Request kind: `public-client-authorization-inquiry`
 - Submission route: `anthropic-support-messenger`
 - Channel visibility: `private`
+- Submitted on: `2026-08-08`
+- Private reference: `anthropic-support-messenger-2026-08-08`
 
 ### Official route
 
-Sign in to Claude, choose **Get help**, and use the official support messenger.
+The request was submitted through Claude's authenticated support messenger.
 Anthropic's [support instructions](https://support.claude.com/en/articles/9015913-how-to-get-support)
 document Product Support access for Pro and Max subscribers through that route.
-Ask the support agent to escalate the inquiry to the Claude Code or Agent SDK
-authentication team. No public independent-client registration form was found.
+The messenger confirmed transition to human support and email follow-up. No
+public independent-client registration form was found.
 
 ### Subject
 
@@ -183,6 +201,11 @@ Maintainer, agent
 - [Privacy policy](https://github.com/giovannijecha/agent/blob/main/PRIVACY.md)
 - [Security policy](https://github.com/giovannijecha/agent/blob/main/SECURITY.md)
 
+The routing preface, complete request, and public attachments were sent through
+the private support messenger. Only a content-free local submission reference
+is recorded here; the provider-issued conversation identifier, private
+transcript, and account details remain outside Git.
+
 ### Required written answer
 
 - Whether an independently implemented native client may consume Claude
@@ -212,19 +235,21 @@ observed in Claude Code, Agent SDK, or third-party source.
 ### Status
 
 - Eligibility: `blocked`
-- Request state: `ready-not-submitted`
+- Request state: `submitted`
 - Request kind: `public-client-authorization-inquiry`
-- Submission route: `kimi-code-github-issues`
-- Channel visibility: `public`
+- Submission route: `kimi-code-support-email`
+- Channel visibility: `private`
+- Submitted on: `2026-08-08`
+- Private reference: `kimi-support-email-2026-08-08`
 
 ### Official route
 
-Open a feature request in the official
-[MoonshotAI Kimi Code issue tracker](https://github.com/MoonshotAI/kimi-code/issues),
-which Kimi lists as a supported feedback channel. The Kimi Code CLI `/feedback`
-route is an official alternative; if used, choose text only and do not attach
-logs or the codebase. No public registration form for independent Kimi Code
-OAuth clients was found.
+The request was submitted to [Kimi Code support](mailto:code@moonshot.ai),
+which Kimi publishes as an official feedback channel. Kimi also lists its
+[GitHub issue tracker](https://github.com/MoonshotAI/kimi-code/issues), but the
+repository currently restricts new issue creation. The CLI `/feedback` route is
+not used because this independent project does not bundle or invoke Kimi Code.
+No registration form for independent Kimi Code OAuth clients was found.
 
 ### Subject
 
@@ -273,6 +298,10 @@ Maintainer, agent
 - [Privacy policy](https://github.com/giovannijecha/agent/blob/main/PRIVACY.md)
 - [Security policy](https://github.com/giovannijecha/agent/blob/main/SECURITY.md)
 
+The complete request and public attachments were sent by private email. Only a
+content-free local submission reference is recorded here; the sent message and
+maintainer email remain outside Git.
+
 ### Required written answer
 
 - Whether an independently implemented native client may use Kimi Code
@@ -286,9 +315,10 @@ Maintainer, agent
 
 ### Do not include
 
-Do not publish a Kimi account email or identifier, API key, OAuth credential,
-device code, authenticated screenshot, log archive, codebase attachment, or an
-identifier observed in Kimi Code source or traffic.
+Do not include a Kimi account identifier, API key, OAuth credential, device
+code, authenticated screenshot, log archive, codebase attachment, or an
+identifier observed in Kimi Code source or traffic. Use the maintainer email
+only as ordinary private email metadata.
 
 ### Official evidence
 
@@ -302,17 +332,19 @@ identifier observed in Kimi Code source or traffic.
 ### Status
 
 - Eligibility: `blocked`
-- Request state: `ready-not-submitted`
+- Request state: `submitted`
 - Request kind: `public-client-authorization-inquiry`
 - Submission route: `xai-product-support-email`
 - Channel visibility: `private`
+- Submitted on: `2026-08-08`
+- Private reference: `xai-support-email-2026-08-08`
 
 ### Official route
 
-Email [xAI Product Support](mailto:support@x.ai). xAI publishes that address in
-its developer documentation and also links product support from its official
-contact page. Use the maintainer's Grok account email only in the private email
-metadata if needed. No public independent-client registration form was found.
+The request was submitted to [xAI Product Support](mailto:support@x.ai). xAI
+publishes that address in its developer documentation and also links product
+support from its official contact page. No public independent-client
+registration form was found.
 
 ### Subject
 
@@ -362,6 +394,10 @@ Maintainer, agent
 - [Privacy policy](https://github.com/giovannijecha/agent/blob/main/PRIVACY.md)
 - [Security policy](https://github.com/giovannijecha/agent/blob/main/SECURITY.md)
 
+The complete request and public attachments were sent by private email. Only a
+content-free local submission reference is recorded here; the sent message and
+maintainer email remain outside Git.
+
 ### Required written answer
 
 - Whether an independently implemented native client may use eligible Grok
@@ -390,10 +426,11 @@ Grok Build or third-party source.
 ## Maintenance and removal
 
 For a public submission, store only its public URL and date. For a private
-submission, record a content-free reference such as the provider, date, and
-case number; keep the message and reply outside the repository. Never mark a
-provider approved from silence, a community reply, technical success, or an
-undocumented identifier.
+submission, record a content-free local reference such as the provider, date,
+and submission channel; keep provider-issued case or conversation identifiers,
+the message, and the reply outside the repository. Never mark a provider
+approved from silence, a community reply, technical success, or an undocumented
+identifier.
 
 Before resubmission, recheck every source, update the research date, and run the
 canonical verification command. If this application workflow is removed, also

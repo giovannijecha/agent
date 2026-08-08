@@ -94,8 +94,8 @@ test("rejects incomplete or stale provider registration requests", () => {
   );
 
   const untrustedRoute = currentApplications.replace(
-    "https://github.com/MoonshotAI/kimi-code/issues",
-    "https://example.com/unverified-route",
+    "mailto:code@moonshot.ai",
+    "mailto:unverified@example.com",
   );
   assert.throws(
     () =>
@@ -107,11 +107,100 @@ test("rejects incomplete or stale provider registration requests", () => {
   );
 });
 
-test("rejects request-state drift and personal email addresses", () => {
-  const submitted = structuredClone(currentPolicy);
-  submitted.providers[0].request.state = "submitted";
+test("rejects submission-record drift and personal email addresses", () => {
+  const reverted = structuredClone(currentPolicy);
+  reverted.providers[0].request.state = "ready-not-submitted";
   assert.throws(
-    () => validateProviderPolicy(submitted, emptyContext),
+    () => validateProviderPolicy(reverted, emptyContext),
+    ProviderPolicyError,
+  );
+
+  const missingReference = structuredClone(currentPolicy);
+  missingReference.providers[0].request.reference = null;
+  assert.throws(
+    () => validateProviderPolicy(missingReference, emptyContext),
+    ProviderPolicyError,
+  );
+
+  const invalidDate = structuredClone(currentPolicy);
+  invalidDate.providers[0].request.submittedOn = "08-08-2026";
+  assert.throws(
+    () => validateProviderPolicy(invalidDate, emptyContext),
+    ProviderPolicyError,
+  );
+
+  const insecurePublicReference = structuredClone(currentPolicy);
+  insecurePublicReference.providers[0].request.reference =
+    "http://community.openai.com/unverified";
+  assert.throws(
+    () => validateProviderPolicy(insecurePublicReference, emptyContext),
+    ProviderPolicyError,
+  );
+
+  const unsubmittedWithMetadata = structuredClone(currentPolicy);
+  unsubmittedWithMetadata.providers[3].request.state = "ready-not-submitted";
+  assert.throws(
+    () => validateProviderPolicy(unsubmittedWithMetadata, emptyContext),
+    ProviderPolicyError,
+  );
+
+  const invalidPrivateReference = structuredClone(currentPolicy);
+  invalidPrivateReference.providers[1].request.reference =
+    "https://support.claude.com/private-case";
+  assert.throws(
+    () => validateProviderPolicy(invalidPrivateReference, emptyContext),
+    ProviderPolicyError,
+  );
+
+  const missingPrivateDocumentReference = currentApplications.replace(
+    "anthropic-support-messenger-2026-08-08",
+    "conversation-unverified",
+  );
+  assert.throws(
+    () =>
+      validateProviderPolicy(currentPolicy, {
+        ...emptyContext,
+        applicationText: missingPrivateDocumentReference,
+      }),
+    ProviderPolicyError,
+  );
+
+  const missingKimiDocumentReference = currentApplications.replace(
+    "kimi-support-email-2026-08-08",
+    "kimi-support-email-unverified",
+  );
+  assert.throws(
+    () =>
+      validateProviderPolicy(currentPolicy, {
+        ...emptyContext,
+        applicationText: missingKimiDocumentReference,
+      }),
+    ProviderPolicyError,
+  );
+
+  const missingXaiDocumentReference = currentApplications.replace(
+    "xai-support-email-2026-08-08",
+    "xai-support-email-unverified",
+  );
+  assert.throws(
+    () =>
+      validateProviderPolicy(currentPolicy, {
+        ...emptyContext,
+        applicationText: missingXaiDocumentReference,
+      }),
+    ProviderPolicyError,
+  );
+
+  const missingDocumentReference = currentApplications.replace(
+    "https://community.openai.com/t/independent-native-oauth-public-client-registration-request-for-agent/1389585",
+    "https://example.com/unverified-submission",
+  );
+  assert.throws(
+    () =>
+      validateProviderPolicy(currentPolicy, {
+        ...emptyContext,
+        applicationText: missingDocumentReference,
+      }),
     ProviderPolicyError,
   );
 

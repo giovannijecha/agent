@@ -22,10 +22,10 @@ already been granted.
 ## Decision
 
 `docs/PROVIDER-APPLICATIONS.md` is the single source of truth for four
-project-authored registration requests. Every provider section records the
-blocked eligibility, a `ready-not-submitted` state, the official route and its
-visibility, copyable request text, public evidence, required written answers,
-and information that must not be submitted.
+project-authored registration requests. Every provider section records blocked
+eligibility, an explicit lifecycle state, the official route and its visibility,
+copyable request text, public evidence, required written answers, and information
+that must not be submitted.
 
 The requests ask for an `agent`-owned public-client registration or an explicit
 provider statement that an independent public identity is reusable. They do not
@@ -34,10 +34,11 @@ detail, client identifier, client secret, private account identifier, or
 undocumented protocol value. Public channels receive public project facts only.
 Private correspondence stays outside the repository.
 
-Provider policy schema version 2 records request readiness and routing metadata
-without changing eligibility. All four providers remain blocked. The provider
-validator checks the exact provider set, section contract, request state,
-research date, route visibility, and absence of personal email addresses. A
+Provider policy schema version 3 records request lifecycle and routing metadata,
+including uniform nullable submission dates and references, without changing
+eligibility. All four providers remain blocked. The provider validator checks
+the exact provider set, section contract, request state, research and submission
+dates, route visibility, references, and absence of personal email addresses. A
 prepared or submitted request never enables product code; only authoritative
 written approval satisfying decision 0003 can do that.
 

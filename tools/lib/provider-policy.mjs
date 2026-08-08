@@ -1,3 +1,10 @@
+const OPENAI_SUBMISSION_URL =
+  "https://community.openai.com/t/independent-native-oauth-public-client-registration-request-for-agent/1389585";
+const CLAUDE_SUBMISSION_REFERENCE =
+  "anthropic-support-messenger-2026-08-08";
+const KIMI_SUBMISSION_REFERENCE = "kimi-support-email-2026-08-08";
+const XAI_SUBMISSION_REFERENCE = "xai-support-email-2026-08-08";
+
 const EXPECTED_PROVIDERS = [
   {
     id: "chatgpt",
@@ -5,10 +12,12 @@ const EXPECTED_PROVIDERS = [
     eligibility: "blocked",
     blocker: "owned-client-registration-required",
     request: {
-      state: "ready-not-submitted",
+      state: "submitted",
       kind: "public-client-authorization-inquiry",
       route: "openai-developer-forum",
       visibility: "public",
+      submittedOn: "2026-08-08",
+      reference: OPENAI_SUBMISSION_URL,
     },
   },
   {
@@ -17,10 +26,12 @@ const EXPECTED_PROVIDERS = [
     eligibility: "blocked",
     blocker: "independent-client-authorization-required",
     request: {
-      state: "ready-not-submitted",
+      state: "submitted",
       kind: "public-client-authorization-inquiry",
       route: "anthropic-support-messenger",
       visibility: "private",
+      submittedOn: "2026-08-08",
+      reference: CLAUDE_SUBMISSION_REFERENCE,
     },
   },
   {
@@ -29,10 +40,12 @@ const EXPECTED_PROVIDERS = [
     eligibility: "blocked",
     blocker: "owned-client-registration-required",
     request: {
-      state: "ready-not-submitted",
+      state: "submitted",
       kind: "public-client-authorization-inquiry",
-      route: "kimi-code-github-issues",
-      visibility: "public",
+      route: "kimi-code-support-email",
+      visibility: "private",
+      submittedOn: "2026-08-08",
+      reference: KIMI_SUBMISSION_REFERENCE,
     },
   },
   {
@@ -41,10 +54,12 @@ const EXPECTED_PROVIDERS = [
     eligibility: "blocked",
     blocker: "owned-client-registration-required",
     request: {
-      state: "ready-not-submitted",
+      state: "submitted",
       kind: "public-client-authorization-inquiry",
       route: "xai-product-support-email",
       visibility: "private",
+      submittedOn: "2026-08-08",
+      reference: XAI_SUBMISSION_REFERENCE,
     },
   },
 ];
@@ -66,7 +81,10 @@ const REQUEST_HEADINGS = [
   "Do not include",
   "Official evidence",
 ];
-const ALLOWED_APPLICATION_EMAILS = new Set(["support@x.ai"]);
+const ALLOWED_APPLICATION_EMAILS = new Set([
+  "code@moonshot.ai",
+  "support@x.ai",
+]);
 const PUBLIC_ATTACHMENT_URLS = [
   "https://github.com/giovannijecha/agent",
   "https://github.com/giovannijecha/agent/blob/main/docs/OAUTH-REGISTRATION.md",
@@ -76,7 +94,7 @@ const PUBLIC_ATTACHMENT_URLS = [
 const OFFICIAL_ROUTE_URLS = Object.freeze({
   chatgpt: "https://community.openai.com/",
   claude: "https://support.claude.com/en/articles/9015913-how-to-get-support",
-  kimi: "https://github.com/MoonshotAI/kimi-code/issues",
+  kimi: "mailto:code@moonshot.ai",
   grok: "mailto:support@x.ai",
 });
 const OFFICIAL_EVIDENCE_URLS = Object.freeze({
@@ -175,6 +193,37 @@ function assertSame(actual, expected, label) {
   }
 }
 
+function validateRequestLifecycle(request, label) {
+  if (request.state === "ready-not-submitted") {
+    if (request.submittedOn !== null || request.reference !== null) {
+      fail(label + " unsubmitted request must not retain submission metadata");
+    }
+    return;
+  }
+  if (
+    request.state !== "submitted" ||
+    typeof request.submittedOn !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}$/u.test(request.submittedOn) ||
+    typeof request.reference !== "string" ||
+    request.reference.length === 0
+  ) {
+    fail(label + " submitted request metadata is invalid");
+  }
+  if (
+    request.visibility === "public" &&
+    !/^https:\/\/[A-Za-z0-9.-]+(?:\/|$)/u.test(request.reference)
+  ) {
+    fail(label + " public submission reference must be an HTTPS URL");
+  }
+  if (
+    request.visibility === "private" &&
+    (!/^[A-Za-z0-9._:-]{1,128}$/u.test(request.reference) ||
+      request.reference.includes("@"))
+  ) {
+    fail(label + " private submission reference must be content-free text");
+  }
+}
+
 function markdownHeadings(text, level) {
   const prefix = "#".repeat(level) + " ";
   return text
@@ -225,7 +274,7 @@ function requestBody(section, provider) {
   const body = section.slice(start + startToken.length, end);
   if (
     body.length < 500 ||
-    !body.includes("https://github.com/giovannijecha/agent") ||
+    !body.includes("giovannijecha/agent") ||
     !body.includes("Giovanni Jecha") ||
     /\b(?:TODO|TBD|CHANGEME)\b/iu.test(body)
   ) {
@@ -265,6 +314,25 @@ function validateApplicationDocument(policy, text) {
         fail(provider.id + " request metadata mismatch");
       }
     }
+    if (provider.request.state === "submitted") {
+      const referenceMarker = provider.request.visibility === "public"
+        ? "- Public reference: [Submission record](" + provider.request.reference + ")"
+        : "- Private reference: `" + provider.request.reference + "`";
+      for (const marker of [
+        "- Submitted on: `" + provider.request.submittedOn + "`",
+        referenceMarker,
+      ]) {
+        if (!section.includes(marker)) {
+          fail(provider.id + " submitted request metadata mismatch");
+        }
+      }
+    } else if (
+      section.includes("- Submitted on:") ||
+      section.includes("- Public reference:") ||
+      section.includes("- Private reference:")
+    ) {
+      fail(provider.id + " unsubmitted request contains submission metadata");
+    }
     requestBody(section, provider);
     const route = markdownSubsection(section, "Official route", "Subject");
     if (!route.includes(OFFICIAL_ROUTE_URLS[provider.id])) {
@@ -302,7 +370,7 @@ function validateRegistry(policy) {
     ["schemaVersion", "applicationDocument", "researchedOn", "providers"],
     "provider policy",
   );
-  if (policy.schemaVersion !== 2) {
+  if (policy.schemaVersion !== 3) {
     fail("unsupported provider policy schema");
   }
   if (!Array.isArray(policy.providers)) {
@@ -323,9 +391,10 @@ function validateRegistry(policy) {
     );
     assertExactKeys(
       provider.request,
-      ["state", "kind", "route", "visibility"],
+      ["state", "kind", "route", "visibility", "submittedOn", "reference"],
       "provider request at index " + String(index),
     );
+    validateRequestLifecycle(provider.request, "provider request at index " + String(index));
     if (seen.has(provider.id)) {
       fail("duplicate provider id: " + String(provider.id));
     }

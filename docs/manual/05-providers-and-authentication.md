@@ -31,8 +31,7 @@ technically reachable, but their direct OAuth identities are not ours. Official
 embedding paths that require a vendor SDK or executable are also outside this
 project's zero-third-party-source and zero-foreign-binary contract. No generic
 authentication package, endpoint, token field, or credential store exists.
-All four requests are `ready-not-submitted`; that state is preparation, not
-authorization.
+All four provider requests are `submitted`. Submission is not authorization.
 
 ## Failure behavior
 

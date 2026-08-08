@@ -62,8 +62,9 @@ or depending on undocumented consumer endpoints.
 ## Migration, update, and rollback
 
 At acceptance, `tools/provider-policy.json` version 1 was the source of truth
-for the blocked matrix. Decision 0011 later extended that blocked registry to
-version 2 with verified request-readiness metadata; eligibility did not change.
+for the blocked matrix. Decision 0011 later introduced verified request-readiness
+metadata in version 2 and now governs version 3 lifecycle and reference metadata;
+eligibility did not change.
 Enabling a provider still requires a replacing decision and verifier update in
 the same change. Research updates change provider documentation, request
 metadata, and the provenance log, not product code, unless eligibility changes.

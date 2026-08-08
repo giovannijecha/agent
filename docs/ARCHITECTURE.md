@@ -174,10 +174,11 @@ must each be removable without changing unrelated domain rules.
 `tools/provider-policy.json` is the fail-closed registry for subscription
 integrations. A technically observed OAuth flow is not eligible until the
 project has independent-client authorization and an owned or expressly reusable
-registration. Schema version 2 also binds the four provider-specific
+registration. Schema version 3 also binds the four provider-specific
 authorization inquiries in `docs/PROVIDER-APPLICATIONS.md` to their research
-date, official route, visibility, and `ready-not-submitted` state. Request
-metadata cannot change eligibility. While every provider is blocked,
+date, official route, visibility, lifecycle state, submission date, and public
+or content-free private reference. Request metadata cannot change eligibility.
+While every provider is blocked,
 verification rejects auth or provider workspaces by pinning the exact
 provider-neutral foundation workspace set. It scans
 product source, tests, and declarations and rejects ambient network access,
