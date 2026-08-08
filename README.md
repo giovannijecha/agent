@@ -17,10 +17,16 @@ an eligible model adapter is composed.
 Requested subscription integrations remain behind a fail-closed eligibility
 policy; none is enabled with a borrowed client identity.
 
-The single-agent execution model is deliberate: one application controller owns
-one active runtime session and one sequential model/tool trajectory. Providers
-are replaceable backends for that agent, not additional agents. The project does
-not create sub-agents, delegate to hidden workers, or coordinate a swarm.
+The single-agent execution model is deliberate: one identity, application
+controller, active runtime session, and model decision loop. Providers are
+replaceable backends for that agent, not additional agents. The project does not
+create sub-agents, delegate to hidden workers, or coordinate a swarm. The sole
+controller owns every decision. Current runtime remains sequential.
+Future controller-internal mechanical concurrency may overlap bounded
+independent mechanics only over immutable snapshots during a read-only phase;
+it cannot enter the tool engine or overlap a mutation, and its results return
+for deterministic reduction. Model turns, writes, process execution, approvals,
+and terminal output remain serialized.
 
 ## Stack
 

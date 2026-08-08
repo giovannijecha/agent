@@ -30,8 +30,13 @@ telemetry, backend, persistent sessions, or eligible provider login. Publication
 does not change those facts and does not authorize OAuth access.
 
 The product is single-agent: providers are interchangeable backends for one
-active runtime session, not additional agent identities. The public workflow is
-also owned project code; it imports no action and receives no repository secret.
+active runtime session, not additional agent identities. One controller may
+eventually overlap bounded mechanics only over immutable snapshots during a
+read-only phase; those mechanics cannot enter the tool engine or overlap a
+mutation. Current runtime remains sequential. Model turns, writes, process
+execution, approvals, and terminal output remain serialized. The public
+workflow is also owned project code; it imports no action and receives no
+repository secret.
 
 No Git repository or GitHub remote is created by documentation or verification.
 The project does not claim that development occurred without tool assistance;

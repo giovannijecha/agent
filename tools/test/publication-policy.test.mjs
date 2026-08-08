@@ -44,6 +44,43 @@ test("rejects single-agent execution posture drift", () => {
     () => validatePublicationPolicy(changed, currentContext()),
     PublicationPolicyError,
   );
+
+  const concurrentMutation = structuredClone(policy);
+  concurrentMutation.posture.mechanicalConcurrency = "unrestricted";
+  assert.throws(
+    () => validatePublicationPolicy(concurrentMutation, currentContext()),
+    PublicationPolicyError,
+  );
+});
+
+test("rejects single-agent public contract drift", () => {
+  const cases = [
+    ["README.md", "Future controller-internal mechanical concurrency"],
+    ["AGENTS.md", "Current runtime remains sequential"],
+    ["docs/ARCHITECTURE.md", "Any mutation excludes concurrent mechanics"],
+    ["docs/ENGINEERING.md", "Current runtime remains sequential"],
+    [
+      "docs/manual/07-publishing-and-governance.md",
+      "Current runtime remains sequential",
+    ],
+    [
+      "docs/decisions/0013-single-agent-execution.md",
+      "Mechanical concurrency does not create another agent",
+    ],
+  ];
+
+  for (const [file, marker] of cases) {
+    const context = currentContext();
+    context.files[file] = context.files[file].replace(
+      marker,
+      "Concurrent workers may act as separate agents",
+    );
+    assert.throws(
+      () => validatePublicationPolicy(policy, context),
+      PublicationPolicyError,
+      file,
+    );
+  }
 });
 
 test("rejects modified license terms", () => {
