@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "index": "docs/manual/README.md",
+  "chapters": [
+    {
+      "path": "docs/manual/00-reading-this-manual.md",
+      "title": "00 - Reading this manual"
+    },
+    {
+      "path": "docs/manual/01-running-agent.md",
+      "title": "01 - Running agent"
+    },
+    {
+      "path": "docs/manual/02-turn-lifecycle.md",
+      "title": "02 - Turn lifecycle"
+    },
+    {
+      "path": "docs/manual/03-terminal-interface.md",
+      "title": "03 - Terminal interface"
+    },
+    {
+      "path": "docs/manual/04-tools-and-approval.md",
+      "title": "04 - Tools and approval"
+    },
+    {
+      "path": "docs/manual/05-providers-and-authentication.md",
+      "title": "05 - Providers and authentication"
+    },
+    {
+      "path": "docs/manual/06-verification-and-diagnostics.md",
+      "title": "06 - Verification and diagnostics"
+    },
+    {
+      "path": "docs/manual/07-publishing-and-governance.md",
+      "title": "07 - Publishing and governance"
+    }
+  ],
+  "commands": [
+    "/approve",
+    "/deny",
+    "/exit",
+    "/help",
+    "/providers"
+  ],
+  "tools": [
+    "create_file",
+    "list_directory",
+    "read_file",
+    "replace_text",
+    "search_text"
+  ],
+  "requiredPaths": [
+    ".gitattributes",
+    "AGENTS.md",
+    "CONTRIBUTING.md",
+    "LICENSE",
+    "PRIVACY.md",
+    "README.md",
+    "SECURITY.md",
+    "docs/ARCHITECTURE.md",
+    "docs/ENGINEERING.md",
+    "docs/MAINTENANCE.md",
+    "docs/OAUTH-REGISTRATION.md",
+    "docs/OWNERSHIP.md",
+    "docs/PROVIDERS.md",
+    "docs/decisions/0003-owned-provider-authentication.md",
+    "docs/decisions/0008-owned-tool-execution.md",
+    "docs/decisions/0010-public-project-identity.md",
+    "package-lock.json",
+    "package.json",
+    "packages/agent-cli/src/application.ts",
+    "packages/agent-cli/src/builtin-tools.ts",
+    "packages/agent-cli/src/chat-state.ts",
+    "packages/agent-cli/src/chat-view.ts",
+    "packages/agent-cli/src/commands.ts",
+    "packages/agent-cli/src/main.ts",
+    "packages/agent-cli/src/node-terminal-host.ts",
+    "packages/agent-cli/src/run.ts",
+    "packages/agent-runtime/src/events.ts",
+    "packages/agent-runtime/src/limits.ts",
+    "packages/agent-runtime/src/runtime.ts",
+    "packages/agent-tools/src/index.ts",
+    "packages/agent-tui/src/input-decoder.ts",
+    "packages/agent-tui/src/renderer.ts",
+    "packages/agent-tui/src/vertical-layout.ts",
+    "tools/lib/provider-policy.mjs",
+    "tools/lib/publication-policy.mjs",
+    "tools/manual-policy.json",
+    "tools/ownership-policy.json",
+    "tools/provider-policy.json",
+    "tools/publication-policy.json",
+    "tools/run-tests.mjs",
+    "tools/test/publication-policy.test.mjs",
+    "tools/toolchain.json",
+    "tools/verify.mjs",
+    "tools/verify.ps1"
+  ]
+}

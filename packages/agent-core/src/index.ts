@@ -1,0 +1,30 @@
+/** Public immutable domain surface for agent. */
+
+export {
+  Conversation,
+  conversationEntryCodeUnits,
+  Message,
+  MessageError,
+  Role,
+  ToolCall,
+  ToolEntryError,
+  ToolResult,
+  type ConversationEntry,
+  type MessageErrorKind,
+  type Role as RoleValue,
+  type ToolEntryErrorKind,
+  type ToolResultStatus,
+} from "./conversation.js";
+export { err, ok, type Result } from "./result.js";
+export {
+  STRUCTURED_VALUE_LIMITS,
+  StructuredList,
+  StructuredObject,
+  StructuredValueError,
+  structuredValueCodeUnits,
+  structuredValueFromUnknown,
+  type StructuredField,
+  type StructuredScalar,
+  type StructuredValue,
+  type StructuredValueErrorKind,
+} from "./structured-value.js";

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "name": "agent",
+    "repository": "giovannijecha/agent",
+    "maintainer": "Giovanni Jecha",
+    "license": "Apache-2.0",
+    "versionLine": "0.x"
+  },
+  "posture": {
+    "telemetry": "none",
+    "serviceBackend": "none",
+    "sessionPersistence": "disabled",
+    "externalCodeContributions": "closed-initially",
+    "automatedAttribution": "none"
+  },
+  "licenseFile": {
+    "path": "LICENSE",
+    "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+  },
+  "documents": [
+    ".gitattributes",
+    "AGENTS.md",
+    "CONTRIBUTING.md",
+    "LICENSE",
+    "PRIVACY.md",
+    "README.md",
+    "SECURITY.md",
+    "docs/OAUTH-REGISTRATION.md",
+    "docs/decisions/0010-public-project-identity.md"
+  ]
+}

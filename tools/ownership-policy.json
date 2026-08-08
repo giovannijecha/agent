@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "requiredDocuments": [
+    "AGENTS.md",
+    "CONTRIBUTING.md",
+    "LICENSE",
+    "PRIVACY.md",
+    "README.md",
+    "SECURITY.md",
+    "docs/ARCHITECTURE.md",
+    "docs/ENGINEERING.md",
+    "docs/MAINTENANCE.md",
+    "docs/OAUTH-REGISTRATION.md",
+    "docs/OWNERSHIP.md",
+    "docs/PROVIDERS.md",
+    "docs/decisions/0001-owned-zero-dependency-rust.md",
+    "docs/decisions/0002-owned-zero-dependency-typescript.md",
+    "docs/decisions/0003-owned-provider-authentication.md",
+    "docs/decisions/0004-owned-interactive-terminal.md",
+    "docs/decisions/0005-owned-streaming-runtime.md",
+    "docs/decisions/0006-owned-vertical-tui-framework.md",
+    "docs/decisions/0007-owned-cli-application-loop.md",
+    "docs/decisions/0008-owned-tool-execution.md",
+    "docs/decisions/0009-owned-operator-manual.md",
+    "docs/decisions/0010-public-project-identity.md"
+  ],
+  "workspaces": [
+    {
+      "path": "packages/agent-core",
+      "name": "@agent/core",
+      "dependencies": {}
+    },
+    {
+      "path": "packages/agent-tools",
+      "name": "@agent/tools",
+      "dependencies": {
+        "@agent/core": "0.1.0"
+      }
+    },
+    {
+      "path": "packages/agent-runtime",
+      "name": "@agent/runtime",
+      "dependencies": {
+        "@agent/core": "0.1.0",
+        "@agent/tools": "0.1.0"
+      }
+    },
+    {
+      "path": "packages/agent-tui",
+      "name": "@agent/tui",
+      "dependencies": {}
+    },
+    {
+      "path": "packages/agent-cli",
+      "name": "@agent/cli",
+      "dependencies": {
+        "@agent/core": "0.1.0",
+        "@agent/runtime": "0.1.0",
+        "@agent/tools": "0.1.0",
+        "@agent/tui": "0.1.0"
+      }
+    }
+  ],
+  "allowedNodeImports": {
+    "product": [
+      "node:fs/promises",
+      "node:path",
+      "node:process"
+    ],
+    "test": [
+      "node:assert/strict",
+      "node:fs/promises",
+      "node:os",
+      "node:path",
+      "node:process",
+      "node:test"
+    ],
+    "tools": [
+      "node:assert/strict",
+      "node:child_process",
+      "node:crypto",
+      "node:fs",
+      "node:module",
+      "node:path",
+      "node:process",
+      "node:test",
+      "node:url"
+    ]
+  }
+}

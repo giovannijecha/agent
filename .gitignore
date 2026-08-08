@@ -1,0 +1,11 @@
+/node_modules/
+/packages/*/dist/
+/packages/*/.test-dist/
+*.tsbuildinfo
+*.log
+*.tmp
+.env
+.env.*
+!.env.example
+sessions/
+state/

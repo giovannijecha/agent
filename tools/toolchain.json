@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "node": {
+    "minimumVersion": "22.19.0"
+  },
+  "npm": {
+    "exactVersion": "11.16.0"
+  },
+  "typescript": {
+    "exactVersion": "5.9.3"
+  }
+}

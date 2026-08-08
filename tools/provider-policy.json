@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "providers": [
+    {
+      "id": "chatgpt",
+      "displayName": "ChatGPT Plus/Pro",
+      "eligibility": "blocked",
+      "blocker": "owned-client-registration-required"
+    },
+    {
+      "id": "claude",
+      "displayName": "Claude Pro/Max",
+      "eligibility": "blocked",
+      "blocker": "independent-client-authorization-required"
+    },
+    {
+      "id": "kimi",
+      "displayName": "Kimi Code",
+      "eligibility": "blocked",
+      "blocker": "owned-client-registration-required"
+    },
+    {
+      "id": "grok",
+      "displayName": "Grok subscription",
+      "eligibility": "blocked",
+      "blocker": "owned-client-registration-required"
+    }
+  ]
+}

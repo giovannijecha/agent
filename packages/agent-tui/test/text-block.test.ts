@@ -1,0 +1,90 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import { TextBlock, TUI_LIMITS, type TextAnchor, Viewport } from "@agent/tui";
+
+function viewport(columns: number, rows: number): Viewport {
+  const result = Viewport.create(columns, rows);
+  assert.ok(result.ok);
+  return result.value;
+}
+
+function block(text: string, anchor: TextAnchor): TextBlock {
+  const result = TextBlock.create(text, anchor);
+  assert.ok(result.ok);
+  return result.value;
+}
+
+test("normalizes line endings, tabs, controls, and lone surrogates", () => {
+  const smile = String.fromCodePoint(0x1f642);
+  const component = block(
+    "a\r\nb\rc\nd\t\u001B\uD800" + smile,
+    "head",
+  );
+  const measured = component.measure(8);
+  const rendered = component.render(viewport(8, 4));
+
+  assert.ok(measured.ok);
+  assert.equal(measured.value.preferredRows, 4);
+  assert.ok(rendered.ok);
+  assert.deepEqual(rendered.value.lines, ["a", "b", "c", "d   ??" + smile]);
+});
+
+test("wraps conservatively and replaces a wide scalar in one column", () => {
+  const smile = String.fromCodePoint(0x1f642);
+  const wrapped = block("abcdef", "head").render(viewport(3, 2));
+  const narrow = block(smile, "head").render(viewport(1, 1));
+
+  assert.ok(wrapped.ok);
+  assert.deepEqual(wrapped.value.lines, ["abc", "def"]);
+  assert.ok(narrow.ok);
+  assert.deepEqual(narrow.value.lines, ["?"]);
+});
+
+test("anchors overflow at the head or tail and pads its assigned rows", () => {
+  const head = block("one\ntwo\nthree", "head").render(viewport(8, 2));
+  const tail = block("one\ntwo\nthree", "tail").render(viewport(8, 2));
+  const padded = block("one", "tail").render(viewport(8, 3));
+
+  assert.ok(head.ok);
+  assert.ok(tail.ok);
+  assert.ok(padded.ok);
+  assert.deepEqual(head.value.lines, ["one", "two"]);
+  assert.deepEqual(tail.value.lines, ["two", "three"]);
+  assert.deepEqual(padded.value.lines, ["", "", "one"]);
+});
+
+test("rejects invalid creation and display bounds without retaining text", () => {
+  const oversized = TextBlock.create(
+    "x".repeat(TUI_LIMITS.displayTextCodeUnits + 1),
+    "head",
+  );
+  const invalidAnchor = TextBlock.create(
+    "private",
+    "middle" as TextAnchor,
+  );
+
+  assert.equal(oversized.ok, false);
+  assert.equal(invalidAnchor.ok, false);
+  if (!oversized.ok) {
+    assert.equal(oversized.error.kind, "textTooLong");
+    assert.equal("text" in oversized.error, false);
+  }
+  if (!invalidAnchor.ok) {
+    assert.equal(invalidAnchor.error.kind, "invalidAnchor");
+  }
+});
+
+test("clips excessive normalized rows deterministically by anchor", () => {
+  const source = Array.from(
+    { length: TUI_LIMITS.frameRows + 2 },
+    (_value, index) => String(index),
+  ).join("\n");
+  const head = block(source, "head").render(viewport(16, 2));
+  const tail = block(source, "tail").render(viewport(16, 2));
+
+  assert.ok(head.ok);
+  assert.deepEqual(head.value.lines, ["0", "1"]);
+  assert.ok(tail.ok);
+  assert.deepEqual(tail.value.lines, ["4096", "4097"]);
+});

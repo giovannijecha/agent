@@ -1,0 +1,296 @@
+import {
+  ComponentError,
+  validComponentViewport,
+  type Component,
+  type ComponentMeasurement,
+} from "./component.js";
+import { Fragment } from "./fragment.js";
+import { Frame, type Caret } from "./frame.js";
+import { TUI_LIMITS } from "./limits.js";
+import { err, ok, type Result } from "./result.js";
+import { Viewport } from "./viewport.js";
+
+/** Allocation policy for one component in original vertical order. */
+export type VerticalSlot = Readonly<{
+  component: Component;
+  flex: number;
+  minimumRows: number;
+  preferredRows: number;
+  priority: number;
+}>;
+
+type Allocation = {
+  readonly index: number;
+  readonly measurement: ComponentMeasurement;
+  readonly slot: VerticalSlot;
+  rows: number;
+};
+
+type UnknownResult = {
+  readonly error?: unknown;
+  readonly ok?: unknown;
+  readonly value?: unknown;
+};
+
+function validSlotNumber(value: number): boolean {
+  return (
+    Number.isSafeInteger(value) &&
+    value >= 0 &&
+    value <= TUI_LIMITS.slotValue
+  );
+}
+
+function byPriority(left: Allocation, right: Allocation): number {
+  return right.slot.priority - left.slot.priority || left.index - right.index;
+}
+
+function measureComponent(
+  component: Component,
+  columns: number,
+  index: number,
+): Result<ComponentMeasurement, ComponentError> {
+  try {
+    const result: unknown = component.measure(columns);
+    if (typeof result !== "object" || result === null) {
+      return err(new ComponentError("invalidComponent", index));
+    }
+    const candidate = result as UnknownResult;
+    if (candidate.ok === false) {
+      return candidate.error instanceof ComponentError
+        ? err(candidate.error)
+        : err(new ComponentError("invalidComponent", index));
+    }
+    if (
+      candidate.ok !== true ||
+      typeof candidate.value !== "object" ||
+      candidate.value === null
+    ) {
+      return err(new ComponentError("invalidComponent", index));
+    }
+    const measurement = candidate.value as Partial<ComponentMeasurement>;
+    return validSlotNumber(measurement.preferredRows ?? -1)
+      ? ok(Object.freeze({ preferredRows: measurement.preferredRows ?? 0 }))
+      : err(new ComponentError("invalidMeasurement", index));
+  } catch (_cause: unknown) {
+    return err(new ComponentError("unexpectedComponent", index));
+  }
+}
+
+function renderComponent(
+  component: Component,
+  viewport: Viewport,
+  index: number,
+): Result<Fragment, ComponentError> {
+  try {
+    const result: unknown = component.render(viewport);
+    if (typeof result !== "object" || result === null) {
+      return err(new ComponentError("invalidComponent", index));
+    }
+    const candidate = result as UnknownResult;
+    if (candidate.ok === false) {
+      return candidate.error instanceof ComponentError
+        ? err(candidate.error)
+        : err(new ComponentError("invalidComponent", index));
+    }
+    if (candidate.ok !== true || !(candidate.value instanceof Fragment)) {
+      return err(new ComponentError("invalidComponent", index));
+    }
+    return Fragment.create(
+      viewport,
+      candidate.value.lines,
+      candidate.value.caret,
+    );
+  } catch (_cause: unknown) {
+    return err(new ComponentError("unexpectedComponent", index));
+  }
+}
+
+/** Deterministic priority/preference/flex vertical component compositor. */
+export class VerticalLayout {
+  readonly #slots: readonly VerticalSlot[];
+
+  private constructor(slots: readonly VerticalSlot[]) {
+    this.#slots = Object.freeze(
+      slots.map((slot) => Object.freeze({ ...slot })),
+    );
+    Object.freeze(this);
+  }
+
+  static create(
+    slots: readonly VerticalSlot[],
+  ): Result<VerticalLayout, ComponentError> {
+    if (
+      !Array.isArray(slots) ||
+      slots.length < 1 ||
+      slots.length > TUI_LIMITS.componentCount
+    ) {
+      return err(
+        new ComponentError(
+          "invalidComponentCount",
+          Array.isArray(slots) ? slots.length : undefined,
+        ),
+      );
+    }
+    const validated: VerticalSlot[] = [];
+    for (let index = 0; index < slots.length; index += 1) {
+      try {
+        const slot: unknown = slots.at(index);
+        if (typeof slot !== "object" || slot === null) {
+          return err(new ComponentError("invalidSlot", index));
+        }
+        const candidate = slot as Partial<VerticalSlot>;
+        const component = candidate.component;
+        const flex = candidate.flex;
+        const minimumRows = candidate.minimumRows;
+        const preferredRows = candidate.preferredRows;
+        const priority = candidate.priority;
+        if (
+          (typeof component !== "object" && typeof component !== "function") ||
+          component === null ||
+          typeof component.measure !== "function" ||
+          typeof component.render !== "function" ||
+          !validSlotNumber(minimumRows ?? -1) ||
+          !validSlotNumber(preferredRows ?? -1) ||
+          (preferredRows ?? -1) < (minimumRows ?? 0) ||
+          !validSlotNumber(flex ?? -1) ||
+          !validSlotNumber(priority ?? -1)
+        ) {
+          return err(new ComponentError("invalidSlot", index));
+        }
+        validated.push(
+          Object.freeze({
+            component,
+            flex: flex ?? 0,
+            minimumRows: minimumRows ?? 0,
+            preferredRows: preferredRows ?? 0,
+            priority: priority ?? 0,
+          }),
+        );
+      } catch (_cause: unknown) {
+        return err(new ComponentError("invalidSlot", index));
+      }
+    }
+    return ok(new VerticalLayout(validated));
+  }
+
+  render(viewport: Viewport): Result<Frame, ComponentError> {
+    if (!validComponentViewport(viewport)) {
+      return err(new ComponentError("invalidGeometry", undefined));
+    }
+    const allocations: Allocation[] = [];
+    for (let index = 0; index < this.#slots.length; index += 1) {
+      const slot = this.#slots.at(index);
+      if (slot === undefined) {
+        return err(new ComponentError("invalidSlot", index));
+      }
+      const measured = measureComponent(
+        slot.component,
+        viewport.columns,
+        index,
+      );
+      if (!measured.ok) {
+        return measured;
+      }
+      allocations.push({
+        index,
+        measurement: Object.freeze({
+          preferredRows: measured.value.preferredRows,
+        }),
+        rows: 0,
+        slot,
+      });
+    }
+
+    let remaining = viewport.rows;
+    const prioritized = [...allocations].sort(byPriority);
+    for (const allocation of prioritized) {
+      const granted = Math.min(allocation.slot.minimumRows, remaining);
+      allocation.rows = granted;
+      remaining -= granted;
+    }
+    for (const allocation of prioritized) {
+      if (remaining === 0) {
+        break;
+      }
+      const target = Math.max(
+        allocation.rows,
+        Math.min(
+          allocation.slot.preferredRows,
+          allocation.measurement.preferredRows,
+        ),
+      );
+      const granted = Math.min(target - allocation.rows, remaining);
+      allocation.rows += granted;
+      remaining -= granted;
+    }
+
+    const flexible = prioritized.filter((allocation) => allocation.slot.flex > 0);
+    if (remaining > 0 && flexible.length > 0) {
+      const totalFlex = flexible.reduce(
+        (total, allocation) => total + allocation.slot.flex,
+        0,
+      );
+      const distributable = remaining;
+      const remainders: Readonly<{
+        allocation: Allocation;
+        numerator: number;
+      }>[] = [];
+      for (const allocation of flexible) {
+        const weighted = distributable * allocation.slot.flex;
+        const granted = Math.floor(weighted / totalFlex);
+        allocation.rows += granted;
+        remaining -= granted;
+        remainders.push(
+          Object.freeze({ allocation, numerator: weighted % totalFlex }),
+        );
+      }
+      remainders.sort(
+        (left, right) =>
+          right.numerator - left.numerator ||
+          left.allocation.index - right.allocation.index,
+      );
+      for (const remainder of remainders) {
+        if (remaining === 0) {
+          break;
+        }
+        remainder.allocation.rows += 1;
+        remaining -= 1;
+      }
+    }
+
+    const lines: string[] = [];
+    let caret: Caret | undefined;
+    for (const allocation of allocations) {
+      if (allocation.rows === 0) {
+        continue;
+      }
+      const componentViewport = Viewport.create(viewport.columns, allocation.rows);
+      if (!componentViewport.ok) {
+        return err(new ComponentError("invalidGeometry", allocation.index));
+      }
+      const rendered = renderComponent(
+        allocation.slot.component,
+        componentViewport.value,
+        allocation.index,
+      );
+      if (!rendered.ok) {
+        return rendered;
+      }
+      if (rendered.value.caret !== undefined) {
+        if (caret !== undefined) {
+          return err(new ComponentError("multipleCarets", allocation.index));
+        }
+        caret = Object.freeze({
+          row: lines.length + rendered.value.caret.row,
+          column: rendered.value.caret.column,
+        });
+      }
+      lines.push(...rendered.value.lines);
+    }
+
+    const frame = Frame.create(lines, caret);
+    return frame.ok
+      ? frame
+      : err(new ComponentError("invalidFrame", frame.error.row));
+  }
+}

@@ -1,0 +1,140 @@
+# Engineering standard
+
+## Definition of done
+
+A change is complete only when:
+
+1. its scope, owner, and affected contract are explicit;
+2. implementation stays inside the owning package;
+3. public behavior, invariants, errors, side effects, and security are documented;
+4. focused tests cover success, failure, and boundary conditions;
+5. update, rollback, replacement, and removal remain localized;
+6. `tools/verify.ps1` passes from a clean offline workspace.
+
+An owned engine or framework is not complete with only its happy path. Its
+accepted contract includes lifecycle, bounds, concurrency, failures, security,
+tests, update and rollback procedures, and an independent removal path.
+
+## Source rules
+
+- Use strict TypeScript and ESM with explicit `.js` relative import suffixes.
+- Use explicit collection operations such as `.at()` for runtime indexing in
+  shipped modules. Computed member names must be statically proven safe.
+- Import other workspaces only through their declared public package names.
+- Use the `node:` prefix for an explicitly approved built-in.
+- Keep runtime state private and return frozen values or defensive snapshots.
+- Keep I/O at the CLI edge and domain behavior deterministic.
+- Resolve terminal writes from their platform completion callback and serialize
+  input, resize, render, and cleanup operations; never redraw reentrantly.
+- Retain one read per asynchronous source across races; never issue a replacement
+  until the previous result is consumed, and reduce all events through one writer.
+- Retain unacknowledged terminal receipts behind their source so closing an
+  arbiter cannot erase independently observable cleanup failures.
+- Keep an output-error listener active for the complete lifetime of every write,
+  including non-TTY output and writes performed after input teardown.
+- Return discriminated results for expected failures; translate them in the CLI.
+- Decode foreign results, stream capabilities, and events into owned snapshots
+  before mutation; reflective access and hostile getters must remain contained.
+- Treat model tool calls as hostile structured data. Validate them against one
+  closed advertised schema, run at most one call per model step, and never infer
+  approval from prose, a prefix, a prior call, or a risk category.
+- Escape non-printing and directional Unicode in exact approval fields before
+  display, then reject any unescaped unsafe scalar at the application boundary.
+- Treat warnings, stale documentation, skipped tests, and suppressed type errors
+  as failures.
+- Delete obsolete paths completely; never retain dormant compatibility code.
+
+## Documentation rules
+
+Every public module states its responsibility and exclusions. Every public
+contract documents inputs, outputs, invariants, errors, side effects, and
+security assumptions. Operational documentation covers setup, verification,
+updates, rollback, and removal. Lasting tradeoffs belong in a decision record,
+not only in comments or chat history.
+
+## Integration lifecycle
+
+Define the owned contract and deterministic fake before an adapter. Implement
+public protocols from authoritative specifications without importing an SDK.
+Keep provider-specific values at the adapter boundary. Updates change the
+adapter and fixtures rather than leaking version checks into core. Removal
+deletes the adapter, composition entry, tests, and documentation while unrelated
+packages continue to compile.
+
+When provider documentation is stale, current public source may be inspected at
+a pinned commit. Record only observable facts and risks in the provenance log,
+derive a fresh contract, and never reuse implementation structure, registered
+identifiers, prompts, fixtures, or foreign product identity. Technical
+feasibility does not bypass the provider eligibility gate.
+
+An official integration bridge is not automatically owned substrate. Vendor
+SDKs, CLIs, app servers, ACP executables, and their stored identities remain
+foreign runtime dependencies. A direct subscription adapter requires an
+`agent`-owned registration or a provider-documented identity expressly reusable
+by independent clients.
+
+## Verification policy
+
+The canonical PowerShell entry point performs two ownership passes: before npm
+touches workspace links and after TypeScript emits JavaScript. It enforces:
+
+- pinned external Node, npm, and TypeScript toolchain;
+- exact explicit workspace manifests and lockfile entries;
+- absence of external packages and legacy stack artifacts;
+- conservative import and dangerous-loader checks, including no-substitution
+  templates and fail-closed dynamic member access in shipped code;
+- escape-aware provider checks whose low-entropy identity and credential markers
+  are context-bound rather than arbitrary compacted substrings;
+- valid UTF-8, LF, final newlines, and canonical JSON;
+- registered manual chapters, fixed section order, capability coverage, local
+  links, and evidence paths;
+- canonical public name, namespace, maintainer, governance posture, exact
+  Apache-2.0 terms, and absence of false or automatic authorship claims;
+- strict project-reference builds and owned declaration boundaries;
+- all compiled tests, verifier tests, and an exact CLI process smoke test.
+
+The verifier fails closed on syntax it cannot safely analyze. Weakening or
+bypassing it requires an accepted replacing decision record.
+
+## Terminal input policy
+
+Treat terminal input as untrusted bytes. Decode bounded fragments before editing,
+discard unknown control sequences, keep the prompt caret inside the validated
+viewport, and validate the complete frame before output. Without a runtime,
+  discard ordinary submitted personal text immediately. With a runtime, let only
+  the explicit prospective-turn contract retain it. Commit final text only after
+  application acknowledgement, checkpoint completed tool attempts before the
+  next model step, and never place personal payloads in notices, failures, logs,
+  fixtures, or persistence. Release display-only personal-content
+references synchronously before awaiting external shutdown. Aggregate limits
+must count queued payload size as well as event count.
+
+Raw mode, listeners, and stream errors remain at the CLI edge. Generic decoding,
+editing, component layout, viewport, frame, and rendering behavior remains
+Node-free in the TUI. Runtime streaming and cancellation remain terminal-free.
+Every shutdown path independently attempts runtime, terminal, and renderer
+cleanup without allowing one failure to mask another.
+
+## Tool execution policy
+
+Tool descriptors and schemas are immutable provider-neutral data. Read tools may
+run automatically; every write tool requires one exact pending-call decision
+from `/approve` or `/deny`. Calls run sequentially, and no tool may use ambient
+network access. Process execution remains unavailable until the process-tree
+contract in decision 0008 is implemented and verified.
+
+All filesystem paths are workspace-relative. Resolve lexical and canonical
+containment, reject absolute paths, parent escape, symlinks, unsupported file
+kinds, and oversized input or output. New-file creation refuses overwrite;
+replacement requires exactly one old-text occurrence. Enumerate directories
+incrementally and bound directory entries, searched directories, aggregate
+entries, files, text, and matches. Expected I/O failures become content-free
+structured tool results. After handler invocation, contract corruption becomes
+a generic checkpointed failure before the runtime terminates the turn.
+
+Checkpoint the structured call and result before the next model step. Later
+cancellation or failure must not erase the recorded truth of an attempted side
+effect. Render only descriptor-declared bounded approval fields; never render,
+log, or retain raw arguments, file content, outputs, call identifiers, or causes
+in notices or errors. Update decision 0008 whenever schemas, risk,
+approval, checkpoint, containment, or Node-tool safety changes.

@@ -1,0 +1,33 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": "test",
+    "outDir": ".test-dist",
+    "tsBuildInfoFile": ".test-dist/.tsbuildinfo",
+    "types": [
+      "node-runtime",
+      "node-test"
+    ]
+  },
+  "include": [
+    "test/**/*.ts"
+  ],
+  "references": [
+    {
+      "path": "./tsconfig.json"
+    },
+    {
+      "path": "../agent-core"
+    },
+    {
+      "path": "../agent-runtime"
+    },
+    {
+      "path": "../agent-tools"
+    },
+    {
+      "path": "../agent-tui"
+    }
+  ]
+}

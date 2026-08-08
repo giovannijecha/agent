@@ -1,0 +1,235 @@
+# Architecture
+
+## Goal
+
+Keep the agent small while making every substantial capability replaceable,
+testable, updateable, and removable. Modularity means explicit contracts and
+one-way dependencies, not speculative packages.
+
+## Dependency graph
+
+```text
++------------+       +----------------+       +--------------+
+| @agent/cli |------>| @agent/runtime |------>| @agent/tools |
+| Node + app |       | stream + tools |       | tool engine  |
++-----+------+       +-------+--------+       +------+-------+
+      |                      |                       |
+      |                      +-----------+-----------+
+      |                                  v
+      |                            +-------------+
+      |                            | @agent/core |
+      |                            | domain state|
+      v                            +-------------+
++------------+
+| @agent/tui |
+| terminal UI|
++------------+
+```
+
+The diagram's direct edges are `cli -> runtime`, `cli -> tools`, `cli -> core`,
+`cli -> tui`, `runtime -> tools`, `runtime -> core`, and `tools -> core`.
+
+Runtime is a concrete independent foundation exercised by deterministic tests.
+CLI has a real optional runtime composition edge exercised by deterministic
+integration sessions. The production entry point injects no runtime because no
+eligible model exists. Cross-package access uses public package surfaces; deep
+and relative cross-package imports are forbidden.
+
+## Package contracts
+
+### `@agent/core`
+
+Owns immutable structured values, messages, explicit tool-call/tool-result
+entries, conversations, roles, and results. It performs no terminal, model,
+filesystem, network, process, environment, or clock I/O.
+
+### `@agent/tools`
+
+Owns the provider-neutral tool contract: bounded recursive schemas, immutable
+descriptors, read/write/execute risk classes, closed registries, exact input
+validation, opaque prepared calls, hostile handler-result containment, and
+structured success/failure results. It has no platform I/O and depends only on
+core. Policy decides whether a prepared call may run; handlers receive only the
+validated input and cooperative cancellation capability.
+
+### `@agent/runtime`
+
+Owns the pull-based streaming-model port, cooperative cancellation, bounded
+prospective turns, stream validation, cleanup outcomes, and atomic conversation
+commits and sequential model/tool steps. It permits one active turn, one tool
+call per model step, one pending approval, and one outstanding runtime read.
+Before any tool attempt, user input and partial assistant chunks are prospective.
+A completed or denied attempt checkpoints its structured call and result before
+the next model step because external-effect truth cannot be rolled back. Final
+assistant text remains prepared until application acknowledgement. Failure or
+cancellation discards only state newer than the last checkpoint. Terminal
+failure and cancellation receipts remain until application acknowledgement or
+runtime stop, preserving cleanup failures across buffered-event shutdown races.
+Runtime is Node-free and imports only core and tools.
+
+### `@agent/tui`
+
+Owns incremental terminal-key decoding, bounded single-line editing, validated
+viewports and atomic frames, conservative cell measurement, immutable fragments,
+bounded text and input components, deterministic vertical allocation, ANSI
+commands, and serialized asynchronous differential rendering. It knows nothing
+about agents or Node. Unknown control sequences never become editable text;
+display text sanitizes controls and lone surrogates; fragments and frames reject
+unsafe scalar or terminal-control content independently.
+Committed frame and viewport snapshots change only after a completed successful
+output write. Conservative flags record that the alternate screen or hidden
+cursor may have become visible before an attempted write, so cleanup remains
+possible after partial output.
+
+### `@agent/cli`
+
+Owns commands, application view composition, startup, shutdown, process streams,
+raw mode, the ordered terminal-event queue, bounded display-only chat state, the
+single-writer application reducer, and fair two-source event arbitration. It is
+the only product package allowed to import approved `node:` APIs. It uses only
+named stdin, stdout, stderr, and exit capabilities rather than a broad process
+object. Reusable terminal mechanics belong behind the TUI contract. Model turn
+mechanics remain behind the runtime session contract. It also implements the five
+initial Node tools: bounded file read, directory list, exact text search, new-file
+creation, and single exact replacement. Every
+path is rooted, canonicalized, and denied on traversal or symlink crossing.
+Direct process execution is absent until a cross-platform process-tree boundary
+can prove descendant cancellation, isolated environment, bounded output, and
+complete cleanup.
+
+## Interactive terminal flow
+
+```text
+bounded terminal FIFO ----+
+                           v
+                   two-source arbiter -> single-writer application reducer
+                           ^                         |
+runtime pull event --------+                         v
+                                      generic vertical components
+                                                   |
+                                                   v
+                                  atomic frame + differential renderer
+```
+
+The arbiter retains at most one terminal read, one explicitly armed runtime read,
+and one ready event per source. The losing read is never abandoned. One event is
+reduced and at most one output write is awaited at a time. The renderer enters an
+alternate screen for interactive sessions, hides the cursor only during redraw,
+and restores the cursor and prior screen during idempotent cleanup. A non-TTY
+invocation bypasses the renderer and writes plain text containing no escape byte,
+then releases any injected runtime. Every write installs a scoped output-error
+listener until its completion callback, including renderer cleanup after host
+shutdown.
+
+Terminal memory limits are explicit: one input chunk is at most 65,536 UTF-16
+code units, queued input is at most 131,072 code units across at most 1,024
+events, the editor holds 4,096 code points, and an incomplete escape sequence is
+bounded to 32 code units. Overflow discards queued input, pauses stdin, and
+returns a typed failure through normal cleanup.
+
+The current shell implements `/help`, `/providers`, `/approve`, `/deny`, and
+`/exit`. Approval commands are contextual and authorize only the exact pending
+write or execute call. Without an
+injected runtime, ordinary submitted content is discarded after a generic notice
+and never becomes transcript or conversation state. With a runtime, only one
+turn is active: streamed text is prospective display state, completion publishes
+one prepared response, and the CLI synchronously resolves its runtime commit
+before publishing the bounded transcript pair. Failure or cancellation removes
+prospective state after the last truthful tool checkpoint. Tool names, risk, and
+state remain visible in one non-wrapping contextual TUI row. A separate bounded
+approval summary exposes only descriptor-selected target and size fields; raw
+content, call identifiers, and tool outputs never appear.
+
+Active Ctrl+C requests cancellation and keeps the shell open; idle Ctrl+C exits.
+Ctrl+D, terminal EOF, and `/exit` exit in every phase. Shutdown closes the
+arbiter, releases display-only personal-content references, begins runtime stop
+synchronously, restores terminal input, finishes the renderer, and then awaits
+runtime cleanup. All cleanup failures remain separate.
+
+### `types/` and `tools/`
+
+`types/` contains only the Node declarations current code requires, authored
+from documented runtime behavior. `tools/` is the owned trust gate: it validates
+the toolchain, workspace graph, operator manual, public identity and license,
+imports, source, derived output, tests, and CLI. Shipped modules may use only
+statically safe computed member names; dynamic collection indexing uses explicit
+methods so reflective loader escapes fail closed.
+
+## Implemented and planned boundaries
+
+New packages are created only with their first real implementation:
+
+- provider adapters translate an external protocol into the runtime model port
+  and are injected at the CLI composition root;
+- persistence stores versioned sessions behind a repository contract;
+- platform adapters isolate terminal or transport behavior when Node built-ins
+  are insufficient.
+
+Core never imports adapters, and runtime imports only the provider-neutral tool
+contract. Provider transport, Node tool implementations, persistence, and UI
+must each be removable without changing unrelated domain rules.
+
+## Provider eligibility boundary
+
+`tools/provider-policy.json` is the fail-closed registry for subscription
+integrations. A technically observed OAuth flow is not eligible until the
+project has independent-client authorization and an owned or expressly reusable
+registration. While every provider is blocked, verification rejects auth or
+provider workspaces by pinning the exact provider-neutral foundation workspace
+set. It scans
+product source, tests, and declarations and rejects ambient network access,
+subscription endpoints, OAuth identifiers, foreign credential storage, broad
+process access, and borrowed product identity.
+
+The accepted direct-integration path also rejects vendor SDKs, CLIs, app
+servers, ACP executables, and other foreign runtime bridges. Provider-hosted
+remote model services are allowed only after `agent` identifies itself through
+its own registration or a provider-documented public identity for independent
+clients.
+
+No generic auth package is created ahead of its first eligible provider. When a
+provider becomes eligible, a replacing decision defines the pure protocol
+contract, CLI-granted transport and cryptography capabilities, process-memory
+credential vault, adapter, cancellation model, and offline conformance tests.
+Core and TUI remain unaware of provider credentials and network protocols.
+
+## Integration lifecycle
+
+Every integration requires a documented contract, timeout and cancellation
+behavior, typed failures, deterministic conformance tests, configuration schema,
+security boundary, update notes, rollback, and removal instructions. Network and
+process access remain unavailable unless the CLI composes an explicit capability.
+
+## Removal paths
+
+- Remove the CLI by first removing its registry and TypeScript references, then
+  deleting `packages/agent-cli`; both libraries must still build.
+- Remove or replace TUI at its package, root registries, and CLI composition;
+  core remains unchanged.
+- Remove the vertical component framework by replacing CLI chat composition with
+  direct validated frames before deleting component modules and decision 0006;
+  decoder, renderer, runtime, and core remain unchanged.
+- Remove interactive behavior by deleting the decoder, editor, viewport, CLI
+  session, view, and Node host together; restore plain startup and the previous
+  renderer contract, then remove decision 0004 from the ownership registry.
+- Remove or replace core at its package and root registries; the current CLI and
+  TUI remain unchanged after runtime is removed or redirected first.
+- Remove runtime by first removing CLI composition, restoring unconditional
+  no-model handling, and then deleting its workspace, registry, path, decision,
+  and generated artifacts. Core, TUI, and the providerless CLI remain buildable.
+- Remove the application loop by restoring a terminal-only serialized loop,
+  removing CLI runtime composition and decision 0007, then deleting arbiter,
+  chat-state, and chat-view modules without changing generic TUI or core.
+- Add or remove a provider at the adapter, registries, and CLI edge; core changes
+  only if its owned model contract deliberately changes.
+- Remove built-in tools by first stopping descriptor advertisement, restoring
+  text-only runtime steps, and deleting CLI approval/status composition. Remove
+  the runtime tool dependency, then the tools workspace and structured tool
+  entries only when no consumer remains. Core text chat and providerless CLI
+  remain buildable throughout.
+
+The exact registry and derived-artifact procedure is defined in
+`docs/MAINTENANCE.md`.
+
+An architectural change requires a decision record, updated diagrams and
+contracts, migration and rollback notes, and tests at every affected boundary.
