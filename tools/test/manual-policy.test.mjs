@@ -42,6 +42,7 @@ function currentContext() {
   );
   const needed = [
     "README.md",
+    "docs/MAINTENANCE.md",
     ...productSources,
     ...manualPaths,
     ...decisionPaths,
@@ -238,6 +239,20 @@ test("rejects blocked tool drift or incomplete decisions", () => {
     () => validateManualPolicy(unregistered, currentContext()),
     {
       message: "blocked tool decision is not registered as manual evidence",
+      name: "ManualPolicyError",
+    },
+  );
+
+  const removal = currentContext();
+  removal.files["docs/MAINTENANCE.md"] =
+    removal.files["docs/MAINTENANCE.md"].replace(
+      "`docs/decisions/0015-process-tree-containment.md`",
+      "the process-containment decision",
+    );
+  assert.throws(
+    () => validateManualPolicy(currentPolicy, removal),
+    {
+      message: "blocked tool removal contract is incomplete",
       name: "ManualPolicyError",
     },
   );

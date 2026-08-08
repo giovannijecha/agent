@@ -103,6 +103,8 @@ To remove tools, first stop advertising descriptors and restore the text-only
 runtime path. Remove CLI approval commands, tool status, Node handlers, and the
 runtime tool dependency. Then remove structured tool entries if no consumer
 remains, delete `@agent/tools` from every registry, remove this decision, clean
-derived artifacts, remove decision 0014, revise the manual-policy schema and
-evidence citations, and run the canonical verifier. Text chat, TUI, and the
-providerless CLI must remain buildable throughout rollback.
+derived artifacts, and remove decisions 0014 and 0015. Replace manual-policy
+schema 3 so it removes the advertised inventory and `blockedTools`, including
+`run_process`, then remove every ownership, required-path, and manual-evidence
+registration for the three decisions and run the canonical verifier. Text chat,
+TUI, and the providerless CLI must remain buildable throughout rollback.

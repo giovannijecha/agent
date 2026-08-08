@@ -78,5 +78,7 @@ To replace this principle, first accept a superseding harness decision that
 defines its model-attention budget, ambiguity controls, compatibility policy,
 and per-tool removal discipline. Removing the policy without a replacement
 requires removing all model-facing tools and restoring the text-only runtime
-path first, then revising the manual-policy schema and removing this decision
-from ownership, required-path, and manual evidence registries.
+path first. Replace manual-policy schema 3 so it removes both its advertised
+inventory and `blockedTools`, including `run_process`; remove decisions 0008,
+0014, and 0015 from ownership, required-path, and manual-evidence registries in
+the same change.

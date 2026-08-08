@@ -4,6 +4,7 @@ const INDEX_PATH = "docs/manual/README.md";
 const COMMAND_SOURCE = "packages/agent-cli/src/commands.ts";
 const TOOL_SOURCE = "packages/agent-cli/src/builtin-tools.ts";
 const TOOL_CHAPTER = "docs/manual/04-tools-and-approval.md";
+const MAINTENANCE_PATH = "docs/MAINTENANCE.md";
 const PRODUCT_SOURCE = /^packages\/[a-z0-9-]+\/src\/[a-z0-9-]+\.ts$/u;
 const CHAPTER_SECTIONS = Object.freeze([
   "Purpose",
@@ -241,6 +242,26 @@ function verifyBlockedToolInventory(blockedTools, context) {
   }
 }
 
+function verifyBlockedToolRemoval(policy, blockedTools, context) {
+  const maintenance = fileText(context, MAINTENANCE_PATH);
+  const requiredTokens = [
+    "schema " + String(policy.schemaVersion),
+    "`blockedTools`",
+    "ownership",
+    "required-path",
+    "manual evidence",
+    ...blockedTools.flatMap((tool) => [
+      "`" + tool.name + "`",
+      "`" + tool.decision + "`",
+    ]),
+  ];
+  for (const token of requiredTokens) {
+    if (!maintenance.includes(token)) {
+      fail("blocked tool removal contract is incomplete");
+    }
+  }
+}
+
 function verifyDescriptorConstruction(context) {
   const productSources = context.ownedPaths.filter((file) =>
     PRODUCT_SOURCE.test(file),
@@ -386,6 +407,7 @@ export function validateManualPolicy(policy, context) {
   const tools = validateToolSurface(policy.toolSurface);
   const blockedTools = validateBlockedTools(policy.blockedTools, tools, context);
   verifyBlockedToolInventory(blockedTools, context);
+  verifyBlockedToolRemoval(policy, blockedTools, context);
   verifyDescriptorConstruction(context);
   same(commands, extractCommands(fileText(context, COMMAND_SOURCE)), "manual command source inventory");
   same(

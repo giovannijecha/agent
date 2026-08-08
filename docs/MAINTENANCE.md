@@ -93,15 +93,17 @@ unrelated changes. Shared engine primitives remain only when another admitted
 tool uses them.
 
 To remove tools, stop descriptor advertisement and restore the runtime text-only
-path. In that same change, revise the manual-policy schema to remove its tool
-inventory; remove decisions 0008 and 0014, their ownership and required-path
-entries, and their manual evidence citations. Do not land an empty inventory
-under schema 2. Remove CLI approval commands, tool status, built-in Node handlers,
-imports, declarations, and allowlist entries. Then remove the runtime dependency
-on `@agent/tools` and delete its workspace from npm, TypeScript, provider-policy,
-and lock registries. Remove core structured tool entries only if no remaining
-adapter consumes them. Build core, TUI, runtime, and the providerless CLI after
-each stage.
+path. In that same change, replace manual-policy schema 3 with a schema that
+removes both the advertised tool inventory and the `blockedTools` registry,
+including the `run_process` record. Remove decisions 0008, 0014, and
+`docs/decisions/0015-process-tree-containment.md`, together with their ownership
+and required-path entries and manual evidence citations. Do not land an empty
+advertised or blocked inventory under schema 3. Remove CLI approval commands,
+tool status, built-in Node handlers, imports, declarations, and allowlist
+entries. Then remove the runtime dependency on `@agent/tools` and delete its
+workspace from npm, TypeScript, provider-policy, and lock registries. Remove core
+structured tool entries only if no remaining adapter consumes them. Build core,
+TUI, runtime, and the providerless CLI after each stage.
 
 ## Update or remove the vertical TUI framework
 
