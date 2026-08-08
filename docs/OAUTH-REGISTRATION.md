@@ -9,7 +9,7 @@ secret, or credential.
 
 - Application name: `agent`
 - Maintainer: Giovanni Jecha
-- Canonical repository: `giovannijecha/agent`
+- Canonical repository: [github.com/giovannijecha/agent](https://github.com/giovannijecha/agent)
 - Description: An owned, zero-dependency personal coding agent.
 - Application type: local native command-line public client
 - License: Apache-2.0
@@ -18,9 +18,8 @@ secret, or credential.
 - Telemetry: none
 - Account creation: not performed by `agent`
 
-The repository URL becomes public only when Giovanni Jecha explicitly creates
-and publishes it. Until then, this dossier is preparation, not a live provider
-application.
+The repository is public. Publication makes the application identity
+inspectable; it does not grant subscription access or register an OAuth client.
 
 ## Requested authorization model
 
@@ -69,8 +68,10 @@ complete list. Approval by one provider does not authorize another.
 > local process and the provider. The project does not reuse another product's
 > client identity or distribute a client secret.
 
-The summary is project-authored application text. Adapt only factual provider
-labels and provider-required form fields; do not add unverified capabilities.
+The summary is project-authored application text. The four provider-specific,
+ready-to-submit requests live in `docs/PROVIDER-APPLICATIONS.md`. Adapt only
+factual provider labels and provider-required private form fields; do not add
+unverified capabilities or commit personal account data.
 
 ## Evidence and implementation gate
 

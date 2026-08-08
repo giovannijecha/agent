@@ -19,12 +19,14 @@ ownership policy. The verifier rejects missing, extra, or inconsistent files,
 manifests, links, declarations, generated formats, and registry entries.
 
 Subscription-provider eligibility is a separate canonical input in
-`tools/provider-policy.json`. Version 1 permits no provider or auth package and
-contains no endpoint, scope, credential, or client registration. Its verifier
-pins the exact five-workspace provider-neutral foundation, including runtime and
-the tool engine. It denies ambient network and provider escape paths; filesystem
-APIs remain explicitly allowlisted only for CLI-owned tools. Process execution
-is not active.
+`tools/provider-policy.json`. Version 2 permits no provider or auth package and
+contains no endpoint, scope, credential, or client registration. It additionally
+pins four `ready-not-submitted` authorization requests, their official routes,
+visibility, and research date. That preparation metadata cannot change blocked
+eligibility. The verifier pins the exact five-workspace provider-neutral
+foundation, including runtime and the tool engine. It denies ambient network and
+provider escape paths; filesystem APIs remain explicitly allowlisted only for
+CLI-owned tools. Process execution is not active.
 
 Public identity is registered independently in
 `tools/publication-policy.json`. It pins the project name, namespace,
@@ -117,10 +119,16 @@ decision 0007. Keep the generic TUI and providerless CLI buildable.
    reuse source, identifiers, prompts, fixtures, user agents, or product identity.
 3. Update `docs/PROVIDERS.md` with dated evidence. Research alone does not change
    machine eligibility.
-4. Enable a provider only through a replacing decision that records independent
+4. Update the matching packet in `docs/PROVIDER-APPLICATIONS.md`, its research
+   date, and provider-policy routing metadata. Before submission, verify that
+   the route remains official and that a public request contains no account data.
+5. After submission, record only the public URL or a content-free private case
+   reference. Never commit private correspondence. Submitted, unanswered, and
+   rejected requests leave eligibility blocked.
+6. Enable a provider only through a replacing decision that records independent
    authorization, this project's client registration, protocol contracts,
    threat model, storage boundary, tests, update path, and removal path.
-5. Replace the provider policy schema and verifier in the same change as the
+7. Replace the provider policy schema and verifier in the same change as the
    first concrete adapter. Keep canonical tests offline.
 
 Provider-scanner changes must retain escape and literal-concatenation coverage
@@ -137,6 +145,11 @@ The selected direct-integration policy does not admit vendor SDKs, CLIs, app
 servers, ACP executables, or other foreign bridges as a substitute for client
 eligibility. Reconsidering that boundary requires an explicit replacing
 ownership decision; it is not a provider-adapter implementation detail.
+
+To remove the request workflow while providers remain blocked, delete the
+provider packet document and links, restore provider policy schema version 1,
+remove its application checks and regressions, remove decision 0011 and its
+registrations, and run the release gate. Product workspaces remain unchanged.
 
 ## Update or remove the operator manual
 

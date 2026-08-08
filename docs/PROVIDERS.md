@@ -13,17 +13,19 @@ implementations for all four requested providers. That proves technical
 feasibility. It does not transfer Pi's or a vendor client's registration,
 identity, approval, or entitlement to `agent`.
 
-| Provider | Current evidence | `agent` eligibility | Blocking evidence |
+| Provider | Current official route | `agent` eligibility | Blocking evidence |
 |---|---|---|---|
-| ChatGPT Plus/Pro | Pi performs browser and device OAuth directly. OpenAI now documents Codex App Server as the supported embedding surface, including managed ChatGPT login. [Pi source](https://github.com/earendil-works/pi/blob/e47b8e37a6211ebd0b2942fa87059d64f81eec02/packages/ai/src/auth/oauth/openai-codex.ts) | Blocked | App Server is a foreign executable and direct independent registration for `agent` is not documented. |
-| Claude Pro/Max | Pi performs browser OAuth directly. Anthropic currently documents subscription use by Agent SDK, `claude -p`, and third-party apps through that channel, while warning independent tools not to misrepresent Claude Code identity. [Pi source](https://github.com/earendil-works/pi/blob/e47b8e37a6211ebd0b2942fa87059d64f81eec02/packages/ai/src/auth/oauth/anthropic.ts) | Blocked | Agent SDK and Claude CLI are foreign dependencies; `agent` has no direct independent-client authorization. |
-| Kimi Code | Pi performs RFC 8628 device authorization directly. Kimi documents one-click OAuth for its CLI and API keys from the subscription console for third-party tools. [Pi source](https://github.com/earendil-works/pi/blob/e47b8e37a6211ebd0b2942fa87059d64f81eec02/packages/ai/src/auth/oauth/kimi-coding.ts) | Blocked for credential-only login | The user requested no API-key path, the official OAuth identity is not ours, and the official CLI/ACP bridge is foreign. |
-| Grok subscription | Pi performs RFC 8628 device authorization while identifying its own client. xAI documents authenticated Grok Build headless and ACP integration. [Pi source](https://github.com/earendil-works/pi/blob/e47b8e37a6211ebd0b2942fa87059d64f81eec02/packages/ai/src/auth/oauth/xai.ts) | Blocked | Grok Build/ACP is a foreign executable and `agent` has no direct OAuth registration. |
+| ChatGPT Plus/Pro | OpenAI documents ChatGPT subscription login for its Codex clients and managed browser or device login through Codex App Server. | Blocked | App Server is a foreign executable; no public process registers `agent` as a direct independent client. |
+| Claude Pro/Max | Anthropic documents subscription login for Claude Code and currently permits subscription-backed third-party use through the Claude Agent SDK. | Blocked | Claude Code and Agent SDK are foreign runtimes; no direct independent-client authorization or registration is documented for `agent`. |
+| Kimi Code | Kimi documents device OAuth for Kimi Code CLI and subscription-backed API keys for third-party development tools. | Blocked for credential-only login | The documented third-party path requires a manually managed key; the CLI OAuth identity and ACP bridge are foreign. |
+| Grok subscription | xAI documents browser and device login for Grok Build plus headless and ACP integration, while its direct API has a separate key path. | Blocked | Grok Build and ACP are foreign executables; no public process registers `agent` for direct subscription OAuth. |
 
-The machine-readable status is `tools/provider-policy.json`. Canonical
-verification rejects provider adapters, OAuth identifiers, subscription
-endpoints, foreign credential stores, and borrowed product identity while every
-entry remains blocked.
+The machine-readable status is `tools/provider-policy.json`. Schema version 2
+also records the four official inquiry routes and their `ready-not-submitted`
+state. That metadata does not change eligibility. Canonical verification checks
+the complete request packets and rejects provider adapters, OAuth identifiers,
+subscription endpoints, foreign credential stores, and borrowed product
+identity while every entry remains blocked.
 
 ## Evidence required to enable a provider
 
@@ -44,10 +46,13 @@ Only then may the provider policy schema be replaced and the first concrete
 auth or provider package be created. A generic package without an eligible
 provider is speculative and remains forbidden.
 
-Use `docs/OAUTH-REGISTRATION.md` as the project-authored application dossier.
-It records the truthful public-client posture without inventing provider form
-fields or storing confidential correspondence. Registration evidence updates
-this eligibility record; it does not enter product source.
+Use `docs/OAUTH-REGISTRATION.md` as the provider-neutral dossier and
+`docs/PROVIDER-APPLICATIONS.md` as the four provider-specific submission
+packets. The latter records only official routes, public project facts, and
+project-authored request text. Personal fields and confidential correspondence
+stay outside Git. A submitted request updates request state only; written
+authorization evidence updates this eligibility record and never enters product
+source.
 
 The project owner selected the direct-integration path on 2026-08-08. Vendor
 SDKs, CLIs, app servers, ACP executables, and similar bridge runtimes do not
@@ -79,9 +84,14 @@ accepted threat model, atomic update contract, and removal procedure.
 
 - [OpenAI Codex authentication](https://developers.openai.com/codex/auth/)
 - [OpenAI Codex App Server](https://developers.openai.com/codex/app-server/)
+- [OpenAI developer community](https://developers.openai.com/community)
 - [Anthropic authentication](https://code.claude.com/docs/en/authentication)
 - [Anthropic subscription use in third-party Agent SDK apps](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan)
+- [Anthropic support route](https://support.claude.com/en/articles/9015913-how-to-get-support)
+- [Kimi Code overview and third-party authentication](https://www.kimi.com/code/docs/en/)
 - [Kimi Code login](https://www.kimi.com/code/docs/en/kimi-code-cli/reference/kimi-command.html)
-- [Kimi third-party agents](https://www.kimi.com/help/kimi-code/third-party-agents)
+- [Kimi Code feedback routes](https://www.kimi.com/code/docs/en/kimi-code/contact-and-feedback.html)
+- [xAI Grok Build overview](https://docs.x.ai/build/overview)
 - [xAI Grok Build authentication](https://docs.x.ai/build/enterprise)
 - [xAI Grok Build headless and ACP integration](https://docs.x.ai/build/cli/headless-scripting)
+- [xAI product support](https://x.ai/contact)

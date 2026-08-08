@@ -257,6 +257,7 @@ function verifyProviderPolicy() {
   validateProviderPolicy(providerPolicy, {
     workspaceNames: policy.workspaces.map((workspace) => workspace.name),
     productSources: [...workspaceSources, ...declarationSources],
+    applicationText: readText(providerPolicy.applicationDocument),
   });
 }
 
