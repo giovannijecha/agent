@@ -32,9 +32,11 @@ removal path. Aliases and speculative convenience tools are forbidden.
 
 Direct process execution is deliberately deferred. Killing one child process
 does not prove that its descendants have stopped or released inherited pipes,
-especially on Windows. `run_process` must not be advertised or allowlisted until
-an owned cross-platform process-tree boundary proves cancellation, timeout,
-environment isolation, output bounds, and cleanup without a shell.
+especially on Windows. Decision 0015 records that the present pure Node.js
+boundary cannot prove no-breakaway containment. `run_process` must not be
+advertised or allowlisted until the replacing cross-platform process-tree
+boundary proves cancellation, timeout, environment isolation, output bounds,
+owner-loss behavior, and cleanup without a shell.
 
 Every path is resolved beneath one explicit workspace root. Symlink traversal,
 absolute input paths, parent traversal, oversized input/output, unknown fields,
@@ -101,6 +103,8 @@ To remove tools, first stop advertising descriptors and restore the text-only
 runtime path. Remove CLI approval commands, tool status, Node handlers, and the
 runtime tool dependency. Then remove structured tool entries if no consumer
 remains, delete `@agent/tools` from every registry, remove this decision, clean
-derived artifacts, remove decision 0014, revise the manual-policy schema and
-evidence citations, and run the canonical verifier. Text chat, TUI, and the
-providerless CLI must remain buildable throughout rollback.
+derived artifacts, and remove decisions 0014 and 0015. Replace manual-policy
+schema 3 so it removes the advertised inventory and `blockedTools`, including
+`run_process`, then remove every ownership, required-path, and manual-evidence
+registration for the three decisions and run the canonical verifier. Text chat,
+TUI, and the providerless CLI must remain buildable throughout rollback.

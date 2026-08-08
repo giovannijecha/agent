@@ -69,8 +69,10 @@ agent.”
 - Keep the model-facing harness lean: every tool needs one canonical name, a
   distinct capability, current necessity, focused tests, and independent
   removal. Tool aliases and speculative conveniences are forbidden.
-- Keep process execution tools disabled until cross-platform descendant
-  cancellation, isolated environment, bounded output, and cleanup are proven.
+- Keep process execution tools disabled until decision 0015 is explicitly
+  replaced after kernel-backed Windows and Linux containment, isolated
+  environment, bounded output, and complete descendant cancellation and cleanup
+  are proven.
 
 ## Change discipline
 

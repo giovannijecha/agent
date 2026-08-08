@@ -27,7 +27,8 @@
     "docs/decisions/0011-verified-provider-registration-requests.md",
     "docs/decisions/0012-owned-continuous-verification.md",
     "docs/decisions/0013-single-agent-execution.md",
-    "docs/decisions/0014-lean-tool-harness.md"
+    "docs/decisions/0014-lean-tool-harness.md",
+    "docs/decisions/0015-process-tree-containment.md"
   ],
   "workspaces": [
     {

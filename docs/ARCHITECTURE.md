@@ -120,9 +120,11 @@ object. Reusable terminal mechanics belong behind the TUI contract. Model turn
 mechanics remain behind the runtime session contract. It also implements the
 registered bounded Node filesystem tools. Every path is rooted, canonicalized,
 and denied on traversal or symlink crossing.
-Direct process execution is absent until a cross-platform process-tree boundary
-can prove descendant cancellation, isolated environment, bounded output, and
-complete cleanup.
+Direct process execution is absent under decision 0015. Process groups,
+enumerated PID trees, and `taskkill /T` do not meet the no-breakaway boundary.
+Admission requires kernel-backed Windows and Linux containment that proves
+descendant cancellation, isolated environment, bounded output, owner-loss
+behavior, and complete cleanup on the distributed platform backends.
 
 ## Lean tool harness
 
@@ -279,10 +281,12 @@ process access remain unavailable unless the CLI composes an explicit capability
 - Remove built-in tools by first stopping descriptor advertisement, restoring
   text-only runtime steps, and deleting CLI approval/status composition. Remove
   the runtime tool dependency, then the tools workspace and structured tool
-  entries only when no consumer remains. In the same removal change, revise the
-  manual-policy schema to remove its tool inventory, unregister decisions 0008
-  and 0014 and their evidence citations, and remove their ownership entries.
-  Core text chat and providerless CLI remain buildable throughout.
+  entries only when no consumer remains. In the same removal change, replace
+  manual-policy schema 3 so it removes the advertised inventory and
+  `blockedTools`, including `run_process`; unregister decisions 0008, 0014, and
+  `docs/decisions/0015-process-tree-containment.md`; and remove their ownership,
+  required-path, and manual-evidence registrations. Core text chat and the
+  providerless CLI remain buildable throughout.
 
 The exact registry and derived-artifact procedure is defined in
 `docs/MAINTENANCE.md`.

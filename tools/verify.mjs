@@ -242,10 +242,15 @@ function verifyManual() {
   const productSources = ownedPaths.filter((file) =>
     /^packages\/[a-z0-9-]+\/src\/[a-z0-9-]+\.ts$/u.test(file),
   );
+  const decisionPaths = ownedPaths.filter((file) =>
+    /^docs\/decisions\/[0-9]{4}-[a-z0-9-]+\.md$/u.test(file),
+  );
   const inputs = [
     "README.md",
+    "docs/MAINTENANCE.md",
     ...productSources,
     ...manualPaths,
+    ...decisionPaths,
   ];
   validateManualPolicy(manualPolicy, {
     files: Object.fromEntries(inputs.map((file) => [file, readText(file)])),

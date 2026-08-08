@@ -127,8 +127,12 @@ enter notices or the tool-status panel. Once a
 tool attempt completes, its structured call and result become a conversation
 checkpoint before the next model step. A later failure or cancellation retains
 that truthful checkpoint while discarding only prospective response text.
-Direct process execution remains disabled until an owned cross-platform process
-tree can guarantee descendant cancellation, environment isolation, and cleanup.
+Direct process execution remains disabled under decisions 0008 and 0015 until
+decision 0015 is explicitly replaced. The current pure Node.js boundary lacks
+Windows Job Object ownership, while Linux requires a securely delegated cgroup
+v2 subtree; process groups and `taskkill /T` are not accepted substitutes.
+Admission needs the registered kernel-backed platform proof, environment
+isolation, bounded output, and complete cleanup.
 `/exit` is the only exit command; there is no alternate alias.
 
 Read [the operator manual](docs/manual/README.md) to run and interpret the

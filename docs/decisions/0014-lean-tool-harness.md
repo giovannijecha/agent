@@ -50,9 +50,10 @@ The generic tools workspace owns the descriptor type and validation but cannot
 advertise product tools; other production modules may consume descriptor types
 but cannot construct them.
 
-`run_process` is not admitted by this decision. It remains blocked until the
-separate process-tree safety contract is implemented and verified; admission
-then requires its own distinctness, necessity, and removal evidence.
+`run_process` is not admitted by this decision. Decision 0015 records the failed
+pure Node.js feasibility proof and the kernel-backed Windows and Linux exit
+criteria. Admission then requires that complete platform proof plus its own
+distinctness, necessity, and removal evidence.
 
 ## Consequences
 
@@ -77,5 +78,7 @@ To replace this principle, first accept a superseding harness decision that
 defines its model-attention budget, ambiguity controls, compatibility policy,
 and per-tool removal discipline. Removing the policy without a replacement
 requires removing all model-facing tools and restoring the text-only runtime
-path first, then revising the manual-policy schema and removing this decision
-from ownership, required-path, and manual evidence registries.
+path first. Replace manual-policy schema 3 so it removes both its advertised
+inventory and `blockedTools`, including `run_process`; remove decisions 0008,
+0014, and 0015 from ownership, required-path, and manual-evidence registries in
+the same change.

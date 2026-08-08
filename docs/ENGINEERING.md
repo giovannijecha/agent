@@ -151,8 +151,10 @@ the registered CLI module; the generic tool engine owns mechanics only.
 Tool descriptors and schemas are immutable provider-neutral data. Read tools may
 run automatically; every write tool requires one exact pending-call decision
 from `/approve` or `/deny`. Calls run sequentially, and no tool may use ambient
-network access. Process execution remains unavailable until the process-tree
-contract in decision 0008 is implemented and verified.
+network access. Process execution remains unavailable under decisions 0008 and
+0015. A future backend must fail closed without the required Job Object or
+delegated cgroup boundary and pass the registered adversarial platform proof
+before any descriptor is advertised.
 
 All filesystem paths are workspace-relative. Resolve lexical and canonical
 containment, reject absolute paths, parent escape, symlinks, unsupported file
