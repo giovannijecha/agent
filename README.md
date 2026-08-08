@@ -6,9 +6,9 @@ third-party runtime or development packages.
 
 ## Status
 
-Streaming-runtime, tool-engine, and interactive-chat foundation. The repository
-provides immutable structured conversation state, a bounded transactional
-streaming and tool runtime, a provider-neutral schema/registry/execution
+Single-agent streaming-runtime, tool-engine, and interactive-chat foundation.
+The repository provides immutable structured conversation state, a bounded
+transactional streaming and tool runtime, a provider-neutral schema/registry/execution
 framework, five bounded local coding tools, a complete vertical TUI framework, a
 single-writer chat reducer, fair terminal/runtime arbitration, and an owned
 verification system. Production injects no model, authenticates no provider,
@@ -16,6 +16,11 @@ and persists no sessions; therefore its real tool engine remains inactive until
 an eligible model adapter is composed.
 Requested subscription integrations remain behind a fail-closed eligibility
 policy; none is enabled with a borrowed client identity.
+
+The single-agent execution model is deliberate: one application controller owns
+one active runtime session and one sequential model/tool trajectory. Providers
+are replaceable backends for that agent, not additional agents. The project does
+not create sub-agents, delegate to hidden workers, or coordinate a swarm.
 
 ## Stack
 
@@ -38,6 +43,7 @@ packages/agent-tui   generic components, layout, input, frames, and renderer
 packages/agent-cli   chat, arbiter, commands, built-in tools, Node lifecycle, composition
 types/               minimal Node declarations authored here
 tools/               ownership, build, test, and smoke verification
+.github/workflows/   owned remote verification with no imported actions
 docs/                operator manual, architecture, provenance, decisions
 ```
 
@@ -72,7 +78,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1
 
 The lockfile contains only workspace topology and local links. `npm ci` is
 offline and cannot add packages. The verification command is the definition of
-done.
+done. The owned `verify` GitHub workflow invokes the same command on pull
+requests and `main`; its checkout and toolchain bootstrap are written here and
+use no third-party action.
 
 `npm start` opens the interactive alternate-screen terminal when both stdin and
 stdout are TTYs. The first milestone supports:

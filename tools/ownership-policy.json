@@ -24,7 +24,9 @@
     "docs/decisions/0008-owned-tool-execution.md",
     "docs/decisions/0009-owned-operator-manual.md",
     "docs/decisions/0010-public-project-identity.md",
-    "docs/decisions/0011-verified-provider-registration-requests.md"
+    "docs/decisions/0011-verified-provider-registration-requests.md",
+    "docs/decisions/0012-owned-continuous-verification.md",
+    "docs/decisions/0013-single-agent-execution.md"
   ],
   "workspaces": [
     {

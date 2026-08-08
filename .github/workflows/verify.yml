@@ -1,0 +1,99 @@
+name: verify
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: verify
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out exact revision
+        shell: powershell
+        env:
+          AGENT_REPOSITORY: ${{ github.repository }}
+          AGENT_REVISION: ${{ github.sha }}
+          AGENT_REF: ${{ github.ref }}
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = "Stop"
+
+          function Invoke-Checked {
+              param(
+                  [Parameter(Mandatory)]
+                  [string]$Program,
+                  [Parameter(Mandatory)]
+                  [string[]]$Arguments
+              )
+
+              & $Program @Arguments
+              if ($LASTEXITCODE -ne 0) {
+                  throw "Command failed with exit code ${LASTEXITCODE}: $Program"
+              }
+          }
+
+          if ($env:AGENT_REPOSITORY -notmatch "\A[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\z") {
+              throw "Repository identity is malformed."
+          }
+          if ($env:AGENT_REVISION -notmatch "\A[0-9a-f]{40}\z") {
+              throw "Revision identity is malformed."
+          }
+          if ($env:AGENT_REF -notmatch "\Arefs/(?:heads/main|pull/[1-9][0-9]*/merge)\z") {
+              throw "Workflow ref is outside the verified branch contract."
+          }
+
+          Invoke-Checked -Program "git" -Arguments @("init", ".")
+          Invoke-Checked -Program "git" -Arguments @(
+              "remote",
+              "add",
+              "origin",
+              "https://github.com/$($env:AGENT_REPOSITORY).git"
+          )
+          Invoke-Checked -Program "git" -Arguments @(
+              "-c",
+              "protocol.version=2",
+              "fetch",
+              "--no-tags",
+              "--depth=1",
+              "origin",
+              $env:AGENT_REF
+          )
+          Invoke-Checked -Program "git" -Arguments @("checkout", "--detach", "FETCH_HEAD")
+          $actualRevision = (& git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $actualRevision -ne $env:AGENT_REVISION) {
+              throw "Checked-out revision does not match the event revision."
+          }
+          Invoke-Checked -Program "git" -Arguments @("remote", "remove", "origin")
+
+      - name: Provision pinned verification toolchain
+        shell: powershell
+        env:
+          AGENT_NPM_VERSION: "11.16.0"
+          AGENT_TYPESCRIPT_VERSION: "5.9.3"
+          NPM_CONFIG_OFFLINE: "false"
+          NPM_CONFIG_UPDATE_NOTIFIER: "false"
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = "Stop"
+          npm install --global "npm@$($env:AGENT_NPM_VERSION)" "typescript@$($env:AGENT_TYPESCRIPT_VERSION)" --offline=false --ignore-scripts --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) {
+              throw "Pinned verification toolchain provisioning failed."
+          }
+
+      - name: Run canonical owned verifier
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1

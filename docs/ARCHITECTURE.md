@@ -35,6 +35,21 @@ integration sessions. The production entry point injects no runtime because no
 eligible model exists. Cross-package access uses public package surfaces; deep
 and relative cross-package imports are forbidden.
 
+## Single-agent execution model
+
+`agent` is one personal coding agent, not a multi-agent coordinator. One
+application controller owns one active runtime session, and that runtime admits
+one active model turn, sequential model/tool steps, and one pending approval.
+A provider adapter supplies one interchangeable model backend to this same
+execution path; it does not introduce another agent identity.
+
+The product does not create sub-agents, delegate work to hidden workers, run a
+swarm, or merge concurrent agent conversations. Tools, TUI components, provider
+adapters, and verification jobs are bounded capabilities rather than agents.
+Changing this invariant requires the replacement architecture defined by
+decision 0013, including new identity, authority, scheduling, cancellation,
+privacy, migration, and removal contracts.
+
 ## Package contracts
 
 ### `@agent/core`
@@ -150,8 +165,9 @@ runtime cleanup. All cleanup failures remain separate.
 
 `types/` contains only the Node declarations current code requires, authored
 from documented runtime behavior. `tools/` is the owned trust gate: it validates
-the toolchain, workspace graph, operator manual, public identity and license,
-imports, source, derived output, tests, and CLI. Shipped modules may use only
+the toolchain, continuous-verification workflow, workspace graph, operator
+manual, public identity and license, imports, source, derived output, tests, and
+CLI. Shipped modules may use only
 statically safe computed member names; dynamic collection indexing uses explicit
 methods so reflective loader escapes fail closed.
 

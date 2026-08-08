@@ -11,6 +11,7 @@ const EXPECTED_POSTURE = Object.freeze({
   telemetry: "none",
   serviceBackend: "none",
   sessionPersistence: "disabled",
+  executionModel: "single-agent",
   externalCodeContributions: "closed-initially",
   automatedAttribution: "none",
 });
@@ -25,6 +26,8 @@ const EXPECTED_DOCUMENTS = Object.freeze([
   "docs/OAUTH-REGISTRATION.md",
   "docs/PROVIDER-APPLICATIONS.md",
   "docs/decisions/0010-public-project-identity.md",
+  "docs/ARCHITECTURE.md",
+  "docs/decisions/0013-single-agent-execution.md",
 ]);
 const FALSE_AUTHORSHIP_MARKERS = [
   /100% human(?:-written)?/iu,
@@ -126,6 +129,7 @@ function validatePublicDocuments(context) {
       "(CONTRIBUTING.md)",
       "(docs/OAUTH-REGISTRATION.md)",
       "(docs/PROVIDER-APPLICATIONS.md)",
+      "single-agent execution model",
     ],
     "README",
   );
@@ -137,8 +141,24 @@ function validatePublicDocuments(context) {
       "Giovanni Jecha",
       "giovannijecha/agent",
       "Do not add automated tool signatures",
+      "single-agent product",
     ],
     "AGENTS.md",
+  );
+
+  requireMarkers(
+    textFor(context, "docs/ARCHITECTURE.md"),
+    [
+      "## Single-agent execution model",
+      "does not create sub-agents",
+      "one active runtime session",
+    ],
+    "architecture",
+  );
+  requireMarkers(
+    textFor(context, "docs/decisions/0013-single-agent-execution.md"),
+    ["# 0013: Single-agent execution", "`agent` is a single-agent product"],
+    "single-agent decision",
   );
 
   requireMarkers(
@@ -217,7 +237,7 @@ export function validatePublicationPolicy(policy, context) {
     ["schemaVersion", "project", "posture", "licenseFile", "documents"],
     "publication policy",
   );
-  if (policy.schemaVersion !== 1 || !isRecord(context)) {
+  if (policy.schemaVersion !== 2 || !isRecord(context)) {
     fail("unsupported publication policy schema or context");
   }
   exactKeys(policy.project, Object.keys(EXPECTED_PROJECT), "publication project");

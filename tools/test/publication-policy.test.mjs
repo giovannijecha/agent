@@ -37,6 +37,15 @@ test("rejects public identity drift", () => {
   );
 });
 
+test("rejects single-agent execution posture drift", () => {
+  const changed = structuredClone(policy);
+  changed.posture.executionModel = "multi-agent";
+  assert.throws(
+    () => validatePublicationPolicy(changed, currentContext()),
+    PublicationPolicyError,
+  );
+});
+
 test("rejects modified license terms", () => {
   const context = currentContext();
   context.files.LICENSE = context.files.LICENSE.replace(
