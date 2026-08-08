@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "index": "docs/manual/README.md",
   "chapters": [
     {
@@ -76,6 +76,14 @@
       }
     ]
   },
+  "blockedTools": [
+    {
+      "name": "run_process",
+      "risk": "execute",
+      "reason": "Whole-tree containment is not provable with the current pure Node.js platform boundary.",
+      "decision": "docs/decisions/0015-process-tree-containment.md"
+    }
+  ],
   "requiredPaths": [
     ".gitattributes",
     "AGENTS.md",
@@ -98,6 +106,7 @@
     "docs/decisions/0012-owned-continuous-verification.md",
     "docs/decisions/0013-single-agent-execution.md",
     "docs/decisions/0014-lean-tool-harness.md",
+    "docs/decisions/0015-process-tree-containment.md",
     "package-lock.json",
     "package.json",
     "packages/agent-cli/src/application.ts",

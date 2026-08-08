@@ -32,9 +32,11 @@ removal path. Aliases and speculative convenience tools are forbidden.
 
 Direct process execution is deliberately deferred. Killing one child process
 does not prove that its descendants have stopped or released inherited pipes,
-especially on Windows. `run_process` must not be advertised or allowlisted until
-an owned cross-platform process-tree boundary proves cancellation, timeout,
-environment isolation, output bounds, and cleanup without a shell.
+especially on Windows. Decision 0015 records that the present pure Node.js
+boundary cannot prove no-breakaway containment. `run_process` must not be
+advertised or allowlisted until the replacing cross-platform process-tree
+boundary proves cancellation, timeout, environment isolation, output bounds,
+owner-loss behavior, and cleanup without a shell.
 
 Every path is resolved beneath one explicit workspace root. Symlink traversal,
 absolute input paths, parent traversal, oversized input/output, unknown fields,

@@ -76,7 +76,9 @@ tests, and decision 0008. Preserve exact `/approve` and `/deny`, one pending cal
 read-only automatic execution, root containment, symlink denial, incremental
 directory bounds, post-invocation checkpoints, content-free failures, and only
 descriptor-declared approval summaries in UI. Reintroduce process execution only
-with cross-platform process-tree, environment, cancellation, and cleanup tests.
+by replacing decision 0015 with kernel-backed Windows and Linux containment,
+the complete adversarial platform matrix, environment and output bounds,
+cancellation, owner-loss behavior, and cleanup tests.
 
 Approval-summary changes must test directional, zero-width, control, surrogate,
 private-use, and line-separator input. Preserve two independent defenses: the

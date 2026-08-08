@@ -51,7 +51,15 @@ conflict, limit, cancellation, unsupported, and I/O. Arguments, file contents,
 call identifiers, results, and thrown causes do not enter notices. Once a
 handler was invoked, even a malformed handler result becomes a generic
 checkpointed failure so an external mutation cannot be silently repeated.
-Direct process execution is not available.
+Direct process execution is not available. The blocked inventory is separate
+from advertised tools and therefore adds no model-facing capability:
+
+| Blocked tool | Risk | Reason | Decision |
+|---|---|---|---|
+| `run_process` | `execute` | Whole-tree containment is not provable with the current pure Node.js platform boundary. | `docs/decisions/0015-process-tree-containment.md` |
+
+Process groups, enumerated PID trees, and `taskkill /T` do not satisfy the
+required no-breakaway guarantee. Missing platform containment must fail closed.
 
 The release gate rejects duplicate canonical names, capability identifiers, or
 necessity records; unsupported descriptor syntax; descriptor risk drift; and a
@@ -67,7 +75,8 @@ tests. Add, rename, or remove one tool together with its descriptor, handler,
 focused tests, policy record, and this inventory. A rename removes the old name;
 it never retains an alias. Remove an advertised descriptor before deleting its
 implementation, and keep the remaining registry buildable. Process execution
-requires a separate accepted cross-platform process-tree contract.
+requires a replacing decision and the complete Windows and Linux proof defined
+by decision 0015.
 
 ## Evidence
 
@@ -76,3 +85,4 @@ requires a separate accepted cross-platform process-tree contract.
 - Approval reducer: `packages/agent-cli/src/application.ts`
 - Accepted execution design: `docs/decisions/0008-owned-tool-execution.md`
 - Lean-harness decision: `docs/decisions/0014-lean-tool-harness.md`
+- Process-containment decision: `docs/decisions/0015-process-tree-containment.md`

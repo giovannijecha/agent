@@ -120,9 +120,11 @@ object. Reusable terminal mechanics belong behind the TUI contract. Model turn
 mechanics remain behind the runtime session contract. It also implements the
 registered bounded Node filesystem tools. Every path is rooted, canonicalized,
 and denied on traversal or symlink crossing.
-Direct process execution is absent until a cross-platform process-tree boundary
-can prove descendant cancellation, isolated environment, bounded output, and
-complete cleanup.
+Direct process execution is absent under decision 0015. Process groups,
+enumerated PID trees, and `taskkill /T` do not meet the no-breakaway boundary.
+Admission requires kernel-backed Windows and Linux containment that proves
+descendant cancellation, isolated environment, bounded output, owner-loss
+behavior, and complete cleanup on the distributed platform backends.
 
 ## Lean tool harness
 

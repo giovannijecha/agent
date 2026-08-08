@@ -37,10 +37,14 @@ function currentContext() {
   const productSources = ownedPaths.filter((file) =>
     /^packages\/[a-z0-9-]+\/src\/[a-z0-9-]+\.ts$/u.test(file),
   );
+  const decisionPaths = ownedPaths.filter((file) =>
+    /^docs\/decisions\/[0-9]{4}-[a-z0-9-]+\.md$/u.test(file),
+  );
   const needed = [
     "README.md",
     ...productSources,
     ...manualPaths,
+    ...decisionPaths,
   ];
   return {
     files: Object.fromEntries(
@@ -160,6 +164,80 @@ test("rejects duplicate or incomplete lean tool contracts", () => {
     () => validateManualPolicy(blockedProcess, currentContext()),
     {
       message: "manual tool contract is invalid",
+      name: "ManualPolicyError",
+    },
+  );
+});
+
+test("rejects blocked tool drift or incomplete decisions", () => {
+  const overlap = structuredClone(currentPolicy);
+  overlap.blockedTools.at(0).name = "create_file";
+  assert.throws(
+    () => validateManualPolicy(overlap, currentContext()),
+    {
+      message: "blocked tool contract is invalid",
+      name: "ManualPolicyError",
+    },
+  );
+
+  const risk = structuredClone(currentPolicy);
+  risk.blockedTools.at(0).risk = "write";
+  assert.throws(
+    () => validateManualPolicy(risk, currentContext()),
+    {
+      message: "blocked tool contract is invalid",
+      name: "ManualPolicyError",
+    },
+  );
+
+  const reason = structuredClone(currentPolicy);
+  reason.blockedTools.at(0).reason =
+    "Whole-tree containment has not passed the registered platform proof.";
+  assert.throws(
+    () => validateManualPolicy(reason, currentContext()),
+    {
+      message: "manual blocked tool inventory is incomplete",
+      name: "ManualPolicyError",
+    },
+  );
+
+  const extraRow = currentContext();
+  extraRow.files["docs/manual/04-tools-and-approval.md"] =
+    extraRow.files["docs/manual/04-tools-and-approval.md"].replace(
+      "| `run_process` | `execute` | Whole-tree containment is not provable with the current pure Node.js platform boundary. | `docs/decisions/0015-process-tree-containment.md` |\n\n",
+      "| `run_process` | `execute` | Whole-tree containment is not provable with the current pure Node.js platform boundary. | `docs/decisions/0015-process-tree-containment.md` |\n" +
+        "| `stale_tool` | `execute` | This row is not registered by the owned policy. | `docs/decisions/0015-process-tree-containment.md` |\n\n",
+    );
+  assert.throws(
+    () => validateManualPolicy(currentPolicy, extraRow),
+    {
+      message: "manual blocked tool inventory is incomplete",
+      name: "ManualPolicyError",
+    },
+  );
+
+  const decision = currentContext();
+  decision.files["docs/decisions/0015-process-tree-containment.md"] =
+    decision.files["docs/decisions/0015-process-tree-containment.md"].replace(
+      "`run_process` remains blocked.",
+      "Process execution is pending.",
+    );
+  assert.throws(
+    () => validateManualPolicy(currentPolicy, decision),
+    {
+      message: "blocked tool decision is incomplete",
+      name: "ManualPolicyError",
+    },
+  );
+
+  const unregistered = structuredClone(currentPolicy);
+  unregistered.requiredPaths = unregistered.requiredPaths.filter(
+    (file) => file !== "docs/decisions/0015-process-tree-containment.md",
+  );
+  assert.throws(
+    () => validateManualPolicy(unregistered, currentContext()),
+    {
+      message: "blocked tool decision is not registered as manual evidence",
       name: "ManualPolicyError",
     },
   );

@@ -50,9 +50,10 @@ The generic tools workspace owns the descriptor type and validation but cannot
 advertise product tools; other production modules may consume descriptor types
 but cannot construct them.
 
-`run_process` is not admitted by this decision. It remains blocked until the
-separate process-tree safety contract is implemented and verified; admission
-then requires its own distinctness, necessity, and removal evidence.
+`run_process` is not admitted by this decision. Decision 0015 records the failed
+pure Node.js feasibility proof and the kernel-backed Windows and Linux exit
+criteria. Admission then requires that complete platform proof plus its own
+distinctness, necessity, and removal evidence.
 
 ## Consequences
 
