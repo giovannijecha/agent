@@ -20,12 +20,13 @@ identity, approval, or entitlement to `agent`.
 | Kimi Code | Kimi documents device OAuth for Kimi Code CLI and subscription-backed API keys for third-party development tools. | Blocked for credential-only login | The documented third-party path requires a manually managed key; the CLI OAuth identity and ACP bridge are foreign. |
 | Grok subscription | xAI documents browser and device login for Grok Build plus headless and ACP integration, while its direct API has a separate key path. | Blocked | Grok Build and ACP are foreign executables; no public process registers `agent` for direct subscription OAuth. |
 
-The machine-readable status is `tools/provider-policy.json`. Schema version 2
-also records the four official inquiry routes and their `ready-not-submitted`
-state. That metadata does not change eligibility. Canonical verification checks
-the complete request packets and rejects provider adapters, OAuth identifiers,
-subscription endpoints, foreign credential stores, and borrowed product
-identity while every entry remains blocked.
+The machine-readable status is `tools/provider-policy.json`. Schema version 3
+records the four official inquiry routes, lifecycle states, submission dates,
+and public or content-free private references. All four inquiries are
+submitted. That metadata does not change eligibility. Canonical verification
+checks the complete request packets and rejects provider adapters, OAuth
+identifiers, subscription endpoints, foreign credential stores, and borrowed
+product identity while every entry remains blocked.
 
 ## Evidence required to enable a provider
 

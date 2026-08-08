@@ -175,11 +175,15 @@ function validatePublicDocuments(context) {
     textFor(context, "docs/PROVIDER-APPLICATIONS.md"),
     [
       "# Provider registration requests",
-      "Request state: `ready-not-submitted`",
+      "Request state: `submitted`",
       "Submission route: `openai-developer-forum`",
       "Submission route: `anthropic-support-messenger`",
-      "Submission route: `kimi-code-github-issues`",
+      "Submission route: `kimi-code-support-email`",
       "Submission route: `xai-product-support-email`",
+      "community.openai.com/t/independent-native-oauth-public-client-registration-request-for-agent/1389585",
+      "Private reference: `anthropic-support-messenger-2026-08-08`",
+      "Private reference: `kimi-support-email-2026-08-08`",
+      "Private reference: `xai-support-email-2026-08-08`",
     ],
     "provider registration requests",
   );

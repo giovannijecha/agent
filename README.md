@@ -133,7 +133,7 @@ The project is licensed under [Apache-2.0](LICENSE). Read the
 Provider registration requests use the
 [OAuth client registration dossier](docs/OAUTH-REGISTRATION.md) and the
 [four provider-specific request packets](docs/PROVIDER-APPLICATIONS.md).
-Every packet is ready but not submitted; publication by itself does not
+All four provider requests are submitted. Submission by itself does not
 authorize subscription access.
 
 Copyright 2026 Giovanni Jecha.

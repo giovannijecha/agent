@@ -19,11 +19,12 @@ ownership policy. The verifier rejects missing, extra, or inconsistent files,
 manifests, links, declarations, generated formats, and registry entries.
 
 Subscription-provider eligibility is a separate canonical input in
-`tools/provider-policy.json`. Version 2 permits no provider or auth package and
+`tools/provider-policy.json`. Version 3 permits no provider or auth package and
 contains no endpoint, scope, credential, or client registration. It additionally
-pins four `ready-not-submitted` authorization requests, their official routes,
-visibility, and research date. That preparation metadata cannot change blocked
-eligibility. The verifier pins the exact five-workspace provider-neutral
+pins each authorization request's lifecycle state, official route, visibility,
+research date, submission date, and public or content-free private reference.
+That metadata cannot change blocked eligibility. The verifier pins the exact
+five-workspace provider-neutral
 foundation, including runtime and the tool engine. It denies ambient network and
 provider escape paths; filesystem APIs remain explicitly allowlisted only for
 CLI-owned tools. Process execution is not active.
