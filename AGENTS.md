@@ -6,7 +6,7 @@ Build a lightweight personal coding agent with an original CLI and TUI. All
 product source, tests, declarations, protocols, prompts, tools, and UI behavior
 are authored in this repository.
 
-The public identity is `agent`, the planned canonical repository is
+The public identity is `agent`, the canonical public repository is
 `giovannijecha/agent`, and Giovanni Jecha is the maintainer and copyright
 holder. The public description is “An owned, zero-dependency personal coding
 agent.”
@@ -31,6 +31,8 @@ agent.”
 - Subscription adapters require an `agent`-owned client registration or a
   provider-documented public identity for independent clients. Vendor SDKs,
   CLIs, app servers, ACP binaries, and borrowed OAuth identities are forbidden.
+- Provider requests live in `docs/PROVIDER-APPLICATIONS.md`. A prepared,
+  submitted, or unanswered request never changes blocked eligibility.
 - Secrets, credentials, sessions, and personal content never enter source,
   fixtures, logs, or documentation.
 

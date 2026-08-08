@@ -23,6 +23,7 @@ const EXPECTED_DOCUMENTS = Object.freeze([
   "README.md",
   "SECURITY.md",
   "docs/OAUTH-REGISTRATION.md",
+  "docs/PROVIDER-APPLICATIONS.md",
   "docs/decisions/0010-public-project-identity.md",
 ]);
 const FALSE_AUTHORSHIP_MARKERS = [
@@ -124,6 +125,7 @@ function validatePublicDocuments(context) {
       "(PRIVACY.md)",
       "(CONTRIBUTING.md)",
       "(docs/OAUTH-REGISTRATION.md)",
+      "(docs/PROVIDER-APPLICATIONS.md)",
     ],
     "README",
   );
@@ -164,10 +166,22 @@ function validatePublicDocuments(context) {
       "# OAuth client registration dossier",
       "Application name: `agent`",
       "Maintainer: Giovanni Jecha",
-      "Canonical repository: `giovannijecha/agent`",
+      "Canonical repository: [github.com/giovannijecha/agent]",
       "No registration means no adapter",
     ],
     "OAuth registration dossier",
+  );
+  requireMarkers(
+    textFor(context, "docs/PROVIDER-APPLICATIONS.md"),
+    [
+      "# Provider registration requests",
+      "Request state: `ready-not-submitted`",
+      "Submission route: `openai-developer-forum`",
+      "Submission route: `anthropic-support-messenger`",
+      "Submission route: `kimi-code-github-issues`",
+      "Submission route: `xai-product-support-email`",
+    ],
+    "provider registration requests",
   );
 }
 

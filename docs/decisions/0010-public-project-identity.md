@@ -20,7 +20,7 @@ tests, and the release gate are the durable evidence.
 ## Decision
 
 The public project name, repository slug, and executable remain `agent`. The
-planned canonical repository is `giovannijecha/agent`. Giovanni Jecha is the
+canonical public repository is `giovannijecha/agent`. Giovanni Jecha is the
 maintainer and copyright holder. The public description is “An owned,
 zero-dependency personal coding agent.”
 

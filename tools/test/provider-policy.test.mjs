@@ -10,6 +10,10 @@ import {
 const currentPolicy = JSON.parse(
   readFileSync(new URL("../provider-policy.json", import.meta.url), "utf8"),
 );
+const currentApplications = readFileSync(
+  new URL("../../docs/PROVIDER-APPLICATIONS.md", import.meta.url),
+  "utf8",
+);
 const emptyContext = {
   workspaceNames: [
     "@agent/core",
@@ -19,6 +23,7 @@ const emptyContext = {
     "@agent/cli",
   ],
   productSources: [],
+  applicationText: currentApplications,
 };
 
 test("accepts the canonical blocked provider registry", () => {
@@ -50,6 +55,72 @@ test("rejects credential and endpoint fields for blocked providers", () => {
   configured.providers[0].clientId = "foreign-application";
   assert.throws(
     () => validateProviderPolicy(configured, emptyContext),
+    ProviderPolicyError,
+  );
+});
+
+test("rejects incomplete or stale provider registration requests", () => {
+  const missingAnswer = currentApplications.replace(
+    "### Required written answer",
+    "### Missing answer contract",
+  );
+  assert.throws(
+    () =>
+      validateProviderPolicy(currentPolicy, {
+        ...emptyContext,
+        applicationText: missingAnswer,
+      }),
+    ProviderPolicyError,
+  );
+
+  const stalePolicy = structuredClone(currentPolicy);
+  stalePolicy.researchedOn = "2026-08-07";
+  assert.throws(
+    () => validateProviderPolicy(stalePolicy, emptyContext),
+    ProviderPolicyError,
+  );
+
+  const untrustedEvidence = currentApplications.replace(
+    "https://developers.openai.com/codex/auth/",
+    "https://example.com/unverified",
+  );
+  assert.throws(
+    () =>
+      validateProviderPolicy(currentPolicy, {
+        ...emptyContext,
+        applicationText: untrustedEvidence,
+      }),
+    ProviderPolicyError,
+  );
+
+  const untrustedRoute = currentApplications.replace(
+    "https://github.com/MoonshotAI/kimi-code/issues",
+    "https://example.com/unverified-route",
+  );
+  assert.throws(
+    () =>
+      validateProviderPolicy(currentPolicy, {
+        ...emptyContext,
+        applicationText: untrustedRoute,
+      }),
+    ProviderPolicyError,
+  );
+});
+
+test("rejects request-state drift and personal email addresses", () => {
+  const submitted = structuredClone(currentPolicy);
+  submitted.providers[0].request.state = "submitted";
+  assert.throws(
+    () => validateProviderPolicy(submitted, emptyContext),
+    ProviderPolicyError,
+  );
+
+  assert.throws(
+    () =>
+      validateProviderPolicy(currentPolicy, {
+        ...emptyContext,
+        applicationText: currentApplications + "\nprivate@example.com\n",
+      }),
     ProviderPolicyError,
   );
 });

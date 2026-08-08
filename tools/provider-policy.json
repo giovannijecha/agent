@@ -1,29 +1,55 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
+  "applicationDocument": "docs/PROVIDER-APPLICATIONS.md",
+  "researchedOn": "2026-08-08",
   "providers": [
     {
       "id": "chatgpt",
       "displayName": "ChatGPT Plus/Pro",
       "eligibility": "blocked",
-      "blocker": "owned-client-registration-required"
+      "blocker": "owned-client-registration-required",
+      "request": {
+        "state": "ready-not-submitted",
+        "kind": "public-client-authorization-inquiry",
+        "route": "openai-developer-forum",
+        "visibility": "public"
+      }
     },
     {
       "id": "claude",
       "displayName": "Claude Pro/Max",
       "eligibility": "blocked",
-      "blocker": "independent-client-authorization-required"
+      "blocker": "independent-client-authorization-required",
+      "request": {
+        "state": "ready-not-submitted",
+        "kind": "public-client-authorization-inquiry",
+        "route": "anthropic-support-messenger",
+        "visibility": "private"
+      }
     },
     {
       "id": "kimi",
       "displayName": "Kimi Code",
       "eligibility": "blocked",
-      "blocker": "owned-client-registration-required"
+      "blocker": "owned-client-registration-required",
+      "request": {
+        "state": "ready-not-submitted",
+        "kind": "public-client-authorization-inquiry",
+        "route": "kimi-code-github-issues",
+        "visibility": "public"
+      }
     },
     {
       "id": "grok",
       "displayName": "Grok subscription",
       "eligibility": "blocked",
-      "blocker": "owned-client-registration-required"
+      "blocker": "owned-client-registration-required",
+      "request": {
+        "state": "ready-not-submitted",
+        "kind": "public-client-authorization-inquiry",
+        "route": "xai-product-support-email",
+        "visibility": "private"
+      }
     }
   ]
 }

@@ -12,6 +12,7 @@
     "docs/MAINTENANCE.md",
     "docs/OAUTH-REGISTRATION.md",
     "docs/OWNERSHIP.md",
+    "docs/PROVIDER-APPLICATIONS.md",
     "docs/PROVIDERS.md",
     "docs/decisions/0001-owned-zero-dependency-rust.md",
     "docs/decisions/0002-owned-zero-dependency-typescript.md",
@@ -22,7 +23,8 @@
     "docs/decisions/0007-owned-cli-application-loop.md",
     "docs/decisions/0008-owned-tool-execution.md",
     "docs/decisions/0009-owned-operator-manual.md",
-    "docs/decisions/0010-public-project-identity.md"
+    "docs/decisions/0010-public-project-identity.md",
+    "docs/decisions/0011-verified-provider-registration-requests.md"
   ],
   "workspaces": [
     {

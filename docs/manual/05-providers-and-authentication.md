@@ -16,9 +16,12 @@ stay provider-hosted; `agent` never asks for a password, cookie, recovery code,
 payment detail, or provider one-time code.
 
 When requesting a registration, use
-[the OAuth client registration dossier](../OAUTH-REGISTRATION.md). Do not add a
-provider-specific field unless its current official application process requires
-it and the value is factually known.
+[the OAuth client registration dossier](../OAUTH-REGISTRATION.md) together with
+[the four verified request packets](../PROVIDER-APPLICATIONS.md). Recheck the
+official route, copy only the relevant request, and keep account fields inside
+the provider-owned submission surface. Public routes receive public project
+facts only. Do not add a provider-specific field unless the official process
+requires it and the value is factually known.
 
 ## Guarantees and limits
 
@@ -28,6 +31,8 @@ technically reachable, but their direct OAuth identities are not ours. Official
 embedding paths that require a vendor SDK or executable are also outside this
 project's zero-third-party-source and zero-foreign-binary contract. No generic
 authentication package, endpoint, token field, or credential store exists.
+All four requests are `ready-not-submitted`; that state is preparation, not
+authorization.
 
 ## Failure behavior
 
@@ -44,6 +49,8 @@ Record only observable facts in provenance. Enabling the first provider requires
 a replacing decision, a provider-policy schema change, offline contract tests,
 an in-memory credential boundary, and explicit update, revocation, rollback, and
 removal procedures. Never reuse a vendor or reference project's client ID.
+After submission, record only a public issue URL or a content-free private case
+reference. Keep private messages and replies outside Git.
 
 ## Evidence
 
@@ -53,3 +60,6 @@ removal procedures. Never reuse a vendor or reference project's client ID.
 - Gate implementation: `tools/lib/provider-policy.mjs`
 - Authentication decision: `docs/decisions/0003-owned-provider-authentication.md`
 - Registration dossier: `docs/OAUTH-REGISTRATION.md`
+- Provider request packets: `docs/PROVIDER-APPLICATIONS.md`
+- Request verification decision: `docs/decisions/0011-verified-provider-registration-requests.md`
+- Provider gate tests: `tools/test/provider-policy.test.mjs`

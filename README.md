@@ -118,11 +118,12 @@ current product. Read [the architecture](docs/ARCHITECTURE.md),
 [the ownership policy](docs/OWNERSHIP.md) before changing the project. Follow
 [the maintenance runbook](docs/MAINTENANCE.md) for package or toolchain changes.
 Provider researchers and maintainers must also follow
-[the subscription eligibility reference](docs/PROVIDERS.md).
+[the subscription eligibility reference](docs/PROVIDERS.md) and the
+[verified provider request packets](docs/PROVIDER-APPLICATIONS.md).
 
 ## Public identity
 
-The planned canonical repository is `giovannijecha/agent`. Giovanni Jecha is the
+The canonical public repository is `giovannijecha/agent`. Giovanni Jecha is the
 maintainer and copyright holder. The project remains on the `0.x` release line
 until at least one complete direct provider integration is eligible.
 
@@ -130,7 +131,9 @@ The project is licensed under [Apache-2.0](LICENSE). Read the
 [security policy](SECURITY.md), [privacy policy](PRIVACY.md), and
 [contribution policy](CONTRIBUTING.md) before public use or participation.
 Provider registration requests use the
-[OAuth client registration dossier](docs/OAUTH-REGISTRATION.md); publication by
-itself does not authorize subscription access.
+[OAuth client registration dossier](docs/OAUTH-REGISTRATION.md) and the
+[four provider-specific request packets](docs/PROVIDER-APPLICATIONS.md).
+Every packet is ready but not submitted; publication by itself does not
+authorize subscription access.
 
 Copyright 2026 Giovanni Jecha.
