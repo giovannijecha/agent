@@ -24,7 +24,11 @@ function terminalStatus(result) {
 
 function assertCleanBroker(result) {
   assert.equal(result.close.signal, null);
-  assert.equal(result.diagnostics.length, 0);
+  assert.equal(
+    result.diagnostics.length,
+    0,
+    result.diagnostics.toString("utf8"),
+  );
 }
 
 function processExists(processId) {

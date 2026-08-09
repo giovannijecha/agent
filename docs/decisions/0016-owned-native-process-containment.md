@@ -63,6 +63,10 @@ output, or operating-system error text. Closing the controller command pipe is
 cancellation. A terminal status is valid only after the kernel container is
 observed empty.
 
+Linux containment failures may also write a fixed numeric setup-stage marker to
+the diagnostic channel. The marker contains no operating-system error, path,
+argument, output, process identity, or environment content.
+
 Protocol frames are limited to 65,536 bytes, strings to 8,192 bytes, arguments
 to 64, timeouts to 1 through 600,000 milliseconds, and target process limits to
 1 through 64. The conformance controller stores at most 65,536 bytes from each

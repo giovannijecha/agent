@@ -81,6 +81,19 @@ static bool agent_linux_write_all(int descriptor, const void *bytes, size_t leng
   return true;
 }
 
+static void agent_linux_diagnostic(uint32_t stage) {
+  char message[48];
+  const int length = snprintf(
+    message,
+    sizeof(message),
+    "linux-containment-stage:%lu\n",
+    (unsigned long)stage
+  );
+  if (length > 0 && (size_t)length < sizeof(message)) {
+    (void)agent_linux_write_all(STDERR_FILENO, message, (size_t)length);
+  }
+}
+
 static bool agent_linux_read_all(int descriptor, void *bytes, size_t length) {
   unsigned char *cursor = bytes;
   size_t offset = 0u;
@@ -511,6 +524,7 @@ static void agent_linux_guard(
   int setup_status
 ) {
   if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0u, 0u, 0u) != 0) {
+    agent_linux_diagnostic(10u);
     agent_linux_child_failure(setup_status, AGENT_BROKER_FAILURE_CONTAINMENT);
   }
   unsigned char ready = 0u;
@@ -518,33 +532,50 @@ static void agent_linux_guard(
     _exit(AGENT_LINUX_GUARD_FAILURE_EXIT);
   }
   close(setup_input);
-  if (
-    mount(NULL, "/", NULL, MS_REC | MS_PRIVATE, NULL) != 0 ||
-    mount(
+  if (mount(NULL, "/", NULL, MS_REC | MS_PRIVATE, NULL) != 0) {
+    agent_linux_diagnostic(11u);
+    agent_linux_child_failure(setup_status, AGENT_BROKER_FAILURE_CONTAINMENT);
+  }
+  if (mount(
       "proc",
       "/proc",
       "proc",
       MS_NOSUID | MS_NODEV | MS_NOEXEC,
       NULL
-    ) != 0 ||
-    mount(
+    ) != 0) {
+    agent_linux_diagnostic(12u);
+    agent_linux_child_failure(setup_status, AGENT_BROKER_FAILURE_CONTAINMENT);
+  }
+  if (mount(
       "cgroup2",
       AGENT_LINUX_CGROUP_MOUNT,
       "cgroup2",
       MS_NOSUID | MS_NODEV | MS_NOEXEC,
       NULL
-    ) != 0 ||
-    mount(
+    ) != 0) {
+    agent_linux_diagnostic(13u);
+    agent_linux_child_failure(setup_status, AGENT_BROKER_FAILURE_CONTAINMENT);
+  }
+  if (mount(
       NULL,
       AGENT_LINUX_CGROUP_MOUNT,
       NULL,
       MS_REMOUNT | MS_RDONLY | MS_NOSUID | MS_NODEV | MS_NOEXEC,
       NULL
-    ) != 0 ||
-    chdir(request->working_directory) != 0 ||
-    prctl(PR_SET_NO_NEW_PRIVS, 1u, 0u, 0u, 0u) != 0 ||
-    !agent_linux_drop_capabilities()
-  ) {
+    ) != 0) {
+    agent_linux_diagnostic(14u);
+    agent_linux_child_failure(setup_status, AGENT_BROKER_FAILURE_CONTAINMENT);
+  }
+  if (chdir(request->working_directory) != 0) {
+    agent_linux_diagnostic(15u);
+    agent_linux_child_failure(setup_status, AGENT_BROKER_FAILURE_CONTAINMENT);
+  }
+  if (prctl(PR_SET_NO_NEW_PRIVS, 1u, 0u, 0u, 0u) != 0) {
+    agent_linux_diagnostic(16u);
+    agent_linux_child_failure(setup_status, AGENT_BROKER_FAILURE_CONTAINMENT);
+  }
+  if (!agent_linux_drop_capabilities()) {
+    agent_linux_diagnostic(17u);
     agent_linux_child_failure(setup_status, AGENT_BROKER_FAILURE_CONTAINMENT);
   }
 
@@ -818,6 +849,7 @@ struct agent_broker_result agent_backend_run(
   }
   free(arguments);
   if (guard < 0 || pid_descriptor < 0) {
+    agent_linux_diagnostic(20u);
     result = agent_linux_failure(AGENT_BROKER_FAILURE_CONTAINMENT);
     goto cleanup;
   }
@@ -830,6 +862,7 @@ struct agent_broker_result agent_backend_run(
 
   if (!agent_linux_map_identity(guard) ||
       !agent_linux_write_all(setup_input[1], "\1", 1u)) {
+    agent_linux_diagnostic(21u);
     result = agent_linux_failure(AGENT_BROKER_FAILURE_CONTAINMENT);
     goto cleanup;
   }
@@ -842,6 +875,9 @@ struct agent_broker_result agent_backend_run(
   close(setup_status[0]);
   setup_status[0] = -1;
   if (setup_result != 0u) {
+    if (setup_result == AGENT_BROKER_FAILURE_CONTAINMENT) {
+      agent_linux_diagnostic(22u);
+    }
     result = agent_linux_failure(setup_result);
     goto cleanup;
   }
