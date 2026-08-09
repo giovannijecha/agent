@@ -78,9 +78,8 @@ export function renderComponent(
     }
     return Fragment.create(
       viewport,
-      candidate.value.lines,
+      candidate.value.rows,
       candidate.value.caret,
-      candidate.value.tones,
     );
   } catch (_cause: unknown) {
     return err(new ComponentError("unexpectedComponent", position));

@@ -13,6 +13,7 @@ import {
 import { Fragment } from "./fragment.js";
 import type { EditorProjection } from "./line-editor.js";
 import { TUI_LIMITS } from "./limits.js";
+import { RichRow } from "./rich-row.js";
 import { err, ok, type Result } from "./result.js";
 import { isTone, type Tone } from "./tone.js";
 import type { Viewport } from "./viewport.js";
@@ -133,16 +134,22 @@ export class InputLine implements Component {
       return err(new ComponentError("unexpectedProjection", undefined));
     }
 
-    const lines = Array.from({ length: viewport.rows }, () => "");
-    lines.splice(viewport.rows - 1, 1, prefix + projectedText);
+    const rows = Array.from(
+      { length: viewport.rows },
+      () => RichRow.empty(),
+    );
+    const inputRow = RichRow.fromText(prefix + projectedText, this.#tone);
+    if (!inputRow.ok) {
+      return err(new ComponentError("invalidRow", viewport.rows - 1));
+    }
+    rows.splice(viewport.rows - 1, 1, inputRow.value);
     return Fragment.create(
       viewport,
-      lines,
+      rows,
       {
         row: viewport.rows - 1,
         column: prefixWidth + projectedCaret,
       },
-      lines.map(() => this.#tone),
     );
   }
 }

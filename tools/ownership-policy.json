@@ -33,7 +33,8 @@
     "docs/decisions/0017-owned-opencode-go-provider.md",
     "docs/decisions/0018-owned-executable-startup.md",
     "docs/decisions/0019-owned-semantic-terminal-tones.md",
-    "docs/decisions/0020-owned-scrollable-screen-foundation.md"
+    "docs/decisions/0020-owned-scrollable-screen-foundation.md",
+    "docs/decisions/0021-owned-structured-terminal-rows.md"
   ],
   "workspaces": [
     {

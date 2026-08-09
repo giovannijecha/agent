@@ -5,6 +5,7 @@ import {
   type Component,
   type ComponentMeasurement,
   Fragment,
+  RichRow,
   type Result,
   ScrollState,
   ScrollView,
@@ -33,8 +34,11 @@ test("renders the followed end through one generic child", () => {
 
   const rendered = created.value.render(viewport(10, 2));
   assert.ok(rendered.ok);
-  assert.deepEqual(rendered.value.lines, ["two", "three"]);
-  assert.deepEqual(rendered.value.tones, ["accent", "accent"]);
+  assert.deepEqual(rendered.value.rows.map((row) => row.text), ["two", "three"]);
+  assert.deepEqual(
+    rendered.value.rows.map((row) => row.spans.at(0)?.tone),
+    ["accent", "accent"],
+  );
 });
 
 test("renders a manually selected window and pads short content", () => {
@@ -44,14 +48,17 @@ test("renders a manually selected window and pads short content", () => {
   assert.ok(selected.ok);
   const selectedFrame = selected.value.render(viewport(10, 2));
   assert.ok(selectedFrame.ok);
-  assert.deepEqual(selectedFrame.value.lines, ["one", "two"]);
+  assert.deepEqual(selectedFrame.value.rows.map((row) => row.text), ["one", "two"]);
 
   const short = ScrollView.create(text("one"), ScrollState.followEnd());
   assert.ok(short.ok);
   const shortFrame = short.value.render(viewport(10, 3));
   assert.ok(shortFrame.ok);
-  assert.deepEqual(shortFrame.value.lines, ["one", "", ""]);
-  assert.deepEqual(shortFrame.value.tones, ["plain", "plain", "plain"]);
+  assert.deepEqual(shortFrame.value.rows.map((row) => row.text), ["one", "", ""]);
+  assert.deepEqual(
+    shortFrame.value.rows.map((row) => row.spans.at(0)?.tone),
+    ["plain", undefined, undefined],
+  );
 });
 
 class CaretComponent implements Component {
@@ -63,11 +70,12 @@ class CaretComponent implements Component {
   }
 
   render(assigned: Viewport): Result<Fragment, never> {
-    const fragment = Fragment.create(
-      assigned,
-      ["one", "two", "three"],
-      { row: 2, column: 2 },
-    );
+    const rows = ["one", "two", "three"].map((text) => {
+      const row = RichRow.fromText(text);
+      assert.ok(row.ok);
+      return row.value;
+    });
+    const fragment = Fragment.create(assigned, rows, { row: 2, column: 2 });
     assert.ok(fragment.ok);
     return fragment;
   }

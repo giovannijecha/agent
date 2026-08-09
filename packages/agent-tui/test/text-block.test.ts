@@ -27,7 +27,12 @@ test("normalizes line endings, tabs, controls, and lone surrogates", () => {
   assert.ok(measured.ok);
   assert.equal(measured.value.preferredRows, 4);
   assert.ok(rendered.ok);
-  assert.deepEqual(rendered.value.lines, ["a", "b", "c", "d   ??" + smile]);
+  assert.deepEqual(rendered.value.rows.map((row) => row.text), [
+    "a",
+    "b",
+    "c",
+    "d   ??" + smile,
+  ]);
 });
 
 test("wraps conservatively and replaces a wide scalar in one column", () => {
@@ -36,9 +41,9 @@ test("wraps conservatively and replaces a wide scalar in one column", () => {
   const narrow = block(smile, "head").render(viewport(1, 1));
 
   assert.ok(wrapped.ok);
-  assert.deepEqual(wrapped.value.lines, ["abc", "def"]);
+  assert.deepEqual(wrapped.value.rows.map((row) => row.text), ["abc", "def"]);
   assert.ok(narrow.ok);
-  assert.deepEqual(narrow.value.lines, ["?"]);
+  assert.deepEqual(narrow.value.rows.map((row) => row.text), ["?"]);
 });
 
 test("anchors overflow at the head or tail and pads its assigned rows", () => {
@@ -49,9 +54,9 @@ test("anchors overflow at the head or tail and pads its assigned rows", () => {
   assert.ok(head.ok);
   assert.ok(tail.ok);
   assert.ok(padded.ok);
-  assert.deepEqual(head.value.lines, ["one", "two"]);
-  assert.deepEqual(tail.value.lines, ["two", "three"]);
-  assert.deepEqual(padded.value.lines, ["", "", "one"]);
+  assert.deepEqual(head.value.rows.map((row) => row.text), ["one", "two"]);
+  assert.deepEqual(tail.value.rows.map((row) => row.text), ["two", "three"]);
+  assert.deepEqual(padded.value.rows.map((row) => row.text), ["", "", "one"]);
 });
 
 test("rejects invalid creation and display bounds without retaining text", () => {
@@ -84,9 +89,9 @@ test("clips excessive normalized rows deterministically by anchor", () => {
   const tail = block(source, "tail").render(viewport(16, 2));
 
   assert.ok(head.ok);
-  assert.deepEqual(head.value.lines, ["0", "1"]);
+  assert.deepEqual(head.value.rows.map((row) => row.text), ["0", "1"]);
   assert.ok(tail.ok);
-  assert.deepEqual(tail.value.lines, ["4096", "4097"]);
+  assert.deepEqual(tail.value.rows.map((row) => row.text), ["4096", "4097"]);
 });
 
 test("applies one validated semantic tone to every assigned row", () => {
@@ -96,7 +101,10 @@ test("applies one validated semantic tone to every assigned row", () => {
   assert.ok(created.ok);
   const rendered = created.value.render(viewport(8, 2));
   assert.ok(rendered.ok);
-  assert.deepEqual(rendered.value.tones, ["accent", "accent"]);
+  assert.deepEqual(
+    rendered.value.rows.map((row) => row.spans.at(0)?.tone),
+    ["accent", undefined],
+  );
   assert.equal(invalid.ok, false);
   if (!invalid.ok) assert.equal(invalid.error.kind, "invalidTone");
 });

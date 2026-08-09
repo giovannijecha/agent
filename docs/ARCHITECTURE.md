@@ -117,15 +117,15 @@ tool policy, or second agent identity. It imports only core, runtime, and tools.
 
 Owns incremental terminal-key decoding, bounded single-line editing, validated
 viewports and atomic frames, conservative cell measurement, immutable fragments,
-bounded text and input components, four closed semantic row tones,
-deterministic vertical allocation, ANSI commands, and serialized asynchronous
-differential rendering. It knows nothing about agents or Node. Unknown control
-sequences never become editable text;
-display text sanitizes controls and lone surrogates; fragments and frames reject
-unsafe scalar or terminal-control content independently.
-Only the renderer translates validated tones into fixed terminal sequences and
-resets style after every emphasized row and during cleanup. Product tone choices
-remain in CLI, and untrusted model or tool content can supply text only.
+bounded text and input components, normalized structured rows with four closed
+semantic span tones, deterministic vertical allocation, ANSI commands, and
+serialized asynchronous differential rendering. It knows nothing about agents
+or Node. Unknown control sequences never become editable text; display text
+sanitizes controls and lone surrogates; structured rows, fragments, and frames
+reject unsafe scalar or terminal-control content independently.
+Only the renderer translates validated span tones into fixed terminal sequences
+and resets style after every emphasized span and during cleanup. Product tone
+choices remain in CLI, and untrusted model or tool content can supply text only.
 Committed frame and viewport snapshots change only after a completed successful
 output write. Conservative flags record that the alternate screen or hidden
 cursor may have become visible before an attempted write, so cleanup remains
@@ -180,7 +180,7 @@ bounded terminal FIFO ----+
                    two-source arbiter -> single-writer application reducer
                            ^                         |
 runtime pull event --------+                         v
-                       generic vertical components + semantic tones + scroll
+                  generic vertical components + structured rows + scroll
                                                    |
                                                    v
                          atomic frame + synchronized differential renderer

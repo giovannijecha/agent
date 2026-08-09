@@ -1,20 +1,11 @@
-import { hasLoneSurrogate, textCellWidth } from "./cell-width.js";
 import { TUI_LIMITS } from "./limits.js";
+import { RichRow } from "./rich-row.js";
 import { err, ok, type Result } from "./result.js";
-import { isTone, type Tone } from "./tone.js";
-
-const CONTROL_CHARACTER = /[\u0000-\u001F\u007F-\u009F]/u;
 
 /** A zero-based visible caret position measured in terminal cells. */
 export type Caret = Readonly<{ row: number; column: number }>;
 
-export type FrameErrorKind =
-  | "controlCharacter"
-  | "invalidCaret"
-  | "invalidScalar"
-  | "invalidTone"
-  | "lineTooLong"
-  | "tooManyRows";
+export type FrameErrorKind = "invalidCaret" | "invalidRow" | "tooManyRows";
 
 /** Structural frame failure that never retains rejected display content. */
 export class FrameError {
@@ -36,106 +27,83 @@ export class FrameError {
   }
 }
 
-function countCodePoints(text: string): number {
-  let count = 0;
-  for (const _character of text) {
-    count += 1;
-    if (count > TUI_LIMITS.frameLineCodePoints) {
-      break;
-    }
-  }
-  return count;
-}
-
-/** Atomic validated terminal frame containing untrusted printable rows. */
+/** Atomic validated terminal frame containing immutable structured rows. */
 export class Frame {
-  readonly #lines: readonly string[];
   readonly #caret: Caret | undefined;
-  readonly #tones: readonly Tone[];
+  readonly #rows: readonly RichRow[];
 
-  private constructor(
-    lines: readonly string[],
-    caret: Caret | undefined,
-    tones: readonly Tone[],
-  ) {
-    this.#lines = Object.freeze([...lines]);
+  private constructor(rows: readonly RichRow[], caret: Caret | undefined) {
+    this.#rows = Object.freeze([...rows]);
     this.#caret = caret;
-    this.#tones = Object.freeze([...tones]);
     Object.freeze(this);
   }
 
-  /** Validates and copies printable rows and tones without rejected content. */
+  /** Revalidates and copies structured rows at the final terminal boundary. */
   static create(
-    lines: readonly string[],
+    rows: readonly RichRow[],
     caret?: Caret,
-    tones?: readonly Tone[],
   ): Result<Frame, FrameError> {
-    if (lines.length > TUI_LIMITS.frameRows) {
+    let count: number;
+    try {
+      if (!Array.isArray(rows)) {
+        return err(new FrameError("invalidRow", undefined));
+      }
+      count = rows.length;
+    } catch (_cause: unknown) {
+      return err(new FrameError("invalidRow", undefined));
+    }
+    if (count > TUI_LIMITS.frameRows) {
       return err(new FrameError("tooManyRows", undefined));
     }
 
-    if (tones !== undefined && !Array.isArray(tones)) {
-      return err(new FrameError("invalidTone", undefined));
-    }
-    if (tones !== undefined && tones.length !== lines.length) {
-      return err(new FrameError("invalidTone", undefined));
-    }
-
-    const storedTones: Tone[] = [];
-    for (let row = 0; row < lines.length; row += 1) {
-      const line = lines.at(row);
-      if (line === undefined) {
-        return err(new FrameError("lineTooLong", row));
-      }
-      if (CONTROL_CHARACTER.test(line)) {
-        return err(new FrameError("controlCharacter", row));
-      }
-      if (hasLoneSurrogate(line)) {
-        return err(new FrameError("invalidScalar", row));
-      }
-      if (countCodePoints(line) > TUI_LIMITS.frameLineCodePoints) {
-        return err(new FrameError("lineTooLong", row));
-      }
-      let tone: unknown = "plain";
+    const storedRows: RichRow[] = [];
+    for (let row = 0; row < count; row += 1) {
+      let candidate: unknown;
       try {
-        tone = tones?.at(row) ?? "plain";
+        candidate = rows.at(row);
       } catch (_cause: unknown) {
-        return err(new FrameError("invalidTone", row));
+        return err(new FrameError("invalidRow", row));
       }
-      if (!isTone(tone)) {
-        return err(new FrameError("invalidTone", row));
+      const copied = RichRow.snapshot(candidate);
+      if (!copied.ok) {
+        return err(new FrameError("invalidRow", row));
       }
-      storedTones.push(tone);
+      storedRows.push(copied.value);
     }
 
     let storedCaret: Caret | undefined;
     if (caret !== undefined) {
-      const line = lines.at(caret.row);
-      if (
-        !Number.isSafeInteger(caret.row) ||
-        caret.row < 0 ||
-        !Number.isSafeInteger(caret.column) ||
-        caret.column < 0 ||
-        line === undefined ||
-        caret.column > textCellWidth(line)
-      ) {
-        return err(new FrameError("invalidCaret", caret.row));
+      try {
+        if (typeof caret !== "object" || caret === null) {
+          return err(new FrameError("invalidCaret", undefined));
+        }
+        const row = caret.row;
+        const column = caret.column;
+        const line = storedRows.at(row);
+        if (
+          !Number.isSafeInteger(row) ||
+          row < 0 ||
+          !Number.isSafeInteger(column) ||
+          column < 0 ||
+          line === undefined ||
+          column > line.cellWidth
+        ) {
+          return err(new FrameError("invalidCaret", row));
+        }
+        storedCaret = Object.freeze({ row, column });
+      } catch (_cause: unknown) {
+        return err(new FrameError("invalidCaret", undefined));
       }
-      storedCaret = Object.freeze({ row: caret.row, column: caret.column });
     }
 
-    return ok(new Frame(lines, storedCaret, storedTones));
+    return ok(new Frame(storedRows, storedCaret));
   }
 
-  get lines(): readonly string[] {
-    return this.#lines;
+  get rows(): readonly RichRow[] {
+    return this.#rows;
   }
 
   get caret(): Caret | undefined {
     return this.#caret;
-  }
-
-  get tones(): readonly Tone[] {
-    return this.#tones;
   }
 }

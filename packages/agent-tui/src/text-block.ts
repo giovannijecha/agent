@@ -7,6 +7,7 @@ import {
 import { layoutDisplayText } from "./display-text.js";
 import { Fragment } from "./fragment.js";
 import { TUI_LIMITS } from "./limits.js";
+import { RichRow } from "./rich-row.js";
 import { err, ok, type Result } from "./result.js";
 import { isTone, type Tone } from "./tone.js";
 import type { Viewport } from "./viewport.js";
@@ -83,11 +84,14 @@ export class TextBlock implements Component {
       this.#anchor === "head"
         ? [...visible, ...padding]
         : [...padding, ...visible];
-    return Fragment.create(
-      viewport,
-      lines,
-      undefined,
-      lines.map(() => this.#tone),
-    );
+    const rows: RichRow[] = [];
+    for (let position = 0; position < lines.length; position += 1) {
+      const row = RichRow.fromText(lines.at(position) ?? "", this.#tone);
+      if (!row.ok) {
+        return err(new ComponentError("invalidRow", position));
+      }
+      rows.push(row.value);
+    }
+    return Fragment.create(viewport, rows);
   }
 }

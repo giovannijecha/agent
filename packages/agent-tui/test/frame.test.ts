@@ -1,87 +1,88 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { Frame, FrameError } from "@agent/tui";
+import { Frame, FrameError, RichRow, TextSpan, TUI_LIMITS } from "@agent/tui";
 
-test("rejects every terminal control range without retaining content", () => {
-  const controls = [0x00, 0x1f, 0x7f, 0x80, 0x9f];
-  for (const point of controls) {
-    const result = Frame.create(["before", "x" + String.fromCodePoint(point)]);
-    assert.equal(result.ok, false);
-    if (!result.ok) {
-      assert.ok(result.error instanceof FrameError);
-      assert.equal(result.error.kind, "controlCharacter");
-      assert.equal(result.error.row, 1);
-      assert.equal("line" in result.error, false);
-    }
+function row(
+  text: string,
+  tone: "accent" | "muted" | "plain" = "plain",
+): RichRow {
+  const result = RichRow.fromText(text, tone);
+  assert.ok(result.ok);
+  return result.value;
+}
+
+test("rejects a hostile structured row at the final frame boundary", () => {
+  const result = Frame.create([new Proxy(row("agent"), {})]);
+
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.ok(result.error instanceof FrameError);
+    assert.equal(result.error.kind, "invalidRow");
+    assert.equal(result.error.row, 0);
+    assert.equal("line" in result.error, false);
+    assert.equal("cause" in result.error, false);
   }
 });
 
-test("creates one immutable toned frame and caret atomically", () => {
+test("creates one immutable mixed-tone frame and caret atomically", () => {
+  const accent = TextSpan.create("agent", "accent");
+  const muted = TextSpan.create(" ready", "muted");
+  assert.ok(accent.ok);
+  assert.ok(muted.ok);
+  const mixed = RichRow.create([accent.value, muted.value]);
+  assert.ok(mixed.ok);
   const result = Frame.create(
-    ["agent", "ready"],
+    [mixed.value, row("ready", "muted")],
     { row: 1, column: 5 },
-    ["accent", "muted"],
   );
 
   assert.ok(result.ok);
-  assert.deepEqual(result.value.lines, ["agent", "ready"]);
+  assert.deepEqual(result.value.rows.map((item) => item.text), [
+    "agent ready",
+    "ready",
+  ]);
+  assert.deepEqual(result.value.rows.at(0)?.spans.map((item) => item.tone), [
+    "accent",
+    "muted",
+  ]);
   assert.deepEqual(result.value.caret, { row: 1, column: 5 });
-  assert.deepEqual(result.value.tones, ["accent", "muted"]);
   assert.ok(Object.isFrozen(result.value));
-  assert.ok(Object.isFrozen(result.value.lines));
+  assert.ok(Object.isFrozen(result.value.rows));
   assert.ok(Object.isFrozen(result.value.caret));
-  assert.ok(Object.isFrozen(result.value.tones));
 });
 
-test("rejects a caret outside the frame or its line", () => {
-  const missingRow = Frame.create(["agent"], { row: 1, column: 0 });
-  const pastLine = Frame.create(["agent"], { row: 0, column: 6 });
+test("rejects a caret outside the frame or its row", () => {
+  const missingRow = Frame.create([row("agent")], { row: 1, column: 0 });
+  const pastLine = Frame.create([row("agent")], { row: 0, column: 6 });
 
   assert.equal(missingRow.ok, false);
   assert.equal(pastLine.ok, false);
-  if (!missingRow.ok) {
-    assert.equal(missingRow.error.kind, "invalidCaret");
-  }
-  if (!pastLine.ok) {
-    assert.equal(pastLine.error.kind, "invalidCaret");
-  }
+  if (!missingRow.ok) assert.equal(missingRow.error.kind, "invalidCaret");
+  if (!pastLine.ok) assert.equal(pastLine.error.kind, "invalidCaret");
 });
 
-test("rejects oversized frame input", () => {
-  const tooManyRows = Frame.create(Array.from({ length: 4_097 }, () => "x"));
-  const tooLong = Frame.create(["x".repeat(16_385)]);
+test("rejects oversized frame input before copying rows", () => {
+  const oversized = new Proxy(
+    new Array<RichRow>(TUI_LIMITS.frameRows + 1),
+    {
+      get(target, property) {
+        if (property !== "length") throw new Error("member read escaped");
+        return target.length;
+      },
+    },
+  );
+  const tooManyRows = Frame.create(oversized);
 
   assert.equal(tooManyRows.ok, false);
-  assert.equal(tooLong.ok, false);
-  if (!tooManyRows.ok) {
-    assert.equal(tooManyRows.error.kind, "tooManyRows");
-  }
-  if (!tooLong.ok) {
-    assert.equal(tooLong.error.kind, "lineTooLong");
-  }
+  if (!tooManyRows.ok) assert.equal(tooManyRows.error.kind, "tooManyRows");
 });
 
-test("rejects unmatched surrogate code units at the final frame boundary", () => {
-  const result = Frame.create(["safe\uD800"]);
+test("defensively snapshots accepted rows", () => {
+  const source = row("agent", "accent");
+  const result = Frame.create([source]);
 
-  assert.equal(result.ok, false);
-  if (!result.ok) assert.equal(result.error.kind, "invalidScalar");
-});
-
-test("defaults to plain tone and rejects malformed tone metadata", () => {
-  const plain = Frame.create(["agent"]);
-  const invalid = Frame.create(
-    ["agent"],
-    undefined,
-    ["loud" as never],
-  );
-  const mismatched = Frame.create(["agent"], undefined, []);
-
-  assert.ok(plain.ok);
-  assert.deepEqual(plain.value.tones, ["plain"]);
-  assert.equal(invalid.ok, false);
-  assert.equal(mismatched.ok, false);
-  if (!invalid.ok) assert.equal(invalid.error.kind, "invalidTone");
-  if (!mismatched.ok) assert.equal(mismatched.error.kind, "invalidTone");
+  assert.ok(result.ok);
+  assert.equal(result.value.rows.at(0) === source, false);
+  assert.equal(result.value.rows.at(0)?.equals(source), true);
 });

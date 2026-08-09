@@ -48,19 +48,22 @@ bounded storage; excessive logical lines never force an application shutdown.
 ## Intended scope
 
 Version 1 is complete for deterministic vertical text applications. Decision
-0019 later adds four closed semantic row tones without changing allocation or
-allowing raw terminal controls. Decision 0020 adds immutable scroll geometry,
-one generic scroll view, and synchronized renderer transactions. The framework
-does not claim horizontal splits, overlapping layers, rich spans, arbitrary
-colors, mouse input, focus traversal, markdown, syntax highlighting, grapheme
-tables, or arbitrary two-dimensional cell composition. Those capabilities need
-separate contracts and decisions rather than compatibility hooks in this one.
+0019 later adds four closed semantic tones without allowing raw terminal
+controls. Decision 0020 adds immutable scroll geometry, one generic scroll view,
+and synchronized renderer transactions. Decision 0021 replaces the original
+parallel row-and-tone representation with one canonical bounded structured-row
+contract. The framework does not claim horizontal splits, overlapping layers,
+arbitrary colors, mouse input, focus traversal, markdown, syntax highlighting,
+grapheme tables, or arbitrary two-dimensional cell composition. Those
+capabilities need separate contracts and decisions rather than compatibility
+hooks in this one.
 
 ## Update, rollback, and removal
 
-Change allocation, sanitization, width, focus, or fragment rules only with
-focused boundary tests and an update to this decision. Application-specific chat
-state remains in CLI and never becomes a generic component.
+Change allocation, sanitization, width, focus, structured-row, or fragment rules
+only with focused boundary tests and an update to this decision or its replacing
+decision. Application-specific chat state remains in CLI and never becomes a
+generic component.
 
 To remove the framework, replace CLI component composition with direct validated
 frames, then remove the component modules, exports, tests, and this decision from

@@ -14,6 +14,7 @@ export type ComponentErrorKind =
   | "invalidMeasurement"
   | "invalidPrefix"
   | "invalidProjection"
+  | "invalidRow"
   | "invalidScalar"
   | "invalidSource"
   | "invalidSlot"
@@ -69,10 +70,18 @@ export function validComponentColumns(columns: number): boolean {
 
 /** Internal shared guard for the bounded component viewport contract. */
 export function validComponentViewport(viewport: Viewport): boolean {
-  return (
-    viewport instanceof Viewport &&
-    validComponentColumns(viewport.columns) &&
-    viewport.rows >= 1 &&
-    viewport.rows <= TUI_LIMITS.frameRows
-  );
+  try {
+    if (!(viewport instanceof Viewport)) {
+      return false;
+    }
+    const columns = viewport.columns;
+    const rows = viewport.rows;
+    return (
+      validComponentColumns(columns) &&
+      rows >= 1 &&
+      rows <= TUI_LIMITS.frameRows
+    );
+  } catch (_cause: unknown) {
+    return false;
+  }
 }
