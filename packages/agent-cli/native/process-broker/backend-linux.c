@@ -540,6 +540,10 @@ static void agent_linux_guard(
     agent_linux_diagnostic(11u);
     agent_linux_child_failure(setup_status, AGENT_BROKER_FAILURE_CONTAINMENT);
   }
+  if (umount(AGENT_LINUX_CGROUP_MOUNT) != 0) {
+    agent_linux_diagnostic(19u);
+    agent_linux_child_failure(setup_status, AGENT_BROKER_FAILURE_CONTAINMENT);
+  }
   if (mount(
       "proc",
       "/proc",
@@ -551,7 +555,7 @@ static void agent_linux_guard(
     agent_linux_child_failure(setup_status, AGENT_BROKER_FAILURE_CONTAINMENT);
   }
   if (mount(
-      "cgroup2",
+      "none",
       AGENT_LINUX_CGROUP_MOUNT,
       "cgroup2",
       MS_NOSUID | MS_NODEV | MS_NOEXEC,
