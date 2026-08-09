@@ -57,7 +57,13 @@ if [[ "$operation" == 'setup' ]]; then
   sudo mkdir -- "$control_group" "$runs_group"
   printf '+pids\n' | sudo tee "${delegation_root}/cgroup.subtree_control" >/dev/null
   printf '%s\n' "$controller_pid" | sudo tee "${control_group}/cgroup.procs" >/dev/null
+  sudo chown -- "${current_uid}:${current_gid}" "${delegation_root}/cgroup.procs"
   sudo chown -R -- "${current_uid}:${current_gid}" "$runs_group"
+  if [[ ! -w "${delegation_root}/cgroup.procs" ]] ||
+     [[ ! -w "${runs_group}/cgroup.procs" ]]; then
+    printf '%s\n' 'The disposable cgroup delegation is incomplete.' >&2
+    exit 1
+  fi
   exit 0
 fi
 

@@ -23,10 +23,10 @@ Pull requests and pushes to `main` run owned `verify-windows` and `verify-linux`
 GitHub jobs. Each checks out the exact event revision without importing a
 checkout action, provisions the registered external npm and TypeScript
 toolchain, verifies external Clang, and invokes the same command above. Linux
-uses an owned CI-only bootstrap to delegate a disposable cgroup and temporarily
-open Ubuntu's AppArmor gate for unprivileged user namespaces; the broker and
-tests remain unprivileged, and cleanup restores the gate. Inspect both jobs when
-a protected merge is blocked.
+uses an owned CI-only bootstrap to delegate a disposable cgroup, including its
+common-parent migration permission, and temporarily open Ubuntu's AppArmor gate
+for unprivileged user namespaces; the broker and tests remain unprivileged, and
+cleanup restores the gate. Inspect both jobs when a protected merge is blocked.
 
 Use `npm run build` for a focused compiler check and `npm test` only after test
 artifacts have been built by the canonical flow. When the CLI stops, start with

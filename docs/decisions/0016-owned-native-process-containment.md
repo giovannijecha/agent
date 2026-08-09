@@ -98,10 +98,13 @@ with `CLONE_INTO_CGROUP`, pidfds, and unprivileged user, mount, PID, and cgroup
 namespaces. It never degrades to process groups or discovered PIDs.
 
 The controller must already run in an exclusively delegated `control` cgroup
-with an empty, user-owned sibling named `runs`. The broker discovers this
-relationship from `/proc/self/cgroup`, creates a random run leaf, sets
-`pids.max`, opens the leaf, and clones a trusted namespace guard directly into
-it before any target code can run.
+with an empty, user-owned sibling named `runs`. The delegatee must also have
+write access to the common parent's `cgroup.procs`; cgroup v2 requires that
+permission in addition to destination access when `CLONE_INTO_CGROUP` crosses
+from `control` into a run leaf. The broker discovers this relationship from
+`/proc/self/cgroup`, creates a random run leaf, sets `pids.max`, opens the leaf,
+and clones a trusted namespace guard directly into it before any target code
+can run.
 
 The guard is PID 1 in the new PID namespace and is linked to broker death with
 `PR_SET_PDEATHSIG(SIGKILL)`. It waits for the parent to install one-entry UID and
@@ -121,14 +124,15 @@ after abrupt broker death; the delegated owner may remove that empty artifact,
 but no process can remain inside it.
 
 The product never elevates. The owned GitHub Linux job uses `sudo` only in a
-pre-verification bootstrap to create and delegate the disposable CI subtree and
-in its cleanup to remove it. Ubuntu 24.04 restricts unprivileged user-namespace
-capabilities through AppArmor by default, so the same bootstrap verifies that
-exact default, temporarily disables only that user-namespace restriction for
-the isolated proof, and restores it during cleanup. Broker, fixture, harness,
-and tests run as the unprivileged runner user. Missing delegation, namespace
-policy, cgroup controller, kernel operation, or cleanup evidence fails the
-Linux job closed.
+pre-verification bootstrap to create the disposable CI subtree, delegate the
+`runs` hierarchy and the common-parent process-migration file, and in its
+cleanup to remove the subtree. Ubuntu 24.04 restricts unprivileged
+user-namespace capabilities through AppArmor by default, so the same bootstrap
+verifies that exact default, temporarily disables only that user-namespace
+restriction for the isolated proof, and restores it during cleanup. Broker,
+fixture, harness, and tests run as the unprivileged runner user. Missing
+delegation, namespace policy, cgroup controller, kernel operation, or cleanup
+evidence fails the Linux job closed.
 
 The runner policy is documented in the
 [Ubuntu 24.04 release notes](https://documentation.ubuntu.com/release-notes/24.04/#unprivileged-user-namespace-restrictions).

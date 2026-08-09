@@ -333,11 +333,12 @@ on Linux x64. Cross-compilation is diagnostic only, not release evidence. Keep
 generated binaries ignored and rebuild them from owned source.
 
 The Linux backend requires an exclusive delegated cgroup v2 layout with the
-controller in `control` and an empty user-owned sibling named `runs`. Production
-never invokes `sudo`. The CI bootstrap may elevate only to create, delegate,
-leave, and remove its disposable subtree. Missing `pids`, `cgroup.kill`,
-`clone3`, pidfd, namespace, read-only cgroup mount, or cleanup support is a hard
-failure. Do not add a process-group fallback.
+controller in `control`, an empty user-owned sibling named `runs`, and delegatee
+write access to the common parent's `cgroup.procs`. Production never invokes
+`sudo`. The CI bootstrap may elevate only to create, delegate, leave, and remove
+its disposable subtree. Missing `pids`, `cgroup.kill`, `clone3`, pidfd,
+namespace, read-only cgroup mount, or cleanup support is a hard failure. Do not
+add a process-group fallback.
 
 The registered Ubuntu 24.04 proof also requires the runner's default AppArmor
 unprivileged-user-namespace restriction. The CI bootstrap temporarily changes
