@@ -393,8 +393,39 @@ static void agent_fixture_sleep(uint32_t milliseconds) {
   }
 }
 
-static uint32_t agent_fixture_process_id(void) {
-  return (uint32_t)getpid();
+static bool agent_fixture_outer_process_id(uint32_t *process_id) {
+  FILE *status = fopen("/proc/self/status", "rb");
+  if (status == NULL) {
+    return false;
+  }
+  bool found = false;
+  char line[4096];
+  while (fgets(line, sizeof(line), status) != NULL) {
+    if (strncmp(line, "NSpid:", 6u) != 0) {
+      continue;
+    }
+    char *cursor = line + 6;
+    while (*cursor == ' ' || *cursor == '\t') {
+      cursor += 1;
+    }
+    errno = 0;
+    char *end = NULL;
+    const unsigned long value = strtoul(cursor, &end, 10);
+    if (
+      cursor != end &&
+      errno != ERANGE &&
+      value > 0u &&
+      value <= UINT32_MAX &&
+      (*end == ' ' || *end == '\t' || *end == '\r' || *end == '\n')
+    ) {
+      *process_id = (uint32_t)value;
+      found = true;
+    }
+    break;
+  }
+  const bool read_succeeded = ferror(status) == 0;
+  const bool close_succeeded = fclose(status) == 0;
+  return found && read_succeeded && close_succeeded;
 }
 
 static bool agent_fixture_wait_for_process_file(const char *path) {
@@ -431,11 +462,15 @@ static bool agent_fixture_wait_for_process_count(
 }
 
 static bool agent_fixture_append_process_id(const char *path) {
+  uint32_t process_id = 0u;
+  if (!agent_fixture_outer_process_id(&process_id)) {
+    return false;
+  }
   FILE *file = fopen(path, "ab");
   if (file == NULL) {
     return false;
   }
-  const int result = fprintf(file, "%lu\n", (unsigned long)agent_fixture_process_id());
+  const int result = fprintf(file, "%lu\n", (unsigned long)process_id);
   const bool succeeded = result > 0 && fflush(file) == 0 && fclose(file) == 0;
   return succeeded;
 }
