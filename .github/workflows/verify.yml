@@ -154,4 +154,4 @@ jobs:
           set -euo pipefail
           trap 'bash tools/prepare-linux-containment.sh cleanup "$$"' EXIT
           bash tools/prepare-linux-containment.sh setup "$$"
-          powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1
+          bash tools/verify.sh

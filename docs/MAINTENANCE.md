@@ -310,8 +310,8 @@ node tools/build-native.mjs
 
 This may change only `package-lock.json`, `node_modules` local links, `dist`,
 `.test-dist`, and the ignored matching-platform `.native-build` directory.
-Review those outputs through `tools/verify.ps1`, not manual edits or committed
-binaries.
+Review those outputs through `tools/verify.ps1` on Windows or `tools/verify.sh`
+on Linux, not manual edits or committed binaries.
 
 ## Update the toolchain
 
@@ -357,6 +357,10 @@ decision 0015 only. No TypeScript production module should require changes.
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1
 ```
 
-This command validates ownership before installation, recreates only local
+```bash
+bash tools/verify.sh
+```
+
+Each platform entry point validates ownership before installation, recreates only local
 workspace links, rebuilds from clean inputs, validates derived output, runs all
 tests, and executes the exact CLI smoke test.

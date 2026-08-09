@@ -89,6 +89,12 @@ npm start
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1
 ```
 
+Linux uses the matching owned wrapper:
+
+```bash
+bash tools/verify.sh
+```
+
 The lockfile contains only workspace topology and local links. `npm ci` is
 offline and cannot add packages. The verification command is the definition of
 done. The owned `verify` GitHub workflow invokes the same command on pull

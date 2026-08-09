@@ -1,5 +1,5 @@
 const EXPECTED_POLICY = Object.freeze({
-  schemaVersion: 2,
+  schemaVersion: 3,
   workflowPath: ".github/workflows/verify.yml",
   workflowName: "verify",
   jobs: Object.freeze([
@@ -17,8 +17,10 @@ const EXPECTED_POLICY = Object.freeze({
     }),
   ]),
   protectedBranches: Object.freeze(["main"]),
-  canonicalCommand:
-    "powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1",
+  canonicalCommands: Object.freeze({
+    win32: "powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1",
+    linux: "bash tools/verify.sh",
+  }),
 });
 
 export class CiPolicyError extends Error {
@@ -160,7 +162,7 @@ function windowsJob(policy, toolchain) {
     "",
     "      - name: Run canonical owned verifier",
     "        shell: powershell",
-    "        run: " + policy.canonicalCommand,
+    "        run: " + policy.canonicalCommands.win32,
   ];
 }
 
@@ -224,7 +226,7 @@ function linuxJob(policy, toolchain) {
     "          set -euo pipefail",
     "          trap 'bash tools/prepare-linux-containment.sh cleanup \"$$\"' EXIT",
     "          bash tools/prepare-linux-containment.sh setup \"$$\"",
-    "          " + policy.canonicalCommand,
+    "          " + policy.canonicalCommands.linux,
   ];
 }
 

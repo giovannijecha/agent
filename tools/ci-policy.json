@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "workflowPath": ".github/workflows/verify.yml",
   "workflowName": "verify",
   "jobs": [
@@ -19,5 +19,8 @@
   "protectedBranches": [
     "main"
   ],
-  "canonicalCommand": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1"
+  "canonicalCommands": {
+    "win32": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1",
+    "linux": "bash tools/verify.sh"
+  }
 }

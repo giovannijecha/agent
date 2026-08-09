@@ -124,7 +124,8 @@ controller, kernel operation, or cleanup evidence fails the Linux job closed.
 
 ## Verification contract
 
-The exact owned workflow runs matching Windows 2025 and Ubuntu 24.04 jobs. Both
+The exact owned workflow runs matching Windows 2025 and Ubuntu 24.04 jobs. Each
+uses a small platform-native wrapper for the same ordered release gate. Both
 compile source with C17, warnings as errors, stack protection, and platform link
 hardening, then run the same protocol conformance suite. The suite covers exact
 arguments, empty environment, working directory, stdout/stderr separation,

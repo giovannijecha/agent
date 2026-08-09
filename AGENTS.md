@@ -105,6 +105,9 @@ npm start
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1
 ```
 
+On Linux, use `bash tools/verify.sh`; it runs the same ordered gate with the
+platform-native shell wrapper.
+
 The final command must pass before work is complete. It checks the toolchain,
 documents, manifests, lockfile, imports, source hygiene, build, tests, and CLI.
 The owned GitHub workflow runs this same command for pull requests and `main`;

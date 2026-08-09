@@ -151,6 +151,7 @@
     "tools/test/native-process-broker.test.mjs",
     "tools/toolchain.json",
     "tools/verify.mjs",
+    "tools/verify.sh",
     "tools/verify.ps1",
     ".github/workflows/verify.yml"
   ]

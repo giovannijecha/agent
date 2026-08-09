@@ -9,7 +9,8 @@ A change is complete only when:
 3. public behavior, invariants, errors, side effects, and security are documented;
 4. focused tests cover success, failure, and boundary conditions;
 5. update, rollback, replacement, and removal remain localized;
-6. `tools/verify.ps1` passes from a clean offline workspace.
+6. The platform entry point (`tools/verify.ps1` on Windows or `tools/verify.sh`
+   on Linux) passes from a clean offline workspace.
 
 An owned engine or framework is not complete with only its happy path. Its
 accepted contract includes lifecycle, bounds, concurrency, failures, security,

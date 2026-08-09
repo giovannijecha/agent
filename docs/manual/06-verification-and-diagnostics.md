@@ -13,6 +13,12 @@ Run the complete release gate from the repository root:
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1
 ```
 
+On Linux, run the matching owned entry point:
+
+```bash
+bash tools/verify.sh
+```
+
 Pull requests and pushes to `main` run owned `verify-windows` and `verify-linux`
 GitHub jobs. Each checks out the exact event revision without importing a
 checkout action, provisions the registered external npm and TypeScript
@@ -58,6 +64,7 @@ repairable.
 ## Evidence
 
 - Release entry point: `tools/verify.ps1`
+- Linux release entry point: `tools/verify.sh`
 - Remote workflow: `.github/workflows/verify.yml`
 - CI registry: `tools/ci-policy.json`
 - CI validator: `tools/lib/ci-policy.mjs`

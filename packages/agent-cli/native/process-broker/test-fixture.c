@@ -101,6 +101,29 @@ static bool agent_fixture_wait_for_process_file(const wchar_t *path) {
   return false;
 }
 
+static bool agent_fixture_wait_for_process_count(
+  const wchar_t *path,
+  unsigned long expected
+) {
+  for (uint32_t attempt = 0u; attempt < 500u; attempt += 1u) {
+    FILE *file = NULL;
+    if (_wfopen_s(&file, path, L"rb") == 0 && file != NULL) {
+      unsigned long count = 0u;
+      for (int byte = fgetc(file); byte != EOF; byte = fgetc(file)) {
+        if (byte == '\n') {
+          count += 1u;
+        }
+      }
+      (void)fclose(file);
+      if (count >= expected) {
+        return true;
+      }
+    }
+    agent_fixture_sleep(10u);
+  }
+  return false;
+}
+
 static bool agent_fixture_append_process_id(const wchar_t *path) {
   FILE *file = NULL;
   if (_wfopen_s(&file, path, L"ab") != 0 || file == NULL) {
@@ -332,7 +355,7 @@ int wmain(int argc, wchar_t **argv) {
           depth,
           true
         ) &&
-        agent_fixture_wait_for_process_file(argv[2])
+        agent_fixture_wait_for_process_count(argv[2], depth + 1u)
       ? 0
       : 82;
   }
@@ -378,6 +401,29 @@ static bool agent_fixture_wait_for_process_file(const char *path) {
   for (uint32_t attempt = 0u; attempt < 500u; attempt += 1u) {
     if (access(path, F_OK) == 0) {
       return true;
+    }
+    agent_fixture_sleep(10u);
+  }
+  return false;
+}
+
+static bool agent_fixture_wait_for_process_count(
+  const char *path,
+  unsigned long expected
+) {
+  for (uint32_t attempt = 0u; attempt < 500u; attempt += 1u) {
+    FILE *file = fopen(path, "rb");
+    if (file != NULL) {
+      unsigned long count = 0u;
+      for (int byte = fgetc(file); byte != EOF; byte = fgetc(file)) {
+        if (byte == '\n') {
+          count += 1u;
+        }
+      }
+      (void)fclose(file);
+      if (count >= expected) {
+        return true;
+      }
     }
     agent_fixture_sleep(10u);
   }
@@ -592,7 +638,7 @@ int main(int argc, char **argv) {
           depth,
           true
         ) &&
-        agent_fixture_wait_for_process_file(argv[2])
+        agent_fixture_wait_for_process_count(argv[2], depth + 1u)
       ? 0
       : 82;
   }

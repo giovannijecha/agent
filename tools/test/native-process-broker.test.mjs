@@ -272,7 +272,7 @@ test("contains detached descendants and inherited pipes after parent exit", asyn
   try {
     const result = await runNativeFixture({
       arguments: ["spawn-chain-exit", processFile, "5"],
-      timeoutMilliseconds: 1_000,
+      timeoutMilliseconds: 2_000,
       processLimit: 8,
     });
 
