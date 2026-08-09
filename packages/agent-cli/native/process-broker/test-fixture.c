@@ -102,8 +102,8 @@ static bool agent_fixture_wait_for_process_file(const wchar_t *path) {
 }
 
 static bool agent_fixture_append_process_id(const wchar_t *path) {
-  FILE *file = _wfopen(path, L"ab");
-  if (file == NULL) {
+  FILE *file = NULL;
+  if (_wfopen_s(&file, path, L"ab") != 0 || file == NULL) {
     return false;
   }
   const int result = fprintf(file, "%lu\n", (unsigned long)agent_fixture_process_id());
