@@ -4,6 +4,7 @@ import {
   existsSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   rmSync,
 } from "node:fs";
 import os from "node:os";
@@ -51,6 +52,41 @@ async function waitForProcessToExit(processId) {
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
   assert.fail("contained process remained alive after broker termination");
+}
+
+function assertLinuxRunsDirectoryEmpty() {
+  const membership = readFileSync("/proc/self/cgroup", "utf8")
+    .split("\n")
+    .find((line) => line.startsWith("0::"));
+  assert.notEqual(membership, undefined);
+  const relative = membership.slice(3);
+  assert.equal(relative.endsWith("/control"), true);
+  const delegatedRoot = relative.slice(0, -"/control".length);
+  const runsDirectory = path.posix.resolve(
+    "/sys/fs/cgroup",
+    "." + delegatedRoot,
+    "runs",
+  );
+  const childCgroups = readdirSync(runsDirectory, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory());
+  assert.deepEqual(childCgroups, []);
+}
+
+async function assertRecordedProcessesGone(result, processIds) {
+  assert.equal(new Set(processIds).size, processIds.length);
+  for (const processId of processIds) {
+    assert.equal(Number.isSafeInteger(processId) && processId > 0, true);
+  }
+  if (process.platform === "win32") {
+    for (const processId of processIds) {
+      assert.equal(processExists(processId), false);
+    }
+    return;
+  }
+  const started = result.statuses.find((status) => status.kind === "started");
+  assert.notEqual(started, undefined);
+  await waitForProcessToExit(Number(started.processId));
+  assertLinuxRunsDirectoryEmpty();
 }
 
 function waitForSpawn(child) {
@@ -212,9 +248,7 @@ test("times out and proves all descendants are gone", async () => {
       .split("\n")
       .map(Number);
     assert.equal(processIds.length, 2);
-    for (const processId of processIds) {
-      assert.equal(processExists(processId), false);
-    }
+    await assertRecordedProcessesGone(result, processIds);
   } finally {
     rmSync(directory, { force: true, recursive: true });
   }
@@ -237,9 +271,7 @@ test("contains a six-process descendant chain", async () => {
       .split("\n")
       .map(Number);
     assert.equal(processIds.length, 6);
-    for (const processId of processIds) {
-      assert.equal(processExists(processId), false);
-    }
+    await assertRecordedProcessesGone(result, processIds);
   } finally {
     rmSync(directory, { force: true, recursive: true });
   }
@@ -262,9 +294,7 @@ test("enforces the configured process limit inside the container", async () => {
       .split("\n")
       .map(Number);
     assert.equal(processIds.length, 2);
-    for (const processId of processIds) {
-      assert.equal(processExists(processId), false);
-    }
+    await assertRecordedProcessesGone(result, processIds);
   } finally {
     rmSync(directory, { force: true, recursive: true });
   }
@@ -287,9 +317,7 @@ test("contains detached descendants and inherited pipes after parent exit", asyn
       .split("\n")
       .map(Number);
     assert.equal(processIds.length, 3);
-    for (const processId of processIds) {
-      assert.equal(processExists(processId), false);
-    }
+    await assertRecordedProcessesGone(result, processIds);
   } finally {
     rmSync(directory, { force: true, recursive: true });
   }
@@ -324,9 +352,7 @@ test("contains descendants created concurrently with cancellation", async () => 
       .split("\n")
       .map(Number);
     assert.equal(processIds.length > 0, true);
-    for (const processId of processIds) {
-      assert.equal(processExists(processId), false);
-    }
+    await assertRecordedProcessesGone(result, processIds);
   } finally {
     rmSync(directory, { force: true, recursive: true });
   }

@@ -155,9 +155,10 @@ nonzero exit, malformed protocol, launch failure, cancellation, controller
 loss, timeout, output overflow, process limits, nested descendants, detached or
 new-session attempts, signal refusal, parent exit, concurrent spawning during
 termination, inherited output pipes, broker loss, and proof that recorded
-contained PIDs are gone without selecting an unrelated process. Linux fixtures
-record the outermost `NSpid` value so post-termination probes address the host
-process rather than a PID-namespace-local number.
+contained PIDs are gone without selecting an unrelated process. Windows probes
+the recorded global PIDs directly. Linux records namespace-local PIDs for
+cardinality and limit evidence, then independently verifies that the outer
+guard PID is gone and the delegated `runs` hierarchy has no child cgroup.
 
 No test is skipped when the platform job is admitted. Failure to prepare the
 Linux delegation is a failed proof, not an unsupported skip. Local Windows
