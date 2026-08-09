@@ -339,6 +339,12 @@ leave, and remove its disposable subtree. Missing `pids`, `cgroup.kill`,
 `clone3`, pidfd, namespace, read-only cgroup mount, or cleanup support is a hard
 failure. Do not add a process-group fallback.
 
+The registered Ubuntu 24.04 proof also requires the runner's default AppArmor
+unprivileged-user-namespace restriction. The CI bootstrap temporarily changes
+that single policy value from `1` to `0` so the owned namespace sandbox can be
+exercised, then restores `1` before removing the delegated cgroup. A missing or
+unexpected initial policy value fails the proof closed.
+
 Update Job Object flags, namespace flags, cgroup files, inherited handles,
 descriptor policy, limits, or cleanup ordering only with the full Windows and
 Linux conformance matrix and decision 0016. Roll back by removing the native

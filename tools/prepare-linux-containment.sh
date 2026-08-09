@@ -25,6 +25,7 @@ controller_pid="$2"
 current_uid="$(id -u)"
 current_gid="$(id -g)"
 cgroup_root='/sys/fs/cgroup'
+apparmor_userns_restriction='/proc/sys/kernel/apparmor_restrict_unprivileged_userns'
 delegation_name="agent-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
 delegation_root="${cgroup_root}/${delegation_name}"
 control_group="${delegation_root}/control"
@@ -45,6 +46,12 @@ if [[ ! -f "${cgroup_root}/cgroup.controllers" ]] ||
 fi
 
 if [[ "$operation" == 'setup' ]]; then
+  if [[ ! -f "$apparmor_userns_restriction" ]] ||
+     [[ "$(sudo cat -- "$apparmor_userns_restriction")" != '1' ]]; then
+    printf '%s\n' 'The runner does not expose the expected AppArmor user-namespace policy.' >&2
+    exit 1
+  fi
+  printf '0\n' | sudo tee "$apparmor_userns_restriction" >/dev/null
   sudo mkdir -- "$delegation_root"
   printf '+pids\n' | sudo tee "${cgroup_root}/cgroup.subtree_control" >/dev/null
   sudo mkdir -- "$control_group" "$runs_group"
@@ -54,6 +61,7 @@ if [[ "$operation" == 'setup' ]]; then
   exit 0
 fi
 
+printf '1\n' | sudo tee "$apparmor_userns_restriction" >/dev/null
 if [[ ! -d "$delegation_root" ]]; then
   exit 0
 fi

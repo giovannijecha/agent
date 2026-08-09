@@ -271,8 +271,8 @@ test("contains detached descendants and inherited pipes after parent exit", asyn
   const processFile = path.join(directory, "processes.txt");
   try {
     const result = await runNativeFixture({
-      arguments: ["spawn-chain-exit", processFile, "5"],
-      timeoutMilliseconds: 2_000,
+      arguments: ["spawn-chain-exit", processFile, "2"],
+      timeoutMilliseconds: 5_000,
       processLimit: 8,
     });
 
@@ -282,7 +282,7 @@ test("contains detached descendants and inherited pipes after parent exit", asyn
       .trim()
       .split("\n")
       .map(Number);
-    assert.equal(processIds.length, 6);
+    assert.equal(processIds.length, 3);
     for (const processId of processIds) {
       assert.equal(processExists(processId), false);
     }

@@ -118,9 +118,16 @@ but no process can remain inside it.
 
 The product never elevates. The owned GitHub Linux job uses `sudo` only in a
 pre-verification bootstrap to create and delegate the disposable CI subtree and
-in its cleanup to remove it. Broker, fixture, harness, and tests run as the
-unprivileged runner user. Missing delegation, namespace policy, cgroup
-controller, kernel operation, or cleanup evidence fails the Linux job closed.
+in its cleanup to remove it. Ubuntu 24.04 restricts unprivileged user-namespace
+capabilities through AppArmor by default, so the same bootstrap verifies that
+exact default, temporarily disables only that user-namespace restriction for
+the isolated proof, and restores it during cleanup. Broker, fixture, harness,
+and tests run as the unprivileged runner user. Missing delegation, namespace
+policy, cgroup controller, kernel operation, or cleanup evidence fails the
+Linux job closed.
+
+The runner policy is documented in the
+[Ubuntu 24.04 release notes](https://documentation.ubuntu.com/release-notes/24.04/#unprivileged-user-namespace-restrictions).
 
 ## Verification contract
 
