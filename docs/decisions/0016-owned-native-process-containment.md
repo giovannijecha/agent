@@ -108,13 +108,16 @@ can run.
 
 The guard is PID 1 in the new PID namespace and is linked to broker death with
 `PR_SET_PDEATHSIG(SIGKILL)`. It waits for the parent to install one-entry UID and
-GID maps, replaces `/proc`, covers `/sys/fs/cgroup` with the new cgroup namespace
-view, remounts that view read-only, makes mount propagation private, sets
-`no_new_privs`, drops ambient, bounding, permitted, effective, and inheritable
-capabilities, and then forks the target. The trusted guard never executes target
-code. It reaps all orphaned descendants and exits only after the namespace has
-no child processes. Target code cannot disable the guard's parent-death signal
-or become the outer namespace's PID 1.
+GID maps, then creates its cgroup namespace while already resident in the run
+leaf. This ordering makes the run leaf the cgroup-namespace root and makes the
+cgroup namespace owned by the mapped user namespace. The guard replaces
+`/proc`, covers `/sys/fs/cgroup` with that private cgroup view, remounts the view
+read-only, makes mount propagation private, sets `no_new_privs`, drops ambient,
+bounding, permitted, effective, and inheritable capabilities, and then forks
+the target. The trusted guard never executes target code. It reaps all orphaned
+descendants and exits only after the namespace has no child processes. Target
+code cannot disable the guard's parent-death signal or become the outer
+namespace's PID 1.
 
 The broker kills the run leaf through `cgroup.kill`, observes `populated 0`,
 reaps the guard through its pidfd, and removes the empty leaf before reporting a

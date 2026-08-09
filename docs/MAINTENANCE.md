@@ -352,6 +352,11 @@ Linux conformance matrix and decision 0016. Roll back by removing the native
 verification wiring and restoring the previous CI/toolchain registries while
 leaving `run_process` blocked.
 
+On Linux, preserve the admitted namespace order: the broker creates the guard
+inside the run leaf with user, mount, and PID namespaces; only the mapped guard
+creates the cgroup namespace rooted at that leaf. Do not merge those operations
+without replacing the ownership proof.
+
 To remove the private proof, delete `packages/agent-cli/native/process-broker`,
 `tools/build-native.mjs`, `tools/lib/native-process-broker.mjs`, its focused
 test, the Linux bootstrap, native verifier and cleaner rules, compiler registry,

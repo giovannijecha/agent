@@ -532,6 +532,10 @@ static void agent_linux_guard(
     _exit(AGENT_LINUX_GUARD_FAILURE_EXIT);
   }
   close(setup_input);
+  if (syscall(SYS_unshare, CLONE_NEWCGROUP) != 0) {
+    agent_linux_diagnostic(18u);
+    agent_linux_child_failure(setup_status, AGENT_BROKER_FAILURE_CONTAINMENT);
+  }
   if (mount(NULL, "/", NULL, MS_REC | MS_PRIVATE, NULL) != 0) {
     agent_linux_diagnostic(11u);
     agent_linux_child_failure(setup_status, AGENT_BROKER_FAILURE_CONTAINMENT);
@@ -702,8 +706,7 @@ static pid_t agent_linux_clone_guard(
     CLONE_INTO_CGROUP |
     CLONE_NEWUSER |
     CLONE_NEWPID |
-    CLONE_NEWNS |
-    CLONE_NEWCGROUP;
+    CLONE_NEWNS;
   arguments.pidfd = (uint64_t)(uintptr_t)pid_descriptor;
   arguments.cgroup = (uint64_t)cgroup_descriptor;
   arguments.exit_signal = SIGCHLD;
