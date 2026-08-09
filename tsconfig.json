@@ -11,6 +11,9 @@
       "path": "packages/agent-runtime"
     },
     {
+      "path": "packages/agent-provider-opencode-go"
+    },
+    {
       "path": "packages/agent-tui"
     },
     {

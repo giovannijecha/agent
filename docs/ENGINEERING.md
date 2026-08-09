@@ -37,6 +37,8 @@ tests, update and rollback procedures, and an independent removal path.
   arbiter cannot erase independently observable cleanup failures.
 - Keep an output-error listener active for the complete lifetime of every write,
   including non-TTY output and writes performed after input teardown.
+- Keep executable arguments secret-free. A pre-TUI credential prompt must bound
+  input, disable echo, and restore raw mode and listeners on every terminal path.
 - Return discriminated results for expected failures; translate them in the CLI.
 - Decode foreign results, stream capabilities, and events into owned snapshots
   before mutation; reflective access and hostile getters must remain contained.
@@ -80,6 +82,14 @@ SDKs, CLIs, app servers, ACP executables, and their stored identities remain
 foreign runtime dependencies. A direct subscription adapter requires an
 `agent`-owned registration or a provider-documented identity expressly reusable
 by independent clients.
+
+A provider-published direct API-key contract is a separate eligibility class.
+It may be implemented only through an accepted provider-specific decision, an
+exact origin and credential variable, a CLI-owned transport, a Node-free wire
+adapter, content-free failures, offline adversarial tests, and documented
+privacy and removal behavior. One admitted key provider does not authorize a
+generic endpoint, model selector, credential store, OAuth flow, SDK, or second
+provider adapter.
 
 All integrations preserve the single-agent execution model. A provider is one
 replaceable backend for the active runtime session; a tool is one bounded
@@ -144,6 +154,20 @@ editing, component layout, viewport, frame, and rendering behavior remains
 Node-free in the TUI. Runtime streaming and cancellation remain terminal-free.
 Every shutdown path independently attempts runtime, terminal, and renderer
 cleanup without allowing one failure to mask another.
+
+Treat visual emphasis as closed metadata, never as display text. Components and
+frames accept only the semantic tones registered by decision 0019. The renderer
+alone maps them to fixed ANSI, redraws tone-only changes, and resets terminal
+style after emphasized rows and during cleanup. Application code and untrusted
+content must never construct escape sequences or arbitrary color values.
+
+Treat scrolling as immutable geometry, never as component-owned content or an
+event queue. Reconcile an explicit row offset against measured content and the
+assigned viewport through decision 0020. Moving away from the end disables
+follow mode; returning to the end reenables it. All scrollable product surfaces
+must use the same generic view. Renderer writes are synchronized terminal
+transactions, and a failed transaction must be explicitly ended before retry
+or cleanup.
 
 ## Tool execution policy
 

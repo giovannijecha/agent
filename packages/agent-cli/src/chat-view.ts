@@ -30,9 +30,9 @@ export function createChatFrame(
   viewport: Viewport,
 ): Result<Frame, ComponentError> {
   const header = TextBlock.create(
-    "agent - " + phaseLabel(application) +
-      "\nowned code - interactive terminal - no external dependencies",
+    "agent  " + phaseLabel(application),
     "head",
+    "accent",
   );
   if (!header.ok) {
     return header;
@@ -41,20 +41,28 @@ export function createChatFrame(
   if (!transcript.ok) {
     return transcript;
   }
-  const status = TextBlock.create(application.notice.join("\n"), "tail");
+  const status = TextBlock.create(
+    application.notice.join("\n"),
+    "tail",
+    application.phase === "awaitingApproval" ? "attention" : "muted",
+  );
   if (!status.ok) {
     return status;
   }
   const toolStatus = application.toolStatusFor(viewport.columns);
-  const tool = TextBlock.create(toolStatus, "head");
+  const tool = TextBlock.create(toolStatus, "head", "attention");
   if (!tool.ok) {
     return tool;
   }
-  const toolPreview = TextBlock.create(application.toolPreview, "head");
+  const toolPreview = TextBlock.create(
+    application.toolPreview,
+    "head",
+    "muted",
+  );
   if (!toolPreview.ok) {
     return toolPreview;
   }
-  const input = InputLine.create("> ", application);
+  const input = InputLine.create("> ", application, "accent");
   if (!input.ok) {
     return input;
   }
@@ -64,7 +72,7 @@ export function createChatFrame(
       component: header.value,
       flex: 0,
       minimumRows: 0,
-      preferredRows: 2,
+      preferredRows: 1,
       priority: 0,
     }),
     Object.freeze({

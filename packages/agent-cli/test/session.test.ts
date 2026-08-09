@@ -97,6 +97,25 @@ test("returns ordered actions from a multi-submission chunk", () => {
   assert.equal(session.draftLength, 0);
 });
 
+test("reports one configured provider without changing command ownership", () => {
+  const session = new SessionController({
+    authentication: "memory-only API key",
+    displayName: "OpenCode Go",
+    model: "kimi-k2.7-code",
+  });
+
+  assert.deepEqual(session.feed("/providers\r").actions, [
+    {
+      kind: "notice",
+      lines: [
+        "OpenCode Go is enabled.",
+        "Model: kimi-k2.7-code.",
+        "Authentication: memory-only API key.",
+      ],
+    },
+  ]);
+});
+
 test("turns terminal end into exit and discards incomplete decoder state", () => {
   const session = new SessionController();
   session.feed("\u001B[");

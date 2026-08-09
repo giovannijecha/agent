@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "bin": {
+    "agent": "packages/agent-cli/dist/main.js"
+  },
   "engines": {
     "node": ">=22.19.0",
     "npm": "11.16.0"
@@ -11,12 +14,15 @@
     "packages/agent-core",
     "packages/agent-tools",
     "packages/agent-runtime",
+    "packages/agent-provider-opencode-go",
     "packages/agent-tui",
     "packages/agent-cli"
   ],
   "scripts": {
     "build": "tsc --build tsconfig.json --pretty false && node tools/build-native.mjs",
     "clean": "node tools/clean.mjs",
+    "dev": "npm run build && npm start",
+    "install:command": "npm run build && npm link --ignore-scripts --no-audit --no-fund",
     "start": "node packages/agent-cli/dist/main.js",
     "test": "node tools/run-tests.mjs",
     "verify": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1"

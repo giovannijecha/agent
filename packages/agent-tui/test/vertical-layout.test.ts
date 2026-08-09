@@ -206,3 +206,17 @@ test("revalidates returned fragments against the assigned viewport", () => {
   assert.equal(rendered.ok, false);
   if (!rendered.ok) assert.equal(rendered.error.kind, "lineTooWide");
 });
+
+test("preserves semantic tones while composing generic components", () => {
+  const accent = TextBlock.create("agent", "head", "accent");
+  const muted = TextBlock.create("ready", "head", "muted");
+  assert.ok(accent.ok);
+  assert.ok(muted.ok);
+  const rendered = layout([
+    slot(accent.value, 1, 1, 1),
+    slot(muted.value, 1, 1, 1),
+  ]).render(viewport(8, 2));
+
+  assert.ok(rendered.ok);
+  assert.deepEqual(rendered.value.tones, ["accent", "muted"]);
+});

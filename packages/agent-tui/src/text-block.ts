@@ -8,6 +8,7 @@ import { layoutDisplayText } from "./display-text.js";
 import { Fragment } from "./fragment.js";
 import { TUI_LIMITS } from "./limits.js";
 import { err, ok, type Result } from "./result.js";
+import { isTone, type Tone } from "./tone.js";
 import type { Viewport } from "./viewport.js";
 
 export type TextAnchor = "head" | "tail";
@@ -16,10 +17,12 @@ export type TextAnchor = "head" | "tail";
 export class TextBlock implements Component {
   readonly #anchor: TextAnchor;
   readonly #text: string;
+  readonly #tone: Tone;
 
-  private constructor(text: string, anchor: TextAnchor) {
+  private constructor(text: string, anchor: TextAnchor, tone: Tone) {
     this.#text = text;
     this.#anchor = anchor;
+    this.#tone = tone;
     Object.freeze(this);
   }
 
@@ -27,6 +30,7 @@ export class TextBlock implements Component {
   static create(
     text: string,
     anchor: TextAnchor,
+    tone: Tone = "plain",
   ): Result<TextBlock, ComponentError> {
     if (typeof text !== "string") {
       return err(new ComponentError("invalidText", undefined));
@@ -37,7 +41,10 @@ export class TextBlock implements Component {
     if (anchor !== "head" && anchor !== "tail") {
       return err(new ComponentError("invalidAnchor", undefined));
     }
-    return ok(new TextBlock(text, anchor));
+    if (!isTone(tone)) {
+      return err(new ComponentError("invalidTone", undefined));
+    }
+    return ok(new TextBlock(text, anchor, tone));
   }
 
   measure(
@@ -76,6 +83,11 @@ export class TextBlock implements Component {
       this.#anchor === "head"
         ? [...visible, ...padding]
         : [...padding, ...visible];
-    return Fragment.create(viewport, lines);
+    return Fragment.create(
+      viewport,
+      lines,
+      undefined,
+      lines.map(() => this.#tone),
+    );
   }
 }

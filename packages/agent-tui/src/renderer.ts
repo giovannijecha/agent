@@ -6,22 +6,43 @@ import {
   CURSOR_HIDE,
   CURSOR_HOME,
   CURSOR_SHOW,
+  STYLE_RESET,
+  SYNCHRONIZED_OUTPUT_BEGIN,
+  SYNCHRONIZED_OUTPUT_END,
+  beginTone,
   moveTo,
 } from "./ansi.js";
 import { fitText, textCellWidth } from "./cell-width.js";
 import type { Frame } from "./frame.js";
 import type { TextOutput } from "./output.js";
 import { ok, type Result } from "./result.js";
+import type { Tone } from "./tone.js";
 import type { Viewport } from "./viewport.js";
+
+/** Printable row plus one renderer-owned semantic emphasis role. */
+type RenderedRow = Readonly<{ text: string; tone: Tone }>;
+
+function rowsEqual(
+  left: RenderedRow | undefined,
+  right: RenderedRow | undefined,
+): boolean {
+  return left?.text === right?.text && left?.tone === right?.tone;
+}
+
+function renderRow(row: RenderedRow): string {
+  const prefix = beginTone(row.tone);
+  return prefix.length === 0 ? row.text : prefix + row.text + STYLE_RESET;
+}
 
 /** Serialized differential renderer for one alternate-screen terminal session. */
 export class Renderer<E> {
   readonly #output: TextOutput<E>;
-  #previous: readonly string[] = Object.freeze([]);
+  #previous: readonly RenderedRow[] = Object.freeze([]);
   #previousViewport: Viewport | undefined;
   #started = false;
   #alternateMayBeActive = false;
   #cursorMayBeHidden = false;
+  #synchronizationMayBeActive = false;
   #tail: Promise<void> = Promise.resolve();
 
   constructor(output: TextOutput<E>) {
@@ -52,9 +73,16 @@ export class Renderer<E> {
 
   async #render(frame: Frame, viewport: Viewport): Promise<Result<void, E>> {
     const next = Object.freeze(
-      frame.lines
-        .slice(0, viewport.rows)
-        .map((line) => fitText(line, viewport.columns)),
+      frame.lines.slice(0, viewport.rows).map((line, index) => {
+        const text = fitText(line, viewport.columns);
+        return Object.freeze({
+          text,
+          tone:
+            text.length === 0
+              ? "plain"
+              : (frame.tones.at(index) ?? "plain"),
+        });
+      }),
     );
     const viewportChanged =
       this.#previousViewport === undefined ||
@@ -81,12 +109,12 @@ export class Renderer<E> {
     for (let row = 0; row < rowCount; row += 1) {
       const previousLine = before.at(row);
       const nextLine = next.at(row);
-      if (previousLine === nextLine) {
+      if (rowsEqual(previousLine, nextLine)) {
         continue;
       }
       buffer += moveTo(row, 0) + CLEAR_ROW;
       if (nextLine !== undefined) {
-        buffer += nextLine;
+        buffer += renderRow(nextLine);
       }
     }
 
@@ -103,17 +131,24 @@ export class Renderer<E> {
     } else if (next.length > 0) {
       caretRow = next.length - 1;
       caretColumn = Math.min(
-        textCellWidth(next.at(caretRow) ?? ""),
+        textCellWidth(next.at(caretRow)?.text ?? ""),
         viewport.columns - 1,
       );
     }
     buffer += moveTo(caretRow, caretColumn) + CURSOR_SHOW;
 
-    const written = await this.#output.write(buffer);
+    const recovery = this.#synchronizationMayBeActive
+      ? SYNCHRONIZED_OUTPUT_END + STYLE_RESET
+      : "";
+    this.#synchronizationMayBeActive = true;
+    const written = await this.#output.write(
+      recovery + SYNCHRONIZED_OUTPUT_BEGIN + buffer + SYNCHRONIZED_OUTPUT_END,
+    );
     if (!written.ok) {
       return written;
     }
 
+    this.#synchronizationMayBeActive = false;
     this.#started = true;
     this.#previous = next;
     this.#previousViewport = viewport;
@@ -122,11 +157,18 @@ export class Renderer<E> {
   }
 
   async #finish(): Promise<Result<void, E>> {
-    if (!this.#alternateMayBeActive && !this.#cursorMayBeHidden) {
+    if (
+      !this.#alternateMayBeActive &&
+      !this.#cursorMayBeHidden &&
+      !this.#synchronizationMayBeActive
+    ) {
       return ok(undefined);
     }
 
-    let cleanup = CURSOR_SHOW;
+    let cleanup = this.#synchronizationMayBeActive
+      ? SYNCHRONIZED_OUTPUT_END
+      : "";
+    cleanup += STYLE_RESET + CURSOR_SHOW;
     if (this.#alternateMayBeActive) {
       cleanup += ALTERNATE_SCREEN_LEAVE;
     }
@@ -138,6 +180,7 @@ export class Renderer<E> {
     this.#started = false;
     this.#alternateMayBeActive = false;
     this.#cursorMayBeHidden = false;
+    this.#synchronizationMayBeActive = false;
     this.#previous = Object.freeze([]);
     this.#previousViewport = undefined;
     return ok(undefined);

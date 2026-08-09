@@ -6,6 +6,12 @@ export type CommandResult =
   | Readonly<{ kind: "notice"; lines: readonly string[] }>
   | Readonly<{ kind: "submit"; text: string }>;
 
+export type ProviderPresentation = Readonly<{
+  authentication: string;
+  displayName: string;
+  model: string;
+}>;
+
 const EXIT = Object.freeze({ kind: "exit" as const });
 const NONE = Object.freeze({ kind: "none" as const });
 
@@ -14,7 +20,10 @@ function notice(...lines: string[]): CommandResult {
 }
 
 /** Classifies one submission as an exact command or transient model input. */
-export function executeSubmission(input: string): CommandResult {
+export function executeSubmission(
+  input: string,
+  provider?: ProviderPresentation,
+): CommandResult {
   const command = input.trim();
   if (command.length === 0) {
     return NONE;
@@ -33,6 +42,13 @@ export function executeSubmission(input: string): CommandResult {
     );
   }
   if (command === "/providers") {
+    if (provider !== undefined) {
+      return notice(
+        provider.displayName + " is enabled.",
+        "Model: " + provider.model + ".",
+        "Authentication: " + provider.authentication + ".",
+      );
+    }
     return notice(
       "No providers are enabled.",
       "Subscription integrations require owned authorization.",

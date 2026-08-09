@@ -24,6 +24,13 @@ export { TUI_LIMITS } from "./limits.js";
 export type { TextOutput } from "./output.js";
 export { Renderer } from "./renderer.js";
 export { err, ok, type Result } from "./result.js";
+export {
+  ScrollError,
+  type ScrollErrorKind,
+  ScrollState,
+} from "./scroll-state.js";
+export { ScrollView } from "./scroll-view.js";
 export { TextBlock, type TextAnchor } from "./text-block.js";
+export { type Tone } from "./tone.js";
 export { VerticalLayout, type VerticalSlot } from "./vertical-layout.js";
 export { Viewport, ViewportError } from "./viewport.js";

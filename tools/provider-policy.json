@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "applicationDocument": "docs/PROVIDER-APPLICATIONS.md",
   "researchedOn": "2026-08-08",
   "providers": [
@@ -58,6 +58,21 @@
         "submittedOn": "2026-08-08",
         "reference": "xai-support-email-2026-08-08"
       }
+    }
+  ],
+  "directProviders": [
+    {
+      "id": "opencode-go",
+      "displayName": "OpenCode Go",
+      "eligibility": "enabled",
+      "authorization": "direct-api-key",
+      "credentialVariable": "AGENT_OPENCODE_GO_API_KEY",
+      "credentialPersistence": "memory-only",
+      "endpoint": "https://opencode.ai/zen/go/v1/chat/completions",
+      "model": "kimi-k2.7-code",
+      "transport": "chat-completions-sse",
+      "evidence": "https://opencode.ai/docs/go/",
+      "researchedOn": "2026-08-09"
     }
   ]
 }

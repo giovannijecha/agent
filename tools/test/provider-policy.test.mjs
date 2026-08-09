@@ -19,6 +19,7 @@ const emptyContext = {
     "@agent/core",
     "@agent/tools",
     "@agent/runtime",
+    "@agent/provider-opencode-go",
     "@agent/tui",
     "@agent/cli",
   ],
@@ -26,11 +27,15 @@ const emptyContext = {
   applicationText: currentApplications,
 };
 
-test("accepts the canonical blocked provider registry", () => {
+test("accepts the canonical blocked and direct provider registry", () => {
   assert.doesNotThrow(() => validateProviderPolicy(currentPolicy, emptyContext));
   assert.deepEqual(
     currentPolicy.providers.map((provider) => provider.id),
     ["chatgpt", "claude", "kimi", "grok"],
+  );
+  assert.deepEqual(
+    currentPolicy.directProviders.map((provider) => provider.id),
+    ["opencode-go"],
   );
 });
 
@@ -55,6 +60,29 @@ test("rejects credential and endpoint fields for blocked providers", () => {
   configured.providers[0].clientId = "foreign-application";
   assert.throws(
     () => validateProviderPolicy(configured, emptyContext),
+    ProviderPolicyError,
+  );
+});
+
+test("rejects drift in the single admitted direct provider", () => {
+  for (const [field, value] of [
+    ["endpoint", "https://example.com/v1"],
+    ["model", "unreviewed-model"],
+    ["credentialVariable", "UNREVIEWED_KEY"],
+    ["credentialPersistence", "disk"],
+  ]) {
+    const drifted = structuredClone(currentPolicy);
+    drifted.directProviders[0][field] = value;
+    assert.throws(
+      () => validateProviderPolicy(drifted, emptyContext),
+      ProviderPolicyError,
+    );
+  }
+
+  const extra = structuredClone(currentPolicy);
+  extra.directProviders.push(structuredClone(extra.directProviders[0]));
+  assert.throws(
+    () => validateProviderPolicy(extra, emptyContext),
     ProviderPolicyError,
   );
 });
@@ -214,7 +242,7 @@ test("rejects submission-record drift and personal email addresses", () => {
   );
 });
 
-test("rejects provider or auth workspaces while every provider is blocked", () => {
+test("rejects every provider or auth workspace that was not admitted", () => {
   for (const workspaceName of [
     "@agent/provider-chatgpt",
     "@agent/auth-client",
@@ -226,6 +254,38 @@ test("rejects provider or auth workspaces while every provider is blocked", () =
         validateProviderPolicy(currentPolicy, {
           ...emptyContext,
           workspaceNames: [...emptyContext.workspaceNames, workspaceName],
+        }),
+      ProviderPolicyError,
+    );
+  }
+});
+
+test("allows only the reviewed direct-provider literals in their exact files", () => {
+  const admitted = [
+    {
+      path: "packages/agent-provider-opencode-go/src/wire.ts",
+      text: "export const model = 'kimi-k2.7-code';\n",
+    },
+    {
+      path: "packages/agent-cli/src/node-opencode-go-transport.ts",
+      text: "const authorization = 'Bearer ' + credential;\n",
+    },
+  ];
+  assert.doesNotThrow(() =>
+    validateProviderPolicy(currentPolicy, {
+      ...emptyContext,
+      productSources: admitted,
+    }),
+  );
+
+  for (const source of admitted) {
+    assert.throws(
+      () =>
+        validateProviderPolicy(currentPolicy, {
+          ...emptyContext,
+          productSources: [
+            { path: "packages/example/src/provider.ts", text: source.text },
+          ],
         }),
       ProviderPolicyError,
     );

@@ -4,8 +4,8 @@
 
 `agent` is local-first software maintained by Giovanni Jecha. It has no project
 cloud service, analytics, advertising, crash-reporting endpoint, or telemetry.
-The current production executable injects no model, authenticates no provider,
-and persists no chat session.
+The production executable is providerless by default and persists no chat
+session or credential.
 
 Without a configured runtime, submitted text is discarded after a generic
 notice. It is not added to conversation state, displayed in the transcript,
@@ -19,19 +19,24 @@ requires its own explicit approval. The terminal UI avoids placing raw prompts,
 file contents, tool outputs, credentials, and foreign error causes in notices or
 logs.
 
-## Future provider connections
+## OpenCode Go connection
 
-A future provider adapter may send prompts, bounded conversation context, and
-approved tool results directly from the local process to the provider selected
-by the operator. Provider processing would then be governed by that provider's
-terms and privacy policy. `agent` will not proxy those requests through a
-project-owned backend.
+When the operator enters an OpenCode Go key through the owned hidden prompt or
+configures the exact environment variable and submits a turn, `agent` sends the
+system instruction, bounded conversation,
+owned tool schemas, user input, and necessary checkpointed tool calls and
+results directly to `https://opencode.ai/zen/go/v1/chat/completions`. Provider
+processing is governed by OpenCode's terms and privacy policy; requests never
+pass through a project-owned backend. The official Go page currently states
+zero-day retention and no training for Kimi K2.7 Code. Those terms can change
+and are not guarantees made by this project.
 
 `agent` never asks for provider passwords, cookies, recovery codes, payment
-details, or one-time codes. Browser authorization remains provider-hosted. The
-first eligible login stores credentials only in process memory; persistent
-storage requires a separate accepted design for an operating-system protected
-vault.
+details, or one-time codes. The OpenCode Go API key is accepted only through the
+documented hidden prompt or environment variable and remains in process memory.
+The prompt disables terminal echo and writes no key or mask characters.
+Persistent storage requires a separate accepted operating-system vault design.
+The four subscription OAuth connections remain disabled.
 
 ## Future local sessions
 
@@ -41,7 +46,8 @@ must not silently upload or synchronize session data.
 
 ## Removal
 
-Closing the current process releases its in-memory conversation and display
-state. Removing the workspace removes all owned source and generated artifacts;
+Closing the current process releases its in-memory conversation, display state,
+and key reference. The operator must also remove the environment variable from
+any still-running parent shell. Removing the workspace removes all owned source and generated artifacts;
 installed toolchain software remains outside the project. Future persistence or
 credential features must add exact deletion instructions here before they ship.

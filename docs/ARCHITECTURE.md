@@ -24,16 +24,25 @@ one-way dependencies, not speculative packages.
 | @agent/tui |
 | terminal UI|
 +------------+
+
+@agent/cli -> @agent/provider-opencode-go -> @agent/runtime
+                                      |----> @agent/tools
+                                      +----> @agent/core
 ```
 
 The diagram's direct edges are `cli -> runtime`, `cli -> tools`, `cli -> core`,
-`cli -> tui`, `runtime -> tools`, `runtime -> core`, and `tools -> core`.
+`cli -> tui`, `cli -> provider-opencode-go`, `provider-opencode-go -> runtime`,
+`provider-opencode-go -> tools`, `provider-opencode-go -> core`,
+`runtime -> tools`, `runtime -> core`, and `tools -> core`.
 
 Runtime is a concrete independent foundation exercised by deterministic tests.
 CLI has a real optional runtime composition edge exercised by deterministic
-integration sessions. The production entry point injects no runtime because no
-eligible model exists. Cross-package access uses public package surfaces; deep
-and relative cross-package imports are forbidden.
+integration sessions. The production entry point injects OpenCode Go only when
+its exact memory-only credential is supplied through the hidden CLI prompt or
+environment variable; otherwise it preserves the providerless path. Executable
+argument parsing and hidden input stay in CLI and complete before the generic
+terminal host takes ownership. Cross-package access uses public package
+surfaces; deep and relative cross-package imports are forbidden.
 
 ## Single-agent execution model
 
@@ -95,15 +104,28 @@ failure and cancellation receipts remain until application acknowledgement or
 runtime stop, preserving cleanup failures across buffered-event shutdown races.
 Runtime is Node-free and imports only core and tools.
 
+### `@agent/provider-opencode-go`
+
+Owns the strict provider wire contract: fixed model selection, request
+serialization, incremental UTF-8 and SSE decoding, streamed text and single
+tool-call assembly, protocol bounds, and content-free failures. It implements
+the existing streaming-model port through an injected pull-based byte transport.
+It owns no socket, environment access, API key, terminal, application state,
+tool policy, or second agent identity. It imports only core, runtime, and tools.
+
 ### `@agent/tui`
 
 Owns incremental terminal-key decoding, bounded single-line editing, validated
 viewports and atomic frames, conservative cell measurement, immutable fragments,
-bounded text and input components, deterministic vertical allocation, ANSI
-commands, and serialized asynchronous differential rendering. It knows nothing
-about agents or Node. Unknown control sequences never become editable text;
+bounded text and input components, four closed semantic row tones,
+deterministic vertical allocation, ANSI commands, and serialized asynchronous
+differential rendering. It knows nothing about agents or Node. Unknown control
+sequences never become editable text;
 display text sanitizes controls and lone surrogates; fragments and frames reject
 unsafe scalar or terminal-control content independently.
+Only the renderer translates validated tones into fixed terminal sequences and
+resets style after every emphasized row and during cleanup. Product tone choices
+remain in CLI, and untrusted model or tool content can supply text only.
 Committed frame and viewport snapshots change only after a completed successful
 output write. Conservative flags record that the alternate screen or hidden
 cursor may have become visible before an attempted write, so cleanup remains
@@ -120,6 +142,10 @@ object. Reusable terminal mechanics belong behind the TUI contract. Model turn
 mechanics remain behind the runtime session contract. It also implements the
 registered bounded Node filesystem tools. Every path is rooted, canonicalized,
 and denied on traversal or symlink crossing.
+CLI also owns the exact OpenCode Go HTTPS adapter and startup configuration. It
+admits only `opencode.ai:443`, never follows an application-selected origin,
+keeps the API key in memory, and exposes only bytes and response metadata to the
+Node-free provider package.
 Direct process execution remains absent from the model-facing registry under
 decision 0015. Decision 0016 adds a private C17 proof boundary inside CLI:
 common framed protocol and lifecycle modules select either an owned Windows Job
@@ -154,10 +180,10 @@ bounded terminal FIFO ----+
                    two-source arbiter -> single-writer application reducer
                            ^                         |
 runtime pull event --------+                         v
-                                      generic vertical components
+                       generic vertical components + semantic tones + scroll
                                                    |
                                                    v
-                                  atomic frame + differential renderer
+                         atomic frame + synchronized differential renderer
 ```
 
 The arbiter retains at most one terminal read, one explicitly armed runtime read,

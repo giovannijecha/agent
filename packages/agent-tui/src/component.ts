@@ -18,6 +18,7 @@ export type ComponentErrorKind =
   | "invalidSource"
   | "invalidSlot"
   | "invalidText"
+  | "invalidTone"
   | "lineTooLong"
   | "lineTooWide"
   | "multipleCarets"

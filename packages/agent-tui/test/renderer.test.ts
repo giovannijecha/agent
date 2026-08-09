@@ -6,6 +6,7 @@ import {
   type Result,
   Renderer,
   type TextOutput,
+  type Tone,
   Viewport,
 } from "@agent/tui";
 
@@ -23,6 +24,17 @@ class MemoryOutput implements TextOutput<string> {
   get text(): string {
     return this.chunks.join("");
   }
+}
+
+function tonedFrame(
+  lines: readonly string[],
+  tones: readonly Tone[],
+  row = 0,
+  column = 0,
+): Frame {
+  const result = Frame.create(lines, { row, column }, tones);
+  assert.ok(result.ok);
+  return result.value;
 }
 
 function frame(lines: readonly string[], row = 0, column = 0): Frame {
@@ -45,9 +57,9 @@ test("enters the alternate screen and shows the requested caret", async () => {
 
   assert.equal(
     output.text,
-    "\u001B[?1049h\u001B[?25l\u001B[2J\u001B[H" +
+    "\u001B[?2026h\u001B[?1049h\u001B[?25l\u001B[2J\u001B[H" +
       "\u001B[1;1H\u001B[2Kagent" +
-      "\u001B[1;6H\u001B[?25h",
+      "\u001B[1;6H\u001B[?25h\u001B[?2026l",
   );
 });
 
@@ -64,8 +76,14 @@ test("always restores a visible cursor for absent or clipped carets", async () =
   await renderer.render(clipped.value, viewport(3, 1));
   const second = output.chunks.at(-1) ?? "";
 
-  assert.equal(first.endsWith("\u001B[1;3H\u001B[?25h"), true);
-  assert.equal(second.endsWith("\u001B[1;3H\u001B[?25h"), true);
+  assert.equal(
+    first.endsWith("\u001B[1;3H\u001B[?25h\u001B[?2026l"),
+    true,
+  );
+  assert.equal(
+    second.endsWith("\u001B[1;3H\u001B[?25h\u001B[?2026l"),
+    true,
+  );
 });
 
 test("redraws only changed rows at unchanged geometry", async () => {
@@ -79,7 +97,55 @@ test("redraws only changed rows at unchanged geometry", async () => {
 
   assert.equal(
     output.text.slice(firstSize),
-    "\u001B[?25l\u001B[2;1H\u001B[2Kready\u001B[2;6H\u001B[?25h",
+    "\u001B[?2026h\u001B[?25l\u001B[2;1H\u001B[2Kready" +
+      "\u001B[2;6H\u001B[?25h\u001B[?2026l",
+  );
+});
+
+test("renders only fixed semantic tones and resets each styled row", async () => {
+  const output = new MemoryOutput();
+  const renderer = new Renderer(output);
+
+  await renderer.render(
+    tonedFrame(
+      ["agent", "ready", "approve"],
+      ["accent", "muted", "attention"],
+      2,
+      7,
+    ),
+    viewport(),
+  );
+
+  assert.equal(output.text.includes("\u001B[1;36magent\u001B[0m"), true);
+  assert.equal(output.text.includes("\u001B[2mready\u001B[0m"), true);
+  assert.equal(output.text.includes("\u001B[1;33mapprove\u001B[0m"), true);
+});
+
+test("normalizes an empty emphasized row to plain terminal output", async () => {
+  const output = new MemoryOutput();
+  const renderer = new Renderer(output);
+
+  await renderer.render(tonedFrame([""], ["accent"]), viewport(1, 1));
+
+  assert.equal(output.text.includes("\u001B[1;36m"), false);
+  assert.equal(output.text.includes("\u001B[1;33m"), false);
+  assert.equal(output.text.includes("\u001B[2m"), false);
+});
+
+test("redraws a row when only its semantic tone changes", async () => {
+  const output = new MemoryOutput();
+  const renderer = new Renderer(output);
+  const size = viewport();
+  await renderer.render(tonedFrame(["agent"], ["plain"], 0, 5), size);
+  const firstSize = output.text.length;
+
+  await renderer.render(tonedFrame(["agent"], ["accent"], 0, 5), size);
+
+  assert.equal(
+    output.text.slice(firstSize),
+    "\u001B[?2026h\u001B[?25l\u001B[1;1H\u001B[2K" +
+      "\u001B[1;36magent\u001B[0m" +
+      "\u001B[1;6H\u001B[?25h\u001B[?2026l",
   );
 });
 
@@ -93,9 +159,9 @@ test("clears and fully redraws after viewport resize", async () => {
 
   assert.equal(
     output.text.slice(firstSize),
-    "\u001B[?25l\u001B[2J\u001B[H" +
+    "\u001B[?2026h\u001B[?25l\u001B[2J\u001B[H" +
       "\u001B[1;1H\u001B[2Kabcd" +
-      "\u001B[1;4H\u001B[?25h",
+      "\u001B[1;4H\u001B[?25h\u001B[?2026l",
   );
 });
 
@@ -109,7 +175,7 @@ test("clips rows and conservative cell width to the viewport", async () => {
   assert.equal(output.text.includes("hidden"), false);
 });
 
-test("does not commit a failed frame and retries initialization", async () => {
+test("resets terminal state before retrying a failed frame", async () => {
   const output = new MemoryOutput();
   const renderer = new Renderer(output);
   output.failure = "blocked";
@@ -120,7 +186,26 @@ test("does not commit a failed frame and retries initialization", async () => {
 
   assert.deepEqual(failed, { ok: false, error: "blocked" });
   assert.ok(retried.ok);
-  assert.equal(output.chunks[1]?.startsWith("\u001B[?1049h"), true);
+  assert.equal(
+    output.chunks[1]?.startsWith("\u001B[?2026l\u001B[0m\u001B[?2026h"),
+    true,
+  );
+});
+
+test("ends a possibly partial synchronized update during cleanup", async () => {
+  const output = new MemoryOutput();
+  const renderer = new Renderer(output);
+  output.failure = "blocked";
+  await renderer.render(frame(["one"]), viewport());
+  output.failure = undefined;
+
+  const finished = await renderer.finish();
+
+  assert.ok(finished.ok);
+  assert.equal(
+    output.chunks.at(-1),
+    "\u001B[?2026l\u001B[0m\u001B[?25h\u001B[?1049l",
+  );
 });
 
 test("leaves the alternate screen and cleanup is idempotent", async () => {

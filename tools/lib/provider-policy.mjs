@@ -64,6 +64,22 @@ const EXPECTED_PROVIDERS = [
   },
 ];
 
+const EXPECTED_DIRECT_PROVIDERS = [
+  {
+    id: "opencode-go",
+    displayName: "OpenCode Go",
+    eligibility: "enabled",
+    authorization: "direct-api-key",
+    credentialVariable: "AGENT_OPENCODE_GO_API_KEY",
+    credentialPersistence: "memory-only",
+    endpoint: "https://opencode.ai/zen/go/v1/chat/completions",
+    model: "kimi-k2.7-code",
+    transport: "chat-completions-sse",
+    evidence: "https://opencode.ai/docs/go/",
+    researchedOn: "2026-08-09",
+  },
+];
+
 const APPLICATION_DOCUMENT = "docs/PROVIDER-APPLICATIONS.md";
 const RESEARCH_DATE = "2026-08-08";
 const APPLICATION_HEADINGS = [
@@ -123,9 +139,17 @@ const EXPECTED_WORKSPACES = [
   "@agent/core",
   "@agent/tools",
   "@agent/runtime",
+  "@agent/provider-opencode-go",
   "@agent/tui",
   "@agent/cli",
 ];
+
+const APPROVED_SOURCE_LITERALS = Object.freeze({
+  "packages/agent-provider-opencode-go/src/wire.ts": ["kimi-k2.7-code"],
+  "packages/agent-cli/test/session.test.ts": ["kimi-k2.7-code"],
+  "packages/agent-cli/src/node-opencode-go-transport.ts": ["Bearer "],
+  "packages/agent-cli/test/node-opencode-go-transport.test.ts": ["Bearer "],
+});
 
 const FORBIDDEN_SOURCE_MARKERS = [
   [/(?:auth\.openai\.com|chatgpt\.com\/backend-api)/iu, "OpenAI subscription endpoint"],
@@ -367,10 +391,16 @@ function validateApplicationDocument(policy, text) {
 function validateRegistry(policy) {
   assertExactKeys(
     policy,
-    ["schemaVersion", "applicationDocument", "researchedOn", "providers"],
+    [
+      "schemaVersion",
+      "applicationDocument",
+      "researchedOn",
+      "providers",
+      "directProviders",
+    ],
     "provider policy",
   );
-  if (policy.schemaVersion !== 3) {
+  if (policy.schemaVersion !== 4) {
     fail("unsupported provider policy schema");
   }
   if (!Array.isArray(policy.providers)) {
@@ -403,13 +433,46 @@ function validateRegistry(policy) {
       fail("provider policy mismatch at index " + String(index));
     }
   }
+
+  if (
+    !Array.isArray(policy.directProviders) ||
+    policy.directProviders.length !== EXPECTED_DIRECT_PROVIDERS.length
+  ) {
+    fail("provider policy must contain exactly one admitted direct provider");
+  }
+  for (let index = 0; index < policy.directProviders.length; index += 1) {
+    const provider = policy.directProviders[index];
+    assertExactKeys(
+      provider,
+      [
+        "id",
+        "displayName",
+        "eligibility",
+        "authorization",
+        "credentialVariable",
+        "credentialPersistence",
+        "endpoint",
+        "model",
+        "transport",
+        "evidence",
+        "researchedOn",
+      ],
+      "direct provider at index " + String(index),
+    );
+    if (
+      JSON.stringify(provider) !==
+      JSON.stringify(EXPECTED_DIRECT_PROVIDERS[index])
+    ) {
+      fail("direct provider policy mismatch at index " + String(index));
+    }
+  }
 }
 
 function validateWorkspaces(workspaceNames) {
   const actual = [...workspaceNames].sort();
   const expected = [...EXPECTED_WORKSPACES].sort();
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
-    fail("blocked provider policy requires the exact foundation workspaces");
+    fail("provider policy requires the exact admitted workspaces");
   }
 }
 
@@ -437,12 +500,17 @@ function validateProductSources(productSources) {
     if (!isRecord(source) || typeof source.path !== "string" || typeof source.text !== "string") {
       fail("product source entries must contain path and text");
     }
+    let scannable = source.text;
+    const approved = APPROVED_SOURCE_LITERALS[source.path] ?? [];
+    for (const literal of approved) {
+      scannable = scannable.split(literal).join("");
+    }
     for (const [pattern, label] of FORBIDDEN_SOURCE_MARKERS) {
-      if (pattern.test(source.text)) {
+      if (pattern.test(scannable)) {
         fail(source.path + " contains forbidden " + label);
       }
     }
-    const compact = compactSource(source.text);
+    const compact = compactSource(scannable);
     if (
       /import(?!\{)[^;]*fromnode:process/u.test(compact) ||
       /import\{[^}]*defaultas[^}]*\}fromnode:process/u.test(compact)

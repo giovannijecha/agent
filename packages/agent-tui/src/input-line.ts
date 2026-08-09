@@ -14,6 +14,7 @@ import { Fragment } from "./fragment.js";
 import type { EditorProjection } from "./line-editor.js";
 import { TUI_LIMITS } from "./limits.js";
 import { err, ok, type Result } from "./result.js";
+import { isTone, type Tone } from "./tone.js";
 import type { Viewport } from "./viewport.js";
 
 const CONTROL_CHARACTER = /[\u0000-\u001F\u007F-\u009F]/u;
@@ -38,19 +39,23 @@ export interface InputProjectionSource {
 export class InputLine implements Component {
   readonly #prefix: string;
   readonly #project: (columns: number) => EditorProjection;
+  readonly #tone: Tone;
 
   private constructor(
     prefix: string,
     project: (columns: number) => EditorProjection,
+    tone: Tone,
   ) {
     this.#prefix = prefix;
     this.#project = project;
+    this.#tone = tone;
     Object.freeze(this);
   }
 
   static create(
     prefix: string,
     source: InputProjectionSource,
+    tone: Tone = "plain",
   ): Result<InputLine, ComponentError> {
     if (typeof prefix !== "string") {
       return err(new ComponentError("invalidPrefix", undefined));
@@ -73,9 +78,12 @@ export class InputLine implements Component {
     if (typeof method !== "function") {
       return err(new ComponentError("invalidSource", undefined));
     }
+    if (!isTone(tone)) {
+      return err(new ComponentError("invalidTone", undefined));
+    }
     const stableProject = (columns: number): EditorProjection =>
       method.call(source, columns) as EditorProjection;
-    return ok(new InputLine(prefix, stableProject));
+    return ok(new InputLine(prefix, stableProject, tone));
   }
 
   measure(columns: number): Result<ComponentMeasurement, ComponentError> {
@@ -127,9 +135,14 @@ export class InputLine implements Component {
 
     const lines = Array.from({ length: viewport.rows }, () => "");
     lines.splice(viewport.rows - 1, 1, prefix + projectedText);
-    return Fragment.create(viewport, lines, {
-      row: viewport.rows - 1,
-      column: prefixWidth + projectedCaret,
-    });
+    return Fragment.create(
+      viewport,
+      lines,
+      {
+        row: viewport.rows - 1,
+        column: prefixWidth + projectedCaret,
+      },
+      lines.map(() => this.#tone),
+    );
   }
 }

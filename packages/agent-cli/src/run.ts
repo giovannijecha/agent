@@ -19,6 +19,7 @@ import {
   type ApplicationError,
 } from "./application.js";
 import { createChatFrame } from "./chat-view.js";
+import type { ProviderPresentation } from "./commands.js";
 import {
   type ArbiterError,
   EventArbiter,
@@ -518,6 +519,7 @@ async function cleanupPlainRuntime<RE>(
 export async function run<E, RE = never>(
   host: TerminalHost<E>,
   runtime?: RuntimeSession<RE>,
+  provider?: ProviderPresentation,
 ): Promise<Result<void, RunError<E, RE>>> {
   if (!host.interactive) {
     let primary: RunFailure<E> | undefined;
@@ -560,7 +562,7 @@ export async function run<E, RE = never>(
     }
 
     if (primary === undefined && viewport !== undefined) {
-      application = new ApplicationController(runtime !== undefined);
+      application = new ApplicationController(runtime !== undefined, provider);
       arbiter = new EventArbiter(host, runtime);
       const initial = await renderApplication(renderer, application, viewport);
       if (!initial.ok) {

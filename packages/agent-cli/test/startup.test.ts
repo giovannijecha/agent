@@ -83,8 +83,11 @@ test("runs an interactive session until the exact exit command", async () => {
   assert.ok(result.ok);
   assert.equal(host.startCalls, 1);
   assert.equal(host.stopCalls, 1);
-  assert.equal(host.writes[0]?.startsWith("\u001B[?1049h"), true);
-  assert.equal(host.writes.at(-1), "\u001B[?25h\u001B[?1049l");
+  assert.equal(
+    host.writes[0]?.startsWith("\u001B[?2026h\u001B[?1049h"),
+    true,
+  );
+  assert.equal(host.writes.at(-1), "\u001B[0m\u001B[?25h\u001B[?1049l");
 });
 
 test("redraws after input and resize without losing the draft", async () => {

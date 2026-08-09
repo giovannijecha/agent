@@ -47,9 +47,12 @@ bounded storage; excessive logical lines never force an application shutdown.
 
 ## Intended scope
 
-Version 1 is complete for deterministic vertical text applications. It does not
-claim horizontal splits, overlapping layers, colors, rich spans, mouse input,
-focus traversal, scrolling history, markdown, syntax highlighting, grapheme
+Version 1 is complete for deterministic vertical text applications. Decision
+0019 later adds four closed semantic row tones without changing allocation or
+allowing raw terminal controls. Decision 0020 adds immutable scroll geometry,
+one generic scroll view, and synchronized renderer transactions. The framework
+does not claim horizontal splits, overlapping layers, rich spans, arbitrary
+colors, mouse input, focus traversal, markdown, syntax highlighting, grapheme
 tables, or arbitrary two-dimensional cell composition. Those capabilities need
 separate contracts and decisions rather than compatibility hooks in this one.
 
