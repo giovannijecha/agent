@@ -94,6 +94,20 @@ static void agent_linux_diagnostic(uint32_t stage) {
   }
 }
 
+static void agent_linux_diagnostic_error(uint32_t stage, int error_number) {
+  char message[64];
+  const int length = snprintf(
+    message,
+    sizeof(message),
+    "linux-containment-stage:%lu:error:%d\n",
+    (unsigned long)stage,
+    error_number
+  );
+  if (length > 0 && (size_t)length < sizeof(message)) {
+    (void)agent_linux_write_all(STDERR_FILENO, message, (size_t)length);
+  }
+}
+
 static bool agent_linux_read_all(int descriptor, void *bytes, size_t length) {
   unsigned char *cursor = bytes;
   size_t offset = 0u;
@@ -540,10 +554,6 @@ static void agent_linux_guard(
     agent_linux_diagnostic(11u);
     agent_linux_child_failure(setup_status, AGENT_BROKER_FAILURE_CONTAINMENT);
   }
-  if (umount(AGENT_LINUX_CGROUP_MOUNT) != 0) {
-    agent_linux_diagnostic(19u);
-    agent_linux_child_failure(setup_status, AGENT_BROKER_FAILURE_CONTAINMENT);
-  }
   if (mount(
       "proc",
       "/proc",
@@ -561,7 +571,7 @@ static void agent_linux_guard(
       MS_NOSUID | MS_NODEV | MS_NOEXEC,
       NULL
     ) != 0) {
-    agent_linux_diagnostic(13u);
+    agent_linux_diagnostic_error(13u, errno);
     agent_linux_child_failure(setup_status, AGENT_BROKER_FAILURE_CONTAINMENT);
   }
   if (mount(

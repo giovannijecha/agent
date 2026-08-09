@@ -355,10 +355,10 @@ leaving `run_process` blocked.
 On Linux, preserve the admitted namespace order: the broker creates the guard
 inside the run leaf with user, mount, and PID namespaces; only the mapped guard
 creates the cgroup namespace rooted at that leaf. Do not merge those operations
-without replacing the ownership proof. After mount propagation is private, the
-guard must detach the inherited host cgroup mount before mounting the cgroup v2
-view rooted by its new cgroup namespace. Covering the inherited mount without
-detaching it does not replace its original namespace root.
+without replacing the ownership proof. The inherited host mounts form a locked
+unit in the less-privileged mount namespace and cannot be detached individually.
+After mount propagation is private, the guard must stack its namespaced cgroup
+v2 view over the inherited cgroup mount and make the new top mount read-only.
 
 To remove the private proof, delete `packages/agent-cli/native/process-broker`,
 `tools/build-native.mjs`, `tools/lib/native-process-broker.mjs`, its focused
