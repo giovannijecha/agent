@@ -827,13 +827,32 @@ static uint32_t agent_linux_poll_control(void) {
 }
 
 static bool agent_linux_wait_guard(pid_t guard, int *status) {
+  const uint64_t start = agent_linux_now_milliseconds();
+  if (start == UINT64_MAX) {
+    return false;
+  }
+  const uint64_t deadline = start + AGENT_LINUX_CLEANUP_TIMEOUT_MS;
   for (;;) {
-    const pid_t result = waitpid(guard, status, 0);
+    const pid_t result = waitpid(guard, status, WNOHANG);
+    if (result == guard) {
+      return true;
+    }
     if (result < 0 && errno == EINTR) {
       continue;
     }
-    return result == guard;
+    if (result < 0) {
+      return false;
+    }
+    const uint64_t now = agent_linux_now_milliseconds();
+    if (now == UINT64_MAX || now >= deadline) {
+      return false;
+    }
+    agent_linux_pause();
   }
+}
+
+static bool agent_linux_force_guard(pid_t guard) {
+  return kill(guard, SIGKILL) == 0 || errno == ESRCH;
 }
 
 struct agent_broker_result agent_backend_run(
@@ -1050,11 +1069,19 @@ struct agent_broker_result agent_backend_run(
 
 cleanup:
   if (guard > 0 && !guard_reaped) {
-    if (!agent_linux_kill_and_wait(&containment)) {
+    bool emptied = agent_linux_kill_and_wait(&containment);
+    if (!emptied && !agent_linux_force_guard(guard)) {
       result = agent_linux_failure(AGENT_BROKER_FAILURE_CLEANUP);
     }
     int ignored_status = 0;
-    if (!agent_linux_wait_guard(guard, &ignored_status)) {
+    guard_reaped = agent_linux_wait_guard(guard, &ignored_status);
+    if (!guard_reaped) {
+      result = agent_linux_failure(AGENT_BROKER_FAILURE_CLEANUP);
+    }
+    if (!emptied && guard_reaped) {
+      emptied = agent_linux_kill_and_wait(&containment);
+    }
+    if (!emptied) {
       result = agent_linux_failure(AGENT_BROKER_FAILURE_CLEANUP);
     }
   }

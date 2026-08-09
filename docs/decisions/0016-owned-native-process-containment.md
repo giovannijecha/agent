@@ -124,8 +124,11 @@ namespace has no child processes. Target code cannot disable the guard's
 parent-death signal or become the outer namespace's PID 1.
 
 The broker kills the run leaf through `cgroup.kill`, observes `populated 0`,
-reaps the guard through its pidfd, and removes the empty leaf before reporting a
-terminal state. Abrupt broker loss kills the guard, and Linux PID-namespace
+observes guard exit through its pidfd, reaps it with a bounded wait, and removes
+the empty leaf before reporting a terminal state. If cgroup cleanup itself
+fails, the broker kills the namespace guard directly, bounds the reap, and
+retries the authoritative empty-container observation before returning a
+cleanup failure. Abrupt broker loss kills the guard, and Linux PID-namespace
 semantics then kill every remaining member. An empty cgroup directory may remain
 after abrupt broker death; the delegated owner may remove that empty artifact,
 but no process can remain inside it.
@@ -158,7 +161,9 @@ termination, inherited output pipes, broker loss, and proof that recorded
 contained PIDs are gone without selecting an unrelated process. Windows probes
 the recorded global PIDs directly. Linux records namespace-local PIDs for
 cardinality and limit evidence, then independently verifies that the outer
-guard PID is gone and the delegated `runs` hierarchy has no child cgroup.
+guard PID is gone. Normal terminal states leave the delegated `runs` hierarchy
+without a child cgroup; the abrupt-loss proof instead verifies that every
+remaining run leaf is unpopulated for later delegated cleanup.
 
 No test is skipped when the platform job is admitted. Failure to prepare the
 Linux delegation is a failed proof, not an unsupported skip. Local Windows

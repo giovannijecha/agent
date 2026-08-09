@@ -106,7 +106,7 @@ export async function runNativeBroker({
   launchFrame,
   cancelOnStarted = false,
   closeControllerOnStarted = false,
-  killBrokerOnStarted = false,
+  killBrokerOnOutput = false,
   cancelOnOutput = false,
   cancelImmediately = false,
   outputLimit = defaultOutputLimit,
@@ -169,9 +169,6 @@ export async function runNativeBroker({
         if (closeControllerOnStarted) {
           child.stdin.destroy();
         }
-        if (killBrokerOnStarted) {
-          child.kill();
-        }
       }
     }
   };
@@ -187,6 +184,9 @@ export async function runNativeBroker({
   child.stderr.on("data", (chunk) => appendBounded(diagnostics, chunk, 4096));
   child.stdio[3].on("data", (chunk) => {
     appendBounded(targetOutput, chunk, outputLimit);
+    if (killBrokerOnOutput) {
+      child.kill();
+    }
     if (targetOutput.overflowed || cancelOnOutput) {
       requestCancellation();
     }
@@ -243,7 +243,7 @@ export function runNativeFixture({
   processLimit = 4,
   cancelOnStarted = false,
   closeControllerOnStarted = false,
-  killBrokerOnStarted = false,
+  killBrokerOnOutput = false,
   cancelOnOutput = false,
   cancelImmediately = false,
   outputLimit = defaultOutputLimit,
@@ -258,7 +258,7 @@ export function runNativeFixture({
     }),
     cancelOnStarted,
     closeControllerOnStarted,
-    killBrokerOnStarted,
+    killBrokerOnOutput,
     cancelOnOutput,
     cancelImmediately,
     outputLimit,

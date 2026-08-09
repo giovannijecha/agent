@@ -55,6 +55,10 @@ async function waitForProcessToExit(processId) {
 }
 
 function assertLinuxRunsDirectoryEmpty() {
+  assert.deepEqual(linuxRunCgroups(), []);
+}
+
+function linuxRunCgroups() {
   const membership = readFileSync("/proc/self/cgroup", "utf8")
     .split("\n")
     .find((line) => line.startsWith("0::"));
@@ -67,9 +71,27 @@ function assertLinuxRunsDirectoryEmpty() {
     "." + delegatedRoot,
     "runs",
   );
-  const childCgroups = readdirSync(runsDirectory, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory());
-  assert.deepEqual(childCgroups, []);
+  return readdirSync(runsDirectory, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => path.join(runsDirectory, entry.name));
+}
+
+async function waitForLinuxRunCgroupsToEmpty() {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const runCgroups = linuxRunCgroups();
+    if (
+      runCgroups.length > 0 &&
+      runCgroups.every((runCgroup) =>
+        /(?:^|\n)populated 0(?:\n|$)/u.test(
+          readFileSync(path.join(runCgroup, "cgroup.events"), "utf8"),
+        )
+      )
+    ) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  assert.fail("contained Linux cgroup remained populated after broker loss");
 }
 
 async function assertRecordedProcessesGone(result, processIds) {
@@ -359,14 +381,34 @@ test("contains descendants created concurrently with cancellation", async () => 
 });
 
 test("abrupt broker loss still terminates the contained process set", async () => {
-  const result = await runNativeFixture({
-    arguments: ["sleep"],
-    killBrokerOnStarted: true,
-  });
+  const directory = mkdtempSync(path.join(os.tmpdir(), "agent-broker-loss-"));
+  const processFile = path.join(directory, "processes.txt");
+  try {
+    const result = await runNativeFixture({
+      arguments: ["spawn-storm", processFile],
+      killBrokerOnOutput: true,
+      processLimit: 64,
+    });
 
-  const started = result.statuses.find((status) => status.kind === "started");
-  assert.notEqual(started, undefined);
-  await waitForProcessToExit(Number(started.processId));
+    assert.equal(result.stdout.toString("utf8"), "ready\n");
+    const started = result.statuses.find((status) => status.kind === "started");
+    assert.notEqual(started, undefined);
+    await waitForProcessToExit(Number(started.processId));
+    const processIds = readFileSync(processFile, "utf8")
+      .trim()
+      .split("\n")
+      .map(Number);
+    assert.equal(processIds.length > 0, true);
+    if (process.platform === "win32") {
+      for (const processId of processIds) {
+        await waitForProcessToExit(processId);
+      }
+    } else {
+      await waitForLinuxRunCgroupsToEmpty();
+    }
+  } finally {
+    rmSync(directory, { force: true, recursive: true });
+  }
 });
 
 test("containment never terminates an unrelated process", async () => {

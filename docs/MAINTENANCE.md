@@ -338,7 +338,9 @@ write access to the common parent's `cgroup.procs`. Production never invokes
 `sudo`. The CI bootstrap may elevate only to create, delegate, leave, and remove
 its disposable subtree. Missing `pids`, `cgroup.kill`, `clone3`, pidfd,
 namespace, read-only cgroup mount, or cleanup support is a hard failure. Do not
-add a process-group fallback.
+add a process-group fallback. Keep every cleanup wait bounded. If the cgroup
+control path fails after guard creation, retain the direct namespace-guard kill,
+bounded reap, and repeated empty-container observation before reporting failure.
 
 The registered Ubuntu 24.04 proof also requires the runner's default AppArmor
 unprivileged-user-namespace restriction. The CI bootstrap temporarily changes
