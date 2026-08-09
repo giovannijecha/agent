@@ -15,6 +15,9 @@ agent.”
 
 - Use Node.js `>=22.19.0`, npm workspaces, ESM, ES2022, and external TypeScript
   `5.9.3`. Node, npm, and `tsc` are approved toolchain substrate.
+- Private native platform primitives use original C17 and external Clang
+  `>=18`; system headers and operating-system APIs are approved substrate.
+  Generated native binaries remain ignored and are never committed.
 - Third-party source, npm packages, SDKs, frameworks, snippets, vendored code,
   foreign generated code, and `@types/node` are forbidden.
 - TypeScript must stay outside the repository and every package dependency must
@@ -50,6 +53,9 @@ agent.”
 - `@agent/cli` owns commands, bounded display chat, the single-writer reducer,
   terminal/runtime arbitration, built-in workspace tools, raw mode, filesystem
   and process access, and all Node lifecycle; it is the only platform boundary.
+- The private CLI-native process broker is verification infrastructure only.
+  Production does not invoke it and `run_process` stays blocked until a later
+  decision accepts the complete model-facing adapter and approval contract.
 - `agent` is a single-agent product: one identity, one application controller,
   one active runtime session, and one active model decision loop. Providers are
   interchangeable backends, never additional agents; do not add sub-agents,
@@ -98,6 +104,9 @@ npm run build
 npm start
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1
 ```
+
+On Linux, use `bash tools/verify.sh`; it runs the same ordered gate with the
+platform-native shell wrapper.
 
 The final command must pass before work is complete. It checks the toolchain,
 documents, manifests, lockfile, imports, source hygiene, build, tests, and CLI.

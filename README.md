@@ -37,6 +37,7 @@ reviewed inventory to source and rejects duplicate declared capabilities.
 
 - Node.js `>=22.19.0`
 - TypeScript `5.9.3`, installed externally as toolchain
+- C17 with Clang `>=18`, installed externally as native build substrate
 - ECMAScript modules targeting ES2022
 - npm workspaces with only exact local package edges
 - Node's built-in test runner
@@ -52,6 +53,7 @@ packages/agent-tools  schemas, descriptors, registry, risk, execution boundary
 packages/agent-runtime  bounded streaming/tool turns and model port
 packages/agent-tui   generic components, layout, input, frames, and renderer
 packages/agent-cli   chat, arbiter, commands, built-in tools, Node lifecycle, composition
+packages/agent-cli/native  private Windows/Linux process-containment proof
 types/               minimal Node declarations authored here
 tools/               ownership, build, test, and smoke verification
 .github/workflows/   owned remote verification with no imported actions
@@ -77,14 +79,20 @@ Node, transport, or provider identity.
 
 ## Setup and commands
 
-Required toolchain: Node `>=22.19.0`, npm `11.16.0`, and `tsc 5.9.3` on `PATH`.
-TypeScript must not be installed into this workspace.
+Required toolchain: Node `>=22.19.0`, npm `11.16.0`, `tsc 5.9.3`, and Clang
+`>=18` on `PATH`. TypeScript and Clang must remain outside this workspace.
 
 ```powershell
 npm ci --offline --ignore-scripts --no-audit --no-fund
 npm run build
 npm start
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1
+```
+
+Linux uses the matching owned wrapper:
+
+```bash
+bash tools/verify.sh
 ```
 
 The lockfile contains only workspace topology and local links. `npm ci` is
@@ -127,12 +135,13 @@ enter notices or the tool-status panel. Once a
 tool attempt completes, its structured call and result become a conversation
 checkpoint before the next model step. A later failure or cancellation retains
 that truthful checkpoint while discarding only prospective response text.
-Direct process execution remains disabled under decisions 0008 and 0015 until
-decision 0015 is explicitly replaced. The current pure Node.js boundary lacks
-Windows Job Object ownership, while Linux requires a securely delegated cgroup
-v2 subtree; process groups and `taskkill /T` are not accepted substitutes.
-Admission needs the registered kernel-backed platform proof, environment
-isolation, bounded output, and complete cleanup.
+Direct process execution remains disabled under decisions 0008 and 0015.
+Decision 0016 adds an original private C17 broker that is compiled and tested
+against Windows Job Objects and Linux delegated cgroup v2 plus namespaces, but
+production does not invoke it and no model-facing tool exists. Process groups
+and `taskkill /T` remain rejected substitutes. Admission still requires a later
+reviewed structured adapter, approval surface, privacy boundary, and complete
+matching-platform proof.
 `/exit` is the only exit command; there is no alternate alias.
 
 Read [the operator manual](docs/manual/README.md) to run and interpret the

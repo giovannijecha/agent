@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-08
+- Supplemented by: decision 0016, which adds the private proof architecture
 
 ## Context
 
@@ -101,11 +102,11 @@ introduced. Filesystem tools, runtime checkpoints, approvals, and the TUI are
 unchanged. The current Windows-only verification workflow also remains
 unchanged because there is no cross-platform process backend to validate yet.
 
-An owned native Windows helper plus a delegated-cgroup Linux backend remains a
-possible future architecture. It is not a small additive adapter: it would add
-an operating-system helper lifecycle, compiler and binary supply chain,
-capability probing, crash recovery, platform distribution, and new security
-boundaries. Those costs require explicit approval and a replacing decision.
+Decision 0016 accepts an owned native Windows broker and delegated-cgroup Linux
+backend as private proof infrastructure, with the required compiler, lifecycle,
+capability, crash-recovery, and platform-verification boundaries. It does not
+replace this decision's model-facing block. A structured tool, approval surface,
+and production composition still require a later replacing admission decision.
 
 ## Update, rollback, and removal
 

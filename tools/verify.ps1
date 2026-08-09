@@ -42,6 +42,7 @@ try {
         '--pretty',
         'false'
     )
+    Invoke-Checked -Program 'node' -Arguments @('tools/build-native.mjs')
     Invoke-Checked -Program 'node' -Arguments @(
         'tools/verify.mjs',
         '--require-generated'

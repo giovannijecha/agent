@@ -17,10 +17,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify:
-    name: verify
-    runs-on: windows-latest
-    timeout-minutes: 20
+  verify-windows:
+    name: verify-windows
+    runs-on: windows-2025
+    timeout-minutes: 25
     steps:
       - name: Check out exact revision
         shell: powershell
@@ -79,7 +79,7 @@ jobs:
           }
           Invoke-Checked -Program "git" -Arguments @("remote", "remove", "origin")
 
-      - name: Provision pinned verification toolchain
+      - name: Provision registered verification toolchain
         shell: powershell
         env:
           AGENT_NPM_VERSION: "11.16.0"
@@ -91,9 +91,67 @@ jobs:
           $ErrorActionPreference = "Stop"
           npm install --global "npm@$($env:AGENT_NPM_VERSION)" "typescript@$($env:AGENT_TYPESCRIPT_VERSION)" --offline=false --ignore-scripts --no-audit --no-fund
           if ($LASTEXITCODE -ne 0) {
-              throw "Pinned verification toolchain provisioning failed."
+              throw "Registered verification toolchain provisioning failed."
           }
 
       - name: Run canonical owned verifier
         shell: powershell
         run: powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1
+
+  verify-linux:
+    name: verify-linux
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check out exact revision
+        shell: bash
+        env:
+          AGENT_REPOSITORY: ${{ github.repository }}
+          AGENT_REVISION: ${{ github.sha }}
+          AGENT_REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$AGENT_REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+            printf '%s\n' 'Repository identity is malformed.' >&2
+            exit 1
+          fi
+          if [[ ! "$AGENT_REVISION" =~ ^[0-9a-f]{40}$ ]]; then
+            printf '%s\n' 'Revision identity is malformed.' >&2
+            exit 1
+          fi
+          if [[ ! "$AGENT_REF" =~ ^refs/(heads/main|pull/[1-9][0-9]*/merge)$ ]]; then
+            printf '%s\n' 'Workflow ref is outside the verified branch contract.' >&2
+            exit 1
+          fi
+          git init .
+          git remote add origin "https://github.com/${AGENT_REPOSITORY}.git"
+          git -c protocol.version=2 fetch --no-tags --depth=1 origin "$AGENT_REF"
+          git checkout --detach FETCH_HEAD
+          actual_revision="$(git rev-parse HEAD)"
+          if [[ "$actual_revision" != "$AGENT_REVISION" ]]; then
+            printf '%s\n' 'Checked-out revision does not match the event revision.' >&2
+            exit 1
+          fi
+          git remote remove origin
+
+      - name: Provision registered verification toolchain
+        shell: bash
+        env:
+          AGENT_NPM_VERSION: "11.16.0"
+          AGENT_TYPESCRIPT_VERSION: "5.9.3"
+          NPM_CONFIG_OFFLINE: "false"
+          NPM_CONFIG_UPDATE_NOTIFIER: "false"
+        run: |
+          set -euo pipefail
+          toolchain_directory="${RUNNER_TEMP}/agent-toolchain"
+          mkdir -- "$toolchain_directory"
+          npm install --global --prefix "$toolchain_directory" "npm@${AGENT_NPM_VERSION}" "typescript@${AGENT_TYPESCRIPT_VERSION}" --offline=false --ignore-scripts --no-audit --no-fund
+          printf '%s\n' "${toolchain_directory}/bin" >> "$GITHUB_PATH"
+
+      - name: Run canonical verifier in delegated containment
+        shell: bash
+        run: |
+          set -euo pipefail
+          trap 'bash tools/prepare-linux-containment.sh cleanup "$$"' EXIT
+          bash tools/prepare-linux-containment.sh setup "$$"
+          bash tools/verify.sh

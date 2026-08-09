@@ -120,11 +120,14 @@ object. Reusable terminal mechanics belong behind the TUI contract. Model turn
 mechanics remain behind the runtime session contract. It also implements the
 registered bounded Node filesystem tools. Every path is rooted, canonicalized,
 and denied on traversal or symlink crossing.
-Direct process execution is absent under decision 0015. Process groups,
-enumerated PID trees, and `taskkill /T` do not meet the no-breakaway boundary.
-Admission requires kernel-backed Windows and Linux containment that proves
-descendant cancellation, isolated environment, bounded output, owner-loss
-behavior, and complete cleanup on the distributed platform backends.
+Direct process execution remains absent from the model-facing registry under
+decision 0015. Decision 0016 adds a private C17 proof boundary inside CLI:
+common framed protocol and lifecycle modules select either an owned Windows Job
+Object backend or an owned Linux delegated-cgroup and namespace backend. No
+production TypeScript path invokes it. Matching platform tests must prove
+descendant cancellation, empty environment, bounded output, owner-loss behavior,
+and complete cleanup before a later decision may add the structured tool and
+approval surface.
 
 ## Lean tool harness
 
@@ -201,6 +204,12 @@ manual, public identity and license, imports, source, derived output, tests, and
 CLI. Shipped modules may use only
 statically safe computed member names; dynamic collection indexing uses explicit
 methods so reflective loader escapes fail closed.
+
+The native trust gate compiles original C17 source with external Clang on the
+matching Windows x64 or Linux x64 host. Generated binaries are ignored and
+cleaned. Linux verification alone prepares a disposable delegated cgroup with
+elevated CI setup; broker and tests remain unprivileged. The Windows and Linux
+jobs are separate mandatory evidence rather than cross-compiled substitutes.
 
 ## Implemented and planned boundaries
 
@@ -287,6 +296,10 @@ process access remain unavailable unless the CLI composes an explicit capability
   `docs/decisions/0015-process-tree-containment.md`; and remove their ownership,
   required-path, and manual-evidence registrations. Core text chat and the
   providerless CLI remain buildable throughout.
+- Remove the private containment proof without touching product tools by deleting
+  its CLI-native source, build driver, conformance harness, tests, Linux cgroup
+  bootstrap, native toolchain and verifier registrations, decision 0016, and the
+  Linux CI job. `run_process` remains blocked by decision 0015.
 
 The exact registry and derived-artifact procedure is defined in
 `docs/MAINTENANCE.md`.

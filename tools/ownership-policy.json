@@ -28,7 +28,8 @@
     "docs/decisions/0012-owned-continuous-verification.md",
     "docs/decisions/0013-single-agent-execution.md",
     "docs/decisions/0014-lean-tool-harness.md",
-    "docs/decisions/0015-process-tree-containment.md"
+    "docs/decisions/0015-process-tree-containment.md",
+    "docs/decisions/0016-owned-native-process-containment.md"
   ],
   "workspaces": [
     {
@@ -87,6 +88,7 @@
       "node:crypto",
       "node:fs",
       "node:module",
+      "node:os",
       "node:path",
       "node:process",
       "node:test",

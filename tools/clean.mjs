@@ -6,7 +6,7 @@ import { ownershipPolicy, projectRoot } from "./lib/project.mjs";
 const generated = ownershipPolicy.workspaces.flatMap((workspace) => [
   workspace.path + "/dist",
   workspace.path + "/.test-dist",
-]);
+]).concat(["packages/agent-cli/.native-build"]);
 
 for (const relativePath of generated) {
   const target = path.resolve(projectRoot, relativePath);

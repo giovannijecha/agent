@@ -56,10 +56,13 @@ from advertised tools and therefore adds no model-facing capability:
 
 | Blocked tool | Risk | Reason | Decision |
 |---|---|---|---|
-| `run_process` | `execute` | Whole-tree containment is not provable with the current pure Node.js platform boundary. | `docs/decisions/0015-process-tree-containment.md` |
+| `run_process` | `execute` | The native containment broker is private proof infrastructure; no reviewed model-facing process adapter or approval surface exists. | `docs/decisions/0015-process-tree-containment.md` |
 
 Process groups, enumerated PID trees, and `taskkill /T` do not satisfy the
-required no-breakaway guarantee. Missing platform containment must fail closed.
+required no-breakaway guarantee. Decision 0016 compiles and tests an owned
+Windows/Linux broker but does not advertise or invoke it in production. Missing
+platform containment fails closed, and passing the private proof alone does not
+authorize the tool.
 
 The release gate rejects duplicate canonical names, capability identifiers, or
 necessity records; unsupported descriptor syntax; descriptor risk drift; and a
@@ -86,3 +89,6 @@ by decision 0015.
 - Accepted execution design: `docs/decisions/0008-owned-tool-execution.md`
 - Lean-harness decision: `docs/decisions/0014-lean-tool-harness.md`
 - Process-containment decision: `docs/decisions/0015-process-tree-containment.md`
+- Native proof decision: `docs/decisions/0016-owned-native-process-containment.md`
+- Native broker contract: `packages/agent-cli/native/process-broker/broker.h`
+- Cross-platform proof: `tools/test/native-process-broker.test.mjs`

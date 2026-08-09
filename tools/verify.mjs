@@ -38,10 +38,11 @@ const generatedDirectories = new Set(
   policy.workspaces.flatMap((workspace) => [
     workspace.path + "/dist",
     workspace.path + "/.test-dist",
-  ]),
+  ]).concat(["packages/agent-cli/.native-build"]),
 );
 const reservedDirectoryNames = new Set([
   ".cargo",
+  ".native-build",
   ".git",
   ".test-dist",
   "dist",
@@ -156,22 +157,29 @@ function compareVersions(left, right) {
   return 0;
 }
 
-function captureTool(command) {
-  const result =
-    process.platform === "win32"
-      ? spawnSync(process.env.ComSpec ?? "cmd.exe", ["/d", "/s", "/c", command], {
+function captureTool(program, arguments_) {
+  const windowsCommandShim = process.platform === "win32" &&
+    (program === "npm" || program === "tsc");
+  const result = windowsCommandShim
+    ? spawnSync(
+        process.env.ComSpec ?? "cmd.exe",
+        ["/d", "/s", "/c", program + " " + arguments_.join(" ")],
+        {
           cwd: projectRoot,
           encoding: "utf8",
-        })
-      : spawnSync(command, [], {
-          cwd: projectRoot,
-          encoding: "utf8",
-        });
+          shell: false,
+        },
+      )
+    : spawnSync(program, arguments_, {
+        cwd: projectRoot,
+        encoding: "utf8",
+        shell: false,
+      });
   if (result.error !== undefined) {
     throw result.error;
   }
   if (result.status !== 0) {
-    fail("tool command failed: " + command);
+    fail("tool command failed: " + program);
   }
   return result.stdout.trim();
 }
@@ -187,7 +195,7 @@ function verifyToolchain() {
     fail("Node is too old: " + nodeVersion);
   }
 
-  const npmVersion = captureTool("npm --version");
+  const npmVersion = captureTool("npm", ["--version"]);
   if (npmVersion !== toolchain.npm.exactVersion) {
     fail(
       "npm version mismatch: expected " +
@@ -197,7 +205,7 @@ function verifyToolchain() {
     );
   }
 
-  const typescriptVersion = captureTool("tsc --version").replace(/^Version\s+/u, "");
+  const typescriptVersion = captureTool("tsc", ["--version"]).replace(/^Version\s+/u, "");
   if (typescriptVersion !== toolchain.typescript.exactVersion) {
     fail(
       "TypeScript version mismatch: expected " +
@@ -215,6 +223,34 @@ function verifyToolchain() {
   for (const compilerPath of located.stdout.trim().split(/\r?\n/u)) {
     if (path.resolve(compilerPath).startsWith(projectRoot + path.sep)) {
       fail("TypeScript must remain outside the repository: " + compilerPath);
+    }
+  }
+
+  if (
+    toolchain.nativeC.languageStandard !== "c17" ||
+    toolchain.nativeC.compiler !== "clang" ||
+    !toolchain.nativeC.platforms.includes(process.platform) ||
+    !toolchain.nativeC.architectures.includes(process.arch)
+  ) {
+    fail("the current platform is outside the registered native C toolchain");
+  }
+  const clangVersion = captureTool(toolchain.nativeC.compiler, ["--version"]);
+  const clangMatch = /\bclang version ([0-9]+)\./u.exec(clangVersion);
+  if (
+    clangMatch === null ||
+    Number(clangMatch[1]) < toolchain.nativeC.minimumMajorVersion
+  ) {
+    fail("Clang is older than the registered native minimum");
+  }
+  const locatedClang = spawnSync(locator, [toolchain.nativeC.compiler], {
+    encoding: "utf8",
+  });
+  if (locatedClang.status !== 0) {
+    fail("native C compiler is not locatable from PATH");
+  }
+  for (const compilerPath of locatedClang.stdout.trim().split(/\r?\n/u)) {
+    if (path.resolve(compilerPath).startsWith(projectRoot + path.sep)) {
+      fail("native C compiler must remain outside the repository: " + compilerPath);
     }
   }
 }
@@ -270,9 +306,12 @@ function verifyProviderPolicy() {
   const declarationSources = listFiles("types")
     .filter((file) => file.endsWith(".d.ts"))
     .map((file) => ({ path: file, text: readText(file) }));
+  const nativeSources = listFiles("packages/agent-cli/native")
+    .filter((file) => /\.(?:c|h)$/u.test(file))
+    .map((file) => ({ path: file, text: readText(file) }));
   validateProviderPolicy(providerPolicy, {
     workspaceNames: policy.workspaces.map((workspace) => workspace.name),
-    productSources: [...workspaceSources, ...declarationSources],
+    productSources: [...workspaceSources, ...declarationSources, ...nativeSources],
     applicationText: readText(providerPolicy.applicationDocument),
   });
 }
@@ -323,8 +362,8 @@ function verifyManifests() {
   compareObjects(
     rootManifest.scripts,
     {
-      build: "tsc --build tsconfig.json --pretty false",
-      clean: "tsc --build tsconfig.json --clean",
+      build: "tsc --build tsconfig.json --pretty false && node tools/build-native.mjs",
+      clean: "node tools/clean.mjs",
       start: "node packages/agent-cli/dist/main.js",
       test: "node tools/run-tests.mjs",
       verify: "powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1",
@@ -511,7 +550,7 @@ function verifyRepositoryLayout() {
       continue;
     }
     if (
-      /^tools\/[a-z0-9-]+\.(?:json|mjs|ps1)$/u.test(file) ||
+      /^tools\/[a-z0-9-]+\.(?:json|mjs|ps1|sh)$/u.test(file) ||
       /^tools\/lib\/[a-z0-9-]+\.mjs$/u.test(file) ||
       /^tools\/test\/[a-z0-9-]+\.test\.mjs$/u.test(file)
     ) {
@@ -527,7 +566,11 @@ function verifyRepositoryLayout() {
       if (
         ["package.json", "tsconfig.json", "tsconfig.test.json"].includes(relativeFile) ||
         /^src\/[a-z0-9-]+\.ts$/u.test(relativeFile) ||
-        /^test\/[a-z0-9-]+\.test\.ts$/u.test(relativeFile)
+        /^test\/[a-z0-9-]+\.test\.ts$/u.test(relativeFile) ||
+        (
+          workspaceRoot === "packages/agent-cli/" &&
+          /^native\/process-broker\/[a-z0-9-]+\.(?:c|h)$/u.test(relativeFile)
+        )
       ) {
         continue;
       }
@@ -558,14 +601,29 @@ function verifyRepositoryLayout() {
   const actualGenerated = listFiles(".", true).filter((file) =>
     /(?:^|\/)(?:dist|\.test-dist)\//u.test(file),
   );
-  if (actualGenerated.length === 0 && !requireGenerated) {
-    return;
+  if (actualGenerated.length > 0 || requireGenerated) {
+    compareObjects(
+      actualGenerated.sort(),
+      expectedGenerated.sort(),
+      "generated artifact set",
+    );
   }
-  compareObjects(
-    actualGenerated.sort(),
-    expectedGenerated.sort(),
-    "generated artifact set",
-  );
+
+  const nativeSuffix = process.platform === "win32" ? ".exe" : "";
+  const nativeRoot = "packages/agent-cli/.native-build/" + process.platform + "-x64/";
+  const actualNativeGenerated = listFiles(".", true)
+    .filter((file) => file.startsWith("packages/agent-cli/.native-build/"))
+    .sort();
+  if (actualNativeGenerated.length > 0 || requireGenerated) {
+    compareObjects(
+      actualNativeGenerated,
+      [
+        nativeRoot + "agent-process-broker" + nativeSuffix,
+        nativeRoot + "agent-process-fixture" + nativeSuffix,
+      ],
+      "native generated artifact set",
+    );
+  }
 }
 
 function verifyDeclarations() {
@@ -757,7 +815,7 @@ function verifyLegacyAbsence() {
 
 function verifySourceHygiene() {
   const ownedFiles = listFiles(".").filter((file) =>
-    /\.(?:d\.ts|json|md|mjs|ps1|ts)$/u.test(file),
+    /\.(?:c|d\.ts|h|json|md|mjs|ps1|sh|ts)$/u.test(file),
   );
   for (const file of ownedFiles) {
     const text = readText(file);
