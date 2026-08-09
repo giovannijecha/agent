@@ -111,11 +111,12 @@ The guard is PID 1 in the new PID namespace and is linked to broker death with
 GID maps, then creates its cgroup namespace while already resident in the run
 leaf. This ordering makes the run leaf the cgroup-namespace root and makes the
 cgroup namespace owned by the mapped user namespace. The guard replaces
-`/proc`, makes mount propagation private, and stacks a namespaced cgroup v2
-mount over the inherited host mount at `/sys/fs/cgroup`. A mount namespace
-owned by the new user namespace cannot detach individual mounts inherited as a
-locked unit from the more privileged host namespace; the new top mount instead
-exposes the cgroup-namespace root and is remounted read-only. The guard then
+`/proc`, makes mount propagation private, creates a detached read-only cgroup v2
+mount through Linux's file-descriptor mount API, and attaches it over the
+inherited host mount at `/sys/fs/cgroup`. A mount namespace owned by the new
+user namespace cannot detach individual mounts inherited as a locked unit from
+the more privileged host namespace; the new top mount instead exposes the
+cgroup-namespace root without a global temporary mount point. The guard then
 sets `no_new_privs`, drops ambient, bounding, permitted, effective, and
 inheritable capabilities, and forks the target. The trusted guard never
 executes target code. It reaps all orphaned descendants and exits only after the

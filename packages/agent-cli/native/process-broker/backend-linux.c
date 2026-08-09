@@ -5,6 +5,7 @@
 #include <limits.h>
 #include <linux/capability.h>
 #include <linux/magic.h>
+#include <linux/mount.h>
 #include <linux/sched.h>
 #include <poll.h>
 #include <signal.h>
@@ -88,20 +89,6 @@ static void agent_linux_diagnostic(uint32_t stage) {
     sizeof(message),
     "linux-containment-stage:%lu\n",
     (unsigned long)stage
-  );
-  if (length > 0 && (size_t)length < sizeof(message)) {
-    (void)agent_linux_write_all(STDERR_FILENO, message, (size_t)length);
-  }
-}
-
-static void agent_linux_diagnostic_error(uint32_t stage, int error_number) {
-  char message[64];
-  const int length = snprintf(
-    message,
-    sizeof(message),
-    "linux-containment-stage:%lu:error:%d\n",
-    (unsigned long)stage,
-    error_number
   );
   if (length > 0 && (size_t)length < sizeof(message)) {
     (void)agent_linux_write_all(STDERR_FILENO, message, (size_t)length);
@@ -489,6 +476,60 @@ static bool agent_linux_drop_capabilities(void) {
   return syscall(SYS_capset, &header, capabilities) == 0;
 }
 
+static uint32_t agent_linux_mount_cgroup_view(void) {
+  const int filesystem = (int)syscall(
+    SYS_fsopen,
+    "cgroup2",
+    FSOPEN_CLOEXEC
+  );
+  if (filesystem < 0) {
+    return 13u;
+  }
+  if (syscall(
+    SYS_fsconfig,
+    filesystem,
+    FSCONFIG_CMD_CREATE,
+    NULL,
+    NULL,
+    0
+  ) != 0) {
+    (void)close(filesystem);
+    return 14u;
+  }
+  const int mount_descriptor = (int)syscall(
+    SYS_fsmount,
+    filesystem,
+    FSMOUNT_CLOEXEC,
+    MOUNT_ATTR_RDONLY |
+      MOUNT_ATTR_NOSUID |
+      MOUNT_ATTR_NODEV |
+      MOUNT_ATTR_NOEXEC
+  );
+  if (mount_descriptor < 0) {
+    (void)close(filesystem);
+    return 19u;
+  }
+  if (close(filesystem) != 0) {
+    (void)close(mount_descriptor);
+    return 20u;
+  }
+  if (syscall(
+    SYS_move_mount,
+    mount_descriptor,
+    "",
+    AT_FDCWD,
+    AGENT_LINUX_CGROUP_MOUNT,
+    MOVE_MOUNT_F_EMPTY_PATH
+  ) != 0) {
+    (void)close(mount_descriptor);
+    return 21u;
+  }
+  if (close(mount_descriptor) != 0) {
+    return 22u;
+  }
+  return 0u;
+}
+
 static void agent_linux_target(
   const struct agent_broker_request *request,
   char *const *arguments,
@@ -564,24 +605,9 @@ static void agent_linux_guard(
     agent_linux_diagnostic(12u);
     agent_linux_child_failure(setup_status, AGENT_BROKER_FAILURE_CONTAINMENT);
   }
-  if (mount(
-      "none",
-      AGENT_LINUX_CGROUP_MOUNT,
-      "cgroup2",
-      MS_NOSUID | MS_NODEV | MS_NOEXEC,
-      NULL
-    ) != 0) {
-    agent_linux_diagnostic_error(13u, errno);
-    agent_linux_child_failure(setup_status, AGENT_BROKER_FAILURE_CONTAINMENT);
-  }
-  if (mount(
-      NULL,
-      AGENT_LINUX_CGROUP_MOUNT,
-      NULL,
-      MS_REMOUNT | MS_RDONLY | MS_NOSUID | MS_NODEV | MS_NOEXEC,
-      NULL
-    ) != 0) {
-    agent_linux_diagnostic(14u);
+  const uint32_t cgroup_mount_stage = agent_linux_mount_cgroup_view();
+  if (cgroup_mount_stage != 0u) {
+    agent_linux_diagnostic(cgroup_mount_stage);
     agent_linux_child_failure(setup_status, AGENT_BROKER_FAILURE_CONTAINMENT);
   }
   if (chdir(request->working_directory) != 0) {

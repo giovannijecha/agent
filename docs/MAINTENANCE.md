@@ -357,8 +357,10 @@ inside the run leaf with user, mount, and PID namespaces; only the mapped guard
 creates the cgroup namespace rooted at that leaf. Do not merge those operations
 without replacing the ownership proof. The inherited host mounts form a locked
 unit in the less-privileged mount namespace and cannot be detached individually.
-After mount propagation is private, the guard must stack its namespaced cgroup
-v2 view over the inherited cgroup mount and make the new top mount read-only.
+After mount propagation is private, the guard must create a detached, read-only
+namespaced cgroup v2 view through the file-descriptor mount API and attach it
+over the inherited cgroup mount. Do not replace this with a global temporary
+mount point.
 
 To remove the private proof, delete `packages/agent-cli/native/process-broker`,
 `tools/build-native.mjs`, `tools/lib/native-process-broker.mjs`, its focused
