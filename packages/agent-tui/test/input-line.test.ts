@@ -31,6 +31,18 @@ test("projects an editor onto the final assigned row with a visible caret", () =
   assert.deepEqual(rendered.value.caret, { row: 1, column: 5 });
 });
 
+test("applies a validated focus tone without accepting control sequences", () => {
+  const created = InputLine.create("> ", new LineEditor(), "accent");
+  const invalid = InputLine.create("> ", new LineEditor(), "loud" as never);
+
+  assert.ok(created.ok);
+  const rendered = created.value.render(viewport(6, 2));
+  assert.ok(rendered.ok);
+  assert.deepEqual(rendered.value.tones, ["accent", "accent"]);
+  assert.equal(invalid.ok, false);
+  if (!invalid.ok) assert.equal(invalid.error.kind, "invalidTone");
+});
+
 test("reserves the only column for an empty prompt caret", () => {
   const rendered = input("> ", new LineEditor()).render(viewport(1, 1));
 

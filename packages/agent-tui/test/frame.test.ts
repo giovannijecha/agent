@@ -17,15 +17,21 @@ test("rejects every terminal control range without retaining content", () => {
   }
 });
 
-test("creates one immutable frame and caret atomically", () => {
-  const result = Frame.create(["agent", "ready"], { row: 1, column: 5 });
+test("creates one immutable toned frame and caret atomically", () => {
+  const result = Frame.create(
+    ["agent", "ready"],
+    { row: 1, column: 5 },
+    ["accent", "muted"],
+  );
 
   assert.ok(result.ok);
   assert.deepEqual(result.value.lines, ["agent", "ready"]);
   assert.deepEqual(result.value.caret, { row: 1, column: 5 });
+  assert.deepEqual(result.value.tones, ["accent", "muted"]);
   assert.ok(Object.isFrozen(result.value));
   assert.ok(Object.isFrozen(result.value.lines));
   assert.ok(Object.isFrozen(result.value.caret));
+  assert.ok(Object.isFrozen(result.value.tones));
 });
 
 test("rejects a caret outside the frame or its line", () => {
@@ -61,4 +67,21 @@ test("rejects unmatched surrogate code units at the final frame boundary", () =>
 
   assert.equal(result.ok, false);
   if (!result.ok) assert.equal(result.error.kind, "invalidScalar");
+});
+
+test("defaults to plain tone and rejects malformed tone metadata", () => {
+  const plain = Frame.create(["agent"]);
+  const invalid = Frame.create(
+    ["agent"],
+    undefined,
+    ["loud" as never],
+  );
+  const mismatched = Frame.create(["agent"], undefined, []);
+
+  assert.ok(plain.ok);
+  assert.deepEqual(plain.value.tones, ["plain"]);
+  assert.equal(invalid.ok, false);
+  assert.equal(mismatched.ok, false);
+  if (!invalid.ok) assert.equal(invalid.error.kind, "invalidTone");
+  if (!mismatched.ok) assert.equal(mismatched.error.kind, "invalidTone");
 });

@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@agent/core": "0.1.0",
+    "@agent/provider-opencode-go": "0.1.0",
     "@agent/runtime": "0.1.0",
     "@agent/tools": "0.1.0",
     "@agent/tui": "0.1.0"

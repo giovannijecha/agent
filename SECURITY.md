@@ -28,9 +28,17 @@ symlink traversal, unauthorized tool execution, cancellation and cleanup,
 secret retention, credential storage, provider identity, protocol decoding,
 and verification bypasses.
 
-The project currently enables no provider login, network transport, persistent
-session store, or child-process tool. A report claiming one of those behaviors
-must first identify the concrete shipped path that enabled it.
+Model and tool text cannot provide styling metadata or terminal escapes. Generic
+components and frames validate one closed semantic tone per printable row; only
+the owned renderer emits fixed ANSI and resets it during row output and cleanup.
+
+The project enables one exact outbound HTTPS path for an operator-configured
+OpenCode Go API key. The owned startup prompt disables echo, bounds input, and
+restores terminal state before TUI startup. It enables no provider OAuth login,
+arbitrary network
+transport, persistent credential or session store, redirect policy, or
+child-process tool. Reports about provider traffic should identify the exact
+CLI transport, wire decoder, or configuration boundary involved.
 
 ## Disclosure
 

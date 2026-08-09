@@ -5,6 +5,7 @@ import {
 } from "./component.js";
 import { TUI_LIMITS } from "./limits.js";
 import { err, ok, type Result } from "./result.js";
+import { isTone, type Tone } from "./tone.js";
 import type { Viewport } from "./viewport.js";
 
 const CONTROL_CHARACTER = /[\u0000-\u001F\u007F-\u009F]/u;
@@ -27,21 +28,25 @@ export type FragmentCaret = Readonly<{ row: number; column: number }>;
 export class Fragment {
   readonly #caret: FragmentCaret | undefined;
   readonly #lines: readonly string[];
+  readonly #tones: readonly Tone[];
 
   private constructor(
     lines: readonly string[],
     caret: FragmentCaret | undefined,
+    tones: readonly Tone[],
   ) {
     this.#lines = Object.freeze([...lines]);
     this.#caret = caret;
+    this.#tones = Object.freeze([...tones]);
     Object.freeze(this);
   }
 
-  /** Validates exact row occupancy, printable width, and an optional caret. */
+  /** Validates exact rows, printable width, tones, and an optional caret. */
   static create(
     viewport: Viewport,
     lines: readonly string[],
     caret?: FragmentCaret,
+    tones?: readonly Tone[],
   ): Result<Fragment, ComponentError> {
     if (!validComponentViewport(viewport)) {
       return err(new ComponentError("invalidGeometry", undefined));
@@ -52,6 +57,13 @@ export class Fragment {
     if (lines.length !== viewport.rows) {
       return err(new ComponentError("rowMismatch", lines.length));
     }
+    if (tones !== undefined && !Array.isArray(tones)) {
+      return err(new ComponentError("invalidTone", undefined));
+    }
+    if (tones !== undefined && tones.length !== lines.length) {
+      return err(new ComponentError("invalidTone", tones.length));
+    }
+    const storedTones: Tone[] = [];
     for (let row = 0; row < lines.length; row += 1) {
       const line = lines.at(row);
       if (typeof line !== "string") {
@@ -69,6 +81,16 @@ export class Fragment {
       if (textCellWidth(line) > viewport.columns) {
         return err(new ComponentError("lineTooWide", row));
       }
+      let tone: unknown = "plain";
+      try {
+        tone = tones?.at(row) ?? "plain";
+      } catch (_cause: unknown) {
+        return err(new ComponentError("invalidTone", row));
+      }
+      if (!isTone(tone)) {
+        return err(new ComponentError("invalidTone", row));
+      }
+      storedTones.push(tone);
     }
 
     let storedCaret: FragmentCaret | undefined;
@@ -91,7 +113,7 @@ export class Fragment {
       }
       storedCaret = Object.freeze({ row: caret.row, column: caret.column });
     }
-    return ok(new Fragment(lines, storedCaret));
+    return ok(new Fragment(lines, storedCaret, storedTones));
   }
 
   get lines(): readonly string[] {
@@ -100,5 +122,9 @@ export class Fragment {
 
   get caret(): FragmentCaret | undefined {
     return this.#caret;
+  }
+
+  get tones(): readonly Tone[] {
+    return this.#tones;
   }
 }

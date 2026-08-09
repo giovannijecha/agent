@@ -26,11 +26,11 @@ absence an explicit review obligation.
 
 ## Current product boundary
 
-The production executable provides the owned CLI, TUI, runtime composition
-boundary, and the registered local filesystem tools. It does not currently
-inject a model, authenticate a provider, persist a session, or execute child
-processes. Those absences are deliberate fail-closed product states, not
-undocumented setup steps.
+The production executable provides the owned CLI, TUI, runtime composition,
+registered local filesystem tools, and one optional direct OpenCode Go model
+adapter. It remains providerless unless the operator supplies the exact
+documented memory-only API key. It does not persist a credential or session,
+perform subscription OAuth, or execute child processes.
 
 The tool inventory is intentionally lean: one canonical name per distinct,
 necessary, independently removable capability, with no aliases.

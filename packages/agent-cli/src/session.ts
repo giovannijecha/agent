@@ -4,7 +4,10 @@ import {
   type EditorProjection,
 } from "@agent/tui";
 
-import { executeSubmission } from "./commands.js";
+import {
+  executeSubmission,
+  type ProviderPresentation,
+} from "./commands.js";
 
 export type SessionAction =
   | Readonly<{ kind: "approve" }>
@@ -30,6 +33,11 @@ function notice(...lines: string[]): SessionAction {
 export class SessionController {
   readonly #decoder = new InputDecoder();
   readonly #editor = new LineEditor();
+  readonly #provider: ProviderPresentation | undefined;
+
+  constructor(provider?: ProviderPresentation) {
+    this.#provider = provider;
+  }
 
   get draftLength(): number {
     return this.#editor.length;
@@ -73,7 +81,7 @@ export class SessionController {
         redraw = true;
       } else if (outcome.kind === "submitted") {
         redraw = true;
-        const command = executeSubmission(outcome.text);
+        const command = executeSubmission(outcome.text, this.#provider);
         if (command.kind === "exit") {
           actions.push(Object.freeze({ kind: "exit" as const }));
           stopChunk = true;

@@ -1,6 +1,7 @@
 import { hasLoneSurrogate, textCellWidth } from "./cell-width.js";
 import { TUI_LIMITS } from "./limits.js";
 import { err, ok, type Result } from "./result.js";
+import { isTone, type Tone } from "./tone.js";
 
 const CONTROL_CHARACTER = /[\u0000-\u001F\u007F-\u009F]/u;
 
@@ -11,6 +12,7 @@ export type FrameErrorKind =
   | "controlCharacter"
   | "invalidCaret"
   | "invalidScalar"
+  | "invalidTone"
   | "lineTooLong"
   | "tooManyRows";
 
@@ -49,22 +51,37 @@ function countCodePoints(text: string): number {
 export class Frame {
   readonly #lines: readonly string[];
   readonly #caret: Caret | undefined;
+  readonly #tones: readonly Tone[];
 
-  private constructor(lines: readonly string[], caret: Caret | undefined) {
+  private constructor(
+    lines: readonly string[],
+    caret: Caret | undefined,
+    tones: readonly Tone[],
+  ) {
     this.#lines = Object.freeze([...lines]);
     this.#caret = caret;
+    this.#tones = Object.freeze([...tones]);
     Object.freeze(this);
   }
 
-  /** Validates and copies a complete frame without retaining rejected content. */
+  /** Validates and copies printable rows and tones without rejected content. */
   static create(
     lines: readonly string[],
     caret?: Caret,
+    tones?: readonly Tone[],
   ): Result<Frame, FrameError> {
     if (lines.length > TUI_LIMITS.frameRows) {
       return err(new FrameError("tooManyRows", undefined));
     }
 
+    if (tones !== undefined && !Array.isArray(tones)) {
+      return err(new FrameError("invalidTone", undefined));
+    }
+    if (tones !== undefined && tones.length !== lines.length) {
+      return err(new FrameError("invalidTone", undefined));
+    }
+
+    const storedTones: Tone[] = [];
     for (let row = 0; row < lines.length; row += 1) {
       const line = lines.at(row);
       if (line === undefined) {
@@ -79,6 +96,16 @@ export class Frame {
       if (countCodePoints(line) > TUI_LIMITS.frameLineCodePoints) {
         return err(new FrameError("lineTooLong", row));
       }
+      let tone: unknown = "plain";
+      try {
+        tone = tones?.at(row) ?? "plain";
+      } catch (_cause: unknown) {
+        return err(new FrameError("invalidTone", row));
+      }
+      if (!isTone(tone)) {
+        return err(new FrameError("invalidTone", row));
+      }
+      storedTones.push(tone);
     }
 
     let storedCaret: Caret | undefined;
@@ -97,7 +124,7 @@ export class Frame {
       storedCaret = Object.freeze({ row: caret.row, column: caret.column });
     }
 
-    return ok(new Frame(lines, storedCaret));
+    return ok(new Frame(lines, storedCaret, storedTones));
   }
 
   get lines(): readonly string[] {
@@ -106,5 +133,9 @@ export class Frame {
 
   get caret(): Caret | undefined {
     return this.#caret;
+  }
+
+  get tones(): readonly Tone[] {
+    return this.#tones;
   }
 }

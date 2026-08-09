@@ -34,6 +34,9 @@ agent.”
 - Subscription adapters require an `agent`-owned client registration or a
   provider-documented public identity for independent clients. Vendor SDKs,
   CLIs, app servers, ACP binaries, and borrowed OAuth identities are forbidden.
+- Direct API-key providers require a provider-published endpoint, an exact
+  CLI-owned origin allowlist, memory-only secrets, and a concrete removable
+  adapter; OpenCode Go is the first admitted provider under decision 0017.
 - Provider requests live in `docs/PROVIDER-APPLICATIONS.md`. A prepared,
   submitted, or unanswered request never changes blocked eligibility.
 - Secrets, credentials, sessions, and personal content never enter source,
@@ -48,8 +51,10 @@ agent.”
   acknowledged conversation checkpoints; it is Node-free and depends only on
   core and tools.
 - `@agent/tui` owns bounded input decoding, line editing, vertical components,
-  layout, viewports, frames, and asynchronous rendering; it is agent-agnostic
-  and Node-free.
+  closed semantic row tones, immutable scroll geometry, layout, viewports,
+  frames, and synchronized differential rendering; it is agent-agnostic and
+  Node-free. Only its renderer emits ANSI, and every scrollable surface reuses
+  the same generic scroll path.
 - `@agent/cli` owns commands, bounded display chat, the single-writer reducer,
   terminal/runtime arbitration, built-in workspace tools, raw mode, filesystem
   and process access, and all Node lifecycle; it is the only platform boundary.
@@ -101,7 +106,10 @@ agent.”
 ```powershell
 npm ci --offline --ignore-scripts --no-audit --no-fund
 npm run build
+npm run dev
+npm run install:command
 npm start
+agent
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1
 ```
 

@@ -4,10 +4,11 @@ import {
   type Component,
   type ComponentMeasurement,
 } from "./component.js";
-import { Fragment } from "./fragment.js";
+import { measureComponent, renderComponent } from "./component-boundary.js";
 import { Frame, type Caret } from "./frame.js";
 import { TUI_LIMITS } from "./limits.js";
 import { err, ok, type Result } from "./result.js";
+import type { Tone } from "./tone.js";
 import { Viewport } from "./viewport.js";
 
 /** Allocation policy for one component in original vertical order. */
@@ -26,12 +27,6 @@ type Allocation = {
   rows: number;
 };
 
-type UnknownResult = {
-  readonly error?: unknown;
-  readonly ok?: unknown;
-  readonly value?: unknown;
-};
-
 function validSlotNumber(value: number): boolean {
   return (
     Number.isSafeInteger(value) &&
@@ -42,67 +37,6 @@ function validSlotNumber(value: number): boolean {
 
 function byPriority(left: Allocation, right: Allocation): number {
   return right.slot.priority - left.slot.priority || left.index - right.index;
-}
-
-function measureComponent(
-  component: Component,
-  columns: number,
-  index: number,
-): Result<ComponentMeasurement, ComponentError> {
-  try {
-    const result: unknown = component.measure(columns);
-    if (typeof result !== "object" || result === null) {
-      return err(new ComponentError("invalidComponent", index));
-    }
-    const candidate = result as UnknownResult;
-    if (candidate.ok === false) {
-      return candidate.error instanceof ComponentError
-        ? err(candidate.error)
-        : err(new ComponentError("invalidComponent", index));
-    }
-    if (
-      candidate.ok !== true ||
-      typeof candidate.value !== "object" ||
-      candidate.value === null
-    ) {
-      return err(new ComponentError("invalidComponent", index));
-    }
-    const measurement = candidate.value as Partial<ComponentMeasurement>;
-    return validSlotNumber(measurement.preferredRows ?? -1)
-      ? ok(Object.freeze({ preferredRows: measurement.preferredRows ?? 0 }))
-      : err(new ComponentError("invalidMeasurement", index));
-  } catch (_cause: unknown) {
-    return err(new ComponentError("unexpectedComponent", index));
-  }
-}
-
-function renderComponent(
-  component: Component,
-  viewport: Viewport,
-  index: number,
-): Result<Fragment, ComponentError> {
-  try {
-    const result: unknown = component.render(viewport);
-    if (typeof result !== "object" || result === null) {
-      return err(new ComponentError("invalidComponent", index));
-    }
-    const candidate = result as UnknownResult;
-    if (candidate.ok === false) {
-      return candidate.error instanceof ComponentError
-        ? err(candidate.error)
-        : err(new ComponentError("invalidComponent", index));
-    }
-    if (candidate.ok !== true || !(candidate.value instanceof Fragment)) {
-      return err(new ComponentError("invalidComponent", index));
-    }
-    return Fragment.create(
-      viewport,
-      candidate.value.lines,
-      candidate.value.caret,
-    );
-  } catch (_cause: unknown) {
-    return err(new ComponentError("unexpectedComponent", index));
-  }
 }
 
 /** Deterministic priority/preference/flex vertical component compositor. */
@@ -259,6 +193,7 @@ export class VerticalLayout {
     }
 
     const lines: string[] = [];
+    const tones: Tone[] = [];
     let caret: Caret | undefined;
     for (const allocation of allocations) {
       if (allocation.rows === 0) {
@@ -286,9 +221,10 @@ export class VerticalLayout {
         });
       }
       lines.push(...rendered.value.lines);
+      tones.push(...rendered.value.tones);
     }
 
-    const frame = Frame.create(lines, caret);
+    const frame = Frame.create(lines, caret, tones);
     return frame.ok
       ? frame
       : err(new ComponentError("invalidFrame", frame.error.row));

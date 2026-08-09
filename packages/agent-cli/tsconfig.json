@@ -17,6 +17,9 @@
       "path": "../agent-core"
     },
     {
+      "path": "../agent-provider-opencode-go"
+    },
+    {
       "path": "../agent-runtime"
     },
     {

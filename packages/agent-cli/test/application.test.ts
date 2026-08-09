@@ -43,6 +43,22 @@ test("discards no-runtime input without adding transcript or echoing it", () => 
   assert.equal(application.notice.join("\n").includes(privateText), false);
 });
 
+test("never presents a provider without an executable runtime", () => {
+  const application = new ApplicationController(false, {
+    authentication: "memory-only API key",
+    displayName: "OpenCode Go",
+    model: "configured-model",
+  });
+
+  const result = applyOnlyAction(application, "/providers\r");
+
+  assert.deepEqual(result.effects, []);
+  assert.deepEqual(application.notice, [
+    "No providers are enabled.",
+    "Subscription integrations require owned authorization.",
+  ]);
+});
+
 test("active Ctrl+C requests one cancellation and preserves the draft", () => {
   const application = new ApplicationController(true);
   assert.ok(application.turnAccepted(started(1, "question")).ok);

@@ -2,63 +2,92 @@
 
 ## Purpose
 
-Use this chapter to check whether a subscription provider can be connected
-without borrowing code, credentials, client identity, or a foreign runtime.
+Use this chapter to run the admitted OpenCode Go adapter safely and to check why
+the four requested subscription OAuth providers remain blocked.
 
 ## Operator workflow
 
-Run `/providers` for the product status, then read
-[the dated provider eligibility record](../PROVIDERS.md). A provider may be
-enabled only after its official contract authorizes an independently written
-client, gives `agent` its own registration or an expressly reusable public
-identity, and documents transport plus credential lifecycle. Browser login must
-stay provider-hosted; `agent` never asks for a password, cookie, recovery code,
-payment detail, or provider one-time code.
+Create an OpenCode Go subscription and API key only on the provider's official
+site. Start `agent` in an interactive terminal. When the exact environment
+variable is absent, the owned startup prompt asks for the key with terminal
+echo disabled. Paste the key and press Enter. The prompt prints neither the key
+nor mask characters, releases raw mode, and passes the value directly to the
+provider composition in process memory. Press Enter on an empty prompt to start
+without a provider or Ctrl+C to cancel startup.
 
-When requesting a registration, use
-[the OAuth client registration dossier](../OAUTH-REGISTRATION.md) together with
-[the four verified request packets](../PROVIDER-APPLICATIONS.md). Recheck the
-official route, copy only the relevant request, and keep account fields inside
-the provider-owned submission surface. Public routes receive public project
-facts only. Do not add a provider-specific field unless the official process
-requires it and the value is factually known.
+Inside `agent`, run `/providers`. It must report OpenCode Go, the fixed
+`kimi-k2.7-code` model, and memory-only API-key authentication. `/exit` closes
+the runtime. Controlled automation may set the exact documented environment
+variable before starting; the interactive prompt remains the preferred
+operator workflow.
 
 ## Guarantees and limits
 
-ChatGPT Plus/Pro, Claude Pro/Max, Kimi Code, and Grok subscription are currently
-blocked in production. Current public implementations prove the services are
-technically reachable, but their direct OAuth identities are not ours. Official
-embedding paths that require a vendor SDK or executable are also outside this
-project's zero-third-party-source and zero-foreign-binary contract. No generic
-authentication package, endpoint, token field, or credential store exists.
-All four provider requests are `submitted`. Submission is not authorization.
+The key is accepted only from the owned hidden prompt or
+`AGENT_OPENCODE_GO_API_KEY`, is never accepted as a command-line argument, and
+is not written by `agent`. Requests go only to
+`https://opencode.ai/zen/go/v1/chat/completions`. The model is fixed to
+`kimi-k2.7-code`; there is no arbitrary endpoint, model alias, automatic router,
+fallback provider, SDK, OpenCode executable, credential-file reader, redirect,
+cookie, or telemetry path.
+
+When configured, each turn sends the lean system instruction, bounded
+conversation context, the current owned tool schemas, user input, and
+checkpointed tool calls and results required for the single-agent loop. The API
+key is sent in the fixed request authorization header. OpenCode Go's current
+page states zero-day retention and no training for Kimi K2.7 Code, but provider
+terms can change and remain outside `agent`'s control.
+
+ChatGPT Plus/Pro, Claude Pro/Max, Kimi Code credential login, and Grok
+subscription OAuth remain blocked. Their submitted registration inquiries do
+not authorize product code. `/providers` reports only integrations actually
+composed in the current process.
 
 ## Failure behavior
 
-Ordinary text entered without a runtime is discarded after a generic no-model
-notice. The ownership verifier rejects provider workspaces, OAuth identifiers,
-subscription endpoints, ambient network capability, and foreign credential
-paths while the registry is blocked. Research evidence can update documentation
-without silently enabling product code.
+A skipped prompt with no variable preserves providerless startup; ordinary text
+is discarded after the generic no-model notice. A whitespace-containing,
+control-containing, or oversized value stops startup with a fixed content-free
+message.
+DNS, TLS, connection, timeout, HTTP status, content type, UTF-8, SSE, JSON,
+stream-shape, finish-reason, tool-call, and size failures terminate only the
+active turn through bounded provider errors. Underlying causes, response bodies,
+the key, prompts, and model content are never printed as diagnostics.
+
+Cancellation closes the active stream. The transport allows one outstanding
+read, pauses between pulls, bounds headers and byte chunks, and never retries a
+request automatically. Canonical verification uses deterministic fake streams
+and never consumes an account or performs a live request.
 
 ## Maintenance and removal
 
-Recheck official documentation and current public source at a pinned commit.
-Record only observable facts in provenance. Enabling the first provider requires
-a replacing decision, a provider-policy schema change, offline contract tests,
-an in-memory credential boundary, and explicit update, revocation, rollback, and
-removal procedures. Never reuse a vendor or reference project's client ID.
-After submission, record only a public issue URL or a content-free private case
-reference. Keep private messages and replies outside Git.
+Recheck the official OpenCode Go page before changing the endpoint, model,
+privacy statement, limits, or wire behavior. Update decision 0017, the provider
+registry, adapter tests, CLI transport tests, privacy/security documents, and
+this chapter together. Never broaden the origin or add a second provider behind
+the OpenCode Go name.
+
+To remove the integration, first remove CLI composition and restore the exact
+providerless `/providers` result. Then remove the CLI HTTPS/configuration files,
+provider workspace and dependency edges, environment declaration, provider
+policy admission and exact source allowlists, decision 0017, and this setup
+workflow. Keep the four blocked OAuth records unchanged and prove the remaining
+core, tools, runtime, TUI, and CLI workspaces offline.
 
 ## Evidence
 
-- Eligibility and primary references: `docs/PROVIDERS.md`
-- Provenance log: `docs/OWNERSHIP.md`
+- Eligibility and official references: `docs/PROVIDERS.md`
+- Provider decision: `docs/decisions/0017-owned-opencode-go-provider.md`
+- Provider authentication boundary: `docs/decisions/0003-owned-provider-authentication.md`
+- Registration-request decision: `docs/decisions/0011-verified-provider-registration-requests.md`
+- Provider adapter: `packages/agent-provider-opencode-go/src/index.ts`
+- Exact HTTPS boundary: `packages/agent-cli/src/node-opencode-go-transport.ts`
+- Credential validation: `packages/agent-cli/src/provider-configuration.ts`
+- Hidden credential input: `packages/agent-cli/src/hidden-credential-prompt.ts`
+- Executable startup decision: `docs/decisions/0018-owned-executable-startup.md`
+- Composition root: `packages/agent-cli/src/main.ts`
 - Machine-readable gate: `tools/provider-policy.json`
 - Gate implementation: `tools/lib/provider-policy.mjs`
-- Authentication decision: `docs/decisions/0003-owned-provider-authentication.md`
+- Gate regression tests: `tools/test/provider-policy.test.mjs`
 - Registration dossier: `docs/OAUTH-REGISTRATION.md`
-- Provider request packets: `docs/PROVIDER-APPLICATIONS.md`
-- Request verification decision: `docs/decisions/0011-verified-provider-registration-requests.md`
-- Provider gate tests: `tools/test/provider-policy.test.mjs`
+- Submitted subscription requests: `docs/PROVIDER-APPLICATIONS.md`

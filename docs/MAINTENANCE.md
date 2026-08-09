@@ -18,16 +18,18 @@ Package topology has four explicit inputs:
 ownership policy. The verifier rejects missing, extra, or inconsistent files,
 manifests, links, declarations, generated formats, and registry entries.
 
-Subscription-provider eligibility is a separate canonical input in
-`tools/provider-policy.json`. Version 3 permits no provider or auth package and
-contains no endpoint, scope, credential, or client registration. It additionally
+Provider eligibility is a separate canonical input in
+`tools/provider-policy.json`. Version 4 keeps the four subscription OAuth
+providers blocked and admits exactly one direct API-key provider, OpenCode Go.
+It pins that provider's origin, model, transport, environment variable,
+memory-only persistence, evidence date, and exact workspace. It additionally
 pins each authorization request's lifecycle state, official route, visibility,
 research date, submission date, and public or content-free private reference.
 That metadata cannot change blocked eligibility. The verifier pins the exact
-five-workspace provider-neutral
-foundation, including runtime and the tool engine. It denies ambient network and
-provider escape paths; filesystem APIs remain explicitly allowlisted only for
-CLI-owned tools. Process execution is not active.
+six-workspace graph, including the provider, runtime, and tool engine. It denies
+ambient network and provider escape paths while admitting only reviewed direct
+provider literals in their exact files. Filesystem and HTTPS APIs remain
+explicitly allowlisted only at the CLI edge. Process execution is not active.
 
 Public identity is registered independently in
 `tools/publication-policy.json`. It pins the project name, namespace,
@@ -109,8 +111,9 @@ TUI, runtime, and the providerless CLI after each stage.
 
 ## Update or remove the vertical TUI framework
 
-Update fragments, text normalization, component measurement, allocation, caret
-rules, or public limits only with focused boundary tests and decision 0006.
+Update fragments, semantic tones, text normalization, component measurement,
+allocation, scroll reconciliation, synchronized redraw, caret rules, or public
+limits only with focused boundary tests and decisions 0006, 0019, and 0020.
 Preserve exact-row fragments, content-free errors, callback containment,
 deterministic priority/preference/flex allocation, and `Frame` as the final
 terminal-safety boundary. Product concepts remain in CLI.
@@ -118,7 +121,13 @@ terminal-safety boundary. Product concepts remain in CLI.
 To remove the framework, first replace `chat-view` with direct validated frame
 composition. Then delete component, fragment, display-text, input-line,
 text-block, vertical-layout, and limit exports together with their focused tests
-and decision 0006. Decoder, editor, renderer, runtime, and core must stay green.
+and decisions 0006 and 0019. If only semantic emphasis is removed, retain the
+vertical framework and remove tone metadata, renderer mappings, CLI tone choices,
+focused tests, and decision 0019 as one change. Remove scrolling only after all
+callers return to their contained components; then remove scroll state, scroll
+view, their tests, manual references, and decision 0020. Remove synchronized
+output by deleting both markers and recovery state together. Decoder, editor,
+runtime, and core must stay green.
 
 ## Update or remove the CLI application loop
 
@@ -141,6 +150,47 @@ loop and unconditional no-model handling first. Remove the CLI runtime dependenc
 and TypeScript reference, then delete arbiter and display-chat modules and
 decision 0007. Keep the generic TUI and providerless CLI buildable.
 
+## Update or remove OpenCode Go
+
+The admitted provider has two owners. `@agent/provider-opencode-go` owns the
+Node-free request, UTF-8, SSE, response, and tool-call contract. CLI owns the
+exact environment variable, HTTPS origin, response backpressure, timeout,
+composition, and provider presentation. Do not move process or socket access
+into the provider package and do not leak provider vocabulary into runtime,
+tools, core, or TUI.
+
+An endpoint, model, header, privacy, limit, or wire change requires current
+official evidence, an update to decision 0017, exact provider-policy changes,
+provider and CLI contract tests, manual/privacy/security updates, and the full
+offline release gate. Never add discovery, redirects, aliases, retries,
+fallbacks, arbitrary base URLs, or persistent key storage as a compatibility
+shortcut.
+
+To roll back or remove the provider, first remove its composition from
+`main.ts` and restore the providerless command result. Then remove the CLI
+transport, configuration and instructions modules; the provider workspace and
+all npm/TypeScript/ownership edges; the `node:https` declaration and allowlist
+if unused; the exact direct-provider policy entry and source-literal exceptions;
+decision 0017; and provider-specific documentation. Regenerate the lockfile
+through the offline npm command. Preserve the four blocked OAuth request records
+and prove the remaining five workspaces through the canonical verifier.
+
+## Update or remove executable startup
+
+The root `bin` metadata, exact root scripts, CLI shebang, argument parser,
+hidden prompt, manual chapters, decision 0018, lockfile, and manifest verifier
+form one executable contract. Preserve no-argument startup, exact `--help` and
+`--version`, secret-free arguments, non-TTY silence, bounded hidden input, and
+terminal restoration. The npm link is explicit operator state and must never be
+created by install lifecycle scripts.
+
+OpenCode Go removal deletes only its prompt and composition. The `agent` binary,
+providerless startup, and npm link remain. To remove the command from one
+machine, run `npm unlink --global agent-workspace`. To remove the feature from
+source, delete the root `bin` and installation script, argument parser, prompt,
+tests, decision, documentation, and verifier expectations together; retain
+`npm start` as the rollback entry point.
+
 ## Research or enable a provider
 
 1. Check current official provider documentation. If it lags observed behavior,
@@ -155,9 +205,11 @@ decision 0007. Keep the generic TUI and providerless CLI buildable.
 5. After submission, record only the public URL or a content-free private case
    reference. Never commit private correspondence. Submitted, unanswered, and
    rejected requests leave eligibility blocked.
-6. Enable a provider only through a replacing decision that records independent
-   authorization, this project's client registration, protocol contracts,
-   threat model, storage boundary, tests, update path, and removal path.
+6. Enable subscription OAuth only through a replacing decision that records
+   independent authorization and this project's client registration. Enable a
+   direct API-key service only when its official independent-client contract,
+   exact origin, credential boundary, protocol, threat model, tests, update path,
+   and removal path are accepted.
 7. Replace the provider policy schema and verifier in the same change as the
    first concrete adapter. Keep canonical tests offline.
 
@@ -267,6 +319,8 @@ Terminal protocol changes affect two independent owners:
    followed by shutdown controls, SS3 fragmentation, and cumulative queue size.
 5. Update decision 0004 when lifecycle, ownership, width rules, or supported keys
    change materially.
+6. Preserve decision 0019 when semantic emphasis changes: tones stay closed,
+   application-neutral, exact-row, and renderer-owned, with reset on cleanup.
 
 To remove interactivity, first remove runtime event composition, then delete the
 TUI decoder/editor/viewport modules and CLI session/chat-view/host modules.

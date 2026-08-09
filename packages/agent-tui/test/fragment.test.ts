@@ -14,14 +14,17 @@ test("creates immutable exact-row fragments with a local caret", () => {
     viewport(8, 2),
     ["agent", "ready"],
     { row: 1, column: 5 },
+    ["accent", "muted"],
   );
 
   assert.ok(result.ok);
   assert.deepEqual(result.value.lines, ["agent", "ready"]);
   assert.deepEqual(result.value.caret, { row: 1, column: 5 });
+  assert.deepEqual(result.value.tones, ["accent", "muted"]);
   assert.ok(Object.isFrozen(result.value));
   assert.ok(Object.isFrozen(result.value.lines));
   assert.ok(Object.isFrozen(result.value.caret));
+  assert.ok(Object.isFrozen(result.value.tones));
 });
 
 test("rejects row, width, control, and caret contract violations", () => {
@@ -31,17 +34,28 @@ test("rejects row, width, control, and caret contract violations", () => {
   const control = Fragment.create(size, ["a\u001Bb"]);
   const scalar = Fragment.create(size, ["a\uD800"]);
   const caret = Fragment.create(size, ["abc"], { row: 0, column: 4 });
+  const tone = Fragment.create(
+    size,
+    ["abc"],
+    undefined,
+    ["loud" as never],
+  );
+  const toneCount = Fragment.create(size, ["abc"], undefined, []);
 
   assert.equal(rowMismatch.ok, false);
   assert.equal(tooWide.ok, false);
   assert.equal(control.ok, false);
   assert.equal(scalar.ok, false);
   assert.equal(caret.ok, false);
+  assert.equal(tone.ok, false);
+  assert.equal(toneCount.ok, false);
   if (!rowMismatch.ok) assert.equal(rowMismatch.error.kind, "rowMismatch");
   if (!tooWide.ok) assert.equal(tooWide.error.kind, "lineTooWide");
   if (!control.ok) assert.equal(control.error.kind, "controlCharacter");
   if (!scalar.ok) assert.equal(scalar.error.kind, "invalidScalar");
   if (!caret.ok) assert.equal(caret.error.kind, "invalidCaret");
+  if (!tone.ok) assert.equal(tone.error.kind, "invalidTone");
+  if (!toneCount.ok) assert.equal(toneCount.error.kind, "invalidTone");
 });
 
 test("fails before allocations outside component safety geometry", () => {

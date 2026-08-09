@@ -29,7 +29,11 @@
     "docs/decisions/0013-single-agent-execution.md",
     "docs/decisions/0014-lean-tool-harness.md",
     "docs/decisions/0015-process-tree-containment.md",
-    "docs/decisions/0016-owned-native-process-containment.md"
+    "docs/decisions/0016-owned-native-process-containment.md",
+    "docs/decisions/0017-owned-opencode-go-provider.md",
+    "docs/decisions/0018-owned-executable-startup.md",
+    "docs/decisions/0019-owned-semantic-terminal-tones.md",
+    "docs/decisions/0020-owned-scrollable-screen-foundation.md"
   ],
   "workspaces": [
     {
@@ -53,6 +57,15 @@
       }
     },
     {
+      "path": "packages/agent-provider-opencode-go",
+      "name": "@agent/provider-opencode-go",
+      "dependencies": {
+        "@agent/core": "0.1.0",
+        "@agent/runtime": "0.1.0",
+        "@agent/tools": "0.1.0"
+      }
+    },
+    {
       "path": "packages/agent-tui",
       "name": "@agent/tui",
       "dependencies": {}
@@ -62,6 +75,7 @@
       "name": "@agent/cli",
       "dependencies": {
         "@agent/core": "0.1.0",
+        "@agent/provider-opencode-go": "0.1.0",
         "@agent/runtime": "0.1.0",
         "@agent/tools": "0.1.0",
         "@agent/tui": "0.1.0"
@@ -71,12 +85,14 @@
   "allowedNodeImports": {
     "product": [
       "node:fs/promises",
+      "node:https",
       "node:path",
       "node:process"
     ],
     "test": [
       "node:assert/strict",
       "node:fs/promises",
+      "node:https",
       "node:os",
       "node:path",
       "node:process",

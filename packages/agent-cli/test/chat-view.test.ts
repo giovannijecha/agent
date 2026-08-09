@@ -28,6 +28,7 @@ test("keeps only a valid prompt and caret in a one-cell viewport", () => {
 
   assert.ok(result.ok);
   assert.deepEqual(result.value.lines, [""]);
+  assert.deepEqual(result.value.tones, ["accent"]);
   assert.deepEqual(result.value.caret, { row: 0, column: 0 });
 });
 
@@ -40,6 +41,7 @@ test("keeps status directly above the final prompt on a short viewport", () => {
     "No model or tools are configured.",
     "> ",
   ]);
+  assert.deepEqual(result.value.tones, ["muted", "accent"]);
   assert.deepEqual(result.value.caret, { row: 1, column: 2 });
 });
 
@@ -67,6 +69,7 @@ test("keeps tool identity, risk, and approval state visible in two rows", () => 
   assert.equal(result.value.lines.at(0)?.includes("write"), true);
   assert.equal(result.value.lines.at(0)?.includes("approval"), true);
   assert.equal(result.value.lines.at(1), "> ");
+  assert.deepEqual(result.value.tones, ["attention", "accent"]);
 });
 
 test("renders a tail-anchored prospective transcript through text safety", () => {
@@ -85,6 +88,10 @@ test("renders a tail-anchored prospective transcript through text safety", () =>
   assert.ok(result.ok);
   assert.equal(result.value.lines.join("\n").includes("\u001B"), false);
   assert.equal(result.value.lines.join("\n").includes("unsafe?partial"), true);
+  const partialRow = result.value.lines.findIndex((line) =>
+    line.includes("unsafe?partial"),
+  );
+  assert.equal(result.value.tones.at(partialRow), "plain");
   assert.equal(result.value.lines.at(-1), "> ");
   assert.equal(result.value.caret?.row, result.value.lines.length - 1);
 });
@@ -116,7 +123,8 @@ test("shows completed chat and idle phase without product concepts in TUI", () =
   const result = createChatFrame(application, viewport(40, 8));
 
   assert.ok(result.ok);
-  assert.equal(result.value.lines.join("\n").includes("agent - ready"), true);
+  assert.equal(result.value.lines.join("\n").includes("agent  ready"), true);
+  assert.equal(result.value.tones.at(0), "accent");
   assert.equal(result.value.lines.join("\n").includes("question"), true);
   assert.equal(result.value.lines.join("\n").includes("answer"), true);
 });

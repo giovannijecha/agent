@@ -328,7 +328,7 @@ function verifyManifests() {
   const rootManifest = readJson("package.json");
   compareObjects(
     Object.keys(rootManifest).sort(),
-    ["engines", "name", "private", "scripts", "type", "version", "workspaces"],
+    ["bin", "engines", "name", "private", "scripts", "type", "version", "workspaces"],
     "root manifest keys",
   );
   if (
@@ -349,6 +349,11 @@ function verifyManifests() {
     policy.workspaces.map((workspace) => workspace.path),
     "workspace registry",
   );
+  compareObjects(
+    rootManifest.bin,
+    { agent: "packages/agent-cli/dist/main.js" },
+    "root executable",
+  );
   for (const field of ["dependencies", ...dependencyFields]) {
     if (rootManifest[field] !== undefined) {
       fail("root dependency field is forbidden: " + field);
@@ -364,6 +369,9 @@ function verifyManifests() {
     {
       build: "tsc --build tsconfig.json --pretty false && node tools/build-native.mjs",
       clean: "node tools/clean.mjs",
+      dev: "npm run build && npm start",
+      "install:command":
+        "npm run build && npm link --ignore-scripts --no-audit --no-fund",
       start: "node packages/agent-cli/dist/main.js",
       test: "node tools/run-tests.mjs",
       verify: "powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1",
@@ -487,6 +495,7 @@ function verifyLockfile() {
       name: "agent-workspace",
       version: "0.1.0",
       workspaces: policy.workspaces.map((workspace) => workspace.path),
+      bin: { agent: "packages/agent-cli/dist/main.js" },
       engines: { node: ">=22.19.0", npm: "11.16.0" },
     },
     "lockfile root package",
@@ -632,6 +641,7 @@ function verifyDeclarations() {
       "types/node-runtime/index.d.ts",
       [
         "node:fs/promises",
+        "node:https",
         "node:os",
         "node:path",
         "node:process",
@@ -709,6 +719,9 @@ function verifyTypeScriptPolicy() {
       "@agent/core": ["packages/agent-core/src/index.ts"],
       "@agent/tools": ["packages/agent-tools/src/index.ts"],
       "@agent/runtime": ["packages/agent-runtime/src/index.ts"],
+      "@agent/provider-opencode-go": [
+        "packages/agent-provider-opencode-go/src/index.ts",
+      ],
       "@agent/tui": ["packages/agent-tui/src/index.ts"],
     },
     "TypeScript workspace paths",

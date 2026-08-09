@@ -28,9 +28,65 @@ declare module "node:process" {
   export const stdin: ReadableStream;
   export const stdout: WritableStream;
   export const stderr: WritableStream;
+  export const argv: readonly string[];
   export const execPath: string;
+  export const env: Readonly<{
+    AGENT_OPENCODE_GO_API_KEY?: string;
+  }>;
   export function cwd(): string;
   export function exit(code?: number): never;
+}
+
+declare module "node:https" {
+  export interface IncomingHeaders {
+    readonly "content-type"?: string | readonly string[];
+  }
+
+  export interface IncomingMessage {
+    readonly headers: IncomingHeaders;
+    readonly statusCode: number | undefined;
+    destroy(): void;
+    on(event: "aborted", listener: () => void): this;
+    on(event: "data", listener: (chunk: Uint8Array) => void): this;
+    on(event: "end", listener: () => void): this;
+    on(event: "error", listener: (cause: unknown) => void): this;
+    off(event: "aborted", listener: () => void): this;
+    off(event: "data", listener: (chunk: Uint8Array) => void): this;
+    off(event: "end", listener: () => void): this;
+    off(event: "error", listener: (cause: unknown) => void): this;
+    pause(): this;
+    resume(): this;
+  }
+
+  export interface ClientRequest {
+    destroy(): void;
+    end(): void;
+    on(event: "error", listener: (cause: unknown) => void): this;
+    off(event: "error", listener: (cause: unknown) => void): this;
+    setTimeout(milliseconds: number, listener: () => void): this;
+    write(body: string): boolean;
+  }
+
+  export type RequestOptions = Readonly<{
+    agent: false;
+    headers: Readonly<{
+      accept: string;
+      authorization: string;
+      "content-type": string;
+      "user-agent": string;
+    }>;
+    hostname: string;
+    maxHeaderSize: number;
+    method: "POST";
+    path: string;
+    port: 443;
+    protocol: "https:";
+  }>;
+
+  export function request(
+    options: RequestOptions,
+    onResponse: (response: IncomingMessage) => void,
+  ): ClientRequest;
 }
 
 declare module "node:path" {

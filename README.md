@@ -10,10 +10,12 @@ Single-agent streaming-runtime, tool-engine, and interactive-chat foundation.
 The repository provides immutable structured conversation state, a bounded
 transactional streaming and tool runtime, a provider-neutral schema/registry/execution
 framework, registered bounded local coding tools, a complete vertical TUI
-framework, a single-writer chat reducer, fair terminal/runtime arbitration, and
-an owned verification system. Production injects no model, authenticates no
-provider, and persists no sessions; therefore its real tool engine remains
-inactive until an eligible model adapter is composed.
+framework with a closed minimal emphasis layer, a single-writer chat reducer,
+fair terminal/runtime arbitration, an
+owned OpenCode Go adapter, and an owned verification system. Production remains
+providerless by default. When the operator supplies the documented OpenCode Go
+API key in process memory, the executable composes its fixed model adapter and
+the existing tool engine. No session or credential is persisted.
 Requested subscription integrations remain behind a fail-closed eligibility
 policy; none is enabled with a borrowed client identity.
 
@@ -51,6 +53,7 @@ code, packages, SDKs, declarations, or implementation choices.
 packages/agent-core  messages, structured values, tool entries, conversations, results
 packages/agent-tools  schemas, descriptors, registry, risk, execution boundary
 packages/agent-runtime  bounded streaming/tool turns and model port
+packages/agent-provider-opencode-go  strict Node-free OpenCode Go wire adapter
 packages/agent-tui   generic components, layout, input, frames, and renderer
 packages/agent-cli   chat, arbiter, commands, built-in tools, Node lifecycle, composition
 packages/agent-cli/native  private Windows/Linux process-containment proof
@@ -66,16 +69,20 @@ The current dependency edges are:
 @agent/tools -> @agent/core
 @agent/runtime -> @agent/core
 @agent/runtime -> @agent/tools
+@agent/provider-opencode-go -> @agent/core
+@agent/provider-opencode-go -> @agent/runtime
+@agent/provider-opencode-go -> @agent/tools
 @agent/cli -> @agent/core
+@agent/cli -> @agent/provider-opencode-go
 @agent/cli -> @agent/runtime
 @agent/cli -> @agent/tools
 @agent/cli -> @agent/tui
 ```
 
-The CLI owns a real optional runtime composition path, exercised end to end with
-deterministic sessions. The production executable intentionally injects no
-runtime until a real model is eligible. Runtime has no dependency on TUI, CLI,
-Node, transport, or provider identity.
+The CLI owns the optional runtime composition and the only network boundary.
+The OpenCode Go package implements the provider-neutral streaming-model port
+without Node or credentials; the CLI injects a fixed-origin HTTPS byte stream.
+Runtime has no dependency on TUI, CLI, Node, transport, or provider identity.
 
 ## Setup and commands
 
@@ -85,9 +92,22 @@ Required toolchain: Node `>=22.19.0`, npm `11.16.0`, `tsc 5.9.3`, and Clang
 ```powershell
 npm ci --offline --ignore-scripts --no-audit --no-fund
 npm run build
+npm run install:command
+agent
 npm start
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1
 ```
+
+`npm run install:command` is an explicit one-time local link; it installs no
+dependency. Maintainers can use `npm run dev` to rebuild and start in one step.
+The linked `agent` command starts in the current directory, so that directory is
+the workspace boundary for coding tools.
+
+Interactive startup asks for a missing OpenCode Go key with terminal echo
+disabled; Enter continues providerless and Ctrl+C cancels. The environment
+variable remains available for controlled automation. To enable the admitted
+OpenCode Go path without placing a key in command history, follow
+[manual chapter 05](docs/manual/05-providers-and-authentication.md).
 
 Linux uses the matching owned wrapper:
 
@@ -101,8 +121,10 @@ done. The owned `verify` GitHub workflow invokes the same command on pull
 requests and `main`; its checkout and toolchain bootstrap are written here and
 use no third-party action.
 
-`npm start` opens the interactive alternate-screen terminal when both stdin and
-stdout are TTYs. The first milestone supports:
+`agent`, `npm start`, and `npm run dev` open the interactive alternate-screen
+terminal when both stdin and stdout are TTYs. The interface uses one compact
+identity line and four renderer-owned semantic tones; model text cannot emit or
+select terminal styling. The first milestone supports:
 
 ```text
 /help       show the command reference
@@ -157,7 +179,8 @@ Provider researchers and maintainers must also follow
 
 The canonical public repository is `giovannijecha/agent`. Giovanni Jecha is the
 maintainer and copyright holder. The project remains on the `0.x` release line
-until at least one complete direct provider integration is eligible.
+while the first direct provider, its tool loop, and release operations mature
+under the canonical verifier.
 
 The project is licensed under [Apache-2.0](LICENSE). Read the
 [security policy](SECURITY.md), [privacy policy](PRIVACY.md), and

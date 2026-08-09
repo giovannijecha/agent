@@ -88,3 +88,15 @@ test("clips excessive normalized rows deterministically by anchor", () => {
   assert.ok(tail.ok);
   assert.deepEqual(tail.value.lines, ["4096", "4097"]);
 });
+
+test("applies one validated semantic tone to every assigned row", () => {
+  const created = TextBlock.create("agent", "head", "accent");
+  const invalid = TextBlock.create("agent", "head", "loud" as never);
+
+  assert.ok(created.ok);
+  const rendered = created.value.render(viewport(8, 2));
+  assert.ok(rendered.ok);
+  assert.deepEqual(rendered.value.tones, ["accent", "accent"]);
+  assert.equal(invalid.ok, false);
+  if (!invalid.ok) assert.equal(invalid.error.kind, "invalidTone");
+});

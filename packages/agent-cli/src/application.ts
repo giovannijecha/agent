@@ -14,6 +14,7 @@ import {
 } from "@agent/tui";
 
 import { ChatState } from "./chat-state.js";
+import type { ProviderPresentation } from "./commands.js";
 import {
   SessionController,
   type SessionAction,
@@ -87,7 +88,7 @@ function validNotice(lines: readonly string[]): boolean {
 /** Sole mutable reducer for CLI editing, chat display, phase, and notices. */
 export class ApplicationController implements InputProjectionSource {
   readonly #chat = new ChatState();
-  readonly #session = new SessionController();
+  readonly #session: SessionController;
   #notice: readonly string[];
   #phase: ApplicationPhase = "idle";
   #checkpointObserved = false;
@@ -106,9 +107,20 @@ export class ApplicationController implements InputProjectionSource {
       }
     | undefined;
 
-  constructor(runtimeAvailable: boolean) {
+  constructor(
+    runtimeAvailable: boolean,
+    provider?: ProviderPresentation,
+  ) {
+    this.#session = new SessionController(
+      runtimeAvailable ? provider : undefined,
+    );
     this.#notice = runtimeAvailable
-      ? Object.freeze(["Ready. Use /help for commands."])
+      ? provider === undefined
+        ? Object.freeze(["Ready. Use /help for commands."])
+        : Object.freeze([
+            "Ready. Use /help for commands.",
+            provider.displayName + " · " + provider.model,
+          ])
       : Object.freeze([
           "Ready. Use /help for commands.",
           "No model or tools are configured.",
