@@ -203,10 +203,14 @@ test("rejects blocked tool drift or incomplete decisions", () => {
   );
 
   const extraRow = currentContext();
+  const blocked = currentPolicy.blockedTools.at(0);
+  const blockedRow =
+    "| `" + blocked.name + "` | `" + blocked.risk + "` | " +
+    blocked.reason + " | `" + blocked.decision + "` |";
   extraRow.files["docs/manual/04-tools-and-approval.md"] =
     extraRow.files["docs/manual/04-tools-and-approval.md"].replace(
-      "| `run_process` | `execute` | Whole-tree containment is not provable with the current pure Node.js platform boundary. | `docs/decisions/0015-process-tree-containment.md` |\n\n",
-      "| `run_process` | `execute` | Whole-tree containment is not provable with the current pure Node.js platform boundary. | `docs/decisions/0015-process-tree-containment.md` |\n" +
+      blockedRow + "\n\n",
+      blockedRow + "\n" +
         "| `stale_tool` | `execute` | This row is not registered by the owned policy. | `docs/decisions/0015-process-tree-containment.md` |\n\n",
     );
   assert.throws(

@@ -36,10 +36,11 @@ documents, and exact license digest. Product package metadata does not silently
 override that registry.
 
 Continuous verification is registered in `tools/ci-policy.json`. Its validator
-binds the only workflow to the protected branch, read-only permissions, one
-bounded Windows job, the pinned toolchain, the canonical local command, and zero
-imported actions or secrets. The workflow and local release gate are one
-contract, not separate verification implementations.
+binds the only workflow to the protected branch, read-only permissions, bounded
+Windows 2025 and Ubuntu 24.04 jobs, the registered TypeScript and native C
+toolchain, the canonical local command, and zero imported actions or secrets.
+The workflow and local release gate are one contract, not separate verification
+implementations.
 
 ## Update or remove the streaming runtime
 
@@ -76,9 +77,10 @@ tests, and decision 0008. Preserve exact `/approve` and `/deny`, one pending cal
 read-only automatic execution, root containment, symlink denial, incremental
 directory bounds, post-invocation checkpoints, content-free failures, and only
 descriptor-declared approval summaries in UI. Reintroduce process execution only
-by replacing decision 0015 with kernel-backed Windows and Linux containment,
-the complete adversarial platform matrix, environment and output bounds,
-cancellation, owner-loss behavior, and cleanup tests.
+after the private decision-0016 broker passes its complete matching-platform
+adversarial matrix and a later decision accepts the model-facing schema,
+adapter, approval, privacy, checkpoint, and removal contract. The private
+broker alone grants no production authority.
 
 Approval-summary changes must test directional, zero-width, control, surrogate,
 private-use, and line-separator input. Preserve two independent defenses: the
@@ -228,10 +230,12 @@ before changing the required status check, because GitHub recognizes a workflow
 check by job name only after it has run.
 
 Preserve `contents: read`, exact event-revision checkout, ref and SHA validation,
-remote removal, no secret context, no `pull_request_target`, no `uses:`, one
-bounded job, and the canonical release command. Toolchain bootstrap may contact
-the npm registry only for the approved npm and TypeScript versions; the project
-verification itself remains offline.
+remote removal, no secret context, no `pull_request_target`, no `uses:`, both
+bounded platform jobs, and the canonical release command. Toolchain bootstrap
+may contact the npm registry only for the approved npm and TypeScript versions;
+the project verification itself remains offline. Linux `sudo` is confined to
+the owned disposable-cgroup bootstrap and cleanup. Product, broker, and tests
+must run unprivileged.
 
 To remove CI, first remove the required `verify` check from the GitHub ruleset so
 the default branch is not deadlocked. Then remove the workflow, CI registry,
@@ -301,10 +305,13 @@ npm install --offline --ignore-scripts --no-audit --no-fund
 node tools/clean.mjs
 tsc --build tsconfig.json --pretty false
 tsc --build tsconfig.tests.json --pretty false
+node tools/build-native.mjs
 ```
 
-This may change only `package-lock.json`, `node_modules` local links, `dist`, and
-`.test-dist`. Review those outputs through `tools/verify.ps1`, not manual edits.
+This may change only `package-lock.json`, `node_modules` local links, `dist`,
+`.test-dist`, and the ignored matching-platform `.native-build` directory.
+Review those outputs through `tools/verify.ps1`, not manual edits or committed
+binaries.
 
 ## Update the toolchain
 
@@ -316,6 +323,33 @@ This may change only `package-lock.json`, `node_modules` local links, `dist`, an
 4. Regenerate all derived artifacts and run the complete verifier offline.
 5. Roll back by restoring the previous pins, declarations, lock metadata, and
    generated output from the last known-good project snapshot.
+
+## Update or remove native process containment
+
+Keep the common frame decoder and entry point independent from the two platform
+backends. A protocol change replaces version 1 everywhere; never retain a
+dormant decoder. Compile and test Windows source on Windows x64 and Linux source
+on Linux x64. Cross-compilation is diagnostic only, not release evidence. Keep
+generated binaries ignored and rebuild them from owned source.
+
+The Linux backend requires an exclusive delegated cgroup v2 layout with the
+controller in `control` and an empty user-owned sibling named `runs`. Production
+never invokes `sudo`. The CI bootstrap may elevate only to create, delegate,
+leave, and remove its disposable subtree. Missing `pids`, `cgroup.kill`,
+`clone3`, pidfd, namespace, read-only cgroup mount, or cleanup support is a hard
+failure. Do not add a process-group fallback.
+
+Update Job Object flags, namespace flags, cgroup files, inherited handles,
+descriptor policy, limits, or cleanup ordering only with the full Windows and
+Linux conformance matrix and decision 0016. Roll back by removing the native
+verification wiring and restoring the previous CI/toolchain registries while
+leaving `run_process` blocked.
+
+To remove the private proof, delete `packages/agent-cli/native/process-broker`,
+`tools/build-native.mjs`, `tools/lib/native-process-broker.mjs`, its focused
+test, the Linux bootstrap, native verifier and cleaner rules, compiler registry,
+decision 0016, and the Linux CI job. Restore manual and architecture text to
+decision 0015 only. No TypeScript production module should require changes.
 
 ## Release gate
 

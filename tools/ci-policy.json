@@ -1,10 +1,21 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "workflowPath": ".github/workflows/verify.yml",
   "workflowName": "verify",
-  "jobName": "verify",
-  "runner": "windows-latest",
-  "timeoutMinutes": 20,
+  "jobs": [
+    {
+      "id": "verify-windows",
+      "runner": "windows-2025",
+      "timeoutMinutes": 25,
+      "containmentBootstrap": false
+    },
+    {
+      "id": "verify-linux",
+      "runner": "ubuntu-24.04",
+      "timeoutMinutes": 25,
+      "containmentBootstrap": true
+    }
+  ],
   "protectedBranches": [
     "main"
   ],

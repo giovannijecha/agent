@@ -13,10 +13,12 @@ Run the complete release gate from the repository root:
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1
 ```
 
-Pull requests and pushes to `main` run the owned `verify` GitHub workflow. It
-checks out the exact event revision without importing a checkout action,
-provisions only the pinned external npm and TypeScript toolchain, and invokes the
-same command above. Inspect the `verify` job when a protected merge is blocked.
+Pull requests and pushes to `main` run owned `verify-windows` and `verify-linux`
+GitHub jobs. Each checks out the exact event revision without importing a
+checkout action, provisions the registered external npm and TypeScript
+toolchain, verifies external Clang, and invokes the same command above. Linux
+uses an owned CI-only bootstrap to delegate a disposable cgroup; the broker and
+tests remain unprivileged. Inspect both jobs when a protected merge is blocked.
 
 Use `npm run build` for a focused compiler check and `npm test` only after test
 artifacts have been built by the canonical flow. When the CLI stops, start with
@@ -26,7 +28,8 @@ gate rather than adding ad hoc logging.
 
 ## Guarantees and limits
 
-The gate validates exact toolchain versions, the remote workflow contract,
+The gate validates exact toolchain versions, the native compiler floor, the
+two-platform remote workflow contract,
 required documents, provider, manual, and publication policies, package
 manifests, local-only lock topology, source hygiene, module boundaries, minimal
 declarations, generated build structure, all tests, and a CLI smoke session. It
@@ -60,6 +63,15 @@ repairable.
 - CI validator: `tools/lib/ci-policy.mjs`
 - CI validator tests: `tools/test/ci-policy.test.mjs`
 - CI decision: `docs/decisions/0012-owned-continuous-verification.md`
+- Native proof decision: `docs/decisions/0016-owned-native-process-containment.md`
+- Native build driver: `tools/build-native.mjs`
+- Native broker entry point: `packages/agent-cli/native/process-broker/main.c`
+- Native protocol implementation: `packages/agent-cli/native/process-broker/protocol.c`
+- Windows containment backend: `packages/agent-cli/native/process-broker/backend-windows.c`
+- Linux containment backend: `packages/agent-cli/native/process-broker/backend-linux.c`
+- Native adversarial fixture: `packages/agent-cli/native/process-broker/test-fixture.c`
+- Native proof controller: `tools/lib/native-process-broker.mjs`
+- Linux containment bootstrap: `tools/prepare-linux-containment.sh`
 - Owned verifier: `tools/verify.mjs`
 - Workspace ownership registry: `tools/ownership-policy.json`
 - Manual registry: `tools/manual-policy.json`

@@ -15,8 +15,8 @@
     "packages/agent-cli"
   ],
   "scripts": {
-    "build": "tsc --build tsconfig.json --pretty false",
-    "clean": "tsc --build tsconfig.json --clean",
+    "build": "tsc --build tsconfig.json --pretty false && node tools/build-native.mjs",
+    "clean": "node tools/clean.mjs",
     "start": "node packages/agent-cli/dist/main.js",
     "test": "node tools/run-tests.mjs",
     "verify": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1"

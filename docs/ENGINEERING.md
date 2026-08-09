@@ -18,6 +18,10 @@ tests, update and rollback procedures, and an independent removal path.
 ## Source rules
 
 - Use strict TypeScript and ESM with explicit `.js` relative import suffixes.
+- Native platform primitives use original C17 split into common contract and
+  operating-system backend modules. Compile with registered external Clang,
+  warnings as errors, no third-party headers or libraries, and no committed
+  binaries. A native backend is evidence only on its matching operating system.
 - Use explicit collection operations such as `.at()` for runtime indexing in
   shipped modules. Computed member names must be statically proven safe.
 - Import other workspaces only through their declared public package names.
@@ -43,6 +47,9 @@ tests, update and rollback procedures, and an independent removal path.
 - Treat warnings, stale documentation, skipped tests, and suppressed type errors
   as failures.
 - Delete obsolete paths completely; never retain dormant compatibility code.
+- Never expose a private platform proof to the model until its adapter, schema,
+  approval, privacy, cancellation, checkpoint, and removal contracts are
+  accepted and tested independently.
 
 ## Documentation rules
 

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "node": {
     "minimumVersion": "22.19.0"
   },
@@ -8,5 +8,17 @@
   },
   "typescript": {
     "exactVersion": "5.9.3"
+  },
+  "nativeC": {
+    "languageStandard": "c17",
+    "compiler": "clang",
+    "minimumMajorVersion": 18,
+    "platforms": [
+      "linux",
+      "win32"
+    ],
+    "architectures": [
+      "x64"
+    ]
   }
 }

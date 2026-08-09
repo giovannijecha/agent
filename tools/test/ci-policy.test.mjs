@@ -56,15 +56,15 @@ test("rejects privileged pull-request execution and workflow drift", () => {
 
   const drifted = currentContext();
   drifted.workflowText = drifted.workflowText.replace(
-    "timeout-minutes: 20",
+    "timeout-minutes: 25",
     "timeout-minutes: 60",
   );
   assert.throws(() => validateCiPolicy(policy, drifted), /workflow drifted/u);
 });
 
-test("rejects registry and pinned-toolchain drift", () => {
+test("rejects platform-matrix and registered-toolchain drift", () => {
   const changedPolicy = structuredClone(policy);
-  changedPolicy.runner = "ubuntu-latest";
+  changedPolicy.jobs[1].runner = "ubuntu-latest";
   assert.throws(
     () => validateCiPolicy(changedPolicy, currentContext()),
     CiPolicyError,
@@ -74,6 +74,25 @@ test("rejects registry and pinned-toolchain drift", () => {
   changedToolchain.toolchain.typescript.exactVersion = "0.0.0";
   assert.throws(
     () => validateCiPolicy(policy, changedToolchain),
+    /workflow drifted/u,
+  );
+
+  const changedNativeToolchain = currentContext();
+  changedNativeToolchain.toolchain.nativeC.compiler = "cc";
+  assert.throws(
+    () => validateCiPolicy(policy, changedNativeToolchain),
+    /toolchain contract is malformed/u,
+  );
+});
+
+test("rejects removal of the Linux containment bootstrap", () => {
+  const changed = currentContext();
+  changed.workflowText = changed.workflowText.replace(
+    "          bash tools/prepare-linux-containment.sh setup \"$$\"\n",
+    "",
+  );
+  assert.throws(
+    () => validateCiPolicy(policy, changed),
     /workflow drifted/u,
   );
 });
