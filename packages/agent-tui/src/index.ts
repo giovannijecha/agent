@@ -22,6 +22,7 @@ export {
   type EditorOutcome,
   type EditorProjection,
 } from "./line-editor.js";
+export { MarkdownBlock } from "./markdown-block.js";
 export { TUI_LIMITS } from "./limits.js";
 export type { TextOutput } from "./output.js";
 export { Renderer } from "./renderer.js";

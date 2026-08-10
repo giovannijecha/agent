@@ -114,7 +114,7 @@ TUI, runtime, and the providerless CLI after each stage.
 Update structured rows, fragments, semantic tones, text normalization, component
 measurement, stack windowing, allocation, scroll reconciliation, synchronized
 redraw, caret rules, or public limits only with focused boundary tests and
-decisions 0006, 0019, 0020, 0021, and 0022. Preserve normalized bounded spans,
+decisions 0006, 0019, 0020, 0021, 0022, and 0023. Preserve normalized bounded spans,
 exact-row fragments, content-free errors, hostile accessor containment,
 deterministic priority/preference/flex allocation, and `Frame` as the final
 terminal-safety boundary. Product concepts remain in CLI.
@@ -125,12 +125,28 @@ inline-text, rich-row, text-block, vertical-layout, and limit exports together
 with their focused tests and decisions 0006, 0019, and 0021. If only semantic
 emphasis is removed, retain the vertical framework and replace structured rows
 with one validated plain-row contract before removing tone metadata, renderer
-mappings, CLI tone choices, focused tests, and decisions 0019 and 0021 as one
-change. Remove scrolling only after all callers return to their contained
+mappings, CLI tone choices, focused tests, and decisions 0019, 0021, and 0023 as
+one change. Remove scrolling only after all callers return to their contained
 components; then remove scroll state, scroll view, their tests, manual
 references, and decision 0020. Remove synchronized
 output by deleting both markers and recovery state together. Decoder, editor,
 runtime, and core must stay green.
+
+Markdown syntax, delimiter completion, precedence, roles, fallback, or bounds
+change only through decision 0023 with parser, component, shared-layout,
+renderer, transcript, streaming, privacy, manual, and policy regressions. Keep
+the grammar closed and line-oriented. Markdown and `TextBlock` must continue to
+share normalization, wrapping, anchoring, and padding; do not introduce an AST,
+extension hook, HTML path, active link, image protocol, or alternate renderer.
+Preserve the 512-document and total-text checks before member iteration and
+restart parser state at every document boundary.
+
+To remove Markdown, replace the transcript `MarkdownBlock` with `TextBlock`,
+then delete `markdown-block`, `markdown-parser`, their export and tests, decision
+0023, and its policy and manual evidence. If no remaining component uses the
+`emphasis` tone, remove its renderer mapping and restore decision 0019's
+four-tone contract in the same change. The remaining components, structured
+rows, scrolling, tool activity, input, runtime, and providers stay buildable.
 
 Tool activity has one CLI-owned state and presentation path under decision 0022.
 Changing its states, retention, safe fields, ordering, tones, or bounds requires
@@ -331,10 +347,10 @@ Terminal protocol changes affect two independent owners:
    followed by shutdown controls, SS3 fragmentation, and cumulative queue size.
 5. Update decision 0004 when lifecycle, ownership, width rules, or supported keys
    change materially.
-6. Preserve decisions 0019 and 0021 when semantic emphasis changes: tones stay
-   closed, application-neutral, structured-row, and renderer-owned, with
-   normalization, bounded span count, and reset after emphasized spans and on
-   cleanup.
+6. Preserve decisions 0019, 0021, and 0023 when semantic emphasis changes:
+   tones stay closed, application-neutral, structured-row, and renderer-owned,
+   with normalization, bounded span count, and reset after emphasized spans and
+   on cleanup.
 
 To remove interactivity, first remove runtime event composition, then delete the
 TUI decoder/editor/viewport modules and CLI session/chat-view/host modules.

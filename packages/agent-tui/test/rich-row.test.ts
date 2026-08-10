@@ -8,7 +8,10 @@ import {
   TUI_LIMITS,
 } from "@agent/tui";
 
-function span(text: string, tone: "accent" | "attention" | "muted" | "plain" = "plain"): TextSpan {
+function span(
+  text: string,
+  tone: "accent" | "attention" | "emphasis" | "muted" | "plain" = "plain",
+): TextSpan {
   const result = TextSpan.create(text, tone);
   assert.ok(result.ok);
   return result.value;

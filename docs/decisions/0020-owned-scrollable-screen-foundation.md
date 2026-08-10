@@ -48,10 +48,11 @@ terminal dependency, product vocabulary, or hidden global state.
 ## Evolution sequence
 
 This decision is the first TUI v2 foundation, not the final interface. Decision
-0021 fulfills the next step with structured rich rows, and decision 0022 adds one
-generic component stack plus one unified CLI-owned tool-activity surface. Later
-decisions may add a bounded owned Markdown subset, CLI-owned transcript blocks,
-keyboard navigation, and responsive status composition. Each capability must
+0021 fulfills the next step with structured rich rows, decision 0022 adds one
+generic component stack plus one unified CLI-owned tool-activity surface, and
+decision 0023 adds the bounded owned Markdown subset. Later decisions may add
+CLI-owned transcript blocks, keyboard navigation, and responsive status
+composition. Each capability must
 reuse this single scroll and renderer path rather than introduce a parallel
 screen engine.
 

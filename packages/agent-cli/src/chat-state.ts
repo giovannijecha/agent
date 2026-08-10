@@ -43,8 +43,15 @@ type ActiveTurn = {
   responseCodeUnits: number;
 };
 
-function formatTurn(user: string, assistant: string): string {
-  return "you\n" + user + "\n\nagent\n" + assistant;
+function turnDocuments(user: string, assistant: string): readonly string[] {
+  return Object.freeze(["you\n" + user, "agent\n" + assistant]);
+}
+
+function documentCodeUnits(documents: readonly string[]): number {
+  return (
+    documents.reduce((total, document) => total + document.length, 0) +
+    Math.max(0, documents.length - 1) * TRANSCRIPT_SEPARATOR.length
+  );
 }
 
 function inputTooLong(text: string): boolean {
@@ -229,44 +236,57 @@ export class ChatState {
     this.#completedCodeUnits = 0;
   }
 
-  /** Builds the newest complete display document within the TUI text bound. */
-  transcriptText(): string {
-    const newest: string[] = [];
+  /** Builds isolated chronological message documents within the TUI text bound. */
+  transcriptDocuments(): readonly string[] {
+    const newest: Array<readonly string[]> = [];
     let codeUnits = 0;
     const active = this.#active;
     if (active !== undefined) {
-      const completeProspective = formatTurn(
-        active.user,
+      const assistant =
         active.preparedAssistant ??
-          [...active.segments, active.chunks.join("")]
-            .filter((segment) => segment.trim().length > 0)
-            .join("\n\n"),
+        [...active.segments, active.chunks.join("")]
+          .filter((segment) => segment.trim().length > 0)
+          .join(TRANSCRIPT_SEPARATOR);
+      const prospective = turnDocuments(
+        active.user,
+        assistant,
       );
-      const prospective =
-        completeProspective.length > TUI_LIMITS.displayTextCodeUnits
-          ? completeProspective.slice(-TUI_LIMITS.displayTextCodeUnits)
-          : completeProspective;
-      newest.push(prospective);
-      codeUnits += prospective.length;
+      const completeProspective = prospective.join(TRANSCRIPT_SEPARATOR);
+      if (completeProspective.length > TUI_LIMITS.displayTextCodeUnits) {
+        const clipped = completeProspective.slice(
+          -TUI_LIMITS.displayTextCodeUnits,
+        );
+        newest.push(Object.freeze([clipped]));
+        codeUnits += clipped.length;
+      } else {
+        newest.push(prospective);
+        codeUnits += completeProspective.length;
+      }
     }
     for (let index = this.#completed.length - 1; index >= 0; index -= 1) {
       const turn = this.#completed.at(index);
       if (turn === undefined) {
         continue;
       }
-      const formatted = formatTurn(turn.user, turn.assistant);
+      const documents = turnDocuments(turn.user, turn.assistant);
+      const formattedLength = documentCodeUnits(documents);
       const separator = newest.length === 0 ? 0 : TRANSCRIPT_SEPARATOR.length;
       if (
-        codeUnits + separator + formatted.length >
+        codeUnits + separator + formattedLength >
         TUI_LIMITS.displayTextCodeUnits
       ) {
         break;
       }
-      newest.push(formatted);
-      codeUnits += separator + formatted.length;
+      newest.push(documents);
+      codeUnits += separator + formattedLength;
     }
     newest.reverse();
-    return newest.join(TRANSCRIPT_SEPARATOR);
+    return Object.freeze(newest.flatMap((documents) => documents));
+  }
+
+  /** Flattens the same isolated documents for plain text consumers. */
+  transcriptText(): string {
+    return this.transcriptDocuments().join(TRANSCRIPT_SEPARATOR);
   }
 
   #evictCompleted(): void {

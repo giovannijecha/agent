@@ -26,13 +26,29 @@ successful write.
 
 The visual language is deliberately small. Cyan marks product identity and the
 focused input row, dim text marks passive status and the current phase, yellow
-marks approval-sensitive tool state, and ordinary conversation remains plain.
+marks approval-sensitive tool state, bold default text marks document emphasis,
+and ordinary conversation remains plain.
 One row may contain multiple immutable semantic spans, so the product name and
 its quieter phase remain a single stable header. Empty spans are removed,
 adjacent equal roles are merged, and each row is bounded before composition.
 These are semantic roles, not model-controlled colors. Only the renderer creates
 ANSI sequences and it resets style after each emphasized span and before
 terminal ownership is returned.
+
+Conversation text accepts one original bounded Markdown subset: headings with
+one through six `#` markers, one-level `- ` or numbered list items, one-level
+`> ` quotes, matched triple-backtick code fences, same-line backtick code, and
+same-line `**strong**` text. Headings, strong text, and inline code use bold
+default text. Inline delimiters must be exact and cannot be part of a longer run.
+List markers, quote rails, and code rails are dim. Missing closing delimiters,
+longer delimiter runs, and every unsupported construct stay visible literally.
+Links, images, HTML, tables, task lists, syntax highlighting, and extensions are
+not interpreted. Markdown shares the plain-text sanitizer, Unicode cell wrapping,
+anchoring, padding, structured rows, and final renderer; it has no second screen
+or arbitrary style path.
+Each role-labelled conversation message is a separate parser document. Up to
+512 documents share the existing total text bound, with one blank row between
+them; a fence or delimiter can never continue into the next message.
 
 Tool activity uses one quiet vertical rail for every registered tool. Newest
 activity appears first. The header begins with the explicit lifecycle state so
@@ -66,18 +82,24 @@ navigation is not connected in this first foundation increment. Decision
 canonical structured-row representation, its bounds, clipping, and removal.
 Decision [0022](../decisions/0022-owned-tool-activity-surface.md) governs the
 generic component stack and the CLI-owned activity surface.
+Decision [0023](../decisions/0023-owned-bounded-markdown.md) governs the closed
+Markdown syntax, fifth semantic tone, fallback, tests, and removal path.
 
 ## Evidence
 
 - Input protocol: `packages/agent-tui/src/input-decoder.ts`
 - Generic layout: `packages/agent-tui/src/vertical-layout.ts`
 - Generic component stack: `packages/agent-tui/src/component-stack.ts`
+- Shared display layout: `packages/agent-tui/src/display-text.ts`
+- Bounded Markdown component: `packages/agent-tui/src/markdown-block.ts`
+- Bounded Markdown parser: `packages/agent-tui/src/markdown-parser.ts`
 - Semantic tones: `packages/agent-tui/src/tone.ts`
 - Structured rows: `packages/agent-tui/src/rich-row.ts`
 - Tone contract: `docs/decisions/0019-owned-semantic-terminal-tones.md`
 - Scroll contract: `docs/decisions/0020-owned-scrollable-screen-foundation.md`
 - Structured-row contract: `docs/decisions/0021-owned-structured-terminal-rows.md`
 - Tool-activity contract: `docs/decisions/0022-owned-tool-activity-surface.md`
+- Markdown contract: `docs/decisions/0023-owned-bounded-markdown.md`
 - Final renderer: `packages/agent-tui/src/renderer.ts`
 - Scroll state: `packages/agent-tui/src/scroll-state.ts`
 - Generic scroll view: `packages/agent-tui/src/scroll-view.ts`

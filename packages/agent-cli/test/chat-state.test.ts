@@ -11,12 +11,20 @@ test("publishes a streamed pair only after exact completion", () => {
   assert.ok(chat.append(1, "ans").ok);
 
   assert.equal(chat.transcriptText(), "you\nquestion\n\nagent\nans");
+  assert.deepEqual(chat.transcriptDocuments(), [
+    "you\nquestion",
+    "agent\nans",
+  ]);
   assert.ok(chat.append(1, "wer").ok);
   assert.ok(chat.prepare(1, "answer").ok);
   assert.ok(chat.commit(1).ok);
 
   assert.equal(chat.activeTurnId, undefined);
   assert.equal(chat.transcriptText(), "you\nquestion\n\nagent\nanswer");
+  assert.deepEqual(chat.transcriptDocuments(), [
+    "you\nquestion",
+    "agent\nanswer",
+  ]);
 });
 
 test("discards prospective personal content on cancellation", () => {
