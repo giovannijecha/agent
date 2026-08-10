@@ -46,6 +46,37 @@ test("retains an escape sequence across every chunk split", () => {
   }
 });
 
+test("decodes transcript navigation keys across CSI and SS3 forms", () => {
+  const decoder = new InputDecoder();
+
+  assert.deepEqual(
+    kinds(
+      decoder.feed(
+        "\u001B[A" +
+          "\u001BOA" +
+          "\u001B[B" +
+          "\u001BOB" +
+          "\u001B[5~" +
+          "\u001B[6~",
+      ),
+    ),
+    ["up", "up", "down", "down", "pageUp", "pageDown"],
+  );
+});
+
+test("retains page navigation sequences across every chunk split", () => {
+  for (const [sequence, expected] of [
+    ["\u001B[5~", "pageUp"],
+    ["\u001B[6~", "pageDown"],
+  ] as const) {
+    for (let split = 1; split < sequence.length; split += 1) {
+      const decoder = new InputDecoder();
+      assert.deepEqual(decoder.feed(sequence.slice(0, split)), []);
+      assert.deepEqual(kinds(decoder.feed(sequence.slice(split))), [expected]);
+    }
+  }
+});
+
 test("preserves shutdown controls after an incomplete escape", () => {
   for (const control of ["\u0003", "\u0004"]) {
     const decoder = new InputDecoder();

@@ -53,14 +53,24 @@ agent.”
 - `@agent/tui` owns bounded input decoding, line editing, vertical components,
   bounded component stacks, normalized structured rows with closed semantic
   span tones, the closed bounded Markdown subset, immutable scroll geometry,
-  layout, viewports, frames, and synchronized differential rendering; it is
-  agent-agnostic and Node-free. Markdown and plain text reuse one wrapping path,
+  planned vertical layout, viewports, frames, and synchronized differential
+  rendering; it is
+  agent-agnostic and Node-free. Markdown and plain text reuse one word-aware
+  wrapping path with explicit literal-code and continuation-prefix policies,
   Markdown state cannot cross bounded document boundaries, only the renderer
   emits ANSI, and every scrollable surface reuses the same generic scroll path.
+- The TUI is conversation-first, not a permanent dashboard. Keep the transcript
+  dominant, the composer fixed and recognizable, and every information block
+  contextual to authoritative state. Future tools and integrations reuse the
+  generic panel, split-line, horizontal-inset, side-rail, activity, scroll, and
+  layout paths; they do not add private cards, empty metrics, or parallel view
+  models. User and assistant content remain structured role entries but render
+  without redundant `you` or `agent` labels.
 - `@agent/cli` owns commands, bounded display chat, the single-writer reducer,
   one bounded tool-activity lifecycle and presentation path, terminal/runtime
-  arbitration, built-in workspace tools, raw mode, filesystem and process
-  access, and all Node lifecycle; it is the only platform boundary.
+  arbitration, transcript-navigation state, built-in workspace tools, raw mode,
+  filesystem and process access, and all Node lifecycle; it is the only
+  platform boundary.
 - The private CLI-native process broker is verification infrastructure only.
   Production does not invoke it and `run_process` stays blocked until a later
   decision accepts the complete model-facing adapter and approval contract.

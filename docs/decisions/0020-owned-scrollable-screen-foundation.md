@@ -50,11 +50,12 @@ terminal dependency, product vocabulary, or hidden global state.
 This decision is the first TUI v2 foundation, not the final interface. Decision
 0021 fulfills the next step with structured rich rows, decision 0022 adds one
 generic component stack plus one unified CLI-owned tool-activity surface, and
-decision 0023 adds the bounded owned Markdown subset. Later decisions may add
-CLI-owned transcript blocks, keyboard navigation, and responsive status
-composition. Each capability must
-reuse this single scroll and renderer path rather than introduce a parallel
-screen engine.
+decision 0023 adds the bounded owned Markdown subset. Decision 0024 connects
+keyboard transcript navigation through one planned layout geometry path.
+Decision 0026 fulfills responsive status and conversation-shell composition with
+one generic panel, one bounded split line, one horizontal inset, and one open
+side rail. Each capability must reuse this single scroll and renderer path
+rather than introduce a parallel screen engine.
 
 Mouse input, images, overlapping layers, split panes, arbitrary styling,
 animation, and extension-supplied render callbacks remain excluded until a

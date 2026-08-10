@@ -9,11 +9,21 @@ import {
   type ProviderPresentation,
 } from "./commands.js";
 
+export type TranscriptMovement =
+  | "lineDown"
+  | "lineUp"
+  | "pageDown"
+  | "pageUp";
+
 export type SessionAction =
   | Readonly<{ kind: "approve" }>
   | Readonly<{ kind: "deny" }>
   | Readonly<{ kind: "exit" }>
   | Readonly<{ kind: "interrupt" }>
+  | Readonly<{
+      kind: "navigateTranscript";
+      movement: TranscriptMovement;
+    }>
   | Readonly<{ kind: "notice"; lines: readonly string[] }>
   | Readonly<{ kind: "submit"; text: string }>;
 
@@ -74,6 +84,26 @@ export class SessionController {
           }
           exitCandidate = undefined;
         }
+        continue;
+      }
+      if (
+        event.kind === "up" ||
+        event.kind === "down" ||
+        event.kind === "pageUp" ||
+        event.kind === "pageDown"
+      ) {
+        const movement: TranscriptMovement =
+          event.kind === "up"
+            ? "lineUp"
+            : event.kind === "down"
+              ? "lineDown"
+              : event.kind;
+        actions.push(
+          Object.freeze({
+            kind: "navigateTranscript" as const,
+            movement,
+          }),
+        );
         continue;
       }
       const outcome = this.#editor.apply(event);

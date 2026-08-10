@@ -123,9 +123,9 @@ test("renders only fixed semantic tones and resets each styled span", async () =
 
   await renderer.render(
     tonedFrame(
-      ["agent", "ready", "approve", "emphasis"],
-      ["accent", "muted", "attention", "emphasis"],
-      2,
+      ["agent", "ready", "approve", "success", "failure", "emphasis"],
+      ["accent", "muted", "attention", "success", "failure", "emphasis"],
+      4,
       7,
     ),
     viewport(),
@@ -134,6 +134,8 @@ test("renders only fixed semantic tones and resets each styled span", async () =
   assert.equal(output.text.includes("\u001B[1;36magent\u001B[0m"), true);
   assert.equal(output.text.includes("\u001B[2mready\u001B[0m"), true);
   assert.equal(output.text.includes("\u001B[1;33mapprove\u001B[0m"), true);
+  assert.equal(output.text.includes("\u001B[1;32msuccess\u001B[0m"), true);
+  assert.equal(output.text.includes("\u001B[1;31mfailure\u001B[0m"), true);
   assert.equal(output.text.includes("\u001B[1memphasis\u001B[0m"), true);
 });
 

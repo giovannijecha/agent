@@ -5,26 +5,34 @@ const ESCAPE = "\u001B";
 export type KeyEvent =
   | Readonly<{ kind: "backspace" }>
   | Readonly<{ kind: "delete" }>
+  | Readonly<{ kind: "down" }>
   | Readonly<{ kind: "end" }>
   | Readonly<{ kind: "enter" }>
   | Readonly<{ kind: "eof" }>
   | Readonly<{ kind: "home" }>
   | Readonly<{ kind: "interrupt" }>
   | Readonly<{ kind: "left" }>
+  | Readonly<{ kind: "pageDown" }>
+  | Readonly<{ kind: "pageUp" }>
   | Readonly<{ kind: "right" }>
   | Readonly<{ kind: "text"; text: string }>
+  | Readonly<{ kind: "up" }>
   | Readonly<{ kind: "unsupported" }>;
 
 const SIMPLE_EVENTS = Object.freeze({
   backspace: Object.freeze({ kind: "backspace" as const }),
   delete: Object.freeze({ kind: "delete" as const }),
+  down: Object.freeze({ kind: "down" as const }),
   end: Object.freeze({ kind: "end" as const }),
   enter: Object.freeze({ kind: "enter" as const }),
   eof: Object.freeze({ kind: "eof" as const }),
   home: Object.freeze({ kind: "home" as const }),
   interrupt: Object.freeze({ kind: "interrupt" as const }),
   left: Object.freeze({ kind: "left" as const }),
+  pageDown: Object.freeze({ kind: "pageDown" as const }),
+  pageUp: Object.freeze({ kind: "pageUp" as const }),
   right: Object.freeze({ kind: "right" as const }),
+  up: Object.freeze({ kind: "up" as const }),
   unsupported: Object.freeze({ kind: "unsupported" as const }),
 });
 
@@ -37,14 +45,16 @@ const KNOWN_SEQUENCES: readonly Readonly<{
   Object.freeze({ sequence: "\u001B[4~", event: SIMPLE_EVENTS.end }),
   Object.freeze({ sequence: "\u001B[7~", event: SIMPLE_EVENTS.home }),
   Object.freeze({ sequence: "\u001B[8~", event: SIMPLE_EVENTS.end }),
-  Object.freeze({ sequence: "\u001B[A", event: SIMPLE_EVENTS.unsupported }),
-  Object.freeze({ sequence: "\u001B[B", event: SIMPLE_EVENTS.unsupported }),
+  Object.freeze({ sequence: "\u001B[5~", event: SIMPLE_EVENTS.pageUp }),
+  Object.freeze({ sequence: "\u001B[6~", event: SIMPLE_EVENTS.pageDown }),
+  Object.freeze({ sequence: "\u001B[A", event: SIMPLE_EVENTS.up }),
+  Object.freeze({ sequence: "\u001B[B", event: SIMPLE_EVENTS.down }),
   Object.freeze({ sequence: "\u001B[C", event: SIMPLE_EVENTS.right }),
   Object.freeze({ sequence: "\u001B[D", event: SIMPLE_EVENTS.left }),
   Object.freeze({ sequence: "\u001B[H", event: SIMPLE_EVENTS.home }),
   Object.freeze({ sequence: "\u001B[F", event: SIMPLE_EVENTS.end }),
-  Object.freeze({ sequence: "\u001BOA", event: SIMPLE_EVENTS.unsupported }),
-  Object.freeze({ sequence: "\u001BOB", event: SIMPLE_EVENTS.unsupported }),
+  Object.freeze({ sequence: "\u001BOA", event: SIMPLE_EVENTS.up }),
+  Object.freeze({ sequence: "\u001BOB", event: SIMPLE_EVENTS.down }),
   Object.freeze({ sequence: "\u001BOC", event: SIMPLE_EVENTS.right }),
   Object.freeze({ sequence: "\u001BOD", event: SIMPLE_EVENTS.left }),
   Object.freeze({ sequence: "\u001BOH", event: SIMPLE_EVENTS.home }),

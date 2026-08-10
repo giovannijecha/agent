@@ -122,13 +122,24 @@ requests and `main`; its checkout and toolchain bootstrap are written here and
 use no third-party action.
 
 `agent`, `npm start`, and `npm run dev` open the interactive alternate-screen
-terminal when both stdin and stdout are TTYs. The interface uses one compact
-identity line, bounded structured rows, one unified recent tool-activity surface,
-five renderer-owned semantic tones, and an original bounded Markdown subset for
-conversation text. Each message is an isolated document, and Markdown compiles
-into the same structured rows; model text
-cannot emit ANSI, choose colors, or extend the parser. The first milestone
-supports:
+terminal when both stdin and stdout are TTYs. The interface uses one responsive,
+conversation-first shell: a dominant transcript, contextual activity,
+rectangular composer, and compact truthful footer. Generic
+panels, split lines, horizontal insets, and side rails compose these regions
+without adding product state to the TUI framework. The working column is centered
+and bounded, user requests use complete box borders, assistant responses use one
+open rail, and neither repeats a role label. Empty contextual blocks consume no
+rows, and borders disappear as complete units when their geometry cannot fit. The same shell uses bounded
+structured rows, one unified recent tool-activity surface, seven renderer-owned
+semantic tones, and an original bounded Markdown subset for conversation text.
+Input and conversation remain neutral; green reports success or readiness,
+yellow reports active or approval-sensitive state, and red reports a negative
+terminal result. Lifecycle state appears once, at the footer's right edge.
+Each message is an isolated document, and Markdown compiles into the same
+structured rows. Prose wraps at word boundaries, long tokens fall back to cell
+wrapping, and fenced code retains literal wrapping and repeated rails; model
+text cannot emit ANSI, choose colors, create panels, or extend the parser. The
+first milestone supports:
 
 ```text
 /help       show the command reference
@@ -138,8 +149,15 @@ supports:
 /exit       close agent
 ```
 
-Use Left, Right, Home, End, Delete, Backspace, and Enter to edit one line. With
-an active model turn, Ctrl+C requests cancellation, preserves the draft, and
+Use Left, Right, Home, End, Delete, Backspace, and Enter to edit one line. Up
+and Down move through transcript history one row at a time. Page Up and Page
+Down move by one visible transcript page with one row of overlap; reaching the
+latest row resumes automatic follow. A quiet `history` label appears while the
+view is detached from the latest content. It shares the compact footer with the
+authoritative provider/model and application phase. Starting a new turn returns
+to the latest content. These keys never alter the current draft.
+
+With an active model turn, Ctrl+C requests cancellation, preserves the draft, and
 keeps the shell open. At idle, Ctrl+C exits. Ctrl+D, stdin EOF, and `/exit`
 always exit, cancelling active work first. The terminal restores cooked input,
 the cursor, and the previous screen before returning. Redirected input or output
@@ -155,12 +173,14 @@ Terminal failure and cancellation receipts likewise remain owned by the runtime
 until acknowledged, so shutdown cannot lose buffered cleanup failures.
 Read-only tools run automatically. Each write call requires its own
 exact `/approve` or `/deny`; approval is never cached. Calls are sequential and
-the TUI shows every call through the same bounded lifecycle surface. Its quiet
-rail retains the current or most recently settled turn, shows the tool name,
-risk, explicit state, and descriptor-declared safe approval scope, and collapses
-details before hiding the activity header in a short viewport. Newest activity
-appears first. Raw content, call identifiers, outputs, arguments, provider data,
-and failure causes never enter notices or the activity surface. Once a
+the TUI shows every call through the same bounded lifecycle surface. Its
+contextual panel retains the current or most recently settled turn, shows the
+tool name, risk, explicit state, and descriptor-declared safe approval scope,
+and collapses details before the canonical activity header in a short viewport.
+The panel is absent when no authoritative activity exists and removes its whole
+border before partial chrome could appear. Newest activity appears first. Raw
+content, call identifiers, outputs, arguments, provider data, and failure causes
+never enter notices or the activity surface. Once a
 tool attempt completes, its structured call and result become a conversation
 checkpoint before the next model step. A later failure or cancellation retains
 that truthful checkpoint while discarding only prospective response text.

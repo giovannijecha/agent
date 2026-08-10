@@ -118,16 +118,23 @@ tool policy, or second agent identity. It imports only core, runtime, and tools.
 Owns incremental terminal-key decoding, bounded single-line editing, validated
 viewports and atomic frames, conservative cell measurement, immutable fragments,
 bounded text and input components, bounded generic component stacks, normalized
-structured rows with five closed semantic span tones, one bounded line-oriented
-Markdown subset, deterministic vertical allocation, ANSI commands, and
-serialized asynchronous differential rendering.
+structured rows with seven closed semantic span tones, one bounded line-oriented
+Markdown subset, one generic bordered panel, one generic split line,
+dynamically centered horizontal insets, one generic open side rail,
+deterministic vertical allocation, ANSI commands, and serialized asynchronous
+differential rendering. One immutable layout plan
+exposes measured and assigned slot rows, then renders that exact allocation;
+direct layout rendering delegates to the same path.
 It knows nothing about agents or Node. Unknown control sequences never become
 editable text; display text sanitizes controls and lone surrogates; structured
 rows, fragments, and frames reject unsafe scalar or terminal-control content
 independently.
-Plain text and Markdown share one normalization, span-preserving wrapping,
-anchoring, and padding implementation. Markdown compiles directly into
-structured rows and has no AST, extension registry, HTML, links, images, or
+Plain text and Markdown share one normalization, word-aware span-preserving
+wrapping, anchoring, and padding implementation under decision 0025. Logical
+lines declare structural prefixes, continuation prefixes, and either word or
+literal cell wrapping. Long tokens fall back to cells; lists hang their marker
+width, while quotes and fenced code repeat their rail. Markdown compiles
+directly into structured rows and has no AST, extension registry, HTML, links, images, or
 alternate renderer. Only the renderer translates validated span tones into fixed
 terminal sequences and resets style after every emphasized span and during
 cleanup. Product tone choices remain in CLI. Untrusted conversation text can
@@ -136,8 +143,9 @@ ANSI, color, or renderer instructions.
 One `MarkdownBlock` may snapshot at most 512 isolated documents inside the
 existing total text bound. It inserts one literal blank row between them and
 resets all fence and delimiter state at every boundary. The CLI uses one
-document per role-labelled message, so user or model syntax cannot absorb a
-later message or a product-owned role label.
+document per structured role entry, so user or model syntax cannot absorb a
+later message. Roles select only the CLI-owned container treatment; redundant
+role labels are not inserted into conversation content.
 Committed frame and viewport snapshots change only after a completed successful
 output write. Conservative flags record that the alternate screen or hidden
 cursor may have become visible before an attempted write, so cleanup remains
@@ -148,7 +156,9 @@ possible after partial output.
 Owns commands, application view composition, startup, shutdown, process streams,
 raw mode, the ordered terminal-event queue, bounded display-only chat state, the
 single-writer application reducer, one bounded tool-activity log and presentation
-path, and fair two-source event arbitration. It is the only product package
+path, the responsive conversation shell and truthful status footer,
+application-owned transcript navigation, and fair two-source event arbitration.
+It is the only product package
 allowed to import approved `node:` APIs. It uses only
 named stdin, stdout, stderr, and exit capabilities rather than a broad process
 object. Reusable terminal mechanics belong behind the TUI contract. Model turn
@@ -193,7 +203,7 @@ bounded terminal FIFO ----+
                    two-source arbiter -> single-writer application reducer
                            ^                         |
 runtime pull event --------+                         v
-     generic components + Markdown + activity stack + structured rows + scroll
+ planned layout + inset + panel/rail + split line + Markdown + activity + scroll
                                                    |
                                                    v
                          atomic frame + synchronized differential renderer
@@ -215,14 +225,42 @@ events, the editor holds 4,096 code points, and an incomplete escape sequence is
 bounded to 32 code units. Overflow discards queued input, pauses stdin, and
 returns a typed failure through normal cleanup.
 
+Transcript navigation follows decision 0024. The decoder maps only the exact
+Up, Down, Page Up, and Page Down sequences to ordered session actions. The
+single-writer reducer owns the immutable scroll state and last valid transcript
+geometry. The view wraps its one Markdown transcript in the generic scroll view
+and returns geometry from the same layout plan that rendered the frame. Moving
+away from the newest row adds the quiet `history` footer state; returning to the
+end or accepting a new turn restores follow-end. Editor Home and End remain
+independent.
+
 Tool activity is application state, not terminal state. The CLI reducer maps
 validated runtime transitions into one bounded log and one generic component
 stack. It retains only the current or most recently settled turn, orders newest
 activity first, and exposes only tool name, risk, descriptor-declared safe scope,
-and explicit state. The generic TUI owns stacking, clipping, padding, caret
-translation, and hostile-component containment but knows no tool vocabulary.
+and explicit state. The CLI may decorate the one stack with one generic panel;
+tools cannot choose panels or create private presentation paths. The generic TUI
+owns stacking, clipping, padding, caret translation, and hostile-component
+containment but knows no tool vocabulary.
 Decision 0022 defines update and removal of this surface independently from the
 tool engine, runtime protocol, structured rows, scroll view, and renderer.
+
+The responsive conversation shell follows decisions 0026 and 0027. In vertical
+order the CLI composes a flexible transcript, transient actionable notice,
+contextual activity, rectangular composer, and compact status line. The
+transcript remains dominant; absent contextual state consumes no rows. The
+composer is one panel around the existing input component, not a second editor.
+Its arrow and draft use neutral terminal text. The footer is the only lifecycle
+phase surface and contains only configured provider/model, application phase,
+and history truth already owned by the reducer. Panel borders render completely
+or not at all, and low-priority footer chrome collapses before required
+interaction rows. One generic inset centers every shell region inside a bounded
+working column. User entries use the generic complete panel and assistant
+entries use the generic open side rail; no `you`, `agent`, or static header label
+is injected. One blank row separates adjacent transcript entries. Semantic state
+is shared across footer and tool activity: green is successful or ready, yellow
+is active or approval-sensitive, and red is failed, denied, or cancelled.
+The TUI primitives remain agent-agnostic.
 
 Conversation display uses the closed Markdown subset in decision 0023. The TUI
 recognizes headings, one-level lists and quotes, matched fenced code, inline
@@ -230,7 +268,7 @@ code, and strong text, then compiles them into the same bounded spans. Missing
 delimiters, longer delimiter runs, and unsupported syntax remain literal.
 Markdown never receives tool
 activity, status, provider data, or application lifecycle state.
-Every role-labelled message is a separate parser document; syntax cannot cross
+Every structured role entry is a separate parser document; syntax cannot cross
 from user to assistant content or between turns.
 
 The current shell implements `/help`, `/providers`, `/approve`, `/deny`, and
@@ -324,12 +362,16 @@ process access remain unavailable unless the CLI composes an explicit capability
 - Remove or replace TUI at its package, root registries, and CLI composition;
   core remains unchanged.
 - Remove the vertical component framework by replacing CLI chat composition with
-  direct validated frames before deleting component modules and decision 0006;
-  decoder, renderer, runtime, and core remain unchanged.
+  direct validated frames before deleting component modules and decisions 0006
+  and 0026; decoder, renderer, runtime, and core remain unchanged. To remove only
+  the responsive shell, restore the direct input, unframed activity stack, and
+  inline status composition before deleting panel, split-line,
+  horizontal-inset, and side-rail modules.
 - Remove Markdown by replacing the transcript component with `TextBlock`, then
   deleting its parser, component, export, tests, decision 0023, and policy and
-  manual evidence. Restore the four-tone contract only if `emphasis` has no
-  remaining consumer; structured rows and the renderer remain unchanged.
+  manual evidence. Remove `emphasis` only if it has no remaining consumer;
+  lifecycle success and failure tones remain governed independently by decision
+  0027. Structured rows and the renderer remain unchanged.
 - Remove interactive behavior by deleting the decoder, editor, viewport, CLI
   session, view, and Node host together; restore plain startup and the previous
   renderer contract, then remove decision 0004 from the ownership registry.

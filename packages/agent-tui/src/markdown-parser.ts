@@ -1,6 +1,7 @@
 import {
   type DisplayLine,
   type DisplayRun,
+  type DisplayWrap,
   readSanitizedLine,
 } from "./display-text.js";
 import { TUI_LIMITS } from "./limits.js";
@@ -11,6 +12,15 @@ const ORDERED_ITEM = /^(\d{1,9}\. )(.*)$/u;
 
 function run(text: string, tone: Tone): DisplayRun {
   return Object.freeze({ text, tone });
+}
+
+function displayLine(
+  content: readonly DisplayRun[],
+  wrap: DisplayWrap = "word",
+  prefix: readonly DisplayRun[] = Object.freeze([]),
+  continuation: readonly DisplayRun[] = Object.freeze([]),
+): DisplayLine {
+  return Object.freeze({ content, continuation, prefix, wrap });
 }
 
 function normalizeRuns(runs: readonly DisplayRun[]): readonly DisplayRun[] {
@@ -104,11 +114,13 @@ function parsedLine(
   prefix: readonly DisplayRun[],
   content: string,
   baseTone: Tone,
+  continuation: readonly DisplayRun[] = Object.freeze([]),
 ): DisplayLine {
-  const combined = normalizeRuns([...prefix, ...inlineRuns(content, baseTone)]);
-  return combined.length <= TUI_LIMITS.rowSpans
-    ? combined
-    : Object.freeze([run(original, "plain")]);
+  const parsed = inlineRuns(content, baseTone);
+  return prefix.length + parsed.length + continuation.length <=
+    TUI_LIMITS.rowSpans
+    ? displayLine(parsed, "word", prefix, continuation)
+    : displayLine(Object.freeze([run(original, "plain")]));
 }
 
 function fenceLanguage(line: string): string | undefined {
@@ -156,23 +168,27 @@ function ordinaryLine(line: string): DisplayLine {
       Object.freeze([run("- ", "muted")]),
       line.slice(2),
       "plain",
+      Object.freeze([run("  ", "muted")]),
     );
   }
   const ordered = ORDERED_ITEM.exec(line);
   if (ordered !== null) {
+    const marker = ordered.at(1) ?? "";
     return parsedLine(
       line,
-      Object.freeze([run(ordered.at(1) ?? "", "muted")]),
+      Object.freeze([run(marker, "muted")]),
       ordered.at(2) ?? "",
       "plain",
+      Object.freeze([run(" ".repeat(marker.length), "muted")]),
     );
   }
   if (line.startsWith("> ")) {
     return parsedLine(
       line,
-      Object.freeze([run("│ ", "muted")]),
+      Object.freeze([run("\u2502 ", "muted")]),
       line.slice(2),
       "plain",
+      Object.freeze([run("\u2502 ", "muted")]),
     );
   }
   return parsedLine(line, Object.freeze([]), line, "plain");
@@ -193,28 +209,39 @@ export function* markdownDisplayLines(text: string): Generator<DisplayLine> {
         : undefined;
       if (closing === undefined) {
         noClosingFenceFrom ??= line.nextIndex;
-        yield Object.freeze([run(line.text, "plain")]);
+        yield displayLine(Object.freeze([run(line.text, "plain")]));
       } else {
         if (language.length > 0) {
-          yield Object.freeze([run("│ " + language, "muted")]);
+          yield displayLine(
+            Object.freeze([run(language, "muted")]),
+            "cell",
+            Object.freeze([run("\u2502 ", "muted")]),
+            Object.freeze([run("\u2502 ", "muted")]),
+          );
         }
         let codeIndex = line.nextIndex;
         let emittedCode = false;
         while (codeIndex < closing.startIndex) {
           const code = readSanitizedLine(text, codeIndex);
-          yield Object.freeze([
-            run("│ ", "muted"),
-            run(code.text, "plain"),
-          ]);
+          yield displayLine(
+            Object.freeze([run(code.text, "plain")]),
+            "cell",
+            Object.freeze([run("\u2502 ", "muted")]),
+            Object.freeze([run("\u2502 ", "muted")]),
+          );
           emittedCode = true;
           codeIndex = code.nextIndex;
         }
         if (!emittedCode && language.length === 0) {
-          yield Object.freeze([run("│", "muted")]);
+          yield displayLine(
+            Object.freeze([]),
+            "cell",
+            Object.freeze([run("\u2502", "muted")]),
+          );
         }
         index = closing.nextIndex;
         if (closing.hadBreak && index === text.length) {
-          yield Object.freeze([]);
+          yield displayLine(Object.freeze([]));
         }
         continue;
       }
@@ -223,7 +250,7 @@ export function* markdownDisplayLines(text: string): Generator<DisplayLine> {
     }
     index = line.nextIndex;
     if (line.hadBreak && index === text.length) {
-      yield Object.freeze([]);
+      yield displayLine(Object.freeze([]));
     }
   }
 }
@@ -238,7 +265,7 @@ export function* markdownDisplayDocuments(
       return;
     }
     if (position > 0) {
-      yield Object.freeze([]);
+      yield displayLine(Object.freeze([]));
     }
     yield* markdownDisplayLines(document);
   }

@@ -36,7 +36,11 @@
     "docs/decisions/0020-owned-scrollable-screen-foundation.md",
     "docs/decisions/0021-owned-structured-terminal-rows.md",
     "docs/decisions/0022-owned-tool-activity-surface.md",
-    "docs/decisions/0023-owned-bounded-markdown.md"
+    "docs/decisions/0023-owned-bounded-markdown.md",
+    "docs/decisions/0024-owned-transcript-navigation.md",
+    "docs/decisions/0025-owned-word-aware-display-layout.md",
+    "docs/decisions/0026-owned-responsive-conversation-shell.md",
+    "docs/decisions/0027-owned-semantic-state-chrome.md"
   ],
   "workspaces": [
     {

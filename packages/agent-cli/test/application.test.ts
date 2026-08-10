@@ -53,6 +53,7 @@ test("never presents a provider without an executable runtime", () => {
   const result = applyOnlyAction(application, "/providers\r");
 
   assert.deepEqual(result.effects, []);
+  assert.equal(application.provider, undefined);
   assert.deepEqual(application.notice, [
     "No providers are enabled.",
     "Subscription integrations require owned authorization.",
@@ -71,6 +72,111 @@ test("active Ctrl+C requests one cancellation and preserves the draft", () => {
   assert.deepEqual(second.effects, []);
   assert.equal(application.phase, "cancelling");
   assert.equal(application.project(40).text, "next draft");
+  assert.deepEqual(application.notice, []);
+});
+
+test("owns bounded transcript navigation and resumes follow at the end", () => {
+  const application = new ApplicationController(true);
+  assert.ok(application.observeTranscriptGeometry(20, 5).ok);
+
+  const pageUp = application.applySessionAction({
+    kind: "navigateTranscript",
+    movement: "pageUp",
+  });
+  assert.equal(pageUp.redraw, true);
+  assert.equal(application.transcriptScroll.followingEnd, false);
+  assert.equal(application.transcriptScroll.offset, 11);
+
+  const lineUp = application.applySessionAction({
+    kind: "navigateTranscript",
+    movement: "lineUp",
+  });
+  assert.equal(lineUp.redraw, true);
+  assert.equal(application.transcriptScroll.offset, 10);
+
+  const pageDown = application.applySessionAction({
+    kind: "navigateTranscript",
+    movement: "pageDown",
+  });
+  assert.equal(pageDown.redraw, true);
+  assert.equal(application.transcriptScroll.offset, 14);
+  assert.equal(application.transcriptScroll.followingEnd, false);
+
+  const end = application.applySessionAction({
+    kind: "navigateTranscript",
+    movement: "lineDown",
+  });
+  assert.equal(end.redraw, true);
+  assert.equal(application.transcriptScroll.followingEnd, true);
+  assert.equal(application.transcriptScroll.offset, 15);
+});
+
+test("keeps transcript navigation inert without overflow or visible geometry", () => {
+  const hidden = new ApplicationController(true);
+  assert.ok(hidden.observeTranscriptGeometry(20, 0).ok);
+  assert.equal(
+    hidden.applySessionAction({
+      kind: "navigateTranscript",
+      movement: "pageUp",
+    }).redraw,
+    false,
+  );
+
+  const fitting = new ApplicationController(true);
+  assert.ok(fitting.observeTranscriptGeometry(3, 5).ok);
+  assert.equal(
+    fitting.applySessionAction({
+      kind: "navigateTranscript",
+      movement: "lineUp",
+    }).redraw,
+    false,
+  );
+  assert.equal(fitting.viewingHistory, false);
+
+  const invalid = fitting.observeTranscriptGeometry(-1, 5);
+  assert.equal(invalid.ok, false);
+  if (!invalid.ok) assert.equal(invalid.error.kind, "scrollInvariant");
+});
+
+test("preserves manual history across growth and follows a newly accepted turn", () => {
+  const application = new ApplicationController(true);
+  assert.ok(application.observeTranscriptGeometry(20, 5).ok);
+  application.applySessionAction({
+    kind: "navigateTranscript",
+    movement: "pageUp",
+  });
+  assert.equal(application.transcriptScroll.offset, 11);
+
+  assert.ok(application.observeTranscriptGeometry(25, 5).ok);
+  assert.equal(application.transcriptScroll.offset, 11);
+  assert.equal(application.viewingHistory, true);
+
+  assert.ok(application.turnAccepted(started(41, "new question")).ok);
+  assert.equal(application.transcriptScroll.followingEnd, true);
+  assert.equal(application.transcriptScroll.offset, 0);
+});
+
+test("clamps manual history after content shrink and resumes follow on movement", () => {
+  const application = new ApplicationController(true);
+  assert.ok(application.observeTranscriptGeometry(20, 5).ok);
+  application.applySessionAction({
+    kind: "navigateTranscript",
+    movement: "pageUp",
+  });
+  assert.equal(application.transcriptScroll.offset, 11);
+  assert.equal(application.viewingHistory, true);
+
+  assert.ok(application.observeTranscriptGeometry(8, 5).ok);
+  assert.equal(application.transcriptScroll.offset, 3);
+  assert.equal(application.viewingHistory, true);
+
+  const newest = application.applySessionAction({
+    kind: "navigateTranscript",
+    movement: "lineDown",
+  });
+  assert.equal(newest.redraw, true);
+  assert.equal(application.transcriptScroll.offset, 3);
+  assert.equal(application.transcriptScroll.followingEnd, true);
 });
 
 test("idle Ctrl+C and every explicit exit path emit exit", () => {
@@ -92,6 +198,7 @@ test("idle Ctrl+C and every explicit exit path emit exit", () => {
 test("publishes exact streamed completion and returns to idle", () => {
   const application = new ApplicationController(true);
   application.turnAccepted(started(3, "question"));
+  assert.deepEqual(application.notice, []);
   const delta = application.applyRuntime(
     Object.freeze({
       kind: "assistantDelta" as const,
@@ -112,11 +219,8 @@ test("publishes exact streamed completion and returns to idle", () => {
   );
   assert.ok(committed.ok);
   assert.equal(application.phase, "idle");
-  assert.equal(
-    application.transcriptText(),
-    "you\nquestion\n\nagent\nanswer",
-  );
-  assert.deepEqual(application.notice, ["Ready."]);
+  assert.equal(application.transcriptText(), "question\n\nanswer");
+  assert.deepEqual(application.notice, []);
 });
 
 test("filters stale events and discards failed prospective content", () => {

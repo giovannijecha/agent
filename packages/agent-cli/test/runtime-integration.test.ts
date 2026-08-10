@@ -415,13 +415,57 @@ test("active Ctrl+C cancels, preserves the draft, and keeps the shell open", asy
   await host.waitForWrites(5);
 
   assert.equal(host.stopCalls, 0);
-  assert.equal(host.writes.join("").includes("> draft"), true);
+  assert.equal(host.writes.join("").includes("\u2192 draft"), true);
   host.emit(input("\u0003"));
   const result = await running;
 
   assert.ok(result.ok);
   assert.equal(runtime.cancelCalls, 1);
   assert.equal(host.stopCalls, 1);
+});
+
+test("navigates transcript history through fresh resize geometry only", async () => {
+  const host = new ControlledHost();
+  const runtime = new ControlledRuntime();
+  const running = run(host, runtime);
+  await host.started.promise;
+  await host.waitForWrites(1);
+
+  host.emit(input("question\r"));
+  await runtime.waitForReads(1);
+  await host.waitForWrites(2);
+  runtime.emit(
+    delta(
+      1,
+      Array.from(
+        { length: 24 },
+        (_, index) => "answer-" + String(index + 1).padStart(2, "0"),
+      ).join("\n"),
+    ),
+  );
+  await runtime.waitForReads(2);
+  await host.waitForWrites(3);
+  const readsBeforeNavigation = runtime.readCalls;
+
+  host.emit(input("\u001B[5~"));
+  await host.waitForWrites(4);
+  assert.equal(runtime.readCalls, readsBeforeNavigation);
+  assert.equal(runtime.startCalls, 1);
+  assert.equal(runtime.cancelCalls, 0);
+  assert.equal(host.writes.join("").includes("history"), true);
+
+  host.setViewport(40, 8);
+  host.emit(Object.freeze({ kind: "resize" as const }));
+  await host.waitForWrites(5);
+  host.emit(input("\u001B[5~"));
+  await host.waitForWrites(6);
+  assert.equal(runtime.readCalls, readsBeforeNavigation);
+
+  host.emit(input("/exit\r"));
+  const result = await running;
+
+  assert.ok(result.ok);
+  assert.equal(runtime.stopCalls, 1);
 });
 
 test("Ctrl+C ordered before a prepared completion prevents the real commit", async () => {

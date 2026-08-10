@@ -89,6 +89,30 @@ test("allocates minimum and preferred rows by priority in visual order", () => {
   assert.deepEqual(tiny.value.rows.map((row) => row.text), [">"]);
 });
 
+test("plans exact component geometry through the canonical layout algorithm", () => {
+  const composed = layout([
+    slot(block("header"), 0, 1, 0),
+    slot(block("one\ntwo\nthree"), 1, 3, 2, 1),
+    slot(block(">"), 1, 1, 3),
+  ]);
+  const planned = composed.plan(viewport(8, 3));
+  assert.ok(planned.ok);
+  if (!planned.ok) return;
+  const transcript = planned.value.allocation(1);
+  const invalid = planned.value.allocation(3);
+  const rendered = planned.value.render();
+
+  assert.ok(transcript.ok);
+  assert.deepEqual(transcript.value, {
+    contentRows: 3,
+    viewportRows: 2,
+  });
+  assert.equal(invalid.ok, false);
+  if (!invalid.ok) assert.equal(invalid.error.kind, "invalidSlot");
+  assert.ok(rendered.ok);
+  assert.deepEqual(rendered.value.rows.map((row) => row.text), ["one", "two", ">"]);
+});
+
 test("distributes remaining rows by deterministic flex weight", () => {
   const composed = layout([
     slot(new Fill("A"), 0, 0, 0, 1),

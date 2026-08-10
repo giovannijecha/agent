@@ -35,11 +35,26 @@ test("normalizes line endings, tabs, controls, and lone surrogates", () => {
   ]);
 });
 
-test("wraps conservatively and replaces a wide scalar in one column", () => {
+test("wraps prose at word boundaries with a cell fallback for long words", () => {
   const smile = String.fromCodePoint(0x1f642);
+  const prose = block("alpha perfume remains", "head").render(
+    viewport(10, 3),
+  );
+  const exact = block("alpha beta", "head").render(viewport(5, 2));
+  const wide = block("ciao è", "head").render(viewport(6, 2));
   const wrapped = block("abcdef", "head").render(viewport(3, 2));
   const narrow = block(smile, "head").render(viewport(1, 1));
 
+  assert.ok(prose.ok);
+  assert.deepEqual(prose.value.rows.map((row) => row.text), [
+    "alpha",
+    "perfume",
+    "remains",
+  ]);
+  assert.ok(exact.ok);
+  assert.deepEqual(exact.value.rows.map((row) => row.text), ["alpha", "beta"]);
+  assert.ok(wide.ok);
+  assert.deepEqual(wide.value.rows.map((row) => row.text), ["ciao", "è"]);
   assert.ok(wrapped.ok);
   assert.deepEqual(wrapped.value.rows.map((row) => row.text), ["abc", "def"]);
   assert.ok(narrow.ok);
@@ -49,13 +64,21 @@ test("wraps conservatively and replaces a wide scalar in one column", () => {
 test("anchors overflow at the head or tail and pads its assigned rows", () => {
   const head = block("one\ntwo\nthree", "head").render(viewport(8, 2));
   const tail = block("one\ntwo\nthree", "tail").render(viewport(8, 2));
+  const wrappedTail = block("alpha beta gamma", "tail").render(
+    viewport(5, 2),
+  );
   const padded = block("one", "tail").render(viewport(8, 3));
 
   assert.ok(head.ok);
   assert.ok(tail.ok);
+  assert.ok(wrappedTail.ok);
   assert.ok(padded.ok);
   assert.deepEqual(head.value.rows.map((row) => row.text), ["one", "two"]);
   assert.deepEqual(tail.value.rows.map((row) => row.text), ["two", "three"]);
+  assert.deepEqual(wrappedTail.value.rows.map((row) => row.text), [
+    "beta",
+    "gamma",
+  ]);
   assert.deepEqual(padded.value.rows.map((row) => row.text), ["", "", "one"]);
 });
 

@@ -169,7 +169,11 @@ Treat Markdown as one closed display grammar, not a compatibility target. Under
 decision 0023, parse only the registered line and inline forms, keep incomplete
 and unsupported constructs literal, and compile directly into the canonical
 structured rows. Reuse the plain-text sanitizer, cell measurement, wrapping,
-anchoring, padding, fragment, frame, and renderer path. Do not add HTML, active
+anchoring, padding, fragment, frame, and renderer path. Under decision 0025,
+ordinary text wraps only through the shared word-aware policy, long tokens use
+its cell fallback, and literal code remains on its explicit cell policy. Keep
+structural and continuation prefixes in the logical-line contract; do not add a
+component-private wrapper. Do not add HTML, active
 links, images, arbitrary styles, parser callbacks, extensions, syntax
 highlighting, a retained AST, or a second rendering engine. If inline role
 count exceeds the row bound, fall back to the complete sanitized literal line.
@@ -185,13 +189,38 @@ must use the same generic view. Renderer writes are synchronized terminal
 transactions, and a failed transaction must be explicitly ended before retry
 or cleanup.
 
+For product navigation, follow decision 0024. Obtain content and viewport rows
+from one immutable `VerticalLayoutPlan`; never repeat allocation math in CLI or
+mutate application state from a component callback. The application reducer
+alone owns scroll and observed geometry. Keep transcript keys out of the line
+editor, preserve draft and caret, use one-row page overlap, and expose only the
+quiet `history` footer truth while follow-end is disabled.
+
+Compose the product shell through decisions 0026 and 0027. The CLI alone decides the
+vertical order, slot priorities, product wording, semantic tones, and truthful
+status facts. `Panel`, `SplitLine`, `HorizontalInset`, and `SideRail` remain
+Node-free, agent-agnostic component mechanics. A panel must render its complete border or delegate its entire
+viewport without a border; partial boxes are forbidden. The rectangular
+composer wraps the existing `InputLine` and must not create a second editor,
+decoder, draft, or submission path. Keep its arrow and draft neutral. Render the
+lifecycle phase once at the footer's right edge; do not add a static product/help
+header or duplicate lifecycle notice. Footer facts come only from authoritative
+application state. Keep green for success/readiness, yellow for active/approval,
+and red for negative terminal state. Do not add permanent dashboards, empty metrics,
+speculative progress, or integration-specific cards. Future tools and
+integrations reuse the same panel, split-line, inset, rail, activity-stack,
+scroll, and vertical-layout paths. Keep role and content structured in the CLI,
+but do not prefix visible messages with redundant role labels. Separate adjacent
+role entries with one blank row and no leading or trailing decorative gap.
+
 Compose sequential component documents through the one bounded generic stack
 defined by decision 0022. Product lifecycle state never enters that component:
 the CLI owns one tool-activity log and maps every registered tool through the
 same presentation function. Keep newest activity first, preserve its header
-before optional scope in short viewports, and do not add per-tool components,
-icons, colors, aliases, or state paths. Visible activity is limited to the
-current or most recently settled turn and is scrubbed during cleanup.
+before optional scope in short viewports, and wrap the entire stack in at most
+one generic panel. Do not add per-tool components, panels, icons, colors,
+aliases, or state paths. Visible activity is limited to the current or most
+recently settled turn and is scrubbed during cleanup.
 
 ## Tool execution policy
 

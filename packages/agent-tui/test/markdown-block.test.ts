@@ -127,7 +127,7 @@ test("normalizes controls, line endings, tabs, and lone surrogates before output
   assert.ok(rendered.ok);
   assert.deepEqual(rendered.value.rows.map((row) => row.text), [
     "safe?",
-    "│ tab  value",
+    "│ tab   value",
     "- lone?",
   ]);
   assert.equal(
@@ -138,7 +138,7 @@ test("normalizes controls, line endings, tabs, and lone surrogates before output
   );
 });
 
-test("wraps by terminal cells while preserving semantic boundaries", () => {
+test("wraps prose at word boundaries while preserving semantic spans", () => {
   const rendered = block("plain **boldlong**").render(viewport(8, 2));
 
   assert.ok(rendered.ok);
@@ -147,15 +147,44 @@ test("wraps by terminal cells while preserving semantic boundaries", () => {
       row.spans.map((span) => ({ text: span.text, tone: span.tone })),
     ),
     [
-      [
-        { text: "plain ", tone: "plain" },
-        { text: "bo", tone: "emphasis" },
-      ],
-      [{ text: "ldlong", tone: "emphasis" }],
+      [{ text: "plain", tone: "plain" }],
+      [{ text: "boldlong", tone: "emphasis" }],
     ],
   );
   assert.equal(Object.isFrozen(rendered.value.rows.at(0)), true);
   assert.equal(Object.isFrozen(rendered.value.rows.at(0)?.spans), true);
+});
+
+test("uses hanging structural prefixes on wrapped Markdown prose", () => {
+  const rendered = block("- alpha beta\n> alpha beta").render(
+    viewport(8, 4),
+  );
+
+  assert.ok(rendered.ok);
+  assert.deepEqual(rendered.value.rows.map((row) => row.text), [
+    "- alpha",
+    "  beta",
+    "│ alpha",
+    "│ beta",
+  ]);
+});
+
+test("keeps fenced code literal and repeats its rail after cell wrapping", () => {
+  const rendered = block("```\nab cd\n```").render(viewport(7, 2));
+
+  assert.ok(rendered.ok);
+  assert.deepEqual(
+    rendered.value.rows.map((row) =>
+      row.spans.map((span) => ({ text: span.text, tone: span.tone })),
+    ),
+    [
+      [
+        { text: "│ ", tone: "muted" },
+        { text: "ab cd", tone: "plain" },
+      ],
+      [],
+    ],
+  );
 });
 
 test("isolates fenced syntax between bounded documents", () => {

@@ -60,8 +60,9 @@ syntax highlighting, raw ANSI, or extension directives.
 
 ## Visual contract
 
-Replace decision 0019's four-tone vocabulary with five closed semantic tones:
-`plain`, `muted`, `emphasis`, `accent`, and `attention`. `emphasis` is owned bold
+Replace decision 0019's four-tone vocabulary by adding `emphasis` to the closed
+semantic vocabulary. Decision 0027 later adds `success` and `failure` for
+authoritative application state. `emphasis` is owned bold
 text in the terminal's default foreground. It expresses document hierarchy
 without borrowing the cyan product identity role or the yellow approval and
 failure role.
@@ -82,7 +83,8 @@ the feature introduces no boxes, badges, icons, or product-specific concepts.
 Input is rejected before parsing when it exceeds `displayTextCodeUnits`.
 Line-ending normalization, tab expansion, control replacement, lone-surrogate
 replacement, conservative Unicode cell measurement, wrapping, row retention,
-and final frame validation remain owned by the generic TUI. Parsing is linear
+and final frame validation remain owned by the generic TUI under decision 0025.
+Parsing is linear
 in accepted input size and performs no recursion, network access, filesystem
 access, callbacks, or dynamic dispatch.
 
@@ -95,8 +97,9 @@ causes are never retained. Final `RichRow`, `Fragment`, and `Frame` validation
 remain independent defenses.
 
 The first product integration replaces the conversation transcript's plain text
-component. Each `you` or `agent` role-labelled message is a separate document,
-so user or model syntax cannot consume or style a later message or role label.
+component. Each structured user or assistant entry is a separate document, so
+user or model syntax cannot consume or style a later message. Role metadata
+stays outside Markdown and selects only CLI-owned container composition.
 Tool activity, status, input, provider data, and runtime state do not enter the
 Markdown parser. Streaming reparses the current bounded message snapshot with no
 hidden incremental state. An incomplete construct therefore stays literal until
@@ -107,7 +110,8 @@ the closing delimiter arrives within that same message.
 Focused tests must prove every accepted construct, literal unsupported and
 incomplete syntax, precedence, non-nesting, span-limit fallback, input bounds,
 line ending and control normalization, lone surrogates, tabs, wide scalars,
-cell wrapping, head and tail anchoring, tiny viewports, immutable rows, fixed
+word and literal-cell wrapping, structural continuation prefixes, long-token
+fallback, head and tail anchoring, tiny viewports, immutable rows, fixed
 tone mapping, ANSI reset, differential redraw, streaming completion, and CLI
 transcript and cross-message isolation. The canonical verifier remains the
 Windows and Linux release gate.
@@ -115,15 +119,15 @@ Windows and Linux release gate.
 ## Update, rollback, and removal
 
 Changing syntax, precedence, delimiter completion, document isolation, role
-mapping, bounds, fallback, normalization, wrapping, or anchoring requires
-parser, component, renderer, CLI view, privacy, manual, and policy regressions
+mapping, bounds, fallback, normalization, decision 0025 wrapping, or anchoring
+requires parser, component, renderer, CLI view, privacy, manual, and policy regressions
 in the same change. A new construct requires a present product need and an
 update to this closed list; it is not admitted through an extension hook.
 
 To remove Markdown, first replace the transcript `MarkdownBlock` with the plain
 `TextBlock`, then delete the Markdown parser, component, exports, and focused
 tests. Remove this decision and its manual and policy registrations in the same
-change. If no other component uses `emphasis`, remove that tone and restore
-decision 0019's four-tone contract with renderer and structured-row tests.
+change. If no other component uses `emphasis`, remove that tone with renderer
+and structured-row tests. Decision 0027's lifecycle tones remain independent.
 Structured rows, scroll, tool activity, input, runtime, providers, and core
 remain independently buildable.

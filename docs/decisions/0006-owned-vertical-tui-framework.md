@@ -60,6 +60,13 @@ hooks in this one.
 
 Decision 0022 adds one bounded generic component stack for sequential component
 documents. It does not add product lifecycle state or a second layout engine.
+Decision 0025 evolves the one shared display layout with word-aware prose,
+explicit literal-code wrapping, and bounded continuation prefixes. It does not
+add a second component or renderer path.
+Decision 0026 adds one bounded one-row split-line component, one single-child
+panel, one centered horizontal inset, and one open side rail for the responsive
+conversation shell. These primitives do not claim arbitrary horizontal split
+panes, overlapping regions, or two-dimensional cell composition.
 
 ## Update, rollback, and removal
 
@@ -69,6 +76,7 @@ decision or its replacing decision. Application-specific chat and activity
 state remains in CLI and never becomes a generic component.
 
 To remove the framework, replace CLI component composition with direct validated
-frames, then remove the component modules, exports, tests, and this decision from
-the ownership registry. Decoder, editor, frame, renderer, runtime, and core stay
-unchanged.
+frames, then remove the component modules, including panel, split line,
+horizontal inset, and side rail, their exports and tests, and decisions 0006,
+0026, and 0027 from the ownership registry.
+Decoder, editor, frame, renderer, runtime, and core stay unchanged.

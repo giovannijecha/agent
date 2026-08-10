@@ -113,15 +113,19 @@ TUI, runtime, and the providerless CLI after each stage.
 
 Update structured rows, fragments, semantic tones, text normalization, component
 measurement, stack windowing, allocation, scroll reconciliation, synchronized
-redraw, caret rules, or public limits only with focused boundary tests and
-decisions 0006, 0019, 0020, 0021, 0022, and 0023. Preserve normalized bounded spans,
+redraw, panel composition, split retention, horizontal insetting, side rails,
+responsive shell priority, caret
+rules, or public limits only with focused boundary tests and decisions 0006,
+0019, 0020, 0021, 0022, 0023, 0024, 0025, 0026, and 0027. Preserve normalized bounded spans,
 exact-row fragments, content-free errors, hostile accessor containment,
 deterministic priority/preference/flex allocation, and `Frame` as the final
 terminal-safety boundary. Product concepts remain in CLI.
 
 To remove the framework, first replace `chat-view` with direct validated frame
 composition. Then delete component, fragment, display-text, input-line,
-inline-text, rich-row, text-block, vertical-layout, and limit exports together
+inline-text, panel, split-line, horizontal-inset, side-rail, component-stack,
+rich-row, text-block,
+vertical-layout, and limit exports together
 with their focused tests and decisions 0006, 0019, and 0021. If only semantic
 emphasis is removed, retain the vertical framework and replace structured rows
 with one validated plain-row contract before removing tone metadata, renderer
@@ -132,6 +136,29 @@ references, and decision 0020. Remove synchronized
 output by deleting both markers and recovery state together. Decoder, editor,
 runtime, and core must stay green.
 
+Conversation-shell changes require panel, split-line, horizontal-inset,
+side-rail, footer, composer, transcript-role, activity, tiny-viewport,
+semantic-state, and manual regressions under decisions 0026 and 0027. Keep the
+transcript dominant, omit absent contextual blocks, and render only status facts
+already held by the application reducer. Render lifecycle phase once in the
+footer; do not recreate a static header or lifecycle notice. Keep composer and
+conversation text neutral, and reserve green, yellow, and red for authoritative
+success, active, and negative state. A future tool or integration must reuse
+the generic activity stack and panel rather than add its own card. To remove the
+shell without removing the framework, restore the direct `InputLine`, unframed
+activity stack, labelled transcript, and direct inline status in `chat-view`;
+then delete panel, split-line, horizontal-inset, and side-rail exports, tests,
+decisions 0026 and 0027, and their policy and manual evidence.
+Scrolling, Markdown, tool lifecycle, runtime, and providers remain unchanged.
+
+Transcript navigation changes only through decision 0024. Update decoder,
+session actions, layout-plan geometry, reducer state, resize behavior, history
+status truth, focused tests, and manual evidence together. To remove it, first
+unwrap the transcript `ScrollView`, then remove navigation actions and history
+status state.
+Remove `VerticalLayoutPlan` only after no remaining caller consumes planned
+geometry; direct layout rendering must continue through one allocation path.
+
 Markdown syntax, delimiter completion, precedence, roles, fallback, or bounds
 change only through decision 0023 with parser, component, shared-layout,
 renderer, transcript, streaming, privacy, manual, and policy regressions. Keep
@@ -141,19 +168,28 @@ extension hook, HTML path, active link, image protocol, or alternate renderer.
 Preserve the 512-document and total-text checks before member iteration and
 restart parser state at every document boundary.
 
+Shared wrapping changes only through decision 0025. Preserve one layout for
+`TextBlock` and `MarkdownBlock`, explicit word and literal-cell modes, protected
+structural prefixes, bounded continuation prefixes, long-token fallback, and
+content-free failures. To remove word-aware wrapping, restore the single cell
+policy, remove the logical-line prefix and continuation fields and regressions,
+then remove decision 0025 and its manual and policy registrations. Markdown,
+structured rows, scrolling, and the renderer remain independently buildable.
+
 To remove Markdown, replace the transcript `MarkdownBlock` with `TextBlock`,
 then delete `markdown-block`, `markdown-parser`, their export and tests, decision
 0023, and its policy and manual evidence. If no remaining component uses the
-`emphasis` tone, remove its renderer mapping and restore decision 0019's
-four-tone contract in the same change. The remaining components, structured
+`emphasis` tone, remove only that renderer mapping in the same change. Decision
+0027's lifecycle success and failure tones remain independent. The remaining components, structured
 rows, scrolling, tool activity, input, runtime, and providers stay buildable.
 
 Tool activity has one CLI-owned state and presentation path under decision 0022.
 Changing its states, retention, safe fields, ordering, tones, or bounds requires
 activity-log, reducer, view, narrow-viewport, privacy, cleanup, manual, and policy
-updates together. Do not add a tool-specific presenter. To remove the surface,
-first remove its single CLI slot and lifecycle log, then remove the generic
-component stack only if it has no other consumer. The runtime tool protocol,
+updates together. Do not add a tool-specific presenter or panel; the CLI may
+decorate the complete generic stack only through the shared shell. To remove the
+surface, first remove its single CLI slot and lifecycle log, then remove the
+generic component stack only if it has no other consumer. The runtime tool protocol,
 approval commands, tool engine, structured rows, scroll view, and renderer must
 remain buildable.
 
@@ -347,7 +383,7 @@ Terminal protocol changes affect two independent owners:
    followed by shutdown controls, SS3 fragmentation, and cumulative queue size.
 5. Update decision 0004 when lifecycle, ownership, width rules, or supported keys
    change materially.
-6. Preserve decisions 0019, 0021, and 0023 when semantic emphasis changes:
+6. Preserve decisions 0019, 0021, 0023, and 0027 when semantic emphasis changes:
    tones stay closed, application-neutral, structured-row, and renderer-owned,
    with normalization, bounded span count, and reset after emphasized spans and
    on cleanup.

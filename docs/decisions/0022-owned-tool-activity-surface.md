@@ -47,13 +47,14 @@ cleanup.
 
 The CLI maps every activity snapshot through one presentation function. Newest
 activity appears first. Within one activity, its header precedes its optional
-scope so a one-row allocation retains the header. Its quiet visual signature is
-a semantic rail: a muted `U+2502 BOX DRAWINGS LIGHT VERTICAL` prefix plus one
-space, explicit state, accented tool name, and muted risk. State appears first
-so narrow clipping cannot hide the lifecycle truth. Approval-sensitive,
-unsuccessful, and cancellation states use the existing attention tone. An
-optional descriptor-declared approval preview appears below the header as muted
-text. No tool gets a custom component, color, icon, layout, or wording path.
+scope so a one-row allocation retains the header. Decision 0027 refines its
+quiet visual signature to one shared contextual panel with canonical tool name,
+state, risk, and approval commands. Tool name and authoritative state share the
+same closed semantic tone: green for success, yellow for active or
+approval-sensitive state, and red for failure, denial, or cancellation. Risk
+and safe scope remain muted. Narrow layouts retain approval commands before
+optional detail. No tool gets a custom component, color, icon, layout, or
+wording path.
 
 The activity stack replaces the previous tool-status and tool-preview slots.
 It is a bounded recent surface, not yet the durable inline transcript. Complete

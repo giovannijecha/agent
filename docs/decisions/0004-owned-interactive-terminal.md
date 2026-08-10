@@ -82,8 +82,9 @@ The output contract and renderer become asynchronous, so all current callers and
 tests change together. The event queue adds a small amount of owned code but
 prevents input, resize, and redraw races.
 
-Width calculation remains conservative: printable ASCII occupies one cell and
-other code points occupy two. Editing never splits UTF-16 surrogate pairs, but
+Width calculation remains conservative: printable ASCII and the exact closed
+framework-owned box glyph set `─│┌┐└┘` occupy one cell and every other code
+point occupies two. Editing never splits UTF-16 surrogate pairs, but
 full grapheme-cluster and Unicode-width tables are deferred until they can be
 implemented and maintained as an owned capability.
 

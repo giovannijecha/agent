@@ -1,6 +1,6 @@
 # 0019: Owned semantic terminal tones
 
-- Status: superseded by decision 0023
+- Status: superseded by decisions 0023 and 0027
 - Date: 2026-08-09
 
 ## Context
@@ -27,12 +27,11 @@ renderer cleanup resets style before restoring the cursor and prior screen.
 Tone-only changes participate in differential redraw. Empty rendered rows have
 no spans because styling an empty row has no visible meaning.
 
-The CLI owns product presentation. Its compact header is one accented line,
-passive notices are muted, transcript content remains plain, and the focused
-input row uses the accent. Decision 0022 uses accent for a tool name, muted for
-the rail and risk, attention for approval-sensitive, unsuccessful, and
-cancellation states, and muted for a successful state. Model and tool content
-can supply printable text only; it cannot choose a tone.
+The CLI owns product presentation. Decision 0023 adds `emphasis` for document
+hierarchy. Decision 0027 adds `success` and `failure`, removes the static header,
+keeps input and conversation neutral, and assigns traffic-light state semantics
+to the footer and shared tool surface. Model and tool content can supply
+printable text only; it cannot choose a tone.
 
 Tone metadata is immutable, bounded by the structured-row and frame limits, and
 revalidated at row, fragment, and frame boundaries. Invalid metadata returns
@@ -45,7 +44,7 @@ This decision provides a complete minimal emphasis vocabulary, not a theme
 engine. Structured span carriage is governed separately by decision 0021. The
 framework still excludes arbitrary colors, gradients, icons, animations, mouse
 input, panels, and application concepts. New visual roles require a replacing
-decision and evidence that the existing four roles cannot express a current
+decision and evidence that the existing closed roles cannot express a current
 interface need.
 
 ## Update, rollback, and removal

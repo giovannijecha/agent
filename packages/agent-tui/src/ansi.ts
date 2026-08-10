@@ -22,10 +22,14 @@ export function beginTone(tone: Tone): string {
       return "\u001B[1;33m";
     case "emphasis":
       return "\u001B[1m";
+    case "failure":
+      return "\u001B[1;31m";
     case "muted":
       return "\u001B[2m";
     case "plain":
       return "";
+    case "success":
+      return "\u001B[1;32m";
   }
 }
 

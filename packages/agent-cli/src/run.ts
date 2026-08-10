@@ -18,7 +18,7 @@ import {
   type ApplicationEffect,
   type ApplicationError,
 } from "./application.js";
-import { createChatFrame } from "./chat-view.js";
+import { createChatRender } from "./chat-view.js";
 import type { ProviderPresentation } from "./commands.js";
 import {
   type ArbiterError,
@@ -162,11 +162,20 @@ async function renderApplication<E>(
   application: ApplicationController,
   viewport: Viewport,
 ): Promise<Result<void, RunFailure<E>>> {
-  const frame = createChatFrame(application, viewport);
-  if (!frame.ok) {
-    return err(Object.freeze({ kind: "frame" as const, error: frame.error }));
+  const prepared = createChatRender(application, viewport);
+  if (!prepared.ok) {
+    return err(Object.freeze({ kind: "frame" as const, error: prepared.error }));
   }
-  const rendered = await renderer.render(frame.value, viewport);
+  const observed = application.observeTranscriptGeometry(
+    prepared.value.transcript.contentRows,
+    prepared.value.transcript.viewportRows,
+  );
+  if (!observed.ok) {
+    return err(
+      Object.freeze({ kind: "application" as const, error: observed.error }),
+    );
+  }
+  const rendered = await renderer.render(prepared.value.frame, viewport);
   return rendered.ok
     ? ok(undefined)
     : err(terminalFailure("output", rendered.error));

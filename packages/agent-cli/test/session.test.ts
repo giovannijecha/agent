@@ -50,6 +50,26 @@ test("keeps interrupt distinct from EOF for application control policy", () => {
   assert.deepEqual(eof.actions, [{ kind: "exit" }]);
 });
 
+test("emits ordered transcript navigation without touching the draft", () => {
+  const session = new SessionController();
+  session.feed("private draft");
+
+  const navigated = session.feed(
+    "\u001B[A\u001B[B\u001B[5~\u001B[6~",
+  );
+
+  assert.deepEqual(navigated, {
+    actions: [
+      { kind: "navigateTranscript", movement: "lineUp" },
+      { kind: "navigateTranscript", movement: "lineDown" },
+      { kind: "navigateTranscript", movement: "pageUp" },
+      { kind: "navigateTranscript", movement: "pageDown" },
+    ],
+    redraw: false,
+  });
+  assert.equal(session.projectEditor(40).text, "private draft");
+});
+
 test("preserves batched shutdown controls after an interrupt", () => {
   const controlExit = new SessionController();
   controlExit.feed("draft");

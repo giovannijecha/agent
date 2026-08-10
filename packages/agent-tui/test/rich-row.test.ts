@@ -6,11 +6,12 @@ import {
   RichRowError,
   TextSpan,
   TUI_LIMITS,
+  type Tone,
 } from "@agent/tui";
 
 function span(
   text: string,
-  tone: "accent" | "attention" | "emphasis" | "muted" | "plain" = "plain",
+  tone: Tone = "plain",
 ): TextSpan {
   const result = TextSpan.create(text, tone);
   assert.ok(result.ok);
@@ -135,6 +136,16 @@ test("clips by terminal cells while preserving semantic span boundaries", () => 
   assert.equal(narrow.value.text, "ab");
   assert.ok(oneColumn.ok);
   assert.equal(oneColumn.value.text, "");
+});
+
+test("measures the closed structural and prompt glyph set as single cells", () => {
+  const border = RichRow.fromText("\u2192\u250c\u2500\u2510\u2502\u2514\u2518");
+
+  assert.ok(border.ok);
+  assert.equal(border.value.cellWidth, 7);
+  const fitted = border.value.fit(4);
+  assert.ok(fitted.ok);
+  assert.equal(fitted.value.text, "\u2192\u250c\u2500\u2510");
 });
 
 test("snapshots rows without trusting public accessors", () => {

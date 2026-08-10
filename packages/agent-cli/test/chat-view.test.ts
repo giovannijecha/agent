@@ -2,16 +2,35 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { StartedTurn } from "@agent/runtime";
-import { Viewport } from "@agent/tui";
+import { ok, type Frame, type Result, Viewport } from "@agent/tui";
 
 import { ApplicationController } from "../dist/application.js";
-import { createChatFrame } from "../dist/chat-view.js";
+import { createChatRender } from "../dist/chat-view.js";
 
 function viewport(columns: number, rows: number): Viewport {
   const result = Viewport.create(columns, rows);
   assert.ok(result.ok);
   return result.value;
 }
+
+function createChatFrame(
+  application: ApplicationController,
+  size: Viewport,
+): Result<Frame, unknown> {
+  const rendered = createChatRender(application, size);
+  return rendered.ok ? ok(rendered.value.frame) : rendered;
+}
+
+test("exposes exact transcript geometry with the planned chat frame", () => {
+  const application = new ApplicationController(false);
+  const rendered = createChatRender(application, viewport(40, 2));
+
+  assert.ok(rendered.ok);
+  assert.deepEqual(rendered.value.transcript, {
+    contentRows: 0,
+    viewportRows: 0,
+  });
+});
 
 function started(turnId: number, content: string): StartedTurn {
   return Object.freeze({
@@ -38,17 +57,46 @@ test("keeps status directly above the final prompt on a short viewport", () => {
 
   assert.ok(result.ok);
   assert.deepEqual(result.value.rows.map((row) => row.text), [
-    "No model or tools are configured.",
-    "> ",
+    " No model or tools are configured.",
+    " \u2192 ",
   ]);
-  assert.deepEqual(
-    result.value.rows.map((row) => row.spans.at(0)?.tone),
-    ["muted", "accent"],
+  assert.equal(result.value.rows.at(0)?.spans.at(1)?.tone, "muted");
+  assert.equal(
+    result.value.rows.at(1)?.spans.every((span) => span.tone === "plain"),
+    true,
   );
-  assert.deepEqual(result.value.caret, { row: 1, column: 2 });
+  assert.deepEqual(result.value.caret, { row: 1, column: 3 });
 });
 
-test("renders every tool through one mixed-tone activity rail", () => {
+test("composes one framed prompt and one truthful semantic footer", () => {
+  const application = new ApplicationController(true, {
+    authentication: "memory-only API key",
+    displayName: "OpenCode Go",
+    model: "configured-model",
+  });
+  const result = createChatRender(application, viewport(44, 8));
+
+  assert.ok(result.ok);
+  const rows = result.value.frame.rows.map((row) => row.text);
+  const border = " " + "┌" + "─".repeat(40) + "┐";
+  const closingBorder = " " + "└" + "─".repeat(40) + "┘";
+  assert.equal(rows.filter((row) => row === border).length, 1);
+  assert.equal(rows.filter((row) => row === closingBorder).length, 1);
+  assert.equal(rows.some((row) => row.startsWith(" │ \u2192 ") && row.endsWith("│")), true);
+  assert.equal(rows.at(-1)?.trimStart().startsWith("OpenCode Go / configured-model"), true);
+  assert.equal(rows.at(-1)?.endsWith("ready"), true);
+  assert.equal(rows.join("\n").split("OpenCode Go").length - 1, 1);
+  assert.equal(rows.join("\n").includes("/help"), false);
+  assert.equal(rows.join("\n").includes("agent"), false);
+  assert.equal(rows.some((row) => row.includes("Ready. Use")), false);
+  assert.equal(result.value.frame.rows.at(-1)?.spans.at(-1)?.tone, "success");
+  assert.deepEqual(result.value.transcript, {
+    contentRows: 0,
+    viewportRows: 4,
+  });
+});
+
+test("renders every tool through one canonical contextual activity block", () => {
   const application = new ApplicationController(true);
   assert.ok(application.turnAccepted(started(2, "change")).ok);
   assert.ok(
@@ -70,12 +118,12 @@ test("renders every tool through one mixed-tone activity rail", () => {
   assert.ok(result.ok);
   assert.equal(
     result.value.rows.at(0)?.text,
-    "│ approval  replace_text  write",
+    "                        /approve  /deny",
   );
-  assert.equal(result.value.rows.at(1)?.text, "> ");
+  assert.equal(result.value.rows.at(1)?.text, " \u2192 ");
   assert.deepEqual(
     result.value.rows.at(0)?.spans.map((span) => span.tone),
-    ["muted", "attention", "accent", "muted"],
+    ["plain", "attention"],
   );
   assert.equal(
     result.value.rows.map((row) => row.text).join("\n").includes("call-2"),
@@ -103,9 +151,9 @@ test("keeps the activity lifecycle state visible in a narrow viewport", () => {
   const result = createChatFrame(application, viewport(20, 2));
 
   assert.ok(result.ok);
-  assert.equal(result.value.rows.at(0)?.text, "│ approval  replace");
-  assert.equal(result.value.rows.at(0)?.text.includes("approval"), true);
-  assert.equal(result.value.rows.at(1)?.text, "> ");
+  assert.equal(result.value.rows.at(0)?.text, "    /approve  /deny");
+  assert.equal(result.value.rows.at(0)?.text.includes("/approve"), true);
+  assert.equal(result.value.rows.at(1)?.text, " \u2192 ");
 });
 
 test("shows the safe approval scope below the canonical activity header", () => {
@@ -125,13 +173,22 @@ test("shows the safe approval scope below the canonical activity header", () => 
     ).ok,
   );
 
-  const result = createChatFrame(application, viewport(48, 5));
+  const result = createChatFrame(application, viewport(48, 12));
 
   assert.ok(result.ok);
   const rows = result.value.rows.map((row) => row.text);
+  const topBorder = " " + "┌" + "─".repeat(44) + "┐";
+  const bottomBorder = " " + "└" + "─".repeat(44) + "┘";
+  assert.equal(rows.filter((row) => row === topBorder).length, 2);
+  assert.equal(rows.filter((row) => row === bottomBorder).length, 3);
+  assert.equal(rows.some((row) => row.includes("/approve  /deny")), true);
   assert.equal(rows.some((row) => row.includes("replace_text")), true);
   assert.equal(rows.some((row) => row.includes("scope  path=\"src/index.ts\"")), true);
   assert.equal(rows.join("\n").includes("private-call-3"), false);
+  const approvalName = result.value.rows
+    .flatMap((row) => row.spans)
+    .find((span) => span.text.includes("replace_text"));
+  assert.equal(approvalName?.tone, "attention");
 });
 
 test("keeps the newest activity header when the activity viewport collapses", () => {
@@ -186,6 +243,51 @@ test("keeps the newest activity header when the activity viewport collapses", ()
   assert.equal(rows.some((row) => row.includes("list_directory")), true);
   assert.equal(rows.some((row) => row.includes("read_file")), false);
   assert.equal(rows.join("\n").includes("private-"), false);
+  const successSpans = result.value.rows
+    .flatMap((row) => row.spans)
+    .filter((span) => span.text.includes("list_directory"));
+  assert.deepEqual(successSpans.map((span) => span.tone), ["success"]);
+});
+
+test("renders failed tool truth through the shared failure tone", () => {
+  const application = new ApplicationController(true);
+  assert.ok(application.turnAccepted(started(6, "inspect")).ok);
+  for (const event of [
+    Object.freeze({
+      approvalPreview: "",
+      approvalRequired: false,
+      callId: "private-failed",
+      kind: "toolRequested" as const,
+      name: "read_file",
+      risk: "read" as const,
+      turnId: 6,
+    }),
+    Object.freeze({
+      callId: "private-failed",
+      kind: "toolStarted" as const,
+      name: "read_file",
+      risk: "read" as const,
+      turnId: 6,
+    }),
+    Object.freeze({
+      callId: "private-failed",
+      kind: "toolFinished" as const,
+      name: "read_file",
+      risk: "read" as const,
+      status: "failure" as const,
+      turnId: 6,
+    }),
+  ]) {
+    assert.ok(application.applyRuntime(event).ok);
+  }
+
+  const result = createChatFrame(application, viewport(48, 8));
+
+  assert.ok(result.ok);
+  const failureSpans = result.value.rows
+    .flatMap((row) => row.spans)
+    .filter((span) => span.text === "read_file" || span.text === "failed");
+  assert.deepEqual(failureSpans.map((span) => span.tone), ["failure", "failure"]);
 });
 
 test("renders a tail-anchored prospective transcript through text safety", () => {
@@ -199,7 +301,7 @@ test("renders a tail-anchored prospective transcript through text safety", () =>
     }),
   );
 
-  const result = createChatFrame(application, viewport(40, 7));
+  const result = createChatFrame(application, viewport(40, 8));
 
   assert.ok(result.ok);
   const lines = result.value.rows.map((row) => row.text);
@@ -209,11 +311,14 @@ test("renders a tail-anchored prospective transcript through text safety", () =>
     line.includes("unsafe?partial"),
   );
   assert.equal(
-    result.value.rows.at(partialRow)?.spans.at(0)?.tone,
+    result.value.rows.at(partialRow)?.spans.at(-1)?.tone,
     "plain",
   );
-  assert.equal(result.value.rows.at(-1)?.text, "> ");
-  assert.equal(result.value.caret?.row, result.value.rows.length - 1);
+  const promptRow = lines.findIndex((line) => line.startsWith(" │ \u2192 "));
+  assert.equal(promptRow >= 0, true);
+  assert.equal(result.value.caret?.row, promptRow);
+  assert.equal(lines.at(-1)?.trim(), "generating");
+  assert.equal(result.value.rows.at(-1)?.spans.at(-1)?.tone, "attention");
 });
 
 test("shows completed chat and idle phase without product concepts in TUI", () => {
@@ -240,15 +345,13 @@ test("shows completed chat and idle phase without product concepts in TUI", () =
     Object.freeze({ kind: "committed" as const }),
   );
 
-  const result = createChatFrame(application, viewport(40, 8));
+  const result = createChatFrame(application, viewport(40, 12));
 
   assert.ok(result.ok);
   const lines = result.value.rows.map((row) => row.text);
-  assert.equal(lines.join("\n").includes("agent  ready"), true);
-  assert.deepEqual(
-    result.value.rows.at(0)?.spans.map((span) => span.tone),
-    ["accent", "muted"],
-  );
+  assert.equal(lines.at(-1)?.trim(), "ready");
+  assert.equal(lines.join("\n").includes("/help"), false);
+  assert.equal(result.value.rows.at(-1)?.spans.at(-1)?.tone, "success");
   assert.equal(lines.join("\n").includes("question"), true);
   assert.equal(lines.join("\n").includes("answer"), true);
 });
@@ -273,6 +376,8 @@ test("renders the owned Markdown subset only through transcript semantics", () =
   assert.deepEqual(
     row?.spans.map((span) => ({ text: span.text, tone: span.tone })),
     [
+      { text: " ", tone: "plain" },
+      { text: "│ ", tone: "muted" },
       { text: "strong", tone: "emphasis" },
       { text: " and ", tone: "plain" },
       { text: "code", tone: "emphasis" },
@@ -304,7 +409,11 @@ test("keeps an incomplete streamed delimiter literal until it closes", () => {
   const literal = incomplete.value.rows.find((candidate) =>
     candidate.text.includes("**partial"),
   );
-  assert.deepEqual(literal?.spans.map((span) => span.tone), ["plain"]);
+  assert.deepEqual(literal?.spans.map((span) => span.tone), [
+    "plain",
+    "muted",
+    "plain",
+  ]);
 
   application.applyRuntime(
     Object.freeze({
@@ -316,11 +425,9 @@ test("keeps an incomplete streamed delimiter literal until it closes", () => {
   const complete = createChatFrame(application, viewport(40, 8));
   assert.ok(complete.ok);
   const emphasized = complete.value.rows.find(
-    (candidate) => candidate.text === "partial",
+    (candidate) => candidate.text.includes("partial"),
   );
-  assert.deepEqual(emphasized?.spans.map((span) => span.tone), [
-    "emphasis",
-  ]);
+  assert.equal(emphasized?.spans.at(-1)?.tone, "emphasis");
 });
 
 test("isolates fenced Markdown at every transcript message boundary", () => {
@@ -337,12 +444,110 @@ test("isolates fenced Markdown at every transcript message boundary", () => {
   const result = createChatFrame(application, viewport(40, 12));
 
   assert.ok(result.ok);
-  const agentLabel = result.value.rows.find(
-    (candidate) => candidate.text === "agent",
-  );
   const answer = result.value.rows.find(
-    (candidate) => candidate.text === "answer",
+    (candidate) => candidate.text.includes("answer"),
   );
-  assert.deepEqual(agentLabel?.spans.map((span) => span.tone), ["plain"]);
-  assert.deepEqual(answer?.spans.map((span) => span.tone), ["emphasis"]);
+  assert.equal(
+    result.value.rows.some((candidate) =>
+      candidate.text.trim() === "agent" || candidate.text.trim() === "you"
+    ),
+    false,
+  );
+  assert.equal(answer?.spans.at(-1)?.tone, "emphasis");
+});
+
+test("navigates long transcript history and visibly resumes follow-end", () => {
+  const application = new ApplicationController(true);
+  const question = Array.from(
+    { length: 20 },
+    (_, index) => "line-" + String(index + 1).padStart(2, "0"),
+  ).join("\n");
+  assert.ok(application.turnAccepted(started(11, question)).ok);
+
+  const initial = createChatRender(application, viewport(32, 12));
+  assert.ok(initial.ok);
+  assert.ok(
+    application.observeTranscriptGeometry(
+      initial.value.transcript.contentRows,
+      initial.value.transcript.viewportRows,
+    ).ok,
+  );
+  assert.equal(
+    initial.value.frame.rows.some((row) => row.text.includes("line-20")),
+    true,
+  );
+  const initialTranscriptLines = initial.value.frame.rows
+    .map((row) => row.text)
+    .filter((line) => line.includes("line-"));
+
+  const pageUp = application.feed("\u001B[5~").actions.at(0);
+  assert.ok(pageUp !== undefined);
+  assert.equal(application.applySessionAction(pageUp).redraw, true);
+  const history = createChatRender(application, viewport(32, 12));
+  assert.ok(history.ok);
+  assert.ok(
+    application.observeTranscriptGeometry(
+      history.value.transcript.contentRows,
+      history.value.transcript.viewportRows,
+    ).ok,
+  );
+  assert.equal(
+    history.value.frame.rows.at(-1)?.text.trim(),
+    "generating  history",
+  );
+  assert.equal(
+    history.value.frame.rows.some((row) => row.text.includes("line-20")),
+    false,
+  );
+  assert.equal(
+    history.value.frame.rows.some((row) => row.text.includes("line-14")),
+    true,
+  );
+  const historyTranscriptLines = history.value.frame.rows
+    .map((row) => row.text)
+    .filter((line) => line.includes("line-"));
+  assert.equal(
+    historyTranscriptLines.at(-1),
+    initialTranscriptLines.at(0),
+  );
+
+  for (let count = 0; count < 8 && application.viewingHistory; count += 1) {
+    const pageDown = application.feed("\u001B[6~").actions.at(0);
+    assert.ok(pageDown !== undefined);
+    application.applySessionAction(pageDown);
+  }
+  const latest = createChatRender(application, viewport(32, 12));
+  assert.ok(latest.ok);
+  assert.equal(application.viewingHistory, false);
+  assert.equal(
+    latest.value.frame.rows.some((row) => row.text.includes("history")),
+    false,
+  );
+  assert.equal(
+    latest.value.frame.rows.some((row) => row.text.includes("line-20")),
+    true,
+  );
+});
+
+test("keeps the prompt above history chrome in a one-row viewport", () => {
+  const application = new ApplicationController(true);
+  assert.ok(application.turnAccepted(started(12, "line-1\nline-2\nline-3")).ok);
+  assert.ok(application.observeTranscriptGeometry(20, 5).ok);
+  const pageUp = application.feed("\u001B[5~").actions.at(0);
+  assert.ok(pageUp !== undefined);
+  application.applySessionAction(pageUp);
+  assert.equal(application.viewingHistory, true);
+
+  const rendered = createChatRender(application, viewport(16, 1));
+
+  assert.ok(rendered.ok);
+  assert.deepEqual(rendered.value.frame.rows.map((row) => row.text), [" \u2192 "]);
+  assert.equal(
+    rendered.value.frame.rows.some((row) => row.text.includes("history")),
+    false,
+  );
+  assert.deepEqual(rendered.value.transcript, {
+    contentRows: 5,
+    viewportRows: 0,
+  });
 });

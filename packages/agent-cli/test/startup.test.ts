@@ -101,7 +101,7 @@ test("redraws after input and resize without losing the draft", async () => {
   const result = await run(host);
 
   assert.ok(result.ok);
-  assert.equal(host.writes.join("").includes("> draft"), true);
+  assert.equal(host.writes.join("").includes("\u2192 draft"), true);
   assert.equal(host.writes.join("").includes("\u001B[2J"), true);
 });
 
