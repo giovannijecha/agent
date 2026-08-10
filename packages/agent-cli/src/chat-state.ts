@@ -4,6 +4,8 @@ import { err, ok, type Result, TUI_LIMITS } from "@agent/tui";
 const MAX_COMPLETED_TURNS = 128;
 const MAX_COMPLETED_CODE_UNITS = 1_048_576;
 const TRANSCRIPT_SEPARATOR = "\n\n";
+const USER_DOCUMENT_PREFIX = "you\n";
+const ASSISTANT_DOCUMENT_PREFIX = "agent\n";
 
 export type ChatStateErrorKind =
   | "activeTurn"
@@ -44,7 +46,34 @@ type ActiveTurn = {
 };
 
 function turnDocuments(user: string, assistant: string): readonly string[] {
-  return Object.freeze(["you\n" + user, "agent\n" + assistant]);
+  return Object.freeze([
+    USER_DOCUMENT_PREFIX + user,
+    ASSISTANT_DOCUMENT_PREFIX + assistant,
+  ]);
+}
+
+function tail(text: string, codeUnits: number): string {
+  return codeUnits === 0 ? "" : text.slice(-codeUnits);
+}
+
+function clippedTurnDocuments(
+  user: string,
+  assistant: string,
+): readonly string[] {
+  const fixedCodeUnits =
+    USER_DOCUMENT_PREFIX.length +
+    TRANSCRIPT_SEPARATOR.length +
+    ASSISTANT_DOCUMENT_PREFIX.length;
+  const contentCodeUnits = Math.max(
+    0,
+    TUI_LIMITS.displayTextCodeUnits - fixedCodeUnits,
+  );
+  const retainedUser = tail(user, Math.min(user.length, contentCodeUnits));
+  const retainedAssistant = tail(
+    assistant,
+    contentCodeUnits - retainedUser.length,
+  );
+  return turnDocuments(retainedUser, retainedAssistant);
 }
 
 function documentCodeUnits(documents: readonly string[]): number {
@@ -253,11 +282,9 @@ export class ChatState {
       );
       const completeProspective = prospective.join(TRANSCRIPT_SEPARATOR);
       if (completeProspective.length > TUI_LIMITS.displayTextCodeUnits) {
-        const clipped = completeProspective.slice(
-          -TUI_LIMITS.displayTextCodeUnits,
-        );
-        newest.push(Object.freeze([clipped]));
-        codeUnits += clipped.length;
+        const clipped = clippedTurnDocuments(active.user, assistant);
+        newest.push(clipped);
+        codeUnits += documentCodeUnits(clipped);
       } else {
         newest.push(prospective);
         codeUnits += completeProspective.length;
