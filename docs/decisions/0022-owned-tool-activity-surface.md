@@ -49,7 +49,8 @@ The CLI maps every activity snapshot through one presentation function. Newest
 activity appears first. Within one activity, its header precedes its optional
 scope so a one-row allocation retains the header. Its quiet visual signature is
 a semantic rail: a muted `U+2502 BOX DRAWINGS LIGHT VERTICAL` prefix plus one
-space, accented tool name, muted risk, and an explicit state. Approval-sensitive,
+space, explicit state, accented tool name, and muted risk. State appears first
+so narrow clipping cannot hide the lifecycle truth. Approval-sensitive,
 unsuccessful, and cancellation states use the existing attention tone. An
 optional descriptor-declared approval preview appears below the header as muted
 text. No tool gets a custom component, color, icon, layout, or wording path.

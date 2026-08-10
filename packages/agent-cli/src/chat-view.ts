@@ -55,20 +55,20 @@ function createActivityStack(
       return err(new ComponentError("invalidComponent", position));
     }
     const rail = TextSpan.create("\u2502 ", "muted");
-    const name = TextSpan.create(activity.name, "accent");
-    const risk = TextSpan.create("  " + activity.risk, "muted");
     const state = TextSpan.create(
-      "  " + activity.state,
+      activity.state,
       attentionState(activity.state) ? "attention" : "muted",
     );
+    const name = TextSpan.create("  " + activity.name, "accent");
+    const risk = TextSpan.create("  " + activity.risk, "muted");
     if (!rail.ok || !name.ok || !risk.ok || !state.ok) {
       return err(new ComponentError("invalidRow", position));
     }
     const header = InlineText.create([
       rail.value,
+      state.value,
       name.value,
       risk.value,
-      state.value,
     ]);
     if (!header.ok) {
       return header;

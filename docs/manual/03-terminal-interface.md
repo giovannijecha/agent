@@ -35,9 +35,10 @@ ANSI sequences and it resets style after each emphasized span and before
 terminal ownership is returned.
 
 Tool activity uses one quiet vertical rail for every registered tool. Newest
-activity appears first. The header shows the canonical tool name, risk, and
-explicit lifecycle state; the optional line below shows only the descriptor-
-declared safe approval scope. In a short viewport the scope collapses before the
+activity appears first. The header begins with the explicit lifecycle state so
+it survives narrow clipping, then shows the canonical tool name and risk; the
+optional line below shows only the safe approval scope declared by the
+descriptor. In a short viewport the scope collapses before the
 header. The current turn remains visible after settlement until the next turn is
 accepted. Call identifiers, raw arguments, output, provider data, credentials,
 and failure causes are never displayed.

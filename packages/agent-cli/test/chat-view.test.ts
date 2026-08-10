@@ -70,17 +70,42 @@ test("renders every tool through one mixed-tone activity rail", () => {
   assert.ok(result.ok);
   assert.equal(
     result.value.rows.at(0)?.text,
-    "│ replace_text  write  approval",
+    "│ approval  replace_text  write",
   );
   assert.equal(result.value.rows.at(1)?.text, "> ");
   assert.deepEqual(
     result.value.rows.at(0)?.spans.map((span) => span.tone),
-    ["muted", "accent", "muted", "attention"],
+    ["muted", "attention", "accent", "muted"],
   );
   assert.equal(
     result.value.rows.map((row) => row.text).join("\n").includes("call-2"),
     false,
   );
+});
+
+test("keeps the activity lifecycle state visible in a narrow viewport", () => {
+  const application = new ApplicationController(true);
+  assert.ok(application.turnAccepted(started(5, "change")).ok);
+  assert.ok(
+    application.applyRuntime(
+      Object.freeze({
+        approvalPreview: 'path="src/index.ts" content=<8 code units>',
+        approvalRequired: true,
+        callId: "private-call-5",
+        kind: "toolRequested" as const,
+        name: "replace_text",
+        risk: "write" as const,
+        turnId: 5,
+      }),
+    ).ok,
+  );
+
+  const result = createChatFrame(application, viewport(20, 2));
+
+  assert.ok(result.ok);
+  assert.equal(result.value.rows.at(0)?.text, "│ approval  replace");
+  assert.equal(result.value.rows.at(0)?.text.includes("approval"), true);
+  assert.equal(result.value.rows.at(1)?.text, "> ");
 });
 
 test("shows the safe approval scope below the canonical activity header", () => {
