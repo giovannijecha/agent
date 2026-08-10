@@ -193,10 +193,11 @@ test("explicitly releases draft, status, and display-only personal content", () 
   assert.equal(application.draftLength, 0);
   assert.equal(application.hasTranscript, false);
   assert.equal(application.transcriptText(), "");
+  assert.deepEqual(application.activities, []);
   assert.deepEqual(application.notice, []);
 });
 
-test("requires exact approval commands and exposes a bounded capability summary", () => {
+test("requires exact approval commands and exposes one bounded activity snapshot", () => {
   const application = new ApplicationController(true);
   assert.ok(application.turnAccepted(started(7, "change it")).ok);
   const requested = application.applyRuntime(
@@ -212,9 +213,18 @@ test("requires exact approval commands and exposes a bounded capability summary"
   );
   assert.ok(requested.ok);
   assert.equal(application.phase, "awaitingApproval");
-  assert.equal(application.toolStatus.includes("replace_text"), true);
-  assert.equal(application.toolStatus.includes("private-call-id"), false);
-  assert.equal(application.toolPreview.includes("src/index.ts"), true);
+  assert.deepEqual(application.activities, [
+    {
+      name: "replace_text",
+      preview: 'path="src/index.ts" oldText=<3 code units>',
+      risk: "write",
+      state: "approval",
+    },
+  ]);
+  assert.equal(
+    JSON.stringify(application.activities).includes("private-call-id"),
+    false,
+  );
 
   const approved = applyOnlyAction(application, "/approve\r");
   assert.deepEqual(approved.effects, [
@@ -225,6 +235,7 @@ test("requires exact approval commands and exposes a bounded capability summary"
       turnId: 7,
     },
   ]);
+  assert.equal(application.activities.at(0)?.state, "queued");
   const repeated = applyOnlyAction(application, "/approve\r");
   assert.deepEqual(repeated.effects, []);
   assert.deepEqual(application.notice, ["No tool approval is pending."]);
@@ -292,6 +303,7 @@ test("checkpoints tool activity and retains its display truth after failure", ()
   );
   assert.ok(failed.ok);
   assert.equal(application.phase, "idle");
+  assert.equal(application.activities.at(0)?.state, "succeeded");
   assert.equal(application.transcriptText().includes("Checking."), true);
   assert.equal(
     application.transcriptText().includes("[turn failed after tool activity]"),
@@ -301,6 +313,54 @@ test("checkpoints tool activity and retains its display truth after failure", ()
     application.notice.join("\n").includes("remains in conversation"),
     true,
   );
+
+  assert.ok(application.turnAccepted(started(9, "next")).ok);
+  assert.deepEqual(application.activities, []);
+});
+
+test("makes tool cancellation visible through authoritative lifecycle states", () => {
+  const application = new ApplicationController(true);
+  assert.ok(application.turnAccepted(started(30, "inspect")).ok);
+  assert.ok(
+    application.applyRuntime(
+      Object.freeze({
+        approvalPreview: "",
+        approvalRequired: false,
+        callId: "call-30",
+        kind: "toolRequested" as const,
+        name: "read_file",
+        risk: "read" as const,
+        turnId: 30,
+      }),
+    ).ok,
+  );
+  assert.ok(
+    application.applyRuntime(
+      Object.freeze({
+        callId: "call-30",
+        kind: "toolStarted" as const,
+        name: "read_file",
+        risk: "read" as const,
+        turnId: 30,
+      }),
+    ).ok,
+  );
+
+  const cancelling = applyOnlyAction(application, "\u0003");
+  assert.deepEqual(cancelling.effects, [{ kind: "cancelTurn", turnId: 30 }]);
+  assert.equal(application.activities.at(0)?.state, "cancelling");
+
+  const cancelled = application.applyRuntime(
+    Object.freeze({
+      checkpointed: false,
+      cleanup: Object.freeze([]),
+      kind: "turnFinished" as const,
+      outcome: Object.freeze({ kind: "cancelled" as const }),
+      turnId: 30,
+    }),
+  );
+  assert.ok(cancelled.ok);
+  assert.equal(application.activities.at(0)?.state, "cancelled");
 });
 
 test("reports approval commands as contextual when no tool is pending", () => {
@@ -410,6 +470,18 @@ test("rejects tool events that bypass approval or contradict checkpoints", () =>
     ).ok,
     false,
   );
+  const deniedFinish = afterDenial.applyRuntime(
+    Object.freeze({
+      callId: "call-11",
+      kind: "toolFinished" as const,
+      name: "create_file",
+      risk: "write" as const,
+      status: "failure" as const,
+      turnId: 11,
+    }),
+  );
+  assert.ok(deniedFinish.ok);
+  assert.equal(afterDenial.activities.at(0)?.state, "denied");
 
   const mismatch = new ApplicationController(true);
   assert.ok(mismatch.turnAccepted(started(12, "inspect")).ok);

@@ -117,12 +117,13 @@ tool policy, or second agent identity. It imports only core, runtime, and tools.
 
 Owns incremental terminal-key decoding, bounded single-line editing, validated
 viewports and atomic frames, conservative cell measurement, immutable fragments,
-bounded text and input components, normalized structured rows with four closed
-semantic span tones, deterministic vertical allocation, ANSI commands, and
-serialized asynchronous differential rendering. It knows nothing about agents
-or Node. Unknown control sequences never become editable text; display text
-sanitizes controls and lone surrogates; structured rows, fragments, and frames
-reject unsafe scalar or terminal-control content independently.
+bounded text and input components, bounded generic component stacks, normalized
+structured rows with four closed semantic span tones, deterministic vertical
+allocation, ANSI commands, and serialized asynchronous differential rendering.
+It knows nothing about agents or Node. Unknown control sequences never become
+editable text; display text sanitizes controls and lone surrogates; structured
+rows, fragments, and frames reject unsafe scalar or terminal-control content
+independently.
 Only the renderer translates validated span tones into fixed terminal sequences
 and resets style after every emphasized span and during cleanup. Product tone
 choices remain in CLI, and untrusted model or tool content can supply text only.
@@ -135,8 +136,9 @@ possible after partial output.
 
 Owns commands, application view composition, startup, shutdown, process streams,
 raw mode, the ordered terminal-event queue, bounded display-only chat state, the
-single-writer application reducer, and fair two-source event arbitration. It is
-the only product package allowed to import approved `node:` APIs. It uses only
+single-writer application reducer, one bounded tool-activity log and presentation
+path, and fair two-source event arbitration. It is the only product package
+allowed to import approved `node:` APIs. It uses only
 named stdin, stdout, stderr, and exit capabilities rather than a broad process
 object. Reusable terminal mechanics belong behind the TUI contract. Model turn
 mechanics remain behind the runtime session contract. It also implements the
@@ -180,7 +182,7 @@ bounded terminal FIFO ----+
                    two-source arbiter -> single-writer application reducer
                            ^                         |
 runtime pull event --------+                         v
-                  generic vertical components + structured rows + scroll
+          generic components + activity stack + structured rows + scroll
                                                    |
                                                    v
                          atomic frame + synchronized differential renderer
@@ -201,6 +203,15 @@ code units, queued input is at most 131,072 code units across at most 1,024
 events, the editor holds 4,096 code points, and an incomplete escape sequence is
 bounded to 32 code units. Overflow discards queued input, pauses stdin, and
 returns a typed failure through normal cleanup.
+
+Tool activity is application state, not terminal state. The CLI reducer maps
+validated runtime transitions into one bounded log and one generic component
+stack. It retains only the current or most recently settled turn, orders newest
+activity first, and exposes only tool name, risk, descriptor-declared safe scope,
+and explicit state. The generic TUI owns stacking, clipping, padding, caret
+translation, and hostile-component containment but knows no tool vocabulary.
+Decision 0022 defines update and removal of this surface independently from the
+tool engine, runtime protocol, structured rows, scroll view, and renderer.
 
 The current shell implements `/help`, `/providers`, `/approve`, `/deny`, and
 `/exit`. Approval commands are contextual and authorize only the exact pending

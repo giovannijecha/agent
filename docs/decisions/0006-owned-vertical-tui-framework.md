@@ -58,12 +58,15 @@ grapheme tables, or arbitrary two-dimensional cell composition. Those
 capabilities need separate contracts and decisions rather than compatibility
 hooks in this one.
 
+Decision 0022 adds one bounded generic component stack for sequential component
+documents. It does not add product lifecycle state or a second layout engine.
+
 ## Update, rollback, and removal
 
-Change allocation, sanitization, width, focus, structured-row, or fragment rules
-only with focused boundary tests and an update to this decision or its replacing
-decision. Application-specific chat state remains in CLI and never becomes a
-generic component.
+Change allocation, stack windowing, sanitization, width, focus, structured-row,
+or fragment rules only with focused boundary tests and an update to this
+decision or its replacing decision. Application-specific chat and activity
+state remains in CLI and never becomes a generic component.
 
 To remove the framework, replace CLI component composition with direct validated
 frames, then remove the component modules, exports, tests, and this decision from

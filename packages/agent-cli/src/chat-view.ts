@@ -1,5 +1,7 @@
 import {
+  type Component,
   ComponentError,
+  ComponentStack,
   err,
   type Frame,
   InlineText,
@@ -14,6 +16,12 @@ import {
 } from "@agent/tui";
 
 import type { ApplicationController } from "./application.js";
+import type {
+  ToolActivitySnapshot,
+  ToolActivityState,
+} from "./tool-activity-log.js";
+
+const ACTIVITY_PREFERRED_ROWS = 6;
 
 function phaseLabel(application: ApplicationController): string {
   return application.phase === "generating"
@@ -25,6 +33,60 @@ function phaseLabel(application: ApplicationController): string {
         : application.phase === "cancelling"
           ? "cancelling"
           : "ready";
+}
+
+function attentionState(state: ToolActivityState): boolean {
+  return (
+    state === "approval" ||
+    state === "cancelled" ||
+    state === "cancelling" ||
+    state === "denied" ||
+    state === "failed"
+  );
+}
+
+function createActivityStack(
+  activities: readonly ToolActivitySnapshot[],
+): Result<ComponentStack, ComponentError> {
+  const components: Component[] = [];
+  for (let position = activities.length - 1; position >= 0; position -= 1) {
+    const activity = activities.at(position);
+    if (activity === undefined) {
+      return err(new ComponentError("invalidComponent", position));
+    }
+    const rail = TextSpan.create("\u2502 ", "muted");
+    const name = TextSpan.create(activity.name, "accent");
+    const risk = TextSpan.create("  " + activity.risk, "muted");
+    const state = TextSpan.create(
+      "  " + activity.state,
+      attentionState(activity.state) ? "attention" : "muted",
+    );
+    if (!rail.ok || !name.ok || !risk.ok || !state.ok) {
+      return err(new ComponentError("invalidRow", position));
+    }
+    const header = InlineText.create([
+      rail.value,
+      name.value,
+      risk.value,
+      state.value,
+    ]);
+    if (!header.ok) {
+      return header;
+    }
+    components.push(header.value);
+    if (activity.preview.length > 0) {
+      const preview = TextBlock.create(
+        "  scope  " + activity.preview,
+        "head",
+        "muted",
+      );
+      if (!preview.ok) {
+        return preview;
+      }
+      components.push(preview.value);
+    }
+  }
+  return ComponentStack.create(components, "head");
 }
 
 /** Maps CLI state onto generic owned vertical components and one safe frame. */
@@ -56,18 +118,10 @@ export function createChatFrame(
   if (!status.ok) {
     return status;
   }
-  const toolStatus = application.toolStatusFor(viewport.columns);
-  const tool = TextBlock.create(toolStatus, "head", "attention");
-  if (!tool.ok) {
-    return tool;
-  }
-  const toolPreview = TextBlock.create(
-    application.toolPreview,
-    "head",
-    "muted",
-  );
-  if (!toolPreview.ok) {
-    return toolPreview;
+  const activities = application.activities;
+  const activityStack = createActivityStack(activities);
+  if (!activityStack.ok) {
+    return activityStack;
   }
   const input = InputLine.create("> ", application, "accent");
   if (!input.ok) {
@@ -97,17 +151,11 @@ export function createChatFrame(
       priority: 3,
     }),
     Object.freeze({
-      component: toolPreview.value,
+      component: activityStack.value,
       flex: 0,
-      minimumRows: application.toolPreview.length > 0 ? 1 : 0,
-      preferredRows: application.toolPreview.length > 0 ? 3 : 0,
-      priority: 3,
-    }),
-    Object.freeze({
-      component: tool.value,
-      flex: 0,
-      minimumRows: toolStatus.length > 0 ? 1 : 0,
-      preferredRows: toolStatus.length > 0 ? 1 : 0,
+      minimumRows: activities.length > 0 ? 1 : 0,
+      preferredRows:
+        activities.length > 0 ? ACTIVITY_PREFERRED_ROWS : 0,
       priority: 4,
     }),
     Object.freeze({

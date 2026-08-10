@@ -69,10 +69,13 @@ invoked, a throw, malformed result, or oversized result becomes a generic
 structured failure that is checkpointed before the turn terminates. This avoids
 repeating an effect merely because its handler broke the return contract.
 
-The TUI gains no product-specific framework primitive. CLI composes existing
-text components into one contextual tool-status slot that disappears at idle.
-Only the descriptor-declared approval summary is rendered. Raw arguments,
-content fields, call identifiers, outputs, and causes are not rendered or logged.
+The TUI gains no product-specific framework primitive. Decision 0022 replaces
+the initial transient status with one CLI-owned bounded activity log rendered
+through the generic component stack. It retains the current or most recently
+settled turn and maps every tool through the same presentation path. Only tool
+name, risk, explicit state, and the descriptor-declared safe approval summary
+are rendered. Raw arguments, content fields, call identifiers, outputs,
+provider data, credentials, and causes are not rendered or logged.
 
 ## Limits and security
 
@@ -100,7 +103,7 @@ and cleanup regressions. Provider adapters translate their wire protocol only
 into the public structured model/tool contract.
 
 To remove tools, first stop advertising descriptors and restore the text-only
-runtime path. Remove CLI approval commands, tool status, Node handlers, and the
+runtime path. Remove CLI approval commands, tool activity, Node handlers, and the
 runtime tool dependency. Then remove structured tool entries if no consumer
 remains, delete `@agent/tools` from every registry, remove this decision, clean
 derived artifacts, and remove decisions 0014 and 0015. Replace manual-policy

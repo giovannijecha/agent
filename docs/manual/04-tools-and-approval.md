@@ -13,6 +13,13 @@ exact approval summary, then enter `/approve` or `/deny`. The decision applies
 to that one pending call only and is never cached. The current exact names and
 risk classes are in the verified inventory below; no `execute` tool is admitted.
 
+Every tool uses the same activity rail. Its explicit states are `approval`,
+`queued`, `running`, `cancelling`, `succeeded`, `failed`, `denied`, and
+`cancelled`. The rail retains the current or most recently settled turn, orders
+newest activity first, and is cleared when the next turn is accepted. The safe
+approval scope is optional and collapses before the activity header when space
+is limited.
+
 ## Guarantees and limits
 
 Every tool receives a validated structured object and resolves paths beneath
@@ -48,7 +55,8 @@ reordered or concealed.
 
 Tool errors expose only stable categories such as not found, permission,
 conflict, limit, cancellation, unsupported, and I/O. Arguments, file contents,
-call identifiers, results, and thrown causes do not enter notices. Once a
+call identifiers, results, and thrown causes do not enter notices or activity.
+Once a
 handler was invoked, even a malformed handler result becomes a generic
 checkpointed failure so an external mutation cannot be silently repeated.
 Direct process execution is not available. The blocked inventory is separate
@@ -79,16 +87,20 @@ focused tests, policy record, and this inventory. A rename removes the old name;
 it never retains an alias. Remove an advertised descriptor before deleting its
 implementation, and keep the remaining registry buildable. Process execution
 requires a replacing decision and the complete Windows and Linux proof defined
-by decision 0015.
+by decision 0015. Tool-specific presenters are forbidden; activity changes go
+through the one log and one presentation function defined by decision 0022.
 
 ## Evidence
 
 - Tool contracts and engine: `packages/agent-tools/src/index.ts`
 - Built-in filesystem adapters: `packages/agent-cli/src/builtin-tools.ts`
 - Approval reducer: `packages/agent-cli/src/application.ts`
+- Activity lifecycle: `packages/agent-cli/src/tool-activity-log.ts`
+- Activity presentation: `packages/agent-cli/src/chat-view.ts`
 - Accepted execution design: `docs/decisions/0008-owned-tool-execution.md`
 - Lean-harness decision: `docs/decisions/0014-lean-tool-harness.md`
 - Process-containment decision: `docs/decisions/0015-process-tree-containment.md`
 - Native proof decision: `docs/decisions/0016-owned-native-process-containment.md`
+- Tool-activity decision: `docs/decisions/0022-owned-tool-activity-surface.md`
 - Native broker contract: `packages/agent-cli/native/process-broker/broker.h`
 - Cross-platform proof: `tools/test/native-process-broker.test.mjs`

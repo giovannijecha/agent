@@ -6,6 +6,7 @@ export {
   type ComponentErrorKind,
   type ComponentMeasurement,
 } from "./component.js";
+export { ComponentStack, type StackAnchor } from "./component-stack.js";
 export {
   Frame,
   FrameError,

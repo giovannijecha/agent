@@ -57,10 +57,12 @@ knows neither agents nor phases.
 
 ## Evolution sequence
 
-Structured rows are the only basis for subsequent visual work. A later
-decision may add a bounded owned Markdown subset that compiles into these same
-spans. Transcript blocks, tool activity, navigation, and responsive status must
-also reuse the same fragment, frame, scroll, and differential-renderer path.
+Structured rows are the only basis for subsequent visual work. Decision 0022
+uses them for a generic component stack and unified tool activity without a
+parallel carrier. A later decision may add a bounded owned Markdown subset that
+compiles into these same spans. Transcript blocks, navigation, and responsive
+status must also reuse the same fragment, frame, scroll, and differential-
+renderer path.
 
 Images, arbitrary colors, extension-supplied render callbacks, overlapping
 layers, split panes, animation, and multiple screen engines remain excluded

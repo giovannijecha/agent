@@ -48,7 +48,7 @@ test("keeps status directly above the final prompt on a short viewport", () => {
   assert.deepEqual(result.value.caret, { row: 1, column: 2 });
 });
 
-test("keeps tool identity, risk, and approval state visible in two rows", () => {
+test("renders every tool through one mixed-tone activity rail", () => {
   const application = new ApplicationController(true);
   assert.ok(application.turnAccepted(started(2, "change")).ok);
   assert.ok(
@@ -68,14 +68,99 @@ test("keeps tool identity, risk, and approval state visible in two rows", () => 
   const result = createChatFrame(application, viewport(40, 2));
 
   assert.ok(result.ok);
-  assert.equal(result.value.rows.at(0)?.text.includes("replace_text"), true);
-  assert.equal(result.value.rows.at(0)?.text.includes("write"), true);
-  assert.equal(result.value.rows.at(0)?.text.includes("approval"), true);
+  assert.equal(
+    result.value.rows.at(0)?.text,
+    "│ replace_text  write  approval",
+  );
   assert.equal(result.value.rows.at(1)?.text, "> ");
   assert.deepEqual(
-    result.value.rows.map((row) => row.spans.at(0)?.tone),
-    ["attention", "accent"],
+    result.value.rows.at(0)?.spans.map((span) => span.tone),
+    ["muted", "accent", "muted", "attention"],
   );
+  assert.equal(
+    result.value.rows.map((row) => row.text).join("\n").includes("call-2"),
+    false,
+  );
+});
+
+test("shows the safe approval scope below the canonical activity header", () => {
+  const application = new ApplicationController(true);
+  assert.ok(application.turnAccepted(started(3, "change")).ok);
+  assert.ok(
+    application.applyRuntime(
+      Object.freeze({
+        approvalPreview: 'path="src/index.ts" content=<8 code units>',
+        approvalRequired: true,
+        callId: "private-call-3",
+        kind: "toolRequested" as const,
+        name: "replace_text",
+        risk: "write" as const,
+        turnId: 3,
+      }),
+    ).ok,
+  );
+
+  const result = createChatFrame(application, viewport(48, 5));
+
+  assert.ok(result.ok);
+  const rows = result.value.rows.map((row) => row.text);
+  assert.equal(rows.some((row) => row.includes("replace_text")), true);
+  assert.equal(rows.some((row) => row.includes("scope  path=\"src/index.ts\"")), true);
+  assert.equal(rows.join("\n").includes("private-call-3"), false);
+});
+
+test("keeps the newest activity header when the activity viewport collapses", () => {
+  const application = new ApplicationController(true);
+  assert.ok(application.turnAccepted(started(4, "inspect")).ok);
+  for (const [callId, name] of [
+    ["private-old", "read_file"],
+    ["private-new", "list_directory"],
+  ] as const) {
+    assert.ok(
+      application.applyRuntime(
+        Object.freeze({
+          approvalPreview: "",
+          approvalRequired: false,
+          callId,
+          kind: "toolRequested" as const,
+          name,
+          risk: "read" as const,
+          turnId: 4,
+        }),
+      ).ok,
+    );
+    assert.ok(
+      application.applyRuntime(
+        Object.freeze({
+          callId,
+          kind: "toolStarted" as const,
+          name,
+          risk: "read" as const,
+          turnId: 4,
+        }),
+      ).ok,
+    );
+    assert.ok(
+      application.applyRuntime(
+        Object.freeze({
+          callId,
+          kind: "toolFinished" as const,
+          name,
+          risk: "read" as const,
+          status: "success" as const,
+          turnId: 4,
+        }),
+      ).ok,
+    );
+  }
+
+  const result = createChatFrame(application, viewport(48, 4));
+
+  assert.ok(result.ok);
+  const rows = result.value.rows.map((row) => row.text);
+  assert.equal(rows.some((row) => row.includes("list_directory")), true);
+  assert.equal(rows.some((row) => row.includes("read_file")), false);
+  assert.equal(rows.join("\n").includes("private-"), false);
 });
 
 test("renders a tail-anchored prospective transcript through text safety", () => {

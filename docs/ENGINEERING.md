@@ -173,6 +173,14 @@ must use the same generic view. Renderer writes are synchronized terminal
 transactions, and a failed transaction must be explicitly ended before retry
 or cleanup.
 
+Compose sequential component documents through the one bounded generic stack
+defined by decision 0022. Product lifecycle state never enters that component:
+the CLI owns one tool-activity log and maps every registered tool through the
+same presentation function. Keep newest activity first, preserve its header
+before optional scope in short viewports, and do not add per-tool components,
+icons, colors, aliases, or state paths. Visible activity is limited to the
+current or most recently settled turn and is scrubbed during cleanup.
+
 ## Tool execution policy
 
 Keep the harness lean. Before adding a model-facing tool, prove that its

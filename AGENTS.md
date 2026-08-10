@@ -51,13 +51,15 @@ agent.”
   acknowledged conversation checkpoints; it is Node-free and depends only on
   core and tools.
 - `@agent/tui` owns bounded input decoding, line editing, vertical components,
-  normalized structured rows with closed semantic span tones, immutable scroll
-  geometry, layout, viewports, frames, and synchronized differential rendering;
-  it is agent-agnostic and Node-free. Only its renderer emits ANSI, and every
-  scrollable surface reuses the same generic scroll path.
+  bounded component stacks, normalized structured rows with closed semantic
+  span tones, immutable scroll geometry, layout, viewports, frames, and
+  synchronized differential rendering; it is agent-agnostic and Node-free.
+  Only its renderer emits ANSI, and every scrollable surface reuses the same
+  generic scroll path.
 - `@agent/cli` owns commands, bounded display chat, the single-writer reducer,
-  terminal/runtime arbitration, built-in workspace tools, raw mode, filesystem
-  and process access, and all Node lifecycle; it is the only platform boundary.
+  one bounded tool-activity lifecycle and presentation path, terminal/runtime
+  arbitration, built-in workspace tools, raw mode, filesystem and process
+  access, and all Node lifecycle; it is the only platform boundary.
 - The private CLI-native process broker is verification infrastructure only.
   Production does not invoke it and `run_process` stays blocked until a later
   decision accepts the complete model-facing adapter and approval contract.
