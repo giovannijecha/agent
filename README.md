@@ -124,8 +124,11 @@ use no third-party action.
 `agent`, `npm start`, and `npm run dev` open the interactive alternate-screen
 terminal when both stdin and stdout are TTYs. The interface uses one compact
 identity line, bounded structured rows, one unified recent tool-activity surface,
-and four renderer-owned semantic tones; model text cannot emit or select
-terminal styling. The first milestone supports:
+five renderer-owned semantic tones, and an original bounded Markdown subset for
+conversation text. Each message is an isolated document, and Markdown compiles
+into the same structured rows; model text
+cannot emit ANSI, choose colors, or extend the parser. The first milestone
+supports:
 
 ```text
 /help       show the command reference

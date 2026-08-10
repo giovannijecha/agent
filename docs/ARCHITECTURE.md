@@ -118,15 +118,26 @@ tool policy, or second agent identity. It imports only core, runtime, and tools.
 Owns incremental terminal-key decoding, bounded single-line editing, validated
 viewports and atomic frames, conservative cell measurement, immutable fragments,
 bounded text and input components, bounded generic component stacks, normalized
-structured rows with four closed semantic span tones, deterministic vertical
-allocation, ANSI commands, and serialized asynchronous differential rendering.
+structured rows with five closed semantic span tones, one bounded line-oriented
+Markdown subset, deterministic vertical allocation, ANSI commands, and
+serialized asynchronous differential rendering.
 It knows nothing about agents or Node. Unknown control sequences never become
 editable text; display text sanitizes controls and lone surrogates; structured
 rows, fragments, and frames reject unsafe scalar or terminal-control content
 independently.
-Only the renderer translates validated span tones into fixed terminal sequences
-and resets style after every emphasized span and during cleanup. Product tone
-choices remain in CLI, and untrusted model or tool content can supply text only.
+Plain text and Markdown share one normalization, span-preserving wrapping,
+anchoring, and padding implementation. Markdown compiles directly into
+structured rows and has no AST, extension registry, HTML, links, images, or
+alternate renderer. Only the renderer translates validated span tones into fixed
+terminal sequences and resets style after every emphasized span and during
+cleanup. Product tone choices remain in CLI. Untrusted conversation text can
+trigger only the closed Markdown syntax roles; it cannot supply tone metadata,
+ANSI, color, or renderer instructions.
+One `MarkdownBlock` may snapshot at most 512 isolated documents inside the
+existing total text bound. It inserts one literal blank row between them and
+resets all fence and delimiter state at every boundary. The CLI uses one
+document per role-labelled message, so user or model syntax cannot absorb a
+later message or a product-owned role label.
 Committed frame and viewport snapshots change only after a completed successful
 output write. Conservative flags record that the alternate screen or hidden
 cursor may have become visible before an attempted write, so cleanup remains
@@ -182,7 +193,7 @@ bounded terminal FIFO ----+
                    two-source arbiter -> single-writer application reducer
                            ^                         |
 runtime pull event --------+                         v
-          generic components + activity stack + structured rows + scroll
+     generic components + Markdown + activity stack + structured rows + scroll
                                                    |
                                                    v
                          atomic frame + synchronized differential renderer
@@ -212,6 +223,15 @@ and explicit state. The generic TUI owns stacking, clipping, padding, caret
 translation, and hostile-component containment but knows no tool vocabulary.
 Decision 0022 defines update and removal of this surface independently from the
 tool engine, runtime protocol, structured rows, scroll view, and renderer.
+
+Conversation display uses the closed Markdown subset in decision 0023. The TUI
+recognizes headings, one-level lists and quotes, matched fenced code, inline
+code, and strong text, then compiles them into the same bounded spans. Missing
+delimiters, longer delimiter runs, and unsupported syntax remain literal.
+Markdown never receives tool
+activity, status, provider data, or application lifecycle state.
+Every role-labelled message is a separate parser document; syntax cannot cross
+from user to assistant content or between turns.
 
 The current shell implements `/help`, `/providers`, `/approve`, `/deny`, and
 `/exit`. Approval commands are contextual and authorize only the exact pending
@@ -306,6 +326,10 @@ process access remain unavailable unless the CLI composes an explicit capability
 - Remove the vertical component framework by replacing CLI chat composition with
   direct validated frames before deleting component modules and decision 0006;
   decoder, renderer, runtime, and core remain unchanged.
+- Remove Markdown by replacing the transcript component with `TextBlock`, then
+  deleting its parser, component, export, tests, decision 0023, and policy and
+  manual evidence. Restore the four-tone contract only if `emphasis` has no
+  remaining consumer; structured rows and the renderer remain unchanged.
 - Remove interactive behavior by deleting the decoder, editor, viewport, CLI
   session, view, and Node host together; restore plain startup and the previous
   renderer contract, then remove decision 0004 from the ownership registry.

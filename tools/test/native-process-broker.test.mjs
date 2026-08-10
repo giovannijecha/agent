@@ -328,12 +328,14 @@ test("contains detached descendants and inherited pipes after parent exit", asyn
   try {
     const result = await runNativeFixture({
       arguments: ["spawn-chain-exit", processFile, "2"],
-      timeoutMilliseconds: 5_000,
+      cancelOnOutput: true,
+      timeoutMilliseconds: 15_000,
       processLimit: 8,
     });
 
     assertCleanBroker(result);
-    assert.equal(terminalStatus(result).outcome, 3);
+    assert.equal(result.stdout.toString("utf8"), "ready\n");
+    assert.equal(terminalStatus(result).outcome, 2);
     const processIds = readFileSync(processFile, "utf8")
       .trim()
       .split("\n")

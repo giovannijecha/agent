@@ -123,8 +123,8 @@ test("renders only fixed semantic tones and resets each styled span", async () =
 
   await renderer.render(
     tonedFrame(
-      ["agent", "ready", "approve"],
-      ["accent", "muted", "attention"],
+      ["agent", "ready", "approve", "emphasis"],
+      ["accent", "muted", "attention", "emphasis"],
       2,
       7,
     ),
@@ -134,6 +134,7 @@ test("renders only fixed semantic tones and resets each styled span", async () =
   assert.equal(output.text.includes("\u001B[1;36magent\u001B[0m"), true);
   assert.equal(output.text.includes("\u001B[2mready\u001B[0m"), true);
   assert.equal(output.text.includes("\u001B[1;33mapprove\u001B[0m"), true);
+  assert.equal(output.text.includes("\u001B[1memphasis\u001B[0m"), true);
 });
 
 test("renders and differentially compares mixed tones within one row", async () => {
@@ -190,6 +191,7 @@ test("normalizes an empty emphasized row to plain terminal output", async () => 
 
   assert.equal(output.text.includes("\u001B[1;36m"), false);
   assert.equal(output.text.includes("\u001B[1;33m"), false);
+  assert.equal(output.text.includes("\u001B[1m"), false);
   assert.equal(output.text.includes("\u001B[2m"), false);
 });
 

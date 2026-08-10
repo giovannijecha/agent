@@ -252,3 +252,97 @@ test("shows completed chat and idle phase without product concepts in TUI", () =
   assert.equal(lines.join("\n").includes("question"), true);
   assert.equal(lines.join("\n").includes("answer"), true);
 });
+
+test("renders the owned Markdown subset only through transcript semantics", () => {
+  const application = new ApplicationController(true);
+  application.turnAccepted(started(8, "question"));
+  application.applyRuntime(
+    Object.freeze({
+      kind: "assistantDelta" as const,
+      text: "**strong** and `code`",
+      turnId: 8,
+    }),
+  );
+
+  const result = createChatFrame(application, viewport(40, 8));
+
+  assert.ok(result.ok);
+  const row = result.value.rows.find((candidate) =>
+    candidate.text.includes("strong and code"),
+  );
+  assert.deepEqual(
+    row?.spans.map((span) => ({ text: span.text, tone: span.tone })),
+    [
+      { text: "strong", tone: "emphasis" },
+      { text: " and ", tone: "plain" },
+      { text: "code", tone: "emphasis" },
+    ],
+  );
+  assert.equal(
+    result.value.rows.some((candidate) =>
+      candidate.spans.some(
+        (span) => span.tone === "accent" && span.text.includes("strong"),
+      ),
+    ),
+    false,
+  );
+});
+
+test("keeps an incomplete streamed delimiter literal until it closes", () => {
+  const application = new ApplicationController(true);
+  application.turnAccepted(started(9, "question"));
+  application.applyRuntime(
+    Object.freeze({
+      kind: "assistantDelta" as const,
+      text: "**partial",
+      turnId: 9,
+    }),
+  );
+
+  const incomplete = createChatFrame(application, viewport(40, 8));
+  assert.ok(incomplete.ok);
+  const literal = incomplete.value.rows.find((candidate) =>
+    candidate.text.includes("**partial"),
+  );
+  assert.deepEqual(literal?.spans.map((span) => span.tone), ["plain"]);
+
+  application.applyRuntime(
+    Object.freeze({
+      kind: "assistantDelta" as const,
+      text: "**",
+      turnId: 9,
+    }),
+  );
+  const complete = createChatFrame(application, viewport(40, 8));
+  assert.ok(complete.ok);
+  const emphasized = complete.value.rows.find(
+    (candidate) => candidate.text === "partial",
+  );
+  assert.deepEqual(emphasized?.spans.map((span) => span.tone), [
+    "emphasis",
+  ]);
+});
+
+test("isolates fenced Markdown at every transcript message boundary", () => {
+  const application = new ApplicationController(true);
+  application.turnAccepted(started(10, "```ts\nvalue"));
+  application.applyRuntime(
+    Object.freeze({
+      kind: "assistantDelta" as const,
+      text: "```\n**answer**",
+      turnId: 10,
+    }),
+  );
+
+  const result = createChatFrame(application, viewport(40, 12));
+
+  assert.ok(result.ok);
+  const agentLabel = result.value.rows.find(
+    (candidate) => candidate.text === "agent",
+  );
+  const answer = result.value.rows.find(
+    (candidate) => candidate.text === "answer",
+  );
+  assert.deepEqual(agentLabel?.spans.map((span) => span.tone), ["plain"]);
+  assert.deepEqual(answer?.spans.map((span) => span.tone), ["emphasis"]);
+});

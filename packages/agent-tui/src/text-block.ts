@@ -56,6 +56,7 @@ export class TextBlock implements Component {
       columns,
       this.#anchor,
       TUI_LIMITS.frameRows,
+      this.#tone,
     );
     return laidOut.ok
       ? ok(Object.freeze({ preferredRows: laidOut.value.length }))
@@ -71,6 +72,7 @@ export class TextBlock implements Component {
       viewport.columns,
       this.#anchor,
       viewport.rows,
+      this.#tone,
     );
     if (!laidOut.ok) {
       return laidOut;
@@ -78,20 +80,12 @@ export class TextBlock implements Component {
     const visible = laidOut.value;
     const padding = Array.from(
       { length: viewport.rows - visible.length },
-      () => "",
+      () => RichRow.empty(),
     );
-    const lines =
+    const rows =
       this.#anchor === "head"
         ? [...visible, ...padding]
         : [...padding, ...visible];
-    const rows: RichRow[] = [];
-    for (let position = 0; position < lines.length; position += 1) {
-      const row = RichRow.fromText(lines.at(position) ?? "", this.#tone);
-      if (!row.ok) {
-        return err(new ComponentError("invalidRow", position));
-      }
-      rows.push(row.value);
-    }
     return Fragment.create(viewport, rows);
   }
 }

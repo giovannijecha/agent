@@ -6,6 +6,7 @@ import {
   type Frame,
   InlineText,
   InputLine,
+  MarkdownBlock,
   type Result,
   TextBlock,
   TextSpan,
@@ -106,7 +107,10 @@ export function createChatFrame(
   if (!header.ok) {
     return header;
   }
-  const transcript = TextBlock.create(application.transcriptText(), "tail");
+  const transcript = MarkdownBlock.createDocuments(
+    application.transcriptDocuments(),
+    "tail",
+  );
   if (!transcript.ok) {
     return transcript;
   }

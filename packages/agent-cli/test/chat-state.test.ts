@@ -11,12 +11,20 @@ test("publishes a streamed pair only after exact completion", () => {
   assert.ok(chat.append(1, "ans").ok);
 
   assert.equal(chat.transcriptText(), "you\nquestion\n\nagent\nans");
+  assert.deepEqual(chat.transcriptDocuments(), [
+    "you\nquestion",
+    "agent\nans",
+  ]);
   assert.ok(chat.append(1, "wer").ok);
   assert.ok(chat.prepare(1, "answer").ok);
   assert.ok(chat.commit(1).ok);
 
   assert.equal(chat.activeTurnId, undefined);
   assert.equal(chat.transcriptText(), "you\nquestion\n\nagent\nanswer");
+  assert.deepEqual(chat.transcriptDocuments(), [
+    "you\nquestion",
+    "agent\nanswer",
+  ]);
 });
 
 test("discards prospective personal content on cancellation", () => {
@@ -111,18 +119,26 @@ test("explicitly releases completed and prospective display content", () => {
   assert.equal(chat.transcriptText(), "");
 });
 
-test("tail-clips a multi-tool active display before the TUI boundary", () => {
+test("tail-clips active message documents without joining their Markdown", () => {
   const chat = new ChatState();
-  assert.ok(chat.begin(1, "question").ok);
+  assert.ok(chat.begin(1, "```text\nquestion").ok);
   for (let step = 0; step < 4; step += 1) {
     for (let chunk = 0; chunk < 16; chunk += 1) {
-      assert.ok(chat.append(1, "x".repeat(16_384)).ok);
+      const text =
+        step === 3 && chunk === 15
+          ? "x".repeat(16_381) + "```"
+          : "x".repeat(16_384);
+      assert.ok(chat.append(1, text).ok);
     }
     assert.ok(chat.checkpoint(1).ok);
   }
 
-  const transcript = chat.transcriptText();
+  const documents = chat.transcriptDocuments();
+  const transcript = documents.join("\n\n");
 
+  assert.equal(documents.length, 2);
+  assert.equal(documents.at(0), "you\n```text\nquestion");
+  assert.equal(documents.at(1)?.startsWith("agent\n"), true);
+  assert.equal(documents.at(1)?.endsWith("```"), true);
   assert.equal(transcript.length, TUI_LIMITS.displayTextCodeUnits);
-  assert.equal(transcript.endsWith("x"), true);
 });

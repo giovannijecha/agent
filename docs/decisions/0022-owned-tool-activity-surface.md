@@ -58,8 +58,8 @@ text. No tool gets a custom component, color, icon, layout, or wording path.
 The activity stack replaces the previous tool-status and tool-preview slots.
 It is a bounded recent surface, not yet the durable inline transcript. Complete
 inline ordering is reserved for the later CLI transcript-block decision so this
-change does not introduce a second chat document model before the owned Markdown
-subset exists.
+change does not introduce a second chat document model. Decision 0023 supplies
+the owned Markdown subset independently.
 
 ## Security and failure behavior
 

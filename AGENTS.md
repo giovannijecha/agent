@@ -52,10 +52,11 @@ agent.”
   core and tools.
 - `@agent/tui` owns bounded input decoding, line editing, vertical components,
   bounded component stacks, normalized structured rows with closed semantic
-  span tones, immutable scroll geometry, layout, viewports, frames, and
-  synchronized differential rendering; it is agent-agnostic and Node-free.
-  Only its renderer emits ANSI, and every scrollable surface reuses the same
-  generic scroll path.
+  span tones, the closed bounded Markdown subset, immutable scroll geometry,
+  layout, viewports, frames, and synchronized differential rendering; it is
+  agent-agnostic and Node-free. Markdown and plain text reuse one wrapping path,
+  Markdown state cannot cross bounded document boundaries, only the renderer
+  emits ANSI, and every scrollable surface reuses the same generic scroll path.
 - `@agent/cli` owns commands, bounded display chat, the single-writer reducer,
   one bounded tool-activity lifecycle and presentation path, terminal/runtime
   arbitration, built-in workspace tools, raw mode, filesystem and process

@@ -1,6 +1,6 @@
 # 0019: Owned semantic terminal tones
 
-- Status: accepted
+- Status: superseded by decision 0023
 - Date: 2026-08-09
 
 ## Context

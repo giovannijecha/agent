@@ -101,29 +101,6 @@ static bool agent_fixture_wait_for_process_file(const wchar_t *path) {
   return false;
 }
 
-static bool agent_fixture_wait_for_process_count(
-  const wchar_t *path,
-  unsigned long expected
-) {
-  for (uint32_t attempt = 0u; attempt < 500u; attempt += 1u) {
-    FILE *file = NULL;
-    if (_wfopen_s(&file, path, L"rb") == 0 && file != NULL) {
-      unsigned long count = 0u;
-      for (int byte = fgetc(file); byte != EOF; byte = fgetc(file)) {
-        if (byte == '\n') {
-          count += 1u;
-        }
-      }
-      (void)fclose(file);
-      if (count >= expected) {
-        return true;
-      }
-    }
-    agent_fixture_sleep(10u);
-  }
-  return false;
-}
-
 static bool agent_fixture_append_process_id(const wchar_t *path) {
   FILE *file = NULL;
   if (_wfopen_s(&file, path, L"ab") != 0 || file == NULL) {
@@ -180,6 +157,47 @@ static bool agent_fixture_spawn_chain(
   }
   CloseHandle((HANDLE)handle);
   return true;
+}
+
+static bool agent_fixture_spawn_exit_chain(
+  const wchar_t *executable,
+  const wchar_t *path,
+  unsigned long depth,
+  unsigned long root_process_id
+) {
+  wchar_t depth_text[16];
+  wchar_t root_text[16];
+  if (
+    swprintf(depth_text, 16u, L"%lu", depth) <= 0 ||
+    swprintf(root_text, 16u, L"%lu", root_process_id) <= 0
+  ) {
+    return false;
+  }
+  const intptr_t handle = _wspawnl(
+    _P_NOWAIT,
+    executable,
+    executable,
+    L"spawn-detached-exit-chain",
+    path,
+    depth_text,
+    root_text,
+    NULL
+  );
+  if (handle == -1) {
+    return false;
+  }
+  CloseHandle((HANDLE)handle);
+  return true;
+}
+
+static bool agent_fixture_wait_for_process_exit(unsigned long process_id) {
+  HANDLE process = OpenProcess(SYNCHRONIZE, FALSE, (DWORD)process_id);
+  if (process == NULL) {
+    return GetLastError() == ERROR_INVALID_PARAMETER;
+  }
+  const DWORD wait = WaitForSingleObject(process, 5000u);
+  CloseHandle(process);
+  return wait == WAIT_OBJECT_0;
 }
 
 static int agent_fixture_arguments(int argc, wchar_t **argv) {
@@ -278,6 +296,54 @@ static int agent_fixture_chain(
   return 0;
 }
 
+static int agent_fixture_exit_chain(
+  const wchar_t *executable,
+  const wchar_t *path,
+  const wchar_t *depth_text,
+  const wchar_t *root_text
+) {
+  wchar_t *end = NULL;
+  const unsigned long depth = wcstoul(depth_text, &end, 10);
+  if (end == depth_text || *end != L'\0' || depth > 16u) {
+    return 79;
+  }
+  end = NULL;
+  const unsigned long root_process_id = wcstoul(root_text, &end, 10);
+  if (
+    end == root_text ||
+    *end != L'\0' ||
+    root_process_id == 0u ||
+    root_process_id > (unsigned long)UINT32_MAX
+  ) {
+    return 79;
+  }
+  (void)FreeConsole();
+  if (!agent_fixture_append_process_id(path)) {
+    return 80;
+  }
+  if (
+    depth > 0u &&
+    !agent_fixture_spawn_exit_chain(
+      executable,
+      path,
+      depth - 1u,
+      root_process_id
+    )
+  ) {
+    return 81;
+  }
+  if (
+    depth == 0u &&
+    (!agent_fixture_wait_for_process_exit(root_process_id) ||
+      fputs("ready\n", stdout) < 0 ||
+      fflush(stdout) != 0)
+  ) {
+    return 82;
+  }
+  agent_fixture_sleep(AGENT_FIXTURE_LONG_SLEEP_MS);
+  return 0;
+}
+
 int wmain(int argc, wchar_t **argv) {
   if (
     _setmode(_fileno(stdout), _O_BINARY) == -1 ||
@@ -344,18 +410,19 @@ int wmain(int argc, wchar_t **argv) {
   if (wcscmp(argv[1], L"spawn-detached-chain") == 0 && argc == 4) {
     return agent_fixture_chain(argv[0], argv[1], argv[2], argv[3], true);
   }
+  if (wcscmp(argv[1], L"spawn-detached-exit-chain") == 0 && argc == 5) {
+    return agent_fixture_exit_chain(argv[0], argv[2], argv[3], argv[4]);
+  }
   if (wcscmp(argv[1], L"spawn-chain-exit") == 0 && argc == 4) {
     wchar_t *end = NULL;
     const unsigned long depth = wcstoul(argv[3], &end, 10);
     return end != argv[3] && *end == L'\0' && depth <= 16u &&
-        agent_fixture_spawn_chain(
+        agent_fixture_spawn_exit_chain(
           argv[0],
-          L"spawn-detached-chain",
           argv[2],
           depth,
-          true
-        ) &&
-        agent_fixture_wait_for_process_count(argv[2], depth + 1u)
+          (unsigned long)agent_fixture_process_id()
+        )
       ? 0
       : 82;
   }
@@ -401,29 +468,6 @@ static bool agent_fixture_wait_for_process_file(const char *path) {
   for (uint32_t attempt = 0u; attempt < 500u; attempt += 1u) {
     if (access(path, F_OK) == 0) {
       return true;
-    }
-    agent_fixture_sleep(10u);
-  }
-  return false;
-}
-
-static bool agent_fixture_wait_for_process_count(
-  const char *path,
-  unsigned long expected
-) {
-  for (uint32_t attempt = 0u; attempt < 500u; attempt += 1u) {
-    FILE *file = fopen(path, "rb");
-    if (file != NULL) {
-      unsigned long count = 0u;
-      for (int byte = fgetc(file); byte != EOF; byte = fgetc(file)) {
-        if (byte == '\n') {
-          count += 1u;
-        }
-      }
-      (void)fclose(file);
-      if (count >= expected) {
-        return true;
-      }
     }
     agent_fixture_sleep(10u);
   }
@@ -480,6 +524,66 @@ static bool agent_fixture_spawn_chain(
     _exit(127);
   }
   return true;
+}
+
+static bool agent_fixture_spawn_exit_chain(
+  const char *executable,
+  const char *path,
+  unsigned long depth,
+  unsigned long root_process_id
+) {
+  char depth_text[16];
+  char root_text[16];
+  const int depth_length = snprintf(
+    depth_text,
+    sizeof(depth_text),
+    "%lu",
+    depth
+  );
+  const int root_length = snprintf(
+    root_text,
+    sizeof(root_text),
+    "%lu",
+    root_process_id
+  );
+  if (
+    depth_length <= 0 ||
+    (size_t)depth_length >= sizeof(depth_text) ||
+    root_length <= 0 ||
+    (size_t)root_length >= sizeof(root_text)
+  ) {
+    return false;
+  }
+  const pid_t child = fork();
+  if (child < 0) {
+    return false;
+  }
+  if (child == 0) {
+    if (setsid() < 0) {
+      _exit(126);
+    }
+    execl(
+      executable,
+      executable,
+      "spawn-detached-exit-chain",
+      path,
+      depth_text,
+      root_text,
+      (char *)NULL
+    );
+    _exit(127);
+  }
+  return true;
+}
+
+static bool agent_fixture_wait_for_process_exit(unsigned long process_id) {
+  for (uint32_t attempt = 0u; attempt < 500u; attempt += 1u) {
+    if (kill((pid_t)process_id, 0) != 0) {
+      return errno == ESRCH;
+    }
+    agent_fixture_sleep(10u);
+  }
+  return false;
 }
 
 static int agent_fixture_arguments(int argc, char **argv) {
@@ -563,6 +667,53 @@ static int agent_fixture_chain(
   return 0;
 }
 
+static int agent_fixture_exit_chain(
+  const char *executable,
+  const char *path,
+  const char *depth_text,
+  const char *root_text
+) {
+  char *end = NULL;
+  const unsigned long depth = strtoul(depth_text, &end, 10);
+  if (end == depth_text || *end != '\0' || depth > 16u) {
+    return 79;
+  }
+  end = NULL;
+  const unsigned long root_process_id = strtoul(root_text, &end, 10);
+  if (
+    end == root_text ||
+    *end != '\0' ||
+    root_process_id == 0u ||
+    root_process_id > (unsigned long)INT_MAX
+  ) {
+    return 79;
+  }
+  if (!agent_fixture_append_process_id(path)) {
+    return 80;
+  }
+  if (
+    depth > 0u &&
+    !agent_fixture_spawn_exit_chain(
+      executable,
+      path,
+      depth - 1u,
+      root_process_id
+    )
+  ) {
+    return 81;
+  }
+  if (
+    depth == 0u &&
+    (!agent_fixture_wait_for_process_exit(root_process_id) ||
+      fputs("ready\n", stdout) < 0 ||
+      fflush(stdout) != 0)
+  ) {
+    return 82;
+  }
+  agent_fixture_sleep(AGENT_FIXTURE_LONG_SLEEP_MS);
+  return 0;
+}
+
 static void agent_fixture_ignore_signal(int signal_number) {
   (void)signal_number;
 }
@@ -627,18 +778,19 @@ int main(int argc, char **argv) {
   if (strcmp(argv[1], "spawn-detached-chain") == 0 && argc == 4) {
     return agent_fixture_chain(argv[0], argv[1], argv[2], argv[3], true);
   }
+  if (strcmp(argv[1], "spawn-detached-exit-chain") == 0 && argc == 5) {
+    return agent_fixture_exit_chain(argv[0], argv[2], argv[3], argv[4]);
+  }
   if (strcmp(argv[1], "spawn-chain-exit") == 0 && argc == 4) {
     char *end = NULL;
     const unsigned long depth = strtoul(argv[3], &end, 10);
     return end != argv[3] && *end == '\0' && depth <= 16u &&
-        agent_fixture_spawn_chain(
+        agent_fixture_spawn_exit_chain(
           argv[0],
-          "spawn-detached-chain",
           argv[2],
           depth,
-          true
-        ) &&
-        agent_fixture_wait_for_process_count(argv[2], depth + 1u)
+          (unsigned long)agent_fixture_process_id()
+        )
       ? 0
       : 82;
   }

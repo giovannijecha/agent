@@ -161,6 +161,10 @@ export class ApplicationController implements InputProjectionSource {
     return this.#chat.transcriptText();
   }
 
+  transcriptDocuments(): readonly string[] {
+    return this.#chat.transcriptDocuments();
+  }
+
   project(columns: number): EditorProjection {
     return this.#session.projectEditor(columns);
   }

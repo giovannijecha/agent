@@ -59,7 +59,7 @@ knows neither agents nor phases.
 
 Structured rows are the only basis for subsequent visual work. Decision 0022
 uses them for a generic component stack and unified tool activity without a
-parallel carrier. A later decision may add a bounded owned Markdown subset that
+parallel carrier. Decision 0023 adds a bounded owned Markdown subset that
 compiles into these same spans. Transcript blocks, navigation, and responsive
 status must also reuse the same fragment, frame, scroll, and differential-
 renderer path.
@@ -83,7 +83,8 @@ gate on Windows and Linux.
 Changing span limits, normalization, clipping, equality, style mapping, frame
 validation, or component composition requires focused regressions and an update
 to this decision. Adding a style requires changing the closed `Tone` contract,
-renderer mapping, privacy analysis, tests, manual, and decision 0019 together.
+renderer mapping, privacy analysis, tests, manual, and decisions 0019 and 0023
+together.
 
 To remove structured rows, first replace every component and CLI view with one
 validated plain-row contract, then change fragment, frame, scroll, layout, and

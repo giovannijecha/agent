@@ -157,13 +157,25 @@ cleanup without allowing one failure to mask another.
 
 Treat visual emphasis as closed metadata, never as display text. Components and
 frames accept only normalized `TextSpan` and `RichRow` values under decision
-0021, and spans accept only the semantic tones registered by decision 0019. The
-renderer alone maps them to fixed ANSI, redraws text- or tone-only changes, and
-resets terminal style after emphasized spans and during cleanup. Application
-code and untrusted content must never construct escape sequences or arbitrary
-color values. Bound span count before iteration, merge adjacent equal tones,
-and contain arrays, proxies, accessors, and subclasses at every public row
-boundary.
+0021, and spans accept only the semantic tones registered by decisions 0019 and
+0023. The renderer alone maps them to fixed ANSI, redraws text- or tone-only
+changes, and resets terminal style after emphasized spans and during cleanup.
+Application code and untrusted content must never construct escape sequences or
+arbitrary color values. Bound span count before iteration, merge adjacent equal
+tones, and contain arrays, proxies, accessors, and subclasses at every public
+row boundary.
+
+Treat Markdown as one closed display grammar, not a compatibility target. Under
+decision 0023, parse only the registered line and inline forms, keep incomplete
+and unsupported constructs literal, and compile directly into the canonical
+structured rows. Reuse the plain-text sanitizer, cell measurement, wrapping,
+anchoring, padding, fragment, frame, and renderer path. Do not add HTML, active
+links, images, arbitrary styles, parser callbacks, extensions, syntax
+highlighting, a retained AST, or a second rendering engine. If inline role
+count exceeds the row bound, fall back to the complete sanitized literal line.
+Snapshot document collections before parsing, bound their count and total text,
+and restart syntax state at every document boundary. Conversation roles use
+separate documents so one message cannot style or consume another.
 
 Treat scrolling as immutable geometry, never as component-owned content or an
 event queue. Reconcile an explicit row offset against measured content and the
