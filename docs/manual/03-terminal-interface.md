@@ -18,10 +18,11 @@ closes the application. Up and Down are intentionally unsupported.
 
 Input decoding is incremental across fragmented terminal chunks. The editor is
 bounded and Unicode-code-point aware. The vertical framework allocates header,
-transcript, status, tool status, and prompt without product logic entering the
-generic TUI package. Untrusted text is normalized and sanitized before the frame
-performs a final control-character check. Rendering is serialized, differential,
-and commits its snapshot only after a complete successful write.
+transcript, status, one generic component stack, and prompt without product
+logic entering the generic TUI package. Untrusted text is normalized and
+sanitized before the frame performs a final control-character check. Rendering
+is serialized, differential, and commits its snapshot only after a complete
+successful write.
 
 The visual language is deliberately small. Cyan marks product identity and the
 focused input row, dim text marks passive status and the current phase, yellow
@@ -32,6 +33,15 @@ adjacent equal roles are merged, and each row is bounded before composition.
 These are semantic roles, not model-controlled colors. Only the renderer creates
 ANSI sequences and it resets style after each emphasized span and before
 terminal ownership is returned.
+
+Tool activity uses one quiet vertical rail for every registered tool. Newest
+activity appears first. The header begins with the explicit lifecycle state so
+it survives narrow clipping, then shows the canonical tool name and risk; the
+optional line below shows only the safe approval scope declared by the
+descriptor. In a short viewport the scope collapses before the
+header. The current turn remains visible after settlement until the next turn is
+accepted. Call identifiers, raw arguments, output, provider data, credentials,
+and failure causes are never displayed.
 
 ## Failure behavior
 
@@ -54,19 +64,24 @@ synchronized redraw and the reusable scroll foundation. Product keyboard
 navigation is not connected in this first foundation increment. Decision
 [0021](../decisions/0021-owned-structured-terminal-rows.md) governs the one
 canonical structured-row representation, its bounds, clipping, and removal.
+Decision [0022](../decisions/0022-owned-tool-activity-surface.md) governs the
+generic component stack and the CLI-owned activity surface.
 
 ## Evidence
 
 - Input protocol: `packages/agent-tui/src/input-decoder.ts`
 - Generic layout: `packages/agent-tui/src/vertical-layout.ts`
+- Generic component stack: `packages/agent-tui/src/component-stack.ts`
 - Semantic tones: `packages/agent-tui/src/tone.ts`
 - Structured rows: `packages/agent-tui/src/rich-row.ts`
 - Tone contract: `docs/decisions/0019-owned-semantic-terminal-tones.md`
 - Scroll contract: `docs/decisions/0020-owned-scrollable-screen-foundation.md`
 - Structured-row contract: `docs/decisions/0021-owned-structured-terminal-rows.md`
+- Tool-activity contract: `docs/decisions/0022-owned-tool-activity-surface.md`
 - Final renderer: `packages/agent-tui/src/renderer.ts`
 - Scroll state: `packages/agent-tui/src/scroll-state.ts`
 - Generic scroll view: `packages/agent-tui/src/scroll-view.ts`
 - Terminal host: `packages/agent-cli/src/node-terminal-host.ts`
 - Product view composition: `packages/agent-cli/src/chat-view.ts`
+- Tool-activity lifecycle: `packages/agent-cli/src/tool-activity-log.ts`
 - Slash-command classifier: `packages/agent-cli/src/commands.ts`

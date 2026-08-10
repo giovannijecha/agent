@@ -7,4 +7,5 @@ export const TUI_LIMITS = Object.freeze({
   frameRows: 4_096,
   rowSpans: 256,
   slotValue: 4_096,
+  stackComponents: 512,
 });

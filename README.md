@@ -123,8 +123,9 @@ use no third-party action.
 
 `agent`, `npm start`, and `npm run dev` open the interactive alternate-screen
 terminal when both stdin and stdout are TTYs. The interface uses one compact
-identity line, bounded structured rows, and four renderer-owned semantic tones;
-model text cannot emit or select terminal styling. The first milestone supports:
+identity line, bounded structured rows, one unified recent tool-activity surface,
+and four renderer-owned semantic tones; model text cannot emit or select
+terminal styling. The first milestone supports:
 
 ```text
 /help       show the command reference
@@ -151,9 +152,12 @@ Terminal failure and cancellation receipts likewise remain owned by the runtime
 until acknowledged, so shutdown cannot lose buffered cleanup failures.
 Read-only tools run automatically. Each write call requires its own
 exact `/approve` or `/deny`; approval is never cached. Calls are sequential and
-the TUI shows a bounded capability summary with the exact target path and
-content sizes before approval. Raw content, call identifiers, and outputs never
-enter notices or the tool-status panel. Once a
+the TUI shows every call through the same bounded lifecycle surface. Its quiet
+rail retains the current or most recently settled turn, shows the tool name,
+risk, explicit state, and descriptor-declared safe approval scope, and collapses
+details before hiding the activity header in a short viewport. Newest activity
+appears first. Raw content, call identifiers, outputs, arguments, provider data,
+and failure causes never enter notices or the activity surface. Once a
 tool attempt completes, its structured call and result become a conversation
 checkpoint before the next model step. A later failure or cancellation retains
 that truthful checkpoint while discarding only prospective response text.

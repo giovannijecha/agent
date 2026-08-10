@@ -28,9 +28,11 @@ Tone-only changes participate in differential redraw. Empty rendered rows have
 no spans because styling an empty row has no visible meaning.
 
 The CLI owns product presentation. Its compact header is one accented line,
-passive notices are muted, approval and tool state use attention, transcript
-content remains plain, and the focused input row uses the accent. Model and tool
-content can supply printable text only; it cannot choose a tone.
+passive notices are muted, transcript content remains plain, and the focused
+input row uses the accent. Decision 0022 uses accent for a tool name, muted for
+the rail and risk, attention for approval-sensitive, unsuccessful, and
+cancellation states, and muted for a successful state. Model and tool content
+can supply printable text only; it cannot choose a tone.
 
 Tone metadata is immutable, bounded by the structured-row and frame limits, and
 revalidated at row, fragment, and frame boundaries. Invalid metadata returns

@@ -103,7 +103,7 @@ including the `run_process` record. Remove decisions 0008, 0014, and
 `docs/decisions/0015-process-tree-containment.md`, together with their ownership
 and required-path entries and manual evidence citations. Do not land an empty
 advertised or blocked inventory under schema 3. Remove CLI approval commands,
-tool status, built-in Node handlers, imports, declarations, and allowlist
+tool activity, built-in Node handlers, imports, declarations, and allowlist
 entries. Then remove the runtime dependency on `@agent/tools` and delete its
 workspace from npm, TypeScript, provider-policy, and lock registries. Remove core
 structured tool entries only if no remaining adapter consumes them. Build core,
@@ -112,12 +112,12 @@ TUI, runtime, and the providerless CLI after each stage.
 ## Update or remove the vertical TUI framework
 
 Update structured rows, fragments, semantic tones, text normalization, component
-measurement, allocation, scroll reconciliation, synchronized redraw, caret
-rules, or public limits only with focused boundary tests and decisions 0006,
-0019, 0020, and 0021. Preserve normalized bounded spans, exact-row fragments,
-content-free errors, hostile accessor containment, deterministic
-priority/preference/flex allocation, and `Frame` as the final terminal-safety
-boundary. Product concepts remain in CLI.
+measurement, stack windowing, allocation, scroll reconciliation, synchronized
+redraw, caret rules, or public limits only with focused boundary tests and
+decisions 0006, 0019, 0020, 0021, and 0022. Preserve normalized bounded spans,
+exact-row fragments, content-free errors, hostile accessor containment,
+deterministic priority/preference/flex allocation, and `Frame` as the final
+terminal-safety boundary. Product concepts remain in CLI.
 
 To remove the framework, first replace `chat-view` with direct validated frame
 composition. Then delete component, fragment, display-text, input-line,
@@ -131,6 +131,15 @@ components; then remove scroll state, scroll view, their tests, manual
 references, and decision 0020. Remove synchronized
 output by deleting both markers and recovery state together. Decoder, editor,
 runtime, and core must stay green.
+
+Tool activity has one CLI-owned state and presentation path under decision 0022.
+Changing its states, retention, safe fields, ordering, tones, or bounds requires
+activity-log, reducer, view, narrow-viewport, privacy, cleanup, manual, and policy
+updates together. Do not add a tool-specific presenter. To remove the surface,
+first remove its single CLI slot and lifecycle log, then remove the generic
+component stack only if it has no other consumer. The runtime tool protocol,
+approval commands, tool engine, structured rows, scroll view, and renderer must
+remain buildable.
 
 ## Update or remove the CLI application loop
 

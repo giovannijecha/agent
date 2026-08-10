@@ -20,6 +20,10 @@ import {
   type SessionAction,
   type SessionUpdate,
 } from "./session.js";
+import {
+  ToolActivityLog,
+  type ToolActivitySnapshot,
+} from "./tool-activity-log.js";
 
 const MAX_NOTICE_LINES = 16;
 const MAX_NOTICE_CODE_UNITS = 1_024;
@@ -50,6 +54,7 @@ export type ApplicationUpdate = Readonly<{
 }>;
 
 export type ApplicationErrorKind =
+  | "activityInvariant"
   | "chatInvariant"
   | "invalidRuntimeEvent"
   | "invalidStartedTurn";
@@ -87,6 +92,7 @@ function validNotice(lines: readonly string[]): boolean {
 
 /** Sole mutable reducer for CLI editing, chat display, phase, and notices. */
 export class ApplicationController implements InputProjectionSource {
+  readonly #activityLog = new ToolActivityLog();
   readonly #chat = new ChatState();
   readonly #session: SessionController;
   #notice: readonly string[];
@@ -139,55 +145,8 @@ export class ApplicationController implements InputProjectionSource {
     return this.#session.draftLength;
   }
 
-  get toolStatus(): string {
-    return this.toolStatusFor(MAX_NOTICE_CODE_UNITS);
-  }
-
-  get toolPreview(): string {
-    const preview = this.#tool?.preview ?? "";
-    return preview.length === 0 ? "" : "scope  " + preview;
-  }
-
-  /** Returns one width-bounded, non-wrapping capability status line. */
-  toolStatusFor(columns: number): string {
-    const tool = this.#tool;
-    if (tool === undefined || !Number.isSafeInteger(columns) || columns < 1) {
-      return "";
-    }
-    const state =
-      tool.approvalRequired && tool.decision === undefined
-        ? "approval"
-        : tool.status === "started"
-          ? "running"
-          : tool.decision === "denied"
-            ? "denied"
-            : "queued";
-    const full = "tool " + tool.name + " [" + tool.risk + "] " + state;
-    if (full.length <= columns) {
-      return full;
-    }
-    const risk =
-      tool.risk === "read" ? "R" : tool.risk === "write" ? "W" : "X";
-    const stateCode =
-      state === "approval"
-        ? "?"
-        : state === "running"
-          ? ">"
-          : state === "denied"
-            ? "!"
-            : ".";
-    const suffix = " [" + risk + "][" + stateCode + "]";
-    const available = columns - suffix.length;
-    if (available < 1) {
-      return suffix.slice(0, columns);
-    }
-    const name =
-      tool.name.length <= available
-        ? tool.name
-        : available === 1
-          ? tool.name.slice(0, 1)
-          : tool.name.slice(0, available - 1) + "…";
-    return name + suffix;
+  get activities(): readonly ToolActivitySnapshot[] {
+    return this.#activityLog.snapshots();
   }
 
   get activeTurnId(): number | undefined {
@@ -218,6 +177,7 @@ export class ApplicationController implements InputProjectionSource {
 
   /** Releases all display-only personal content before external cleanup waits. */
   clear(): void {
+    this.#activityLog.clear();
     this.#session.clear();
     this.#chat.clear();
     this.#notice = Object.freeze([]);
@@ -245,6 +205,15 @@ export class ApplicationController implements InputProjectionSource {
         return update(true);
       }
       const approved = action.kind === "approve";
+      const recorded = this.#activityLog.decide(
+        tool.turnId,
+        tool.callId,
+        approved,
+      );
+      if (!recorded.ok) {
+        this.#setNotice(["Application activity state could not be updated."]);
+        return update(true);
+      }
       tool.decision = approved ? "approved" : "denied";
       this.#phase = "runningTool";
       this.#setNotice([
@@ -278,6 +247,11 @@ export class ApplicationController implements InputProjectionSource {
       if (this.#phase === "cancelling") {
         return update(false);
       }
+      const recorded = this.#activityLog.requestCancel(turnId);
+      if (!recorded.ok) {
+        this.#setNotice(["Application activity state could not be updated."]);
+        return update(true);
+      }
       this.#phase = "cancelling";
       this.#setNotice(["Cancelling the active turn..."]);
       return update(true, [
@@ -293,8 +267,13 @@ export class ApplicationController implements InputProjectionSource {
       const turnId = started.turnId;
       const user = started.user;
       const content = user.content;
+      const activityTurn = this.#activityLog.beginTurn(turnId);
+      if (!activityTurn.ok) {
+        return err(new ApplicationError("activityInvariant"));
+      }
       const begun = this.#chat.begin(turnId, content);
       if (!begun.ok) {
+        this.#activityLog.clear();
         return err(new ApplicationError("invalidStartedTurn"));
       }
     } catch (_cause: unknown) {
@@ -382,6 +361,17 @@ export class ApplicationController implements InputProjectionSource {
         ) {
           return err(new ApplicationError("invalidRuntimeEvent"));
         }
+        const recorded = this.#activityLog.request(
+          turnId,
+          callId,
+          name,
+          risk,
+          approvalPreview,
+          approvalRequired,
+        );
+        if (!recorded.ok) {
+          return err(new ApplicationError("activityInvariant"));
+        }
         this.#tool = {
           approvalRequired,
           callId,
@@ -418,6 +408,13 @@ export class ApplicationController implements InputProjectionSource {
         ) {
           return err(new ApplicationError("invalidRuntimeEvent"));
         }
+        const recorded = this.#activityLog.start(
+          event.turnId,
+          event.callId,
+        );
+        if (!recorded.ok) {
+          return err(new ApplicationError("activityInvariant"));
+        }
         tool.status = "started";
         this.#phase = "runningTool";
         this.#setNotice(["Tool running. Ctrl+C cancels the active turn."]);
@@ -439,6 +436,20 @@ export class ApplicationController implements InputProjectionSource {
             : tool.decision !== "approved" || tool.status !== "started")
         ) {
           return err(new ApplicationError("invalidRuntimeEvent"));
+        }
+        const activityOutcome =
+          tool.decision === "denied"
+            ? "denied"
+            : event.status === "success"
+              ? "succeeded"
+              : "failed";
+        const recorded = this.#activityLog.finish(
+          event.turnId,
+          event.callId,
+          activityOutcome,
+        );
+        if (!recorded.ok) {
+          return err(new ApplicationError("activityInvariant"));
         }
         const checkpointed = this.#chat.checkpoint(event.turnId);
         if (!checkpointed.ok) {
@@ -524,6 +535,16 @@ export class ApplicationController implements InputProjectionSource {
       if (!resolved.ok) {
         return err(new ApplicationError("chatInvariant"));
       }
+      if (this.#tool !== undefined && outcomeKind === "cancelled") {
+        const cancelled = this.#activityLog.cancelActive(turnId);
+        if (!cancelled.ok || !cancelled.value) {
+          return err(new ApplicationError("activityInvariant"));
+        }
+      }
+      const finishedActivities = this.#activityLog.finishTurn(turnId);
+      if (!finishedActivities.ok) {
+        return err(new ApplicationError("activityInvariant"));
+      }
       const outcomeLine =
         outcomeKind === "cancelled"
           ? checkpointed
@@ -605,6 +626,10 @@ export class ApplicationController implements InputProjectionSource {
               ]
             : ["Turn cancelled; no conversation changes were committed."],
         );
+      }
+      const finishedActivities = this.#activityLog.finishTurn(turnId);
+      if (!finishedActivities.ok) {
+        return err(new ApplicationError("activityInvariant"));
       }
       this.#preparedCleanup = false;
       this.#preparedCheckpointed = false;
