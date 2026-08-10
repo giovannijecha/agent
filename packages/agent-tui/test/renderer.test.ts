@@ -3,8 +3,10 @@ import test from "node:test";
 
 import {
   Frame,
+  RichRow,
   type Result,
   Renderer,
+  TextSpan,
   type TextOutput,
   type Tone,
   Viewport,
@@ -32,13 +34,23 @@ function tonedFrame(
   row = 0,
   column = 0,
 ): Frame {
-  const result = Frame.create(lines, { row, column }, tones);
+  const structured = lines.map((line, index) => {
+    const created = RichRow.fromText(line, tones.at(index) ?? "plain");
+    assert.ok(created.ok);
+    return created.value;
+  });
+  const result = Frame.create(structured, { row, column });
   assert.ok(result.ok);
   return result.value;
 }
 
 function frame(lines: readonly string[], row = 0, column = 0): Frame {
-  const result = Frame.create(lines, { row, column });
+  const structured = lines.map((line) => {
+    const created = RichRow.fromText(line);
+    assert.ok(created.ok);
+    return created.value;
+  });
+  const result = Frame.create(structured, { row, column });
   assert.ok(result.ok);
   return result.value;
 }
@@ -66,12 +78,15 @@ test("enters the alternate screen and shows the requested caret", async () => {
 test("always restores a visible cursor for absent or clipped carets", async () => {
   const output = new MemoryOutput();
   const renderer = new Renderer(output);
-  const withoutCaret = Frame.create(["agent"]);
+  const withoutCaret = Frame.create([frame(["agent"]).rows[0]!]);
   assert.ok(withoutCaret.ok);
 
   await renderer.render(withoutCaret.value, viewport(3, 1));
   const first = output.chunks.at(-1) ?? "";
-  const clipped = Frame.create(["abcdef"], { row: 0, column: 6 });
+  const clipped = Frame.create([frame(["abcdef"]).rows[0]!], {
+    row: 0,
+    column: 6,
+  });
   assert.ok(clipped.ok);
   await renderer.render(clipped.value, viewport(3, 1));
   const second = output.chunks.at(-1) ?? "";
@@ -102,7 +117,7 @@ test("redraws only changed rows at unchanged geometry", async () => {
   );
 });
 
-test("renders only fixed semantic tones and resets each styled row", async () => {
+test("renders only fixed semantic tones and resets each styled span", async () => {
   const output = new MemoryOutput();
   const renderer = new Renderer(output);
 
@@ -119,6 +134,52 @@ test("renders only fixed semantic tones and resets each styled row", async () =>
   assert.equal(output.text.includes("\u001B[1;36magent\u001B[0m"), true);
   assert.equal(output.text.includes("\u001B[2mready\u001B[0m"), true);
   assert.equal(output.text.includes("\u001B[1;33mapprove\u001B[0m"), true);
+});
+
+test("renders and differentially compares mixed tones within one row", async () => {
+  const output = new MemoryOutput();
+  const renderer = new Renderer(output);
+  const product = TextSpan.create("agent", "accent");
+  const ready = TextSpan.create(" ready", "muted");
+  const active = TextSpan.create(" active", "attention");
+  const suffix = TextSpan.create(" plain", "plain");
+  assert.ok(product.ok);
+  assert.ok(ready.ok);
+  assert.ok(active.ok);
+  assert.ok(suffix.ok);
+  const firstRow = RichRow.create([
+    product.value,
+    ready.value,
+    suffix.value,
+  ]);
+  const secondRow = RichRow.create([
+    product.value,
+    active.value,
+    suffix.value,
+  ]);
+  assert.ok(firstRow.ok);
+  assert.ok(secondRow.ok);
+  const first = Frame.create([firstRow.value], { row: 0, column: 11 });
+  const second = Frame.create([secondRow.value], { row: 0, column: 12 });
+  assert.ok(first.ok);
+  assert.ok(second.ok);
+
+  await renderer.render(first.value, viewport());
+  const firstSize = output.text.length;
+  await renderer.render(second.value, viewport());
+
+  assert.equal(
+    output.text.includes(
+      "\u001B[1;36magent\u001B[0m\u001B[2m ready\u001B[0m plain",
+    ),
+    true,
+  );
+  assert.equal(
+    output.text.slice(firstSize).includes(
+      "\u001B[1;36magent\u001B[0m\u001B[1;33m active\u001B[0m plain",
+    ),
+    true,
+  );
 });
 
 test("normalizes an empty emphasized row to plain terminal output", async () => {

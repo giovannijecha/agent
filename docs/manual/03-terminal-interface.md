@@ -24,10 +24,14 @@ performs a final control-character check. Rendering is serialized, differential,
 and commits its snapshot only after a complete successful write.
 
 The visual language is deliberately small. Cyan marks product identity and the
-focused input row, dim text marks passive status, yellow marks approval-sensitive
-tool state, and ordinary conversation remains plain. These are semantic roles,
-not model-controlled colors. Only the renderer creates ANSI sequences and it
-resets style before terminal ownership is returned.
+focused input row, dim text marks passive status and the current phase, yellow
+marks approval-sensitive tool state, and ordinary conversation remains plain.
+One row may contain multiple immutable semantic spans, so the product name and
+its quieter phase remain a single stable header. Empty spans are removed,
+adjacent equal roles are merged, and each row is bounded before composition.
+These are semantic roles, not model-controlled colors. Only the renderer creates
+ANSI sequences and it resets style after each emphasized span and before
+terminal ownership is returned.
 
 ## Failure behavior
 
@@ -47,15 +51,19 @@ for framework changes and [decision 0019](../decisions/0019-owned-semantic-termi
 for visual emphasis changes. Decision
 [0020](../decisions/0020-owned-scrollable-screen-foundation.md) governs
 synchronized redraw and the reusable scroll foundation. Product keyboard
-navigation is not connected in this first foundation increment.
+navigation is not connected in this first foundation increment. Decision
+[0021](../decisions/0021-owned-structured-terminal-rows.md) governs the one
+canonical structured-row representation, its bounds, clipping, and removal.
 
 ## Evidence
 
 - Input protocol: `packages/agent-tui/src/input-decoder.ts`
 - Generic layout: `packages/agent-tui/src/vertical-layout.ts`
 - Semantic tones: `packages/agent-tui/src/tone.ts`
+- Structured rows: `packages/agent-tui/src/rich-row.ts`
 - Tone contract: `docs/decisions/0019-owned-semantic-terminal-tones.md`
 - Scroll contract: `docs/decisions/0020-owned-scrollable-screen-foundation.md`
+- Structured-row contract: `docs/decisions/0021-owned-structured-terminal-rows.md`
 - Final renderer: `packages/agent-tui/src/renderer.ts`
 - Scroll state: `packages/agent-tui/src/scroll-state.ts`
 - Generic scroll view: `packages/agent-tui/src/scroll-view.ts`

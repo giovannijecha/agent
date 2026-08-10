@@ -12,32 +12,42 @@ import {
   beginTone,
   moveTo,
 } from "./ansi.js";
-import { fitText, textCellWidth } from "./cell-width.js";
 import type { Frame } from "./frame.js";
 import type { TextOutput } from "./output.js";
+import { RichRow } from "./rich-row.js";
 import { ok, type Result } from "./result.js";
-import type { Tone } from "./tone.js";
 import type { Viewport } from "./viewport.js";
 
-/** Printable row plus one renderer-owned semantic emphasis role. */
-type RenderedRow = Readonly<{ text: string; tone: Tone }>;
-
 function rowsEqual(
-  left: RenderedRow | undefined,
-  right: RenderedRow | undefined,
+  left: RichRow | undefined,
+  right: RichRow | undefined,
 ): boolean {
-  return left?.text === right?.text && left?.tone === right?.tone;
+  return left === undefined ? right === undefined : left.equals(right);
 }
 
-function renderRow(row: RenderedRow): string {
-  const prefix = beginTone(row.tone);
-  return prefix.length === 0 ? row.text : prefix + row.text + STYLE_RESET;
+function renderRow(row: RichRow): string {
+  const rendered: string[] = [];
+  for (const span of row.spans) {
+    const prefix = beginTone(span.tone);
+    rendered.push(
+      prefix.length === 0 ? span.text : prefix + span.text + STYLE_RESET,
+    );
+  }
+  return rendered.join("");
+}
+
+function fitRenderedRow(row: RichRow, columns: number): RichRow {
+  const fitted = row.fit(columns);
+  if (!fitted.ok) {
+    throw new RangeError("validated renderer geometry invariant failed");
+  }
+  return fitted.value;
 }
 
 /** Serialized differential renderer for one alternate-screen terminal session. */
 export class Renderer<E> {
   readonly #output: TextOutput<E>;
-  #previous: readonly RenderedRow[] = Object.freeze([]);
+  #previous: readonly RichRow[] = Object.freeze([]);
   #previousViewport: Viewport | undefined;
   #started = false;
   #alternateMayBeActive = false;
@@ -73,16 +83,9 @@ export class Renderer<E> {
 
   async #render(frame: Frame, viewport: Viewport): Promise<Result<void, E>> {
     const next = Object.freeze(
-      frame.lines.slice(0, viewport.rows).map((line, index) => {
-        const text = fitText(line, viewport.columns);
-        return Object.freeze({
-          text,
-          tone:
-            text.length === 0
-              ? "plain"
-              : (frame.tones.at(index) ?? "plain"),
-        });
-      }),
+      frame.rows
+        .slice(0, viewport.rows)
+        .map((row) => fitRenderedRow(row, viewport.columns)),
     );
     const viewportChanged =
       this.#previousViewport === undefined ||
@@ -131,7 +134,7 @@ export class Renderer<E> {
     } else if (next.length > 0) {
       caretRow = next.length - 1;
       caretColumn = Math.min(
-        textCellWidth(next.at(caretRow)?.text ?? ""),
+        next.at(caretRow)?.cellWidth ?? 0,
         viewport.columns - 1,
       );
     }

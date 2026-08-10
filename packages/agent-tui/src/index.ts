@@ -13,6 +13,7 @@ export {
   type FrameErrorKind,
 } from "./frame.js";
 export { Fragment, type FragmentCaret } from "./fragment.js";
+export { InlineText } from "./inline-text.js";
 export { InputLine, type InputProjectionSource } from "./input-line.js";
 export { InputDecoder, type KeyEvent } from "./input-decoder.js";
 export {
@@ -23,6 +24,12 @@ export {
 export { TUI_LIMITS } from "./limits.js";
 export type { TextOutput } from "./output.js";
 export { Renderer } from "./renderer.js";
+export {
+  RichRow,
+  RichRowError,
+  TextSpan,
+  type RichRowErrorKind,
+} from "./rich-row.js";
 export { err, ok, type Result } from "./result.js";
 export {
   ScrollError,

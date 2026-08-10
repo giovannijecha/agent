@@ -156,10 +156,14 @@ Every shutdown path independently attempts runtime, terminal, and renderer
 cleanup without allowing one failure to mask another.
 
 Treat visual emphasis as closed metadata, never as display text. Components and
-frames accept only the semantic tones registered by decision 0019. The renderer
-alone maps them to fixed ANSI, redraws tone-only changes, and resets terminal
-style after emphasized rows and during cleanup. Application code and untrusted
-content must never construct escape sequences or arbitrary color values.
+frames accept only normalized `TextSpan` and `RichRow` values under decision
+0021, and spans accept only the semantic tones registered by decision 0019. The
+renderer alone maps them to fixed ANSI, redraws text- or tone-only changes, and
+resets terminal style after emphasized spans and during cleanup. Application
+code and untrusted content must never construct escape sequences or arbitrary
+color values. Bound span count before iteration, merge adjacent equal tones,
+and contain arrays, proxies, accessors, and subclasses at every public row
+boundary.
 
 Treat scrolling as immutable geometry, never as component-owned content or an
 event queue. Reconcile an explicit row offset against measured content and the

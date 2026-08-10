@@ -1,9 +1,12 @@
 import {
-  type ComponentError,
+  ComponentError,
+  err,
   type Frame,
+  InlineText,
   InputLine,
   type Result,
   TextBlock,
+  TextSpan,
   TUI_LIMITS,
   VerticalLayout,
   type VerticalSlot,
@@ -29,11 +32,15 @@ export function createChatFrame(
   application: ApplicationController,
   viewport: Viewport,
 ): Result<Frame, ComponentError> {
-  const header = TextBlock.create(
-    "agent  " + phaseLabel(application),
-    "head",
-    "accent",
-  );
+  const productName = TextSpan.create("agent", "accent");
+  if (!productName.ok) {
+    return err(new ComponentError("invalidRow", undefined));
+  }
+  const phase = TextSpan.create("  " + phaseLabel(application), "muted");
+  if (!phase.ok) {
+    return err(new ComponentError("invalidRow", undefined));
+  }
+  const header = InlineText.create([productName.value, phase.value]);
   if (!header.ok) {
     return header;
   }

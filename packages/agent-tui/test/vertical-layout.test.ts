@@ -5,6 +5,7 @@ import {
   type Component,
   ComponentError,
   Fragment,
+  RichRow,
   type Result,
   TextBlock,
   TUI_LIMITS,
@@ -63,9 +64,11 @@ class Fill implements Component {
   }
 
   render(size: Viewport): Result<Fragment, ComponentError> {
+    const row = RichRow.fromText(this.#text);
+    assert.ok(row.ok);
     return Fragment.create(
       size,
-      Array.from({ length: size.rows }, () => this.#text),
+      Array.from({ length: size.rows }, () => row.value),
       this.#caret ? { row: 0, column: 0 } : undefined,
     );
   }
@@ -81,9 +84,9 @@ test("allocates minimum and preferred rows by priority in visual order", () => {
   const tiny = composed.render(viewport(8, 1));
 
   assert.ok(regular.ok);
-  assert.deepEqual(regular.value.lines, ["b4", "b5", "b6", ">"]);
+  assert.deepEqual(regular.value.rows.map((row) => row.text), ["b4", "b5", "b6", ">"]);
   assert.ok(tiny.ok);
-  assert.deepEqual(tiny.value.lines, [">"]);
+  assert.deepEqual(tiny.value.rows.map((row) => row.text), [">"]);
 });
 
 test("distributes remaining rows by deterministic flex weight", () => {
@@ -94,7 +97,7 @@ test("distributes remaining rows by deterministic flex weight", () => {
   const rendered = composed.render(viewport(2, 8));
 
   assert.ok(rendered.ok);
-  assert.deepEqual(rendered.value.lines, ["A", "A", "B", "B", "B", "B", "B", "B"]);
+  assert.deepEqual(rendered.value.rows.map((row) => row.text), ["A", "A", "B", "B", "B", "B", "B", "B"]);
 });
 
 test("assigns indivisible flex remainders by quota then original-order ties", () => {
@@ -110,9 +113,9 @@ test("assigns indivisible flex remainders by quota then original-order ties", ()
   ]).render(viewport(2, 2));
 
   assert.ok(weighted.ok);
-  assert.deepEqual(weighted.value.lines, ["B", "C"]);
+  assert.deepEqual(weighted.value.rows.map((row) => row.text), ["B", "C"]);
   assert.ok(tied.ok);
-  assert.deepEqual(tied.value.lines, ["A", "B"]);
+  assert.deepEqual(tied.value.rows.map((row) => row.text), ["A", "B"]);
 });
 
 test("uses original order to break equal-priority minimum ties", () => {
@@ -123,7 +126,7 @@ test("uses original order to break equal-priority minimum ties", () => {
   const rendered = composed.render(viewport(2, 3));
 
   assert.ok(rendered.ok);
-  assert.deepEqual(rendered.value.lines, ["A", "A", "B"]);
+  assert.deepEqual(rendered.value.rows.map((row) => row.text), ["A", "A", "B"]);
 });
 
 test("transforms one caret and rejects competing focused components", () => {
@@ -199,7 +202,11 @@ test("contains thrown callbacks and malformed component results", () => {
 test("revalidates returned fragments against the assigned viewport", () => {
   const wrong: Component = {
     measure: () => ok(Object.freeze({ preferredRows: 1 })),
-    render: () => Fragment.create(viewport(8, 1), ["too wide"]),
+    render: () => {
+      const row = RichRow.fromText("too wide");
+      assert.ok(row.ok);
+      return Fragment.create(viewport(8, 1), [row.value]);
+    },
   };
   const rendered = layout([slot(wrong, 1, 1, 0)]).render(viewport(4, 1));
 
@@ -218,5 +225,8 @@ test("preserves semantic tones while composing generic components", () => {
   ]).render(viewport(8, 2));
 
   assert.ok(rendered.ok);
-  assert.deepEqual(rendered.value.tones, ["accent", "muted"]);
+  assert.deepEqual(
+    rendered.value.rows.map((row) => row.spans.at(0)?.tone),
+    ["accent", "muted"],
+  );
 });

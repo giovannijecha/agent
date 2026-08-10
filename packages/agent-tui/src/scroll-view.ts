@@ -8,8 +8,8 @@ import {
 } from "./component.js";
 import { Fragment, type FragmentCaret } from "./fragment.js";
 import { err, ok, type Result } from "./result.js";
+import { RichRow } from "./rich-row.js";
 import { ScrollState } from "./scroll-state.js";
-import type { Tone } from "./tone.js";
 import { Viewport } from "./viewport.js";
 
 /** Generic bounded vertical window over exactly one contained component. */
@@ -61,7 +61,10 @@ export class ScrollView implements Component {
     }
     const contentRows = measured.value.preferredRows;
     if (contentRows === 0) {
-      const empty = Array.from({ length: viewport.rows }, () => "");
+      const empty = Array.from(
+        { length: viewport.rows },
+        () => RichRow.empty(),
+      );
       return Fragment.create(viewport, empty);
     }
 
@@ -79,11 +82,9 @@ export class ScrollView implements Component {
     }
     const start = reconciled.value.offset;
     const end = Math.min(contentRows, start + viewport.rows);
-    const lines = [...content.value.lines.slice(start, end)];
-    const tones: Tone[] = [...content.value.tones.slice(start, end)];
-    while (lines.length < viewport.rows) {
-      lines.push("");
-      tones.push("plain");
+    const rows = [...content.value.rows.slice(start, end)];
+    while (rows.length < viewport.rows) {
+      rows.push(RichRow.empty());
     }
 
     let caret: FragmentCaret | undefined;
@@ -98,6 +99,6 @@ export class ScrollView implements Component {
         column: childCaret.column,
       });
     }
-    return Fragment.create(viewport, lines, caret, tones);
+    return Fragment.create(viewport, rows, caret);
   }
 }

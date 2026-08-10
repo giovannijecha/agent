@@ -111,21 +111,24 @@ TUI, runtime, and the providerless CLI after each stage.
 
 ## Update or remove the vertical TUI framework
 
-Update fragments, semantic tones, text normalization, component measurement,
-allocation, scroll reconciliation, synchronized redraw, caret rules, or public
-limits only with focused boundary tests and decisions 0006, 0019, and 0020.
-Preserve exact-row fragments, content-free errors, callback containment,
-deterministic priority/preference/flex allocation, and `Frame` as the final
-terminal-safety boundary. Product concepts remain in CLI.
+Update structured rows, fragments, semantic tones, text normalization, component
+measurement, allocation, scroll reconciliation, synchronized redraw, caret
+rules, or public limits only with focused boundary tests and decisions 0006,
+0019, 0020, and 0021. Preserve normalized bounded spans, exact-row fragments,
+content-free errors, hostile accessor containment, deterministic
+priority/preference/flex allocation, and `Frame` as the final terminal-safety
+boundary. Product concepts remain in CLI.
 
 To remove the framework, first replace `chat-view` with direct validated frame
 composition. Then delete component, fragment, display-text, input-line,
-text-block, vertical-layout, and limit exports together with their focused tests
-and decisions 0006 and 0019. If only semantic emphasis is removed, retain the
-vertical framework and remove tone metadata, renderer mappings, CLI tone choices,
-focused tests, and decision 0019 as one change. Remove scrolling only after all
-callers return to their contained components; then remove scroll state, scroll
-view, their tests, manual references, and decision 0020. Remove synchronized
+inline-text, rich-row, text-block, vertical-layout, and limit exports together
+with their focused tests and decisions 0006, 0019, and 0021. If only semantic
+emphasis is removed, retain the vertical framework and replace structured rows
+with one validated plain-row contract before removing tone metadata, renderer
+mappings, CLI tone choices, focused tests, and decisions 0019 and 0021 as one
+change. Remove scrolling only after all callers return to their contained
+components; then remove scroll state, scroll view, their tests, manual
+references, and decision 0020. Remove synchronized
 output by deleting both markers and recovery state together. Decoder, editor,
 runtime, and core must stay green.
 
@@ -319,8 +322,10 @@ Terminal protocol changes affect two independent owners:
    followed by shutdown controls, SS3 fragmentation, and cumulative queue size.
 5. Update decision 0004 when lifecycle, ownership, width rules, or supported keys
    change materially.
-6. Preserve decision 0019 when semantic emphasis changes: tones stay closed,
-   application-neutral, exact-row, and renderer-owned, with reset on cleanup.
+6. Preserve decisions 0019 and 0021 when semantic emphasis changes: tones stay
+   closed, application-neutral, structured-row, and renderer-owned, with
+   normalization, bounded span count, and reset after emphasized spans and on
+   cleanup.
 
 To remove interactivity, first remove runtime event composition, then delete the
 TUI decoder/editor/viewport modules and CLI session/chat-view/host modules.

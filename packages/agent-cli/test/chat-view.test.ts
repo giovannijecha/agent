@@ -27,8 +27,8 @@ test("keeps only a valid prompt and caret in a one-cell viewport", () => {
   const result = createChatFrame(application, viewport(1, 1));
 
   assert.ok(result.ok);
-  assert.deepEqual(result.value.lines, [""]);
-  assert.deepEqual(result.value.tones, ["accent"]);
+  assert.deepEqual(result.value.rows.map((row) => row.text), [""]);
+  assert.deepEqual(result.value.rows.at(0)?.spans, []);
   assert.deepEqual(result.value.caret, { row: 0, column: 0 });
 });
 
@@ -37,11 +37,14 @@ test("keeps status directly above the final prompt on a short viewport", () => {
   const result = createChatFrame(application, viewport(40, 2));
 
   assert.ok(result.ok);
-  assert.deepEqual(result.value.lines, [
+  assert.deepEqual(result.value.rows.map((row) => row.text), [
     "No model or tools are configured.",
     "> ",
   ]);
-  assert.deepEqual(result.value.tones, ["muted", "accent"]);
+  assert.deepEqual(
+    result.value.rows.map((row) => row.spans.at(0)?.tone),
+    ["muted", "accent"],
+  );
   assert.deepEqual(result.value.caret, { row: 1, column: 2 });
 });
 
@@ -65,11 +68,14 @@ test("keeps tool identity, risk, and approval state visible in two rows", () => 
   const result = createChatFrame(application, viewport(40, 2));
 
   assert.ok(result.ok);
-  assert.equal(result.value.lines.at(0)?.includes("replace_text"), true);
-  assert.equal(result.value.lines.at(0)?.includes("write"), true);
-  assert.equal(result.value.lines.at(0)?.includes("approval"), true);
-  assert.equal(result.value.lines.at(1), "> ");
-  assert.deepEqual(result.value.tones, ["attention", "accent"]);
+  assert.equal(result.value.rows.at(0)?.text.includes("replace_text"), true);
+  assert.equal(result.value.rows.at(0)?.text.includes("write"), true);
+  assert.equal(result.value.rows.at(0)?.text.includes("approval"), true);
+  assert.equal(result.value.rows.at(1)?.text, "> ");
+  assert.deepEqual(
+    result.value.rows.map((row) => row.spans.at(0)?.tone),
+    ["attention", "accent"],
+  );
 });
 
 test("renders a tail-anchored prospective transcript through text safety", () => {
@@ -86,14 +92,18 @@ test("renders a tail-anchored prospective transcript through text safety", () =>
   const result = createChatFrame(application, viewport(40, 7));
 
   assert.ok(result.ok);
-  assert.equal(result.value.lines.join("\n").includes("\u001B"), false);
-  assert.equal(result.value.lines.join("\n").includes("unsafe?partial"), true);
-  const partialRow = result.value.lines.findIndex((line) =>
+  const lines = result.value.rows.map((row) => row.text);
+  assert.equal(lines.join("\n").includes("\u001B"), false);
+  assert.equal(lines.join("\n").includes("unsafe?partial"), true);
+  const partialRow = lines.findIndex((line) =>
     line.includes("unsafe?partial"),
   );
-  assert.equal(result.value.tones.at(partialRow), "plain");
-  assert.equal(result.value.lines.at(-1), "> ");
-  assert.equal(result.value.caret?.row, result.value.lines.length - 1);
+  assert.equal(
+    result.value.rows.at(partialRow)?.spans.at(0)?.tone,
+    "plain",
+  );
+  assert.equal(result.value.rows.at(-1)?.text, "> ");
+  assert.equal(result.value.caret?.row, result.value.rows.length - 1);
 });
 
 test("shows completed chat and idle phase without product concepts in TUI", () => {
@@ -123,8 +133,12 @@ test("shows completed chat and idle phase without product concepts in TUI", () =
   const result = createChatFrame(application, viewport(40, 8));
 
   assert.ok(result.ok);
-  assert.equal(result.value.lines.join("\n").includes("agent  ready"), true);
-  assert.equal(result.value.tones.at(0), "accent");
-  assert.equal(result.value.lines.join("\n").includes("question"), true);
-  assert.equal(result.value.lines.join("\n").includes("answer"), true);
+  const lines = result.value.rows.map((row) => row.text);
+  assert.equal(lines.join("\n").includes("agent  ready"), true);
+  assert.deepEqual(
+    result.value.rows.at(0)?.spans.map((span) => span.tone),
+    ["accent", "muted"],
+  );
+  assert.equal(lines.join("\n").includes("question"), true);
+  assert.equal(lines.join("\n").includes("answer"), true);
 });

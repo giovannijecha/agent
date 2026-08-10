@@ -123,8 +123,8 @@ use no third-party action.
 
 `agent`, `npm start`, and `npm run dev` open the interactive alternate-screen
 terminal when both stdin and stdout are TTYs. The interface uses one compact
-identity line and four renderer-owned semantic tones; model text cannot emit or
-select terminal styling. The first milestone supports:
+identity line, bounded structured rows, and four renderer-owned semantic tones;
+model text cannot emit or select terminal styling. The first milestone supports:
 
 ```text
 /help       show the command reference

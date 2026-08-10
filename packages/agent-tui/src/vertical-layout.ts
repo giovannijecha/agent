@@ -8,7 +8,7 @@ import { measureComponent, renderComponent } from "./component-boundary.js";
 import { Frame, type Caret } from "./frame.js";
 import { TUI_LIMITS } from "./limits.js";
 import { err, ok, type Result } from "./result.js";
-import type { Tone } from "./tone.js";
+import { RichRow } from "./rich-row.js";
 import { Viewport } from "./viewport.js";
 
 /** Allocation policy for one component in original vertical order. */
@@ -192,8 +192,7 @@ export class VerticalLayout {
       }
     }
 
-    const lines: string[] = [];
-    const tones: Tone[] = [];
+    const rows: RichRow[] = [];
     let caret: Caret | undefined;
     for (const allocation of allocations) {
       if (allocation.rows === 0) {
@@ -216,15 +215,14 @@ export class VerticalLayout {
           return err(new ComponentError("multipleCarets", allocation.index));
         }
         caret = Object.freeze({
-          row: lines.length + rendered.value.caret.row,
+          row: rows.length + rendered.value.caret.row,
           column: rendered.value.caret.column,
         });
       }
-      lines.push(...rendered.value.lines);
-      tones.push(...rendered.value.tones);
+      rows.push(...rendered.value.rows);
     }
 
-    const frame = Frame.create(lines, caret, tones);
+    const frame = Frame.create(rows, caret);
     return frame.ok
       ? frame
       : err(new ComponentError("invalidFrame", frame.error.row));

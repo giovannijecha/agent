@@ -37,7 +37,7 @@ it when moved back to the end. It retains no content and performs no I/O.
 
 `ScrollView` wraps exactly one generic component. It measures and renders that
 component through the same contained component boundary used by vertical
-layout, resolves one bounded window, copies only visible rows and tones, pads
+layout, resolves one bounded window, copies only visible structured rows, pads
 unused rows, and exposes a child caret only while it is visible. The child can
 never select its own terminal controls or exceed existing frame bounds.
 
@@ -47,12 +47,12 @@ terminal dependency, product vocabulary, or hidden global state.
 
 ## Evolution sequence
 
-This decision is the first TUI v2 foundation, not the final interface. Later
-decisions may add, in order, structured rich rows, a bounded owned Markdown
-subset, CLI-owned transcript blocks and one unified tool-activity surface, then
-keyboard navigation and responsive status composition. Each capability must
-reuse this single scroll and renderer path rather than introduce a parallel
-screen engine.
+This decision is the first TUI v2 foundation, not the final interface. Decision
+0021 fulfills the next step with structured rich rows. Later decisions may add,
+in order, a bounded owned Markdown subset, CLI-owned transcript blocks and one
+unified tool-activity surface, then keyboard navigation and responsive status
+composition. Each capability must reuse this single scroll and renderer path
+rather than introduce a parallel screen engine.
 
 Mouse input, images, overlapping layers, split panes, arbitrary styling,
 animation, and extension-supplied render callbacks remain excluded until a
@@ -71,4 +71,5 @@ contained component, then remove scroll modules, exports, tests, manual
 references, and this decision. To remove synchronized output only, remove both
 markers and the recovery flag together while retaining the previous serialized
 differential renderer. Alternate-screen lifecycle, frame validation, vertical
-layout, semantic tones, input, runtime, and core remain independently usable.
+layout, structured rows, semantic tones, input, runtime, and core remain
+independently usable.
