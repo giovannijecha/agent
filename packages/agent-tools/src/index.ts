@@ -36,9 +36,15 @@ export {
   TOOL_SCHEMA_LIMITS,
   validateSchema,
   type ObjectSchemaField,
+  type ObjectSchemaProjection,
   type SchemaError,
   type SchemaErrorKind,
   type SchemaValidationError,
   type SchemaValidationErrorKind,
   type ToolSchema,
+  type StringSchemaOptions,
 } from "./schema.js";
+export {
+  renderStructuredProjection,
+  type StructuredProjectionField,
+} from "./projection.js";

@@ -5,6 +5,7 @@ import { err, ok, StructuredObject, structuredValueFromUnknown } from "@agent/co
 import {
   ObjectSchema,
   StringSchema,
+  TOOL_ENGINE_LIMITS,
   ToolDescriptor,
   ToolEngine,
   ToolHandlerOutcome,
@@ -273,6 +274,53 @@ test("requires bounded approval fields for mutation descriptors", () => {
     ]),
   );
   assert.ok(descriptor.ok);
+});
+
+test("requires mutation approval fields to match the schema projection", () => {
+  const text = StringSchema.create(1, 128);
+  assert.ok(text.ok);
+  const schema = ObjectSchema.create(
+    [
+      {
+        description: "Relative workspace path.",
+        name: "path",
+        required: true,
+        schema: text.value,
+      },
+    ],
+    {
+      fields: Object.freeze([
+        Object.freeze({ mode: "exact" as const, name: "path" }),
+      ]),
+      maximumCodeUnits: TOOL_ENGINE_LIMITS.approvalPreviewCodeUnits,
+    },
+  );
+  assert.ok(schema.ok);
+
+  const matching = ToolDescriptor.create(
+    "write_file",
+    "Write a file.",
+    "write",
+    schema.value,
+    Object.freeze([
+      Object.freeze({ mode: "exact" as const, name: "path" }),
+    ]),
+  );
+  assert.ok(matching.ok);
+
+  const mismatchedMode = ToolDescriptor.create(
+    "write_file",
+    "Write a file.",
+    "write",
+    schema.value,
+    Object.freeze([
+      Object.freeze({ mode: "size" as const, name: "path" }),
+    ]),
+  );
+  assert.deepEqual(mismatchedMode, {
+    ok: false,
+    error: { kind: "invalidApproval" },
+  });
 });
 
 test("escapes invisible and directional scalars in approval summaries", () => {

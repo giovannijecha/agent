@@ -43,7 +43,11 @@ encoded for the broker.
 
 Production limits are fixed by the application: 120,000 milliseconds, 16
 processes in the contained tree, 65,536 bytes of standard output, 65,536 bytes
-of standard error, 64 arguments, and 4,096 UTF-16 code units per argument.
+of standard error, and 64 arguments. Each model-provided argument and the
+relative working directory are limited to 2,730 UTF-16 code units and 8,192
+UTF-8 bytes, must contain valid Unicode scalar text, and cannot contain NUL.
+The complete exact approval projection is limited to 8,192 UTF-16 code units
+before any handler or broker invocation begins.
 Program output must be valid UTF-8. A normal nonzero exit is an observed,
 recoverable failed tool outcome rather than an infrastructure failure. It
 returns `outcome`, `exitCode`, `stdout`, and `stderr`, is checkpointed, and lets

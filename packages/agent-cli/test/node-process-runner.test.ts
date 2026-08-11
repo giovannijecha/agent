@@ -6,7 +6,10 @@ import test from "node:test";
 import type { ToolCancellation } from "@agent/tools";
 
 import { NodeProcessRunner } from "../dist/node-process-runner.js";
-import type { ProcessRunRequest } from "../dist/process-runner.js";
+import {
+  PROCESS_RUNNER_LIMITS,
+  type ProcessRunRequest,
+} from "../dist/process-runner.js";
 
 const idleCancellation: ToolCancellation = Object.freeze({
   requested: false,
@@ -153,8 +156,30 @@ test("rejects oversized arguments before launching the broker", async () => {
   assert.deepEqual(tooMany, { ok: false, error: { kind: "io" } });
 
   const tooLong = await runner().run(
-    request(["x".repeat(4_097)]),
+    request(["x".repeat(PROCESS_RUNNER_LIMITS.argumentCodeUnits + 1)]),
     idleCancellation,
   );
   assert.deepEqual(tooLong, { ok: false, error: { kind: "io" } });
+
+  for (const unsafe of ["a\0b", "\ud800"]) {
+    const rejected = await runner().run(
+      request([unsafe]),
+      idleCancellation,
+    );
+    assert.deepEqual(rejected, { ok: false, error: { kind: "io" } });
+  }
+
+  const oversizedUtf8Directory = await runner().run(
+    request([], {
+      workingDirectory:
+        path.resolve(cwd()) +
+        path.sep +
+        "\u6f22".repeat(Math.floor(PROCESS_RUNNER_LIMITS.textUtf8Bytes / 3) + 1),
+    }),
+    idleCancellation,
+  );
+  assert.deepEqual(oversizedUtf8Directory, {
+    ok: false,
+    error: { kind: "io" },
+  });
 });

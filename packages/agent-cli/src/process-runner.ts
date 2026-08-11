@@ -4,11 +4,13 @@ import type { ToolCancellation, ToolHandlerError } from "@agent/tools";
 /** Product limits for one model-requested process execution. */
 export const PROCESS_RUNNER_LIMITS = Object.freeze({
   arguments: 64,
-  argumentCodeUnits: 4_096,
+  argumentCodeUnits: 2_730,
   processCount: 16,
   stderrBytes: 65_536,
   stdoutBytes: 65_536,
+  textUtf8Bytes: 8_192,
   timeoutMilliseconds: 120_000,
+  workingDirectoryCodeUnits: 2_730,
 });
 
 export type ProcessRunRequest = Readonly<{

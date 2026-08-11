@@ -1,9 +1,16 @@
-import { err, ok, type Result } from "@agent/core";
+import {
+  err,
+  ok,
+  type Result,
+  scalarUtf8ByteLength,
+} from "@agent/core";
+
+import { PROCESS_RUNNER_LIMITS } from "./process-runner.js";
 
 export const PROCESS_BROKER_LIMITS = Object.freeze({
-  arguments: 64,
+  arguments: PROCESS_RUNNER_LIMITS.arguments,
   frameBytes: 65_536,
-  stringBytes: 8_192,
+  stringBytes: PROCESS_RUNNER_LIMITS.textUtf8Bytes,
 });
 
 const HEADER_BYTES = 12;
@@ -39,59 +46,53 @@ function failure(
   return Object.freeze({ kind });
 }
 
-function validScalarText(value: string): boolean {
-  for (let offset = 0; offset < value.length; offset += 1) {
-    const first = value.charCodeAt(offset);
-    if (first === 0) {
-      return false;
-    }
-    if (first >= 0xd800 && first <= 0xdbff) {
-      const second = value.charCodeAt(offset + 1);
-      if (!Number.isInteger(second) || second < 0xdc00 || second > 0xdfff) {
-        return false;
-      }
-      offset += 1;
-    } else if (first >= 0xdc00 && first <= 0xdfff) {
-      return false;
-    }
-  }
-  return true;
-}
-
 export function encodeProcessText(
   value: string,
 ): Result<Uint8Array, ProcessBrokerProtocolError> {
-  if (typeof value !== "string" || !validScalarText(value)) {
+  const byteLength = scalarUtf8ByteLength(value, true);
+  if (byteLength === undefined) {
     return err(failure("invalidText"));
   }
-  const bytes: number[] = [];
+  if (byteLength > PROCESS_BROKER_LIMITS.stringBytes) {
+    return err(failure("limit"));
+  }
+  const bytes = new Uint8Array(byteLength);
+  let offset = 0;
   for (const scalar of value) {
     const point = scalar.codePointAt(0);
     if (point === undefined) {
       return err(failure("invalidText"));
     }
     if (point <= 0x7f) {
-      bytes.push(point);
+      bytes.set([point], offset);
+      offset += 1;
     } else if (point <= 0x7ff) {
-      bytes.push(0xc0 | (point >> 6), 0x80 | (point & 0x3f));
+      bytes.set([0xc0 | (point >> 6), 0x80 | (point & 0x3f)], offset);
+      offset += 2;
     } else if (point <= 0xffff) {
-      bytes.push(
-        0xe0 | (point >> 12),
-        0x80 | ((point >> 6) & 0x3f),
-        0x80 | (point & 0x3f),
+      bytes.set(
+        [
+          0xe0 | (point >> 12),
+          0x80 | ((point >> 6) & 0x3f),
+          0x80 | (point & 0x3f),
+        ],
+        offset,
       );
+      offset += 3;
     } else {
-      bytes.push(
-        0xf0 | (point >> 18),
-        0x80 | ((point >> 12) & 0x3f),
-        0x80 | ((point >> 6) & 0x3f),
-        0x80 | (point & 0x3f),
+      bytes.set(
+        [
+          0xf0 | (point >> 18),
+          0x80 | ((point >> 12) & 0x3f),
+          0x80 | ((point >> 6) & 0x3f),
+          0x80 | (point & 0x3f),
+        ],
+        offset,
       );
+      offset += 4;
     }
   }
-  return bytes.length <= PROCESS_BROKER_LIMITS.stringBytes
-    ? ok(Uint8Array.from(bytes))
-    : err(failure("limit"));
+  return ok(bytes);
 }
 
 function continuation(byte: number | undefined): byte is number {

@@ -3,7 +3,7 @@ import path from "node:path";
 import { clearTimeout, setTimeout, type Timeout } from "node:timers";
 import { fileURLToPath } from "node:url";
 
-import { err, ok, type Result } from "@agent/core";
+import { err, ok, type Result, scalarUtf8ByteLength } from "@agent/core";
 import type { ToolCancellation, ToolHandlerError } from "@agent/tools";
 
 import {
@@ -86,22 +86,37 @@ function brokerPath(platform: "linux" | "win32", architecture: "x64"): string {
   );
 }
 
+function validProcessText(
+  value: unknown,
+  maximumCodeUnits?: number,
+): value is string {
+  if (
+    typeof value !== "string" ||
+    (maximumCodeUnits !== undefined && value.length > maximumCodeUnits)
+  ) {
+    return false;
+  }
+  const bytes = scalarUtf8ByteLength(value, true);
+  return (
+    bytes !== undefined && bytes <= PROCESS_RUNNER_LIMITS.textUtf8Bytes
+  );
+}
+
 function validRequest(request: ProcessRunRequest): boolean {
   try {
     return (
-      typeof request.executable === "string" &&
+      validProcessText(request.executable) &&
       path.isAbsolute(request.executable) &&
-      !request.executable.includes("\u0000") &&
-      typeof request.workingDirectory === "string" &&
+      validProcessText(request.workingDirectory) &&
       path.isAbsolute(request.workingDirectory) &&
-      !request.workingDirectory.includes("\u0000") &&
       Array.isArray(request.arguments) &&
       request.arguments.length <= PROCESS_RUNNER_LIMITS.arguments &&
       request.arguments.every(
         (argument) =>
-          typeof argument === "string" &&
-          argument.length <= PROCESS_RUNNER_LIMITS.argumentCodeUnits &&
-          !argument.includes("\u0000"),
+          validProcessText(
+            argument,
+            PROCESS_RUNNER_LIMITS.argumentCodeUnits,
+          ),
       ) &&
       Number.isSafeInteger(request.processLimit) &&
       request.processLimit >= 1 &&

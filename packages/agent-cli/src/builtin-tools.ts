@@ -21,13 +21,16 @@ import {
   LiteralStringSchema,
   ObjectSchema,
   type ObjectSchemaField,
+  type ObjectSchemaProjection,
   StringSchema,
+  type StringSchemaOptions,
   type ToolApprovalField,
   ToolDescriptor,
   ToolEngine,
   type ToolHandler,
   type ToolHandlerError,
   ToolHandlerOutcome,
+  TOOL_ENGINE_LIMITS,
   ToolRegistry,
   type ToolRisk,
 } from "@agent/tools";
@@ -651,8 +654,12 @@ function replaceTextHandler(root: string): ToolHandler {
   };
 }
 
-function stringSchema(minimum: number, maximum: number): StringSchema {
-  const schema = StringSchema.create(minimum, maximum);
+function stringSchema(
+  minimum: number,
+  maximum: number,
+  options?: StringSchemaOptions,
+): StringSchema {
+  const schema = StringSchema.create(minimum, maximum, options);
   if (!schema.ok) {
     throw new Error("owned string schema invariant");
   }
@@ -661,8 +668,9 @@ function stringSchema(minimum: number, maximum: number): StringSchema {
 
 function objectSchema(
   fields: readonly ObjectSchemaField[],
+  projection?: ObjectSchemaProjection,
 ): ObjectSchema {
-  const schema = ObjectSchema.create(fields);
+  const schema = ObjectSchema.create(fields, projection);
   if (!schema.ok) {
     throw new Error("owned object schema invariant");
   }
@@ -751,6 +759,18 @@ function runProcessHandler(
     );
   };
 }
+
+const RUN_PROCESS_APPROVAL_FIELDS: readonly ToolApprovalField[] =
+  Object.freeze([
+    Object.freeze({ mode: "exact" as const, name: "program" }),
+    Object.freeze({ mode: "exact" as const, name: "arguments" }),
+    Object.freeze({ mode: "exact" as const, name: "workingDirectory" }),
+  ]);
+
+const PROCESS_TEXT_SCHEMA_OPTIONS: StringSchemaOptions = Object.freeze({
+  maximumUtf8Bytes: PROCESS_RUNNER_LIMITS.textUtf8Bytes,
+  rejectNul: true,
+});
 
 function registrations(root: string, platform: BuiltinToolsPlatform) {
   const pathField = {
@@ -859,7 +879,11 @@ function registrations(root: string, platform: BuiltinToolsPlatform) {
             name: "arguments",
             required: true,
             schema: listSchema(
-              stringSchema(0, PROCESS_RUNNER_LIMITS.argumentCodeUnits),
+              stringSchema(
+                0,
+                PROCESS_RUNNER_LIMITS.argumentCodeUnits,
+                PROCESS_TEXT_SCHEMA_OPTIONS,
+              ),
               0,
               PROCESS_RUNNER_LIMITS.arguments,
             ),
@@ -868,14 +892,17 @@ function registrations(root: string, platform: BuiltinToolsPlatform) {
             description: "Existing workspace-relative working directory.",
             name: "workingDirectory",
             required: true,
-            schema: stringSchema(1, 4_096),
+            schema: stringSchema(
+              1,
+              PROCESS_RUNNER_LIMITS.workingDirectoryCodeUnits,
+              PROCESS_TEXT_SCHEMA_OPTIONS,
+            ),
           },
-        ]),
-        Object.freeze([
-          Object.freeze({ mode: "exact" as const, name: "program" }),
-          Object.freeze({ mode: "exact" as const, name: "arguments" }),
-          Object.freeze({ mode: "exact" as const, name: "workingDirectory" }),
-        ]),
+        ], {
+          fields: RUN_PROCESS_APPROVAL_FIELDS,
+          maximumCodeUnits: TOOL_ENGINE_LIMITS.approvalPreviewCodeUnits,
+        }),
+        RUN_PROCESS_APPROVAL_FIELDS,
       ),
       handler: runProcessHandler(root, platform),
     }),

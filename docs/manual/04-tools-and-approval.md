@@ -42,10 +42,13 @@ not accept a shell string, executable path, PATH lookup, stdin, environment, or
 model-selected limits. Linux targets receive an empty environment. Windows
 targets receive exactly one `SystemRoot` value queried by the native broker from
 the operating system; no user environment is inherited. The adapter caps
-arguments at 64 entries and 4,096 code units each, descendants at 16, stdout
-and stderr at 65,536 bytes each, and execution at 120 seconds. `run_process`
-runs terminating commands only. A local server or other persistent process is
-not retained after the bounded invocation.
+arguments at 64 entries. Each argument and the relative working directory are
+limited to 2,730 UTF-16 code units and 8,192 UTF-8 bytes, must be valid Unicode
+scalar text, and cannot contain NUL. The exact aggregate approval projection is
+limited to 8,192 UTF-16 code units before execution. Descendants are capped at
+16, stdout and stderr at 65,536 bytes each, and execution at 120 seconds.
+`run_process` runs terminating commands only. A local server or other persistent
+process is not retained after the bounded invocation.
 
 One model response may select up to 32 ordered tool calls, subject to the
 remaining per-turn, argument, output, and conversation limits. The complete

@@ -9,9 +9,10 @@ import { ok, StructuredObject, structuredValueFromUnknown } from "@agent/core";
 import type { ToolCancellation, ToolEngine, ToolExecution } from "@agent/tools";
 
 import { createBuiltinToolEngine } from "../dist/builtin-tools.js";
-import type {
-  ProcessRunRequest,
-  ProcessRunner,
+import {
+  PROCESS_RUNNER_LIMITS,
+  type ProcessRunRequest,
+  type ProcessRunner,
 } from "../dist/process-runner.js";
 
 const cancellation: ToolCancellation = Object.freeze({
@@ -84,6 +85,60 @@ test("runs only the registered program with structured arguments", async () => {
       ),
       { ok: false, error: { kind: "invalidInput" } },
     );
+  });
+});
+
+test("rejects process text and approval projections beyond their exact limits", async () => {
+  await withWorkspace(async (workspace) => {
+    let runnerCalls = 0;
+    const trackingRunner: ProcessRunner = Object.freeze({
+      run: async () => {
+        runnerCalls += 1;
+        return ok(
+          Object.freeze({
+            exitCode: 0,
+            outcome: "exited" as const,
+            stderr: "",
+            stdout: "",
+          }),
+        );
+      },
+    });
+    const tools = engine(workspace, trackingRunner);
+
+    const oversizedUtf8 = structuredValueFromUnknown({
+      arguments: [
+        "\u6f22".repeat(PROCESS_RUNNER_LIMITS.argumentCodeUnits + 1),
+      ],
+      program: "node",
+      workingDirectory: ".",
+    });
+    assert.ok(
+      oversizedUtf8.ok && oversizedUtf8.value instanceof StructuredObject,
+    );
+    assert.deepEqual(
+      tools.prepare("call-oversized-utf8", "run_process", oversizedUtf8.value),
+      { ok: false, error: { kind: "invalidInput" } },
+    );
+
+    const oversizedProjection = structuredValueFromUnknown({
+      arguments: Array.from({ length: 4 }, () => "x".repeat(2_700)),
+      program: "node",
+      workingDirectory: ".",
+    });
+    assert.ok(
+      oversizedProjection.ok &&
+        oversizedProjection.value instanceof StructuredObject,
+    );
+    assert.deepEqual(
+      tools.prepare(
+        "call-oversized-projection",
+        "run_process",
+        oversizedProjection.value,
+      ),
+      { ok: false, error: { kind: "invalidInput" } },
+    );
+    assert.equal(runnerCalls, 0);
   });
 });
 

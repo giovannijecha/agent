@@ -21,6 +21,7 @@ export {
   type ToolResultStatus,
 } from "./conversation.js";
 export { err, ok, type Result } from "./result.js";
+export { scalarUtf8ByteLength } from "./text.js";
 export {
   STRUCTURED_VALUE_LIMITS,
   StructuredList,

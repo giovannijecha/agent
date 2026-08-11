@@ -5,6 +5,7 @@ import {
   decodeProcessText,
   encodeProcessLaunch,
   encodeProcessText,
+  PROCESS_BROKER_LIMITS,
   ProcessBrokerStatusDecoder,
 } from "../dist/process-broker-protocol.js";
 
@@ -39,6 +40,19 @@ test("round trips owned UTF-8 and rejects unsafe text", () => {
   assert.equal(encodeProcessText("a\0b").ok, false);
   assert.equal(encodeProcessText("\ud800").ok, false);
   assert.equal(decodeProcessText(Uint8Array.from([0xc0, 0x80])).ok, false);
+});
+
+test("enforces the broker text limit in encoded UTF-8 bytes", () => {
+  const maximumBytes = PROCESS_BROKER_LIMITS.stringBytes;
+  const maximumCjkScalars = Math.floor(maximumBytes / 3);
+
+  assert.equal(encodeProcessText("x".repeat(maximumBytes)).ok, true);
+  assert.equal(encodeProcessText("x".repeat(maximumBytes + 1)).ok, false);
+  assert.equal(encodeProcessText("\u6f22".repeat(maximumCjkScalars)).ok, true);
+  assert.equal(
+    encodeProcessText("\u6f22".repeat(maximumCjkScalars + 1)).ok,
+    false,
+  );
 });
 
 test("decodes fragmented started and finished statuses", () => {
