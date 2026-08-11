@@ -69,7 +69,7 @@ test("enters the alternate screen and shows the requested caret", async () => {
 
   assert.equal(
     output.text,
-    "\u001B[?2026h\u001B[?1049h\u001B[?25l\u001B[2J\u001B[H" +
+    "\u001B[?2026h\u001B[?1049h\u001B[?2004h\u001B[?25l\u001B[2 q\u001B[2J\u001B[H" +
       "\u001B[1;1H\u001B[2Kagent" +
       "\u001B[1;6H\u001B[?25h\u001B[?2026l",
   );
@@ -131,12 +131,169 @@ test("renders only fixed semantic tones and resets each styled span", async () =
     viewport(),
   );
 
-  assert.equal(output.text.includes("\u001B[1;36magent\u001B[0m"), true);
+  assert.equal(output.text.includes("\u001B[38;5;67magent\u001B[0m"), true);
   assert.equal(output.text.includes("\u001B[2mready\u001B[0m"), true);
   assert.equal(output.text.includes("\u001B[1;33mapprove\u001B[0m"), true);
   assert.equal(output.text.includes("\u001B[1;32msuccess\u001B[0m"), true);
   assert.equal(output.text.includes("\u001B[1;31mfailure\u001B[0m"), true);
   assert.equal(output.text.includes("\u001B[1memphasis\u001B[0m"), true);
+});
+
+test("renders the closed restrained syntax palette on the technical inset", async () => {
+  const output = new MemoryOutput();
+  const renderer = new Renderer(output);
+  const tones: readonly Tone[] = [
+    "syntaxKeyword",
+    "syntaxName",
+    "syntaxString",
+    "syntaxLiteral",
+    "syntaxComment",
+  ];
+  const expected = [
+    "38;5;75",
+    "38;5;117",
+    "38;5;180",
+    "38;5;150",
+    "38;5;108",
+  ];
+  const rows = tones.map((tone, index) => {
+    const span = TextSpan.create("sample", tone, { surface: "inset" });
+    assert.ok(span.ok);
+    const row = RichRow.create([span.value]);
+    assert.ok(row.ok);
+    assert.equal(expected.at(index) !== undefined, true);
+    return row.value;
+  });
+  const styled = Frame.create(rows, { row: 0, column: 0 });
+  assert.ok(styled.ok);
+
+  await renderer.render(styled.value, viewport());
+
+  for (const parameters of expected) {
+    assert.equal(
+      output.text.includes(
+        "\u001B[" + parameters + ";48;5;235msample\u001B[0m",
+      ),
+      true,
+    );
+  }
+});
+
+test("renders closed italic and subtle-background styles compositionally", async () => {
+  const output = new MemoryOutput();
+  const renderer = new Renderer(output);
+  const surfaced = TextSpan.create(" question ", "plain", {
+    slant: "italic",
+    surface: "subtle",
+  });
+  const emphasis = TextSpan.create("answer", "emphasis", {
+    slant: "italic",
+    surface: "subtle",
+  });
+  assert.ok(surfaced.ok);
+  assert.ok(emphasis.ok);
+  const row = RichRow.create([surfaced.value, emphasis.value]);
+  assert.ok(row.ok);
+  const styled = Frame.create([row.value], { row: 0, column: 0 });
+  assert.ok(styled.ok);
+
+  await renderer.render(styled.value, viewport());
+
+  assert.equal(
+    output.text.includes("\u001B[3;100m question \u001B[0m"),
+    true,
+  );
+  assert.equal(
+    output.text.includes("\u001B[1;3;100manswer\u001B[0m"),
+    true,
+  );
+});
+
+test("renders closed semantic lifecycle backgrounds", async () => {
+  const output = new MemoryOutput();
+  const renderer = new Renderer(output);
+  const definitions = [
+    ["success", "22"],
+    ["attention", "58"],
+    ["failure", "52"],
+  ] as const;
+  const rows = definitions.map(([surface]) => {
+    const span = TextSpan.create(surface, "plain", { surface });
+    assert.ok(span.ok);
+    const row = RichRow.create([span.value]);
+    assert.ok(row.ok);
+    return row.value;
+  });
+  const frame = Frame.create(rows, { row: 0, column: 0 });
+  assert.ok(frame.ok);
+
+  await renderer.render(frame.value, viewport());
+
+  for (const [surface, color] of definitions) {
+    assert.equal(
+      output.text.includes(
+        "\u001B[48;5;" + color + "m" + surface + "\u001B[0m",
+      ),
+      true,
+    );
+  }
+});
+
+test("composes neutral emphasis with semantic lifecycle backgrounds", async () => {
+  const output = new MemoryOutput();
+  const renderer = new Renderer(output);
+  const definitions = [
+    ["succeeded", "success", "22"],
+    ["approval required", "attention", "58"],
+    ["failed", "failure", "52"],
+  ] as const;
+  const rows = definitions.map(([label, surface]) => {
+    const span = TextSpan.create(label, "emphasis", { surface });
+    assert.ok(span.ok);
+    const row = RichRow.create([span.value]);
+    assert.ok(row.ok);
+    return row.value;
+  });
+  const styled = Frame.create(rows, { row: 0, column: 0 });
+  assert.ok(styled.ok);
+
+  await renderer.render(styled.value, viewport());
+
+  for (const [label, _surface, color] of definitions) {
+    assert.equal(
+      output.text.includes(
+        "\u001B[1;48;5;" + color + "m" + label + "\u001B[0m",
+      ),
+      true,
+    );
+  }
+});
+
+test("redraws a row when only its composable style changes", async () => {
+  const output = new MemoryOutput();
+  const renderer = new Renderer(output);
+  const plain = RichRow.fromText("message");
+  const surfaced = RichRow.fromText("message", "plain", {
+    slant: "italic",
+    surface: "subtle",
+  });
+  assert.ok(plain.ok);
+  assert.ok(surfaced.ok);
+  const first = Frame.create([plain.value], { row: 0, column: 0 });
+  const second = Frame.create([surfaced.value], { row: 0, column: 0 });
+  assert.ok(first.ok);
+  assert.ok(second.ok);
+
+  await renderer.render(first.value, viewport());
+  const firstSize = output.text.length;
+  await renderer.render(second.value, viewport());
+
+  assert.equal(
+    output.text.slice(firstSize).includes(
+      "\u001B[3;100mmessage\u001B[0m",
+    ),
+    true,
+  );
 });
 
 test("renders and differentially compares mixed tones within one row", async () => {
@@ -173,13 +330,13 @@ test("renders and differentially compares mixed tones within one row", async () 
 
   assert.equal(
     output.text.includes(
-      "\u001B[1;36magent\u001B[0m\u001B[2m ready\u001B[0m plain",
+      "\u001B[38;5;67magent\u001B[0m\u001B[2m ready\u001B[0m plain",
     ),
     true,
   );
   assert.equal(
     output.text.slice(firstSize).includes(
-      "\u001B[1;36magent\u001B[0m\u001B[1;33m active\u001B[0m plain",
+      "\u001B[38;5;67magent\u001B[0m\u001B[1;33m active\u001B[0m plain",
     ),
     true,
   );
@@ -191,7 +348,7 @@ test("normalizes an empty emphasized row to plain terminal output", async () => 
 
   await renderer.render(tonedFrame([""], ["accent"]), viewport(1, 1));
 
-  assert.equal(output.text.includes("\u001B[1;36m"), false);
+  assert.equal(output.text.includes("\u001B[38;5;67m"), false);
   assert.equal(output.text.includes("\u001B[1;33m"), false);
   assert.equal(output.text.includes("\u001B[1m"), false);
   assert.equal(output.text.includes("\u001B[2m"), false);
@@ -209,7 +366,7 @@ test("redraws a row when only its semantic tone changes", async () => {
   assert.equal(
     output.text.slice(firstSize),
     "\u001B[?2026h\u001B[?25l\u001B[1;1H\u001B[2K" +
-      "\u001B[1;36magent\u001B[0m" +
+      "\u001B[38;5;67magent\u001B[0m" +
       "\u001B[1;6H\u001B[?25h\u001B[?2026l",
   );
 });
@@ -257,7 +414,7 @@ test("resets terminal state before retrying a failed frame", async () => {
   );
 });
 
-test("ends a possibly partial synchronized update during cleanup", async () => {
+test("ends a possibly partial synchronized update and restores the cursor style during cleanup", async () => {
   const output = new MemoryOutput();
   const renderer = new Renderer(output);
   output.failure = "blocked";
@@ -269,7 +426,7 @@ test("ends a possibly partial synchronized update during cleanup", async () => {
   assert.ok(finished.ok);
   assert.equal(
     output.chunks.at(-1),
-    "\u001B[?2026l\u001B[0m\u001B[?25h\u001B[?1049l",
+    "\u001B[?2026l\u001B[0m\u001B[?2004l\u001B[0 q\u001B[?25h\u001B[?1049l",
   );
 });
 
@@ -282,7 +439,10 @@ test("leaves the alternate screen and cleanup is idempotent", async () => {
   const afterFirstFinish = output.text;
   await renderer.finish();
 
-  assert.equal(afterFirstFinish.endsWith("\u001B[?25h\u001B[?1049l"), true);
+  assert.equal(
+    afterFirstFinish.endsWith("\u001B[?2004l\u001B[0 q\u001B[?25h\u001B[?1049l"),
+    true,
+  );
   assert.equal(output.text, afterFirstFinish);
 });
 
@@ -298,5 +458,8 @@ test("retries cleanup after a failed leave write", async () => {
 
   assert.deepEqual(failed, { ok: false, error: "blocked" });
   assert.ok(retried.ok);
-  assert.equal(output.text.endsWith("\u001B[?25h\u001B[?1049l"), true);
+  assert.equal(
+    output.text.endsWith("\u001B[?2004l\u001B[0 q\u001B[?25h\u001B[?1049l"),
+    true,
+  );
 });

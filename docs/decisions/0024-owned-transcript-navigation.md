@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-10
+- Amended by: decision 0032
 
 ## Context
 

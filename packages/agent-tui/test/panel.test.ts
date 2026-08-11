@@ -28,7 +28,10 @@ const source: InputProjectionSource = Object.freeze({
 });
 
 test("renders one bordered child and translates its caret", () => {
-  const input = InputLine.create("> ", source, "accent");
+  const input = InputLine.create("> ", source, {
+    prefixTone: "accent",
+    textTone: "accent",
+  });
   assert.ok(input.ok);
   const panel = Panel.create(input.value, {
     borderTone: "muted",
@@ -56,7 +59,10 @@ test("renders one bordered child and translates its caret", () => {
 });
 
 test("elides the complete decoration for short or narrow viewports", () => {
-  const input = InputLine.create("> ", source, "accent");
+  const input = InputLine.create("> ", source, {
+    prefixTone: "accent",
+    textTone: "accent",
+  });
   assert.ok(input.ok);
   const panel = Panel.create(input.value, {
     borderTone: "muted",
@@ -163,7 +169,10 @@ test("contains hostile children and rejects invalid decoration metadata", () => 
     hostile as never,
     { borderTone: "muted", horizontalPadding: 0 },
   );
-  const input = InputLine.create("> ", source, "accent");
+  const input = InputLine.create("> ", source, {
+    prefixTone: "accent",
+    textTone: "accent",
+  });
   assert.ok(input.ok);
   const invalidPadding = Panel.create(input.value, {
     borderTone: "muted",

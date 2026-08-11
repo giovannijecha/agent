@@ -6,7 +6,12 @@ export type Tone =
   | "failure"
   | "muted"
   | "plain"
-  | "success";
+  | "success"
+  | "syntaxComment"
+  | "syntaxKeyword"
+  | "syntaxLiteral"
+  | "syntaxName"
+  | "syntaxString";
 
 /** Runtime guard used at every public component and frame boundary. */
 export function isTone(value: unknown): value is Tone {
@@ -17,6 +22,11 @@ export function isTone(value: unknown): value is Tone {
     value === "accent" ||
     value === "attention" ||
     value === "success" ||
-    value === "failure"
+    value === "failure" ||
+    value === "syntaxComment" ||
+    value === "syntaxKeyword" ||
+    value === "syntaxLiteral" ||
+    value === "syntaxName" ||
+    value === "syntaxString"
   );
 }

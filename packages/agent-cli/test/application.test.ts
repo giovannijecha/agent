@@ -265,6 +265,29 @@ test("filters stale events and discards failed prospective content", () => {
   assert.equal(application.hasTranscript, false);
   assert.equal(application.transcriptText(), "");
   assert.equal(application.notice.join("\n").includes("private"), false);
+  assert.equal(application.notice.at(0)?.includes("model/read"), true);
+});
+
+test("identifies invalid model tool calls without retaining their content", () => {
+  const application = new ApplicationController(true);
+  application.turnAccepted(started(5, "private tool request"));
+
+  const failed = application.applyRuntime(
+    Object.freeze({
+      checkpointed: false,
+      cleanup: Object.freeze([]),
+      kind: "turnFinished" as const,
+      outcome: Object.freeze({
+        failure: Object.freeze({ kind: "invalidToolCall" as const }),
+        kind: "failed" as const,
+      }),
+      turnId: 5,
+    }),
+  );
+
+  assert.ok(failed.ok);
+  assert.equal(application.notice.at(0)?.includes("tool/invalid-call"), true);
+  assert.equal(application.notice.join("\n").includes("private"), false);
 });
 
 test("discards a second submission while a turn is active", () => {
@@ -345,7 +368,68 @@ test("requires exact approval commands and exposes one bounded activity snapshot
   assert.deepEqual(application.notice, ["No tool approval is pending."]);
 });
 
-test("checkpoints tool activity and retains its display truth after failure", () => {
+test("replaces contextual activity for each call in one tool batch", () => {
+  const application = new ApplicationController(true);
+  assert.ok(application.turnAccepted(started(70, "inspect both")).ok);
+
+  for (const event of [
+    Object.freeze({
+      approvalPreview: "",
+      approvalRequired: false,
+      callId: "call-70-a",
+      kind: "toolRequested" as const,
+      name: "read_file",
+      risk: "read" as const,
+      turnId: 70,
+    }),
+    Object.freeze({
+      callId: "call-70-a",
+      kind: "toolStarted" as const,
+      name: "read_file",
+      risk: "read" as const,
+      turnId: 70,
+    }),
+    Object.freeze({
+      callId: "call-70-a",
+      kind: "toolFinished" as const,
+      name: "read_file",
+      risk: "read" as const,
+      status: "success" as const,
+      turnId: 70,
+    }),
+  ]) {
+    assert.ok(application.applyRuntime(event).ok);
+  }
+  assert.deepEqual(application.activities, [
+    { name: "read_file", preview: "", risk: "read", state: "succeeded" },
+  ]);
+
+  assert.ok(
+    application.applyRuntime(
+      Object.freeze({
+        approvalPreview: "",
+        approvalRequired: false,
+        callId: "call-70-b",
+        kind: "toolRequested" as const,
+        name: "list_directory",
+        risk: "read" as const,
+        turnId: 70,
+      }),
+    ).ok,
+  );
+  assert.deepEqual(application.activities, [
+    {
+      name: "list_directory",
+      preview: "",
+      risk: "read",
+      state: "queued",
+    },
+  ]);
+  assert.equal(application.transcriptText().includes("read_file"), false);
+  assert.equal(application.transcriptText().includes("list_directory"), false);
+});
+
+test("checkpoints tool truth while releasing contextual activity after failure", () => {
   const application = new ApplicationController(true);
   assert.ok(application.turnAccepted(started(8, "inspect")).ok);
   assert.ok(
@@ -407,7 +491,7 @@ test("checkpoints tool activity and retains its display truth after failure", ()
   );
   assert.ok(failed.ok);
   assert.equal(application.phase, "idle");
-  assert.equal(application.activities.at(0)?.state, "succeeded");
+  assert.deepEqual(application.activities, []);
   assert.equal(application.transcriptText().includes("Checking."), true);
   assert.equal(
     application.transcriptText().includes("[turn failed after tool activity]"),
@@ -464,7 +548,7 @@ test("makes tool cancellation visible through authoritative lifecycle states", (
     }),
   );
   assert.ok(cancelled.ok);
-  assert.equal(application.activities.at(0)?.state, "cancelled");
+  assert.deepEqual(application.activities, []);
 });
 
 test("reports approval commands as contextual when no tool is pending", () => {

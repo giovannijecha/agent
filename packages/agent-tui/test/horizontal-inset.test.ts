@@ -23,7 +23,10 @@ function viewport(columns: number, rows: number): Viewport {
 }
 
 test("centers a bounded child and translates its caret", () => {
-  const input = InputLine.create("> ", source, "accent");
+  const input = InputLine.create("> ", source, {
+    prefixTone: "accent",
+    textTone: "accent",
+  });
   assert.ok(input.ok);
   const inset = HorizontalInset.create(input.value, {
     maximumColumns: 8,
@@ -39,7 +42,10 @@ test("centers a bounded child and translates its caret", () => {
 });
 
 test("degrades to the full child width when margins cannot fit", () => {
-  const input = InputLine.create("> ", source, "accent");
+  const input = InputLine.create("> ", source, {
+    prefixTone: "accent",
+    textTone: "accent",
+  });
   assert.ok(input.ok);
   const inset = HorizontalInset.create(input.value, {
     maximumColumns: 8,
@@ -55,7 +61,10 @@ test("degrades to the full child width when margins cannot fit", () => {
 });
 
 test("rejects invalid width and margin metadata", () => {
-  const input = InputLine.create("> ", source, "accent");
+  const input = InputLine.create("> ", source, {
+    prefixTone: "accent",
+    textTone: "accent",
+  });
   assert.ok(input.ok);
 
   assert.equal(

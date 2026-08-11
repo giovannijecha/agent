@@ -18,6 +18,69 @@ function span(
   return result.value;
 }
 
+test("composes and normalizes closed slant and surface dimensions", () => {
+  const first = TextSpan.create(" quiet", "plain", {
+    slant: "italic",
+    surface: "subtle",
+  });
+  const second = TextSpan.create(" turn", "plain", {
+    slant: "italic",
+    surface: "subtle",
+  });
+  const plain = TextSpan.create(" plain", "plain");
+  assert.ok(first.ok);
+  assert.ok(second.ok);
+  assert.ok(plain.ok);
+
+  const row = RichRow.create([first.value, second.value, plain.value]);
+
+  assert.ok(row.ok);
+  assert.equal(row.value.spans.length, 2);
+  assert.deepEqual(
+    row.value.spans.map((item) => ({
+      slant: item.slant,
+      surface: item.surface,
+      text: item.text,
+      tone: item.tone,
+    })),
+    [
+      {
+        slant: "italic",
+        surface: "subtle",
+        text: " quiet turn",
+        tone: "plain",
+      },
+      {
+        slant: "normal",
+        surface: "none",
+        text: " plain",
+        tone: "plain",
+      },
+    ],
+  );
+});
+
+test("accepts only the closed semantic surface vocabulary", () => {
+  for (const surface of [
+    "attention",
+    "failure",
+    "inset",
+    "none",
+    "subtle",
+    "success",
+  ] as const) {
+    const created = TextSpan.create("safe", "plain", { surface });
+    assert.ok(created.ok);
+    assert.equal(created.value.surface, surface);
+  }
+
+  const rejected = TextSpan.create("safe", "plain", {
+    surface: "tool-specific" as never,
+  });
+  assert.equal(rejected.ok, false);
+  if (!rejected.ok) assert.equal(rejected.error.kind, "invalidStyle");
+});
+
 test("normalizes one immutable structured row", () => {
   const result = RichRow.create([
     span("agent", "accent"),
@@ -57,6 +120,36 @@ test("rejects unsafe text and tones without retaining rejected content", () => {
   if (!control.ok) assert.equal(control.error.kind, "controlCharacter");
   if (!scalar.ok) assert.equal(scalar.error.kind, "invalidScalar");
   if (!tone.ok) assert.equal(tone.error.kind, "invalidTone");
+});
+
+test("rejects malformed or hostile text styles without retaining causes", () => {
+  const slant = TextSpan.create("safe", "plain", {
+    slant: "oblique" as never,
+  });
+  const surface = TextSpan.create("safe", "plain", {
+    surface: "private" as never,
+  });
+  const hostile = TextSpan.create(
+    "safe",
+    "plain",
+    new Proxy(
+      {},
+      {
+        get(): never {
+          throw new Error("private style getter");
+        },
+      },
+    ),
+  );
+
+  for (const result of [slant, surface, hostile]) {
+    assert.equal(result.ok, false);
+    if (!result.ok) {
+      assert.equal(result.error.kind, "invalidStyle");
+      assert.equal("cause" in result.error, false);
+      assert.equal(JSON.stringify(result).includes("private"), false);
+    }
+  }
 });
 
 test("enforces span and code-point bounds before oversized work", () => {
@@ -136,6 +229,24 @@ test("clips by terminal cells while preserving semantic span boundaries", () => 
   assert.equal(narrow.value.text, "ab");
   assert.ok(oneColumn.ok);
   assert.equal(oneColumn.value.text, "");
+});
+
+test("preserves composable style while fitting and comparing rows", () => {
+  const surfaced = RichRow.fromText("message", "plain", {
+    slant: "italic",
+    surface: "subtle",
+  });
+  const plain = RichRow.fromText("mess", "plain");
+  assert.ok(surfaced.ok);
+  assert.ok(plain.ok);
+
+  const fitted = surfaced.value.fit(4);
+
+  assert.ok(fitted.ok);
+  assert.equal(fitted.value.text, "mess");
+  assert.equal(fitted.value.spans.at(0)?.slant, "italic");
+  assert.equal(fitted.value.spans.at(0)?.surface, "subtle");
+  assert.equal(fitted.value.equals(plain.value), false);
 });
 
 test("measures the closed structural and prompt glyph set as single cells", () => {

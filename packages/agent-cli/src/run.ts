@@ -529,6 +529,7 @@ export async function run<E, RE = never>(
   host: TerminalHost<E>,
   runtime?: RuntimeSession<RE>,
   provider?: ProviderPresentation,
+  workspace?: string,
 ): Promise<Result<void, RunError<E, RE>>> {
   if (!host.interactive) {
     let primary: RunFailure<E> | undefined;
@@ -571,7 +572,11 @@ export async function run<E, RE = never>(
     }
 
     if (primary === undefined && viewport !== undefined) {
-      application = new ApplicationController(runtime !== undefined, provider);
+      application = new ApplicationController(
+        runtime !== undefined,
+        provider,
+        workspace,
+      );
       arbiter = new EventArbiter(host, runtime);
       const initial = await renderApplication(renderer, application, viewport);
       if (!initial.ok) {

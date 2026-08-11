@@ -1,5 +1,6 @@
 /** Closed structural glyphs whose terminal width is owned by the framework. */
 const SINGLE_CELL_STRUCTURAL_GLYPHS = new Set([
+  "\u203a",
   "\u2192",
   "\u2500",
   "\u2502",

@@ -2,6 +2,14 @@
 
 - Status: accepted
 - Date: 2026-08-10
+- Amended by: decisions 0028, 0031, and 0033
+
+Decision 0028 later supersedes this decision's composer, conversation, and
+`/help` presentation details. Decision 0031 later changes the accent mapping
+and adds code-only tones without changing traffic-light truth. Decision 0033
+adds semantic activity backgrounds and removes the activity rail and approval
+panel without changing that truth. The single lifecycle location remains in
+force.
 
 ## Context
 
@@ -17,7 +25,8 @@ adding arbitrary colors, or creating separate presenters for each tool.
 ## Decision
 
 The CLI renders no static product or help header. The conversation begins at the
-first available row. `/help` remains an explicit command, not permanent chrome.
+first available row. `/help` remains an explicit command, not permanent chrome;
+decision 0028 later removes that duplicated reference surface.
 
 The lifecycle phase has one authoritative visual location: the footer's right
 edge. Transient notices are reserved for actionable command, validation, or
@@ -31,10 +40,10 @@ the closed one-cell structural glyph set. Prefix and draft use `plain`; user and
 assistant conversation also remain neutral except for syntax-derived Markdown
 hierarchy.
 
-The renderer accepts exactly seven semantic tones: `plain`, `muted`,
+At this stage the renderer accepted exactly seven semantic tones: `plain`, `muted`,
 `emphasis`, `accent`, `attention`, `success`, and `failure`. It maps `attention`
 to bold yellow, `success` to bold green, and `failure` to bold red. `accent`
-remains available as an application-neutral framework role, but the CLI does not
+remained available as an application-neutral framework role, but the CLI did not
 use it for operational input, lifecycle state, or tool truth. Only the renderer
 owns ANSI sequences.
 

@@ -242,6 +242,63 @@ test("rejects submission-record drift and personal email addresses", () => {
   );
 });
 
+test("rejects response-record drift and private response disclosure", () => {
+  const invalidState = structuredClone(currentPolicy);
+  invalidState.providers[2].request.response.state = "approved";
+  assert.throws(
+    () => validateProviderPolicy(invalidState, emptyContext),
+    ProviderPolicyError,
+  );
+
+  const invalidDate = structuredClone(currentPolicy);
+  invalidDate.providers[2].request.response.receivedOn = "11-08-2026";
+  assert.throws(
+    () => validateProviderPolicy(invalidDate, emptyContext),
+    ProviderPolicyError,
+  );
+
+  const unsupportedOutcome = structuredClone(currentPolicy);
+  unsupportedOutcome.providers[2].request.response.outcome = "approved";
+  assert.throws(
+    () => validateProviderPolicy(unsupportedOutcome, emptyContext),
+    ProviderPolicyError,
+  );
+
+  const privateIdentifier = structuredClone(currentPolicy);
+  privateIdentifier.providers[2].request.response.reference =
+    "private-account@example.com";
+  assert.throws(
+    () => validateProviderPolicy(privateIdentifier, emptyContext),
+    ProviderPolicyError,
+  );
+
+  const missingResponseReference = currentApplications.replace(
+    "kimi-support-response-2026-08-11",
+    "kimi-support-response-unverified",
+  );
+  assert.throws(
+    () =>
+      validateProviderPolicy(currentPolicy, {
+        ...emptyContext,
+        applicationText: missingResponseReference,
+      }),
+    ProviderPolicyError,
+  );
+
+  const falseResponse = currentApplications.replace(
+    "- Response state: `received`",
+    "- Response state: `approved`",
+  );
+  assert.throws(
+    () =>
+      validateProviderPolicy(currentPolicy, {
+        ...emptyContext,
+        applicationText: falseResponse,
+      }),
+    ProviderPolicyError,
+  );
+});
+
 test("rejects every provider or auth workspace that was not admitted", () => {
   for (const workspaceName of [
     "@agent/provider-chatgpt",

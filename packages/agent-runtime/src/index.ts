@@ -19,6 +19,7 @@ export type {
 export type {
   ModelStream,
   ModelStreamEvent,
+  ModelToolCall,
   StreamingModel,
 } from "./model.js";
 export { RUNTIME_LIMITS } from "./limits.js";

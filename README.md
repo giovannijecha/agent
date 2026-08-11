@@ -24,6 +24,9 @@ controller, active runtime session, and model decision loop. Providers are
 replaceable backends for that agent, not additional agents. The project does not
 create sub-agents, delegate to hidden workers, or coordinate a swarm. The sole
 controller owns every decision. Current runtime remains sequential.
+One model response may select a bounded ordered batch of tool calls. The sole
+controller preflights the complete batch, then invokes handlers sequentially in
+provider order. This is one agent decision, not delegation or a swarm.
 Future controller-internal mechanical concurrency may overlap bounded
 independent mechanics only over immutable snapshots during a read-only phase;
 it cannot enter the tool engine or overlap a mutation, and its results return
@@ -123,36 +126,73 @@ use no third-party action.
 
 `agent`, `npm start`, and `npm run dev` open the interactive alternate-screen
 terminal when both stdin and stdout are TTYs. The interface uses one responsive,
-conversation-first shell: a dominant transcript, contextual activity,
-rectangular composer, and compact truthful footer. Generic
-panels, split lines, horizontal insets, and side rails compose these regions
-without adding product state to the TUI framework. The working column is centered
-and bounded, user requests use complete box borders, assistant responses use one
-open rail, and neither repeats a role label. Empty contextual blocks consume no
-rows, and borders disappear as complete units when their geometry cannot fit. The same shell uses bounded
-structured rows, one unified recent tool-activity surface, seven renderer-owned
-semantic tones, and an original bounded Markdown subset for conversation text.
-Input and conversation remain neutral; green reports success or readiness,
-yellow reports active or approval-sensitive state, and red reports a negative
-terminal result. Lifecycle state appears once, at the footer's right edge.
+conversation-first shell: a dominant document, contextual activity, a short
+rectangular composer, then a compact truthful footer.
+Generic panels, surfaces, split lines, three-column lines, horizontal insets,
+side rails, and spacers compose these
+regions without adding product state to the TUI framework. The working column
+is centered and bounded. The composer has no prompt glyph. It grows from one
+through six content rows, wraps ordinary words, and keeps the caret visible
+after reaching its cap. A steady block caret identifies the insertion point
+when the terminal supports the standard cursor shape command. User requests use
+one compact borderless gray surface with
+italic default-foreground text; assistant prose stays unboxed. Fenced code and
+strict pipe tables use one content-fit dark technical surface with restrained
+parser-owned accents. Complete fences with no more than two visible logical
+rows use zero horizontal padding; larger fences and tables retain one cell.
+Strict tables measure all retained header and body cells first, then pad each
+column to one shared visible width so every displayed row has the same extent.
+A single muted rule of that exact extent separates the header from the body
+inside the same surface; tables have no outer border or full grid.
+Neither role repeats a label or receives a complete panel.
+Empty contextual blocks consume no rows. The same shell uses bounded structured
+rows, one unified recent tool-activity surface, closed renderer-owned semantic
+tones and surfaces, and an original bounded Markdown subset for conversation
+text. An empty
+session adds no welcome or embedded help content; the maintained manual is the
+operator reference. Input and conversation remain neutral; green reports success
+or readiness, yellow reports active or approval-sensitive state, and red
+reports a negative terminal result. Lifecycle state appears once, at the
+footer's right edge. The footer reports the working folder at the left edge,
+keeps provider/model physically centered, and retains phase/history at the
+right edge. Renderer cleanup restores the terminal's default cursor style as
+well as visibility and the previous screen.
 Each message is an isolated document, and Markdown compiles into the same
 structured rows. Prose wraps at word boundaries, long tokens fall back to cell
-wrapping, and fenced code retains literal wrapping and repeated rails; model
-text cannot emit ANSI, choose colors, create panels, or extend the parser. The
-first milestone supports:
+wrapping, and fenced code retains literal wrapping inside its declared surface
+padding. An exact `---` logical line becomes one muted responsive separator;
+shorter, longer, or spaced variants remain literal. Model text cannot emit ANSI,
+choose colors, create panels, or extend the parser. Inline code and fenced
+language labels use the restrained steel-blue reference accent.
+Recognized complete fences may also use the closed keyword, name, string,
+literal, and comment roles from the bounded owned lexical highlighter; its
+lighter blues remain code-only. Unknown
+or unlabeled fences remain plain. Success, active, and failure colors remain
+reserved for application truth. This accepted TUI baseline supports:
 
 ```text
-/help       show the command reference
 /providers  show integration availability
 /approve    allow the one pending write tool
 /deny       reject the one pending write tool
 /exit       close agent
 ```
 
-Use Left, Right, Home, End, Delete, Backspace, and Enter to edit one line. Up
+Typing `/` or a non-exact command prefix opens the bounded command completion
+surface above the composer. Up and Down select without wrapping. Tab completes
+the selected exact command but never runs it. Enter runs the selected exact
+command through the same dispatcher used by a fully typed submission. The
+surface closes for exact commands, whitespace, and unknown prefixes.
+
+Use Left, Right, Home, End, Delete, and Backspace to edit the bounded draft.
+Ctrl+Left and Ctrl+Right move across whitespace-delimited words;
+Ctrl+Backspace, Ctrl+W, and Ctrl+Delete remove one word through that same owned
+editor rule.
+Long text wraps into the growing composer. Bracketed multiline paste is inserted
+as one atomic draft change and does not submit; a separate Enter submits the
+complete draft. Up
 and Down move through transcript history one row at a time. Page Up and Page
 Down move by one visible transcript page with one row of overlap; reaching the
-latest row resumes automatic follow. A quiet `history` label appears while the
+latest row resumes automatic follow. A quiet `↑ history` label appears while the
 view is detached from the latest content. It shares the compact footer with the
 authoritative provider/model and application phase. Starting a new turn returns
 to the latest content. These keys never alter the current draft.
@@ -171,19 +211,28 @@ prospective text. Before the first tool checkpoint, the user turn is prospective
 too. After a completed tool attempt, only newer text can be discarded.
 Terminal failure and cancellation receipts likewise remain owned by the runtime
 until acknowledged, so shutdown cannot lose buffered cleanup failures.
-Read-only tools run automatically. Each write call requires its own
-exact `/approve` or `/deny`; approval is never cached. Calls are sequential and
-the TUI shows every call through the same bounded lifecycle surface. Its
-contextual panel retains the current or most recently settled turn, shows the
-tool name, risk, explicit state, and descriptor-declared safe approval scope,
-and collapses details before the canonical activity header in a short viewport.
-The panel is absent when no authoritative activity exists and removes its whole
-border before partial chrome could appear. Newest activity appears first. Raw
-content, call identifiers, outputs, arguments, provider data, and failure causes
-never enter notices or the activity surface. Once a
-tool attempt completes, its structured call and result become a conversation
-checkpoint before the next model step. A later failure or cancellation retains
-that truthful checkpoint while discarding only prospective response text.
+Read-only tools run automatically. Each write call requires its own exact
+`/approve` or `/deny`; approval is never cached. One model response may select a
+bounded ordered batch, but handlers run sequentially after complete preflight.
+The TUI shows every current call through the same bounded borderless semantic
+surface. A restrained dark green, ochre, or red background reinforces success,
+active or approval, and negative terminal state respectively; the written state
+remains explicit and the neutral tool name is italic. Approval uses the same
+component and retains the exact `/approve` and `/deny` actions before optional
+safe detail when space is short. At most the latest tool remains beside the
+composer while its turn is active. Approval, execution, and terminal outcome
+update that one contextual surface; the next tool replaces it and turn
+settlement removes it. Tool
+activity never enters the scrollable conversation. One optional blank row
+separates non-empty activity from the transcript or notice above and collapses
+before required content on short terminals. Activity stays directly adjacent
+to completion or the composer below, matching completion-to-composer rhythm.
+Raw content, call identifiers, outputs, arguments, provider data, and failure causes
+never enter notices or the activity surface. Once every call in a selected
+batch has a truthful result, the complete assistant call array and ordered
+results become one conversation checkpoint before the next model step. A later
+failure or cancellation retains that truthful checkpoint while discarding only
+prospective response text.
 Direct process execution remains disabled under decisions 0008 and 0015.
 Decision 0016 adds an original private C17 broker that is compiled and tested
 against Windows Job Objects and Linux delegated cgroup v2 plus namespaces, but
@@ -215,7 +264,9 @@ The project is licensed under [Apache-2.0](LICENSE). Read the
 Provider registration requests use the
 [OAuth client registration dossier](docs/OAUTH-REGISTRATION.md) and the
 [four provider-specific request packets](docs/PROVIDER-APPLICATIONS.md).
-All four provider requests are submitted. Submission by itself does not
-authorize subscription access.
+All four provider requests are submitted. Kimi Code has confirmed that it does
+not currently offer public OAuth for third-party clients; the other three
+requests remain pending. Neither submission nor a negative response authorizes
+subscription access.
 
 Copyright 2026 Giovanni Jecha.

@@ -25,7 +25,8 @@ CLI workspaces.
 `@agent/tui` owns:
 
 - an incremental, bounded key decoder;
-- a bounded single-line editor using Unicode code-point boundaries;
+- an initially single-line bounded editor using Unicode code-point boundaries,
+  later extended by decision 0035 through the same editor contract;
 - validated viewports and atomic frames with an optional caret;
 - asynchronous ordered text output;
 - differential alternate-screen rendering and idempotent cleanup.
@@ -33,7 +34,8 @@ CLI workspaces.
 `@agent/cli` owns:
 
 - the exact `/help`, `/providers`, and `/exit` terminal commands; decision 0008
-  later adds contextual `/approve` and `/deny` application commands;
+  later adds contextual `/approve` and `/deny` application commands. Decision
+  0028 later removes the duplicated `/help` surface;
 - application notices and frame composition;
 - a FIFO terminal-event host over narrow `stdin` and `stdout` capabilities;
 - raw-mode, listener, resize, EOF, and shutdown lifecycle;
@@ -55,9 +57,17 @@ plain non-TTY output and renderer cleanup remain inside the typed failure
 contract. The input queue is bounded by both event count and aggregate payload;
 overflow discards queued personal text before returning an owned error.
 
-The milestone deliberately does not add a workspace, model, provider adapter,
-history, multiline editing, completion, mouse support, persistence, colors, or
-tool execution.
+Decision 0028 later selects a steady block cursor for the interactive session.
+The renderer emits the closed standard cursor-shape command only while it owns
+the alternate screen and restores the terminal-default shape during the same
+idempotent cleanup that restores visibility. Unsupported terminals may ignore
+the shape command; no custom glyph enters editor or frame content.
+
+The milestone deliberately did not add a workspace, model, provider adapter,
+history, multiline editing, pasted-text batching, completion, mouse support,
+persistence, colors, or tool execution. Decision 0035 later adds bounded
+multiline projection and atomic bracketed paste without changing this terminal
+ownership boundary.
 
 Because the shell no longer imports domain state, its inactive local dependency
 on `@agent/core` is removed. Core continues to build and test independently; the
@@ -91,7 +101,9 @@ implemented and maintained as an owned capability.
 ## Update, rollback, and removal
 
 Update terminal sequences only with contract tests for fragmented input,
-rendered bytes, partial failures, and cleanup. Roll back by restoring the
+rendered bytes, cursor style, partial failures, and cleanup. Remove a custom
+cursor style by deleting its selection and default-style restoration sequences
+together. Roll back by restoring the
 one-shot renderer and plain startup behavior together; do not retain dormant
 interactive modules.
 

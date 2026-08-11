@@ -9,6 +9,7 @@ import {
   StructuredObject,
   structuredValueFromUnknown,
   ToolCall,
+  ToolExchange,
   ToolResult,
 } from "@agent/core";
 
@@ -54,7 +55,7 @@ test("preserves message order", () => {
 
   assert.deepEqual(
     conversation.entries.map((entry) =>
-      entry instanceof Message ? entry.content : entry.name,
+      entry instanceof Message ? entry.content : "tool-exchange",
     ),
     ["first", "second"],
   );
@@ -62,7 +63,7 @@ test("preserves message order", () => {
   assert.ok(Object.isFrozen(conversation.entries));
 });
 
-test("preserves explicit structured tool entries", () => {
+test("preserves one complete ordered tool exchange", () => {
   const input = structuredValueFromUnknown({ path: "src/index.ts" });
   const output = structuredValueFromUnknown({ text: "owned" });
   assert.ok(input.ok && input.value instanceof StructuredObject);
@@ -76,12 +77,52 @@ test("preserves explicit structured tool entries", () => {
   );
   assert.ok(call.ok);
   assert.ok(result.ok);
+  const preamble = Message.create(Role.Assistant, "I will inspect it.");
+  assert.ok(preamble.ok);
+  const exchange = ToolExchange.create(
+    preamble.value,
+    Object.freeze([call.value]),
+    Object.freeze([result.value]),
+  );
+  assert.ok(exchange.ok);
 
-  const conversation = Conversation.empty()
-    .append(call.value)
-    .append(result.value);
+  const conversation = Conversation.empty().append(exchange.value);
 
-  assert.equal(conversation.entries.at(0), call.value);
-  assert.equal(conversation.entries.at(1), result.value);
+  assert.equal(conversation.entries.at(0), exchange.value);
+  assert.equal(exchange.value.calls.at(0), call.value);
+  assert.equal(exchange.value.results.at(0), result.value);
+  assert.equal(exchange.value.assistant, preamble.value);
+  assert.equal(conversation.messageUnits, 2);
   assert.equal(conversation.codeUnits > 0, true);
+  assert.ok(Object.isFrozen(exchange.value));
+  assert.ok(Object.isFrozen(exchange.value.calls));
+  assert.ok(Object.isFrozen(exchange.value.results));
+});
+
+test("rejects incomplete, reordered, and duplicate tool exchanges", () => {
+  const input = structuredValueFromUnknown({ path: "src/index.ts" });
+  const output = structuredValueFromUnknown({ text: "owned" });
+  assert.ok(input.ok && input.value instanceof StructuredObject);
+  assert.ok(output.ok);
+  const first = ToolCall.create("call-1", "read_file", input.value);
+  const duplicate = ToolCall.create("call-1", "list_directory", input.value);
+  const wrong = ToolResult.create(
+    "call-1",
+    "list_directory",
+    "success",
+    output.value,
+  );
+  assert.ok(first.ok);
+  assert.ok(duplicate.ok);
+  assert.ok(wrong.ok);
+
+  assert.equal(ToolExchange.create(undefined, [], []).ok, false);
+  assert.equal(
+    ToolExchange.create(undefined, [first.value, duplicate.value], []).ok,
+    false,
+  );
+  assert.equal(
+    ToolExchange.create(undefined, [first.value], [wrong.value]).ok,
+    false,
+  );
 });

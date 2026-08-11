@@ -20,6 +20,7 @@ export type ComponentErrorKind =
   | "invalidRow"
   | "invalidScalar"
   | "invalidSource"
+  | "invalidStyle"
   | "invalidSlot"
   | "invalidText"
   | "invalidTone"

@@ -6,6 +6,8 @@ import {
 import { TUI_LIMITS } from "./limits.js";
 import { RichRow, TextSpan } from "./rich-row.js";
 import { err, ok, type Result } from "./result.js";
+import { paintSurfaceRows } from "./surface.js";
+import { isSurfaceTone, type SurfaceTone } from "./text-style.js";
 import { isTone, type Tone } from "./tone.js";
 
 const TAB_CELLS = 4;
@@ -16,11 +18,22 @@ export type DisplayRun = Readonly<{ text: string; tone: Tone }>;
 
 export type DisplayWrap = "cell" | "word";
 
+export type DisplayDecoration = "separator";
+
+/** Internal identity and renderer-owned background for one structured region. */
+export type DisplaySurfaceGroup = Readonly<{
+  horizontalPadding: 0 | 1;
+  id: number;
+  surface: Exclude<SurfaceTone, "none">;
+}>;
+
 /** Internal logical line with one explicit owned wrapping policy. */
 export type DisplayLine = Readonly<{
   content: readonly DisplayRun[];
   continuation: readonly DisplayRun[];
+  decoration: DisplayDecoration | undefined;
   prefix: readonly DisplayRun[];
+  surfaceGroup: DisplaySurfaceGroup | undefined;
   wrap: DisplayWrap;
 }>;
 
@@ -28,6 +41,11 @@ type DisplayCell = Readonly<{
   text: string;
   tone: Tone;
   width: number;
+}>;
+
+type RetainedDisplayRow = Readonly<{
+  row: RichRow;
+  surfaceGroup: DisplaySurfaceGroup | undefined;
 }>;
 
 export type SanitizedLine = Readonly<{
@@ -99,7 +117,9 @@ function* plainDisplayLines(text: string, tone: Tone): Generator<DisplayLine> {
     yield Object.freeze({
       content: Object.freeze([Object.freeze({ text: line.text, tone })]),
       continuation: Object.freeze([]),
+      decoration: undefined,
       prefix: Object.freeze([]),
+      surfaceGroup: undefined,
       wrap: "word",
     });
     index = line.nextIndex;
@@ -107,11 +127,57 @@ function* plainDisplayLines(text: string, tone: Tone): Generator<DisplayLine> {
       yield Object.freeze({
         content: Object.freeze([]),
         continuation: Object.freeze([]),
+        decoration: undefined,
         prefix: Object.freeze([]),
+        surfaceGroup: undefined,
         wrap: "word",
       });
     }
   }
+}
+
+function styleRetainedRows(
+  retained: readonly RetainedDisplayRow[],
+  columns: number,
+): Result<readonly RichRow[], ComponentError> {
+  const rows: RichRow[] = [];
+  let position = 0;
+  while (position < retained.length) {
+    const current = retained.at(position);
+    if (current === undefined) {
+      return err(new ComponentError("invalidRow", position));
+    }
+    if (current.surfaceGroup === undefined) {
+      rows.push(current.row);
+      position += 1;
+      continue;
+    }
+    const group = current.surfaceGroup;
+    const grouped: RichRow[] = [];
+    while (position < retained.length) {
+      const candidate = retained.at(position);
+      if (
+        candidate?.surfaceGroup?.id !== group.id ||
+        candidate.surfaceGroup.surface !== group.surface ||
+        candidate.surfaceGroup.horizontalPadding !== group.horizontalPadding
+      ) {
+        break;
+      }
+      grouped.push(candidate.row);
+      position += 1;
+    }
+    const painted = paintSurfaceRows(grouped, columns, {
+      extent: "content",
+      horizontalPadding: group.horizontalPadding,
+      slant: "inherit",
+      surface: group.surface,
+    });
+    if (!painted.ok) {
+      return painted;
+    }
+    rows.push(...painted.value);
+  }
+  return ok(Object.freeze(rows));
 }
 
 function validateLayout(
@@ -143,8 +209,8 @@ export function layoutDisplayLines(
   }
 
   try {
-    const headRows: RichRow[] = [];
-    const tailRows = new Map<number, RichRow>();
+    const headRows: RetainedDisplayRow[] = [];
+    const tailRows = new Map<number, RetainedDisplayRow>();
     let retainedTailRows = 0;
     let tailCursor = 0;
     let cells: DisplayCell[] = [];
@@ -154,6 +220,28 @@ export function layoutDisplayLines(
     let continuationCells: readonly DisplayCell[] = Object.freeze([]);
     let pendingContinuation = false;
     let wordBreakFloor = 0;
+    let activeColumns = columns;
+    let activeSurfaceGroup: DisplaySurfaceGroup | undefined;
+
+    const retainRichRow = (row: RichRow): void => {
+      if (complete || failure !== undefined) {
+        return;
+      }
+      const retained = Object.freeze({
+        row,
+        surfaceGroup: activeSurfaceGroup,
+      });
+      if (anchor === "head") {
+        headRows.push(retained);
+        complete = headRows.length >= maximumRows;
+      } else if (retainedTailRows < maximumRows) {
+        tailRows.set(retainedTailRows, retained);
+        retainedTailRows += 1;
+      } else {
+        tailRows.set(tailCursor, retained);
+        tailCursor = (tailCursor + 1) % maximumRows;
+      }
+    };
 
     const retainRow = (rowCells: readonly DisplayCell[]): void => {
       if (complete || failure !== undefined) {
@@ -187,16 +275,7 @@ export function layoutDisplayLines(
         failure = new ComponentError("invalidRow", undefined);
         return;
       }
-      if (anchor === "head") {
-        headRows.push(row.value);
-        complete = headRows.length >= maximumRows;
-      } else if (retainedTailRows < maximumRows) {
-        tailRows.set(retainedTailRows, row.value);
-        retainedTailRows += 1;
-      } else {
-        tailRows.set(tailCursor, row.value);
-        tailCursor = (tailCursor + 1) % maximumRows;
-      }
+      retainRichRow(row.value);
     };
 
     const pushRow = (): void => {
@@ -252,7 +331,7 @@ export function layoutDisplayLines(
         (total, cell) => total + cell.width,
         0,
       );
-      if (continuationWidth + nextWidth <= columns) {
+      if (continuationWidth + nextWidth <= activeColumns) {
         replaceCells(continuationCells);
         wordBreakFloor = continuationCells.length;
       } else {
@@ -274,7 +353,7 @@ export function layoutDisplayLines(
     ): void => {
       let printable = character;
       let cellWidth = characterCellWidth(printable);
-      if (cellWidth > columns) {
+      if (cellWidth > activeColumns) {
         printable = REPLACEMENT;
         cellWidth = 1;
       }
@@ -284,7 +363,7 @@ export function layoutDisplayLines(
         }
         prepareContinuation(cellWidth);
       }
-      if (width + cellWidth > columns) {
+      if (width + cellWidth > activeColumns) {
         if (wrap === "word" && printable === " ") {
           pushWrappedRow();
           return;
@@ -308,12 +387,12 @@ export function layoutDisplayLines(
             0,
           );
           const repeated =
-            continuationWidth + carriedWidth <= columns
+            continuationWidth + carriedWidth <= activeColumns
               ? continuationCells
               : Object.freeze([]);
           replaceCells([...repeated, ...carried]);
           wordBreakFloor = repeated.length;
-          if (width + cellWidth > columns) {
+          if (width + cellWidth > activeColumns) {
             pushWrappedRow();
             prepareContinuation(cellWidth);
           }
@@ -335,7 +414,7 @@ export function layoutDisplayLines(
           if (character === "\t") {
             const spaces = TAB_CELLS - (compiledWidth % TAB_CELLS);
             for (let count = 0; count < spaces; count += 1) {
-              if (compiledWidth + 1 >= columns) {
+              if (compiledWidth + 1 >= activeColumns) {
                 return Object.freeze([]);
               }
               compiled.push(
@@ -346,11 +425,11 @@ export function layoutDisplayLines(
           } else {
             let printable = character;
             let cellWidth = characterCellWidth(printable);
-            if (cellWidth > columns) {
+            if (cellWidth > activeColumns) {
               printable = REPLACEMENT;
               cellWidth = 1;
             }
-            if (compiledWidth + cellWidth >= columns) {
+            if (compiledWidth + cellWidth >= activeColumns) {
               return Object.freeze([]);
             }
             compiled.push(
@@ -379,6 +458,23 @@ export function layoutDisplayLines(
         !Array.isArray(line.prefix) ||
         line.content.length + line.continuation.length + line.prefix.length >
           TUI_LIMITS.rowSpans ||
+        !(
+          line.surfaceGroup === undefined ||
+          (typeof line.surfaceGroup === "object" &&
+            line.surfaceGroup !== null &&
+            Number.isSafeInteger(line.surfaceGroup.id) &&
+            line.surfaceGroup.id >= 0 &&
+            isSurfaceTone(line.surfaceGroup.surface) &&
+            (line.surfaceGroup.horizontalPadding === 0 ||
+              line.surfaceGroup.horizontalPadding === 1))
+        ) ||
+        (line.decoration !== undefined && line.decoration !== "separator") ||
+        (line.decoration === "separator" &&
+          (line.content.length !== 0 ||
+            line.continuation.length !== 0 ||
+            line.prefix.length !== 0 ||
+            line.surfaceGroup !== undefined ||
+            line.wrap !== "cell")) ||
         (line.wrap !== "cell" && line.wrap !== "word")
       ) {
         return err(new ComponentError("invalidRow", undefined));
@@ -393,6 +489,23 @@ export function layoutDisplayLines(
         ) {
           return err(new ComponentError("invalidRow", position));
         }
+      }
+      activeSurfaceGroup = line.surfaceGroup;
+      const surfacePadding =
+        activeSurfaceGroup?.horizontalPadding === 1 && columns >= 3 ? 1 : 0;
+      activeColumns =
+        activeSurfaceGroup === undefined ? columns : columns - surfacePadding * 2;
+      if (line.decoration === "separator") {
+        const separator = RichRow.fromText(
+          "\u2500".repeat(activeColumns),
+          "muted",
+        );
+        if (!separator.ok) {
+          failure = new ComponentError("invalidRow", undefined);
+        } else {
+          retainRichRow(separator.value);
+        }
+        continue;
       }
       continuationCells = compileContinuation(line.continuation);
       pendingContinuation = false;
@@ -434,10 +547,10 @@ export function layoutDisplayLines(
       return err(failure);
     }
     if (anchor === "head") {
-      return ok(Object.freeze(headRows));
+      return styleRetainedRows(headRows, columns);
     }
 
-    const ordered: RichRow[] = [];
+    const ordered: RetainedDisplayRow[] = [];
     const start = retainedTailRows < maximumRows ? 0 : tailCursor;
     for (let offset = 0; offset < retainedTailRows; offset += 1) {
       const retained = tailRows.get((start + offset) % maximumRows);
@@ -445,7 +558,7 @@ export function layoutDisplayLines(
         ordered.push(retained);
       }
     }
-    return ok(Object.freeze(ordered));
+    return styleRetainedRows(ordered, columns);
   } catch (_cause: unknown) {
     return err(new ComponentError("invalidText", undefined));
   }

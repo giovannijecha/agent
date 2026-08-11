@@ -31,16 +31,30 @@ test("projects an editor onto the final assigned row with a visible caret", () =
   assert.deepEqual(rendered.value.caret, { row: 1, column: 5 });
 });
 
-test("applies a validated focus tone without accepting control sequences", () => {
-  const created = InputLine.create("> ", new LineEditor(), "accent");
-  const invalid = InputLine.create("> ", new LineEditor(), "loud" as never);
+test("applies independent validated prefix and draft tones", () => {
+  const editor = new LineEditor();
+  editor.apply(Object.freeze({ kind: "text", text: "draft" }));
+  const created = InputLine.create("> ", editor, {
+    prefixTone: "accent",
+    textTone: "plain",
+  });
+  const invalid = InputLine.create("> ", new LineEditor(), {
+    prefixTone: "loud" as never,
+    textTone: "plain",
+  });
 
   assert.ok(created.ok);
-  const rendered = created.value.render(viewport(6, 2));
+  const rendered = created.value.render(viewport(8, 2));
   assert.ok(rendered.ok);
   assert.deepEqual(
-    rendered.value.rows.map((row) => row.spans.at(0)?.tone),
-    [undefined, "accent"],
+    rendered.value.rows.at(1)?.spans.map((span) => ({
+      text: span.text,
+      tone: span.tone,
+    })),
+    [
+      { text: "> ", tone: "accent" },
+      { text: "draft", tone: "plain" },
+    ],
   );
   assert.equal(invalid.ok, false);
   if (!invalid.ok) assert.equal(invalid.error.kind, "invalidTone");

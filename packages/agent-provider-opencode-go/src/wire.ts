@@ -4,8 +4,7 @@ import {
   StructuredList,
   StructuredObject,
   type StructuredValue,
-  ToolCall,
-  ToolResult,
+  ToolExchange,
   err,
   ok,
   structuredValueFromUnknown,
@@ -14,7 +13,7 @@ import {
   type Result,
   type StructuredField,
 } from "@agent/core";
-import type { ModelStreamEvent } from "@agent/runtime";
+import type { ModelStreamEvent, ModelToolCall } from "@agent/runtime";
 import {
   BooleanSchema,
   IntegerSchema,
@@ -112,37 +111,40 @@ function toolValue(descriptor: ToolDescriptor): unknown {
   });
 }
 
-function messageValue(entry: ConversationEntry): unknown {
+function messageValues(entry: ConversationEntry): readonly unknown[] {
   if (entry instanceof Message) {
-    return Object.freeze({ content: entry.content, role: entry.role });
+    return Object.freeze([
+      Object.freeze({ content: entry.content, role: entry.role }),
+    ]);
   }
-  if (entry instanceof ToolCall) {
-    return Object.freeze({
-      content: null,
+  if (entry instanceof ToolExchange) {
+    const assistant = Object.freeze({
+      content: entry.assistant?.content ?? null,
       role: "assistant",
-      tool_calls: Object.freeze([
-        Object.freeze({
+      tool_calls: Object.freeze(
+        entry.calls.map((call) => Object.freeze({
           function: Object.freeze({
-            arguments: JSON.stringify(structuredValue(entry.input)),
-            name: entry.name,
+            arguments: JSON.stringify(structuredValue(call.input)),
+            name: call.name,
           }),
-          id: entry.callId,
+          id: call.callId,
           type: "function",
-        }),
-      ]),
-    });
-  }
-  if (entry instanceof ToolResult) {
-    return Object.freeze({
-      content: JSON.stringify(
-        Object.freeze({
-          output: structuredValue(entry.output),
-          status: entry.status,
-        }),
+        })),
       ),
-      role: "tool",
-      tool_call_id: entry.callId,
     });
+    return Object.freeze([
+      assistant,
+      ...entry.results.map((result) => Object.freeze({
+        content: JSON.stringify(
+          Object.freeze({
+            output: structuredValue(result.output),
+            status: result.status,
+          }),
+        ),
+        role: "tool",
+        tool_call_id: result.callId,
+      })),
+    ]);
   }
   throw new Error("owned conversation invariant");
 }
@@ -156,7 +158,7 @@ export function encodeRequest(
   try {
     const messages = [
       Object.freeze({ content: instructions, role: Role.System }),
-      ...conversation.entries.map((entry) => messageValue(entry)),
+      ...conversation.entries.flatMap((entry) => messageValues(entry)),
     ];
     const request =
       tools.length === 0
@@ -168,7 +170,7 @@ export function encodeRequest(
         : Object.freeze({
             messages,
             model: OPENCODE_GO_MODEL,
-            parallel_tool_calls: false,
+            parallel_tool_calls: true,
             stream: true,
             tools: tools.map((tool) => toolValue(tool)),
           });
@@ -186,10 +188,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 type ToolAssembly = {
-  arguments: string[];
+  argumentParts: string[];
   argumentCodeUnits: number;
-  callId: string | undefined;
-  name: string | undefined;
+  callIdParts: string[];
+  callIdCodeUnits: number;
+  nameParts: string[];
+  nameCodeUnits: number;
 };
 
 const VALID_TOOL_NAME = /^[a-z][a-z0-9_]{0,63}$/u;
@@ -197,7 +201,8 @@ const VALID_TOOL_NAME = /^[a-z][a-z0-9_]{0,63}$/u;
 /** Stateful validator for one streamed Chat Completions response. */
 export class ChatCompletionDecoder {
   #terminal = false;
-  #tool: ToolAssembly | undefined;
+  #toolArgumentCodeUnits = 0;
+  readonly #tools: ToolAssembly[] = [];
   #wireEvents = 0;
 
   accept(data: string): Result<readonly ModelStreamEvent[], WireError> {
@@ -209,7 +214,7 @@ export class ChatCompletionDecoder {
       return err(failure("limit"));
     }
     if (data === "[DONE]") {
-      if (this.#tool !== undefined) {
+      if (this.#tools.length > 0) {
         return err(failure("protocol"));
       }
       this.#terminal = true;
@@ -271,18 +276,18 @@ export class ChatCompletionDecoder {
     const finishReason = choice.finish_reason;
     if (finishReason !== undefined && finishReason !== null) {
       if (finishReason === "stop") {
-        if (this.#tool !== undefined) {
+        if (this.#tools.length > 0) {
           return err(failure("protocol"));
         }
         this.#terminal = true;
         events.push(Object.freeze({ kind: "done" as const }));
       } else if (finishReason === "tool_calls") {
-        const toolCall = this.#finishTool();
-        if (!toolCall.ok) {
-          return toolCall;
+        const toolCalls = this.#finishTools();
+        if (!toolCalls.ok) {
+          return toolCalls;
         }
         this.#terminal = true;
-        events.push(toolCall.value);
+        events.push(toolCalls.value);
       } else {
         return err(failure("finishReason"));
       }
@@ -298,91 +303,146 @@ export class ChatCompletionDecoder {
   }
 
   #acceptToolFragment(value: unknown): Result<void, WireError> {
-    if (!Array.isArray(value) || value.length !== 1) {
-      return err(failure("protocol"));
-    }
-    const fragment = value.at(0);
-    if (!isRecord(fragment) || fragment.index !== 0) {
-      return err(failure("protocol"));
-    }
     if (
-      fragment.type !== undefined &&
-      fragment.type !== null &&
-      fragment.type !== "function"
+      !Array.isArray(value) ||
+      value.length === 0 ||
+      value.length > OPENCODE_GO_LIMITS.toolCallsPerBatch
     ) {
       return err(failure("protocol"));
     }
-    if (!isRecord(fragment.function)) {
-      return err(failure("protocol"));
-    }
-    const assembly = this.#tool ?? {
-      argumentCodeUnits: 0,
-      arguments: [],
-      callId: undefined,
-      name: undefined,
-    };
-    if (fragment.id !== undefined && fragment.id !== null) {
+    const seen = new Set<number>();
+    for (const fragment of value) {
+      if (!isRecord(fragment)) {
+        return err(failure("protocol"));
+      }
+      const index = fragment.index;
       if (
-        typeof fragment.id !== "string" ||
-        fragment.id.length === 0 ||
-        fragment.id.length > 128 ||
-        /\p{Cc}/u.test(fragment.id) ||
-        (assembly.callId !== undefined && assembly.callId !== fragment.id)
+        typeof index !== "number" ||
+        !Number.isSafeInteger(index) ||
+        index < 0 ||
+        index >= OPENCODE_GO_LIMITS.toolCallsPerBatch ||
+        seen.has(index) ||
+        index > this.#tools.length
       ) {
         return err(failure("protocol"));
       }
-      assembly.callId = fragment.id;
-    }
-    const name = fragment.function.name;
-    if (name !== undefined && name !== null) {
+      seen.add(index);
       if (
-        typeof name !== "string" ||
-        !VALID_TOOL_NAME.test(name) ||
-        (assembly.name !== undefined && assembly.name !== name)
+        fragment.type !== undefined &&
+        fragment.type !== null &&
+        fragment.type !== "function"
       ) {
         return err(failure("protocol"));
       }
-      assembly.name = name;
-    }
-    const argument = fragment.function.arguments;
-    if (argument !== undefined && argument !== null) {
-      if (typeof argument !== "string") {
+      const assembly =
+        index === this.#tools.length
+          ? {
+              argumentCodeUnits: 0,
+              argumentParts: [],
+              callIdCodeUnits: 0,
+              callIdParts: [],
+              nameCodeUnits: 0,
+              nameParts: [],
+            }
+          : this.#tools.at(index);
+      if (assembly === undefined) {
         return err(failure("protocol"));
       }
-      assembly.argumentCodeUnits += argument.length;
-      if (
-        assembly.argumentCodeUnits >
-        OPENCODE_GO_LIMITS.toolArgumentCodeUnits
-      ) {
-        return err(failure("limit"));
+      let contributed = false;
+      if (fragment.id !== undefined && fragment.id !== null) {
+        if (typeof fragment.id !== "string" || fragment.id.length === 0) {
+          return err(failure("protocol"));
+        }
+        assembly.callIdCodeUnits += fragment.id.length;
+        if (assembly.callIdCodeUnits > 128 || /\p{Cc}/u.test(fragment.id)) {
+          return err(failure("protocol"));
+        }
+        assembly.callIdParts.push(fragment.id);
+        contributed = true;
       }
-      assembly.arguments.push(argument);
+      const functionFragment = fragment.function;
+      if (functionFragment !== undefined && functionFragment !== null) {
+        if (!isRecord(functionFragment)) {
+          return err(failure("protocol"));
+        }
+        const name = functionFragment.name;
+        if (name !== undefined && name !== null) {
+          if (typeof name !== "string" || name.length === 0) {
+            return err(failure("protocol"));
+          }
+          assembly.nameCodeUnits += name.length;
+          if (assembly.nameCodeUnits > 64) {
+            return err(failure("protocol"));
+          }
+          assembly.nameParts.push(name);
+          contributed = true;
+        }
+        const argument = functionFragment.arguments;
+        if (argument !== undefined && argument !== null) {
+          if (typeof argument !== "string") {
+            return err(failure("protocol"));
+          }
+          assembly.argumentCodeUnits += argument.length;
+          this.#toolArgumentCodeUnits += argument.length;
+          if (
+            assembly.argumentCodeUnits > OPENCODE_GO_LIMITS.toolArgumentCodeUnits ||
+            this.#toolArgumentCodeUnits >
+              OPENCODE_GO_LIMITS.toolBatchArgumentCodeUnits
+          ) {
+            return err(failure("limit"));
+          }
+          assembly.argumentParts.push(argument);
+          contributed = true;
+        }
+      }
+      if (
+        !contributed ||
+        (index === this.#tools.length && this.#tools.length >=
+          OPENCODE_GO_LIMITS.toolCallsPerBatch)
+      ) {
+        return err(failure("protocol"));
+      }
+      if (index === this.#tools.length) {
+        this.#tools.push(assembly);
+      }
     }
-    this.#tool = assembly;
     return ok(undefined);
   }
 
-  #finishTool(): Result<Extract<ModelStreamEvent, { kind: "toolCall" }>, WireError> {
-    const assembly = this.#tool;
-    if (assembly?.callId === undefined || assembly.name === undefined) {
+  #finishTools(): Result<Extract<ModelStreamEvent, { kind: "toolCalls" }>, WireError> {
+    if (this.#tools.length === 0) {
       return err(failure("protocol"));
     }
-    let input: unknown;
-    try {
-      input = JSON.parse(assembly.arguments.join("")) as unknown;
-    } catch (_cause: unknown) {
-      return err(failure("protocol"));
-    }
-    const structured = structuredValueFromUnknown(input);
-    if (!structured.ok || !(structured.value instanceof StructuredObject)) {
-      return err(failure("protocol"));
+    const callIds = new Set<string>();
+    const calls: ModelToolCall[] = [];
+    for (const assembly of this.#tools) {
+      const callId = assembly.callIdParts.join("");
+      const name = assembly.nameParts.join("");
+      if (
+        callId.length === 0 ||
+        /\p{Cc}/u.test(callId) ||
+        !VALID_TOOL_NAME.test(name) ||
+        callIds.has(callId)
+      ) {
+        return err(failure("protocol"));
+      }
+      let input: unknown;
+      try {
+        input = JSON.parse(assembly.argumentParts.join("")) as unknown;
+      } catch (_cause: unknown) {
+        return err(failure("protocol"));
+      }
+      const structured = structuredValueFromUnknown(input);
+      if (!structured.ok || !(structured.value instanceof StructuredObject)) {
+        return err(failure("protocol"));
+      }
+      callIds.add(callId);
+      calls.push(Object.freeze({ callId, input: structured.value, name }));
     }
     return ok(
       Object.freeze({
-        callId: assembly.callId,
-        input: structured.value,
-        kind: "toolCall" as const,
-        name: assembly.name,
+        calls: Object.freeze(calls),
+        kind: "toolCalls" as const,
       }),
     );
   }

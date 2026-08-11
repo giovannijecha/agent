@@ -1,6 +1,5 @@
 import {
   Conversation,
-  conversationEntryCodeUnits,
   err,
   Message,
   ok,
@@ -8,6 +7,7 @@ import {
   Role,
   StructuredObject,
   structuredValueFromUnknown,
+  ToolExchange,
 } from "@agent/core";
 import {
   type PreparedToolCall,
@@ -33,7 +33,7 @@ import type {
   TurnOutcome,
 } from "./events.js";
 import { RUNTIME_LIMITS } from "./limits.js";
-import type { ModelStreamEvent, StreamingModel } from "./model.js";
+import type { ModelStreamEvent, ModelToolCall, StreamingModel } from "./model.js";
 import type { RuntimeSession } from "./session.js";
 
 
@@ -58,7 +58,7 @@ type TurnState<E> = {
   checkpointed: boolean;
   cleanup: RuntimeCleanupFailure<E>[];
   eventCount: number;
-  pendingTool: PendingTool | undefined;
+  toolBatch: ActiveToolBatch | undefined;
   prepared:
     | Readonly<{
         assistant: Message;
@@ -79,7 +79,16 @@ type PendingTool = {
   readonly whenDecided: Promise<ToolDecision>;
   decide: ((decision: ToolDecision) => void) | undefined;
   decision: ToolDecision | undefined;
-  phase: "requested" | "started";
+  phase: "unannounced" | "requested" | "started";
+};
+
+type ActiveToolBatch = {
+  readonly assistant: Message | undefined;
+  readonly executions: ToolExecution[];
+  readonly outputBudgets: readonly number[];
+  readonly prepared: readonly PreparedToolCall[];
+  index: number;
+  pending: PendingTool;
 };
 
 function countCodePoints(text: string): number {
@@ -160,11 +169,9 @@ function readModelStreamEvent(value: unknown): ModelStreamEvent | undefined {
   }
   try {
     const candidate = value as Readonly<{
-      kind?: unknown;
-      callId?: unknown;
-      input?: unknown;
-      name?: unknown;
+      calls?: unknown;
       text?: unknown;
+      kind?: unknown;
     }>;
     const keys = Object.keys(value).sort().join(",");
     const kind = candidate.kind;
@@ -177,21 +184,47 @@ function readModelStreamEvent(value: unknown): ModelStreamEvent | undefined {
         ? Object.freeze({ kind: "delta" as const, text })
         : undefined;
     }
-    if (kind === "toolCall" && keys === "callId,input,kind,name") {
-      const callId = candidate.callId;
-      const name = candidate.name;
-      const input = structuredValueFromUnknown(candidate.input);
-      return typeof callId === "string" &&
-        typeof name === "string" &&
-        input.ok &&
-        input.value instanceof StructuredObject
-        ? Object.freeze({
-            callId,
-            input: input.value,
-            kind: "toolCall" as const,
-            name,
-          })
-        : undefined;
+    if (kind === "toolCalls" && keys === "calls,kind") {
+      const source = candidate.calls;
+      if (
+        !Array.isArray(source) ||
+        source.length === 0 ||
+        source.length > RUNTIME_LIMITS.toolSteps
+      ) {
+        return undefined;
+      }
+      const calls: ModelToolCall[] = [];
+      const callIds = new Set<string>();
+      for (const sourceCall of source) {
+        if (sourceCall === null || typeof sourceCall !== "object") {
+          return undefined;
+        }
+        const callKeys = Object.keys(sourceCall).sort().join(",");
+        const raw = sourceCall as Readonly<{
+          callId?: unknown;
+          input?: unknown;
+          name?: unknown;
+        }>;
+        const callId = raw.callId;
+        const name = raw.name;
+        const input = structuredValueFromUnknown(raw.input);
+        if (
+          callKeys !== "callId,input,name" ||
+          typeof callId !== "string" ||
+          typeof name !== "string" ||
+          callIds.has(callId) ||
+          !input.ok ||
+          !(input.value instanceof StructuredObject)
+        ) {
+          return undefined;
+        }
+        callIds.add(callId);
+        calls.push(Object.freeze({ callId, input: input.value, name }));
+      }
+      return Object.freeze({
+        calls: Object.freeze(calls),
+        kind: "toolCalls" as const,
+      });
     }
   } catch (_cause: unknown) {
     return undefined;
@@ -226,6 +259,7 @@ function failed<E>(failure: TurnFailure<E>): TurnOutcome<E> {
 function createPendingTool(
   prepared: PreparedToolCall,
   approvalRequired: boolean,
+  phase: PendingTool["phase"] = "requested",
 ): PendingTool {
   let decide: ((decision: ToolDecision) => void) | undefined;
   const whenDecided = new Promise<ToolDecision>((resolve) => {
@@ -240,7 +274,7 @@ function createPendingTool(
     approvalRequired,
     decide,
     decision,
-    phase: "requested",
+    phase,
     prepared,
     whenDecided,
   };
@@ -299,7 +333,7 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
       return err(startError("emptyInput"));
     }
     if (
-      this.#conversation.length + 2 >
+      this.#conversation.messageUnits + 2 >
       RUNTIME_LIMITS.conversationMessages
     ) {
       return err(startError("conversationTooLong"));
@@ -320,7 +354,7 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
       checkpointed: false,
       cleanup: [],
       eventCount: 0,
-      pendingTool: undefined,
+      toolBatch: undefined,
       prepared: undefined,
       responseCodeUnits: 0,
       stream: undefined,
@@ -370,7 +404,7 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
     if (state.turnId !== turnId) {
       return err(commandError("staleTurn"));
     }
-    const pending = state.pendingTool;
+    const pending = state.toolBatch?.pending;
     if (
       pending === undefined ||
       !pending.approvalRequired ||
@@ -411,7 +445,8 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
       return ok(Object.freeze({ kind: "cancelled" as const }));
     }
     if (
-      state.candidate.length + 1 > RUNTIME_LIMITS.conversationMessages ||
+      state.candidate.messageUnits + 1 >
+        RUNTIME_LIMITS.conversationMessages ||
       state.candidate.codeUnits + prepared.assistant.content.length >
         RUNTIME_LIMITS.conversationCodeUnits
     ) {
@@ -487,6 +522,9 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
     state: TurnState<E>,
   ): Promise<Result<RuntimeEvent<E>, RuntimeSourceError>> {
     if (state.cancellation.requested) {
+      if (state.toolBatch !== undefined) {
+        return this.#cancelToolBatch(state, state.toolBatch);
+      }
       return this.#finish(state, Object.freeze({ kind: "cancelled" }));
     }
 
@@ -498,8 +536,8 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
       );
     }
 
-    if (state.pendingTool !== undefined) {
-      return this.#advanceTool(state, state.pendingTool);
+    if (state.toolBatch !== undefined) {
+      return this.#advanceToolBatch(state, state.toolBatch);
     }
 
     if (state.stream === undefined) {
@@ -672,8 +710,8 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
       );
     }
 
-    if (event.kind === "toolCall") {
-      return this.#requestTool(state, event);
+    if (event.kind === "toolCalls") {
+      return this.#requestTools(state, event);
     }
 
     const response = state.chunks.join("");
@@ -685,7 +723,8 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
       );
     }
     if (
-      state.candidate.length + 1 > RUNTIME_LIMITS.conversationMessages ||
+      state.candidate.messageUnits + 1 >
+        RUNTIME_LIMITS.conversationMessages ||
       state.candidate.codeUnits + assistant.value.content.length >
       RUNTIME_LIMITS.conversationCodeUnits
     ) {
@@ -697,9 +736,9 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
     return this.#complete(state, assistant.value);
   }
 
-  async #requestTool(
+  async #requestTools(
     state: TurnState<E>,
-    event: Extract<ModelStreamEvent, { kind: "toolCall" }>,
+    event: Extract<ModelStreamEvent, { kind: "toolCalls" }>,
   ): Promise<Result<RuntimeEvent<E>, RuntimeSourceError>> {
     const tools = this.#tools;
     if (tools === undefined) {
@@ -708,21 +747,25 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
         failed(Object.freeze({ kind: "toolUnavailable" })),
       );
     }
-    state.toolSteps += 1;
-    if (state.toolSteps > RUNTIME_LIMITS.toolSteps) {
+    if (state.toolSteps + event.calls.length > RUNTIME_LIMITS.toolSteps) {
       return this.#finish(
         state,
         failed(Object.freeze({ kind: "toolLimit" })),
       );
     }
-    const prepared = tools.prepare(event.callId, event.name, event.input);
-    if (!prepared.ok) {
-      return this.#finish(
-        state,
-        failed(Object.freeze({ kind: "invalidToolCall" })),
-      );
+    const preparedCalls: PreparedToolCall[] = [];
+    for (const call of event.calls) {
+      const prepared = tools.prepare(call.callId, call.name, call.input);
+      if (!prepared.ok) {
+        return this.#finish(
+          state,
+          failed(Object.freeze({ kind: "invalidToolCall" })),
+        );
+      }
+      preparedCalls.push(prepared.value);
     }
     const response = state.chunks.join("");
+    let assistant: Message | undefined;
     if (response.trim().length > 0) {
       const preamble = Message.create(Role.Assistant, response);
       if (!preamble.ok) {
@@ -731,50 +774,106 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
           failed(Object.freeze({ kind: "invalidToolCall" })),
         );
       }
-      state.candidate = state.candidate.append(preamble.value);
+      assistant = preamble.value;
     }
+    if (
+      state.candidate.messageUnits + preparedCalls.length + 2 >
+      RUNTIME_LIMITS.conversationMessages
+    ) {
+      return this.#finish(
+        state,
+        failed(Object.freeze({ kind: "toolLimit" })),
+      );
+    }
+    let fixedCodeUnits =
+      state.candidate.codeUnits +
+      (assistant?.content.length ?? 0) +
+      RUNTIME_LIMITS.responseCodeUnits;
+    for (const prepared of preparedCalls) {
+      fixedCodeUnits +=
+        prepared.call.callId.length * 2 +
+        prepared.call.name.length * 2 +
+        prepared.call.input.codeUnits;
+    }
+    const availableOutputCodeUnits =
+      RUNTIME_LIMITS.conversationCodeUnits - fixedCodeUnits;
+    const minimumOutputCodeUnits =
+      preparedCalls.length * TOOL_ENGINE_LIMITS.minimumOutputCodeUnits;
+    if (availableOutputCodeUnits < minimumOutputCodeUnits) {
+      return this.#finish(
+        state,
+        failed(Object.freeze({ kind: "toolLimit" })),
+      );
+    }
+    const sharedOutputCodeUnits = Math.floor(
+      (availableOutputCodeUnits - minimumOutputCodeUnits) /
+        preparedCalls.length,
+    );
+    const outputRemainder =
+      availableOutputCodeUnits -
+      minimumOutputCodeUnits -
+      sharedOutputCodeUnits * preparedCalls.length;
+    const outputBudgets = Object.freeze(
+      preparedCalls.map((_prepared, index) =>
+        Math.min(
+          TOOL_ENGINE_LIMITS.outputCodeUnits,
+          TOOL_ENGINE_LIMITS.minimumOutputCodeUnits +
+            sharedOutputCodeUnits +
+            (index < outputRemainder ? 1 : 0),
+        ),
+      ),
+    );
+    const cleanup = await this.#closeStream(state);
+    state.cleanup.push(...cleanup);
     state.chunks.splice(0);
     state.responseCodeUnits = 0;
     state.eventCount = 0;
-    if (state.candidate.length + 3 > RUNTIME_LIMITS.conversationMessages) {
+    state.toolSteps += preparedCalls.length;
+    const prepared = Object.freeze(preparedCalls);
+    const first = prepared.at(0);
+    if (first === undefined) {
       return this.#finish(
         state,
-        failed(Object.freeze({ kind: "toolLimit" })),
+        failed(Object.freeze({ kind: "invalidToolCall" })),
       );
     }
-    const reservedCodeUnits =
-      state.candidate.codeUnits +
-      conversationEntryCodeUnits(prepared.value.call) +
-      prepared.value.call.callId.length +
-      prepared.value.call.name.length +
-      TOOL_ENGINE_LIMITS.outputCodeUnits;
-    if (reservedCodeUnits > RUNTIME_LIMITS.conversationCodeUnits) {
-      return this.#finish(
-        state,
-        failed(Object.freeze({ kind: "toolLimit" })),
-      );
-    }
-    const cleanup = await this.#closeStream(state);
-    state.cleanup.push(...cleanup);
-    const approvalRequired = prepared.value.descriptor.risk !== "read";
-    state.pendingTool = createPendingTool(prepared.value, approvalRequired);
-    return ok(
-      Object.freeze({
-        approvalRequired,
-        approvalPreview: prepared.value.approvalPreview,
-        callId: prepared.value.call.callId,
-        kind: "toolRequested" as const,
-        name: prepared.value.call.name,
-        risk: prepared.value.descriptor.risk,
-        turnId: state.turnId,
-      }),
-    );
+    const approvalRequired = first.descriptor.risk !== "read";
+    const batch: ActiveToolBatch = {
+      assistant,
+      executions: [],
+      index: 0,
+      outputBudgets,
+      pending: createPendingTool(first, approvalRequired),
+      prepared,
+    };
+    state.toolBatch = batch;
+    return ok(this.#toolRequestedEvent(state, batch.pending));
   }
 
-  async #advanceTool(
+  #toolRequestedEvent(
     state: TurnState<E>,
     pending: PendingTool,
+  ): Extract<RuntimeEvent<E>, { kind: "toolRequested" }> {
+    return Object.freeze({
+      approvalRequired: pending.approvalRequired,
+      approvalPreview: pending.prepared.approvalPreview,
+      callId: pending.prepared.call.callId,
+      kind: "toolRequested" as const,
+      name: pending.prepared.call.name,
+      risk: pending.prepared.descriptor.risk,
+      turnId: state.turnId,
+    });
+  }
+
+  async #advanceToolBatch(
+    state: TurnState<E>,
+    batch: ActiveToolBatch,
   ): Promise<Result<RuntimeEvent<E>, RuntimeSourceError>> {
+    const pending = batch.pending;
+    if (pending.phase === "unannounced") {
+      pending.phase = "requested";
+      return ok(this.#toolRequestedEvent(state, pending));
+    }
     const tools = this.#tools;
     if (tools === undefined) {
       return this.#finish(
@@ -792,12 +891,12 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
           ),
         ]));
       if (decision === "cancelled" || state.cancellation.requested) {
-        return this.#finish(state, Object.freeze({ kind: "cancelled" }));
+        return this.#cancelToolBatch(state, batch);
       }
       if (decision === "denied") {
         const denied = tools.deny(pending.prepared);
         return denied.ok
-          ? this.#checkpointTool(state, pending, denied.value)
+          ? this.#settleToolExecution(state, batch, denied.value)
           : this.#finish(
               state,
               failed(Object.freeze({ kind: "toolEngine" })),
@@ -815,9 +914,17 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
       );
     }
 
+    const outputCodeUnits = batch.outputBudgets.at(batch.index);
+    if (outputCodeUnits === undefined) {
+      return this.#finish(
+        state,
+        failed(Object.freeze({ kind: "toolEngine" })),
+      );
+    }
     const executed = await tools.execute(
       pending.prepared,
       state.cancellation.signal,
+      outputCodeUnits,
     );
     if (!executed.ok) {
       return this.#finish(
@@ -825,32 +932,55 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
         failed(Object.freeze({ kind: "toolEngine" })),
       );
     }
-    return this.#checkpointTool(state, pending, executed.value);
+    return this.#settleToolExecution(state, batch, executed.value);
   }
 
-  #checkpointTool(
+  #settleToolExecution(
     state: TurnState<E>,
-    pending: PendingTool,
+    batch: ActiveToolBatch,
     executed: ToolExecution,
   ): Result<RuntimeEvent<E>, RuntimeSourceError> {
-    const candidate = state.candidate
-      .append(executed.call)
-      .append(executed.result);
-    if (
-      candidate.length > RUNTIME_LIMITS.conversationMessages ||
-      candidate.codeUnits > RUNTIME_LIMITS.conversationCodeUnits
-    ) {
-      return this.#terminalEvent(
-        state,
-        failed(Object.freeze({ kind: "toolLimit" })),
-        Object.freeze([...state.cleanup]),
-      );
+    const pending = batch.pending;
+    batch.executions.push(executed);
+    const terminalFailure = executed.contractFailure;
+    let batchInvariantFailure = false;
+    if (terminalFailure) {
+      batchInvariantFailure = !this.#fillNotRun(batch, "blocked");
+    } else if (state.cancellation.requested) {
+      batchInvariantFailure = !this.#fillNotRun(batch, "cancelled");
+    } else {
+      const nextIndex = batch.index + 1;
+      const next = batch.prepared.at(nextIndex);
+      if (next !== undefined) {
+        batch.index = nextIndex;
+        batch.pending = createPendingTool(
+          next,
+          next.descriptor.risk !== "read",
+          "unannounced",
+        );
+      }
     }
-    state.candidate = candidate;
-    state.checkpointed = true;
-    state.toolFailurePending = executed.contractFailure;
-    this.#conversation = candidate;
-    state.pendingTool = undefined;
+    if (
+      terminalFailure ||
+      state.cancellation.requested ||
+      batch.executions.length === batch.prepared.length
+    ) {
+      if (
+        batchInvariantFailure ||
+        !this.#checkpointToolBatch(state, batch)
+      ) {
+        return this.#terminalEvent(
+          state,
+          failed(
+            Object.freeze({
+              kind: batchInvariantFailure ? "toolEngine" : "toolLimit",
+            }),
+          ),
+          Object.freeze([...state.cleanup]),
+        );
+      }
+      state.toolFailurePending = terminalFailure;
+    }
     return ok(
       Object.freeze({
         callId: pending.prepared.call.callId,
@@ -861,6 +991,78 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
         turnId: state.turnId,
       }),
     );
+  }
+
+  #fillNotRun(
+    batch: ActiveToolBatch,
+    reason: "blocked" | "cancelled",
+  ): boolean {
+    const tools = this.#tools;
+    if (tools === undefined) {
+      return false;
+    }
+    for (
+      let index = batch.executions.length;
+      index < batch.prepared.length;
+      index += 1
+    ) {
+      const prepared = batch.prepared.at(index);
+      if (prepared === undefined) {
+        return false;
+      }
+      const notRun = tools.notRun(prepared, reason);
+      if (!notRun.ok) {
+        return false;
+      }
+      batch.executions.push(notRun.value);
+    }
+    return true;
+  }
+
+  async #cancelToolBatch(
+    state: TurnState<E>,
+    batch: ActiveToolBatch,
+  ): Promise<Result<RuntimeEvent<E>, RuntimeSourceError>> {
+    if (batch.executions.length === 0) {
+      state.toolBatch = undefined;
+      return this.#finish(state, Object.freeze({ kind: "cancelled" }));
+    }
+    if (
+      !this.#fillNotRun(batch, "cancelled") ||
+      !this.#checkpointToolBatch(state, batch)
+    ) {
+      return this.#finish(
+        state,
+        failed(Object.freeze({ kind: "toolEngine" })),
+      );
+    }
+    return this.#finish(state, Object.freeze({ kind: "cancelled" }));
+  }
+
+  #checkpointToolBatch(
+    state: TurnState<E>,
+    batch: ActiveToolBatch,
+  ): boolean {
+    const exchange = ToolExchange.create(
+      batch.assistant,
+      batch.executions.map((execution) => execution.call),
+      batch.executions.map((execution) => execution.result),
+    );
+    if (!exchange.ok) {
+      return false;
+    }
+    const candidate = state.candidate.append(exchange.value);
+    if (
+      candidate.messageUnits + 1 > RUNTIME_LIMITS.conversationMessages ||
+      candidate.codeUnits > RUNTIME_LIMITS.conversationCodeUnits
+    ) {
+      return false;
+    }
+    state.candidate = candidate;
+    state.checkpointed = true;
+    this.#conversation = candidate;
+    state.toolBatch = undefined;
+    return true;
   }
 
   async #complete(
@@ -959,7 +1161,7 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
   #discardState(state: TurnState<E>): void {
     state.chunks.splice(0);
     state.cleanup.splice(0);
-    state.pendingTool = undefined;
+    state.toolBatch = undefined;
     state.prepared = undefined;
     if (this.#state === state) {
       this.#state = undefined;

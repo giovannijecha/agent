@@ -1,6 +1,9 @@
 const MAX_CHUNK_CODE_UNITS = 65_536;
 const MAX_ESCAPE_CODE_UNITS = 32;
+const MAX_PASTE_CODE_UNITS = 65_536;
 const ESCAPE = "\u001B";
+const BRACKETED_PASTE_START = "\u001B[200~";
+const BRACKETED_PASTE_END = "\u001B[201~";
 
 export type KeyEvent =
   | Readonly<{ kind: "backspace" }>
@@ -14,9 +17,15 @@ export type KeyEvent =
   | Readonly<{ kind: "left" }>
   | Readonly<{ kind: "pageDown" }>
   | Readonly<{ kind: "pageUp" }>
+  | Readonly<{ kind: "paste"; text: string }>
   | Readonly<{ kind: "right" }>
+  | Readonly<{ kind: "tab" }>
   | Readonly<{ kind: "text"; text: string }>
   | Readonly<{ kind: "up" }>
+  | Readonly<{ kind: "wordBackspace" }>
+  | Readonly<{ kind: "wordDelete" }>
+  | Readonly<{ kind: "wordLeft" }>
+  | Readonly<{ kind: "wordRight" }>
   | Readonly<{ kind: "unsupported" }>;
 
 const SIMPLE_EVENTS = Object.freeze({
@@ -32,7 +41,12 @@ const SIMPLE_EVENTS = Object.freeze({
   pageDown: Object.freeze({ kind: "pageDown" as const }),
   pageUp: Object.freeze({ kind: "pageUp" as const }),
   right: Object.freeze({ kind: "right" as const }),
+  tab: Object.freeze({ kind: "tab" as const }),
   up: Object.freeze({ kind: "up" as const }),
+  wordBackspace: Object.freeze({ kind: "wordBackspace" as const }),
+  wordDelete: Object.freeze({ kind: "wordDelete" as const }),
+  wordLeft: Object.freeze({ kind: "wordLeft" as const }),
+  wordRight: Object.freeze({ kind: "wordRight" as const }),
   unsupported: Object.freeze({ kind: "unsupported" as const }),
 });
 
@@ -40,6 +54,11 @@ const KNOWN_SEQUENCES: readonly Readonly<{
   sequence: string;
   event: KeyEvent;
 }>[] = Object.freeze([
+  Object.freeze({ sequence: "\u001B[3;5~", event: SIMPLE_EVENTS.wordDelete }),
+  Object.freeze({ sequence: "\u001B[1;5C", event: SIMPLE_EVENTS.wordRight }),
+  Object.freeze({ sequence: "\u001B[1;5D", event: SIMPLE_EVENTS.wordLeft }),
+  Object.freeze({ sequence: "\u001B[5C", event: SIMPLE_EVENTS.wordRight }),
+  Object.freeze({ sequence: "\u001B[5D", event: SIMPLE_EVENTS.wordLeft }),
   Object.freeze({ sequence: "\u001B[3~", event: SIMPLE_EVENTS.delete }),
   Object.freeze({ sequence: "\u001B[1~", event: SIMPLE_EVENTS.home }),
   Object.freeze({ sequence: "\u001B[4~", event: SIMPLE_EVENTS.end }),
@@ -85,6 +104,20 @@ function appendText(events: KeyEvent[], text: string): void {
   events.push(Object.freeze({ kind: "text" as const, text }));
 }
 
+function appendPaste(events: KeyEvent[], text: string): void {
+  events.push(Object.freeze({ kind: "paste" as const, text }));
+}
+
+function delimiterPrefixLength(source: string, delimiter: string): number {
+  const maximum = Math.min(source.length, delimiter.length - 1);
+  for (let length = maximum; length > 0; length -= 1) {
+    if (delimiter.startsWith(source.slice(-length))) {
+      return length;
+    }
+  }
+  return 0;
+}
+
 function isEditable(character: string): boolean {
   const point = character.codePointAt(0);
   return (
@@ -118,6 +151,10 @@ export class InputDecoder {
   #pendingHighSurrogate = "";
   #previousWasCarriageReturn = false;
   #discardingEscape = false;
+  #pasting = false;
+  #pasteBuffer = "";
+  #pasteDelimiterPrefix = "";
+  #pasteOverflow = false;
 
   /**
    * Decodes one bounded UTF-8 text chunk in order.
@@ -125,16 +162,18 @@ export class InputDecoder {
    */
   feed(chunk: string): readonly KeyEvent[] {
     if (chunk.length > MAX_CHUNK_CODE_UNITS) {
-      this.#pendingEscape = "";
-      this.#pendingHighSurrogate = "";
-      this.#previousWasCarriageReturn = false;
-      this.#discardingEscape = false;
+      this.#reset();
       return Object.freeze([SIMPLE_EVENTS.unsupported]);
     }
 
-    let source = this.#pendingEscape + this.#pendingHighSurrogate + chunk;
+    let source =
+      this.#pendingEscape +
+      this.#pendingHighSurrogate +
+      this.#pasteDelimiterPrefix +
+      chunk;
     this.#pendingEscape = "";
     this.#pendingHighSurrogate = "";
+    this.#pasteDelimiterPrefix = "";
     if (source.length > 0) {
       const finalCode = source.charCodeAt(source.length - 1);
       if (finalCode >= 0xd800 && finalCode <= 0xdbff) {
@@ -146,6 +185,36 @@ export class InputDecoder {
     const events: KeyEvent[] = [];
     let index = 0;
     while (index < source.length) {
+      if (this.#pasting) {
+        const remaining = source.slice(index);
+        const closing = remaining.indexOf(BRACKETED_PASTE_END);
+        if (closing < 0) {
+          const prefixLength = delimiterPrefixLength(
+            remaining,
+            BRACKETED_PASTE_END,
+          );
+          this.#appendPasteContent(
+            remaining.slice(0, remaining.length - prefixLength),
+          );
+          this.#pasteDelimiterPrefix = remaining.slice(
+            remaining.length - prefixLength,
+          );
+          index = source.length;
+          break;
+        }
+        this.#appendPasteContent(remaining.slice(0, closing));
+        if (this.#pasteOverflow) {
+          appendEvent(events, SIMPLE_EVENTS.unsupported);
+        } else {
+          appendPaste(events, this.#pasteBuffer.replace(/\r\n?/gu, "\n"));
+        }
+        this.#pasting = false;
+        this.#pasteBuffer = "";
+        this.#pasteOverflow = false;
+        index += closing + BRACKETED_PASTE_END.length;
+        this.#previousWasCarriageReturn = false;
+        continue;
+      }
       if (this.#discardingEscape) {
         let completed = false;
         while (index < source.length) {
@@ -161,6 +230,14 @@ export class InputDecoder {
       }
       if (source.at(index) === ESCAPE) {
         const remaining = source.slice(index);
+        if (remaining.startsWith(BRACKETED_PASTE_START)) {
+          this.#pasting = true;
+          this.#pasteBuffer = "";
+          this.#pasteOverflow = false;
+          index += BRACKETED_PASTE_START.length;
+          this.#previousWasCarriageReturn = false;
+          continue;
+        }
         const known = KNOWN_SEQUENCES.find((entry) =>
           remaining.startsWith(entry.sequence),
         );
@@ -184,7 +261,10 @@ export class InputDecoder {
           this.#previousWasCarriageReturn = false;
           continue;
         }
-        if (KNOWN_SEQUENCES.some((entry) => entry.sequence.startsWith(remaining))) {
+        if (
+          BRACKETED_PASTE_START.startsWith(remaining) ||
+          KNOWN_SEQUENCES.some((entry) => entry.sequence.startsWith(remaining))
+        ) {
           this.#pendingEscape = remaining;
           break;
         }
@@ -228,7 +308,11 @@ export class InputDecoder {
         appendEvent(events, SIMPLE_EVENTS.interrupt);
       } else if (character === "\u0004") {
         appendEvent(events, SIMPLE_EVENTS.eof);
-      } else if (character === "\u0008" || character === "\u007F") {
+      } else if (character === "\u0009") {
+        appendEvent(events, SIMPLE_EVENTS.tab);
+      } else if (character === "\u0008" || character === "\u0017") {
+        appendEvent(events, SIMPLE_EVENTS.wordBackspace);
+      } else if (character === "\u007F") {
         appendEvent(events, SIMPLE_EVENTS.backspace);
       } else if (isEditable(character)) {
         appendText(events, character);
@@ -243,13 +327,36 @@ export class InputDecoder {
   /** Discards incomplete terminal data and reports that it was unsupported. */
   finish(): readonly KeyEvent[] {
     const incomplete =
-      this.#pendingEscape.length > 0 || this.#pendingHighSurrogate.length > 0;
+      this.#pendingEscape.length > 0 ||
+      this.#pendingHighSurrogate.length > 0 ||
+      this.#pasting ||
+      this.#pasteDelimiterPrefix.length > 0;
+    this.#reset();
+    return incomplete
+      ? Object.freeze([SIMPLE_EVENTS.unsupported])
+      : Object.freeze([]);
+  }
+
+  #appendPasteContent(text: string): void {
+    if (this.#pasteOverflow || text.length === 0) {
+      return;
+    }
+    if (this.#pasteBuffer.length + text.length > MAX_PASTE_CODE_UNITS) {
+      this.#pasteBuffer = "";
+      this.#pasteOverflow = true;
+      return;
+    }
+    this.#pasteBuffer += text;
+  }
+
+  #reset(): void {
     this.#pendingEscape = "";
     this.#pendingHighSurrogate = "";
     this.#previousWasCarriageReturn = false;
     this.#discardingEscape = false;
-    return incomplete
-      ? Object.freeze([SIMPLE_EVENTS.unsupported])
-      : Object.freeze([]);
+    this.#pasting = false;
+    this.#pasteBuffer = "";
+    this.#pasteDelimiterPrefix = "";
+    this.#pasteOverflow = false;
   }
 }

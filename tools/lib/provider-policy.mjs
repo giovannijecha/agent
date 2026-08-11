@@ -3,6 +3,7 @@ const OPENAI_SUBMISSION_URL =
 const CLAUDE_SUBMISSION_REFERENCE =
   "anthropic-support-messenger-2026-08-08";
 const KIMI_SUBMISSION_REFERENCE = "kimi-support-email-2026-08-08";
+const KIMI_RESPONSE_REFERENCE = "kimi-support-response-2026-08-11";
 const XAI_SUBMISSION_REFERENCE = "xai-support-email-2026-08-08";
 
 const EXPECTED_PROVIDERS = [
@@ -18,6 +19,7 @@ const EXPECTED_PROVIDERS = [
       visibility: "public",
       submittedOn: "2026-08-08",
       reference: OPENAI_SUBMISSION_URL,
+      response: null,
     },
   },
   {
@@ -32,13 +34,14 @@ const EXPECTED_PROVIDERS = [
       visibility: "private",
       submittedOn: "2026-08-08",
       reference: CLAUDE_SUBMISSION_REFERENCE,
+      response: null,
     },
   },
   {
     id: "kimi",
     displayName: "Kimi Code",
     eligibility: "blocked",
-    blocker: "owned-client-registration-required",
+    blocker: "provider-confirmed-public-oauth-unavailable",
     request: {
       state: "submitted",
       kind: "public-client-authorization-inquiry",
@@ -46,6 +49,12 @@ const EXPECTED_PROVIDERS = [
       visibility: "private",
       submittedOn: "2026-08-08",
       reference: KIMI_SUBMISSION_REFERENCE,
+      response: {
+        state: "received",
+        receivedOn: "2026-08-11",
+        outcome: "public-oauth-unavailable",
+        reference: KIMI_RESPONSE_REFERENCE,
+      },
     },
   },
   {
@@ -60,6 +69,7 @@ const EXPECTED_PROVIDERS = [
       visibility: "private",
       submittedOn: "2026-08-08",
       reference: XAI_SUBMISSION_REFERENCE,
+      response: null,
     },
   },
 ];
@@ -248,6 +258,28 @@ function validateRequestLifecycle(request, label) {
   }
 }
 
+function validateResponseLifecycle(response, label) {
+  if (response === null) {
+    return;
+  }
+  assertExactKeys(
+    response,
+    ["state", "receivedOn", "outcome", "reference"],
+    label,
+  );
+  if (
+    response.state !== "received" ||
+    typeof response.receivedOn !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}$/u.test(response.receivedOn) ||
+    response.outcome !== "public-oauth-unavailable" ||
+    typeof response.reference !== "string" ||
+    !/^[A-Za-z0-9._:-]{1,128}$/u.test(response.reference) ||
+    response.reference.includes("@")
+  ) {
+    fail(label + " metadata is invalid");
+  }
+}
+
 function markdownHeadings(text, level) {
   const prefix = "#".repeat(level) + " ";
   return text
@@ -357,6 +389,25 @@ function validateApplicationDocument(policy, text) {
     ) {
       fail(provider.id + " unsubmitted request contains submission metadata");
     }
+    if (provider.request.response !== null) {
+      for (const marker of [
+        "- Response state: `" + provider.request.response.state + "`",
+        "- Response received on: `" + provider.request.response.receivedOn + "`",
+        "- Response outcome: `" + provider.request.response.outcome + "`",
+        "- Private response reference: `" + provider.request.response.reference + "`",
+      ]) {
+        if (!section.includes(marker)) {
+          fail(provider.id + " response metadata mismatch");
+        }
+      }
+    } else if (
+      section.includes("- Response state:") ||
+      section.includes("- Response received on:") ||
+      section.includes("- Response outcome:") ||
+      section.includes("- Private response reference:")
+    ) {
+      fail(provider.id + " request contains unregistered response metadata");
+    }
     requestBody(section, provider);
     const route = markdownSubsection(section, "Official route", "Subject");
     if (!route.includes(OFFICIAL_ROUTE_URLS[provider.id])) {
@@ -400,7 +451,7 @@ function validateRegistry(policy) {
     ],
     "provider policy",
   );
-  if (policy.schemaVersion !== 4) {
+  if (policy.schemaVersion !== 5) {
     fail("unsupported provider policy schema");
   }
   if (!Array.isArray(policy.providers)) {
@@ -421,10 +472,22 @@ function validateRegistry(policy) {
     );
     assertExactKeys(
       provider.request,
-      ["state", "kind", "route", "visibility", "submittedOn", "reference"],
+      [
+        "state",
+        "kind",
+        "route",
+        "visibility",
+        "submittedOn",
+        "reference",
+        "response",
+      ],
       "provider request at index " + String(index),
     );
     validateRequestLifecycle(provider.request, "provider request at index " + String(index));
+    validateResponseLifecycle(
+      provider.request.response,
+      "provider response at index " + String(index),
+    );
     if (seen.has(provider.id)) {
       fail("duplicate provider id: " + String(provider.id));
     }

@@ -28,7 +28,6 @@ export type ToolActivitySnapshot = Readonly<{
 
 export type ToolActivityErrorKind =
   | "activeTurn"
-  | "duplicateCall"
   | "entryLimit"
   | "invalidActivity"
   | "invalidTransition"
@@ -84,9 +83,10 @@ function validPreview(preview: string): boolean {
   );
 }
 
-/** Bounded display-only lifecycle for the current or most recent tool sequence. */
+/** Bounded display-only lifecycle for the current tool-call batch. */
 export class ToolActivityLog {
-  readonly #entries: OwnedActivity[] = [];
+  #acceptedEntries = 0;
+  #entry: OwnedActivity | undefined;
   #turnId: number | undefined;
 
   /** Starts a fresh display sequence after the preceding turn has settled. */
@@ -97,7 +97,8 @@ export class ToolActivityLog {
     if (this.#turnId !== undefined) {
       return err(new ToolActivityError("activeTurn"));
     }
-    this.#entries.splice(0);
+    this.#acceptedEntries = 0;
+    this.#entry = undefined;
     this.#turnId = turnId;
     return ok(undefined);
   }
@@ -126,16 +127,14 @@ export class ToolActivityLog {
     ) {
       return err(new ToolActivityError("invalidActivity"));
     }
-    if (this.#entries.length >= TOOL_ACTIVITY_LIMITS.entries) {
+    if (this.#acceptedEntries >= TOOL_ACTIVITY_LIMITS.entries) {
       return err(new ToolActivityError("entryLimit"));
     }
-    if (this.#entries.some((entry) => entry.callId === callId)) {
-      return err(new ToolActivityError("duplicateCall"));
-    }
-    if (this.#entries.some((entry) => entry.open)) {
+    if (this.#entry?.open === true) {
       return err(new ToolActivityError("invalidTransition"));
     }
-    this.#entries.push({
+    this.#acceptedEntries += 1;
+    this.#entry = {
       callId,
       denied: false,
       name,
@@ -143,7 +142,7 @@ export class ToolActivityLog {
       preview,
       risk,
       state: approvalRequired ? "approval" : "queued",
-    });
+    };
     return ok(undefined);
   }
 
@@ -211,7 +210,7 @@ export class ToolActivityLog {
     if (turnId !== this.#turnId) {
       return err(new ToolActivityError("staleTurn"));
     }
-    const entry = this.#entries.find((candidate) => candidate.open);
+    const entry = this.#entry?.open === true ? this.#entry : undefined;
     if (entry === undefined) {
       return ok(false);
     }
@@ -224,7 +223,7 @@ export class ToolActivityLog {
     if (turnId !== this.#turnId) {
       return err(new ToolActivityError("staleTurn"));
     }
-    const entry = this.#entries.find((candidate) => candidate.open);
+    const entry = this.#entry?.open === true ? this.#entry : undefined;
     if (entry === undefined) {
       return ok(false);
     }
@@ -236,35 +235,39 @@ export class ToolActivityLog {
     return ok(true);
   }
 
-  /** Settles one turn while retaining its immutable display sequence. */
+  /** Settles one turn and releases its contextual display state. */
   finishTurn(turnId: number): Result<void, ToolActivityError> {
     if (turnId !== this.#turnId) {
       return err(new ToolActivityError("staleTurn"));
     }
-    if (this.#entries.some((entry) => entry.open)) {
+    if (this.#entry?.open === true) {
       return err(new ToolActivityError("invalidTransition"));
     }
+    this.#acceptedEntries = 0;
+    this.#entry = undefined;
     this.#turnId = undefined;
     return ok(undefined);
   }
 
   /** Returns fresh immutable view data with private call identities omitted. */
   snapshots(): readonly ToolActivitySnapshot[] {
-    return Object.freeze(
-      this.#entries.map((entry) =>
-        Object.freeze({
-          name: entry.name,
-          preview: entry.preview,
-          risk: entry.risk,
-          state: entry.state,
-        }),
-      ),
-    );
+    const entry = this.#entry;
+    return entry === undefined
+      ? Object.freeze([])
+      : Object.freeze([
+          Object.freeze({
+            name: entry.name,
+            preview: entry.preview,
+            risk: entry.risk,
+            state: entry.state,
+          }),
+        ]);
   }
 
   /** Releases every retained activity and private identity. */
   clear(): void {
-    this.#entries.splice(0);
+    this.#acceptedEntries = 0;
+    this.#entry = undefined;
     this.#turnId = undefined;
   }
 
@@ -275,9 +278,10 @@ export class ToolActivityLog {
     if (turnId !== this.#turnId) {
       return err(new ToolActivityError("staleTurn"));
     }
-    const entry = this.#entries.find(
-      (candidate) => candidate.open && candidate.callId === callId,
-    );
+    const entry =
+      this.#entry?.open === true && this.#entry.callId === callId
+        ? this.#entry
+        : undefined;
     return entry === undefined
       ? err(new ToolActivityError("staleCall"))
       : ok(entry);

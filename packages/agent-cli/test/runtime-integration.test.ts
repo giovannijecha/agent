@@ -415,7 +415,8 @@ test("active Ctrl+C cancels, preserves the draft, and keeps the shell open", asy
   await host.waitForWrites(5);
 
   assert.equal(host.stopCalls, 0);
-  assert.equal(host.writes.join("").includes("\u2192 draft"), true);
+  assert.equal(host.writes.join("").includes("\u203a"), false);
+  assert.equal(host.writes.join("").includes("draft"), true);
   host.emit(input("\u0003"));
   const result = await running;
 

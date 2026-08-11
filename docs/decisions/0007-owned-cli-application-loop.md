@@ -53,7 +53,7 @@ Without an injected runtime, ordinary submitted text is discarded immediately.
 It never reaches core, transcript, errors, output, or persistence. Commands remain
 exact: `/help`, `/providers`, `/approve`, `/deny`, and `/exit`; the two approval
 commands are contextual extensions from decision 0008, and `/quit` remains
-unknown.
+unknown. Decision 0028 later removes the duplicated `/help` surface.
 
 ## Controls and ordering
 

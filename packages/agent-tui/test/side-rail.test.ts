@@ -64,7 +64,10 @@ test("translates one child caret through the structural rail", () => {
       return Object.freeze({ caretColumn: text.length, text });
     },
   });
-  const input = InputLine.create("> ", source, "accent");
+  const input = InputLine.create("> ", source, {
+    prefixTone: "accent",
+    textTone: "accent",
+  });
   assert.ok(input.ok);
   const rail = SideRail.create(input.value, {
     horizontalPadding: 1,

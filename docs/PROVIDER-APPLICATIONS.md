@@ -3,13 +3,14 @@
 - Research date: `2026-08-08`
 - Maintainer: Giovanni Jecha
 - Repository: [github.com/giovannijecha/agent](https://github.com/giovannijecha/agent)
-- Overall submission state: all four requests submitted
+- Overall submission state: all four requests submitted; one response received
 
 These are project-authored authorization inquiries, not provider-issued
 registration forms and not evidence of approval. All four requests were sent
-through the recorded official routes after final visual review. All four
-integrations remain blocked until the relevant provider gives a complete
-written authorization.
+through the recorded official routes after final visual review. Kimi Code has
+confirmed that it does not currently offer public OAuth for third-party
+clients. All four integrations remain blocked until the relevant provider gives
+a complete written authorization.
 
 ## Submission rules
 
@@ -241,6 +242,16 @@ observed in Claude Code, Agent SDK, or third-party source.
 - Channel visibility: `private`
 - Submitted on: `2026-08-08`
 - Private reference: `kimi-support-email-2026-08-08`
+- Response state: `received`
+- Response received on: `2026-08-11`
+- Response outcome: `public-oauth-unavailable`
+- Private response reference: `kimi-support-response-2026-08-11`
+
+Kimi Code Team confirmed in writing that it does not currently offer a public
+OAuth authorization flow for third-party clients. This is a negative
+eligibility decision, not a partial approval: Kimi Code remains blocked. A
+future provider update must expressly authorize and document a direct
+independent-client contract before this status can change.
 
 ### Official route
 

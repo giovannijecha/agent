@@ -40,7 +40,15 @@
     "docs/decisions/0024-owned-transcript-navigation.md",
     "docs/decisions/0025-owned-word-aware-display-layout.md",
     "docs/decisions/0026-owned-responsive-conversation-shell.md",
-    "docs/decisions/0027-owned-semantic-state-chrome.md"
+    "docs/decisions/0027-owned-semantic-state-chrome.md",
+    "docs/decisions/0028-owned-conversation-visual-grammar.md",
+    "docs/decisions/0029-canonical-tool-call-batches.md",
+    "docs/decisions/0030-owned-structured-markdown-surfaces.md",
+    "docs/decisions/0031-owned-terminal-palette-and-code-highlighting.md",
+    "docs/decisions/0032-owned-transcript-visual-refinement.md",
+    "docs/decisions/0033-owned-semantic-activity-surfaces.md",
+    "docs/decisions/0034-owned-slash-command-completion.md",
+    "docs/decisions/0035-owned-multiline-composer-and-paste.md"
   ],
   "workspaces": [
     {

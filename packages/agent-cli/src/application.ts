@@ -3,12 +3,15 @@ import type {
   RuntimeEvent,
   StartedTurn,
   StartTurnError,
+  TurnFailure,
 } from "@agent/runtime";
 import { TOOL_ENGINE_LIMITS } from "@agent/tools";
 import {
   err,
   ok,
+  type EditorAreaProjection,
   type EditorProjection,
+  type InputAreaProjectionSource,
   type InputProjectionSource,
   type Result,
   ScrollState,
@@ -19,6 +22,7 @@ import { ChatState, type TranscriptEntry } from "./chat-state.js";
 import type { ProviderPresentation } from "./commands.js";
 import {
   SessionController,
+  type CommandCompletionProjection,
   type SessionAction,
   type SessionUpdate,
 } from "./session.js";
@@ -93,12 +97,59 @@ function validNotice(lines: readonly string[]): boolean {
   );
 }
 
+function turnFailureCode<E>(failure: TurnFailure<E>): string {
+  const kind = failure.kind;
+  if (kind === "model") {
+    return "model/" + failure.operation;
+  }
+  if (kind === "invalidModelResult") {
+    return "model/" + failure.operation + "/invalid-result";
+  }
+  if (kind === "unexpected") {
+    return "model/" + failure.operation + "/unexpected";
+  }
+  if (kind === "invalidModelStream") {
+    return "model/open/invalid-stream";
+  }
+  if (kind === "invalidModelEvent") {
+    return "model/read/invalid-event";
+  }
+  if (kind === "invalidToolCall") {
+    return "tool/invalid-call";
+  }
+  if (kind === "toolEngine") {
+    return "tool/engine";
+  }
+  if (kind === "toolLimit") {
+    return "tool/limit";
+  }
+  if (kind === "toolUnavailable") {
+    return "tool/unavailable";
+  }
+  if (kind === "emptyDelta") {
+    return "model/empty-delta";
+  }
+  if (kind === "emptyResponse") {
+    return "model/empty-response";
+  }
+  if (kind === "eventLimit") {
+    return "model/event-limit";
+  }
+  if (kind === "responseTooLong") {
+    return "model/response-limit";
+  }
+  return "runtime/failure";
+}
+
 /** Sole mutable reducer for CLI editing, chat display, phase, and notices. */
-export class ApplicationController implements InputProjectionSource {
+export class ApplicationController
+  implements InputProjectionSource, InputAreaProjectionSource
+{
   readonly #activityLog = new ToolActivityLog();
   readonly #chat = new ChatState();
   readonly #provider: ProviderPresentation | undefined;
   readonly #session: SessionController;
+  readonly #workspace: string | undefined;
   #notice: readonly string[];
   #phase: ApplicationPhase = "idle";
   #transcriptGeometry:
@@ -124,6 +175,7 @@ export class ApplicationController implements InputProjectionSource {
   constructor(
     runtimeAvailable: boolean,
     provider?: ProviderPresentation,
+    workspace?: string,
   ) {
     this.#provider =
       runtimeAvailable && provider !== undefined
@@ -133,10 +185,9 @@ export class ApplicationController implements InputProjectionSource {
             model: provider.model,
           })
         : undefined;
+    this.#workspace = workspace;
     this.#session = new SessionController(this.#provider);
-    this.#notice = runtimeAvailable
-      ? Object.freeze([])
-      : Object.freeze(["No model or tools are configured."]);
+    this.#notice = Object.freeze([]);
   }
 
   get phase(): ApplicationPhase {
@@ -149,6 +200,10 @@ export class ApplicationController implements InputProjectionSource {
 
   get provider(): ProviderPresentation | undefined {
     return this.#provider;
+  }
+
+  get workspace(): string | undefined {
+    return this.#workspace;
   }
 
   get draftLength(): number {
@@ -185,6 +240,17 @@ export class ApplicationController implements InputProjectionSource {
 
   project(columns: number): EditorProjection {
     return this.#session.projectEditor(columns);
+  }
+
+  projectArea(
+    columns: number,
+    maximumRows: number,
+  ): EditorAreaProjection {
+    return this.#session.projectEditorArea(columns, maximumRows);
+  }
+
+  projectCommandCompletion(): CommandCompletionProjection | undefined {
+    return this.#session.projectCommandCompletion();
   }
 
   /** Reduces one terminal input chunk into application effects. */
@@ -625,7 +691,9 @@ export class ApplicationController implements InputProjectionSource {
             : "Turn cancelled; no conversation changes were committed."
           : checkpointed
             ? "The turn failed; completed tool activity remains in conversation."
-            : "The model turn failed; no conversation changes were committed.";
+            : "The model turn failed (" +
+              turnFailureCode(outcome.failure) +
+              "); no conversation changes were committed.";
       this.#setNotice(
         cleanupPresent
           ? [outcomeLine, "The model stream also failed during cleanup."]

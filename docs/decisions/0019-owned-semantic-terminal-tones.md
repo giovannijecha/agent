@@ -1,7 +1,13 @@
 # 0019: Owned semantic terminal tones
 
-- Status: superseded by decisions 0023 and 0027
+- Status: superseded by decisions 0023, 0027, and 0031
 - Date: 2026-08-09
+- Amended by: decision 0033
+
+Decision 0031 later changes the `accent` mapping and adds closed code-only tones
+and the `inset` surface. Decision 0033 later adds closed success, attention, and
+failure activity backgrounds without changing the foreground traffic-light
+truth. This document retains the original four-tone decision as history.
 
 ## Context
 
@@ -20,8 +26,9 @@ with one canonical structured row whose bounded spans each carry one of these
 same closed tones. Escape sequences and arbitrary color values are never part of
 the component contract.
 
-Only the renderer translates tones into fixed owned SGR sequences. `accent`
-uses bold cyan, `attention` uses bold yellow, and `muted` uses dim text. Every
+Only the renderer translates tones into fixed owned SGR sequences. At this
+stage, `accent` used bold cyan, `attention` used bold yellow, and `muted` used
+dim text. Decision 0031 later replaces the accent mapping. Every
 styled span resets terminal style immediately after its printable content, and
 renderer cleanup resets style before restoring the cursor and prior screen.
 Tone-only changes participate in differential redraw. Empty rendered rows have

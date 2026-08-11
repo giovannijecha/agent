@@ -42,9 +42,10 @@ tests, update and rollback procedures, and an independent removal path.
 - Return discriminated results for expected failures; translate them in the CLI.
 - Decode foreign results, stream capabilities, and events into owned snapshots
   before mutation; reflective access and hostile getters must remain contained.
-- Treat model tool calls as hostile structured data. Validate them against one
-  closed advertised schema, run at most one call per model step, and never infer
-  approval from prose, a prefix, a prior call, or a risk category.
+- Treat model tool calls as hostile structured data. Bound and validate a
+  complete ordered batch against the closed advertised schemas before effects,
+  execute its calls sequentially, and never infer approval from prose, a prefix,
+  a prior call, another batch member, or a risk category.
 - Escape non-printing and directional Unicode in exact approval fields before
   display, then reject any unescaped unsafe scalar at the application boundary.
 - Treat warnings, stale documentation, skipped tests, and suppressed type errors
@@ -157,8 +158,8 @@ cleanup without allowing one failure to mask another.
 
 Treat visual emphasis as closed metadata, never as display text. Components and
 frames accept only normalized `TextSpan` and `RichRow` values under decision
-0021, and spans accept only the semantic tones registered by decisions 0019 and
-0023. The renderer alone maps them to fixed ANSI, redraws text- or tone-only
+0021, and spans accept only the semantic tones registered by decisions 0019,
+0023, 0027, 0031, and 0032. The renderer alone maps them to fixed ANSI, redraws text- or tone-only
 changes, and resets terminal style after emphasized spans and during cleanup.
 Application code and untrusted content must never construct escape sequences or
 arbitrary color values. Bound span count before iteration, merge adjacent equal
@@ -173,9 +174,27 @@ anchoring, padding, fragment, frame, and renderer path. Under decision 0025,
 ordinary text wraps only through the shared word-aware policy, long tokens use
 its cell fallback, and literal code remains on its explicit cell policy. Keep
 structural and continuation prefixes in the logical-line contract; do not add a
-component-private wrapper. Do not add HTML, active
-links, images, arbitrary styles, parser callbacks, extensions, syntax
-highlighting, a retained AST, or a second rendering engine. If inline role
+component-private wrapper. Under decision 0030, keep assistant prose unboxed
+and let only complete fenced code and strict pipe tables select the internal
+structured-region role. Under decision 0032, assign zero horizontal padding to
+complete fences with at most two visible logical rows and one cell to larger
+fences; tables keep one cell. Before painting a strict table, measure every
+accepted header and body cell and pad all rows to the same visible width per
+column. Derive one muted header rule from that exact measured total row extent
+and emit it in the same surface; never add a table-specific painter, outer box,
+or full row grid. Reserve the declared surface padding before wrapping,
+retain the region identity beside bounded visible rows, and reuse the generic
+surface painter.
+Inline code and fenced language labels may select `accent`; table headers use
+`emphasis`; structural separators use `muted`. Parse only exact `---` as the
+semantic horizontal separator and expand it in shared display layout, never in
+the parser. Under decision 0031 as amended by 0032, complete recognized
+fences may select only the five closed syntax roles through the internal
+bounded line scanner, and unknown or unlabeled fences remain plain. Never infer
+operational state or arbitrary style from model content. Do not add rendered
+HTML, active links, images, arbitrary styles, parser callbacks, extensions, a
+syntax-highlighting dependency or registry, a retained AST, or a second
+rendering engine. If inline role
 count exceeds the row bound, fall back to the complete sanitized literal line.
 Snapshot document collections before parsing, bound their count and total text,
 and restart syntax state at every document boundary. Conversation roles use
@@ -194,33 +213,76 @@ from one immutable `VerticalLayoutPlan`; never repeat allocation math in CLI or
 mutate application state from a component callback. The application reducer
 alone owns scroll and observed geometry. Keep transcript keys out of the line
 editor, preserve draft and caret, use one-row page overlap, and expose only the
-quiet `history` footer truth while follow-end is disabled.
+quiet `↑ history` footer truth while follow-end is disabled.
 
-Compose the product shell through decisions 0026 and 0027. The CLI alone decides the
-vertical order, slot priorities, product wording, semantic tones, and truthful
-status facts. `Panel`, `SplitLine`, `HorizontalInset`, and `SideRail` remain
-Node-free, agent-agnostic component mechanics. A panel must render its complete border or delegate its entire
-viewport without a border; partial boxes are forbidden. The rectangular
-composer wraps the existing `InputLine` and must not create a second editor,
-decoder, draft, or submission path. Keep its arrow and draft neutral. Render the
-lifecycle phase once at the footer's right edge; do not add a static product/help
-header or duplicate lifecycle notice. Footer facts come only from authoritative
-application state. Keep green for success/readiness, yellow for active/approval,
-and red for negative terminal state. Do not add permanent dashboards, empty metrics,
-speculative progress, or integration-specific cards. Future tools and
-integrations reuse the same panel, split-line, inset, rail, activity-stack,
-scroll, and vertical-layout paths. Keep role and content structured in the CLI,
-but do not prefix visible messages with redundant role labels. Separate adjacent
-role entries with one blank row and no leading or trailing decorative gap.
+Compose the product shell through decisions 0026, 0027, and 0028. The CLI alone
+decides vertical order, slot priorities, product wording, semantic tones, and
+truthful status facts. `Panel`, `SplitLine`, `ThreeColumnLine`,
+`HorizontalInset`, `SideRail`, `Surface`, `SelectionList`, and `Spacer`
+remain Node-free, agent-agnostic
+component mechanics. A panel must render its complete border or delegate its
+entire viewport without a border; partial boxes are forbidden. Compose the
+composer from one `Panel` and the prompt-free `InputArea`; never create a second
+editor, decoder, draft, or submission path. Let the area grow from one to six
+content rows, wrap at word boundaries when possible, and keep the real terminal
+caret visible as the projection moves. Bracketed paste is one bounded atomic
+edit, never an implicit submission; only a distinct Enter event submits. The
+renderer owns enabling and disabling bracketed-paste mode with its other
+terminal lifecycle controls. Map admitted Ctrl word controls into semantic
+decoder events, and keep the whitespace-delimited movement and deletion rule
+inside the bounded editor. Never duplicate control decoding or word mutation in
+CLI state. Keep the draft neutral. Render the
+working folder left, provider/model at the physical center, and lifecycle phase
+plus optional history once at the footer's right edge. When width is scarce,
+retain right, then center, then left. Do not add a static product header or
+duplicate lifecycle notice. Footer facts come only from the composition root or
+authoritative application state. Compose compact transcript cards with
+`Surface`; keep surface, slant, and foreground tone independent, closed, and
+renderer-owned. Use the user surface for role distinction, leave assistant
+prose direct, and reuse the content-fit dark `inset` painter for registered
+structured Markdown regions. Keep green for
+success/readiness, yellow for active/approval, and red for negative terminal
+state. Do not add permanent dashboards, empty metrics, speculative progress, or
+integration-specific cards. Future tools and integrations reuse the same
+split-line, three-column-line, inset, rail, marker, spacer, activity-stack, scroll, and
+vertical-layout paths. Keep role and content structured in the CLI, but do not
+prefix visible messages with redundant role labels. Separate adjacent role
+entries with one blank row and no leading or trailing decorative gap.
+The renderer owns the interactive steady block cursor command and restores the
+terminal-default style on every cleanup path. Keep cursor shape out of editor
+text, frame content, and product state.
+
+Keep slash discovery and dispatch on one immutable CLI catalog under decision
+0034. Completion accepts only exact prefixes without whitespace and disappears
+for an exact command. Let the session own its bounded selection index; intercept
+Up and Down only while completion is visible, and let Tab replace the draft
+without creating an action. While completion is visible, Enter clears the draft
+and dispatches the selected exact command through the same canonical submission
+path; do not add a menu-specific dispatcher. Map catalog rows through the generic
+one-row `SelectionList`; never teach the TUI package command names, aliases,
+execution, or provider policy.
 
 Compose sequential component documents through the one bounded generic stack
 defined by decision 0022. Product lifecycle state never enters that component:
 the CLI owns one tool-activity log and maps every registered tool through the
-same presentation function. Keep newest activity first, preserve its header
-before optional scope in short viewports, and wrap the entire stack in at most
-one generic panel. Do not add per-tool components, panels, icons, colors,
-aliases, or state paths. Visible activity is limited to the current or most
-recently settled turn and is scrubbed during cleanup.
+same presentation function. Preserve the focused activity header before
+optional scope in short viewports. Every state uses one generic borderless
+semantic `Surface`; success, attention, and failure are closed renderer-owned
+backgrounds selected from authoritative CLI state. Keep the tool name neutral
+and italic, retain the written state, and do not add per-tool components,
+panels, rails, icons, colors, aliases, or state paths. Visible activity is
+derived from one bounded log: only the latest tool occupies the contextual slot
+while its turn is active. The next tool replaces it, turn settlement removes
+it, and no activity enters the scrollable conversation. Do not add a second
+archive or lifecycle model. Activity
+is limited to the current or most recently settled turn and is scrubbed during
+cleanup. Place one optional generic one-row `Spacer` before non-empty contextual
+activity. Give it zero minimum height so constrained viewports discard rhythm
+before required interaction or activity content. Keep activity directly
+adjacent to following completion or composer content; do not add a trailing
+spacer or component-private padding. Keep the empty session empty and keep
+operator guidance in the manual; do not recreate welcome suggestions or an
+embedded help document.
 
 ## Tool execution policy
 
@@ -235,8 +297,9 @@ the registered CLI module; the generic tool engine owns mechanics only.
 
 Tool descriptors and schemas are immutable provider-neutral data. Read tools may
 run automatically; every write tool requires one exact pending-call decision
-from `/approve` or `/deny`. Calls run sequentially, and no tool may use ambient
-network access. Process execution remains unavailable under decisions 0008 and
+from `/approve` or `/deny`. One model response may select a bounded ordered
+batch, but complete preflight precedes effects and handlers run sequentially in
+provider order. No tool may use ambient network access. Process execution remains unavailable under decisions 0008 and
 0015. A future backend must fail closed without the required Job Object or
 delegated cgroup boundary and pass the registered adversarial platform proof
 before any descriptor is advertised.

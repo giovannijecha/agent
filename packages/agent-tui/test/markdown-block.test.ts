@@ -37,10 +37,7 @@ test("compiles the complete owned block and inline subset into semantic spans", 
         "ordinary **strong** and `code`\n" +
         "- item\n" +
         "12. ordered\n" +
-        "> quote\n" +
-        "```ts\n" +
-        "let value = 1;\n" +
-        "```",
+        "> quote",
     ),
   );
 
@@ -50,7 +47,7 @@ test("compiles the complete owned block and inline subset into semantic spans", 
       { text: "ordinary ", tone: "plain" },
       { text: "strong", tone: "emphasis" },
       { text: " and ", tone: "plain" },
-      { text: "code", tone: "emphasis" },
+      { text: "code", tone: "accent" },
     ],
     [
       { text: "- ", tone: "muted" },
@@ -63,11 +60,6 @@ test("compiles the complete owned block and inline subset into semantic spans", 
     [
       { text: "│ ", tone: "muted" },
       { text: "quote", tone: "plain" },
-    ],
-    [{ text: "│ ts", tone: "muted" }],
-    [
-      { text: "│ ", tone: "muted" },
-      { text: "let value = 1;", tone: "plain" },
     ],
   ]);
 });
@@ -106,17 +98,20 @@ test("keeps unsupported, incomplete, nested, and escaped syntax literal", () => 
 });
 
 test("does not interpret inline syntax inside code spans or fenced code", () => {
-  const rendered = spans(
-    block("`**literal**`\n```\n**literal** `literal`\n```"),
-  );
+  const rendered = block(
+    "`**literal**`\n```\n**literal** `literal`\n```",
+  ).render(viewport(40, 4));
 
-  assert.deepEqual(rendered, [
-    [{ text: "**literal**", tone: "emphasis" }],
-    [
-      { text: "│ ", tone: "muted" },
-      { text: "**literal** `literal`", tone: "plain" },
-    ],
-  ]);
+  assert.ok(rendered.ok);
+  assert.equal(rendered.value.rows.at(0)?.text, "**literal**");
+  assert.equal(rendered.value.rows.at(0)?.spans.at(0)?.tone, "accent");
+  const code = rendered.value.rows.at(1);
+  assert.equal(code?.text.trim(), "**literal** `literal`");
+  assert.deepEqual(code?.spans.map((span) => span.tone), ["plain"]);
+  assert.equal(
+    code?.spans.every((span) => span.surface === "inset"),
+    true,
+  );
 });
 
 test("normalizes controls, line endings, tabs, and lone surrogates before output", () => {
@@ -169,21 +164,441 @@ test("uses hanging structural prefixes on wrapped Markdown prose", () => {
   ]);
 });
 
-test("keeps fenced code literal and repeats its rail after cell wrapping", () => {
+test("compacts a one-row fenced region without changing its surface", () => {
   const rendered = block("```\nab cd\n```").render(viewport(7, 2));
 
   assert.ok(rendered.ok);
-  assert.deepEqual(
-    rendered.value.rows.map((row) =>
-      row.spans.map((span) => ({ text: span.text, tone: span.tone })),
+  assert.equal(rendered.value.rows.at(0)?.text, "ab cd");
+  assert.equal(
+    rendered.value.rows.at(0)?.spans.every(
+      (span) => span.surface === "inset" && span.slant === "normal",
     ),
-    [
-      [
-        { text: "│ ", tone: "muted" },
-        { text: "ab cd", tone: "plain" },
-      ],
-      [],
-    ],
+    true,
+  );
+  assert.equal(rendered.value.rows.at(1)?.text, "");
+});
+
+test("retains padded literal wrapping for larger fenced regions", () => {
+  const rendered = block("```\nabcdef\nx\ny\n```").render(viewport(7, 2));
+
+  assert.ok(rendered.ok);
+  assert.deepEqual(rendered.value.rows.map((row) => row.text), [
+    " abcde ",
+    " f     ",
+  ]);
+  assert.equal(
+    rendered.value.rows.every((row) =>
+      row.spans.every((span) => span.surface === "inset"),
+    ),
+    true,
+  );
+});
+
+test("drops structured padding before content in a one-column viewport", () => {
+  const rendered = block("```\nabc\n```").render(viewport(1, 1));
+
+  assert.ok(rendered.ok);
+  assert.equal(rendered.value.rows.at(0)?.text, "a");
+  assert.equal(rendered.value.rows.at(0)?.spans.at(0)?.surface, "inset");
+});
+
+test("paints only the retained tail of a clipped structured region", () => {
+  const rendered = block(
+    "before\n```\none\ntwo\n```",
+    "tail",
+  ).render(viewport(8, 2));
+
+  assert.ok(rendered.ok);
+  assert.deepEqual(rendered.value.rows.map((row) => row.text), [
+    "one",
+    "two",
+  ]);
+  assert.equal(
+    rendered.value.rows.every((row) =>
+      row.spans.every((span) => span.surface === "inset"),
+    ),
+    true,
+  );
+});
+
+test("renders fenced language labels as parser-owned accents", () => {
+  const rendered = block("```ts\nconst value = 1;\n```").render(
+    viewport(32, 2),
+  );
+
+  assert.ok(rendered.ok);
+  assert.equal(rendered.value.rows.at(0)?.text.trimEnd(), "ts");
+  assert.equal(rendered.value.rows.at(0)?.text.startsWith("ts"), true);
+  assert.equal(rendered.value.rows.at(0)?.spans.at(0)?.tone, "accent");
+  assert.equal(rendered.value.rows.at(1)?.text.trimEnd(), "const value = 1;");
+  assert.equal(
+    rendered.value.rows.at(1)?.text.startsWith("const value = 1;"),
+    true,
+  );
+  assert.deepEqual(
+    rendered.value.rows.at(1)?.spans.map((span) => span.tone),
+    ["syntaxKeyword", "plain", "syntaxLiteral", "plain"],
+  );
+  assert.equal(
+    rendered.value.rows.every((row) =>
+      row.spans.every((span) => span.surface === "inset"),
+    ),
+    true,
+  );
+});
+
+test("renders the exact Markdown separator across the available width", () => {
+  const rendered = block("before\n---\nafter").render(viewport(8, 3));
+
+  assert.ok(rendered.ok);
+  assert.deepEqual(rendered.value.rows.map((row) => row.text), [
+    "before",
+    "\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500",
+    "after",
+  ]);
+  assert.equal(rendered.value.rows.at(1)?.spans.at(0)?.tone, "muted");
+  assert.equal(rendered.value.rows.at(1)?.spans.at(0)?.surface, "none");
+});
+
+test("expands a retained separator after head and tail clipping", () => {
+  const source = "pre\n---\npost";
+  const head = block(source, "head").render(viewport(5, 2));
+  const tail = block(source, "tail").render(viewport(5, 2));
+
+  assert.ok(head.ok);
+  assert.deepEqual(head.value.rows.map((row) => row.text), [
+    "pre",
+    "\u2500\u2500\u2500\u2500\u2500",
+  ]);
+  assert.ok(tail.ok);
+  assert.deepEqual(tail.value.rows.map((row) => row.text), [
+    "\u2500\u2500\u2500\u2500\u2500",
+    "post",
+  ]);
+});
+
+test("keeps unsupported separator variants literal", () => {
+  const rendered = block("--\n----\n - - - \n***").render(viewport(12, 4));
+
+  assert.ok(rendered.ok);
+  assert.deepEqual(rendered.value.rows.map((row) => row.text), [
+    "--",
+    "----",
+    " - - - ",
+    "***",
+  ]);
+});
+
+test("highlights the closed HTML, CSS, and script profiles inside one inset", () => {
+  const rendered = block(
+    "```html\n" +
+      '<main class="shell">\n' +
+      "<style>\n" +
+      "body { color: #abc; /* note */ }\n" +
+      "</style>\n" +
+      "<script>\n" +
+      "const ready = true;\n" +
+      "</script>\n" +
+      "</main>\n" +
+      "```",
+  ).render(viewport(96, 10));
+
+  assert.ok(rendered.ok);
+  const allSpans = rendered.value.rows.flatMap((row) => row.spans);
+  assert.equal(allSpans.every((span) => span.surface === "inset"), true);
+  assert.equal(
+    allSpans.some(
+      (span) => span.text === "main" && span.tone === "syntaxName",
+    ),
+    true,
+  );
+  assert.equal(
+    allSpans.some(
+      (span) => span.text === '"shell"' && span.tone === "syntaxString",
+    ),
+    true,
+  );
+  assert.equal(
+    allSpans.some(
+      (span) => span.text === "color" && span.tone === "syntaxName",
+    ),
+    true,
+  );
+  assert.equal(
+    allSpans.some(
+      (span) => span.text === "#abc" && span.tone === "syntaxLiteral",
+    ),
+    true,
+  );
+  assert.equal(
+    allSpans.some(
+      (span) => span.text === "/* note */" && span.tone === "syntaxComment",
+    ),
+    true,
+  );
+  assert.equal(
+    allSpans.some(
+      (span) =>
+        span.text.trim() === "const" && span.tone === "syntaxKeyword",
+    ),
+    true,
+  );
+  assert.equal(
+    allSpans.some(
+      (span) => span.text === "true" && span.tone === "syntaxLiteral",
+    ),
+    true,
+  );
+});
+
+test("keeps embedded closing-tag text inside strings and line comments", () => {
+  const rendered = block(
+    "```html\n" +
+      "<script>\n" +
+      'const marker = "</script>";\n' +
+      "// </script>\n" +
+      "const stillInside = true;\n" +
+      "</script>\n" +
+      "<section>ok</section>\n" +
+      "```",
+  ).render(viewport(96, 8));
+
+  assert.ok(rendered.ok);
+  const allSpans = rendered.value.rows.flatMap((row) => row.spans);
+  assert.equal(
+    allSpans.some(
+      (span) =>
+        span.text === '"</script>"' && span.tone === "syntaxString",
+    ),
+    true,
+  );
+  assert.equal(
+    allSpans.some(
+      (span) =>
+        span.text.trim() === "// </script>" &&
+        span.tone === "syntaxComment",
+    ),
+    true,
+  );
+  assert.equal(
+    allSpans.filter(
+      (span) => span.text.trim() === "const" && span.tone === "syntaxKeyword",
+    ).length,
+    2,
+  );
+  assert.equal(
+    allSpans.some(
+      (span) => span.text === "section" && span.tone === "syntaxName",
+    ),
+    true,
+  );
+});
+
+test("highlights JSON keys, strings, and literals without changing source text", () => {
+  const source = '{"name":"agent","ready":true,"count":2}';
+  const rendered = block("```json\n" + source + "\n```").render(
+    viewport(96, 2),
+  );
+
+  assert.ok(rendered.ok);
+  const code = rendered.value.rows.at(1);
+  assert.equal(code?.text.trim(), source);
+  assert.equal(
+    code?.spans.some(
+      (span) => span.text === '"name"' && span.tone === "syntaxName",
+    ),
+    true,
+  );
+  assert.equal(
+    code?.spans.some(
+      (span) => span.text === '"agent"' && span.tone === "syntaxString",
+    ),
+    true,
+  );
+  assert.equal(
+    code?.spans.some(
+      (span) => span.text === "true" && span.tone === "syntaxLiteral",
+    ),
+    true,
+  );
+});
+
+test("highlights commands, flags, variables, strings, and comments", () => {
+  const rendered = block(
+    "```powershell\n" +
+      '$result = npm run build --silent # verify\n' +
+      'Write-Output "done"\n' +
+      "```",
+  ).render(viewport(96, 3));
+
+  assert.ok(rendered.ok);
+  const allSpans = rendered.value.rows.flatMap((row) => row.spans);
+  assert.equal(
+    allSpans.some(
+      (span) =>
+        span.text.trim() === "$result" && span.tone === "syntaxName",
+    ),
+    true,
+  );
+  assert.equal(
+    allSpans.some(
+      (span) => span.text === "--silent" && span.tone === "syntaxKeyword",
+    ),
+    true,
+  );
+  assert.equal(
+    allSpans.some(
+      (span) =>
+        span.text.trim() === "# verify" && span.tone === "syntaxComment",
+    ),
+    true,
+  );
+  assert.equal(
+    allSpans.some(
+      (span) =>
+        span.text.trim() === '"done"' && span.tone === "syntaxString",
+    ),
+    true,
+  );
+});
+
+test("keeps unknown and unlabeled fences plain inside the technical inset", () => {
+  const unknown = block("```rust\nlet value = 1;\n```").render(
+    viewport(40, 2),
+  );
+  const unlabeled = block("```\nlet value = 1;\n```").render(
+    viewport(40, 1),
+  );
+
+  assert.ok(unknown.ok);
+  assert.ok(unlabeled.ok);
+  assert.deepEqual(
+    unknown.value.rows.at(1)?.spans.map((span) => span.tone),
+    ["plain"],
+  );
+  assert.deepEqual(
+    unlabeled.value.rows.at(0)?.spans.map((span) => span.tone),
+    ["plain"],
+  );
+  assert.equal(
+    unknown.value.rows.at(1)?.spans.at(0)?.surface,
+    "inset",
+  );
+});
+
+test("carries multiline lexical state and falls back when syntax spans overflow", () => {
+  const comment = block(
+    "```ts\n/* open\nstill comment */ const ready = true;\n```",
+  ).render(viewport(96, 3));
+  const alternating = "const a=1;".repeat(TUI_LIMITS.rowSpans);
+  const overflow = block("```ts\n" + alternating + "\n```").render(
+    viewport(TUI_LIMITS.componentColumns, 2),
+  );
+
+  assert.ok(comment.ok);
+  assert.ok(overflow.ok);
+  assert.equal(
+    comment.value.rows.at(1)?.spans.some(
+      (span) => span.text.trim() === "/* open" && span.tone === "syntaxComment",
+    ),
+    true,
+  );
+  assert.equal(
+    comment.value.rows.at(2)?.spans.some(
+      (span) =>
+        span.text.trimStart().startsWith("still comment */") &&
+        span.tone === "syntaxComment",
+    ),
+    true,
+  );
+  assert.equal(overflow.value.rows.at(1)?.text.trim(), alternating);
+  assert.deepEqual(
+    overflow.value.rows.at(1)?.spans.map((span) => span.tone),
+    ["plain"],
+  );
+});
+
+test("renders strict pipe tables as one structured surface", () => {
+  const rendered = block(
+    "| name | kind |\n| --- | :---: |\n| agent | `owned` |",
+  ).render(viewport(32, 3));
+
+  assert.ok(rendered.ok);
+  assert.deepEqual(rendered.value.rows.map((row) => row.text.trim()), [
+    "name  │ kind",
+    "─".repeat(13),
+    "agent │ owned",
+  ]);
+  assert.deepEqual(
+    rendered.value.rows.at(0)?.spans.map((span) => span.tone),
+    ["emphasis", "muted", "emphasis"],
+  );
+  assert.deepEqual(
+    rendered.value.rows.at(1)?.spans.map((span) => span.tone),
+    ["muted"],
+  );
+  assert.deepEqual(
+    rendered.value.rows.at(2)?.spans.map((span) => span.tone),
+    ["plain", "muted", "accent"],
+  );
+  assert.equal(
+    rendered.value.rows.every((row) =>
+      row.spans.every((span) => span.surface === "inset"),
+    ),
+    true,
+  );
+  assert.equal(
+    rendered.value.rows.at(0)?.cellWidth,
+    rendered.value.rows.at(1)?.cellWidth,
+  );
+});
+
+test("aligns every strict table column across uneven cell content", () => {
+  const rendered = block(
+    "| Element | Value |\n| --- | --- |\n| Type | HTML5 |\n| Language | Italian |",
+  ).render(viewport(40, 4));
+
+  assert.ok(rendered.ok);
+  assert.deepEqual(rendered.value.rows.map((row) => row.text.trim()), [
+    "Element  \u2502 Value",
+    "─".repeat(18),
+    "Type     \u2502 HTML5",
+    "Language \u2502 Italian",
+  ]);
+  assert.deepEqual(
+    rendered.value.rows.map((row) => row.cellWidth),
+    [20, 20, 20, 20],
+  );
+});
+
+test("keeps malformed pipe-table candidates literal and unboxed", () => {
+  const rendered = block(
+    "| name | kind |\n| -- | --- |\n| agent | owned |",
+  ).render(viewport(32, 3));
+
+  assert.ok(rendered.ok);
+  assert.deepEqual(rendered.value.rows.map((row) => row.text), [
+    "| name | kind |",
+    "| -- | --- |",
+    "| agent | owned |",
+  ]);
+  assert.equal(
+    rendered.value.rows
+      .flatMap((row) => row.spans)
+      .every((span) => span.surface === "none"),
+    true,
+  );
+});
+
+test("leaves ordinary assistant prose unboxed", () => {
+  const rendered = block("ordinary **answer**").render(viewport(32, 1));
+
+  assert.ok(rendered.ok);
+  assert.equal(
+    rendered.value.rows
+      .flatMap((row) => row.spans)
+      .every((span) => span.surface === "none"),
+    true,
   );
 });
 
@@ -194,13 +609,19 @@ test("isolates fenced syntax between bounded documents", () => {
   );
   assert.ok(created.ok);
 
-  const rendered = created.value.render(viewport(40, 8));
+  const rendered = created.value.render(viewport(40, 12));
 
   assert.ok(rendered.ok);
   const agent = rendered.value.rows.find((row) => row.text === "agent");
   const answer = rendered.value.rows.find((row) => row.text === "answer");
   assert.deepEqual(agent?.spans.map((span) => span.tone), ["plain"]);
   assert.deepEqual(answer?.spans.map((span) => span.tone), ["emphasis"]);
+  assert.equal(
+    rendered.value.rows
+      .flatMap((row) => row.spans)
+      .every((span) => span.surface === "none"),
+    true,
+  );
 });
 
 test("replaces a wide scalar that cannot fit while retaining its tone", () => {

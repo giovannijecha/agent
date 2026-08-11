@@ -8,6 +8,11 @@ import {
   ok,
   type Result,
   Role,
+  StructuredObject,
+  structuredValueFromUnknown,
+  ToolCall,
+  ToolExchange,
+  ToolResult,
 } from "@agent/core";
 import {
   OpenCodeGoModel,
@@ -272,7 +277,7 @@ test("encodes the fixed model, instructions, conversation, and exact tool schema
   };
   assert.equal(parsed.model, OPENCODE_GO_MODEL);
   assert.equal(parsed.stream, true);
-  assert.equal(parsed.parallel_tool_calls, false);
+  assert.equal(parsed.parallel_tool_calls, true);
   assert.deepEqual(parsed.messages.map((entry) => entry.role), ["system", "user"]);
   assert.equal(parsed.messages.at(0)?.content.includes("single coding agent"), true);
   assert.equal(parsed.messages.at(1)?.content, "Inspect the project.");
@@ -286,6 +291,69 @@ test("encodes the fixed model, instructions, conversation, and exact tool schema
       parsed.tools.at(0)?.function.parameters.properties ?? {},
       "path",
     ),
+  );
+});
+
+test("encodes one complete ordered tool exchange for the next model turn", async () => {
+  const values = ["index.html", "script.js"].map((path, index) => {
+    const input = structuredValueFromUnknown({ path });
+    const output = structuredValueFromUnknown({ text: path });
+    assert.ok(input.ok && input.value instanceof StructuredObject);
+    assert.ok(output.ok);
+    const call = ToolCall.create(
+      "call-" + String(index + 1),
+      "read_file",
+      input.value,
+    );
+    assert.ok(call.ok);
+    const result = ToolResult.create(
+      call.value.callId,
+      call.value.name,
+      "success",
+      output.value,
+    );
+    assert.ok(result.ok);
+    return Object.freeze({ call: call.value, result: result.value });
+  });
+  const exchange = ToolExchange.create(
+    undefined,
+    values.map((value) => value.call),
+    values.map((value) => value.result),
+  );
+  assert.ok(exchange.ok);
+  const user = Message.create(Role.User, "Inspect both files.");
+  assert.ok(user.ok);
+  const history = Conversation.empty()
+    .append(user.value)
+    .append(exchange.value);
+  const fixture = model(new FakeStream([]));
+
+  const opened = await fixture.model.open(
+    history,
+    new Cancellation(),
+    [descriptor()],
+  );
+  assert.ok(opened.ok);
+  const body = fixture.transport.request?.body;
+  assert.ok(body !== undefined);
+  const parsed = JSON.parse(body) as {
+    messages: Array<Record<string, unknown>>;
+  };
+  assert.deepEqual(
+    parsed.messages.map((entry) => entry.role),
+    ["system", "user", "assistant", "tool", "tool"],
+  );
+  const assistant = parsed.messages.at(2);
+  assert.ok(assistant !== undefined);
+  assert.deepEqual(
+    (assistant.tool_calls as Array<Record<string, unknown>>).map(
+      (call) => call.id,
+    ),
+    ["call-1", "call-2"],
+  );
+  assert.deepEqual(
+    parsed.messages.slice(3).map((entry) => entry.tool_call_id),
+    ["call-1", "call-2"],
   );
 });
 
@@ -351,7 +419,7 @@ test("decodes fragmented SSE and strict multibyte UTF-8", async () => {
   assert.deepEqual(await read(stream), { kind: "done" });
 });
 
-test("assembles one fragmented structured tool call", async () => {
+test("assembles one fragmented structured tool-call batch", async () => {
   const first = completion({
     tool_calls: [
       {
@@ -380,12 +448,171 @@ test("assembles one fragmented structured tool call", async () => {
   const stream = await open(fixture.model);
   const event = await read(stream);
 
-  assert.equal(event.kind, "toolCall");
-  if (event.kind === "toolCall") {
-    assert.equal(event.callId, "call-1");
-    assert.equal(event.name, "read_file");
-    assert.equal(event.input.get("path"), "src/index.ts");
+  assert.equal(event.kind, "toolCalls");
+  if (event.kind === "toolCalls") {
+    assert.equal(event.calls.length, 1);
+    assert.equal(event.calls.at(0)?.callId, "call-1");
+    assert.equal(event.calls.at(0)?.name, "read_file");
+    assert.equal(event.calls.at(0)?.input.get("path"), "src/index.ts");
   }
+});
+
+test("assembles multiple indexed calls as one ordered terminal event", async () => {
+  const fixture = model(
+    new FakeStream([
+      ok(
+        frame(
+          completion({
+            tool_calls: [
+              {
+                function: { arguments: '{"path":"index.html"}', name: "read_file" },
+                id: "call-1",
+                index: 0,
+                type: "function",
+              },
+              {
+                function: { arguments: '{"path":"script.js"}', name: "read_file" },
+                id: "call-2",
+                index: 1,
+                type: "function",
+              },
+            ],
+          }),
+        ),
+      ),
+      ok(frame(completion({}, "tool_calls"))),
+    ]),
+  );
+  const stream = await open(fixture.model);
+  const event = await read(stream);
+
+  assert.equal(event.kind, "toolCalls");
+  if (event.kind === "toolCalls") {
+    assert.deepEqual(
+      event.calls.map((call) => [call.callId, call.input.get("path")]),
+      [
+        ["call-1", "index.html"],
+        ["call-2", "script.js"],
+      ],
+    );
+    assert.ok(Object.isFrozen(event.calls));
+  }
+});
+
+test("rejects malformed multi-call assemblies before emitting a batch", async () => {
+  const malformed: readonly (readonly Uint8Array[])[] = [
+    Object.freeze([
+      frame(
+        completion({
+          tool_calls: [
+            {
+              function: { arguments: "{}", name: "read_file" },
+              id: "call-gap",
+              index: 1,
+              type: "function",
+            },
+          ],
+        }),
+      ),
+    ]),
+    Object.freeze([
+      frame(
+        completion({
+          tool_calls: [
+            { function: { name: "read_file" }, id: "call-1", index: 0 },
+            { function: { arguments: "{}" }, index: 0 },
+          ],
+        }),
+      ),
+    ]),
+    Object.freeze([
+      frame(
+        completion({
+          tool_calls: [
+            {
+              function: { arguments: "{}", name: "read_file" },
+              id: "call-duplicate",
+              index: 0,
+            },
+            {
+              function: { arguments: "{}", name: "read_file" },
+              id: "call-duplicate",
+              index: 1,
+            },
+          ],
+        }),
+      ),
+      frame(completion({}, "tool_calls")),
+    ]),
+    Object.freeze([
+      frame(
+        completion({
+          tool_calls: [
+            {
+              function: { arguments: "{", name: "read_file" },
+              id: "call-json",
+              index: 0,
+            },
+          ],
+        }),
+      ),
+      frame(completion({}, "tool_calls")),
+    ]),
+  ];
+
+  for (const chunks of malformed) {
+    const stream = await open(
+      model(new FakeStream(chunks.map((chunk) => ok(chunk)))).model,
+    );
+    const result = await stream.read();
+    assert.equal(result.ok, false);
+    if (!result.ok) {
+      assert.equal(result.error.reason, "protocol");
+    }
+  }
+});
+
+test("bounds aggregate arguments across fragmented calls", async () => {
+  const privateArguments = "private-arguments-" + "x".repeat(600_000);
+  const stream = await open(
+    model(
+      new FakeStream([
+        ok(
+          frame(
+            completion({
+              tool_calls: [
+                {
+                  function: { arguments: privateArguments, name: "read_file" },
+                  id: "call-1",
+                  index: 0,
+                },
+              ],
+            }),
+          ),
+        ),
+        ok(
+          frame(
+            completion({
+              tool_calls: [
+                {
+                  function: { arguments: privateArguments, name: "read_file" },
+                  id: "call-2",
+                  index: 1,
+                },
+              ],
+            }),
+          ),
+        ),
+      ]),
+    ).model,
+  );
+
+  const result = await stream.read();
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.equal(result.error.reason, "limit");
+  }
+  assert.equal(JSON.stringify(result).includes("private-arguments"), false);
 });
 
 test("fails closed on invalid UTF-8, JSON, choice count, and finish reason", async () => {

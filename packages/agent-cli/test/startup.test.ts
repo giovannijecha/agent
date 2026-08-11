@@ -87,7 +87,10 @@ test("runs an interactive session until the exact exit command", async () => {
     host.writes[0]?.startsWith("\u001B[?2026h\u001B[?1049h"),
     true,
   );
-  assert.equal(host.writes.at(-1), "\u001B[0m\u001B[?25h\u001B[?1049l");
+  assert.equal(
+    host.writes.at(-1),
+    "\u001B[0m\u001B[?2004l\u001B[0 q\u001B[?25h\u001B[?1049l",
+  );
 });
 
 test("redraws after input and resize without losing the draft", async () => {
@@ -101,7 +104,8 @@ test("redraws after input and resize without losing the draft", async () => {
   const result = await run(host);
 
   assert.ok(result.ok);
-  assert.equal(host.writes.join("").includes("\u2192 draft"), true);
+  assert.equal(host.writes.join("").includes("\u203a"), false);
+  assert.equal(host.writes.join("").includes("draft"), true);
   assert.equal(host.writes.join("").includes("\u001B[2J"), true);
 });
 

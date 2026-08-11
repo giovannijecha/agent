@@ -41,9 +41,11 @@ framer, Chat Completions request encoder, streamed response validator, tool-call
 assembler, and content-free error vocabulary. It sends one small
 provider-neutral system instruction authored in this repository, the immutable
 conversation snapshot, the exact owned tool descriptors, `stream: true`, and
-`parallel_tool_calls: false`. It accepts one choice and at most one tool call
-per response because the runtime has one serialized model decision loop.
-Unsupported finish reasons, multiple choices or tool calls, malformed JSON,
+`parallel_tool_calls: true`. Decision 0029 supersedes the original one-call
+limit: the strict decoder accepts one choice and one bounded ordered call batch,
+assembles indexed fragments, and emits it atomically. This permits model
+selection of several calls; handlers still execute sequentially under the sole
+runtime controller. Unsupported finish reasons, multiple choices, malformed JSON,
 invalid UTF-8, unknown tool-call structure, excessive data, wrong status, and
 wrong content type fail closed.
 
@@ -51,8 +53,8 @@ The transport exposes a pull-based response with one-reader semantics. The
 Node adapter pauses the incoming response between reads, retains at most one
 bounded byte chunk, applies an inactivity timeout, limits response headers, and
 settles pending work during cancellation or close. The provider parser retains
-only bounded undecoded bytes, one bounded SSE frame, one bounded tool argument,
-and a constant-size pending event list. Runtime response, event, conversation,
+only bounded undecoded bytes, one bounded SSE frame, bounded per-call and
+aggregate tool arguments, and a constant-size pending event list. Runtime response, event, conversation,
 and tool bounds remain authoritative after protocol validation.
 
 OpenCode Go is a model backend, not another agent. It cannot start a second

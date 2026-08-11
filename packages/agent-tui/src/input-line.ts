@@ -13,7 +13,7 @@ import {
 import { Fragment } from "./fragment.js";
 import type { EditorProjection } from "./line-editor.js";
 import { TUI_LIMITS } from "./limits.js";
-import { RichRow } from "./rich-row.js";
+import { RichRow, TextSpan } from "./rich-row.js";
 import { err, ok, type Result } from "./result.js";
 import { isTone, type Tone } from "./tone.js";
 import type { Viewport } from "./viewport.js";
@@ -36,27 +36,37 @@ export interface InputProjectionSource {
   project(columns: number): EditorProjection;
 }
 
+export type InputLineOptions = Readonly<{
+  prefixTone: Tone;
+  textTone: Tone;
+}>;
+
 /** One focused prompt row backed by a synchronous projection source. */
 export class InputLine implements Component {
   readonly #prefix: string;
+  readonly #prefixTone: Tone;
   readonly #project: (columns: number) => EditorProjection;
-  readonly #tone: Tone;
+  readonly #textTone: Tone;
 
   private constructor(
     prefix: string,
     project: (columns: number) => EditorProjection,
-    tone: Tone,
+    options: InputLineOptions,
   ) {
     this.#prefix = prefix;
     this.#project = project;
-    this.#tone = tone;
+    this.#prefixTone = options.prefixTone;
+    this.#textTone = options.textTone;
     Object.freeze(this);
   }
 
   static create(
     prefix: string,
     source: InputProjectionSource,
-    tone: Tone = "plain",
+    options: InputLineOptions = Object.freeze({
+      prefixTone: "plain",
+      textTone: "plain",
+    }),
   ): Result<InputLine, ComponentError> {
     if (typeof prefix !== "string") {
       return err(new ComponentError("invalidPrefix", undefined));
@@ -79,12 +89,29 @@ export class InputLine implements Component {
     if (typeof method !== "function") {
       return err(new ComponentError("invalidSource", undefined));
     }
-    if (!isTone(tone)) {
+    let prefixTone: unknown;
+    let textTone: unknown;
+    try {
+      if (typeof options !== "object" || options === null) {
+        return err(new ComponentError("invalidTone", undefined));
+      }
+      prefixTone = options.prefixTone;
+      textTone = options.textTone;
+    } catch (_cause: unknown) {
+      return err(new ComponentError("invalidTone", undefined));
+    }
+    if (!isTone(prefixTone) || !isTone(textTone)) {
       return err(new ComponentError("invalidTone", undefined));
     }
     const stableProject = (columns: number): EditorProjection =>
       method.call(source, columns) as EditorProjection;
-    return ok(new InputLine(prefix, stableProject, tone));
+    return ok(
+      new InputLine(
+        prefix,
+        stableProject,
+        Object.freeze({ prefixTone, textTone }),
+      ),
+    );
   }
 
   measure(columns: number): Result<ComponentMeasurement, ComponentError> {
@@ -138,7 +165,12 @@ export class InputLine implements Component {
       { length: viewport.rows },
       () => RichRow.empty(),
     );
-    const inputRow = RichRow.fromText(prefix + projectedText, this.#tone);
+    const prefixSpan = TextSpan.create(prefix, this.#prefixTone);
+    const textSpan = TextSpan.create(projectedText, this.#textTone);
+    if (!prefixSpan.ok || !textSpan.ok) {
+      return err(new ComponentError("invalidRow", viewport.rows - 1));
+    }
+    const inputRow = RichRow.create([prefixSpan.value, textSpan.value]);
     if (!inputRow.ok) {
       return err(new ComponentError("invalidRow", viewport.rows - 1));
     }

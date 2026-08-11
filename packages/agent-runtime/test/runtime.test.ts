@@ -19,7 +19,7 @@ import {
   Role,
   StructuredObject,
   structuredValueFromUnknown,
-  ToolCall,
+  ToolExchange,
   ToolResult,
 } from "@agent/core";
 import {
@@ -181,10 +181,39 @@ class SequenceModel<E> implements StreamingModel<E> {
   }
 }
 
-function toolInput(): StructuredObject {
-  const input = structuredValueFromUnknown({ path: "src/index.ts" });
+function toolInput(path = "src/index.ts"): StructuredObject {
+  const input = structuredValueFromUnknown({ path });
   assert.ok(input.ok && input.value instanceof StructuredObject);
   return input.value;
+}
+
+function toolCallEvent(
+  callId: string,
+  input: StructuredObject = toolInput(),
+): ModelStreamEvent {
+  return Object.freeze({
+    calls: Object.freeze([
+      Object.freeze({ callId, input, name: "read_file" }),
+    ]),
+    kind: "toolCalls" as const,
+  });
+}
+
+function toolBatchEvent(
+  calls: readonly Readonly<{ callId: string; path: string }>[]
+): ModelStreamEvent {
+  return Object.freeze({
+    calls: Object.freeze(
+      calls.map((call) =>
+        Object.freeze({
+          callId: call.callId,
+          input: toolInput(call.path),
+          name: "read_file",
+        }),
+      ),
+    ),
+    kind: "toolCalls" as const,
+  });
 }
 
 function toolEngine(
@@ -530,6 +559,31 @@ test("fails closed on blank, invalid, and oversized model output", async () => {
     },
     {
       event: Object.freeze({ kind: "unknown" }) as unknown as ModelStreamEvent,
+      failure: "invalidModelEvent",
+    },
+    {
+      event: Object.freeze({
+        calls: Object.freeze([]),
+        kind: "toolCalls",
+      }) as unknown as ModelStreamEvent,
+      failure: "invalidModelEvent",
+    },
+    {
+      event: Object.freeze({
+        calls: Object.freeze([
+          Object.freeze({
+            callId: "call-duplicate",
+            input: toolInput("one.txt"),
+            name: "read_file",
+          }),
+          Object.freeze({
+            callId: "call-duplicate",
+            input: toolInput("two.txt"),
+            name: "read_file",
+          }),
+        ]),
+        kind: "toolCalls",
+      }) as unknown as ModelStreamEvent,
       failure: "invalidModelEvent",
     },
   ];
@@ -976,12 +1030,7 @@ test("stop closes a stream after a delivered delta and discards preparation", as
 
 test("runs a read tool sequentially and checkpoints its structured result", async () => {
   const first = new ScriptedStream<string>([
-    ok(Object.freeze({
-      callId: "call-1",
-      input: toolInput(),
-      kind: "toolCall" as const,
-      name: "read_file",
-    })),
+    ok(toolCallEvent("call-1")),
   ]);
   const second = new ScriptedStream<string>([
     ok(Object.freeze({ kind: "delta" as const, text: "done" })),
@@ -1005,9 +1054,9 @@ test("runs a read tool sequentially and checkpoints its structured result", asyn
   assert.equal((await next(runtime)).kind, "toolStarted");
   const finished = await next(runtime);
   assert.equal(finished.kind, "toolFinished");
-  assert.equal(runtime.conversation.length, 3);
-  assert.ok(runtime.conversation.entries.at(1) instanceof ToolCall);
-  assert.ok(runtime.conversation.entries.at(2) instanceof ToolResult);
+  assert.equal(runtime.conversation.length, 2);
+  assert.equal(runtime.conversation.messageUnits, 3);
+  assert.ok(runtime.conversation.entries.at(1) instanceof ToolExchange);
 
   assert.equal((await next(runtime)).kind, "assistantDelta");
   const prepared = await next(runtime);
@@ -1016,18 +1065,240 @@ test("runs a read tool sequentially and checkpoints its structured result", asyn
     assert.equal(prepared.checkpointed, true);
     assert.ok(runtime.commitTurn(prepared.turnId).ok);
   }
-  assert.equal(runtime.conversation.length, 4);
-  assert.equal(model.conversations.at(1)?.length, 3);
+  assert.equal(runtime.conversation.length, 3);
+  assert.equal(runtime.conversation.messageUnits, 4);
+  assert.equal(model.conversations.at(1)?.length, 2);
+});
+
+test("preflights and executes one ordered tool-call batch sequentially", async () => {
+  const firstStarted = new Deferred<void>();
+  const releaseFirst = new Deferred<void>();
+  const observed: string[] = [];
+  const first = new ScriptedStream<string>([
+    ok(
+      toolBatchEvent([
+        { callId: "call-html", path: "index.html" },
+        { callId: "call-script", path: "script.js" },
+      ]),
+    ),
+  ]);
+  const second = new ScriptedStream<string>([
+    ok(Object.freeze({ kind: "delta" as const, text: "both read" })),
+    ok(Object.freeze({ kind: "done" as const })),
+  ]);
+  const model = new SequenceModel([first, second]);
+  const runtime = new AgentRuntime(
+    model,
+    toolEngine("read", async (input) => {
+      const path = input.get("path");
+      assert.equal(typeof path, "string");
+      observed.push(path as string);
+      if (path === "index.html") {
+        firstStarted.resolve(undefined);
+        await releaseFirst.promise;
+      }
+      return ok({ text: path });
+    }),
+  );
+  const started = runtime.startTurn("inspect both files");
+  assert.ok(started.ok);
+
+  const firstRequested = await next(runtime);
+  assert.equal(firstRequested.kind, "toolRequested");
+  assert.equal(
+    firstRequested.kind === "toolRequested" ? firstRequested.callId : "",
+    "call-html",
+  );
+  assert.equal((await next(runtime)).kind, "toolStarted");
+  const firstFinished = runtime.nextEvent();
+  await firstStarted.promise;
+  assert.deepEqual(observed, ["index.html"]);
+  releaseFirst.resolve(undefined);
+  assert.equal((await firstFinished).ok, true);
+
+  const secondRequested = await next(runtime);
+  assert.equal(secondRequested.kind, "toolRequested");
+  assert.equal(
+    secondRequested.kind === "toolRequested" ? secondRequested.callId : "",
+    "call-script",
+  );
+  assert.deepEqual(observed, ["index.html"]);
+  assert.equal((await next(runtime)).kind, "toolStarted");
+  assert.equal((await next(runtime)).kind, "toolFinished");
+  assert.deepEqual(observed, ["index.html", "script.js"]);
+
+  assert.equal(runtime.conversation.length, 2);
+  assert.equal(runtime.conversation.messageUnits, 4);
+  const exchange = runtime.conversation.entries.at(1);
+  assert.ok(exchange instanceof ToolExchange);
+  assert.deepEqual(
+    exchange.calls.map((call) => call.callId),
+    ["call-html", "call-script"],
+  );
+  assert.deepEqual(
+    exchange.results.map((result) => result.callId),
+    ["call-html", "call-script"],
+  );
+  assert.equal((await next(runtime)).kind, "assistantDelta");
+  assert.equal((await next(runtime)).kind, "turnPrepared");
+  assert.equal(model.conversations.at(1)?.messageUnits, 4);
+});
+
+test("checkpoints a complete batch and blocks its suffix after a handler contract failure", async () => {
+  const observed: string[] = [];
+  const stream = new ScriptedStream<string>([
+    ok(
+      toolBatchEvent([
+        { callId: "call-first", path: "first.txt" },
+        { callId: "call-invalid", path: "invalid.txt" },
+        { callId: "call-blocked", path: "blocked.txt" },
+      ]),
+    ),
+  ]);
+  const runtime = new AgentRuntime(
+    new FixedModel(ok(stream)),
+    toolEngine("read", async (input) => {
+      const path = input.get("path");
+      assert.equal(typeof path, "string");
+      observed.push(path as string);
+      return path === "invalid.txt"
+        ? ok({ text: "x".repeat(262_145) })
+        : ok({ text: path });
+    }),
+  );
+  assert.ok(runtime.startTurn("inspect three files").ok);
+
+  assert.equal((await next(runtime)).kind, "toolRequested");
+  assert.equal((await next(runtime)).kind, "toolStarted");
+  assert.equal((await next(runtime)).kind, "toolFinished");
+  assert.equal((await next(runtime)).kind, "toolRequested");
+  assert.equal((await next(runtime)).kind, "toolStarted");
+  const failed = await next(runtime);
+  assert.equal(failed.kind, "toolFinished");
+  if (failed.kind === "toolFinished") {
+    assert.equal(failed.callId, "call-invalid");
+    assert.equal(failed.status, "failure");
+  }
+  assert.deepEqual(observed, ["first.txt", "invalid.txt"]);
+
+  const exchange = runtime.conversation.entries.at(1);
+  assert.ok(exchange instanceof ToolExchange);
+  assert.deepEqual(
+    exchange.results.map((result) => result.callId),
+    ["call-first", "call-invalid", "call-blocked"],
+  );
+  const blocked = exchange.results.at(2);
+  assert.ok(blocked?.output instanceof StructuredObject);
+  assert.equal(blocked.output.get("attempted"), false);
+  assert.equal(blocked.output.get("error"), "blocked");
+
+  const terminal = await next(runtime);
+  assert.equal(terminal.kind, "turnFinished");
+  if (terminal.kind === "turnFinished") {
+    assert.equal(terminal.outcome.kind, "failed");
+    if (terminal.outcome.kind === "failed") {
+      assert.equal(terminal.outcome.failure.kind, "toolEngine");
+    }
+    assert.equal(terminal.checkpointed, true);
+  }
+});
+
+test("cancels an executing batch and records its unstarted suffix", async () => {
+  const handlerStarted = new Deferred<void>();
+  let handlerCalls = 0;
+  const stream = new ScriptedStream<string>([
+    ok(
+      toolBatchEvent([
+        { callId: "call-running", path: "running.txt" },
+        { callId: "call-cancelled", path: "cancelled.txt" },
+      ]),
+    ),
+  ]);
+  const runtime = new AgentRuntime(
+    new FixedModel(ok(stream)),
+    toolEngine("read", async (_input, cancellation) => {
+      handlerCalls += 1;
+      handlerStarted.resolve(undefined);
+      await cancellation.whenRequested();
+      return err(Object.freeze({ kind: "cancelled" as const }));
+    }),
+  );
+  const started = runtime.startTurn("inspect both files");
+  assert.ok(started.ok);
+
+  assert.equal((await next(runtime)).kind, "toolRequested");
+  assert.equal((await next(runtime)).kind, "toolStarted");
+  const executing = runtime.nextEvent();
+  await handlerStarted.promise;
+  assert.ok(runtime.requestCancel(started.value.turnId).ok);
+  const finished = await executing;
+  assert.ok(finished.ok);
+  if (finished.ok && finished.value.kind === "toolFinished") {
+    assert.equal(finished.value.callId, "call-running");
+    assert.equal(finished.value.status, "failure");
+  }
+  assert.equal(handlerCalls, 1);
+
+  const exchange = runtime.conversation.entries.at(1);
+  assert.ok(exchange instanceof ToolExchange);
+  const cancelled = exchange.results.at(1);
+  assert.ok(cancelled?.output instanceof StructuredObject);
+  assert.equal(cancelled.output.get("attempted"), false);
+  assert.equal(cancelled.output.get("error"), "cancelled");
+
+  const terminal = await next(runtime);
+  assert.equal(terminal.kind, "turnFinished");
+  if (terminal.kind === "turnFinished") {
+    assert.equal(terminal.outcome.kind, "cancelled");
+    assert.equal(terminal.checkpointed, true);
+  }
+});
+
+test("rejects an invalid batch before any tool handler can run", async () => {
+  let handlerCalls = 0;
+  const stream = new ScriptedStream<string>([
+    ok(
+      Object.freeze({
+        calls: Object.freeze([
+          Object.freeze({
+            callId: "call-valid",
+            input: toolInput("index.html"),
+            name: "read_file",
+          }),
+          Object.freeze({
+            callId: "call-invalid",
+            input: toolInput("script.js"),
+            name: "missing_tool",
+          }),
+        ]),
+        kind: "toolCalls" as const,
+      }),
+    ),
+  ]);
+  const runtime = new AgentRuntime(
+    new FixedModel(ok(stream)),
+    toolEngine("read", async () => {
+      handlerCalls += 1;
+      return ok({ text: "unreachable" });
+    }),
+  );
+  assert.ok(runtime.startTurn("inspect both files").ok);
+  const terminal = await next(runtime);
+  assert.equal(terminal.kind, "turnFinished");
+  if (terminal.kind === "turnFinished") {
+    assert.equal(terminal.outcome.kind, "failed");
+    if (terminal.outcome.kind === "failed") {
+      assert.equal(terminal.outcome.failure.kind, "invalidToolCall");
+    }
+    assert.equal(terminal.checkpointed, false);
+  }
+  assert.equal(handlerCalls, 0);
+  assert.equal(runtime.conversation.length, 0);
 });
 
 test("requires exact approval for writes and checkpoints denial", async () => {
   const first = new ScriptedStream<string>([
-    ok(Object.freeze({
-      callId: "call-write",
-      input: toolInput(),
-      kind: "toolCall" as const,
-      name: "read_file",
-    })),
+    ok(toolCallEvent("call-write")),
   ]);
   const second = new ScriptedStream<string>([
     ok(Object.freeze({ kind: "delta" as const, text: "not changed" })),
@@ -1065,18 +1336,66 @@ test("requires exact approval for writes and checkpoints denial", async () => {
       assert.equal(denied.value.status, "failure");
     }
   }
-  assert.equal(runtime.conversation.length, 3);
+  assert.equal(runtime.conversation.length, 2);
+  assert.equal(runtime.conversation.messageUnits, 3);
+  assert.equal((await next(runtime)).kind, "assistantDelta");
+});
+
+test("scopes approval to one call at a time within a write batch", async () => {
+  const observed: string[] = [];
+  const first = new ScriptedStream<string>([
+    ok(
+      toolBatchEvent([
+        { callId: "call-one", path: "one.txt" },
+        { callId: "call-two", path: "two.txt" },
+      ]),
+    ),
+  ]);
+  const second = new ScriptedStream<string>([
+    ok(Object.freeze({ kind: "delta" as const, text: "both changed" })),
+    ok(Object.freeze({ kind: "done" as const })),
+  ]);
+  const runtime = new AgentRuntime(
+    new SequenceModel([first, second]),
+    toolEngine("write", async (input) => {
+      const path = input.get("path");
+      assert.equal(typeof path, "string");
+      observed.push(path as string);
+      return ok({ changed: path });
+    }),
+  );
+  const started = runtime.startTurn("change both files");
+  assert.ok(started.ok);
+
+  const firstRequested = await next(runtime);
+  assert.equal(firstRequested.kind, "toolRequested");
+  assert.equal(observed.length, 0);
+  assert.ok(
+    runtime.resolveToolApproval(started.value.turnId, "call-one", true).ok,
+  );
+  assert.equal((await next(runtime)).kind, "toolStarted");
+  assert.equal((await next(runtime)).kind, "toolFinished");
+  assert.deepEqual(observed, ["one.txt"]);
+
+  const secondRequested = await next(runtime);
+  assert.equal(secondRequested.kind, "toolRequested");
+  assert.deepEqual(
+    runtime.resolveToolApproval(started.value.turnId, "call-one", true),
+    { ok: false, error: { kind: "notAwaitingApproval" } },
+  );
+  assert.equal(observed.length, 1);
+  assert.ok(
+    runtime.resolveToolApproval(started.value.turnId, "call-two", true).ok,
+  );
+  assert.equal((await next(runtime)).kind, "toolStarted");
+  assert.equal((await next(runtime)).kind, "toolFinished");
+  assert.deepEqual(observed, ["one.txt", "two.txt"]);
   assert.equal((await next(runtime)).kind, "assistantDelta");
 });
 
 test("cancels a pending approval without executing or checkpointing", async () => {
   const stream = new ScriptedStream<string>([
-    ok(Object.freeze({
-      callId: "call-cancel",
-      input: toolInput(),
-      kind: "toolCall" as const,
-      name: "read_file",
-    })),
+    ok(toolCallEvent("call-cancel")),
   ]);
   const runtime = new AgentRuntime(
     new FixedModel(ok(stream)),
@@ -1099,12 +1418,7 @@ test("cancels a pending approval without executing or checkpointing", async () =
 test("checkpoints a generic result after a mutation handler contract failure", async () => {
   let effectApplied = false;
   const stream = new ScriptedStream<string>([
-    ok(Object.freeze({
-      callId: "call-effect",
-      input: toolInput(),
-      kind: "toolCall" as const,
-      name: "read_file",
-    })),
+    ok(toolCallEvent("call-effect")),
   ]);
   const runtime = new AgentRuntime(
     new FixedModel(ok(stream)),
@@ -1131,8 +1445,10 @@ test("checkpoints a generic result after a mutation handler contract failure", a
   const finished = await next(runtime);
   assert.equal(finished.kind, "toolFinished");
   assert.equal(effectApplied, true);
-  assert.equal(runtime.conversation.length, 3);
-  const result = runtime.conversation.entries.at(2);
+  assert.equal(runtime.conversation.length, 2);
+  const exchange = runtime.conversation.entries.at(1);
+  assert.ok(exchange instanceof ToolExchange);
+  const result = exchange.results.at(0);
   assert.ok(result instanceof ToolResult);
   assert.equal(result.status, "failure");
   assert.ok(result.output instanceof StructuredObject);
@@ -1161,12 +1477,7 @@ test("reserves the final assistant entry at the exact conversation boundary", as
   }
   streams.push(
     new ScriptedStream<string>([
-      ok(Object.freeze({
-        callId: "call-boundary",
-        input: toolInput(),
-        kind: "toolCall" as const,
-        name: "read_file",
-      })),
+      ok(toolCallEvent("call-boundary")),
     ]),
   );
   streams.push(
@@ -1191,24 +1502,21 @@ test("reserves the final assistant entry at the exact conversation boundary", as
   assert.equal((await next(runtime)).kind, "toolRequested");
   assert.equal((await next(runtime)).kind, "toolStarted");
   assert.equal((await next(runtime)).kind, "toolFinished");
-  assert.equal(runtime.conversation.length, 255);
+  assert.equal(runtime.conversation.length, 254);
+  assert.equal(runtime.conversation.messageUnits, 255);
   assert.equal((await next(runtime)).kind, "assistantDelta");
   const prepared = await next(runtime);
   assert.equal(prepared.kind, "turnPrepared");
   assert.ok(runtime.commitTurn(started.value.turnId).ok);
-  assert.equal(runtime.conversation.length, 256);
+  assert.equal(runtime.conversation.length, 255);
+  assert.equal(runtime.conversation.messageUnits, 256);
 });
 
 test("stop cancels a pending tool handler and preserves its attempted result", async () => {
   const handlerStarted = new Deferred<void>();
   let cancellationObserved = false;
   const stream = new ScriptedStream<string>([
-    ok(Object.freeze({
-      callId: "call-stop",
-      input: toolInput(),
-      kind: "toolCall" as const,
-      name: "read_file",
-    })),
+    ok(toolCallEvent("call-stop")),
   ]);
   const runtime = new AgentRuntime(
     new FixedModel(ok(stream)),
@@ -1240,6 +1548,8 @@ test("stop cancels a pending tool handler and preserves its attempted result", a
   await pending;
   assert.ok((await stopped).ok);
   assert.equal(cancellationObserved, true);
-  assert.equal(runtime.conversation.length, 3);
-  assert.ok(runtime.conversation.entries.at(2) instanceof ToolResult);
+  assert.equal(runtime.conversation.length, 2);
+  const exchange = runtime.conversation.entries.at(1);
+  assert.ok(exchange instanceof ToolExchange);
+  assert.ok(exchange.results.at(0) instanceof ToolResult);
 });

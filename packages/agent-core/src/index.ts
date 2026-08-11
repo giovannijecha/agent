@@ -3,16 +3,21 @@
 export {
   Conversation,
   conversationEntryCodeUnits,
+  conversationEntryMessageUnits,
   Message,
   MessageError,
   Role,
   ToolCall,
   ToolEntryError,
+  ToolExchange,
+  ToolExchangeError,
+  TOOL_EXCHANGE_LIMITS,
   ToolResult,
   type ConversationEntry,
   type MessageErrorKind,
   type Role as RoleValue,
   type ToolEntryErrorKind,
+  type ToolExchangeErrorKind,
   type ToolResultStatus,
 } from "./conversation.js";
 export { err, ok, type Result } from "./result.js";
