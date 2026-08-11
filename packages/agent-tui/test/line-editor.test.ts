@@ -166,6 +166,18 @@ test("projects a bounded multiline area with the caret visible", () => {
   assert.equal(bounded.caretColumn, 0);
 });
 
+test("places the caret on the wrapped row at an exact column boundary", () => {
+  const editor = new LineEditor();
+  editor.apply(text("abcdeX"));
+  editor.apply(left);
+
+  const projection = editor.projectArea(5, 2);
+
+  assert.deepEqual(projection.rows, ["abcde", "X"]);
+  assert.equal(projection.caretRow, 1);
+  assert.equal(projection.caretColumn, 0);
+});
+
 test("keeps the caret visible through horizontal projection", () => {
   const editor = new LineEditor();
   editor.apply(text("abcdef"));

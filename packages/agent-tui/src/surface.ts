@@ -107,10 +107,13 @@ export function paintSurfaceRows(
       }
       widest = Math.max(widest, row.cellWidth);
     }
+    const contentWidth = Math.min(columns, widest + padding * 2);
     const width =
       options.extent === "viewport"
         ? columns
-        : Math.min(columns, widest + padding * 2);
+        : rows.length === 0
+          ? 0
+          : Math.max(1, contentWidth);
     const painted: RichRow[] = [];
     for (let position = 0; position < rows.length; position += 1) {
       const row = rows.at(position);

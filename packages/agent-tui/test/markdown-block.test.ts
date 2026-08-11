@@ -178,6 +178,15 @@ test("compacts a one-row fenced region without changing its surface", () => {
   assert.equal(rendered.value.rows.at(1)?.text, "");
 });
 
+test("keeps a complete empty fenced region visibly inset", () => {
+  const rendered = block("```\n```").render(viewport(8, 1));
+
+  assert.ok(rendered.ok);
+  assert.equal(rendered.value.rows.at(0)?.text, " ");
+  assert.equal(rendered.value.rows.at(0)?.cellWidth, 1);
+  assert.equal(rendered.value.rows.at(0)?.spans.at(0)?.surface, "inset");
+});
+
 test("retains padded literal wrapping for larger fenced regions", () => {
   const rendered = block("```\nabcdef\nx\ny\n```").render(viewport(7, 2));
 

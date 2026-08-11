@@ -112,6 +112,25 @@ test("drops optional padding but retains styling in a one-column viewport", () =
   assert.equal(rendered.value.rows.at(0)?.spans.at(0)?.surface, "subtle");
 });
 
+test("paints one styled cell for an empty content surface", () => {
+  const text = TextBlock.create("", "head", "plain");
+  assert.ok(text.ok);
+  const surface = Surface.create(text.value, {
+    extent: "content",
+    horizontalPadding: 0,
+    slant: "inherit",
+    surface: "inset",
+  });
+  assert.ok(surface.ok);
+
+  const rendered = surface.value.render(viewport(8, 1));
+
+  assert.ok(rendered.ok);
+  assert.equal(rendered.value.rows.at(0)?.text, " ");
+  assert.equal(rendered.value.rows.at(0)?.cellWidth, 1);
+  assert.equal(rendered.value.rows.at(0)?.spans.at(0)?.surface, "inset");
+});
+
 test("translates a child caret through surface padding", () => {
   const source: InputProjectionSource = Object.freeze({
     project(): Readonly<{ caretColumn: number; text: string }> {

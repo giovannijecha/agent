@@ -341,13 +341,11 @@ export class LineEditor {
       if (index === this.#cursor) {
         caretRow = rows.length - 1;
         caretColumn = widths.at(caretRow) ?? 0;
-        if (caretColumn === columns && index === this.#characters.length) {
+        if (caretColumn === columns) {
           rows.push("");
           widths.push(0);
           caretRow += 1;
           caretColumn = 0;
-        } else if (caretColumn >= columns) {
-          caretColumn = columns - 1;
         }
       }
       const character = this.#characters.at(index);
