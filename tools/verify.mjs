@@ -640,11 +640,14 @@ function verifyDeclarations() {
     [
       "types/node-runtime/index.d.ts",
       [
+        "node:child_process",
         "node:fs/promises",
         "node:https",
         "node:os",
         "node:path",
         "node:process",
+        "node:timers",
+        "node:url",
       ],
     ],
     ["types/node-test/index.d.ts", ["node:assert/strict", "node:test"]],

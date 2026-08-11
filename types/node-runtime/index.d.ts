@@ -1,3 +1,7 @@
+interface ImportMeta {
+  readonly url: string;
+}
+
 declare module "node:process" {
   export interface ReadableStream {
     readonly isTTY: boolean | undefined;
@@ -29,12 +33,67 @@ declare module "node:process" {
   export const stdout: WritableStream;
   export const stderr: WritableStream;
   export const argv: readonly string[];
+  export const arch: string;
   export const execPath: string;
   export const env: Readonly<{
     AGENT_OPENCODE_GO_API_KEY?: string;
   }>;
   export function cwd(): string;
   export function exit(code?: number): never;
+  export const platform: string;
+}
+
+declare module "node:child_process" {
+  export interface ChildReadableStream {
+    on(event: "data", listener: (chunk: Uint8Array) => void): this;
+  }
+
+  export interface ChildWritableStream {
+    readonly destroyed: boolean;
+    destroy(): void;
+    end(): void;
+    write(chunk: Uint8Array): boolean;
+  }
+
+  export interface ChildProcess {
+    readonly stderr: ChildReadableStream;
+    readonly stdin: ChildWritableStream;
+    readonly stdout: ChildReadableStream;
+    readonly stdio: readonly [
+      ChildWritableStream,
+      ChildReadableStream,
+      ChildReadableStream,
+      ChildReadableStream,
+      ChildReadableStream,
+    ];
+    kill(): boolean;
+    once(event: "close", listener: (code: number | null, signal: string | null) => void): this;
+    once(event: "error", listener: (cause: unknown) => void): this;
+  }
+
+  export type SpawnOptions = Readonly<{
+    cwd: string;
+    env: Readonly<Record<string, string>>;
+    shell: false;
+    stdio: readonly ["pipe", "pipe", "pipe", "pipe", "pipe"];
+    windowsHide: true;
+  }>;
+
+  export function spawn(
+    executable: string,
+    arguments_: readonly string[],
+    options: SpawnOptions,
+  ): ChildProcess;
+}
+
+declare module "node:url" {
+  export function fileURLToPath(url: string): string;
+}
+
+declare module "node:timers" {
+  export type Timeout = Readonly<{ readonly __timeout: unique symbol }>;
+  export function clearTimeout(timeout: Timeout): void;
+  export function setTimeout(listener: () => void, milliseconds: number): Timeout;
 }
 
 declare module "node:https" {

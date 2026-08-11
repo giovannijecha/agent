@@ -233,13 +233,18 @@ batch has a truthful result, the complete assistant call array and ordered
 results become one conversation checkpoint before the next model step. A later
 failure or cancellation retains that truthful checkpoint while discarding only
 prospective response text.
-Direct process execution remains disabled under decisions 0008 and 0015.
-Decision 0016 adds an original private C17 broker that is compiled and tested
-against Windows Job Objects and Linux delegated cgroup v2 plus namespaces, but
-production does not invoke it and no model-facing tool exists. Process groups
-and `taskkill /T` remain rejected substitutes. Admission still requires a later
-reviewed structured adapter, approval surface, privacy boundary, and complete
-matching-platform proof.
+`run_process` is the only execute tool. It accepts the registered `node` token,
+literal arguments, and one workspace-relative directory; the CLI resolves the
+executable and invokes the original C17 broker proven on Windows Job Objects
+and Linux delegated cgroup v2 plus namespaces. The model cannot provide a
+shell, command string, executable path, PATH lookup, stdin, environment, or
+resource limits. Linux targets receive an empty environment; Windows targets
+receive only `SystemRoot`, queried directly by the broker from the operating
+system. Every invocation requires one exact, single-use approval. Nonzero exits
+remain visible to the model with bounded stdout and stderr and render as failed
+tool activity. The tool runs terminating commands only; persistent or
+background services are not retained.
+Process groups and `taskkill /T` remain rejected substitutes.
 `/exit` is the only exit command; there is no alternate alias.
 
 Read [the operator manual](docs/manual/README.md) to run and interpret the

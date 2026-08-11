@@ -2,10 +2,13 @@
 
 import path from "node:path";
 import {
+  arch,
   argv,
   cwd,
   env,
   exit,
+  execPath,
+  platform,
   stderr,
   stdin,
   stdout,
@@ -22,6 +25,7 @@ import { readHiddenOpenCodeGoCredential } from "./hidden-credential-prompt.js";
 import { parseLaunchCommand } from "./launch-command.js";
 import { NodeTerminalHost } from "./node-terminal-host.js";
 import { NodeOpenCodeGoTransport } from "./node-opencode-go-transport.js";
+import { NodeProcessRunner } from "./node-process-runner.js";
 import { resolveOpenCodeGoConfiguration } from "./provider-configuration.js";
 import { run } from "./run.js";
 import { acquireOpenCodeGoCredential } from "./startup-credential.js";
@@ -102,8 +106,14 @@ if (!configuration.ok) {
   const model = transport.ok
     ? OpenCodeGoModel.create(transport.value, AGENT_INSTRUCTIONS)
     : transport;
-  const tools = createBuiltinToolEngine(workspaceRoot);
-  if (!model.ok || !tools.ok) {
+  const processRunner = NodeProcessRunner.create(platform, arch);
+  const tools = processRunner.ok
+    ? createBuiltinToolEngine(workspaceRoot, {
+        nodeExecutable: execPath,
+        processRunner: processRunner.value,
+      })
+    : processRunner;
+  if (!model.ok || !processRunner.ok || !tools.ok) {
     stderr.write("agent could not initialize the configured provider\n", () =>
       exit(1),
     );

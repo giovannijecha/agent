@@ -2,20 +2,44 @@ import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { execPath } from "node:process";
 import test from "node:test";
 
-import { StructuredObject, structuredValueFromUnknown } from "@agent/core";
+import { ok, StructuredObject, structuredValueFromUnknown } from "@agent/core";
 import type { ToolCancellation, ToolEngine, ToolExecution } from "@agent/tools";
 
 import { createBuiltinToolEngine } from "../dist/builtin-tools.js";
+import {
+  PROCESS_RUNNER_LIMITS,
+  type ProcessRunRequest,
+  type ProcessRunner,
+} from "../dist/process-runner.js";
 
 const cancellation: ToolCancellation = Object.freeze({
   requested: false,
   whenRequested: async () => new Promise<void>(() => undefined),
 });
 
-function engine(root: string): ToolEngine {
-  const created = createBuiltinToolEngine(root);
+const processRunner: ProcessRunner = Object.freeze({
+  run: async (request: ProcessRunRequest) =>
+    ok(
+      Object.freeze({
+        exitCode: 0,
+        outcome: "exited" as const,
+        stderr: "",
+        stdout: request.arguments.join("\u0000"),
+      }),
+    ),
+});
+
+function engine(
+  root: string,
+  runner: ProcessRunner = processRunner,
+): ToolEngine {
+  const created = createBuiltinToolEngine(root, {
+    nodeExecutable: execPath,
+    processRunner: runner,
+  });
   assert.ok(created.ok);
   assert.deepEqual(
     created.value.descriptors.map((descriptor) => [
@@ -28,10 +52,143 @@ function engine(root: string): ToolEngine {
       ["search_text", "read"],
       ["create_file", "write"],
       ["replace_text", "write"],
+      ["run_process", "execute"],
     ],
   );
   return created.value;
 }
+
+test("runs only the registered program with structured arguments", async () => {
+  await withWorkspace(async (workspace) => {
+    const tools = engine(workspace);
+    const execution = await execute(tools, "run_process", {
+      arguments: ["--version", "literal value"],
+      program: "node",
+      workingDirectory: ".",
+    });
+    assert.equal(execution.result.status, "success");
+    assert.equal(output(execution).get("stdout"), "--version\u0000literal value");
+
+    const unsupportedInput = structuredValueFromUnknown({
+      arguments: [],
+      program: "python",
+      workingDirectory: ".",
+    });
+    assert.ok(
+      unsupportedInput.ok && unsupportedInput.value instanceof StructuredObject,
+    );
+    assert.deepEqual(
+      tools.prepare(
+        "call-unsupported",
+        "run_process",
+        unsupportedInput.value,
+      ),
+      { ok: false, error: { kind: "invalidInput" } },
+    );
+  });
+});
+
+test("rejects process text and approval projections beyond their exact limits", async () => {
+  await withWorkspace(async (workspace) => {
+    let runnerCalls = 0;
+    const trackingRunner: ProcessRunner = Object.freeze({
+      run: async () => {
+        runnerCalls += 1;
+        return ok(
+          Object.freeze({
+            exitCode: 0,
+            outcome: "exited" as const,
+            stderr: "",
+            stdout: "",
+          }),
+        );
+      },
+    });
+    const tools = engine(workspace, trackingRunner);
+
+    const oversizedUtf8 = structuredValueFromUnknown({
+      arguments: [
+        "\u6f22".repeat(PROCESS_RUNNER_LIMITS.argumentCodeUnits + 1),
+      ],
+      program: "node",
+      workingDirectory: ".",
+    });
+    assert.ok(
+      oversizedUtf8.ok && oversizedUtf8.value instanceof StructuredObject,
+    );
+    assert.deepEqual(
+      tools.prepare("call-oversized-utf8", "run_process", oversizedUtf8.value),
+      { ok: false, error: { kind: "invalidInput" } },
+    );
+
+    const oversizedProjection = structuredValueFromUnknown({
+      arguments: Array.from({ length: 4 }, () => "x".repeat(2_700)),
+      program: "node",
+      workingDirectory: ".",
+    });
+    assert.ok(
+      oversizedProjection.ok &&
+        oversizedProjection.value instanceof StructuredObject,
+    );
+    assert.deepEqual(
+      tools.prepare(
+        "call-oversized-projection",
+        "run_process",
+        oversizedProjection.value,
+      ),
+      { ok: false, error: { kind: "invalidInput" } },
+    );
+    assert.equal(runnerCalls, 0);
+  });
+});
+
+test("preserves a nonzero process result as a recoverable failed tool outcome", async () => {
+  await withWorkspace(async (workspace) => {
+    const failedRunner: ProcessRunner = Object.freeze({
+      run: async () =>
+        ok(
+          Object.freeze({
+            exitCode: 23,
+            outcome: "exited" as const,
+            stderr: "owned stderr",
+            stdout: "owned stdout",
+          }),
+        ),
+    });
+    const execution = await execute(
+      engine(workspace, failedRunner),
+      "run_process",
+      {
+        arguments: ["--owned"],
+        program: "node",
+        workingDirectory: ".",
+      },
+    );
+
+    assert.equal(execution.result.status, "failure");
+    assert.equal(execution.contractFailure, false);
+    assert.equal(output(execution).get("exitCode"), 23);
+    assert.equal(output(execution).get("stderr"), "owned stderr");
+    assert.equal(output(execution).get("stdout"), "owned stdout");
+  });
+});
+
+test("distinguishes invalid roots from invalid platform adapters", () => {
+  assert.deepEqual(
+    createBuiltinToolEngine("relative", {
+      nodeExecutable: execPath,
+      processRunner,
+    }),
+    { ok: false, error: { kind: "invalidRoot" } },
+  );
+  assert.deepEqual(
+    createBuiltinToolEngine(path.resolve("."), {
+      nodeExecutable: "relative",
+      processRunner,
+    }),
+    { ok: false, error: { kind: "invalidPlatform" } },
+  );
+});
 
 async function execute(
   tools: ToolEngine,

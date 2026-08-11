@@ -9,19 +9,34 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 
-import { err, ok, type Result, StructuredObject } from "@agent/core";
 import {
+  err,
+  ok,
+  type Result,
+  StructuredList,
+  StructuredObject,
+} from "@agent/core";
+import {
+  ListSchema,
+  LiteralStringSchema,
   ObjectSchema,
   type ObjectSchemaField,
+  type ObjectSchemaProjection,
   StringSchema,
+  type StringSchemaOptions,
   type ToolApprovalField,
   ToolDescriptor,
   ToolEngine,
   type ToolHandler,
   type ToolHandlerError,
+  ToolHandlerOutcome,
+  TOOL_ENGINE_LIMITS,
   ToolRegistry,
   type ToolRisk,
 } from "@agent/tools";
+
+import type { ProcessRunner } from "./process-runner.js";
+import { PROCESS_RUNNER_LIMITS } from "./process-runner.js";
 
 export const BUILTIN_TOOL_LIMITS = Object.freeze({
   directoryEntries: 512,
@@ -33,13 +48,27 @@ export const BUILTIN_TOOL_LIMITS = Object.freeze({
   searchTotalCodeUnits: 4_194_304,
 });
 
-export type BuiltinToolsErrorKind = "invalidRoot" | "invariant";
+export type BuiltinToolsErrorKind =
+  | "invalidPlatform"
+  | "invalidRoot"
+  | "invariant";
 export type BuiltinToolsError = Readonly<{ kind: BuiltinToolsErrorKind }>;
+
+export type BuiltinToolsPlatform = Readonly<{
+  nodeExecutable: string;
+  processRunner: ProcessRunner;
+}>;
 
 type ToolFailureKind = ToolHandlerError["kind"];
 
 function toolFailure(kind: ToolFailureKind): Result<never, ToolHandlerError> {
   return err(Object.freeze({ kind }));
+}
+
+function toolSuccess(
+  output: unknown,
+): Result<ToolHandlerOutcome, ToolHandlerError> {
+  return ok(ToolHandlerOutcome.success(output));
 }
 
 function mapIoError(cause: unknown): ToolHandlerError {
@@ -180,6 +209,17 @@ function text(input: StructuredObject, name: string): string {
   return value;
 }
 
+function textList(input: StructuredObject, name: string): readonly string[] {
+  const value = input.get(name);
+  if (
+    !(value instanceof StructuredList) ||
+    value.values.some((item) => typeof item !== "string")
+  ) {
+    throw new Error("validated tool input invariant");
+  }
+  return Object.freeze(value.values.map((item) => item as string));
+}
+
 async function readDirectoryBounded(
   directory: string,
   limit: number,
@@ -318,7 +358,7 @@ function readFileHandler(root: string): ToolHandler {
       ) {
         return checked.ok ? toolFailure("permission") : checked;
       }
-      return ok({ text: content });
+      return toolSuccess({ text: content });
     } catch (cause: unknown) {
       return err(mapIoError(cause));
     }
@@ -364,7 +404,7 @@ function listDirectoryHandler(root: string): ToolHandler {
             : "other";
       output.push(Object.freeze({ kind, name: entry.name }));
     }
-    return ok({ entries: output });
+    return toolSuccess({ entries: output });
   };
 }
 
@@ -530,7 +570,7 @@ function searchTextHandler(root: string): ToolHandler {
           break;
         }
       }
-      return ok({ matches });
+      return toolSuccess({ matches });
     } catch (cause: unknown) {
       return err(mapIoError(cause));
     }
@@ -552,7 +592,7 @@ function createFileHandler(root: string): ToolHandler {
         encoding: "utf8",
         flag: "wx",
       });
-      return ok({ created: true });
+      return toolSuccess({ created: true });
     } catch (cause: unknown) {
       return err(mapIoError(cause));
     }
@@ -568,7 +608,7 @@ function replaceTextHandler(root: string): ToolHandler {
       return resolved;
     }
     let handle: Awaited<ReturnType<typeof open>> | undefined;
-    let operation: Result<unknown, ToolHandlerError>;
+    let operation: Result<ToolHandlerOutcome, ToolHandlerError>;
     try {
       handle = await open(resolved.value, "r+");
       const status = await handle.stat();
@@ -593,7 +633,7 @@ function replaceTextHandler(root: string): ToolHandler {
           } else {
             const written = await writeFileHandleComplete(handle, replacement);
             operation = written.ok
-              ? ok({ replacements: 1 })
+              ? toolSuccess({ replacements: 1 })
               : written;
           }
         }
@@ -614,8 +654,12 @@ function replaceTextHandler(root: string): ToolHandler {
   };
 }
 
-function stringSchema(minimum: number, maximum: number): StringSchema {
-  const schema = StringSchema.create(minimum, maximum);
+function stringSchema(
+  minimum: number,
+  maximum: number,
+  options?: StringSchemaOptions,
+): StringSchema {
+  const schema = StringSchema.create(minimum, maximum, options);
   if (!schema.ok) {
     throw new Error("owned string schema invariant");
   }
@@ -624,10 +668,31 @@ function stringSchema(minimum: number, maximum: number): StringSchema {
 
 function objectSchema(
   fields: readonly ObjectSchemaField[],
+  projection?: ObjectSchemaProjection,
 ): ObjectSchema {
-  const schema = ObjectSchema.create(fields);
+  const schema = ObjectSchema.create(fields, projection);
   if (!schema.ok) {
     throw new Error("owned object schema invariant");
+  }
+  return schema.value;
+}
+
+function listSchema(
+  item: StringSchema,
+  minimum: number,
+  maximum: number,
+): ListSchema {
+  const schema = ListSchema.create(item, minimum, maximum);
+  if (!schema.ok) {
+    throw new Error("owned list schema invariant");
+  }
+  return schema.value;
+}
+
+function literalStringSchema(value: string): LiteralStringSchema {
+  const schema = LiteralStringSchema.create(value);
+  if (!schema.ok) {
+    throw new Error("owned literal string schema invariant");
   }
   return schema.value;
 }
@@ -652,7 +717,62 @@ function descriptor(
   return created.value;
 }
 
-function registrations(root: string) {
+function runProcessHandler(
+  root: string,
+  platform: BuiltinToolsPlatform,
+): ToolHandler {
+  return async (input, cancellation) => {
+    if (cancellation.requested) {
+      return toolFailure("cancelled");
+    }
+    const program = text(input, "program");
+    if (program !== "node") {
+      return toolFailure("unsupported");
+    }
+    const workingDirectory = await existingPath(
+      root,
+      text(input, "workingDirectory"),
+      "directory",
+    );
+    if (!workingDirectory.ok) {
+      return workingDirectory;
+    }
+    const result = await platform.processRunner.run(
+      Object.freeze({
+        arguments: textList(input, "arguments"),
+        executable: platform.nodeExecutable,
+        processLimit: PROCESS_RUNNER_LIMITS.processCount,
+        stderrBytes: PROCESS_RUNNER_LIMITS.stderrBytes,
+        stdoutBytes: PROCESS_RUNNER_LIMITS.stdoutBytes,
+        timeoutMilliseconds: PROCESS_RUNNER_LIMITS.timeoutMilliseconds,
+        workingDirectory: workingDirectory.value,
+      }),
+      cancellation,
+    );
+    if (!result.ok) {
+      return result;
+    }
+    return ok(
+      result.value.exitCode === 0
+        ? ToolHandlerOutcome.success(result.value)
+        : ToolHandlerOutcome.failure(result.value),
+    );
+  };
+}
+
+const RUN_PROCESS_APPROVAL_FIELDS: readonly ToolApprovalField[] =
+  Object.freeze([
+    Object.freeze({ mode: "exact" as const, name: "program" }),
+    Object.freeze({ mode: "exact" as const, name: "arguments" }),
+    Object.freeze({ mode: "exact" as const, name: "workingDirectory" }),
+  ]);
+
+const PROCESS_TEXT_SCHEMA_OPTIONS: StringSchemaOptions = Object.freeze({
+  maximumUtf8Bytes: PROCESS_RUNNER_LIMITS.textUtf8Bytes,
+  rejectNul: true,
+});
+
+function registrations(root: string, platform: BuiltinToolsPlatform) {
   const pathField = {
     description: "Workspace-relative path.",
     name: "path",
@@ -742,18 +862,81 @@ function registrations(root: string) {
       ),
       handler: replaceTextHandler(root),
     }),
+    Object.freeze({
+      descriptor: descriptor(
+        "run_process",
+        "Run one approved terminating program with bounded arguments in a workspace directory. Persistent services are unsupported.",
+        "execute",
+        objectSchema([
+          {
+            description: "Registered program token. The initial value is node.",
+            name: "program",
+            required: true,
+            schema: literalStringSchema("node"),
+          },
+          {
+            description: "Ordered program arguments without shell parsing.",
+            name: "arguments",
+            required: true,
+            schema: listSchema(
+              stringSchema(
+                0,
+                PROCESS_RUNNER_LIMITS.argumentCodeUnits,
+                PROCESS_TEXT_SCHEMA_OPTIONS,
+              ),
+              0,
+              PROCESS_RUNNER_LIMITS.arguments,
+            ),
+          },
+          {
+            description: "Existing workspace-relative working directory.",
+            name: "workingDirectory",
+            required: true,
+            schema: stringSchema(
+              1,
+              PROCESS_RUNNER_LIMITS.workingDirectoryCodeUnits,
+              PROCESS_TEXT_SCHEMA_OPTIONS,
+            ),
+          },
+        ], {
+          fields: RUN_PROCESS_APPROVAL_FIELDS,
+          maximumCodeUnits: TOOL_ENGINE_LIMITS.approvalPreviewCodeUnits,
+        }),
+        RUN_PROCESS_APPROVAL_FIELDS,
+      ),
+      handler: runProcessHandler(root, platform),
+    }),
   ]);
 }
 
 /** Creates the complete initial tool engine for one explicit absolute root. */
 export function createBuiltinToolEngine(
   root: string,
+  platform: BuiltinToolsPlatform,
 ): Result<ToolEngine, BuiltinToolsError> {
-  if (typeof root !== "string" || !path.isAbsolute(root) || root.includes("\u0000")) {
+  if (
+    typeof root !== "string" ||
+    !path.isAbsolute(root) ||
+    root.includes("\u0000")
+  ) {
     return err(Object.freeze({ kind: "invalidRoot" as const }));
   }
+  if (
+    platform === null ||
+    typeof platform !== "object" ||
+    typeof platform.nodeExecutable !== "string" ||
+    !path.isAbsolute(platform.nodeExecutable) ||
+    platform.nodeExecutable.includes("\u0000") ||
+    platform.processRunner === null ||
+    typeof platform.processRunner !== "object" ||
+    typeof platform.processRunner.run !== "function"
+  ) {
+    return err(Object.freeze({ kind: "invalidPlatform" as const }));
+  }
   try {
-    const registry = ToolRegistry.create(registrations(path.resolve(root)));
+    const registry = ToolRegistry.create(
+      registrations(path.resolve(root), platform),
+    );
     if (!registry.ok) {
       return err(Object.freeze({ kind: "invariant" as const }));
     }

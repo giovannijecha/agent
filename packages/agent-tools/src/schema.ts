@@ -1,18 +1,26 @@
 import {
   err,
   ok,
+  scalarUtf8ByteLength,
   StructuredList,
   StructuredObject,
   type StructuredValue,
   type Result,
 } from "@agent/core";
 
+import {
+  renderStructuredProjection,
+  type StructuredProjectionField,
+} from "./projection.js";
+
 export const TOOL_SCHEMA_LIMITS = Object.freeze({
   depth: 12,
   descriptionCodeUnits: 512,
   fields: 32,
   listItems: 1_024,
+  projectionCodeUnits: 262_144,
   stringCodeUnits: 262_144,
+  stringUtf8Bytes: 1_048_576,
 });
 
 export type SchemaErrorKind =
@@ -20,6 +28,8 @@ export type SchemaErrorKind =
   | "invalidBounds"
   | "invalidDescription"
   | "invalidFieldName"
+  | "invalidLiteral"
+  | "invalidProjection"
   | "tooDeep"
   | "tooManyFields";
 
@@ -57,24 +67,50 @@ export class StringSchema {
   readonly kind = "string" as const;
   readonly #maximum: number;
   readonly #minimum: number;
+  readonly #maximumUtf8Bytes: number | undefined;
+  readonly #rejectNul: boolean;
 
-  private constructor(minimum: number, maximum: number) {
+  private constructor(
+    minimum: number,
+    maximum: number,
+    maximumUtf8Bytes: number | undefined,
+    rejectNul: boolean,
+  ) {
     this.#minimum = minimum;
     this.#maximum = maximum;
+    this.#maximumUtf8Bytes = maximumUtf8Bytes;
+    this.#rejectNul = rejectNul;
     Object.freeze(this);
   }
 
   static create(
     minimum: number = 0,
     maximum: number = TOOL_SCHEMA_LIMITS.stringCodeUnits,
+    options: StringSchemaOptions = Object.freeze({}),
   ): Result<StringSchema, SchemaError> {
-    return Number.isSafeInteger(minimum) &&
-      Number.isSafeInteger(maximum) &&
-      minimum >= 0 &&
-      maximum >= minimum &&
-      maximum <= TOOL_SCHEMA_LIMITS.stringCodeUnits
-      ? ok(new StringSchema(minimum, maximum))
-      : err(schemaError("invalidBounds"));
+    try {
+      const keys = Object.keys(options).sort().join(",");
+      const maximumUtf8Bytes = options.maximumUtf8Bytes;
+      const rejectNul = options.rejectNul ?? false;
+      return Number.isSafeInteger(minimum) &&
+        Number.isSafeInteger(maximum) &&
+        minimum >= 0 &&
+        maximum >= minimum &&
+        maximum <= TOOL_SCHEMA_LIMITS.stringCodeUnits &&
+        (keys === "" ||
+          keys === "maximumUtf8Bytes" ||
+          keys === "maximumUtf8Bytes,rejectNul" ||
+          keys === "rejectNul") &&
+        (maximumUtf8Bytes === undefined ||
+          (Number.isSafeInteger(maximumUtf8Bytes) &&
+            maximumUtf8Bytes >= 0 &&
+            maximumUtf8Bytes <= TOOL_SCHEMA_LIMITS.stringUtf8Bytes)) &&
+        typeof rejectNul === "boolean"
+        ? ok(new StringSchema(minimum, maximum, maximumUtf8Bytes, rejectNul))
+        : err(schemaError("invalidBounds"));
+    } catch (_cause: unknown) {
+      return err(schemaError("invalidBounds"));
+    }
   }
 
   get maximum(): number {
@@ -83,6 +119,42 @@ export class StringSchema {
 
   get minimum(): number {
     return this.#minimum;
+  }
+
+  get maximumUtf8Bytes(): number | undefined {
+    return this.#maximumUtf8Bytes;
+  }
+
+  get rejectNul(): boolean {
+    return this.#rejectNul;
+  }
+}
+
+export type StringSchemaOptions = Readonly<{
+  maximumUtf8Bytes?: number;
+  rejectNul?: boolean;
+}>;
+
+export class LiteralStringSchema {
+  readonly kind = "literalString" as const;
+  readonly #value: string;
+
+  private constructor(value: string) {
+    this.#value = value;
+    Object.freeze(this);
+  }
+
+  static create(value: string): Result<LiteralStringSchema, SchemaError> {
+    return typeof value === "string" &&
+      value.length > 0 &&
+      value.length <= 128 &&
+      !/\p{Cc}/u.test(value)
+      ? ok(new LiteralStringSchema(value))
+      : err(schemaError("invalidLiteral"));
+  }
+
+  get value(): string {
+    return this.#value;
   }
 }
 
@@ -133,6 +205,7 @@ export type ToolSchema =
   | BooleanSchema
   | IntegerSchema
   | ListSchema
+  | LiteralStringSchema
   | ObjectSchema
   | StringSchema;
 
@@ -194,19 +267,38 @@ export type ObjectSchemaField = Readonly<{
   schema: ToolSchema;
 }>;
 
+export type ObjectSchemaProjection = Readonly<{
+  fields: readonly StructuredProjectionField[];
+  maximumCodeUnits: number;
+}>;
+
 export class ObjectSchema {
   readonly kind = "object" as const;
   readonly #fields: readonly ObjectSchemaField[];
+  readonly #projection: ObjectSchemaProjection | undefined;
 
-  private constructor(fields: readonly ObjectSchemaField[]) {
+  private constructor(
+    fields: readonly ObjectSchemaField[],
+    projection: ObjectSchemaProjection | undefined,
+  ) {
     this.#fields = Object.freeze(
       fields.map((field) => Object.freeze({ ...field })),
     );
+    this.#projection =
+      projection === undefined
+        ? undefined
+        : Object.freeze({
+            fields: Object.freeze(
+              projection.fields.map((field) => Object.freeze({ ...field })),
+            ),
+            maximumCodeUnits: projection.maximumCodeUnits,
+          });
     Object.freeze(this);
   }
 
   static create(
     fields: readonly ObjectSchemaField[],
+    projection?: ObjectSchemaProjection,
   ): Result<ObjectSchema, SchemaError> {
     try {
       if (!Array.isArray(fields)) {
@@ -251,7 +343,44 @@ export class ObjectSchema {
         names.add(name);
         owned.push(Object.freeze({ description, name, required, schema }));
       }
-      return ok(new ObjectSchema(owned));
+      let ownedProjection: ObjectSchemaProjection | undefined;
+      if (projection !== undefined) {
+        if (
+          projection === null ||
+          typeof projection !== "object" ||
+          Object.keys(projection).sort().join(",") !==
+            "fields,maximumCodeUnits" ||
+          !Array.isArray(projection.fields) ||
+          projection.fields.length > TOOL_SCHEMA_LIMITS.fields ||
+          !Number.isSafeInteger(projection.maximumCodeUnits) ||
+          projection.maximumCodeUnits < 0 ||
+          projection.maximumCodeUnits > TOOL_SCHEMA_LIMITS.projectionCodeUnits
+        ) {
+          return err(schemaError("invalidProjection"));
+        }
+        const projected = new Set<string>();
+        const projectedFields: StructuredProjectionField[] = [];
+        for (const field of projection.fields) {
+          const fieldName = field.name;
+          const mode = field.mode;
+          if (
+            Object.keys(field).sort().join(",") !== "mode,name" ||
+            typeof fieldName !== "string" ||
+            (mode !== "exact" && mode !== "size") ||
+            projected.has(fieldName) ||
+            !names.has(fieldName)
+          ) {
+            return err(schemaError("invalidProjection"));
+          }
+          projected.add(fieldName);
+          projectedFields.push(Object.freeze({ mode, name: fieldName }));
+        }
+        ownedProjection = Object.freeze({
+          fields: Object.freeze(projectedFields),
+          maximumCodeUnits: projection.maximumCodeUnits,
+        });
+      }
+      return ok(new ObjectSchema(owned, ownedProjection));
     } catch (_cause: unknown) {
       return err(schemaError("invalidFieldName"));
     }
@@ -259,6 +388,10 @@ export class ObjectSchema {
 
   get fields(): readonly ObjectSchemaField[] {
     return this.#fields;
+  }
+
+  get projection(): ObjectSchemaProjection | undefined {
+    return this.#projection;
   }
 }
 
@@ -271,6 +404,7 @@ function isOwnedSchema(value: unknown): value is ToolSchema {
       value instanceof BooleanSchema ||
       value instanceof IntegerSchema ||
       value instanceof ListSchema ||
+      value instanceof LiteralStringSchema ||
       value instanceof ObjectSchema ||
       value instanceof StringSchema
     );
@@ -299,9 +433,26 @@ function validateOwnedSchema(
   value: StructuredValue,
 ): Result<void, SchemaValidationError> {
   if (schema instanceof StringSchema) {
-    return typeof value === "string" &&
-      value.length >= schema.minimum &&
-      value.length <= schema.maximum
+    if (typeof value !== "string") {
+      return err(validationError("invalidType"));
+    }
+    if (value.length < schema.minimum || value.length > schema.maximum) {
+      return err(validationError("outOfRange"));
+    }
+    if (schema.rejectNul || schema.maximumUtf8Bytes !== undefined) {
+      const bytes = scalarUtf8ByteLength(value, schema.rejectNul);
+      if (
+        bytes === undefined ||
+        (schema.maximumUtf8Bytes !== undefined &&
+          bytes > schema.maximumUtf8Bytes)
+      ) {
+        return err(validationError("outOfRange"));
+      }
+    }
+    return ok(undefined);
+  }
+  if (schema instanceof LiteralStringSchema) {
+    return typeof value === "string" && value === schema.value
       ? ok(undefined)
       : err(
           validationError(
@@ -359,9 +510,17 @@ function validateOwnedSchema(
       return valid;
     }
   }
-  return matched === value.size
+  if (matched !== value.size) {
+    return err(validationError("additionalField"));
+  }
+  return schema.projection === undefined ||
+    renderStructuredProjection(
+      schema.projection.fields,
+      value,
+      schema.projection.maximumCodeUnits,
+    ) !== undefined
     ? ok(undefined)
-    : err(validationError("additionalField"));
+    : err(validationError("outOfRange"));
 }
 
 /** Validates at a total boundary and contains hostile proxy access. */

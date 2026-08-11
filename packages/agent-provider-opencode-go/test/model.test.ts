@@ -32,6 +32,7 @@ import {
 } from "@agent/runtime";
 import {
   ObjectSchema,
+  LiteralStringSchema,
   StringSchema,
   ToolDescriptor,
 } from "@agent/tools";
@@ -189,6 +190,31 @@ function descriptor(): ToolDescriptor {
   return tool.value;
 }
 
+function literalDescriptor(): ToolDescriptor {
+  const program = LiteralStringSchema.create("node");
+  assert.ok(program.ok);
+  const input = ObjectSchema.create([
+    {
+      description: "Registered program token.",
+      name: "program",
+      required: true,
+      schema: program.value,
+    },
+  ]);
+  assert.ok(input.ok);
+  const tool = ToolDescriptor.create(
+    "run_process",
+    "Run one registered program.",
+    "execute",
+    input.value,
+    Object.freeze([
+      Object.freeze({ mode: "exact" as const, name: "program" }),
+    ]),
+  );
+  assert.ok(tool.ok);
+  return tool.value;
+}
+
 function model(
   stream: OpenCodeGoTransportStream,
 ): Readonly<{ model: OpenCodeGoModel; transport: FakeTransport }> {
@@ -291,6 +317,40 @@ test("encodes the fixed model, instructions, conversation, and exact tool schema
       parsed.tools.at(0)?.function.parameters.properties ?? {},
       "path",
     ),
+  );
+});
+
+test("encodes exact string literals as closed JSON Schema constants", async () => {
+  const transportStream = new FakeStream([
+    ok(frame(completion({ content: "done" }))),
+    ok(frame(completion({}, "stop"))),
+  ]);
+  const fixture = model(transportStream);
+  const stream = await open(
+    fixture.model,
+    new Cancellation(),
+    [literalDescriptor()],
+  );
+
+  assert.equal((await read(stream)).kind, "delta");
+  const body = fixture.transport.request?.body;
+  assert.ok(body !== undefined);
+  const parsed = JSON.parse(body) as {
+    tools: Array<{
+      function: {
+        parameters: {
+          properties: Record<string, unknown>;
+        };
+      };
+    }>;
+  };
+  assert.deepEqual(
+    parsed.tools.at(0)?.function.parameters.properties.program,
+    {
+      const: "node",
+      description: "Registered program token.",
+      type: "string",
+    },
   );
 });
 

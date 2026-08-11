@@ -154,109 +154,19 @@ test("rejects duplicate or incomplete lean tool contracts", () => {
   assert.throws(
     () => validateManualPolicy(riskDrift, currentContext()),
     {
-      message: "manual tool contract is invalid",
-      name: "ManualPolicyError",
-    },
-  );
-
-  const blockedProcess = structuredClone(currentPolicy);
-  blockedProcess.toolSurface.tools.at(0).name = "run_process";
-  assert.throws(
-    () => validateManualPolicy(blockedProcess, currentContext()),
-    {
-      message: "manual tool contract is invalid",
+      message: "manual tool source inventory mismatch",
       name: "ManualPolicyError",
     },
   );
 });
 
-test("rejects blocked tool drift or incomplete decisions", () => {
-  const overlap = structuredClone(currentPolicy);
-  overlap.blockedTools.at(0).name = "create_file";
+test("rejects a dormant blocked-tool registry", () => {
+  const staleRegistry = structuredClone(currentPolicy);
+  staleRegistry.blockedTools = [];
   assert.throws(
-    () => validateManualPolicy(overlap, currentContext()),
+    () => validateManualPolicy(staleRegistry, currentContext()),
     {
-      message: "blocked tool contract is invalid",
-      name: "ManualPolicyError",
-    },
-  );
-
-  const risk = structuredClone(currentPolicy);
-  risk.blockedTools.at(0).risk = "write";
-  assert.throws(
-    () => validateManualPolicy(risk, currentContext()),
-    {
-      message: "blocked tool contract is invalid",
-      name: "ManualPolicyError",
-    },
-  );
-
-  const reason = structuredClone(currentPolicy);
-  reason.blockedTools.at(0).reason =
-    "Whole-tree containment has not passed the registered platform proof.";
-  assert.throws(
-    () => validateManualPolicy(reason, currentContext()),
-    {
-      message: "manual blocked tool inventory is incomplete",
-      name: "ManualPolicyError",
-    },
-  );
-
-  const extraRow = currentContext();
-  const blocked = currentPolicy.blockedTools.at(0);
-  const blockedRow =
-    "| `" + blocked.name + "` | `" + blocked.risk + "` | " +
-    blocked.reason + " | `" + blocked.decision + "` |";
-  extraRow.files["docs/manual/04-tools-and-approval.md"] =
-    extraRow.files["docs/manual/04-tools-and-approval.md"].replace(
-      blockedRow + "\n\n",
-      blockedRow + "\n" +
-        "| `stale_tool` | `execute` | This row is not registered by the owned policy. | `docs/decisions/0015-process-tree-containment.md` |\n\n",
-    );
-  assert.throws(
-    () => validateManualPolicy(currentPolicy, extraRow),
-    {
-      message: "manual blocked tool inventory is incomplete",
-      name: "ManualPolicyError",
-    },
-  );
-
-  const decision = currentContext();
-  decision.files["docs/decisions/0015-process-tree-containment.md"] =
-    decision.files["docs/decisions/0015-process-tree-containment.md"].replace(
-      "`run_process` remains blocked.",
-      "Process execution is pending.",
-    );
-  assert.throws(
-    () => validateManualPolicy(currentPolicy, decision),
-    {
-      message: "blocked tool decision is incomplete",
-      name: "ManualPolicyError",
-    },
-  );
-
-  const unregistered = structuredClone(currentPolicy);
-  unregistered.requiredPaths = unregistered.requiredPaths.filter(
-    (file) => file !== "docs/decisions/0015-process-tree-containment.md",
-  );
-  assert.throws(
-    () => validateManualPolicy(unregistered, currentContext()),
-    {
-      message: "blocked tool decision is not registered as manual evidence",
-      name: "ManualPolicyError",
-    },
-  );
-
-  const removal = currentContext();
-  removal.files["docs/MAINTENANCE.md"] =
-    removal.files["docs/MAINTENANCE.md"].replace(
-      "`docs/decisions/0015-process-tree-containment.md`",
-      "the process-containment decision",
-    );
-  assert.throws(
-    () => validateManualPolicy(currentPolicy, removal),
-    {
-      message: "blocked tool removal contract is incomplete",
+      message: "manual policy keys mismatch",
       name: "ManualPolicyError",
     },
   );

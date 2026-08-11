@@ -184,14 +184,17 @@ CLI also owns the exact OpenCode Go HTTPS adapter and startup configuration. It
 admits only `opencode.ai:443`, never follows an application-selected origin,
 keeps the API key in memory, and exposes only bytes and response metadata to the
 Node-free provider package.
-Direct process execution remains absent from the model-facing registry under
-decision 0015. Decision 0016 adds a private C17 proof boundary inside CLI:
-common framed protocol and lifecycle modules select either an owned Windows Job
-Object backend or an owned Linux delegated-cgroup and namespace backend. No
-production TypeScript path invokes it. Matching platform tests must prove
-descendant cancellation, empty environment, bounded output, owner-loss behavior,
-and complete cleanup before a later decision may add the structured tool and
-approval surface.
+Decision 0036 admits one model-facing execute capability, `run_process`, through
+the CLI-owned C17 broker proven by decisions 0015 and 0016. The structured tool
+accepts one registered program token, literal arguments, and a rooted working
+directory; it exposes no shell, executable path, PATH lookup, stdin,
+environment, or model-selected limit. Linux targets receive an empty
+environment. Windows targets receive only `SystemRoot`, queried directly by the
+broker through the operating system API so Node can initialize without
+inheriting user state. Matching platform tests prove descendant cancellation,
+bounded output, owner-loss behavior, isolated target environment, and complete
+cleanup. The capability runs terminating commands only and never retains a
+background or persistent service.
 
 ## Lean tool harness
 
@@ -470,15 +473,16 @@ process access remain unavailable unless the CLI composes an explicit capability
   text-only runtime steps, and deleting CLI approval/status composition. Remove
   the runtime tool dependency, then the tools workspace and structured tool
   entries only when no consumer remains. In the same removal change, replace
-  manual-policy schema 3 so it removes the advertised inventory and
-  `blockedTools`, including `run_process`; unregister decisions 0008, 0014, and
-  `docs/decisions/0015-process-tree-containment.md`; and remove their ownership,
-  required-path, and manual-evidence registrations. Core text chat and the
-  providerless CLI remain buildable throughout.
-- Remove the private containment proof without touching product tools by deleting
-  its CLI-native source, build driver, conformance harness, tests, Linux cgroup
-  bootstrap, native toolchain and verifier registrations, decision 0016, and the
-  Linux CI job. `run_process` remains blocked by decision 0015.
+  manual-policy schema 4 so it removes the advertised inventory; unregister
+  decisions 0008, 0014, 0015, 0016, and 0036 only when their admitted surfaces
+  and proof infrastructure are gone; and remove their ownership, required-path,
+  and manual-evidence registrations. Core text chat and the providerless CLI
+  remain buildable throughout.
+- Remove process execution by first removing `run_process` advertisement, then
+  its handler, runner port, Node adapter, and protocol codec. Remove the native
+  source, build driver, conformance harness, Linux cgroup bootstrap, toolchain
+  registrations, and Linux CI job only when no proof or platform work consumes
+  them. File tools, runtime text chat, and TUI remain independently buildable.
 
 The exact registry and derived-artifact procedure is defined in
 `docs/MAINTENANCE.md`.

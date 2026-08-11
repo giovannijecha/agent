@@ -3,8 +3,6 @@ import path from "node:path";
 const INDEX_PATH = "docs/manual/README.md";
 const COMMAND_SOURCE = "packages/agent-cli/src/commands.ts";
 const TOOL_SOURCE = "packages/agent-cli/src/builtin-tools.ts";
-const TOOL_CHAPTER = "docs/manual/04-tools-and-approval.md";
-const MAINTENANCE_PATH = "docs/MAINTENANCE.md";
 const PRODUCT_SOURCE = /^packages\/[a-z0-9-]+\/src\/[a-z0-9-]+\.ts$/u;
 const CHAPTER_SECTIONS = Object.freeze([
   "Purpose",
@@ -155,8 +153,7 @@ function validateToolSurface(surface) {
       !/^[a-z][a-z0-9_]{0,63}$/u.test(tool.name) ||
       typeof tool.capability !== "string" ||
       !/^[a-z][a-z0-9-]{0,63}$/u.test(tool.capability) ||
-      tool.name === "run_process" ||
-      (tool.risk !== "read" && tool.risk !== "write") ||
+      (tool.risk !== "read" && tool.risk !== "write" && tool.risk !== "execute") ||
       typeof tool.necessity !== "string" ||
       tool.necessity !== tool.necessity.trim() ||
       tool.necessity.length < 20 ||
@@ -174,92 +171,6 @@ function validateToolSurface(surface) {
   unique(necessities, "manual tool necessities");
   same(names, sorted(names), "manual tool order");
   return surface.tools;
-}
-
-function validateBlockedTools(blockedTools, advertisedTools, context) {
-  if (
-    !Array.isArray(blockedTools) ||
-    blockedTools.length === 0 ||
-    blockedTools.length > 32
-  ) {
-    fail("blocked tool registry is invalid");
-  }
-
-  const names = [];
-  const advertisedNames = new Set(advertisedTools.map((tool) => tool.name));
-  for (const tool of blockedTools) {
-    exactKeys(
-      tool,
-      ["decision", "name", "reason", "risk"],
-      "blocked tool",
-    );
-    if (
-      typeof tool.name !== "string" ||
-      !/^[a-z][a-z0-9_]{0,63}$/u.test(tool.name) ||
-      tool.risk !== "execute" ||
-      typeof tool.reason !== "string" ||
-      tool.reason !== tool.reason.trim() ||
-      tool.reason.length < 20 ||
-      tool.reason.length > 240 ||
-      /[`|\p{Cc}\p{Cf}\p{Cs}\u2028\u2029]/u.test(tool.reason) ||
-      typeof tool.decision !== "string" ||
-      !/^docs\/decisions\/[0-9]{4}-[a-z0-9-]+\.md$/u.test(tool.decision) ||
-      advertisedNames.has(tool.name)
-    ) {
-      fail("blocked tool contract is invalid");
-    }
-    ownedPath(tool.decision, "blocked tool decision");
-    const decision = fileText(context, tool.decision);
-    if (
-      !decision.includes("- Status: accepted\n") ||
-      !decision.includes("`" + tool.name + "` remains blocked.")
-    ) {
-      fail("blocked tool decision is incomplete");
-    }
-    names.push(tool.name);
-  }
-  unique(names, "blocked tool names");
-  same(names, sorted(names), "blocked tool order");
-  return blockedTools;
-}
-
-function verifyBlockedToolInventory(blockedTools, context) {
-  const header = "| Blocked tool | Risk | Reason | Decision |";
-  const table = [
-    header,
-    "|---|---|---|---|",
-    ...blockedTools.map((tool) =>
-      "| `" + tool.name + "` | `" + tool.risk + "` | " +
-      tool.reason + " | `" + tool.decision + "` |"
-    ),
-  ].join("\n") + "\n\n";
-  const chapter = fileText(context, TOOL_CHAPTER);
-  if (
-    !chapter.includes(table) ||
-    chapter.indexOf(header) !== chapter.lastIndexOf(header)
-  ) {
-    fail("manual blocked tool inventory is incomplete");
-  }
-}
-
-function verifyBlockedToolRemoval(policy, blockedTools, context) {
-  const maintenance = fileText(context, MAINTENANCE_PATH);
-  const requiredTokens = [
-    "schema " + String(policy.schemaVersion),
-    "`blockedTools`",
-    "ownership",
-    "required-path",
-    "manual evidence",
-    ...blockedTools.flatMap((tool) => [
-      "`" + tool.name + "`",
-      "`" + tool.decision + "`",
-    ]),
-  ];
-  for (const token of requiredTokens) {
-    if (!maintenance.includes(token)) {
-      fail("blocked tool removal contract is incomplete");
-    }
-  }
 }
 
 function verifyDescriptorConstruction(context) {
@@ -376,12 +287,11 @@ export function validateManualPolicy(policy, context) {
       "chapters",
       "commands",
       "toolSurface",
-      "blockedTools",
       "requiredPaths",
     ],
     "manual policy",
   );
-  if (policy.schemaVersion !== 3 || policy.index !== INDEX_PATH) {
+  if (policy.schemaVersion !== 4 || policy.index !== INDEX_PATH) {
     fail("unsupported manual policy schema or index");
   }
   if (!isRecord(context) || !Array.isArray(context.manualPaths) || !Array.isArray(context.ownedPaths)) {
@@ -405,9 +315,6 @@ export function validateManualPolicy(policy, context) {
 
   const commands = stringList(policy.commands, "manual commands", /^\/[a-z][a-z0-9-]*$/u);
   const tools = validateToolSurface(policy.toolSurface);
-  const blockedTools = validateBlockedTools(policy.blockedTools, tools, context);
-  verifyBlockedToolInventory(blockedTools, context);
-  verifyBlockedToolRemoval(policy, blockedTools, context);
   verifyDescriptorConstruction(context);
   same(commands, extractCommands(fileText(context, COMMAND_SOURCE)), "manual command source inventory");
   same(
@@ -423,11 +330,6 @@ export function validateManualPolicy(policy, context) {
     ownedPath(requiredPath, "manual evidence path");
   }
   unique(policy.requiredPaths, "manual evidence paths");
-  for (const tool of blockedTools) {
-    if (!policy.requiredPaths.includes(tool.decision)) {
-      fail("blocked tool decision is not registered as manual evidence");
-    }
-  }
   const owned = new Set(context.ownedPaths);
   const evidence = chapterTexts
     .map((text) => text.slice(text.indexOf("## Evidence\n")))

@@ -2,15 +2,17 @@ import {
   err,
   ok,
   type Result,
-  StructuredList,
   StructuredObject,
-  type StructuredValue,
   structuredValueCodeUnits,
   structuredValueFromUnknown,
   ToolCall,
   ToolResult,
 } from "@agent/core";
 
+import {
+  renderStructuredProjection,
+  type StructuredProjectionField,
+} from "./projection.js";
 import { ObjectSchema, validateSchema } from "./schema.js";
 
 export const TOOL_ENGINE_LIMITS = Object.freeze({
@@ -36,10 +38,7 @@ export type ToolDescriptorError = Readonly<{
 
 const VALID_TOOL_NAME = /^[a-z][a-z0-9_]{0,63}$/u;
 
-export type ToolApprovalField = Readonly<{
-  mode: "exact" | "size";
-  name: string;
-}>;
+export type ToolApprovalField = StructuredProjectionField;
 
 export class ToolDescriptor {
   readonly #approvalFields: readonly ToolApprovalField[];
@@ -115,6 +114,31 @@ export class ToolDescriptor {
         fieldNames.add(fieldName);
         ownedApproval.push(Object.freeze({ mode, name: fieldName }));
       }
+      const projection = input.projection;
+      let projectionMatchesApproval = true;
+      if (projection !== undefined) {
+        const approvalFields = ownedApproval.values();
+        for (const field of projection.fields) {
+          const approvalField = approvalFields.next();
+          if (
+            approvalField.done ||
+            field.name !== approvalField.value.name ||
+            field.mode !== approvalField.value.mode
+          ) {
+            projectionMatchesApproval = false;
+            break;
+          }
+        }
+      }
+      if (
+        projection !== undefined &&
+        (projection.maximumCodeUnits !==
+          TOOL_ENGINE_LIMITS.approvalPreviewCodeUnits ||
+          projection.fields.length !== ownedApproval.length ||
+          !projectionMatchesApproval)
+      ) {
+        return err(Object.freeze({ kind: "invalidApproval" as const }));
+      }
       return ok(
         new ToolDescriptor(name, description, risk, input, ownedApproval),
       );
@@ -159,10 +183,60 @@ export type ToolHandlerErrorKind =
   | "unsupported";
 export type ToolHandlerError = Readonly<{ kind: ToolHandlerErrorKind }>;
 
+export type ToolHandlerOutcomeStatus = "failure" | "success";
+
+const TOOL_HANDLER_OUTCOME_TOKEN = Symbol("owned tool handler outcome");
+
+/**
+ * An explicit post-invocation outcome. A failed outcome preserves bounded
+ * command output for model recovery without misreporting the call as success.
+ */
+export class ToolHandlerOutcome {
+  readonly #output: unknown;
+  readonly #status: ToolHandlerOutcomeStatus;
+
+  private constructor(
+    token: symbol,
+    status: ToolHandlerOutcomeStatus,
+    output: unknown,
+  ) {
+    if (token !== TOOL_HANDLER_OUTCOME_TOKEN) {
+      throw new TypeError("invalid tool handler outcome construction");
+    }
+    this.#status = status;
+    this.#output = output;
+    Object.freeze(this);
+  }
+
+  static failure(output: unknown): ToolHandlerOutcome {
+    return new ToolHandlerOutcome(
+      TOOL_HANDLER_OUTCOME_TOKEN,
+      "failure",
+      output,
+    );
+  }
+
+  static success(output: unknown): ToolHandlerOutcome {
+    return new ToolHandlerOutcome(
+      TOOL_HANDLER_OUTCOME_TOKEN,
+      "success",
+      output,
+    );
+  }
+
+  get output(): unknown {
+    return this.#output;
+  }
+
+  get status(): ToolHandlerOutcomeStatus {
+    return this.#status;
+  }
+}
+
 export type ToolHandler = (
   input: StructuredObject,
   cancellation: ToolCancellation,
-) => Promise<Result<unknown, ToolHandlerError>>;
+) => Promise<Result<ToolHandlerOutcome, ToolHandlerError>>;
 
 export type ToolRegistration = Readonly<{
   descriptor: ToolDescriptor;
@@ -290,82 +364,22 @@ class OwnedPreparedToolCall implements PreparedToolCall {
     return this.#registration.descriptor;
   }
 
-  run(cancellation: ToolCancellation): Promise<Result<unknown, ToolHandlerError>> {
+  run(
+    cancellation: ToolCancellation,
+  ): Promise<Result<ToolHandlerOutcome, ToolHandlerError>> {
     return this.#registration.handler(this.#call.input, cancellation);
   }
-}
-
-const UNSAFE_APPROVAL_SCALAR = /[\p{C}\p{Zl}\p{Zp}]/u;
-
-function safeString(value: string): string {
-  let visible = "";
-  for (const scalar of value) {
-    const point = scalar.codePointAt(0);
-    visible +=
-      point !== undefined && UNSAFE_APPROVAL_SCALAR.test(scalar)
-        ? "\\u{" + point.toString(16).padStart(4, "0") + "}"
-        : scalar;
-  }
-  const encoded = JSON.stringify(visible);
-  return typeof encoded === "string" ? encoded : "\"\"";
-}
-
-function exactApprovalValue(value: StructuredValue): string {
-  if (value === null) {
-    return "null";
-  }
-  if (typeof value === "string") {
-    return safeString(value);
-  }
-  if (typeof value === "boolean" || typeof value === "number") {
-    return String(value);
-  }
-  if (value instanceof StructuredList) {
-    return (
-      "[" + value.values.map((item) => exactApprovalValue(item)).join(",") + "]"
-    );
-  }
-  return (
-    "{" +
-    value.fields
-      .map((field) => field.name + ":" + exactApprovalValue(field.value))
-      .join(",") +
-    "}"
-  );
-}
-
-function sizedApprovalValue(value: StructuredValue): string {
-  return typeof value === "string"
-    ? "<" + String(value.length) + " code units>"
-    : value instanceof StructuredList
-      ? "<" + String(value.length) + " items>"
-      : value instanceof StructuredObject
-        ? "<" + String(value.size) + " fields>"
-        : exactApprovalValue(value);
 }
 
 function approvalPreview(
   descriptor: ToolDescriptor,
   input: StructuredObject,
 ): string | undefined {
-  const parts: string[] = [];
-  for (const field of descriptor.approvalFields) {
-    const value = input.get(field.name);
-    if (value === undefined) {
-      continue;
-    }
-    parts.push(
-      field.name +
-        "=" +
-        (field.mode === "exact"
-          ? exactApprovalValue(value)
-          : sizedApprovalValue(value)),
-    );
-  }
-  const preview = parts.join(" ");
-  return preview.length <= TOOL_ENGINE_LIMITS.approvalPreviewCodeUnits
-    ? preview
-    : undefined;
+  return renderStructuredProjection(
+    descriptor.approvalFields,
+    input,
+    TOOL_ENGINE_LIMITS.approvalPreviewCodeUnits,
+  );
 }
 
 export type ToolEngineErrorKind =
@@ -408,6 +422,26 @@ function readResult(value: unknown): ResultSnapshot | undefined {
     return undefined;
   }
   return undefined;
+}
+
+type HandlerOutcomeSnapshot = Readonly<{
+  output: unknown;
+  status: ToolHandlerOutcomeStatus;
+}>;
+
+function readHandlerOutcome(value: unknown): HandlerOutcomeSnapshot | undefined {
+  try {
+    if (!(value instanceof ToolHandlerOutcome)) {
+      return undefined;
+    }
+    const status = value.status;
+    if (status !== "failure" && status !== "success") {
+      return undefined;
+    }
+    return Object.freeze({ output: value.output, status });
+  } catch (_cause: unknown) {
+    return undefined;
+  }
 }
 
 function handlerErrorKind(value: unknown): ToolHandlerErrorKind | undefined {
@@ -622,10 +656,14 @@ export class ToolEngine {
       return failedHandlerContract(owned, outputCodeUnits);
     }
     if (result.ok) {
+      const outcome = readHandlerOutcome(result.value);
+      if (outcome === undefined) {
+        return failedHandlerContract(owned, outputCodeUnits);
+      }
       const executed = execution(
         owned,
-        "success",
-        result.value,
+        outcome.status,
+        outcome.output,
         false,
         outputCodeUnits,
       );

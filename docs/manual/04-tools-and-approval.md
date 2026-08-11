@@ -3,7 +3,8 @@
 ## Purpose
 
 Use this chapter to understand the current registered workspace tools, their
-safety classes, and the exact approval boundary for filesystem mutations.
+safety classes, and the exact approval boundary for filesystem mutations and
+contained process execution.
 
 ## Operator workflow
 
@@ -11,7 +12,7 @@ When a model runtime is available, tools registered as `read` run automatically;
 tools registered as `write` or `execute` pause before execution. Inspect the
 exact approval summary, then enter `/approve` or `/deny`. The decision applies
 to that one pending call only and is never cached. The current exact names and
-risk classes are in the verified inventory below; no `execute` tool is admitted.
+risk classes are in the verified inventory below.
 
 Every tool uses the same activity document. Its explicit states are `approval`,
 `queued`, `running`, `cancelling`, `succeeded`, `failed`, `denied`, and
@@ -34,6 +35,20 @@ Files are limited to 262,144 code units. Directory listing is limited to 512
 entries. Recursive exact-text search is limited to 512 directories, 4,096
 entries, 2,048 files, 256 matches, and 4,194,304 scanned code units.
 `create_file` refuses overwrite; `replace_text` requires exactly one match.
+`run_process` accepts only the registered `node` program token, enforced before
+approval by an owned exact-literal schema, an ordered list of literal arguments,
+and one existing workspace-relative directory. It does
+not accept a shell string, executable path, PATH lookup, stdin, environment, or
+model-selected limits. Linux targets receive an empty environment. Windows
+targets receive exactly one `SystemRoot` value queried by the native broker from
+the operating system; no user environment is inherited. The adapter caps
+arguments at 64 entries. Each argument and the relative working directory are
+limited to 2,730 UTF-16 code units and 8,192 UTF-8 bytes, must be valid Unicode
+scalar text, and cannot contain NUL. The exact aggregate approval projection is
+limited to 8,192 UTF-16 code units before execution. Descendants are capped at
+16, stdout and stderr at 65,536 bytes each, and execution at 120 seconds.
+`run_process` runs terminating commands only. A local server or other persistent
+process is not retained after the bounded invocation.
 
 One model response may select up to 32 ordered tool calls, subject to the
 remaining per-turn, argument, output, and conversation limits. The complete
@@ -51,6 +66,7 @@ aliases. The verified inventory records why each current tool is necessary:
 | `list_directory` | `enumerate-one-directory` | `read` | Discovers one directory without reading file contents or recursing. |
 | `read_file` | `read-one-file` | `read` | Inspects one known file without traversing unrelated workspace paths. |
 | `replace_text` | `replace-one-exact-match` | `write` | Changes one exact match without arbitrary overwrite or shell authority. |
+| `run_process` | `run-one-contained-process` | `execute` | Runs one terminating structured process inside owned whole-tree containment without shell, PATH, stdin, or inherited user-environment authority. |
 | `search_text` | `search-bounded-text` | `read` | Locates exact text with bounded traversal instead of many model-directed reads. |
 
 A new tool must prove a distinct capability, current necessity, focused tests,
@@ -71,18 +87,17 @@ call identifiers, results, and thrown causes do not enter notices or activity.
 Once a
 handler was invoked, even a malformed handler result becomes a generic
 checkpointed failure so an external mutation cannot be silently repeated.
-Direct process execution is not available. The blocked inventory is separate
-from advertised tools and therefore adds no model-facing capability:
-
-| Blocked tool | Risk | Reason | Decision |
-|---|---|---|---|
-| `run_process` | `execute` | The native containment broker is private proof infrastructure; no reviewed model-facing process adapter or approval surface exists. | `docs/decisions/0015-process-tree-containment.md` |
-
-Process groups, enumerated PID trees, and `taskkill /T` do not satisfy the
-required no-breakaway guarantee. Decision 0016 compiles and tests an owned
-Windows/Linux broker but does not advertise or invoke it in production. Missing
-platform containment fails closed, and passing the private proof alone does not
-authorize the tool.
+Normal process exit returns the bounded exit code, stdout, and stderr as
+structured tool output. Exit code zero is successful tool activity. A nonzero
+exit is failed tool activity, remains recoverable by the model, and preserves
+the bounded output so the same agent can diagnose it. Timeout, cancellation,
+output overflow, unsupported platform or program token, containment failure,
+launch failure, malformed broker protocol, invalid UTF-8, and cleanup failure
+return stable content-free categories and never commit partial process output.
+The broker terminates the complete descendant tree before the tool settles.
+Process groups, enumerated PID trees, and `taskkill /T` remain rejected
+substitutes for the no-breakaway guarantee. Product support is limited to x64
+Windows and x64 Linux; every other target fails closed.
 
 The release gate rejects duplicate canonical names, capability identifiers, or
 necessity records; unsupported descriptor syntax; descriptor risk drift; and a
@@ -97,15 +112,22 @@ requires schema, handler, runtime, reducer, privacy, cancellation, and cleanup
 tests. Add, rename, or remove one tool together with its descriptor, handler,
 focused tests, policy record, and this inventory. A rename removes the old name;
 it never retains an alias. Remove an advertised descriptor before deleting its
-implementation, and keep the remaining registry buildable. Process execution
-requires a replacing decision and the complete Windows and Linux proof defined
-by decision 0015. Tool-specific presenters are forbidden; activity changes go
-through the one log and one presentation function defined by decision 0022.
+implementation, and keep the remaining registry buildable. Changing the
+process registry, protocol, limits, output contract, executable resolution, or
+containment backend also requires the complete Windows and Linux proof and
+decision 0036 to change in the same review. Remove `run_process` advertisement
+before its handler or adapter, then remove the native product build only when
+no remaining proof or platform work consumes it. Tool-specific presenters are
+forbidden; activity changes go through the one log and one presentation
+function defined by decision 0022.
 
 ## Evidence
 
 - Tool contracts and engine: `packages/agent-tools/src/index.ts`
 - Built-in filesystem adapters: `packages/agent-cli/src/builtin-tools.ts`
+- Process runner port: `packages/agent-cli/src/process-runner.ts`
+- Node process adapter: `packages/agent-cli/src/node-process-runner.ts`
+- Native broker protocol: `packages/agent-cli/src/process-broker-protocol.ts`
 - Approval reducer: `packages/agent-cli/src/application.ts`
 - Activity lifecycle: `packages/agent-cli/src/tool-activity-log.ts`
 - Activity presentation: `packages/agent-cli/src/activity-view.ts`
@@ -113,6 +135,7 @@ through the one log and one presentation function defined by decision 0022.
 - Lean-harness decision: `docs/decisions/0014-lean-tool-harness.md`
 - Process-containment decision: `docs/decisions/0015-process-tree-containment.md`
 - Native proof decision: `docs/decisions/0016-owned-native-process-containment.md`
+- Structured process decision: `docs/decisions/0036-owned-structured-process-execution.md`
 - Tool-activity decision: `docs/decisions/0022-owned-tool-activity-surface.md`
 - Semantic-activity decision: `docs/decisions/0033-owned-semantic-activity-surfaces.md`
 - Tool-call batch decision: `docs/decisions/0029-canonical-tool-call-batches.md`

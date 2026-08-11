@@ -28,6 +28,7 @@ import {
   ToolDescriptor,
   ToolEngine,
   type ToolHandler,
+  ToolHandlerOutcome,
   ToolRegistry,
 } from "@agent/tools";
 
@@ -218,7 +219,8 @@ function toolBatchEvent(
 
 function toolEngine(
   risk: "read" | "write" = "read",
-  handler: ToolHandler = async () => ok({ text: "owned" }),
+  handler: ToolHandler = async () =>
+    ok(ToolHandlerOutcome.success({ text: "owned" })),
 ): ToolEngine {
   const path = StringSchema.create(1, 256);
   assert.ok(path.ok);
@@ -1070,6 +1072,59 @@ test("runs a read tool sequentially and checkpoints its structured result", asyn
   assert.equal(model.conversations.at(1)?.length, 2);
 });
 
+test("checkpoints an observed tool failure and lets the model continue", async () => {
+  const first = new ScriptedStream<string>([
+    ok(toolCallEvent("call-failed")),
+  ]);
+  const second = new ScriptedStream<string>([
+    ok(Object.freeze({ kind: "delta" as const, text: "recovered" })),
+    ok(Object.freeze({ kind: "done" as const })),
+  ]);
+  const model = new SequenceModel([first, second]);
+  const runtime = new AgentRuntime(
+    model,
+    toolEngine(
+      "read",
+      async () =>
+        ok(
+          ToolHandlerOutcome.failure({
+            exitCode: 23,
+            stderr: "bounded diagnostic",
+            stdout: "bounded output",
+          }),
+        ),
+    ),
+  );
+  const started = runtime.startTurn("run it");
+  assert.ok(started.ok);
+
+  assert.equal((await next(runtime)).kind, "toolRequested");
+  assert.equal((await next(runtime)).kind, "toolStarted");
+  const finished = await next(runtime);
+  assert.equal(finished.kind, "toolFinished");
+  if (finished.kind === "toolFinished") {
+    assert.equal(finished.status, "failure");
+  }
+
+  const exchange = runtime.conversation.entries.at(1);
+  assert.ok(exchange instanceof ToolExchange);
+  const result = exchange.results.at(0);
+  assert.ok(result instanceof ToolResult);
+  assert.equal(result.status, "failure");
+  assert.ok(result.output instanceof StructuredObject);
+  assert.equal(result.output.get("exitCode"), 23);
+  assert.equal(result.output.get("stderr"), "bounded diagnostic");
+  assert.equal(result.output.get("stdout"), "bounded output");
+
+  assert.equal((await next(runtime)).kind, "assistantDelta");
+  const prepared = await next(runtime);
+  assert.equal(prepared.kind, "turnPrepared");
+  if (prepared.kind === "turnPrepared") {
+    assert.equal(prepared.checkpointed, true);
+  }
+  assert.equal(model.conversations.at(1)?.length, 2);
+});
+
 test("preflights and executes one ordered tool-call batch sequentially", async () => {
   const firstStarted = new Deferred<void>();
   const releaseFirst = new Deferred<void>();
@@ -1097,7 +1152,7 @@ test("preflights and executes one ordered tool-call batch sequentially", async (
         firstStarted.resolve(undefined);
         await releaseFirst.promise;
       }
-      return ok({ text: path });
+      return ok(ToolHandlerOutcome.success({ text: path }));
     }),
   );
   const started = runtime.startTurn("inspect both files");
@@ -1162,8 +1217,8 @@ test("checkpoints a complete batch and blocks its suffix after a handler contrac
       assert.equal(typeof path, "string");
       observed.push(path as string);
       return path === "invalid.txt"
-        ? ok({ text: "x".repeat(262_145) })
-        : ok({ text: path });
+        ? ok(ToolHandlerOutcome.success({ text: "x".repeat(262_145) }))
+        : ok(ToolHandlerOutcome.success({ text: path }));
     }),
   );
   assert.ok(runtime.startTurn("inspect three files").ok);
@@ -1279,7 +1334,7 @@ test("rejects an invalid batch before any tool handler can run", async () => {
     new FixedModel(ok(stream)),
     toolEngine("read", async () => {
       handlerCalls += 1;
-      return ok({ text: "unreachable" });
+      return ok(ToolHandlerOutcome.success({ text: "unreachable" }));
     }),
   );
   assert.ok(runtime.startTurn("inspect both files").ok);
@@ -1361,7 +1416,7 @@ test("scopes approval to one call at a time within a write batch", async () => {
       const path = input.get("path");
       assert.equal(typeof path, "string");
       observed.push(path as string);
-      return ok({ changed: path });
+      return ok(ToolHandlerOutcome.success({ changed: path }));
     }),
   );
   const started = runtime.startTurn("change both files");
