@@ -14,6 +14,7 @@ import {
 import { ApplicationController } from "../dist/application.js";
 import { projectCurrentActivity } from "../dist/activity-view.js";
 import { createChatRender } from "../dist/chat-view.js";
+import { createConversationDocument } from "../dist/conversation-view.js";
 
 function viewport(columns: number, rows: number): Viewport {
   const result = Viewport.create(columns, rows);
@@ -202,6 +203,18 @@ test("uses one compact user surface and one unboxed assistant turn", () => {
   );
   assert.equal(rows.some((row) => row.text.trim() === "you"), false);
   assert.equal(rows.some((row) => row.text.trim() === "agent"), false);
+});
+
+test("composes the maximum retained history plus an active turn within component bounds", () => {
+  const entries = Array.from({ length: 128 }, (_, turn) => [
+    Object.freeze({ content: "question-" + String(turn), role: "user" as const }),
+    Object.freeze({ content: "answer-" + String(turn), role: "assistant" as const }),
+  ]).flat();
+  entries.push(Object.freeze({ content: "active-question", role: "user" }));
+
+  const document = createConversationDocument(entries);
+
+  assert.ok(document.ok);
 });
 
 test("uses the technical inset and syntax roles for structured assistant output", () => {
