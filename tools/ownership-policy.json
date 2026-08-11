@@ -48,7 +48,8 @@
     "docs/decisions/0032-owned-transcript-visual-refinement.md",
     "docs/decisions/0033-owned-semantic-activity-surfaces.md",
     "docs/decisions/0034-owned-slash-command-completion.md",
-    "docs/decisions/0035-owned-multiline-composer-and-paste.md"
+    "docs/decisions/0035-owned-multiline-composer-and-paste.md",
+    "docs/decisions/0036-owned-structured-process-execution.md"
   ],
   "workspaces": [
     {
@@ -99,10 +100,13 @@
   ],
   "allowedNodeImports": {
     "product": [
+      "node:child_process",
       "node:fs/promises",
       "node:https",
       "node:path",
-      "node:process"
+      "node:process",
+      "node:timers",
+      "node:url"
     ],
     "test": [
       "node:assert/strict",

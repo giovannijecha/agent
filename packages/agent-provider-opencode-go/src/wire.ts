@@ -18,6 +18,7 @@ import {
   BooleanSchema,
   IntegerSchema,
   ListSchema,
+  LiteralStringSchema,
   StringSchema,
   type ObjectSchemaField,
   type ToolDescriptor,
@@ -61,6 +62,9 @@ function schemaEntry(field: ObjectSchemaField) {
 }
 
 function schemaValue(schema: ToolSchema): unknown {
+  if (schema instanceof LiteralStringSchema) {
+    return Object.freeze({ const: schema.value, type: "string" });
+  }
   if (schema instanceof StringSchema) {
     return Object.freeze({
       maxLength: schema.maximum,

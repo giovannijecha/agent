@@ -99,17 +99,16 @@ unrelated changes. Shared engine primitives remain only when another admitted
 tool uses them.
 
 To remove tools, stop descriptor advertisement and restore the runtime text-only
-path. In that same change, replace manual-policy schema 3 with a schema that
-removes both the advertised tool inventory and the `blockedTools` registry,
-including the `run_process` record. Remove decisions 0008, 0014, and
-`docs/decisions/0015-process-tree-containment.md`, together with their ownership
-and required-path entries and manual evidence citations. Do not land an empty
-advertised or blocked inventory under schema 3. Remove CLI approval commands,
-tool activity, built-in Node handlers, imports, declarations, and allowlist
-entries. Then remove the runtime dependency on `@agent/tools` and delete its
-workspace from npm, TypeScript, provider-policy, and lock registries. Remove core
-structured tool entries only if no remaining adapter consumes them. Build core,
-TUI, runtime, and the providerless CLI after each stage.
+path. In that same change, replace manual-policy schema 4 with a schema that
+removes the advertised tool inventory. Remove decisions 0008, 0014, 0015, 0016,
+and 0036 only after their admitted surfaces and proof infrastructure are gone,
+together with their ownership, required-path, and manual-evidence entries.
+Remove CLI approval commands, tool activity, built-in Node handlers, imports,
+declarations, and allowlist entries. Then remove the runtime dependency on
+`@agent/tools` and delete its workspace from npm, TypeScript, provider-policy,
+and lock registries. Remove core structured tool entries only if no remaining
+adapter consumes them. Build core, TUI, runtime, and the providerless CLI after
+each stage.
 
 ## Update or remove the vertical TUI framework
 
@@ -527,7 +526,15 @@ on Linux, not manual edits or committed binaries.
 5. Roll back by restoring the previous pins, declarations, lock metadata, and
    generated output from the last known-good project snapshot.
 
-## Update or remove native process containment
+## Update or remove structured process execution
+
+`run_process` is the only admitted execute tool. Keep its model-facing schema,
+exact approval projection, runner port, Node adapter, protocol codec, and native
+broker as separate replaceable layers. The public token registry currently maps
+only `node` to the current absolute Node executable. Never add a shell, command
+string, executable path, PATH lookup, stdin, inherited environment, or
+model-selected resource limit. Every invocation retains one exact, single-use
+approval.
 
 Keep the common frame decoder and entry point independent from the two platform
 backends. A protocol change replaces version 1 everywhere; never retain a
@@ -552,10 +559,10 @@ exercised, then restores `1` before removing the delegated cgroup. A missing or
 unexpected initial policy value fails the proof closed.
 
 Update Job Object flags, namespace flags, cgroup files, inherited handles,
-descriptor policy, limits, or cleanup ordering only with the full Windows and
-Linux conformance matrix and decision 0016. Roll back by removing the native
-verification wiring and restoring the previous CI/toolchain registries while
-leaving `run_process` blocked.
+descriptor policy, program registry, limits, failure mapping, output contract,
+or cleanup ordering only with the full Windows and Linux conformance matrix and
+decisions 0016 and 0036. Roll back by removing `run_process` advertisement
+before removing its handler or any implementation layer.
 
 On Linux, preserve the admitted namespace order: the broker creates the guard
 inside the run leaf with user, mount, and PID namespaces; only the mapped guard
@@ -567,11 +574,14 @@ namespaced cgroup v2 view through the file-descriptor mount API and attach it
 over the inherited cgroup mount. Do not replace this with a global temporary
 mount point.
 
-To remove the private proof, delete `packages/agent-cli/native/process-broker`,
-`tools/build-native.mjs`, `tools/lib/native-process-broker.mjs`, its focused
-test, the Linux bootstrap, native verifier and cleaner rules, compiler registry,
-decision 0016, and the Linux CI job. Restore manual and architecture text to
-decision 0015 only. No TypeScript production module should require changes.
+To remove process execution, first remove `run_process` from the built-in
+descriptor registry and manual inventory. Then delete its handler, runner port,
+Node adapter, protocol codec, and focused TypeScript tests. Delete
+`packages/agent-cli/native/process-broker`, `tools/build-native.mjs`,
+`tools/lib/native-process-broker.mjs`, the native tests, Linux bootstrap,
+verifier and cleaner rules, compiler registry, decisions 0015, 0016, and 0036,
+and the Linux CI job only when no proof or platform work consumes them. File
+tools, runtime text chat, TUI, and terminal lifecycle remain usable throughout.
 
 ## Release gate
 

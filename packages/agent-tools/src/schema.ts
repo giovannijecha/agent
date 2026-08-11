@@ -20,6 +20,7 @@ export type SchemaErrorKind =
   | "invalidBounds"
   | "invalidDescription"
   | "invalidFieldName"
+  | "invalidLiteral"
   | "tooDeep"
   | "tooManyFields";
 
@@ -86,6 +87,29 @@ export class StringSchema {
   }
 }
 
+export class LiteralStringSchema {
+  readonly kind = "literalString" as const;
+  readonly #value: string;
+
+  private constructor(value: string) {
+    this.#value = value;
+    Object.freeze(this);
+  }
+
+  static create(value: string): Result<LiteralStringSchema, SchemaError> {
+    return typeof value === "string" &&
+      value.length > 0 &&
+      value.length <= 128 &&
+      !/\p{Cc}/u.test(value)
+      ? ok(new LiteralStringSchema(value))
+      : err(schemaError("invalidLiteral"));
+  }
+
+  get value(): string {
+    return this.#value;
+  }
+}
+
 export class IntegerSchema {
   readonly kind = "integer" as const;
   readonly #maximum: number;
@@ -133,6 +157,7 @@ export type ToolSchema =
   | BooleanSchema
   | IntegerSchema
   | ListSchema
+  | LiteralStringSchema
   | ObjectSchema
   | StringSchema;
 
@@ -271,6 +296,7 @@ function isOwnedSchema(value: unknown): value is ToolSchema {
       value instanceof BooleanSchema ||
       value instanceof IntegerSchema ||
       value instanceof ListSchema ||
+      value instanceof LiteralStringSchema ||
       value instanceof ObjectSchema ||
       value instanceof StringSchema
     );
@@ -302,6 +328,15 @@ function validateOwnedSchema(
     return typeof value === "string" &&
       value.length >= schema.minimum &&
       value.length <= schema.maximum
+      ? ok(undefined)
+      : err(
+          validationError(
+            typeof value === "string" ? "outOfRange" : "invalidType",
+          ),
+        );
+  }
+  if (schema instanceof LiteralStringSchema) {
+    return typeof value === "string" && value === schema.value
       ? ok(undefined)
       : err(
           validationError(

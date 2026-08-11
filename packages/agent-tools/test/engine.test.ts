@@ -7,6 +7,7 @@ import {
   StringSchema,
   ToolDescriptor,
   ToolEngine,
+  ToolHandlerOutcome,
   ToolRegistry,
   type ToolCancellation,
   type ToolHandler,
@@ -54,7 +55,7 @@ function input(): StructuredObject {
 test("prepares, validates, and executes an immutable tool call", async () => {
   const engine = createEngine(async (received) => {
     assert.equal(received.get("path"), "src/index.ts");
-    return ok({ text: "owned" });
+    return ok(ToolHandlerOutcome.success({ text: "owned" }));
   });
   const prepared = engine.prepare("call-1", "read_file", input());
   assert.ok(prepared.ok);
@@ -82,7 +83,7 @@ test("records a prepared but uninvoked call without running its handler", () => 
   let handlerCalls = 0;
   const engine = createEngine(async () => {
     handlerCalls += 1;
-    return ok({ text: "unreachable" });
+    return ok(ToolHandlerOutcome.success({ text: "unreachable" }));
   });
   const prepared = engine.prepare("call-blocked", "read_file", input());
   assert.ok(prepared.ok);
@@ -121,10 +122,44 @@ test("contains thrown and malformed handler boundaries", async () => {
   assert.ok(malformedResult.ok);
   assert.equal(malformedResult.value.result.status, "failure");
   assert.equal(malformedResult.value.contractFailure, true);
+
+  const rawOutput = createEngine(async () =>
+    ok({ text: "legacy raw output" } as unknown as ToolHandlerOutcome),
+  );
+  const rawCall = rawOutput.prepare("call-raw", "read_file", input());
+  assert.ok(rawCall.ok);
+  const rawResult = await rawOutput.execute(rawCall.value, cancellation);
+  assert.ok(rawResult.ok);
+  assert.equal(rawResult.value.result.status, "failure");
+  assert.equal(rawResult.value.contractFailure, true);
+});
+
+test("preserves explicit failed-command output without a contract failure", async () => {
+  const engine = createEngine(async () =>
+    ok(
+      ToolHandlerOutcome.failure({
+        exitCode: 23,
+        stderr: "owned stderr",
+        stdout: "owned stdout",
+      }),
+    ),
+  );
+  const prepared = engine.prepare("call-command", "read_file", input());
+  assert.ok(prepared.ok);
+
+  const result = await engine.execute(prepared.value, cancellation);
+
+  assert.ok(result.ok);
+  assert.equal(result.value.result.status, "failure");
+  assert.equal(result.value.contractFailure, false);
+  assert.ok(result.value.result.output instanceof StructuredObject);
+  assert.equal(result.value.result.output.get("exitCode"), 23);
+  assert.equal(result.value.result.output.get("stderr"), "owned stderr");
+  assert.equal(result.value.result.output.get("stdout"), "owned stdout");
 });
 
 test("rejects unknown tools, invalid inputs, and duplicate registrations", () => {
-  const engine = createEngine(async () => ok({}));
+  const engine = createEngine(async () => ok(ToolHandlerOutcome.success({})));
   assert.equal(engine.prepare("call-5", "missing", input()).ok, false);
   assert.equal(
     engine.prepare("call-5", "read_file", { unexpected: true }).ok,
@@ -134,8 +169,8 @@ test("rejects unknown tools, invalid inputs, and duplicate registrations", () =>
   const descriptor = engine.descriptors.at(0);
   assert.ok(descriptor !== undefined);
   const duplicate = ToolRegistry.create([
-    { descriptor, handler: async () => ok({}) },
-    { descriptor, handler: async () => ok({}) },
+    { descriptor, handler: async () => ok(ToolHandlerOutcome.success({})) },
+    { descriptor, handler: async () => ok(ToolHandlerOutcome.success({})) },
   ]);
   assert.equal(duplicate.ok, false);
 });
@@ -161,7 +196,7 @@ test("contains hostile descriptor, registry, and prepared-call proxies", async (
   });
   assert.equal(ToolRegistry.create(hostileRegistrations as never).ok, false);
 
-  const engine = createEngine(async () => ok({}));
+  const engine = createEngine(async () => ok(ToolHandlerOutcome.success({})));
   const revokedPrepared = Proxy.revocable({}, {});
   revokedPrepared.revoke();
   const hostilePrepared = revokedPrepared.proxy;
@@ -176,7 +211,9 @@ test("contains hostile descriptor, registry, and prepared-call proxies", async (
 });
 
 test("checkpoints invalid output as a generic post-invocation failure", async () => {
-  const engine = createEngine(async () => ok({ text: "x".repeat(262_145) }));
+  const engine = createEngine(async () =>
+    ok(ToolHandlerOutcome.success({ text: "x".repeat(262_145) })),
+  );
   const prepared = engine.prepare("call-limit", "read_file", input());
   assert.ok(prepared.ok);
 
@@ -191,7 +228,7 @@ test("enforces one caller-owned output budget without losing attempted-call trut
   let handlerCalls = 0;
   const engine = createEngine(async () => {
     handlerCalls += 1;
-    return ok({ text: "x".repeat(64) });
+    return ok(ToolHandlerOutcome.success({ text: "x".repeat(64) }));
   });
   const prepared = engine.prepare("call-budget", "read_file", input());
   assert.ok(prepared.ok);
@@ -261,7 +298,10 @@ test("escapes invisible and directional scalars in approval summaries", () => {
   );
   assert.ok(descriptor.ok);
   const registry = ToolRegistry.create([
-    { descriptor: descriptor.value, handler: async () => ok({}) },
+    {
+      descriptor: descriptor.value,
+      handler: async () => ok(ToolHandlerOutcome.success({})),
+    },
   ]);
   assert.ok(registry.ok);
   const engine = ToolEngine.create(registry.value);

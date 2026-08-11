@@ -159,10 +159,60 @@ export type ToolHandlerErrorKind =
   | "unsupported";
 export type ToolHandlerError = Readonly<{ kind: ToolHandlerErrorKind }>;
 
+export type ToolHandlerOutcomeStatus = "failure" | "success";
+
+const TOOL_HANDLER_OUTCOME_TOKEN = Symbol("owned tool handler outcome");
+
+/**
+ * An explicit post-invocation outcome. A failed outcome preserves bounded
+ * command output for model recovery without misreporting the call as success.
+ */
+export class ToolHandlerOutcome {
+  readonly #output: unknown;
+  readonly #status: ToolHandlerOutcomeStatus;
+
+  private constructor(
+    token: symbol,
+    status: ToolHandlerOutcomeStatus,
+    output: unknown,
+  ) {
+    if (token !== TOOL_HANDLER_OUTCOME_TOKEN) {
+      throw new TypeError("invalid tool handler outcome construction");
+    }
+    this.#status = status;
+    this.#output = output;
+    Object.freeze(this);
+  }
+
+  static failure(output: unknown): ToolHandlerOutcome {
+    return new ToolHandlerOutcome(
+      TOOL_HANDLER_OUTCOME_TOKEN,
+      "failure",
+      output,
+    );
+  }
+
+  static success(output: unknown): ToolHandlerOutcome {
+    return new ToolHandlerOutcome(
+      TOOL_HANDLER_OUTCOME_TOKEN,
+      "success",
+      output,
+    );
+  }
+
+  get output(): unknown {
+    return this.#output;
+  }
+
+  get status(): ToolHandlerOutcomeStatus {
+    return this.#status;
+  }
+}
+
 export type ToolHandler = (
   input: StructuredObject,
   cancellation: ToolCancellation,
-) => Promise<Result<unknown, ToolHandlerError>>;
+) => Promise<Result<ToolHandlerOutcome, ToolHandlerError>>;
 
 export type ToolRegistration = Readonly<{
   descriptor: ToolDescriptor;
@@ -290,7 +340,9 @@ class OwnedPreparedToolCall implements PreparedToolCall {
     return this.#registration.descriptor;
   }
 
-  run(cancellation: ToolCancellation): Promise<Result<unknown, ToolHandlerError>> {
+  run(
+    cancellation: ToolCancellation,
+  ): Promise<Result<ToolHandlerOutcome, ToolHandlerError>> {
     return this.#registration.handler(this.#call.input, cancellation);
   }
 }
@@ -408,6 +460,26 @@ function readResult(value: unknown): ResultSnapshot | undefined {
     return undefined;
   }
   return undefined;
+}
+
+type HandlerOutcomeSnapshot = Readonly<{
+  output: unknown;
+  status: ToolHandlerOutcomeStatus;
+}>;
+
+function readHandlerOutcome(value: unknown): HandlerOutcomeSnapshot | undefined {
+  try {
+    if (!(value instanceof ToolHandlerOutcome)) {
+      return undefined;
+    }
+    const status = value.status;
+    if (status !== "failure" && status !== "success") {
+      return undefined;
+    }
+    return Object.freeze({ output: value.output, status });
+  } catch (_cause: unknown) {
+    return undefined;
+  }
 }
 
 function handlerErrorKind(value: unknown): ToolHandlerErrorKind | undefined {
@@ -622,10 +694,14 @@ export class ToolEngine {
       return failedHandlerContract(owned, outputCodeUnits);
     }
     if (result.ok) {
+      const outcome = readHandlerOutcome(result.value);
+      if (outcome === undefined) {
+        return failedHandlerContract(owned, outputCodeUnits);
+      }
       const executed = execution(
         owned,
-        "success",
-        result.value,
+        outcome.status,
+        outcome.output,
         false,
         outputCodeUnits,
       );

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "index": "docs/manual/README.md",
   "chapters": [
     {
@@ -68,6 +68,12 @@
         "necessity": "Changes one exact match without arbitrary overwrite or shell authority."
       },
       {
+        "name": "run_process",
+        "capability": "run-one-contained-process",
+        "risk": "execute",
+        "necessity": "Runs one terminating structured process inside owned whole-tree containment without shell, PATH, stdin, or inherited user-environment authority."
+      },
+      {
         "name": "search_text",
         "capability": "search-bounded-text",
         "risk": "read",
@@ -75,14 +81,6 @@
       }
     ]
   },
-  "blockedTools": [
-    {
-      "name": "run_process",
-      "risk": "execute",
-      "reason": "The native containment broker is private proof infrastructure; no reviewed model-facing process adapter or approval surface exists.",
-      "decision": "docs/decisions/0015-process-tree-containment.md"
-    }
-  ],
   "requiredPaths": [
     ".gitattributes",
     "AGENTS.md",
@@ -126,6 +124,7 @@
     "docs/decisions/0033-owned-semantic-activity-surfaces.md",
     "docs/decisions/0034-owned-slash-command-completion.md",
     "docs/decisions/0035-owned-multiline-composer-and-paste.md",
+    "docs/decisions/0036-owned-structured-process-execution.md",
     "package-lock.json",
     "package.json",
     "packages/agent-cli/src/application.ts",
@@ -140,7 +139,10 @@
     "packages/agent-cli/src/hidden-credential-prompt.ts",
     "packages/agent-cli/src/launch-command.ts",
     "packages/agent-cli/src/node-opencode-go-transport.ts",
+    "packages/agent-cli/src/node-process-runner.ts",
     "packages/agent-cli/src/node-terminal-host.ts",
+    "packages/agent-cli/src/process-broker-protocol.ts",
+    "packages/agent-cli/src/process-runner.ts",
     "packages/agent-cli/src/provider-configuration.ts",
     "packages/agent-cli/src/run.ts",
     "packages/agent-cli/src/tool-activity-log.ts",

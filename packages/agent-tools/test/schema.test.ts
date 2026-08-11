@@ -9,6 +9,7 @@ import {
   BooleanSchema,
   IntegerSchema,
   ListSchema,
+  LiteralStringSchema,
   ObjectSchema,
   StringSchema,
   validateSchema,
@@ -83,6 +84,19 @@ test("rejects missing, additional, wrong-type, and out-of-range fields", () => {
       assert.equal(result.error.kind, kind);
     }
   }
+});
+
+test("accepts only the exact owned string literal", () => {
+  const literal = LiteralStringSchema.create("node");
+  assert.ok(literal.ok);
+  assert.equal(validateSchema(literal.value, "node").ok, true);
+  const mismatch = validateSchema(literal.value, "nodejs");
+  assert.equal(mismatch.ok, false);
+  if (!mismatch.ok) {
+    assert.equal(mismatch.error.kind, "outOfRange");
+  }
+  assert.equal(LiteralStringSchema.create("").ok, false);
+  assert.equal(LiteralStringSchema.create("node\u0000").ok, false);
 });
 
 test("rejects malformed schema bounds and duplicate fields", () => {

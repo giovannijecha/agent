@@ -13,6 +13,7 @@
 #include <wchar.h>
 
 #define AGENT_WINDOWS_COMMAND_LINE_LIMIT 32767u
+#define AGENT_WINDOWS_DIRECTORY_LIMIT 32768u
 #define AGENT_WINDOWS_MONITOR_SLICE_MS 10u
 #define AGENT_WINDOWS_CLEANUP_TIMEOUT_MS 5000u
 
@@ -87,6 +88,49 @@ static wchar_t *agent_windows_widen(const char *value) {
   }
   wide[required] = L'\0';
   return wide;
+}
+
+static wchar_t *agent_windows_create_target_environment(void) {
+  wchar_t *windows_directory = calloc(
+    AGENT_WINDOWS_DIRECTORY_LIMIT,
+    sizeof(wchar_t)
+  );
+  if (windows_directory == NULL) {
+    return NULL;
+  }
+  const DWORD directory_length = GetWindowsDirectoryW(
+    windows_directory,
+    AGENT_WINDOWS_DIRECTORY_LIMIT
+  );
+  if (
+    directory_length == 0u ||
+    directory_length >= AGENT_WINDOWS_DIRECTORY_LIMIT
+  ) {
+    free(windows_directory);
+    return NULL;
+  }
+
+  static const wchar_t prefix[] = L"SystemRoot=";
+  const size_t prefix_length = (sizeof(prefix) / sizeof(prefix[0])) - 1u;
+  if ((size_t)directory_length > SIZE_MAX - prefix_length - 2u) {
+    free(windows_directory);
+    return NULL;
+  }
+  const size_t environment_length =
+    prefix_length + (size_t)directory_length + 2u;
+  wchar_t *environment = calloc(environment_length, sizeof(wchar_t));
+  if (environment == NULL) {
+    free(windows_directory);
+    return NULL;
+  }
+  memcpy(environment, prefix, prefix_length * sizeof(wchar_t));
+  memcpy(
+    environment + prefix_length,
+    windows_directory,
+    (size_t)directory_length * sizeof(wchar_t)
+  );
+  free(windows_directory);
+  return environment;
 }
 
 static bool agent_windows_argument_needs_quotes(const wchar_t *argument) {
@@ -385,6 +429,7 @@ struct agent_broker_result agent_backend_run(
   HANDLE null_input = INVALID_HANDLE_VALUE;
   HANDLE target_output = NULL;
   HANDLE target_error = NULL;
+  wchar_t *target_environment = NULL;
   LPPROC_THREAD_ATTRIBUTE_LIST attributes = NULL;
   PROCESS_INFORMATION process;
   memset(&process, 0, sizeof(process));
@@ -504,7 +549,11 @@ struct agent_broker_result agent_backend_run(
   startup.StartupInfo.hStdOutput = target_output;
   startup.StartupInfo.hStdError = target_error;
   startup.lpAttributeList = attributes;
-  wchar_t empty_environment[2] = { L'\0', L'\0' };
+  target_environment = agent_windows_create_target_environment();
+  if (target_environment == NULL) {
+    result = agent_windows_failure(AGENT_BROKER_FAILURE_CAPABILITY);
+    goto cleanup;
+  }
   if (!CreateProcessW(
     wide.program,
     wide.command_line,
@@ -515,7 +564,7 @@ struct agent_broker_result agent_backend_run(
       CREATE_UNICODE_ENVIRONMENT |
       CREATE_NO_WINDOW |
       EXTENDED_STARTUPINFO_PRESENT,
-    empty_environment,
+    target_environment,
     wide.working_directory,
     &startup.StartupInfo,
     &process
@@ -655,6 +704,7 @@ cleanup:
     DeleteProcThreadAttributeList(attributes);
   }
   free(attributes);
+  free(target_environment);
   if (target_error != NULL) {
     CloseHandle(target_error);
   }

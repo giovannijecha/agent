@@ -114,9 +114,15 @@ agent.”
   arbitration, transcript-navigation state, built-in workspace tools, raw mode,
   filesystem and process access, and all Node lifecycle; it is the only
   platform boundary.
-- The private CLI-native process broker is verification infrastructure only.
-  Production does not invoke it and `run_process` stays blocked until a later
-  decision accepts the complete model-facing adapter and approval contract.
+- `run_process` is the only admitted execute tool. It accepts the registered
+  `node` token, literal arguments, and one workspace-relative directory; it
+  never accepts a shell, executable path, PATH lookup, stdin, inherited or
+  model-controlled environment, or model-selected limits. The CLI resolves the
+  executable and invokes the owned native whole-tree containment broker. Linux
+  targets receive an empty environment; Windows targets receive only the
+  `SystemRoot` value queried by the broker from the operating system. The tool
+  runs terminating commands only; it does not retain background or persistent
+  services.
 - `agent` is a single-agent product: one identity, one application controller,
   one active runtime session, and one active model decision loop. Providers are
   interchangeable backends, never additional agents; do not add sub-agents,
@@ -140,10 +146,10 @@ agent.”
 - Keep the model-facing harness lean: every tool needs one canonical name, a
   distinct capability, current necessity, focused tests, and independent
   removal. Tool aliases and speculative conveniences are forbidden.
-- Keep process execution tools disabled until decision 0015 is explicitly
-  replaced after kernel-backed Windows and Linux containment, isolated
-  environment, bounded output, and complete descendant cancellation and cleanup
-  are proven.
+- Keep process execution inside the admitted decision 0036 contract: one
+  registered program token, exact per-call approval, fixed limits, isolated
+  operating-system bootstrap, bounded output, and complete descendant
+  cancellation and cleanup on Windows and Linux.
 
 ## Change discipline
 

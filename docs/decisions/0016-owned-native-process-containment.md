@@ -54,7 +54,9 @@ The launch payload contains only:
 
 Strings reject malformed UTF-8 and embedded NUL. There is no command string,
 shell syntax, environment map, ambient configuration, or persistent approval.
-The target receives a fixed empty environment and null standard input.
+The target receives a fixed platform-owned environment and null standard input.
+Linux supplies an empty environment. Windows supplies only `SystemRoot`, queried
+directly from the operating system rather than inherited from the controller.
 
 The broker emits `started`, then exactly one `finished` status for normal exit,
 cancellation, or timeout. Capability, containment, launch, monitor, cleanup, and
@@ -79,7 +81,8 @@ the owned bound.
 The Windows backend creates a private Job Object with
 `KILL_ON_JOB_CLOSE` and an active-process limit. Neither breakaway flag is set.
 A completion port is associated before target creation. The target is created
-suspended with an empty Unicode environment and an explicit inherited-handle
+suspended with a Unicode environment containing only the `SystemRoot` value
+queried through `GetWindowsDirectoryW` and an explicit inherited-handle
 list containing only null input and the two target output pipes. It is assigned
 to the job before its first instruction is resumed.
 
@@ -153,7 +156,7 @@ The exact owned workflow runs matching Windows 2025 and Ubuntu 24.04 jobs. Each
 uses a small platform-native wrapper for the same ordered release gate. Both
 compile source with C17, warnings as errors, stack protection, and platform link
 hardening, then run the same protocol conformance suite. The suite covers exact
-arguments, empty environment, working directory, stdout/stderr separation,
+arguments, platform-owned environment, working directory, stdout/stderr separation,
 nonzero exit, malformed protocol, launch failure, cancellation, controller
 loss, timeout, output overflow, process limits, nested descendants, detached or
 new-session attempts, signal refusal, parent exit, concurrent spawning during

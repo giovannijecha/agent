@@ -163,7 +163,7 @@ test("preserves structured arguments without shell interpretation", async () => 
   assert.equal(terminalStatus(result).outcome, 1);
 });
 
-test("starts the target with an empty environment and exact directory", async () => {
+test("starts the target with the owned OS environment and exact directory", async () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "agent-broker-cwd-"));
   try {
     const environment = await runNativeFixture({ arguments: ["environment"] });
@@ -172,7 +172,10 @@ test("starts the target with an empty environment and exact directory", async ()
       workingDirectory: directory,
     });
 
-    assert.equal(environment.stdout.toString("utf8"), "0\n");
+    assert.equal(
+      environment.stdout.toString("utf8"),
+      process.platform === "win32" ? "1\n" : "0\n",
+    );
     assert.equal(terminalStatus(environment).outcome, 1);
     assert.equal(terminalStatus(workingDirectory).outcome, 1);
     assert.equal(
