@@ -195,44 +195,158 @@ export class ToolResult {
   }
 }
 
-export type ConversationEntry = Message | ToolCall | ToolResult;
+export const TOOL_EXCHANGE_LIMITS = Object.freeze({ calls: 32 });
+
+export type ToolExchangeErrorKind =
+  | "duplicateCallId"
+  | "empty"
+  | "invalidAssistant"
+  | "invalidEntry"
+  | "mismatchedResult"
+  | "tooManyCalls";
+
+export class ToolExchangeError {
+  readonly #kind: ToolExchangeErrorKind;
+
+  constructor(kind: ToolExchangeErrorKind) {
+    this.#kind = kind;
+    Object.freeze(this);
+  }
+
+  get kind(): ToolExchangeErrorKind {
+    return this.#kind;
+  }
+}
+
+/** One complete assistant tool-call message and its ordered results. */
+export class ToolExchange {
+  readonly #assistant: Message | undefined;
+  readonly #calls: readonly ToolCall[];
+  readonly #results: readonly ToolResult[];
+
+  private constructor(
+    assistant: Message | undefined,
+    calls: readonly ToolCall[],
+    results: readonly ToolResult[],
+  ) {
+    this.#assistant = assistant;
+    this.#calls = Object.freeze([...calls]);
+    this.#results = Object.freeze([...results]);
+    Object.freeze(this);
+  }
+
+  static create(
+    assistant: Message | undefined,
+    calls: readonly ToolCall[],
+    results: readonly ToolResult[],
+  ): Result<ToolExchange, ToolExchangeError> {
+    try {
+      if (
+        assistant !== undefined &&
+        (!(assistant instanceof Message) || assistant.role !== Role.Assistant)
+      ) {
+        return err(new ToolExchangeError("invalidAssistant"));
+      }
+      if (!Array.isArray(calls) || !Array.isArray(results)) {
+        return err(new ToolExchangeError("invalidEntry"));
+      }
+      if (calls.length === 0) {
+        return err(new ToolExchangeError("empty"));
+      }
+      if (calls.length > TOOL_EXCHANGE_LIMITS.calls) {
+        return err(new ToolExchangeError("tooManyCalls"));
+      }
+      if (calls.length !== results.length) {
+        return err(new ToolExchangeError("mismatchedResult"));
+      }
+      const ownedCalls: ToolCall[] = [];
+      const ownedResults: ToolResult[] = [];
+      const callIds = new Set<string>();
+      for (let index = 0; index < calls.length; index += 1) {
+        const call = calls.at(index);
+        const result = results.at(index);
+        if (!(call instanceof ToolCall) || !(result instanceof ToolResult)) {
+          return err(new ToolExchangeError("invalidEntry"));
+        }
+        if (callIds.has(call.callId)) {
+          return err(new ToolExchangeError("duplicateCallId"));
+        }
+        if (call.callId !== result.callId || call.name !== result.name) {
+          return err(new ToolExchangeError("mismatchedResult"));
+        }
+        callIds.add(call.callId);
+        ownedCalls.push(call);
+        ownedResults.push(result);
+      }
+      return ok(new ToolExchange(assistant, ownedCalls, ownedResults));
+    } catch (_cause: unknown) {
+      return err(new ToolExchangeError("invalidEntry"));
+    }
+  }
+
+  get assistant(): Message | undefined {
+    return this.#assistant;
+  }
+
+  get calls(): readonly ToolCall[] {
+    return this.#calls;
+  }
+
+  get results(): readonly ToolResult[] {
+    return this.#results;
+  }
+}
+
+export type ConversationEntry = Message | ToolExchange;
 
 /** Returns retained text units for deterministic conversation limits. */
 export function conversationEntryCodeUnits(entry: ConversationEntry): number {
   if (entry instanceof Message) {
     return entry.content.length;
   }
-  if (entry instanceof ToolCall) {
-    return entry.callId.length + entry.name.length + entry.input.codeUnits;
+  let codeUnits = entry.assistant?.content.length ?? 0;
+  for (const call of entry.calls) {
+    codeUnits += call.callId.length + call.name.length + call.input.codeUnits;
   }
-  return (
-    entry.callId.length +
-    entry.name.length +
-    structuredValueCodeUnits(entry.output)
-  );
+  for (const result of entry.results) {
+    codeUnits +=
+      result.callId.length +
+      result.name.length +
+      structuredValueCodeUnits(result.output);
+  }
+  return codeUnits;
+}
+
+/** Returns the number of provider messages represented by one entry. */
+export function conversationEntryMessageUnits(entry: ConversationEntry): number {
+  return entry instanceof Message ? 1 : 1 + entry.results.length;
 }
 
 export class Conversation {
   readonly #codeUnits: number;
   readonly #entries: readonly ConversationEntry[];
+  readonly #messageUnits: number;
 
   private constructor(
     entries: readonly ConversationEntry[],
     codeUnits: number,
+    messageUnits: number,
   ) {
     this.#entries = Object.freeze([...entries]);
     this.#codeUnits = codeUnits;
+    this.#messageUnits = messageUnits;
     Object.freeze(this);
   }
 
   static empty(): Conversation {
-    return new Conversation([], 0);
+    return new Conversation([], 0, 0);
   }
 
   append(entry: ConversationEntry): Conversation {
     return new Conversation(
       [...this.#entries, entry],
       this.#codeUnits + conversationEntryCodeUnits(entry),
+      this.#messageUnits + conversationEntryMessageUnits(entry),
     );
   }
 
@@ -246,6 +360,10 @@ export class Conversation {
 
   get isEmpty(): boolean {
     return this.#entries.length === 0;
+  }
+
+  get messageUnits(): number {
+    return this.#messageUnits;
   }
 
   get length(): number {

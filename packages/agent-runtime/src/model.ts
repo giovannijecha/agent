@@ -3,14 +3,18 @@ import type { ToolDescriptor } from "@agent/tools";
 
 import type { CancellationSignal } from "./cancellation.js";
 
+export type ModelToolCall = Readonly<{
+  callId: string;
+  name: string;
+  input: StructuredObject;
+}>;
+
 /** One ordered item produced by a model stream. */
 export type ModelStreamEvent =
   | Readonly<{ kind: "delta"; text: string }>
   | Readonly<{
-      kind: "toolCall";
-      callId: string;
-      name: string;
-      input: StructuredObject;
+      kind: "toolCalls";
+      calls: readonly ModelToolCall[];
     }>
   | Readonly<{ kind: "done" }>;
 

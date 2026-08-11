@@ -17,6 +17,7 @@ export const TOOL_ENGINE_LIMITS = Object.freeze({
   approvalFields: 8,
   approvalPreviewCodeUnits: 8_192,
   descriptionCodeUnits: 1_024,
+  minimumOutputCodeUnits: 23,
   outputCodeUnits: 262_144,
   tools: 64,
 });
@@ -369,6 +370,7 @@ function approvalPreview(
 
 export type ToolEngineErrorKind =
   | "invalidHandlerResult"
+  | "invalidLimit"
   | "invalidOutput"
   | "invalidPreparedCall"
   | "unexpectedHandler";
@@ -433,11 +435,23 @@ function handlerErrorKind(value: unknown): ToolHandlerErrorKind | undefined {
 }
 
 function failureOutput(
-  kind: ToolHandlerErrorKind | "denied" | "internal",
+  kind:
+    | ToolHandlerErrorKind
+    | "blocked"
+    | "denied"
+    | "internal",
 ): StructuredObject {
   const output = structuredValueFromUnknown({ error: kind });
   if (!output.ok || !(output.value instanceof StructuredObject)) {
     throw new Error("owned tool failure invariant");
+  }
+  return output.value;
+}
+
+function notRunOutput(reason: "blocked" | "cancelled"): StructuredObject {
+  const output = structuredValueFromUnknown({ attempted: false, error: reason });
+  if (!output.ok || !(output.value instanceof StructuredObject)) {
+    throw new Error("owned tool not-run invariant");
   }
   return output.value;
 }
@@ -447,12 +461,13 @@ function execution(
   status: "failure" | "success",
   output: unknown,
   contractFailure = false,
+  outputCodeUnits: number = TOOL_ENGINE_LIMITS.outputCodeUnits,
 ): Result<ToolExecution, ToolEngineError> {
   const value = structuredValueFromUnknown(output);
   if (!value.ok) {
     return err(Object.freeze({ kind: "invalidOutput" as const }));
   }
-  if (structuredValueCodeUnits(value.value) > TOOL_ENGINE_LIMITS.outputCodeUnits) {
+  if (structuredValueCodeUnits(value.value) > outputCodeUnits) {
     return err(Object.freeze({ kind: "invalidOutput" as const }));
   }
   const result = ToolResult.create(
@@ -474,8 +489,15 @@ function execution(
 
 function failedHandlerContract(
   prepared: OwnedPreparedToolCall,
+  outputCodeUnits: number = TOOL_ENGINE_LIMITS.outputCodeUnits,
 ): Result<ToolExecution, ToolEngineError> {
-  return execution(prepared, "failure", failureOutput("internal"), true);
+  return execution(
+    prepared,
+    "failure",
+    failureOutput("internal"),
+    true,
+    outputCodeUnits,
+  );
 }
 
 /** Closed registry, schema validator, and hostile handler boundary. */
@@ -548,14 +570,42 @@ export class ToolEngine {
     }
   }
 
+  /** Creates a truthful result for a prepared call whose handler was not run. */
+  notRun(
+    prepared: PreparedToolCall,
+    reason: "blocked" | "cancelled",
+  ): Result<ToolExecution, ToolEngineError> {
+    try {
+      if (!(prepared instanceof OwnedPreparedToolCall)) {
+        return err(Object.freeze({ kind: "invalidPreparedCall" as const }));
+      }
+      return execution(
+        prepared,
+        "failure",
+        notRunOutput(reason),
+      );
+    } catch (_cause: unknown) {
+      return err(Object.freeze({ kind: "invalidPreparedCall" as const }));
+    }
+  }
+
   async execute(
     prepared: PreparedToolCall,
     cancellation: ToolCancellation,
+    outputCodeUnits: number = TOOL_ENGINE_LIMITS.outputCodeUnits,
   ): Promise<Result<ToolExecution, ToolEngineError>> {
     let owned: OwnedPreparedToolCall;
     try {
       if (!(prepared instanceof OwnedPreparedToolCall)) {
         return err(Object.freeze({ kind: "invalidPreparedCall" as const }));
+      }
+      if (
+        typeof outputCodeUnits !== "number" ||
+        !Number.isSafeInteger(outputCodeUnits) ||
+        outputCodeUnits < TOOL_ENGINE_LIMITS.minimumOutputCodeUnits ||
+        outputCodeUnits > TOOL_ENGINE_LIMITS.outputCodeUnits
+      ) {
+        return err(Object.freeze({ kind: "invalidLimit" as const }));
       }
       owned = prepared;
     } catch (_cause: unknown) {
@@ -565,19 +615,33 @@ export class ToolEngine {
     try {
       foreign = await owned.run(cancellation);
     } catch (_cause: unknown) {
-      return failedHandlerContract(owned);
+      return failedHandlerContract(owned, outputCodeUnits);
     }
     const result = readResult(foreign);
     if (result === undefined) {
-      return failedHandlerContract(owned);
+      return failedHandlerContract(owned, outputCodeUnits);
     }
     if (result.ok) {
-      const executed = execution(owned, "success", result.value);
-      return executed.ok ? executed : failedHandlerContract(owned);
+      const executed = execution(
+        owned,
+        "success",
+        result.value,
+        false,
+        outputCodeUnits,
+      );
+      return executed.ok
+        ? executed
+        : failedHandlerContract(owned, outputCodeUnits);
     }
     const kind = handlerErrorKind(result.error);
     return kind === undefined
-      ? failedHandlerContract(owned)
-      : execution(owned, "failure", failureOutput(kind));
+      ? failedHandlerContract(owned, outputCodeUnits)
+      : execution(
+          owned,
+          "failure",
+          failureOutput(kind),
+          false,
+          outputCodeUnits,
+        );
   }
 }

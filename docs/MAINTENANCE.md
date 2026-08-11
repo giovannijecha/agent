@@ -53,9 +53,11 @@ content-free failures, total decoding of hostile boundary values, explicit
 prepared-turn acknowledgement, cancellation-before-commit ordering, and
 terminal-receipt acknowledgement across shutdown races. They must also prove
 non-retention of candidate conversations. Runtime tool-loop changes must preserve
-one call per model step, exact approval identity, handler cancellation,
-structured checkpoints, and the rule that only state newer than the last
-checkpoint may be discarded.
+complete bounded batch preflight, unique ordered call identities, sequential
+handler execution, exact per-call approval identity, handler cancellation,
+complete structured exchange checkpoints, and the rule that only state newer
+than the last checkpoint may be discarded. Update decision 0029 with any batch
+order, limit, output-budget, cancellation, or checkpoint change.
 
 To remove runtime, first remove any CLI runtime composition and restore exact
 no-model submission behavior. Then delete `packages/agent-runtime`, its root npm
@@ -113,15 +115,20 @@ TUI, runtime, and the providerless CLI after each stage.
 
 Update structured rows, fragments, semantic tones, text normalization, component
 measurement, stack windowing, allocation, scroll reconciliation, synchronized
-redraw, caret rules, or public limits only with focused boundary tests and
-decisions 0006, 0019, 0020, 0021, 0022, and 0023. Preserve normalized bounded spans,
+redraw, panel composition, split retention, horizontal insetting, side rails,
+surfaces, text styles, spacers, responsive shell priority, caret
+rules, or public limits only with focused boundary tests and decisions 0006,
+0019, 0020, 0021, 0022, 0023, 0024, 0025, 0026, 0027, 0028, 0030, 0031, 0032,
+and 0035. Preserve normalized bounded spans,
 exact-row fragments, content-free errors, hostile accessor containment,
 deterministic priority/preference/flex allocation, and `Frame` as the final
 terminal-safety boundary. Product concepts remain in CLI.
 
 To remove the framework, first replace `chat-view` with direct validated frame
-composition. Then delete component, fragment, display-text, input-line,
-inline-text, rich-row, text-block, vertical-layout, and limit exports together
+composition. Then delete component, fragment, display-text, input-line, input-area,
+inline-text, panel, surface, text-style, split-line, horizontal-inset, side-rail,
+component-stack, rich-row, text-block,
+vertical-layout, and limit exports together
 with their focused tests and decisions 0006, 0019, and 0021. If only semantic
 emphasis is removed, retain the vertical framework and replace structured rows
 with one validated plain-row contract before removing tone metadata, renderer
@@ -132,28 +139,103 @@ references, and decision 0020. Remove synchronized
 output by deleting both markers and recovery state together. Decoder, editor,
 runtime, and core must stay green.
 
-Markdown syntax, delimiter completion, precedence, roles, fallback, or bounds
-change only through decision 0023 with parser, component, shared-layout,
+Conversation-shell changes require panel, surface, text-style, split-line,
+three-column-line, horizontal-inset, side-rail, spacer, footer, composer,
+transcript-role, activity, empty-state, tiny-viewport, semantic-state, and
+manual regressions under decisions 0026, 0027, and 0028. Keep the transcript
+dominant, omit absent contextual blocks, and render only status facts already
+held by the composition root or application reducer. Preserve the footer's
+left/physical-center/right anchors and right-center-left narrow-width retention.
+Render lifecycle phase once in the footer; do not recreate a static header or lifecycle notice. Keep the draft and ordinary
+conversation foreground neutral, use the closed `subtle` surface for user turn
+grouping and the dark `inset` surface for registered structured Markdown. Keep
+complete one- and two-row fences compact with zero horizontal padding, larger
+fences and tables at one cell, and exact `---` on the shared responsive muted
+separator path. Reserve restrained steel blue for parser-recognized inline code
+and language labels and lighter blues for fenced syntax only,
+and reserve green, yellow, and red for authoritative success, active, and
+negative state. Complete recognized fences may use only the five closed syntax
+roles; unknown or unlabeled fences remain plain.
+A future tool or integration must reuse the generic activity document rather
+than add its own card. Every state uses the same borderless semantic `Surface`
+with a closed success, attention, or failure background, neutral italic tool
+identity, and explicit written state. Approval adds no private panel or rail.
+Its view projection must continue to derive only the latest activity from the
+same bounded log while a turn is active; a new tool replaces it, turn settlement
+removes it, and the transcript never archives it.
+Do not introduce a second archive or lifecycle model. The empty session must
+remain free of welcome, suggestion, and embedded help content. To remove the
+visual grammar without removing the framework, replace the CLI document
+builders with one plain transcript and input row, remove approval decoration,
+and then delete any
+unused marker, spacer, panel, split-line, three-column-line, inset, and rail
+exports, tests, decision 0028, and its policy and manual evidence.
+Scrolling, Markdown, tool lifecycle, runtime, and providers remain unchanged.
+
+Cursor-style changes require exact renderer initialization, partial-write,
+cleanup, retry, and idempotence tests. To remove the steady block caret, delete
+both the style-selection and default-style restoration sequences together;
+leave caret geometry, visibility restoration, alternate-screen cleanup, and
+editor behavior unchanged.
+
+Transcript navigation changes only through decision 0024. Update decoder,
+session actions, layout-plan geometry, reducer state, resize behavior, history
+status truth, including the directional `↑ history` cue, focused tests, and
+manual evidence together. To remove it, first
+unwrap the transcript `ScrollView`, then remove navigation actions and history
+status state.
+Remove `VerticalLayoutPlan` only after no remaining caller consumes planned
+geometry; direct layout rendering must continue through one allocation path.
+
+Markdown syntax, delimiter completion, precedence, roles, structured surfaces,
+lexical aliases, separator behavior, compact-fence density, fallback, or bounds
+change only through decisions 0023, 0030, 0031, and 0032 with parser, internal highlighter, component, shared-layout, surface painter,
 renderer, transcript, streaming, privacy, manual, and policy regressions. Keep
 the grammar closed and line-oriented. Markdown and `TextBlock` must continue to
 share normalization, wrapping, anchoring, and padding; do not introduce an AST,
-extension hook, HTML path, active link, image protocol, or alternate renderer.
+extension hook, rendered HTML path, active link, image protocol, dynamic
+language registry, or alternate renderer.
 Preserve the 512-document and total-text checks before member iteration and
 restart parser state at every document boundary.
+Strict table alignment changes must continue to measure every retained header
+and body cell before painting and use one shared visible width per column. The
+single muted header rule must use the resulting total row extent and remain in
+the same structured surface. Change its geometry, tone, tests, and decision
+evidence together; do not introduce an outer border or parallel table painter.
+
+Shared wrapping changes only through decision 0025. Preserve one layout for
+`TextBlock` and `MarkdownBlock`, explicit word and literal-cell modes, protected
+structural prefixes, bounded continuation prefixes, long-token fallback, and
+content-free failures. To remove word-aware wrapping, restore the single cell
+policy, remove the logical-line prefix and continuation fields and regressions,
+then remove decision 0025 and its manual and policy registrations. Markdown,
+structured rows, scrolling, and the renderer remain independently buildable.
 
 To remove Markdown, replace the transcript `MarkdownBlock` with `TextBlock`,
-then delete `markdown-block`, `markdown-parser`, their export and tests, decision
-0023, and its policy and manual evidence. If no remaining component uses the
-`emphasis` tone, remove its renderer mapping and restore decision 0019's
-four-tone contract in the same change. The remaining components, structured
+then delete `markdown-block`, `markdown-parser`, `syntax-highlighter`, their
+exports and tests, decisions 0023, 0030, 0031, and 0032, and their policy and manual
+evidence. First remove table recognition and its derived header rule,
+structured-region identities, the
+shared row-paint integration, `inset`, and the five syntax tones if unused; the
+generic `Surface` remains for user turns and other callers. If no remaining
+component uses the `emphasis` tone, remove only that renderer mapping in the same change. Decision
+0027's lifecycle success and failure tones remain independent. The remaining components, structured
 rows, scrolling, tool activity, input, runtime, and providers stay buildable.
 
-Tool activity has one CLI-owned state and presentation path under decision 0022.
+Tool activity has one CLI-owned state and presentation path under decisions
+0022 and 0033.
 Changing its states, retention, safe fields, ordering, tones, or bounds requires
 activity-log, reducer, view, narrow-viewport, privacy, cleanup, manual, and policy
-updates together. Do not add a tool-specific presenter. To remove the surface,
-first remove its single CLI slot and lifecycle log, then remove the generic
-component stack only if it has no other consumer. The runtime tool protocol,
+updates together. Do not add a tool-specific presenter, rail, or panel; the CLI
+may decorate the complete generic stack only through the shared semantic
+surface. Its optional leading rhythm slot must reuse the generic `Spacer`, retain
+zero minimum height, and disappear when activity is absent. Activity remains
+directly adjacent to completion or the composer below. To remove the
+semantic activity colors while retaining activity, map that surface to `none`,
+then remove the unused surface roles and renderer mappings. To remove the
+surface, first remove its single CLI slot, leading rhythm slot, and lifecycle log,
+then remove the generic component stack only if it has no other consumer.
+The runtime tool protocol,
 approval commands, tool engine, structured rows, scroll view, and renderer must
 remain buildable.
 
@@ -177,6 +259,43 @@ To remove application/runtime composition, restore a terminal-only serialized
 loop and unconditional no-model handling first. Remove the CLI runtime dependency
 and TypeScript reference, then delete arbiter and display-chat modules and
 decision 0007. Keep the generic TUI and providerless CLI buildable.
+
+## Update or remove multiline composition, paste, or word editing
+
+Decision 0035, renderer lifecycle, input decoder, bounded editor, `InputArea`,
+CLI composer projection, manual, and focused tests form one contract. Preserve
+the one-through-six-row composer, 4,096-code-point draft bound, atomic
+bracketed paste, carriage-return normalization, and Enter-only submission.
+Spaces, tabs, and line feeds remain the only word delimiters. Terminal escape
+encodings belong to the decoder; movement and deletion belong to `LineEditor`.
+Do not reproduce either rule in session or application state.
+
+To remove multiline composition, replace the CLI `InputArea` with `InputLine`,
+then remove the area projection, component, and multiline editor cases. To
+remove paste, first remove renderer paste-mode startup and cleanup, then remove
+the decoder event and editor insertion path. To remove word editing, remove its
+semantic events and admitted decoder mappings before deleting the matching
+editor branches and tests. Remove decision 0035 and its policy/manual evidence
+only after the remaining one-row input path passes the canonical verifier.
+Conversation, Markdown, activity, scrolling, runtime, tools, and providers stay
+independently buildable.
+
+## Update or remove slash completion
+
+The immutable command catalog, exact dispatcher, session selection state,
+completion presenter, generic `SelectionList`, input decoder, line-editor draft
+replacement, view ordering, tests, decision 0034, manual, and policy registries
+form one contract. Preserve exact prefix matching, absence of aliases and
+arguments, bounded non-wrapping selection, contextual Up/Down interception, Tab
+completion without execution, selected-command dispatch through the canonical
+path on Enter, and selected-row visibility on short viewports.
+
+To remove presentation only, delete the CLI completion slot and presenter while
+retaining the catalog and exact dispatcher. To remove the capability entirely,
+also remove session selection state, Tab handling, the generic selection list
+and its export/tests, decision 0034, and its policy/manual evidence. Transcript
+navigation, line editing, composer, commands, activity, and renderer must remain
+independently buildable.
 
 ## Update or remove OpenCode Go
 
@@ -347,7 +466,7 @@ Terminal protocol changes affect two independent owners:
    followed by shutdown controls, SS3 fragmentation, and cumulative queue size.
 5. Update decision 0004 when lifecycle, ownership, width rules, or supported keys
    change materially.
-6. Preserve decisions 0019, 0021, and 0023 when semantic emphasis changes:
+6. Preserve decisions 0019, 0021, 0023, and 0027 when semantic emphasis changes:
    tones stay closed, application-neutral, structured-row, and renderer-owned,
    with normalization, bounded span count, and reset after emphasized spans and
    on cleanup.

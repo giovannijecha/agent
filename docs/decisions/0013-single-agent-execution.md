@@ -36,6 +36,12 @@ Model turns and mutations remain serialized. Approvals, process execution, and
 terminal output remain serialized. Current runtime remains sequential until a
 measured non-mutating optimization is earned.
 
+A bounded ordered tool-call batch selected by one model response remains one
+decision by this same agent. The controller validates the complete batch and
+reduces its results deterministically; batch members do not own identities,
+plans, conversations, follow-up decisions, or authority. Handler execution is
+sequential under decision 0029.
+
 The product will not create sub-agents, delegate tasks to hidden workers, run an
 agent swarm, or merge concurrent agent conversations. UI panels may present
 tools, status, and provider selection, but they do not imply additional actors.

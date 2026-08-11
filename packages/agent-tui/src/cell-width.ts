@@ -1,8 +1,23 @@
+/** Closed structural glyphs whose terminal width is owned by the framework. */
+const SINGLE_CELL_STRUCTURAL_GLYPHS = new Set([
+  "\u203a",
+  "\u2192",
+  "\u2500",
+  "\u2502",
+  "\u250c",
+  "\u2510",
+  "\u2514",
+  "\u2518",
+]);
+
 /** Conservative owned terminal-cell measurement. */
 
 export function characterCellWidth(character: string): number {
   const point = character.codePointAt(0);
-  return point !== undefined && point <= 0x7e ? 1 : 2;
+  return point !== undefined &&
+    (point <= 0x7e || SINGLE_CELL_STRUCTURAL_GLYPHS.has(character))
+    ? 1
+    : 2;
 }
 
 export function textCellWidth(text: string): number {

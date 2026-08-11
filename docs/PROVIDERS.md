@@ -1,7 +1,7 @@
 # Provider eligibility
 
 This reference separates direct API-key access from subscription OAuth client
-registration. Status is current as of 2026-08-09.
+registration. Status is current as of 2026-08-11.
 
 ## Enabled direct provider
 
@@ -43,12 +43,14 @@ vendor client's registration, identity, approval, or entitlement to `agent`.
 |---|---|---|---|
 | ChatGPT Plus/Pro | OpenAI documents subscription login for its Codex clients and managed browser or device login through Codex App Server. | Blocked | App Server is a foreign executable; no public process registers `agent` as a direct independent client. |
 | Claude Pro/Max | Anthropic documents subscription login for Claude Code and subscription-backed third-party use through the Claude Agent SDK. | Blocked | Claude Code and Agent SDK are foreign runtimes; no direct independent-client authorization or registration is documented for `agent`. |
-| Kimi Code | Kimi documents device OAuth for Kimi Code CLI and subscription-backed API keys for third-party development tools. | Blocked for credential-only login | The documented third-party path requires a manually managed key; the CLI OAuth identity and ACP bridge are foreign. |
+| Kimi Code | Kimi documents device OAuth for Kimi Code CLI and subscription-backed API keys for third-party development tools. | Blocked for credential-only login | Kimi Code Team confirmed in writing that no public OAuth flow is currently offered for third-party clients. The CLI identity and ACP bridge remain foreign. |
 | Grok subscription | xAI documents browser and device login for Grok Build plus headless and ACP integration, while its direct API has a separate key path. | Blocked | Grok Build and ACP are foreign executables; no public process registers `agent` for direct subscription OAuth. |
 
-All four independent-client inquiries are submitted. Submission does not grant
-authorization. A blocked entry can be enabled only after all of the following
-are recorded in a replacing decision:
+All four independent-client inquiries are submitted. Kimi Code returned a
+written negative answer on 2026-08-11; the other three requests remain pending.
+Neither submission nor a negative response grants authorization. A blocked
+entry can be enabled only after all of the following are recorded in a
+replacing decision:
 
 1. The provider authorizes independent clients to use the subscription.
 2. The provider registers `agent` or expressly designates a reusable public
@@ -66,7 +68,7 @@ and confidential correspondence stay outside Git.
 
 ## Machine gate
 
-`tools/provider-policy.json` schema version 4 records the four blocked OAuth
+`tools/provider-policy.json` schema version 5 records the four blocked OAuth
 providers and the one exact enabled direct provider. Canonical verification
 rejects unregistered provider workspaces, OAuth identifiers, subscription
 endpoints, ambient network capabilities, foreign credential stores, borrowed

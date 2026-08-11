@@ -39,9 +39,11 @@ page states zero-day retention and no training for Kimi K2.7 Code, but provider
 terms can change and remain outside `agent`'s control.
 
 ChatGPT Plus/Pro, Claude Pro/Max, Kimi Code credential login, and Grok
-subscription OAuth remain blocked. Their submitted registration inquiries do
-not authorize product code. `/providers` reports only integrations actually
-composed in the current process.
+subscription OAuth remain blocked. Kimi Code Team confirmed on 2026-08-11 that
+it does not currently offer a public OAuth flow for third-party clients; the
+other three submitted inquiries remain pending. Neither state authorizes
+product code. `/providers` reports only integrations actually composed in the
+current process.
 
 ## Failure behavior
 

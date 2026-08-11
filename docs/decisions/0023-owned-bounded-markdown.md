@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-10
+- Amended by: decisions 0030, 0031, and 0032
 
 ## Context
 
@@ -48,41 +49,57 @@ The exact accepted syntax is:
 - same-line inline code delimited by exactly one backtick that is not part of a
   longer backtick run; and
 - same-line strong text delimited by exactly two asterisks that are not part of
-  a longer asterisk run.
+  a longer asterisk run; and
+- strict pipe tables under decision 0030: at least two non-empty header cells,
+  a same-count delimiter row, and zero or more same-count non-empty body rows.
 
 No construct nests. Inline code is recognized before strong text, and its
 contents remain literal. A delimiter is syntax only when its closing delimiter
 exists on the same line. A fence is syntax only when a later exact closing
 fence exists. Longer delimiter runs, incomplete syntax, and unsupported syntax
 remain visible literally. The
-subset does not interpret links, images, HTML, tables, escapes, task lists,
-syntax highlighting, raw ANSI, or extension directives.
+subset does not interpret links, images, rendered HTML, escaped pipes, task
+lists, raw ANSI, or extension directives. Decision 0031 later permits only its
+bounded internal lexical highlighting for complete recognized fences; there is
+still no highlighting dependency or extension path. Decision 0030 defines the
+exact table delimiter grammar and literal malformed fallback.
 
 ## Visual contract
 
-Replace decision 0019's four-tone vocabulary with five closed semantic tones:
-`plain`, `muted`, `emphasis`, `accent`, and `attention`. `emphasis` is owned bold
+Replace decision 0019's four-tone vocabulary by adding `emphasis` to the closed
+semantic vocabulary. Decision 0027 later adds `success` and `failure` for
+authoritative application state. `emphasis` is owned bold
 text in the terminal's default foreground. It expresses document hierarchy
 without borrowing the cyan product identity role or the yellow approval and
 failure role.
 
-Markdown-derived content may select only `plain`, `muted`, and `emphasis`:
+Decision 0030 extends Markdown-derived content to the existing `accent` role
+without adding a tone. The complete current mapping is:
 
-- headings, strong text, and inline code use `emphasis`;
-- list markers, quote rails, fence language labels, and code rails use `muted`;
-- prose, quoted content, and fenced code content use `plain`.
+- headings, strong text, and table headers use `emphasis`;
+- inline code and fenced language labels use `accent`;
+- list markers, quote rails, and table separators use `muted`;
+- prose, quoted content, and table bodies use `plain`;
+- unknown or unlabeled fenced code content uses `plain`; and
+- recognized complete fences may use only the five syntax roles registered by
+  decision 0031.
 
 The parser selects these roles from syntax. Model, provider, tool, and user text
 cannot supply a tone, color, escape sequence, or renderer instruction. The
-quiet rails and restrained bold hierarchy are the complete visual signature;
-the feature introduces no boxes, badges, icons, or product-specific concepts.
+restrained hierarchy is syntax-derived. Assistant prose remains unboxed;
+fenced code and strict tables use the generic dark `inset` surface under
+decisions 0030 and 0031. A strict table has one muted header rule across its
+measured row extent inside that surface, without an outer border or full grid.
+The feature introduces no badges, icons, or
+product-specific concepts.
 
 ## Bounds, security, and failure behavior
 
 Input is rejected before parsing when it exceeds `displayTextCodeUnits`.
 Line-ending normalization, tab expansion, control replacement, lone-surrogate
 replacement, conservative Unicode cell measurement, wrapping, row retention,
-and final frame validation remain owned by the generic TUI. Parsing is linear
+and final frame validation remain owned by the generic TUI under decision 0025.
+Parsing is linear
 in accepted input size and performs no recursion, network access, filesystem
 access, callbacks, or dynamic dispatch.
 
@@ -95,8 +112,9 @@ causes are never retained. Final `RichRow`, `Fragment`, and `Frame` validation
 remain independent defenses.
 
 The first product integration replaces the conversation transcript's plain text
-component. Each `you` or `agent` role-labelled message is a separate document,
-so user or model syntax cannot consume or style a later message or role label.
+component. Each structured user or assistant entry is a separate document, so
+user or model syntax cannot consume or style a later message. Role metadata
+stays outside Markdown and selects only CLI-owned container composition.
 Tool activity, status, input, provider data, and runtime state do not enter the
 Markdown parser. Streaming reparses the current bounded message snapshot with no
 hidden incremental state. An incomplete construct therefore stays literal until
@@ -107,23 +125,25 @@ the closing delimiter arrives within that same message.
 Focused tests must prove every accepted construct, literal unsupported and
 incomplete syntax, precedence, non-nesting, span-limit fallback, input bounds,
 line ending and control normalization, lone surrogates, tabs, wide scalars,
-cell wrapping, head and tail anchoring, tiny viewports, immutable rows, fixed
-tone mapping, ANSI reset, differential redraw, streaming completion, and CLI
+word and literal-cell wrapping, structural continuation prefixes, long-token
+fallback, head and tail anchoring, tiny viewports, immutable rows, fixed
+tone mapping, strict-table header-rule extent, ANSI reset, differential redraw,
+streaming completion, and CLI
 transcript and cross-message isolation. The canonical verifier remains the
 Windows and Linux release gate.
 
 ## Update, rollback, and removal
 
 Changing syntax, precedence, delimiter completion, document isolation, role
-mapping, bounds, fallback, normalization, wrapping, or anchoring requires
-parser, component, renderer, CLI view, privacy, manual, and policy regressions
+mapping, bounds, fallback, normalization, decision 0025 wrapping, or anchoring
+requires parser, component, renderer, CLI view, privacy, manual, and policy regressions
 in the same change. A new construct requires a present product need and an
 update to this closed list; it is not admitted through an extension hook.
 
 To remove Markdown, first replace the transcript `MarkdownBlock` with the plain
 `TextBlock`, then delete the Markdown parser, component, exports, and focused
 tests. Remove this decision and its manual and policy registrations in the same
-change. If no other component uses `emphasis`, remove that tone and restore
-decision 0019's four-tone contract with renderer and structured-row tests.
+change. If no other component uses `emphasis`, remove that tone with renderer
+and structured-row tests. Decision 0027's lifecycle tones remain independent.
 Structured rows, scroll, tool activity, input, runtime, providers, and core
 remain independently buildable.

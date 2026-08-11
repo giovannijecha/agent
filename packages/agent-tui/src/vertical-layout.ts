@@ -27,6 +27,19 @@ type Allocation = {
   rows: number;
 };
 
+type PlannedAllocation = Readonly<{
+  index: number;
+  measurement: ComponentMeasurement;
+  rows: number;
+  slot: VerticalSlot;
+}>;
+
+/** Public immutable geometry for one component in a planned layout. */
+export type VerticalAllocation = Readonly<{
+  contentRows: number;
+  viewportRows: number;
+}>;
+
 function validSlotNumber(value: number): boolean {
   return (
     Number.isSafeInteger(value) &&
@@ -37,6 +50,103 @@ function validSlotNumber(value: number): boolean {
 
 function byPriority(left: Allocation, right: Allocation): number {
   return right.slot.priority - left.slot.priority || left.index - right.index;
+}
+
+function renderAllocations(
+  allocations: readonly PlannedAllocation[],
+  viewport: Viewport,
+): Result<Frame, ComponentError> {
+  const rows: RichRow[] = [];
+  let caret: Caret | undefined;
+  for (const allocation of allocations) {
+    if (allocation.rows === 0) {
+      continue;
+    }
+    const componentViewport = Viewport.create(viewport.columns, allocation.rows);
+    if (!componentViewport.ok) {
+      return err(new ComponentError("invalidGeometry", allocation.index));
+    }
+    const rendered = renderComponent(
+      allocation.slot.component,
+      componentViewport.value,
+      allocation.index,
+    );
+    if (!rendered.ok) {
+      return rendered;
+    }
+    if (rendered.value.caret !== undefined) {
+      if (caret !== undefined) {
+        return err(new ComponentError("multipleCarets", allocation.index));
+      }
+      caret = Object.freeze({
+        row: rows.length + rendered.value.caret.row,
+        column: rendered.value.caret.column,
+      });
+    }
+    rows.push(...rendered.value.rows);
+  }
+
+  const frame = Frame.create(rows, caret);
+  return frame.ok
+    ? frame
+    : err(new ComponentError("invalidFrame", frame.error.row));
+}
+
+/** Immutable measured allocation that renders through the canonical compositor. */
+export interface VerticalLayoutPlan {
+  allocation(position: number): Result<VerticalAllocation, ComponentError>;
+  render(): Result<Frame, ComponentError>;
+}
+
+class PlannedVerticalLayout implements VerticalLayoutPlan {
+  readonly #allocations: readonly PlannedAllocation[];
+  readonly #viewport: Viewport;
+
+  constructor(
+    allocations: readonly PlannedAllocation[],
+    viewport: Viewport,
+  ) {
+    this.#allocations = Object.freeze(
+      allocations.map((allocation) =>
+        Object.freeze({
+          index: allocation.index,
+          measurement: allocation.measurement,
+          rows: allocation.rows,
+          slot: allocation.slot,
+        }),
+      ),
+    );
+    this.#viewport = viewport;
+    Object.freeze(this);
+  }
+
+  /** Returns exact measured and assigned rows for one original slot position. */
+  allocation(
+    position: number,
+  ): Result<VerticalAllocation, ComponentError> {
+    if (
+      !Number.isSafeInteger(position) ||
+      position < 0 ||
+      position >= this.#allocations.length
+    ) {
+      return err(new ComponentError("invalidSlot", position));
+    }
+    const allocation = this.#allocations.at(position);
+    if (allocation === undefined) {
+      return err(new ComponentError("invalidSlot", position));
+    }
+    return ok(
+      Object.freeze({
+        contentRows: allocation.measurement.preferredRows,
+        viewportRows: allocation.rows,
+      }),
+    );
+  }
+
+  /** Renders the captured plan without measuring or reallocating components. */
+  render(): Result<Frame, ComponentError> {
+    return renderAllocations(this.#allocations, this.#viewport);
+  }
 }
 
 /** Deterministic priority/preference/flex vertical component compositor. */
@@ -107,7 +217,8 @@ export class VerticalLayout {
     return ok(new VerticalLayout(validated));
   }
 
-  render(viewport: Viewport): Result<Frame, ComponentError> {
+  /** Measures once and captures the exact allocation used by rendering. */
+  plan(viewport: Viewport): Result<VerticalLayoutPlan, ComponentError> {
     if (!validComponentViewport(viewport)) {
       return err(new ComponentError("invalidGeometry", undefined));
     }
@@ -192,39 +303,11 @@ export class VerticalLayout {
       }
     }
 
-    const rows: RichRow[] = [];
-    let caret: Caret | undefined;
-    for (const allocation of allocations) {
-      if (allocation.rows === 0) {
-        continue;
-      }
-      const componentViewport = Viewport.create(viewport.columns, allocation.rows);
-      if (!componentViewport.ok) {
-        return err(new ComponentError("invalidGeometry", allocation.index));
-      }
-      const rendered = renderComponent(
-        allocation.slot.component,
-        componentViewport.value,
-        allocation.index,
-      );
-      if (!rendered.ok) {
-        return rendered;
-      }
-      if (rendered.value.caret !== undefined) {
-        if (caret !== undefined) {
-          return err(new ComponentError("multipleCarets", allocation.index));
-        }
-        caret = Object.freeze({
-          row: rows.length + rendered.value.caret.row,
-          column: rendered.value.caret.column,
-        });
-      }
-      rows.push(...rendered.value.rows);
-    }
+    return ok(new PlannedVerticalLayout(allocations, viewport));
+  }
 
-    const frame = Frame.create(rows, caret);
-    return frame.ok
-      ? frame
-      : err(new ComponentError("invalidFrame", frame.error.row));
+  render(viewport: Viewport): Result<Frame, ComponentError> {
+    const planned = this.plan(viewport);
+    return planned.ok ? planned.value.render() : planned;
   }
 }

@@ -28,8 +28,8 @@ the command line. Interactive startup asks for a missing OpenCode Go key with
 terminal echo disabled. Press Enter to start providerless or Ctrl+C to cancel.
 
 The required toolchain is Node.js `>=22.19.0`, npm `11.16.0`, and TypeScript
-`5.9.3` available on `PATH` but installed outside this workspace. In an
-interactive terminal, use `/help` for the command list and `/exit` to close.
+`5.9.3` available on `PATH` but installed outside this workspace. This manual
+is the command reference. In an interactive terminal, use `/exit` to close.
 
 ## Guarantees and limits
 

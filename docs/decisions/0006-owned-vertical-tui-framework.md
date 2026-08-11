@@ -21,7 +21,8 @@ Add a vertical component framework to `@agent/tui` with these contracts:
 - immutable viewport-bound fragments with an optional relative caret;
 - synchronous components with measure and render operations;
 - bounded display-text normalization, sanitization, wrapping, and anchoring;
-- a projected single-line input component;
+- a projected single-line input component, later complemented by decision 0035
+  with a bounded multiline input area over the same editor state;
 - deterministic vertical allocation using minimum rows, preferred rows,
   priority, and flex weight;
 - exactly one composed caret and `Frame.create` as the final safety boundary.
@@ -60,6 +61,19 @@ hooks in this one.
 
 Decision 0022 adds one bounded generic component stack for sequential component
 documents. It does not add product lifecycle state or a second layout engine.
+Decision 0025 evolves the one shared display layout with word-aware prose,
+explicit literal-code wrapping, and bounded continuation prefixes. It does not
+add a second component or renderer path.
+Decision 0026 adds one bounded one-row split-line component, one single-child
+panel, one centered horizontal inset, and one open side rail for the responsive
+conversation shell. These primitives do not claim arbitrary horizontal split
+panes, overlapping regions, or two-dimensional cell composition.
+Decision 0031 adds one bounded internal lexical highlighter for complete
+recognized Markdown fences. It does not add the arbitrary syntax-highlighting
+extension surface excluded by this decision.
+Decision 0035 adds a bounded projected multiline input component. It reuses the
+same editor, fragment, caret, validation, and vertical-layout contracts; it does
+not create a second editor or submission path.
 
 ## Update, rollback, and removal
 
@@ -69,6 +83,7 @@ decision or its replacing decision. Application-specific chat and activity
 state remains in CLI and never becomes a generic component.
 
 To remove the framework, replace CLI component composition with direct validated
-frames, then remove the component modules, exports, tests, and this decision from
-the ownership registry. Decoder, editor, frame, renderer, runtime, and core stay
-unchanged.
+frames, then remove the component modules, including panel, split line,
+horizontal inset, and side rail, their exports and tests, and decisions 0006,
+0026, and 0027 from the ownership registry.
+Decoder, editor, frame, renderer, runtime, and core stay unchanged.

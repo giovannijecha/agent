@@ -5,6 +5,12 @@ import {
 } from "./cell-width.js";
 import { TUI_LIMITS } from "./limits.js";
 import { err, ok, type Result } from "./result.js";
+import {
+  normalizeTextStyle,
+  type SurfaceTone,
+  type TextSlant,
+  type TextStyleOptions,
+} from "./text-style.js";
 import { isTone, type Tone } from "./tone.js";
 
 const CONTROL_CHARACTER = /[\u0000-\u001F\u007F-\u009F]/u;
@@ -14,6 +20,7 @@ export type RichRowErrorKind =
   | "invalidRow"
   | "invalidScalar"
   | "invalidSpan"
+  | "invalidStyle"
   | "invalidText"
   | "invalidTone"
   | "invalidWidth"
@@ -69,18 +76,28 @@ function validateText(text: unknown): Result<string, RichRowError> {
 
 /** Immutable printable text carrying one renderer-owned semantic role. */
 export class TextSpan {
+  readonly #slant: TextSlant;
+  readonly #surface: SurfaceTone;
   readonly #text: string;
   readonly #tone: Tone;
 
-  private constructor(text: string, tone: Tone) {
+  private constructor(
+    text: string,
+    tone: Tone,
+    slant: TextSlant,
+    surface: SurfaceTone,
+  ) {
     this.#text = text;
     this.#tone = tone;
+    this.#slant = slant;
+    this.#surface = surface;
     Object.freeze(this);
   }
 
   static create(
     text: unknown,
     tone: unknown = "plain",
+    style?: unknown,
   ): Result<TextSpan, RichRowError> {
     const validated = validateText(text);
     if (!validated.ok) {
@@ -89,7 +106,18 @@ export class TextSpan {
     if (!isTone(tone)) {
       return err(new RichRowError("invalidTone", undefined));
     }
-    return ok(new TextSpan(validated.value, tone));
+    const normalizedStyle = normalizeTextStyle(style);
+    if (normalizedStyle === undefined) {
+      return err(new RichRowError("invalidStyle", undefined));
+    }
+    return ok(
+      new TextSpan(
+        validated.value,
+        tone,
+        normalizedStyle.slant,
+        normalizedStyle.surface,
+      ),
+    );
   }
 
   /** Copies a genuine span without invoking overridable public accessors. */
@@ -98,7 +126,10 @@ export class TextSpan {
       return err(new RichRowError("invalidSpan", undefined));
     }
     try {
-      return TextSpan.create(value.#text, value.#tone);
+      return TextSpan.create(value.#text, value.#tone, {
+        slant: value.#slant,
+        surface: value.#surface,
+      });
     } catch (_cause: unknown) {
       return err(new RichRowError("invalidSpan", undefined));
     }
@@ -106,6 +137,14 @@ export class TextSpan {
 
   get text(): string {
     return this.#text;
+  }
+
+  get slant(): TextSlant {
+    return this.#slant;
+  }
+
+  get surface(): SurfaceTone {
+    return this.#surface;
   }
 
   get tone(): Tone {
@@ -139,8 +178,9 @@ export class RichRow {
   static fromText(
     text: unknown,
     tone: unknown = "plain",
+    style?: TextStyleOptions,
   ): Result<RichRow, RichRowError> {
-    const created = TextSpan.create(text, tone);
+    const created = TextSpan.create(text, tone, style);
     return created.ok ? RichRow.create([created.value]) : created;
   }
 
@@ -155,7 +195,12 @@ export class RichRow {
         return err(new RichRowError("tooManySpans", undefined));
       }
 
-      const groups: Array<{ chunks: string[]; tone: Tone }> = [];
+      const groups: Array<{
+        chunks: string[];
+        slant: TextSlant;
+        surface: SurfaceTone;
+        tone: Tone;
+      }> = [];
       let totalCodePoints = 0;
       for (let position = 0; position < count; position += 1) {
         let candidate: unknown;
@@ -177,10 +222,19 @@ export class RichRow {
         }
 
         const previous = groups.at(-1);
-        if (previous?.tone === copied.value.tone) {
+        if (
+          previous?.tone === copied.value.tone &&
+          previous.slant === copied.value.slant &&
+          previous.surface === copied.value.surface
+        ) {
           previous.chunks.push(copied.value.text);
         } else {
-          groups.push({ chunks: [copied.value.text], tone: copied.value.tone });
+          groups.push({
+            chunks: [copied.value.text],
+            slant: copied.value.slant,
+            surface: copied.value.surface,
+            tone: copied.value.tone,
+          });
         }
       }
 
@@ -189,7 +243,10 @@ export class RichRow {
       }
       const normalized: TextSpan[] = [];
       for (const group of groups) {
-        const merged = TextSpan.create(group.chunks.join(""), group.tone);
+        const merged = TextSpan.create(group.chunks.join(""), group.tone, {
+          slant: group.slant,
+          surface: group.surface,
+        });
         if (!merged.ok) {
           return merged;
         }
@@ -242,7 +299,10 @@ export class RichRow {
           used += width;
         }
         if (characters.length > 0) {
-          const created = TextSpan.create(characters.join(""), span.tone);
+          const created = TextSpan.create(characters.join(""), span.tone, {
+            slant: span.slant,
+            surface: span.surface,
+          });
           if (!created.ok) {
             return created;
           }
@@ -270,7 +330,12 @@ export class RichRow {
       for (let index = 0; index < this.#spans.length; index += 1) {
         const left = this.#spans.at(index);
         const right = other.#spans.at(index);
-        if (left?.text !== right?.text || left?.tone !== right?.tone) {
+        if (
+          left?.text !== right?.text ||
+          left?.tone !== right?.tone ||
+          left?.slant !== right?.slant ||
+          left?.surface !== right?.surface
+        ) {
           return false;
         }
       }

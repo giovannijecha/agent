@@ -52,15 +52,68 @@ agent.”
   core and tools.
 - `@agent/tui` owns bounded input decoding, line editing, vertical components,
   bounded component stacks, normalized structured rows with closed semantic
-  span tones, the closed bounded Markdown subset, immutable scroll geometry,
-  layout, viewports, frames, and synchronized differential rendering; it is
-  agent-agnostic and Node-free. Markdown and plain text reuse one wrapping path,
+  span tones and surfaces, the closed bounded Markdown subset, immutable scroll geometry,
+  planned vertical layout, viewports, frames, and synchronized differential
+  rendering; it is
+  agent-agnostic and Node-free. Markdown and plain text reuse one word-aware
+  wrapping path with explicit literal-code and continuation-prefix policies,
   Markdown state cannot cross bounded document boundaries, only the renderer
   emits ANSI, and every scrollable surface reuses the same generic scroll path.
+- The TUI is conversation-first, not a permanent dashboard. Keep the transcript
+  dominant, the composer fixed and recognizable, and every information block
+  contextual to authoritative state. Future tools and integrations reuse the
+  generic panel, surface, split-line, three-column-line, horizontal-inset,
+  side-rail, spacer, activity, scroll, and layout paths; they do not add
+  private cards, empty metrics, or parallel view models. User and assistant
+  content remain structured role entries but render without redundant `you` or
+  `agent` labels. A user turn uses one compact borderless subtle surface with
+  italic content; assistant prose remains unboxed, while fenced code and strict
+  pipe tables use one content-fit dark inset surface. Complete fences with at
+  most two visible logical rows use zero horizontal padding; larger fences and
+  tables retain one cell. An exact Markdown `---` renders through the shared
+  display path as one muted responsive separator, while unsupported variants
+  remain literal. Surface, slant, and
+  foreground tone remain independent closed style dimensions. Strict tables
+  measure every header and body cell before display and pad each column to one
+  shared visible width, so the technical surface stays rectangular. One muted
+  rule spans that exact measured width between the header and body inside the
+  same surface; do not add an outer border or a full cell grid. Complete
+  recognized fences may derive only the registered bounded lexical roles from
+  the owned highlighter; unknown or unlabeled fences remain plain. Model text
+  never selects styling. The restrained steel-blue `accent` role is reserved
+  for references and fence labels; lighter blues remain code-only syntax roles.
+  Every tool lifecycle state uses the same borderless semantic `Surface`:
+  restrained dark green for success, ochre for active or approval, and red for
+  negative terminal state. Tool identity is neutral italic text; identity,
+  written state, safe detail, and approval actions use neutral high-contrast
+  foregrounds. Written state remains explicit, and no tool or approval path adds
+  a private rail, border, or panel. The contextual activity surface shows only the latest snapshot while a
+  turn is active: the next tool replaces it, turn settlement removes it, and
+  tool activity never enters the transcript. An empty session renders no welcome
+  or embedded help; operator guidance stays in the maintained manual. The
+  composer is one prompt-free rectangular `Panel` around the generic
+  `InputArea`. It grows from one through six content rows using the same bounded
+  editor and submission path. Bracketed paste is one atomic editor event and
+  never implies Enter; only a separately decoded Enter submits. The renderer
+  owns paste-mode and steady-block-caret lifecycle and restores both terminal
+  defaults during cleanup. Ctrl+Left and Ctrl+Right move by the editor's one
+  whitespace-delimited word rule; Ctrl+Backspace, Ctrl+W, and Ctrl+Delete
+  remove through the same semantic decoder/editor path. Do not reproduce word
+  editing in CLI session or application state.
+- Slash completion reuses one exact CLI-owned command catalog for dispatch and
+  discovery. The generic TUI owns only a bounded `SelectionList`. While a
+  completion is visible, Up and Down select without wrapping and Tab completes
+  without submitting; Enter dispatches the selected exact command through the
+  canonical dispatcher. Otherwise existing transcript and editor controls
+  remain authoritative. One optional generic leading spacer row separates
+  non-empty contextual activity from the transcript or notice above; activity
+  stays directly adjacent to completion or the composer below. The leading row
+  collapses before required content on constrained viewports.
 - `@agent/cli` owns commands, bounded display chat, the single-writer reducer,
   one bounded tool-activity lifecycle and presentation path, terminal/runtime
-  arbitration, built-in workspace tools, raw mode, filesystem and process
-  access, and all Node lifecycle; it is the only platform boundary.
+  arbitration, transcript-navigation state, built-in workspace tools, raw mode,
+  filesystem and process access, and all Node lifecycle; it is the only
+  platform boundary.
 - The private CLI-native process broker is verification infrastructure only.
   Production does not invoke it and `run_process` stays blocked until a later
   decision accepts the complete model-facing adapter and approval contract.
@@ -68,12 +121,16 @@ agent.”
   one active runtime session, and one active model decision loop. Providers are
   interchangeable backends, never additional agents; do not add sub-agents,
   delegation, swarms, or concurrent agent conversations.
+- One model response may select one bounded ordered tool-call batch. Validate the
+  complete batch before effects, execute calls sequentially in provider order,
+  require a separate exact approval for every write or execute call, and commit
+  one complete exchange. A batch is one agent decision, never a group of agents.
 - Future controller-internal concurrency may overlap only bounded independent
   mechanics over immutable snapshots during a read-only phase. It cannot enter
   the tool engine or overlap a mutation, and its results return to the sole
   controller for deterministic reduction.
-- Model turns, writes, process execution, approvals, and terminal output remain
-  serialized. Current runtime remains sequential.
+- Model turns, tool handlers, writes, process execution, approvals, and terminal
+  output remain serialized. Current runtime remains sequential.
 - Core and TUI never depend on each other. Dependencies point inward, public
   surfaces go through `src/index.ts`, and deep cross-package imports are banned.
 - Keep modules cohesive, documented, independently testable, replaceable, and

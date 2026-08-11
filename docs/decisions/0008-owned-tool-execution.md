@@ -51,10 +51,12 @@ paragraph-separator scalars before display. The CLI independently rejects an
 unescaped unsafe scalar, so bidi or zero-width content cannot visually reorder
 or conceal the approved target.
 
-The runtime accepts at most one tool call per model step and executes calls
-sequentially. A turn has explicit tool-step and content limits. A completed tool
-attempt appends its structured call and result to the candidate conversation and
-checkpoints that candidate before the next model step. This checkpoint is the
+Decision 0029 supersedes the original one-call limit. The runtime accepts one
+bounded ordered tool-call batch per model step, validates it completely before
+effects, and executes handlers sequentially. A turn has explicit tool-step and
+content limits. Once every call has a truthful result, the runtime appends one
+complete structured exchange to the candidate conversation and checkpoints that
+candidate before the next model step. This checkpoint is the
 truth boundary for external effects: later cancellation or model failure cannot
 pretend an executed operation did not happen. Partial assistant text after the
 last checkpoint remains prospective and is never committed.
@@ -71,8 +73,8 @@ repeating an effect merely because its handler broke the return contract.
 
 The TUI gains no product-specific framework primitive. Decision 0022 replaces
 the initial transient status with one CLI-owned bounded activity log rendered
-through the generic component stack. It retains the current or most recently
-settled turn and maps every tool through the same presentation path. Only tool
+through the generic component stack. It retains only the latest activity while
+the current turn is active and maps every tool through the same presentation path. Only tool
 name, risk, explicit state, and the descriptor-declared safe approval summary
 are rendered. Raw arguments, content fields, call identifiers, outputs,
 provider data, credentials, and causes are not rendered or logged.

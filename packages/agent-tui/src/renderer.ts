@@ -1,15 +1,19 @@
 import {
   ALTERNATE_SCREEN_ENTER,
   ALTERNATE_SCREEN_LEAVE,
+  BRACKETED_PASTE_DISABLE,
+  BRACKETED_PASTE_ENABLE,
   CLEAR_ROW,
   CLEAR_SCREEN,
   CURSOR_HIDE,
   CURSOR_HOME,
   CURSOR_SHOW,
+  CURSOR_STEADY_BLOCK,
+  CURSOR_STYLE_DEFAULT,
   STYLE_RESET,
   SYNCHRONIZED_OUTPUT_BEGIN,
   SYNCHRONIZED_OUTPUT_END,
-  beginTone,
+  beginStyle,
   moveTo,
 } from "./ansi.js";
 import type { Frame } from "./frame.js";
@@ -28,7 +32,7 @@ function rowsEqual(
 function renderRow(row: RichRow): string {
   const rendered: string[] = [];
   for (const span of row.spans) {
-    const prefix = beginTone(span.tone);
+    const prefix = beginStyle(span.tone, span.slant, span.surface);
     rendered.push(
       prefix.length === 0 ? span.text : prefix + span.text + STYLE_RESET,
     );
@@ -51,7 +55,9 @@ export class Renderer<E> {
   #previousViewport: Viewport | undefined;
   #started = false;
   #alternateMayBeActive = false;
+  #bracketedPasteMayBeActive = false;
   #cursorMayBeHidden = false;
+  #cursorStyleMayBeChanged = false;
   #synchronizationMayBeActive = false;
   #tail: Promise<void> = Promise.resolve();
 
@@ -95,8 +101,16 @@ export class Renderer<E> {
     let buffer = "";
 
     if (initializing) {
-      buffer += ALTERNATE_SCREEN_ENTER + CURSOR_HIDE + CLEAR_SCREEN + CURSOR_HOME;
+      buffer +=
+        ALTERNATE_SCREEN_ENTER +
+        BRACKETED_PASTE_ENABLE +
+        CURSOR_HIDE +
+        CURSOR_STEADY_BLOCK +
+        CLEAR_SCREEN +
+        CURSOR_HOME;
       this.#alternateMayBeActive = true;
+      this.#bracketedPasteMayBeActive = true;
+      this.#cursorStyleMayBeChanged = true;
     } else if (viewportChanged) {
       buffer += CURSOR_HIDE + CLEAR_SCREEN + CURSOR_HOME;
     } else {
@@ -162,7 +176,9 @@ export class Renderer<E> {
   async #finish(): Promise<Result<void, E>> {
     if (
       !this.#alternateMayBeActive &&
+      !this.#bracketedPasteMayBeActive &&
       !this.#cursorMayBeHidden &&
+      !this.#cursorStyleMayBeChanged &&
       !this.#synchronizationMayBeActive
     ) {
       return ok(undefined);
@@ -171,7 +187,14 @@ export class Renderer<E> {
     let cleanup = this.#synchronizationMayBeActive
       ? SYNCHRONIZED_OUTPUT_END
       : "";
-    cleanup += STYLE_RESET + CURSOR_SHOW;
+    cleanup += STYLE_RESET;
+    if (this.#bracketedPasteMayBeActive) {
+      cleanup += BRACKETED_PASTE_DISABLE;
+    }
+    if (this.#cursorStyleMayBeChanged) {
+      cleanup += CURSOR_STYLE_DEFAULT;
+    }
+    cleanup += CURSOR_SHOW;
     if (this.#alternateMayBeActive) {
       cleanup += ALTERNATE_SCREEN_LEAVE;
     }
@@ -182,7 +205,9 @@ export class Renderer<E> {
 
     this.#started = false;
     this.#alternateMayBeActive = false;
+    this.#bracketedPasteMayBeActive = false;
     this.#cursorMayBeHidden = false;
+    this.#cursorStyleMayBeChanged = false;
     this.#synchronizationMayBeActive = false;
     this.#previous = Object.freeze([]);
     this.#previousViewport = undefined;

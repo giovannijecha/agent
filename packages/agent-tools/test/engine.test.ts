@@ -78,6 +78,26 @@ test("turns expected handler failures and denial into structured results", async
   assert.equal(denied.value.result.status, "failure");
 });
 
+test("records a prepared but uninvoked call without running its handler", () => {
+  let handlerCalls = 0;
+  const engine = createEngine(async () => {
+    handlerCalls += 1;
+    return ok({ text: "unreachable" });
+  });
+  const prepared = engine.prepare("call-blocked", "read_file", input());
+  assert.ok(prepared.ok);
+
+  const blocked = engine.notRun(prepared.value, "blocked");
+
+  assert.ok(blocked.ok);
+  assert.equal(handlerCalls, 0);
+  assert.equal(blocked.value.contractFailure, false);
+  assert.equal(blocked.value.result.status, "failure");
+  assert.ok(blocked.value.result.output instanceof StructuredObject);
+  assert.equal(blocked.value.result.output.get("attempted"), false);
+  assert.equal(blocked.value.result.output.get("error"), "blocked");
+});
+
 test("contains thrown and malformed handler boundaries", async () => {
   const thrown = createEngine(async () => {
     throw new Error("private cause");
@@ -146,6 +166,7 @@ test("contains hostile descriptor, registry, and prepared-call proxies", async (
   revokedPrepared.revoke();
   const hostilePrepared = revokedPrepared.proxy;
   assert.equal(engine.deny(hostilePrepared as never).ok, false);
+  assert.equal(engine.notRun(hostilePrepared as never, "blocked").ok, false);
   const executed = await engine.execute(hostilePrepared as never, cancellation);
   assert.equal(executed.ok, false);
   if (!executed.ok) {
@@ -164,6 +185,28 @@ test("checkpoints invalid output as a generic post-invocation failure", async ()
   assert.ok(result.ok);
   assert.equal(result.value.result.status, "failure");
   assert.equal(result.value.contractFailure, true);
+});
+
+test("enforces one caller-owned output budget without losing attempted-call truth", async () => {
+  let handlerCalls = 0;
+  const engine = createEngine(async () => {
+    handlerCalls += 1;
+    return ok({ text: "x".repeat(64) });
+  });
+  const prepared = engine.prepare("call-budget", "read_file", input());
+  assert.ok(prepared.ok);
+
+  const invalid = await engine.execute(prepared.value, cancellation, 22);
+  assert.deepEqual(invalid, { ok: false, error: { kind: "invalidLimit" } });
+  assert.equal(handlerCalls, 0);
+
+  const bounded = await engine.execute(prepared.value, cancellation, 23);
+  assert.ok(bounded.ok);
+  assert.equal(handlerCalls, 1);
+  assert.equal(bounded.value.result.status, "failure");
+  assert.equal(bounded.value.contractFailure, true);
+  assert.ok(bounded.value.result.output instanceof StructuredObject);
+  assert.equal(bounded.value.result.output.get("error"), "internal");
 });
 
 test("requires bounded approval fields for mutation descriptors", () => {

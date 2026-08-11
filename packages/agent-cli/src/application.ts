@@ -3,20 +3,26 @@ import type {
   RuntimeEvent,
   StartedTurn,
   StartTurnError,
+  TurnFailure,
 } from "@agent/runtime";
 import { TOOL_ENGINE_LIMITS } from "@agent/tools";
 import {
   err,
   ok,
+  type EditorAreaProjection,
   type EditorProjection,
+  type InputAreaProjectionSource,
   type InputProjectionSource,
   type Result,
+  ScrollState,
+  TUI_LIMITS,
 } from "@agent/tui";
 
-import { ChatState } from "./chat-state.js";
+import { ChatState, type TranscriptEntry } from "./chat-state.js";
 import type { ProviderPresentation } from "./commands.js";
 import {
   SessionController,
+  type CommandCompletionProjection,
   type SessionAction,
   type SessionUpdate,
 } from "./session.js";
@@ -57,7 +63,8 @@ export type ApplicationErrorKind =
   | "activityInvariant"
   | "chatInvariant"
   | "invalidRuntimeEvent"
-  | "invalidStartedTurn";
+  | "invalidStartedTurn"
+  | "scrollInvariant";
 
 /** Content-free invariant failure from the single-writer application reducer. */
 export class ApplicationError {
@@ -90,13 +97,65 @@ function validNotice(lines: readonly string[]): boolean {
   );
 }
 
+function turnFailureCode<E>(failure: TurnFailure<E>): string {
+  const kind = failure.kind;
+  if (kind === "model") {
+    return "model/" + failure.operation;
+  }
+  if (kind === "invalidModelResult") {
+    return "model/" + failure.operation + "/invalid-result";
+  }
+  if (kind === "unexpected") {
+    return "model/" + failure.operation + "/unexpected";
+  }
+  if (kind === "invalidModelStream") {
+    return "model/open/invalid-stream";
+  }
+  if (kind === "invalidModelEvent") {
+    return "model/read/invalid-event";
+  }
+  if (kind === "invalidToolCall") {
+    return "tool/invalid-call";
+  }
+  if (kind === "toolEngine") {
+    return "tool/engine";
+  }
+  if (kind === "toolLimit") {
+    return "tool/limit";
+  }
+  if (kind === "toolUnavailable") {
+    return "tool/unavailable";
+  }
+  if (kind === "emptyDelta") {
+    return "model/empty-delta";
+  }
+  if (kind === "emptyResponse") {
+    return "model/empty-response";
+  }
+  if (kind === "eventLimit") {
+    return "model/event-limit";
+  }
+  if (kind === "responseTooLong") {
+    return "model/response-limit";
+  }
+  return "runtime/failure";
+}
+
 /** Sole mutable reducer for CLI editing, chat display, phase, and notices. */
-export class ApplicationController implements InputProjectionSource {
+export class ApplicationController
+  implements InputProjectionSource, InputAreaProjectionSource
+{
   readonly #activityLog = new ToolActivityLog();
   readonly #chat = new ChatState();
+  readonly #provider: ProviderPresentation | undefined;
   readonly #session: SessionController;
+  readonly #workspace: string | undefined;
   #notice: readonly string[];
   #phase: ApplicationPhase = "idle";
+  #transcriptGeometry:
+    | Readonly<{ contentRows: number; viewportRows: number }>
+    | undefined;
+  #transcriptScroll = ScrollState.followEnd();
   #checkpointObserved = false;
   #preparedCleanup = false;
   #preparedCheckpointed = false;
@@ -116,21 +175,19 @@ export class ApplicationController implements InputProjectionSource {
   constructor(
     runtimeAvailable: boolean,
     provider?: ProviderPresentation,
+    workspace?: string,
   ) {
-    this.#session = new SessionController(
-      runtimeAvailable ? provider : undefined,
-    );
-    this.#notice = runtimeAvailable
-      ? provider === undefined
-        ? Object.freeze(["Ready. Use /help for commands."])
-        : Object.freeze([
-            "Ready. Use /help for commands.",
-            provider.displayName + " · " + provider.model,
-          ])
-      : Object.freeze([
-          "Ready. Use /help for commands.",
-          "No model or tools are configured.",
-        ]);
+    this.#provider =
+      runtimeAvailable && provider !== undefined
+        ? Object.freeze({
+            authentication: provider.authentication,
+            displayName: provider.displayName,
+            model: provider.model,
+          })
+        : undefined;
+    this.#workspace = workspace;
+    this.#session = new SessionController(this.#provider);
+    this.#notice = Object.freeze([]);
   }
 
   get phase(): ApplicationPhase {
@@ -139,6 +196,14 @@ export class ApplicationController implements InputProjectionSource {
 
   get notice(): readonly string[] {
     return this.#notice;
+  }
+
+  get provider(): ProviderPresentation | undefined {
+    return this.#provider;
+  }
+
+  get workspace(): string | undefined {
+    return this.#workspace;
   }
 
   get draftLength(): number {
@@ -157,16 +222,35 @@ export class ApplicationController implements InputProjectionSource {
     return this.#chat.hasContent;
   }
 
+  get transcriptScroll(): ScrollState {
+    return this.#transcriptScroll;
+  }
+
+  get viewingHistory(): boolean {
+    return !this.#transcriptScroll.followingEnd;
+  }
+
   transcriptText(): string {
     return this.#chat.transcriptText();
   }
 
-  transcriptDocuments(): readonly string[] {
-    return this.#chat.transcriptDocuments();
+  transcriptEntries(): readonly TranscriptEntry[] {
+    return this.#chat.transcriptEntries();
   }
 
   project(columns: number): EditorProjection {
     return this.#session.projectEditor(columns);
+  }
+
+  projectArea(
+    columns: number,
+    maximumRows: number,
+  ): EditorAreaProjection {
+    return this.#session.projectEditorArea(columns, maximumRows);
+  }
+
+  projectCommandCompletion(): CommandCompletionProjection | undefined {
+    return this.#session.projectCommandCompletion();
   }
 
   /** Reduces one terminal input chunk into application effects. */
@@ -179,6 +263,37 @@ export class ApplicationController implements InputProjectionSource {
     return this.#session.end();
   }
 
+  /** Reconciles application-owned scroll state with one planned transcript slot. */
+  observeTranscriptGeometry(
+    contentRows: number,
+    viewportRows: number,
+  ): Result<void, ApplicationError> {
+    if (
+      !Number.isSafeInteger(contentRows) ||
+      contentRows < 0 ||
+      contentRows > TUI_LIMITS.frameRows ||
+      !Number.isSafeInteger(viewportRows) ||
+      viewportRows < 0 ||
+      viewportRows > TUI_LIMITS.frameRows
+    ) {
+      return err(new ApplicationError("scrollInvariant"));
+    }
+    if (viewportRows === 0) {
+      this.#transcriptGeometry = undefined;
+      return ok(undefined);
+    }
+    const reconciled = this.#transcriptScroll.reconcile(
+      contentRows,
+      viewportRows,
+    );
+    if (!reconciled.ok) {
+      return err(new ApplicationError("scrollInvariant"));
+    }
+    this.#transcriptScroll = reconciled.value;
+    this.#transcriptGeometry = Object.freeze({ contentRows, viewportRows });
+    return ok(undefined);
+  }
+
   /** Releases all display-only personal content before external cleanup waits. */
   clear(): void {
     this.#activityLog.clear();
@@ -186,6 +301,8 @@ export class ApplicationController implements InputProjectionSource {
     this.#chat.clear();
     this.#notice = Object.freeze([]);
     this.#phase = "idle";
+    this.#transcriptGeometry = undefined;
+    this.#transcriptScroll = ScrollState.followEnd();
     this.#checkpointObserved = false;
     this.#preparedCleanup = false;
     this.#preparedCheckpointed = false;
@@ -197,6 +314,35 @@ export class ApplicationController implements InputProjectionSource {
     if (action.kind === "notice") {
       this.#setNotice(action.lines);
       return update(true);
+    }
+    if (action.kind === "navigateTranscript") {
+      const geometry = this.#transcriptGeometry;
+      if (geometry === undefined) {
+        return update(false);
+      }
+      const pageRows = Math.max(1, geometry.viewportRows - 1);
+      const delta =
+        action.movement === "lineUp"
+          ? -1
+          : action.movement === "lineDown"
+            ? 1
+            : action.movement === "pageUp"
+              ? -pageRows
+              : pageRows;
+      const moved = this.#transcriptScroll.move(
+        delta,
+        geometry.contentRows,
+        geometry.viewportRows,
+      );
+      if (!moved.ok) {
+        this.#setNotice(["Transcript navigation state could not be updated."]);
+        return update(true);
+      }
+      const changed =
+        moved.value.offset !== this.#transcriptScroll.offset ||
+        moved.value.followingEnd !== this.#transcriptScroll.followingEnd;
+      this.#transcriptScroll = moved.value;
+      return update(changed);
     }
     if (action.kind === "approve" || action.kind === "deny") {
       const tool = this.#tool;
@@ -220,9 +366,7 @@ export class ApplicationController implements InputProjectionSource {
       }
       tool.decision = approved ? "approved" : "denied";
       this.#phase = "runningTool";
-      this.#setNotice([
-        approved ? "Tool approval submitted." : "Tool denial submitted.",
-      ]);
+      this.#setNotice([]);
       return update(true, [
         Object.freeze({
           approved,
@@ -257,7 +401,7 @@ export class ApplicationController implements InputProjectionSource {
         return update(true);
       }
       this.#phase = "cancelling";
-      this.#setNotice(["Cancelling the active turn..."]);
+      this.#setNotice([]);
       return update(true, [
         Object.freeze({ kind: "cancelTurn" as const, turnId }),
       ]);
@@ -284,8 +428,10 @@ export class ApplicationController implements InputProjectionSource {
       return err(new ApplicationError("invalidStartedTurn"));
     }
     this.#phase = "generating";
+    this.#transcriptGeometry = undefined;
+    this.#transcriptScroll = ScrollState.followEnd();
     this.#checkpointObserved = false;
-    this.#setNotice(["Generating. Ctrl+C cancels the active turn."]);
+    this.#setNotice([]);
     return ok(undefined);
   }
 
@@ -387,14 +533,7 @@ export class ApplicationController implements InputProjectionSource {
           turnId,
         };
         this.#phase = approvalRequired ? "awaitingApproval" : "runningTool";
-        this.#setNotice(
-          approvalRequired
-            ? [
-                "A tool requires explicit approval.",
-                "Use /approve or /deny; approval applies only to this call.",
-              ]
-            : ["Running a read-only tool."],
-        );
+        this.#setNotice([]);
         return ok(update(true));
       }
       if (eventKind === "toolStarted") {
@@ -421,7 +560,7 @@ export class ApplicationController implements InputProjectionSource {
         }
         tool.status = "started";
         this.#phase = "runningTool";
-        this.#setNotice(["Tool running. Ctrl+C cancels the active turn."]);
+        this.#setNotice([]);
         return ok(update(true));
       }
       if (eventKind === "toolFinished") {
@@ -462,11 +601,7 @@ export class ApplicationController implements InputProjectionSource {
         this.#tool = undefined;
         this.#checkpointObserved = true;
         this.#phase = "generating";
-        this.#setNotice([
-          event.status === "success"
-            ? "Tool finished. Continuing the turn."
-            : "Tool did not complete successfully. Continuing the turn.",
-        ]);
+        this.#setNotice([]);
         return ok(update(true));
       }
       if (eventKind === "turnPrepared") {
@@ -556,7 +691,9 @@ export class ApplicationController implements InputProjectionSource {
             : "Turn cancelled; no conversation changes were committed."
           : checkpointed
             ? "The turn failed; completed tool activity remains in conversation."
-            : "The model turn failed; no conversation changes were committed.";
+            : "The model turn failed (" +
+              turnFailureCode(outcome.failure) +
+              "); no conversation changes were committed.";
       this.#setNotice(
         cleanupPresent
           ? [outcomeLine, "The model stream also failed during cleanup."]
@@ -600,8 +737,8 @@ export class ApplicationController implements InputProjectionSource {
         }
         this.#setNotice(
           this.#preparedCleanup
-            ? ["Ready.", "The model stream reported a cleanup failure."]
-            : ["Ready."],
+            ? ["The model stream reported a cleanup failure."]
+            : [],
         );
       } else {
         const resolved = this.#preparedCheckpointed

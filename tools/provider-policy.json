@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "applicationDocument": "docs/PROVIDER-APPLICATIONS.md",
   "researchedOn": "2026-08-08",
   "providers": [
@@ -14,7 +14,8 @@
         "route": "openai-developer-forum",
         "visibility": "public",
         "submittedOn": "2026-08-08",
-        "reference": "https://community.openai.com/t/independent-native-oauth-public-client-registration-request-for-agent/1389585"
+        "reference": "https://community.openai.com/t/independent-native-oauth-public-client-registration-request-for-agent/1389585",
+        "response": null
       }
     },
     {
@@ -28,21 +29,28 @@
         "route": "anthropic-support-messenger",
         "visibility": "private",
         "submittedOn": "2026-08-08",
-        "reference": "anthropic-support-messenger-2026-08-08"
+        "reference": "anthropic-support-messenger-2026-08-08",
+        "response": null
       }
     },
     {
       "id": "kimi",
       "displayName": "Kimi Code",
       "eligibility": "blocked",
-      "blocker": "owned-client-registration-required",
+      "blocker": "provider-confirmed-public-oauth-unavailable",
       "request": {
         "state": "submitted",
         "kind": "public-client-authorization-inquiry",
         "route": "kimi-code-support-email",
         "visibility": "private",
         "submittedOn": "2026-08-08",
-        "reference": "kimi-support-email-2026-08-08"
+        "reference": "kimi-support-email-2026-08-08",
+        "response": {
+          "state": "received",
+          "receivedOn": "2026-08-11",
+          "outcome": "public-oauth-unavailable",
+          "reference": "kimi-support-response-2026-08-11"
+        }
       }
     },
     {
@@ -56,7 +64,8 @@
         "route": "xai-product-support-email",
         "visibility": "private",
         "submittedOn": "2026-08-08",
-        "reference": "xai-support-email-2026-08-08"
+        "reference": "xai-support-email-2026-08-08",
+        "response": null
       }
     }
   ],

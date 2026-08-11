@@ -1,28 +1,45 @@
 import {
   type Component,
   ComponentError,
-  ComponentStack,
-  err,
   type Frame,
-  InlineText,
-  InputLine,
-  MarkdownBlock,
+  InputArea,
+  ok,
+  Panel,
   type Result,
+  ScrollView,
   TextBlock,
-  TextSpan,
+  ThreeColumnLine,
   TUI_LIMITS,
+  type Tone,
+  type VerticalAllocation,
   VerticalLayout,
   type VerticalSlot,
   type Viewport,
 } from "@agent/tui";
 
+import {
+  createActivityDocument,
+  projectCurrentActivity,
+} from "./activity-view.js";
 import type { ApplicationController } from "./application.js";
-import type {
-  ToolActivitySnapshot,
-  ToolActivityState,
-} from "./tool-activity-log.js";
+import { createCommandCompletionDocument } from "./command-completion-view.js";
+import { createConversationDocument } from "./conversation-view.js";
+import {
+  constrain,
+  createSpacer,
+  createSpan,
+  insetEdges,
+} from "./view-components.js";
 
-const ACTIVITY_PREFERRED_ROWS = 6;
+const DOCUMENT_SLOT = 0;
+const ACTIVITY_LEAD_RHYTHM_ROWS = 1;
+const ACTIVITY_LEAD_RHYTHM_PRIORITY = 4;
+const COMPOSER_MAXIMUM_CONTENT_ROWS = 6;
+
+export type ChatRender = Readonly<{
+  frame: Frame;
+  transcript: VerticalAllocation;
+}>;
 
 function phaseLabel(application: ApplicationController): string {
   return application.phase === "generating"
@@ -30,146 +47,195 @@ function phaseLabel(application: ApplicationController): string {
     : application.phase === "awaitingApproval"
       ? "approval"
       : application.phase === "runningTool"
-        ? "tool"
+        ? "working"
         : application.phase === "cancelling"
           ? "cancelling"
           : "ready";
 }
 
-function attentionState(state: ToolActivityState): boolean {
-  return (
-    state === "approval" ||
-    state === "cancelled" ||
-    state === "cancelling" ||
-    state === "denied" ||
-    state === "failed"
-  );
+function phaseTone(application: ApplicationController): Tone {
+  return application.phase === "idle" ? "success" : "attention";
 }
 
-function createActivityStack(
-  activities: readonly ToolActivitySnapshot[],
-): Result<ComponentStack, ComponentError> {
-  const components: Component[] = [];
-  for (let position = activities.length - 1; position >= 0; position -= 1) {
-    const activity = activities.at(position);
-    if (activity === undefined) {
-      return err(new ComponentError("invalidComponent", position));
-    }
-    const rail = TextSpan.create("\u2502 ", "muted");
-    const state = TextSpan.create(
-      activity.state,
-      attentionState(activity.state) ? "attention" : "muted",
-    );
-    const name = TextSpan.create("  " + activity.name, "accent");
-    const risk = TextSpan.create("  " + activity.risk, "muted");
-    if (!rail.ok || !name.ok || !risk.ok || !state.ok) {
-      return err(new ComponentError("invalidRow", position));
-    }
-    const header = InlineText.create([
-      rail.value,
-      state.value,
-      name.value,
-      risk.value,
-    ]);
-    if (!header.ok) {
-      return header;
-    }
-    components.push(header.value);
-    if (activity.preview.length > 0) {
-      const preview = TextBlock.create(
-        "  scope  " + activity.preview,
-        "head",
-        "muted",
-      );
-      if (!preview.ok) {
-        return preview;
-      }
-      components.push(preview.value);
-    }
+function createFooter(
+  application: ApplicationController,
+): Result<ThreeColumnLine, ComponentError> {
+  const left = [];
+  if (application.workspace !== undefined) {
+    const workspace = createSpan(application.workspace, "plain");
+    if (!workspace.ok) return workspace;
+    left.push(workspace.value);
   }
-  return ComponentStack.create(components, "head");
+  const center = [];
+  const provider = application.provider;
+  if (provider !== undefined) {
+    const name = createSpan(provider.displayName, "plain");
+    const model = createSpan(" \u00b7 " + provider.model, "muted");
+    if (!name.ok) return name;
+    if (!model.ok) return model;
+    center.push(name.value, model.value);
+  }
+  const phase = createSpan(phaseLabel(application), phaseTone(application));
+  if (!phase.ok) return phase;
+  const right = [phase.value];
+  if (application.viewingHistory) {
+    const history = createSpan("\u2191 history  ", "muted");
+    if (!history.ok) return history;
+    right.unshift(history.value);
+  }
+  return ThreeColumnLine.create(left, center, right, { gap: 2 });
 }
 
-/** Maps CLI state onto generic owned vertical components and one safe frame. */
-export function createChatFrame(
+function createDocument(
+  application: ApplicationController,
+): Result<Component, ComponentError> {
+  return createConversationDocument(application.transcriptEntries());
+}
+
+function createComposer(
+  application: ApplicationController,
+): Result<Panel, ComponentError> {
+  const input = InputArea.create(application, {
+    maximumRows: COMPOSER_MAXIMUM_CONTENT_ROWS,
+    textTone: "plain",
+  });
+  if (!input.ok) return input;
+  return Panel.create(input.value, {
+    borderTone: "muted",
+    horizontalPadding: 1,
+  });
+}
+
+function createBottomChrome(
+  application: ApplicationController,
+): Result<Component, ComponentError> {
+  const footer = createFooter(application);
+  if (!footer.ok) return footer;
+  return insetEdges(footer.value);
+}
+
+/** Maps CLI state onto one planned generic conversation shell and safe frame. */
+export function createChatRender(
   application: ApplicationController,
   viewport: Viewport,
-): Result<Frame, ComponentError> {
-  const productName = TextSpan.create("agent", "accent");
-  if (!productName.ok) {
-    return err(new ComponentError("invalidRow", undefined));
-  }
-  const phase = TextSpan.create("  " + phaseLabel(application), "muted");
-  if (!phase.ok) {
-    return err(new ComponentError("invalidRow", undefined));
-  }
-  const header = InlineText.create([productName.value, phase.value]);
-  if (!header.ok) {
-    return header;
-  }
-  const transcript = MarkdownBlock.createDocuments(
-    application.transcriptDocuments(),
-    "tail",
+): Result<ChatRender, ComponentError> {
+  const focusedActivity = projectCurrentActivity(
+    application.activities,
+    application.activeTurnId !== undefined,
   );
-  if (!transcript.ok) {
-    return transcript;
-  }
-  const status = TextBlock.create(
+  const document = createDocument(application);
+  if (!document.ok) return document;
+  const documentView = ScrollView.create(
+    document.value,
+    application.transcriptScroll,
+  );
+  if (!documentView.ok) return documentView;
+  const documentColumn = constrain(documentView.value);
+  if (!documentColumn.ok) return documentColumn;
+
+  const notice = TextBlock.create(
     application.notice.join("\n"),
     "tail",
     application.phase === "awaitingApproval" ? "attention" : "muted",
   );
-  if (!status.ok) {
-    return status;
+  if (!notice.ok) return notice;
+  const noticeColumn = constrain(notice.value);
+  if (!noticeColumn.ok) return noticeColumn;
+
+  const activity = createActivityDocument(focusedActivity);
+  if (!activity.ok) return activity;
+  const activityColumn = constrain(activity.value);
+  if (!activityColumn.ok) return activityColumn;
+  let activityRows = 0;
+  if (focusedActivity !== undefined) {
+    const activityHeight = activityColumn.value.measure(viewport.columns);
+    if (!activityHeight.ok) return activityHeight;
+    activityRows = activityHeight.value.preferredRows;
   }
-  const activities = application.activities;
-  const activityStack = createActivityStack(activities);
-  if (!activityStack.ok) {
-    return activityStack;
-  }
-  const input = InputLine.create("> ", application, "accent");
-  if (!input.ok) {
-    return input;
-  }
+  const activityLeadRhythm = createSpacer(ACTIVITY_LEAD_RHYTHM_ROWS);
+  if (!activityLeadRhythm.ok) return activityLeadRhythm;
+
+  const commandCompletion = application.projectCommandCompletion();
+  const completion = createCommandCompletionDocument(commandCompletion);
+  if (!completion.ok) return completion;
+  const completionColumn = constrain(completion.value);
+  if (!completionColumn.ok) return completionColumn;
+
+  const composer = createComposer(application);
+  if (!composer.ok) return composer;
+  const composerColumn = constrain(composer.value);
+  if (!composerColumn.ok) return composerColumn;
+  const composerHeight = composerColumn.value.measure(viewport.columns);
+  if (!composerHeight.ok) return composerHeight;
+
+  const bottomChrome = createBottomChrome(application);
+  if (!bottomChrome.ok) return bottomChrome;
 
   const slots: readonly VerticalSlot[] = Object.freeze([
     Object.freeze({
-      component: header.value,
-      flex: 0,
-      minimumRows: 0,
-      preferredRows: 1,
-      priority: 0,
-    }),
-    Object.freeze({
-      component: transcript.value,
+      component: documentColumn.value,
       flex: 1,
-      minimumRows: application.hasTranscript ? 1 : 0,
+      minimumRows: 2,
       preferredRows: TUI_LIMITS.frameRows,
-      priority: 2,
-    }),
-    Object.freeze({
-      component: status.value,
-      flex: 0,
-      minimumRows: 1,
-      preferredRows: 2,
       priority: 3,
     }),
     Object.freeze({
-      component: activityStack.value,
+      component: noticeColumn.value,
       flex: 0,
-      minimumRows: activities.length > 0 ? 1 : 0,
-      preferredRows:
-        activities.length > 0 ? ACTIVITY_PREFERRED_ROWS : 0,
+      minimumRows: application.notice.length > 0 ? 1 : 0,
+      preferredRows: application.notice.length > 0 ? 2 : 0,
       priority: 4,
     }),
     Object.freeze({
-      component: input.value,
+      component: activityLeadRhythm.value,
+      flex: 0,
+      minimumRows: 0,
+      preferredRows:
+        focusedActivity === undefined ? 0 : ACTIVITY_LEAD_RHYTHM_ROWS,
+      priority: ACTIVITY_LEAD_RHYTHM_PRIORITY,
+    }),
+    Object.freeze({
+      component: activityColumn.value,
+      flex: 0,
+      minimumRows: focusedActivity === undefined ? 0 : 1,
+      preferredRows: activityRows,
+      priority: 5,
+    }),
+    Object.freeze({
+      component: completionColumn.value,
+      flex: 0,
+      minimumRows: commandCompletion === undefined ? 0 : 1,
+      preferredRows: commandCompletion?.items.length ?? 0,
+      priority: 6,
+    }),
+    Object.freeze({
+      component: composerColumn.value,
+      flex: 0,
+      minimumRows: 1,
+      preferredRows: composerHeight.value.preferredRows,
+      priority: 7,
+    }),
+    Object.freeze({
+      component: bottomChrome.value,
       flex: 0,
       minimumRows: 1,
       preferredRows: 1,
-      priority: 5,
+      priority: 4,
     }),
   ]);
   const layout = VerticalLayout.create(slots);
-  return layout.ok ? layout.value.render(viewport) : layout;
+  if (!layout.ok) return layout;
+  const planned = layout.value.plan(viewport);
+  if (!planned.ok) return planned;
+  const documentGeometry = planned.value.allocation(DOCUMENT_SLOT);
+  if (!documentGeometry.ok) return documentGeometry;
+  const frame = planned.value.render();
+  return frame.ok
+    ? ok(
+        Object.freeze({
+          frame: frame.value,
+          transcript: documentGeometry.value,
+        }),
+      )
+    : frame;
 }

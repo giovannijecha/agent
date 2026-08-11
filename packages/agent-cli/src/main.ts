@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import path from "node:path";
 import {
   argv,
   cwd,
@@ -30,6 +31,11 @@ const PROVIDER_PRESENTATION: ProviderPresentation = Object.freeze({
   displayName: "OpenCode Go",
   model: OPENCODE_GO_MODEL,
 });
+
+const workspaceRoot = cwd();
+const workspaceName = path.basename(workspaceRoot);
+const workspaceLabel =
+  workspaceName.length === 0 ? workspaceRoot : "./" + workspaceName;
 
 async function writeAndExit(
   output: WritableStream,
@@ -79,7 +85,12 @@ const configuration = resolveOpenCodeGoConfiguration(
 if (!configuration.ok) {
   stderr.write("agent rejected the provider configuration\n", () => exit(1));
 } else if (configuration.value.kind === "disabled") {
-  const result = await run(new NodeTerminalHost());
+  const result = await run(
+    new NodeTerminalHost(),
+    undefined,
+    undefined,
+    workspaceLabel,
+  );
   if (!result.ok) {
     const label = result.error.primary?.kind ?? "cleanup";
     stderr.write("agent stopped after a " + label + " failure\n", () => exit(1));
@@ -91,7 +102,7 @@ if (!configuration.ok) {
   const model = transport.ok
     ? OpenCodeGoModel.create(transport.value, AGENT_INSTRUCTIONS)
     : transport;
-  const tools = createBuiltinToolEngine(cwd());
+  const tools = createBuiltinToolEngine(workspaceRoot);
   if (!model.ok || !tools.ok) {
     stderr.write("agent could not initialize the configured provider\n", () =>
       exit(1),
@@ -101,6 +112,7 @@ if (!configuration.ok) {
       new NodeTerminalHost(),
       new AgentRuntime(model.value, tools.value),
       PROVIDER_PRESENTATION,
+      workspaceLabel,
     );
     if (!result.ok) {
       const label = result.error.primary?.kind ?? "cleanup";

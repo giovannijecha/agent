@@ -7,5 +7,7 @@ export const OPENCODE_GO_LIMITS = Object.freeze({
   sseLinesPerEvent: 256,
   sseTotalLines: 16_384,
   toolArgumentCodeUnits: 1_048_576,
+  toolBatchArgumentCodeUnits: 1_048_576,
+  toolCallsPerBatch: 32,
   wireEvents: 4_096,
 });

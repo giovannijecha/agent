@@ -87,7 +87,7 @@ test("rejects stale identities, contradictory transitions, and unsafe previews",
   );
 });
 
-test("enforces the activity bound and rejects duplicates", () => {
+test("enforces the activity bound independently of call identity", () => {
   const log = new ToolActivityLog();
   assert.ok(log.beginTurn(7).ok);
   for (let index = 0; index < TOOL_ACTIVITY_LIMITS.entries; index += 1) {
@@ -98,26 +98,41 @@ test("enforces the activity bound and rejects duplicates", () => {
   }
   assert.equal(request(log, "overflow", false).ok, false);
 
-  const duplicate = new ToolActivityLog();
-  assert.ok(duplicate.beginTurn(7).ok);
-  assert.ok(request(duplicate, "same", false).ok);
-  assert.ok(duplicate.start(7, "same").ok);
-  assert.ok(duplicate.finish(7, "same", "succeeded").ok);
-  assert.equal(request(duplicate, "same", false).ok, false);
+  const reused = new ToolActivityLog();
+  assert.ok(reused.beginTurn(7).ok);
+  assert.ok(request(reused, "same", false).ok);
+  assert.ok(reused.start(7, "same").ok);
+  assert.ok(reused.finish(7, "same", "succeeded").ok);
+  assert.ok(request(reused, "same", false).ok);
+  assert.ok(reused.start(7, "same").ok);
+  assert.ok(reused.finish(7, "same", "succeeded").ok);
 });
 
-test("retains a settled sequence until the next turn and scrubs on clear", () => {
+test("replaces settled activity and releases it when the turn settles", () => {
   const log = new ToolActivityLog();
   assert.ok(log.beginTurn(7).ok);
   assert.ok(request(log, "call-7", false).ok);
   assert.ok(log.start(7, "call-7").ok);
   assert.ok(log.finish(7, "call-7", "failed").ok);
+  assert.equal(log.snapshots().at(0)?.state, "failed");
+
+  assert.ok(request(log, "call-8", false).ok);
+  assert.deepEqual(log.snapshots(), [
+    {
+      name: "read_file",
+      preview: "",
+      risk: "read",
+      state: "queued",
+    },
+  ]);
+  assert.ok(log.start(7, "call-8").ok);
+  assert.ok(log.finish(7, "call-8", "succeeded").ok);
   assert.ok(log.finishTurn(7).ok);
-  assert.equal(log.snapshots().length, 1);
+  assert.deepEqual(log.snapshots(), []);
 
   assert.ok(log.beginTurn(8).ok);
   assert.deepEqual(log.snapshots(), []);
-  assert.ok(request(log, "call-8", true, 8).ok);
+  assert.ok(request(log, "call-9", true, 8).ok);
   log.clear();
   assert.deepEqual(log.snapshots(), []);
   assert.equal(log.finishTurn(8).ok, false);

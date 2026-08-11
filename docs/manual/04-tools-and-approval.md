@@ -13,12 +13,17 @@ exact approval summary, then enter `/approve` or `/deny`. The decision applies
 to that one pending call only and is never cached. The current exact names and
 risk classes are in the verified inventory below; no `execute` tool is admitted.
 
-Every tool uses the same activity rail. Its explicit states are `approval`,
+Every tool uses the same activity document. Its explicit states are `approval`,
 `queued`, `running`, `cancelling`, `succeeded`, `failed`, `denied`, and
-`cancelled`. The rail retains the current or most recently settled turn, orders
-newest activity first, and is cleared when the next turn is accepted. The safe
-approval scope is optional and collapses before the activity header when space
-is limited.
+`cancelled`. The log keeps exactly one contextual activity beside the composer
+while its turn is active. Approval,
+execution, and terminal outcome update that surface; the next tool replaces it,
+turn settlement removes it, and tool activity never enters the transcript.
+Every state uses the same borderless semantic surface. A restrained dark green,
+ochre, or red background reinforces success, active or approval, and negative
+terminal state; the written state remains explicit. The tool name is neutral
+italic text. Approval uses the same component and retains `/approve` and
+`/deny` before optional safe detail when space is limited.
 
 ## Guarantees and limits
 
@@ -29,6 +34,13 @@ Files are limited to 262,144 code units. Directory listing is limited to 512
 entries. Recursive exact-text search is limited to 512 directories, 4,096
 entries, 2,048 files, 256 matches, and 4,194,304 scanned code units.
 `create_file` refuses overwrite; `replace_text` requires exactly one match.
+
+One model response may select up to 32 ordered tool calls, subject to the
+remaining per-turn, argument, output, and conversation limits. The complete
+batch is validated before any handler starts. Handlers then run sequentially in
+provider order. Every write or execute call pauses for its own decision; one
+approval never covers another call. A batch is one decision by the same agent,
+not delegation or multi-agent orchestration.
 
 The harness exposes one canonical name for each admitted capability and no
 aliases. The verified inventory records why each current tool is necessary:
@@ -96,11 +108,14 @@ through the one log and one presentation function defined by decision 0022.
 - Built-in filesystem adapters: `packages/agent-cli/src/builtin-tools.ts`
 - Approval reducer: `packages/agent-cli/src/application.ts`
 - Activity lifecycle: `packages/agent-cli/src/tool-activity-log.ts`
-- Activity presentation: `packages/agent-cli/src/chat-view.ts`
+- Activity presentation: `packages/agent-cli/src/activity-view.ts`
 - Accepted execution design: `docs/decisions/0008-owned-tool-execution.md`
 - Lean-harness decision: `docs/decisions/0014-lean-tool-harness.md`
 - Process-containment decision: `docs/decisions/0015-process-tree-containment.md`
 - Native proof decision: `docs/decisions/0016-owned-native-process-containment.md`
 - Tool-activity decision: `docs/decisions/0022-owned-tool-activity-surface.md`
+- Semantic-activity decision: `docs/decisions/0033-owned-semantic-activity-surfaces.md`
+- Tool-call batch decision: `docs/decisions/0029-canonical-tool-call-batches.md`
+- Visual-grammar decision: `docs/decisions/0028-owned-conversation-visual-grammar.md`
 - Native broker contract: `packages/agent-cli/native/process-broker/broker.h`
 - Cross-platform proof: `tools/test/native-process-broker.test.mjs`

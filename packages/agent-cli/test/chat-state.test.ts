@@ -10,20 +10,20 @@ test("publishes a streamed pair only after exact completion", () => {
   assert.ok(chat.begin(1, "question").ok);
   assert.ok(chat.append(1, "ans").ok);
 
-  assert.equal(chat.transcriptText(), "you\nquestion\n\nagent\nans");
-  assert.deepEqual(chat.transcriptDocuments(), [
-    "you\nquestion",
-    "agent\nans",
+  assert.equal(chat.transcriptText(), "question\n\nans");
+  assert.deepEqual(chat.transcriptEntries(), [
+    { content: "question", role: "user" },
+    { content: "ans", role: "assistant" },
   ]);
   assert.ok(chat.append(1, "wer").ok);
   assert.ok(chat.prepare(1, "answer").ok);
   assert.ok(chat.commit(1).ok);
 
   assert.equal(chat.activeTurnId, undefined);
-  assert.equal(chat.transcriptText(), "you\nquestion\n\nagent\nanswer");
-  assert.deepEqual(chat.transcriptDocuments(), [
-    "you\nquestion",
-    "agent\nanswer",
+  assert.equal(chat.transcriptText(), "question\n\nanswer");
+  assert.deepEqual(chat.transcriptEntries(), [
+    { content: "question", role: "user" },
+    { content: "answer", role: "assistant" },
   ]);
 });
 
@@ -119,7 +119,7 @@ test("explicitly releases completed and prospective display content", () => {
   assert.equal(chat.transcriptText(), "");
 });
 
-test("tail-clips active message documents without joining their Markdown", () => {
+test("tail-clips active role entries without joining their Markdown", () => {
   const chat = new ChatState();
   assert.ok(chat.begin(1, "```text\nquestion").ok);
   for (let step = 0; step < 4; step += 1) {
@@ -133,12 +133,15 @@ test("tail-clips active message documents without joining their Markdown", () =>
     assert.ok(chat.checkpoint(1).ok);
   }
 
-  const documents = chat.transcriptDocuments();
-  const transcript = documents.join("\n\n");
+  const entries = chat.transcriptEntries();
+  const transcript = entries.map((entry) => entry.content).join("\n\n");
 
-  assert.equal(documents.length, 2);
-  assert.equal(documents.at(0), "you\n```text\nquestion");
-  assert.equal(documents.at(1)?.startsWith("agent\n"), true);
-  assert.equal(documents.at(1)?.endsWith("```"), true);
+  assert.equal(entries.length, 2);
+  assert.deepEqual(entries.at(0), {
+    content: "```text\nquestion",
+    role: "user",
+  });
+  assert.equal(entries.at(1)?.role, "assistant");
+  assert.equal(entries.at(1)?.content.endsWith("```"), true);
   assert.equal(transcript.length, TUI_LIMITS.displayTextCodeUnits);
 });

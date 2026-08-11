@@ -4,8 +4,13 @@ import { err, ok, type Result, TUI_LIMITS } from "@agent/tui";
 const MAX_COMPLETED_TURNS = 128;
 const MAX_COMPLETED_CODE_UNITS = 1_048_576;
 const TRANSCRIPT_SEPARATOR = "\n\n";
-const USER_DOCUMENT_PREFIX = "you\n";
-const ASSISTANT_DOCUMENT_PREFIX = "agent\n";
+
+export type TranscriptRole = "assistant" | "user";
+
+export type TranscriptEntry = Readonly<{
+  content: string;
+  role: TranscriptRole;
+}>;
 
 export type ChatStateErrorKind =
   | "activeTurn"
@@ -45,25 +50,31 @@ type ActiveTurn = {
   responseCodeUnits: number;
 };
 
-function turnDocuments(user: string, assistant: string): readonly string[] {
-  return Object.freeze([
-    USER_DOCUMENT_PREFIX + user,
-    ASSISTANT_DOCUMENT_PREFIX + assistant,
-  ]);
+function entry(role: TranscriptRole, content: string): TranscriptEntry {
+  return Object.freeze({ content, role });
+}
+
+function turnEntries(
+  user: string,
+  assistant: string,
+): readonly TranscriptEntry[] {
+  const entries: TranscriptEntry[] = [entry("user", user)];
+  if (assistant.length > 0) {
+    entries.push(entry("assistant", assistant));
+  }
+  return Object.freeze(entries);
 }
 
 function tail(text: string, codeUnits: number): string {
   return codeUnits === 0 ? "" : text.slice(-codeUnits);
 }
 
-function clippedTurnDocuments(
+function clippedTurnEntries(
   user: string,
   assistant: string,
-): readonly string[] {
+): readonly TranscriptEntry[] {
   const fixedCodeUnits =
-    USER_DOCUMENT_PREFIX.length +
-    TRANSCRIPT_SEPARATOR.length +
-    ASSISTANT_DOCUMENT_PREFIX.length;
+    assistant.length > 0 ? TRANSCRIPT_SEPARATOR.length : 0;
   const contentCodeUnits = Math.max(
     0,
     TUI_LIMITS.displayTextCodeUnits - fixedCodeUnits,
@@ -73,13 +84,13 @@ function clippedTurnDocuments(
     assistant,
     contentCodeUnits - retainedUser.length,
   );
-  return turnDocuments(retainedUser, retainedAssistant);
+  return turnEntries(retainedUser, retainedAssistant);
 }
 
-function documentCodeUnits(documents: readonly string[]): number {
+function entryCodeUnits(entries: readonly TranscriptEntry[]): number {
   return (
-    documents.reduce((total, document) => total + document.length, 0) +
-    Math.max(0, documents.length - 1) * TRANSCRIPT_SEPARATOR.length
+    entries.reduce((total, item) => total + item.content.length, 0) +
+    Math.max(0, entries.length - 1) * TRANSCRIPT_SEPARATOR.length
   );
 }
 
@@ -265,9 +276,9 @@ export class ChatState {
     this.#completedCodeUnits = 0;
   }
 
-  /** Builds isolated chronological message documents within the TUI text bound. */
-  transcriptDocuments(): readonly string[] {
-    const newest: Array<readonly string[]> = [];
+  /** Builds isolated chronological role/content entries within the TUI bound. */
+  transcriptEntries(): readonly TranscriptEntry[] {
+    const newest: Array<readonly TranscriptEntry[]> = [];
     let codeUnits = 0;
     const active = this.#active;
     if (active !== undefined) {
@@ -276,15 +287,17 @@ export class ChatState {
         [...active.segments, active.chunks.join("")]
           .filter((segment) => segment.trim().length > 0)
           .join(TRANSCRIPT_SEPARATOR);
-      const prospective = turnDocuments(
+      const prospective = turnEntries(
         active.user,
         assistant,
       );
-      const completeProspective = prospective.join(TRANSCRIPT_SEPARATOR);
+      const completeProspective = prospective
+        .map((item) => item.content)
+        .join(TRANSCRIPT_SEPARATOR);
       if (completeProspective.length > TUI_LIMITS.displayTextCodeUnits) {
-        const clipped = clippedTurnDocuments(active.user, assistant);
+        const clipped = clippedTurnEntries(active.user, assistant);
         newest.push(clipped);
-        codeUnits += documentCodeUnits(clipped);
+        codeUnits += entryCodeUnits(clipped);
       } else {
         newest.push(prospective);
         codeUnits += completeProspective.length;
@@ -295,8 +308,8 @@ export class ChatState {
       if (turn === undefined) {
         continue;
       }
-      const documents = turnDocuments(turn.user, turn.assistant);
-      const formattedLength = documentCodeUnits(documents);
+      const entries = turnEntries(turn.user, turn.assistant);
+      const formattedLength = entryCodeUnits(entries);
       const separator = newest.length === 0 ? 0 : TRANSCRIPT_SEPARATOR.length;
       if (
         codeUnits + separator + formattedLength >
@@ -304,16 +317,18 @@ export class ChatState {
       ) {
         break;
       }
-      newest.push(documents);
+      newest.push(entries);
       codeUnits += separator + formattedLength;
     }
     newest.reverse();
-    return Object.freeze(newest.flatMap((documents) => documents));
+    return Object.freeze(newest.flatMap((entries) => entries));
   }
 
-  /** Flattens the same isolated documents for plain text consumers. */
+  /** Flattens the same isolated content for plain text consumers. */
   transcriptText(): string {
-    return this.transcriptDocuments().join(TRANSCRIPT_SEPARATOR);
+    return this.transcriptEntries()
+      .map((item) => item.content)
+      .join(TRANSCRIPT_SEPARATOR);
   }
 
   #evictCompleted(): void {

@@ -18,7 +18,7 @@ import {
   type ApplicationEffect,
   type ApplicationError,
 } from "./application.js";
-import { createChatFrame } from "./chat-view.js";
+import { createChatRender } from "./chat-view.js";
 import type { ProviderPresentation } from "./commands.js";
 import {
   type ArbiterError,
@@ -162,11 +162,20 @@ async function renderApplication<E>(
   application: ApplicationController,
   viewport: Viewport,
 ): Promise<Result<void, RunFailure<E>>> {
-  const frame = createChatFrame(application, viewport);
-  if (!frame.ok) {
-    return err(Object.freeze({ kind: "frame" as const, error: frame.error }));
+  const prepared = createChatRender(application, viewport);
+  if (!prepared.ok) {
+    return err(Object.freeze({ kind: "frame" as const, error: prepared.error }));
   }
-  const rendered = await renderer.render(frame.value, viewport);
+  const observed = application.observeTranscriptGeometry(
+    prepared.value.transcript.contentRows,
+    prepared.value.transcript.viewportRows,
+  );
+  if (!observed.ok) {
+    return err(
+      Object.freeze({ kind: "application" as const, error: observed.error }),
+    );
+  }
+  const rendered = await renderer.render(prepared.value.frame, viewport);
   return rendered.ok
     ? ok(undefined)
     : err(terminalFailure("output", rendered.error));
@@ -520,6 +529,7 @@ export async function run<E, RE = never>(
   host: TerminalHost<E>,
   runtime?: RuntimeSession<RE>,
   provider?: ProviderPresentation,
+  workspace?: string,
 ): Promise<Result<void, RunError<E, RE>>> {
   if (!host.interactive) {
     let primary: RunFailure<E> | undefined;
@@ -562,7 +572,11 @@ export async function run<E, RE = never>(
     }
 
     if (primary === undefined && viewport !== undefined) {
-      application = new ApplicationController(runtime !== undefined, provider);
+      application = new ApplicationController(
+        runtime !== undefined,
+        provider,
+        workspace,
+      );
       arbiter = new EventArbiter(host, runtime);
       const initial = await renderApplication(renderer, application, viewport);
       if (!initial.ok) {
