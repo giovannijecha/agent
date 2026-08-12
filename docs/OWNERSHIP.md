@@ -58,6 +58,7 @@ structure.
 | 2026-08-09 | [OpenCode Go](https://opencode.ai/docs/go/) | Direct subscriber API-key contract, published Chat Completions endpoint, current model identifier, pricing class, and current Kimi K2.7 Code data-use statement | Eligibility for one independently implemented fixed-origin direct provider; model and privacy records for decision 0017 | None; no SDK, executable, source, sample, fixture, prompt, identity, or configuration reused |
 | 2026-08-09 | [OpenAI Chat Completions create contract](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create) | Public request, streaming SSE, finish-reason, and streamed tool-call data contract | Interoperability shape independently implemented by the owned OpenCode Go adapter | None; no SDK, sample, source, prompt, fixture, or implementation structure reused |
 | 2026-08-09 | [Pi source at `936aff0`](https://github.com/earendil-works/pi/tree/936aff00918de1187f085f123c2812d8f2d67745) | Alternate-screen renderer, scroll behavior, Markdown presentation, message composition, tool activity, and compact footer behavior | Observable synchronized redraw, differential updates, follow-end history, structured message hierarchy, and persistent tool lifecycle; basis for an independently designed incremental TUI roadmap | None; no source, tests, prompts, identifiers, component hierarchy, styles, fixtures, or product identity reused |
+| 2026-08-12 | User-supplied `agent-logo-pack.zip` | Eight selected PNG and SVG logo and wordmark assets plus their archive provenance | Exact canonical visual identity registered by immutable digest for repository, authentication, and future TUI use | Exact supplied assets admitted verbatim; no product source |
 | 2026-08-08 | [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0.txt) | Official license terms | Verbatim legal permission, conditions, patent grant, warranty disclaimer, and redistribution text in `LICENSE` | Legal terms reproduced verbatim; no product code |
 | 2026-08-08 | [GitHub Actions workflow syntax](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax), [event references](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows), and [ruleset status checks](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets) | Workflow events, event SHA/ref behavior, permissions, concurrency, timeouts, and required-check naming | Owned continuous-verification protocol and safe activation order | None; no action, workflow sample, script, or implementation source reused |
 
@@ -66,6 +67,10 @@ its provider documentation lagged current behavior. Inspection was read-only and
 commit-pinned. The local design remains independently derived through zero
 external packages, owned Node declarations, an allowlisted import surface, and
 a deny-by-default provider gate. Pi code and identity remain forbidden inputs.
+
+Later TUI comparison remains restricted to observable outcomes and does not
+admit a foreign hierarchy, module boundary, name, style literal, animation
+timing, redraw algorithm, or source structure.
 
 The local Harness manual was also inspected read-only with explicit user
 authorization. Only the need for a task-oriented, automatically checked manual

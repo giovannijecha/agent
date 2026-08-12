@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">.agent logo</title>
+  <desc id="desc">The lowercase word .agent.</desc>
+  <rect width="1024" height="1024" fill="#0B0D10"/>
+  <g fill="#FFFFFF">
+    <text
+      x="229"
+      y="578"
+      font-family="URW Gothic, Century Gothic, Futura, Avenir, sans-serif"
+      font-size="180"
+      font-weight="600"
+      textLength="566"
+      lengthAdjust="spacingAndGlyphs">.agent</text>
+  </g>
+</svg>

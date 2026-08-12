@@ -55,6 +55,21 @@ tests, update and rollback procedures, and an independent removal path.
   approval, privacy, cancellation, checkpoint, and removal contracts are
   accepted and tested independently.
 
+## Brand and motion rules
+
+- Keep `agent` as the product, repository, executable, and package identity.
+  Use exact lowercase `.agent` only as a visual signature.
+- Change a canonical brand asset only with its manifest record, digest,
+  documentation, decision record, and validator tests in the same change.
+- Reference inspection may establish only observable user outcomes. Do not
+  inherit foreign component structure, identifiers, styles, timings, or redraw
+  algorithms.
+- Animation phases are pure TUI inputs; scheduling remains at the CLI platform
+  boundary. TUI code never reads wall-clock time. A future CLI scheduler uses a
+  monotonic source, retains at most one pending tick, runs at no more than ten
+  frames per second, and yields to terminal events.
+- Phase 0 implements no visible animation.
+
 ## Documentation rules
 
 Every public module states its responsibility and exclusions. Every public

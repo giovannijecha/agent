@@ -31,6 +31,13 @@ agent.”
   stale. Never copy, translate, adapt, or reuse its implementation, tests,
   prompts, identifiers, or product identity; pin and record every inspection in
   `docs/OWNERSHIP.md`.
+- The canonical product, repository, executable, and package identity is
+  `agent`. The exact lowercase `.agent` wordmark is a visual signature only;
+  canonical brand assets and digests are registered in
+  `assets/brand/manifest.json`.
+- TUI reference inspection is limited to observable user outcomes. Never reuse
+  a foreign component hierarchy, module boundary, identifier, style literal,
+  animation timing, redraw algorithm, or source structure.
 - Subscription adapters require an `agent`-owned client registration or a
   provider-documented public identity for independent clients. Vendor SDKs,
   CLIs, app servers, ACP binaries, and borrowed OAuth identities are forbidden.
@@ -109,6 +116,10 @@ agent.”
   non-empty contextual activity from the transcript or notice above; activity
   stays directly adjacent to completion or the composer below. The leading row
   collapses before required content on constrained viewports.
+- Future motion keeps pure deterministic animation phases in `@agent/tui` and a
+  monotonic scheduler at the CLI platform boundary. The scheduler permits at
+  most one pending tick, runs at no more than ten frames per second, and yields
+  to terminal events. Phase 0 adds no visible animation.
 - `@agent/cli` owns commands, bounded display chat, the single-writer reducer,
   one bounded tool-activity lifecycle and presentation path, terminal/runtime
   arbitration, transcript-navigation state, built-in workspace tools, raw mode,

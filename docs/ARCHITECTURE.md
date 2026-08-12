@@ -44,6 +44,21 @@ argument parsing and hidden input stay in CLI and complete before the generic
 terminal host takes ownership. Cross-package access uses public package
 surfaces; deep and relative cross-package imports are forbidden.
 
+## Brand and clean-room presentation
+
+The canonical product identity is `agent`; lowercase `.agent` is the visual
+signature only. Canonical supplied assets and immutable digests live in
+`assets/brand/manifest.json`.
+
+Reference inspection may establish only observable user outcomes. It cannot
+supply component hierarchies, module boundaries, identifiers, styling values,
+animation timings, redraw algorithms, or source structure.
+
+Animation phases are pure TUI inputs; scheduling remains at the CLI platform
+boundary. A future monotonic scheduler may retain at most one pending tick,
+operate at no more than ten frames per second, and yield to terminal events.
+Phase 0 intentionally implements no visible animation.
+
 ## Single-agent execution model
 
 `agent` is one personal coding agent, not a multi-agent coordinator. One agent

@@ -583,6 +583,20 @@ verifier and cleaner rules, compiler registry, decisions 0015, 0016, and 0036,
 and the Linux CI job only when no proof or platform work consumes them. File
 tools, runtime text chat, TUI, and terminal lifecycle remain usable throughout.
 
+## Update or remove brand and motion contracts
+
+Update a canonical brand asset together with `assets/brand/manifest.json`, its
+digest, `docs/BRAND.md`, decision 0037, validator tests, and every published use.
+Rollback restores the complete prior manifest and asset set; never mix versions.
+Removing the visual signature removes its assets, references, registry entries,
+validator, tests, and decision while leaving the product identity `agent`.
+
+Future visible motion must preserve decision 0038: pure phase computation stays
+in TUI, scheduling stays in CLI, one monotonic tick is pending at most, terminal
+events win arbitration, and the rate remains bounded. Remove motion by deleting
+the CLI scheduler and phase input together; static component rendering remains.
+Phase 0 has no visible motion to remove.
+
 ## Release gate
 
 ```powershell

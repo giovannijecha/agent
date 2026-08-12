@@ -45,6 +45,9 @@ cleans and rebuilds derived output from owned inputs. Verification is offline an
 never contacts a provider. Remote checkout and approved toolchain provisioning
 finish before that offline gate begins.
 
+The brand validator rejects unregistered files, digest or dimension drift,
+unsafe SVG content, and identity drift before build or publication.
+
 ## Failure behavior
 
 The gate stops at the first structural error and returns nonzero. Build and test
@@ -84,6 +87,9 @@ repairable.
 - Owned verifier: `tools/verify.mjs`
 - Workspace ownership registry: `tools/ownership-policy.json`
 - Manual registry: `tools/manual-policy.json`
+- Canonical brand manifest: `assets/brand/manifest.json`
+- Brand validator: `tools/lib/brand-policy.mjs`
+- Brand validator tests: `tools/test/brand-policy.test.mjs`
 - Manual validator: `tools/lib/manual-policy.mjs`
 - Manual validator tests: `tools/test/manual-policy.test.mjs`
 - Publication registry: `tools/publication-policy.json`

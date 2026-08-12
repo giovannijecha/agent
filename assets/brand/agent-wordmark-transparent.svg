@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="320" viewBox="0 0 1280 320" role="img" aria-labelledby="title desc">
+  <title id="title">.agent wordmark</title>
+  <desc id="desc">The lowercase word .agent.</desc>
+  <g fill="#0B0D10">
+    <text
+      x="357"
+      y="223"
+      font-family="URW Gothic, Century Gothic, Futura, Avenir, sans-serif"
+      font-size="180"
+      font-weight="600"
+      textLength="566"
+      lengthAdjust="spacingAndGlyphs">.agent</text>
+  </g>
+</svg>
