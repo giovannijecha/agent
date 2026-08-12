@@ -34,6 +34,10 @@
     "docs/ARCHITECTURE.md",
     "docs/ENGINEERING.md",
     "docs/manual/07-publishing-and-governance.md",
-    "docs/decisions/0013-single-agent-execution.md"
+    "docs/decisions/0013-single-agent-execution.md",
+    "assets/brand/README.md",
+    "docs/BRAND.md",
+    "docs/decisions/0037-canonical-agent-brand.md",
+    "docs/decisions/0038-owned-deterministic-tui-motion.md"
   ]
 }

@@ -11,6 +11,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import { analyzeModule } from "./lib/module-specifiers.mjs";
+import { validateBrandPolicy } from "./lib/brand-policy.mjs";
 import { validateCiPolicy } from "./lib/ci-policy.mjs";
 import { validateManualPolicy } from "./lib/manual-policy.mjs";
 import { validateProviderPolicy } from "./lib/provider-policy.mjs";
@@ -25,6 +26,7 @@ if (
   throw new Error("usage: node tools/verify.mjs [--require-generated]");
 }
 const requireGenerated = arguments_[0] === "--require-generated";
+const brandManifest = readJson("assets/brand/manifest.json");
 const ciPolicy = readJson("tools/ci-policy.json");
 const policy = readJson("tools/ownership-policy.json");
 const manualPolicy = readJson("tools/manual-policy.json");
@@ -267,6 +269,16 @@ function verifyCiPolicy() {
   validateCiPolicy(ciPolicy, {
     workflowText: readText(ciPolicy.workflowPath),
     toolchain,
+  });
+}
+
+function verifyBrandPolicy() {
+  const ownedPaths = listFiles("assets/brand");
+  validateBrandPolicy(brandManifest, {
+    files: Object.fromEntries(
+      ownedPaths.map((file) => [file, readFileSync(absolute(file))]),
+    ),
+    ownedPaths,
   });
 }
 
@@ -556,6 +568,11 @@ function verifyRepositoryLayout() {
       continue;
     }
     if (/^docs\/manual\/(?:README|[0-9]{2}-[a-z0-9-]+)\.md$/u.test(file)) {
+      continue;
+    }
+    if (
+      /^assets\/brand\/(?:README\.md|manifest\.json|agent-auth-logo\.svg|agent-auth-logo-(?:256|512|1024)\.png|agent-wordmark-(?:dark|transparent)\.(?:png|svg))$/u.test(file)
+    ) {
       continue;
     }
     if (
@@ -988,6 +1005,7 @@ function verifyNodeModules() {
 verifyToolchain();
 verifyDocuments();
 verifyCiPolicy();
+verifyBrandPolicy();
 verifyManual();
 verifyProviderPolicy();
 verifyPublicationPolicy();
@@ -1003,5 +1021,5 @@ verifyImports();
 verifyNodeModules();
 
 process.stdout.write(
-  "Ownership verification passed: toolchain, CI, manual, publication, manifests, lockfile, source, imports, and workspace links.\n",
+  "Ownership verification passed: toolchain, CI, brand, manual, publication, manifests, lockfile, source, imports, and workspace links.\n",
 );

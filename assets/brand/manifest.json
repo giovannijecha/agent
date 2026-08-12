@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "identity": {
+    "product": "agent",
+    "wordmark": ".agent"
+  },
+  "source": {
+    "kind": "maintainer-provided-original",
+    "received": "2026-08-12",
+    "archiveSha256": "ddcd7fd1eeff44e9ae55d543cb9f2452cf52247f7da9fcfd2ed023406c2c43bf"
+  },
+  "copyright": "Copyright 2026 Giovanni Jecha",
+  "license": "Apache-2.0",
+  "palette": {
+    "canvas": "#0B0D10",
+    "darkSurfaceInk": "#FFFFFF",
+    "lightSurfaceInk": "#0B0D10"
+  },
+  "assets": [
+    {
+      "path": "assets/brand/agent-auth-logo-1024.png",
+      "mediaType": "image/png",
+      "width": 1024,
+      "height": 1024,
+      "role": "auth-mark",
+      "rendering": "canonical-raster",
+      "sha256": "7c886dd07bb11277a67cdf71f3df81be4882dad00b880b6e947b38bc0c07f3a0"
+    },
+    {
+      "path": "assets/brand/agent-auth-logo-256.png",
+      "mediaType": "image/png",
+      "width": 256,
+      "height": 256,
+      "role": "auth-mark",
+      "rendering": "canonical-raster",
+      "sha256": "66d24be492860dd1455ae37ba376a6fe779903302a76646a833fd24c8558a76d"
+    },
+    {
+      "path": "assets/brand/agent-auth-logo-512.png",
+      "mediaType": "image/png",
+      "width": 512,
+      "height": 512,
+      "role": "auth-mark",
+      "rendering": "canonical-raster",
+      "sha256": "e5534c1c6cef9b603864ce597a7362bf1c76d74eeb6078d79118108fee4f57b8"
+    },
+    {
+      "path": "assets/brand/agent-auth-logo.svg",
+      "mediaType": "image/svg+xml",
+      "width": 1024,
+      "height": 1024,
+      "role": "auth-mark",
+      "rendering": "font-dependent-vector",
+      "sha256": "420f49234ef26a8ece0338047724aa260b5af931ac46b16762d2aa94b5f06f0b"
+    },
+    {
+      "path": "assets/brand/agent-wordmark-dark.png",
+      "mediaType": "image/png",
+      "width": 1280,
+      "height": 320,
+      "role": "dark-wordmark",
+      "rendering": "canonical-raster",
+      "sha256": "1f06c3d2545f734046658b751c2c276e5c80ac92c6ce33a5498068b0368d27ea"
+    },
+    {
+      "path": "assets/brand/agent-wordmark-dark.svg",
+      "mediaType": "image/svg+xml",
+      "width": 1280,
+      "height": 320,
+      "role": "dark-wordmark",
+      "rendering": "font-dependent-vector",
+      "sha256": "ef732e25adf0cf5e333e4ea69eb6834d4c3febe48c5eac70e3bc5ac1d63cecf3"
+    },
+    {
+      "path": "assets/brand/agent-wordmark-transparent.png",
+      "mediaType": "image/png",
+      "width": 1280,
+      "height": 320,
+      "role": "light-wordmark",
+      "rendering": "canonical-raster",
+      "sha256": "dabd750ac580b5159b59787f0d98a5db73c6a54a22072a2f2cc9e138bc59fa42"
+    },
+    {
+      "path": "assets/brand/agent-wordmark-transparent.svg",
+      "mediaType": "image/svg+xml",
+      "width": 1280,
+      "height": 320,
+      "role": "light-wordmark",
+      "rendering": "font-dependent-vector",
+      "sha256": "ad2ab8c07c72c6803047811e3f7e5e3cefb603d2a6b189fb8b39ea62014404e2"
+    }
+  ]
+}

@@ -232,6 +232,9 @@ generic selection list, contrast refinement, tests, rollback, and removal.
 Decision [0035](../decisions/0035-owned-multiline-composer-and-paste.md) governs
 multiline composition, atomic bracketed paste, semantic word editing, bounds,
 terminal lifecycle, tests, rollback, and removal.
+Decision [0038](../decisions/0038-owned-deterministic-tui-motion.md) records
+deterministic phase ownership, scheduler bounds, terminal-event priority,
+disabled Phase 0 motion, tests, rollback, and removal.
 
 ## Evidence
 
@@ -254,6 +257,7 @@ terminal lifecycle, tests, rollback, and removal.
 - Tone contract: `docs/decisions/0019-owned-semantic-terminal-tones.md`
 - Scroll contract: `docs/decisions/0020-owned-scrollable-screen-foundation.md`
 - Structured-row contract: `docs/decisions/0021-owned-structured-terminal-rows.md`
+- Motion decision: `docs/decisions/0038-owned-deterministic-tui-motion.md`
 - Tool-activity contract: `docs/decisions/0022-owned-tool-activity-surface.md`
 - Markdown contract: `docs/decisions/0023-owned-bounded-markdown.md`
 - Transcript-navigation contract: `docs/decisions/0024-owned-transcript-navigation.md`

@@ -31,6 +31,10 @@ const EXPECTED_DOCUMENTS = Object.freeze([
   "docs/ENGINEERING.md",
   "docs/manual/07-publishing-and-governance.md",
   "docs/decisions/0013-single-agent-execution.md",
+  "assets/brand/README.md",
+  "docs/BRAND.md",
+  "docs/decisions/0037-canonical-agent-brand.md",
+  "docs/decisions/0038-owned-deterministic-tui-motion.md",
 ]);
 const FALSE_AUTHORSHIP_MARKERS = [
   /100% human(?:-written)?/iu,
@@ -197,6 +201,37 @@ function validatePublicDocuments(context) {
       "Current runtime remains sequential",
     ],
     "single-agent decision",
+  );
+  requireMarkers(
+    textFor(context, "assets/brand/README.md"),
+    ["# Brand assets", "visual wordmark only", "manifest.json"],
+    "brand asset registry",
+  );
+  requireMarkers(
+    textFor(context, "docs/BRAND.md"),
+    [
+      "# Brand system",
+      "The canonical product identity is `agent`.",
+      "visual signature",
+    ],
+    "brand contract",
+  );
+  requireMarkers(
+    textFor(context, "docs/decisions/0037-canonical-agent-brand.md"),
+    [
+      "# 0037: Canonical agent brand",
+      "The exact lowercase `.agent` wordmark is a visual signature",
+    ],
+    "brand decision",
+  );
+  requireMarkers(
+    textFor(context, "docs/decisions/0038-owned-deterministic-tui-motion.md"),
+    [
+      "# 0038: Owned deterministic TUI motion",
+      "Motion is state communication, not decoration.",
+      "Visible animation is not implemented by this decision.",
+    ],
+    "motion decision",
   );
 
   requireMarkers(

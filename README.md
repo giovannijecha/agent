@@ -1,5 +1,12 @@
 # agent
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/agent-wordmark-dark.png">
+    <img alt="agent" src="assets/brand/agent-wordmark-transparent.png" width="512">
+  </picture>
+</p>
+
 `agent` is an owned, zero-dependency personal coding agent with an original CLI
 and terminal UI. All product code is written here; the workspace contains no
 third-party runtime or development packages.
@@ -248,7 +255,8 @@ Process groups and `taskkill /T` remain rejected substitutes.
 `/exit` is the only exit command; there is no alternate alias.
 
 Read [the operator manual](docs/manual/README.md) to run and interpret the
-current product. Read [the architecture](docs/ARCHITECTURE.md),
+current product. Read [the brand contract](docs/BRAND.md),
+[the architecture](docs/ARCHITECTURE.md),
 [the engineering standard](docs/ENGINEERING.md), and
 [the ownership policy](docs/OWNERSHIP.md) before changing the project. Follow
 [the maintenance runbook](docs/MAINTENANCE.md) for package or toolchain changes.

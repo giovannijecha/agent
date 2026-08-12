@@ -43,6 +43,14 @@ The project does not claim that development occurred without tool assistance;
 it proves quality through original source, provenance, focused tests, explicit
 decisions, and the canonical release gate.
 
+Before publication, inspect `assets/brand/manifest.json` and `docs/BRAND.md`;
+confirm every published logo digest and the exact visual-only `.agent`
+wordmark. The canonical identity remains `agent`.
+
+Brand drift, an unregistered asset, a digest mismatch, or identity ambiguity
+fails publication. Update or remove assets only with their manifest entry,
+documentation, decision record, validator, tests, and every published use.
+
 ## Failure behavior
 
 Identity drift, altered license text, missing public documents, automatic tool
@@ -74,3 +82,18 @@ publish any required security notice.
 - Canonical Git line endings: `.gitattributes`
 - Continuous-verification decision: `docs/decisions/0012-owned-continuous-verification.md`
 - Single-agent decision: `docs/decisions/0013-single-agent-execution.md`
+- Brand asset registry: `assets/brand/README.md`
+- Brand manifest: `assets/brand/manifest.json`
+- Authentication SVG: `assets/brand/agent-auth-logo.svg`
+- Authentication PNG, 256 px: `assets/brand/agent-auth-logo-256.png`
+- Authentication PNG, 512 px: `assets/brand/agent-auth-logo-512.png`
+- Authentication PNG, 1024 px: `assets/brand/agent-auth-logo-1024.png`
+- Dark wordmark PNG: `assets/brand/agent-wordmark-dark.png`
+- Dark wordmark SVG: `assets/brand/agent-wordmark-dark.svg`
+- Transparent wordmark PNG: `assets/brand/agent-wordmark-transparent.png`
+- Transparent wordmark SVG: `assets/brand/agent-wordmark-transparent.svg`
+- Brand contract: `docs/BRAND.md`
+- Brand decision: `docs/decisions/0037-canonical-agent-brand.md`
+- Motion decision: `docs/decisions/0038-owned-deterministic-tui-motion.md`
+- Brand validator: `tools/lib/brand-policy.mjs`
+- Brand validator tests: `tools/test/brand-policy.test.mjs`
