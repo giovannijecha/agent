@@ -3,6 +3,11 @@
 - Status: Accepted
 - Date: 2026-08-13
 - Notice boundary amended by: decision 0041
+- Density amended by: decision 0043
+
+Decision 0043 removes internal vertical padding from activity surfaces while
+retaining one vertical padding row around user and composer content and the
+one-row external rhythm.
 
 ## Context
 

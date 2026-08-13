@@ -57,7 +57,8 @@
     "docs/decisions/0039-owned-responsive-conversation-stage.md",
     "docs/decisions/0040-owned-quiet-conversation-rhythm.md",
     "docs/decisions/0041-owned-ephemeral-contextual-notices.md",
-    "docs/decisions/0042-owned-workspace-trust-boundary.md"
+    "docs/decisions/0042-owned-workspace-trust-boundary.md",
+    "docs/decisions/0043-owned-conversation-density.md"
   ],
   "workspaces": [
     {

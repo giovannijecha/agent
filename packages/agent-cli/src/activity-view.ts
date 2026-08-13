@@ -13,6 +13,7 @@ import type {
   ToolActivitySnapshot,
   ToolActivityState,
 } from "./tool-activity-log.js";
+import { CONVERSATION_DENSITY } from "./conversation-density.js";
 import { createSpan, createStack } from "./view-components.js";
 
 type ActivityTone = Extract<Tone, SurfaceTone>;
@@ -84,7 +85,7 @@ function createActivityRows(
     horizontalPadding: 1,
     slant: "inherit",
     surface: semanticTone,
-    verticalPadding: 1,
+    verticalPadding: CONVERSATION_DENSITY.activityVerticalPadding,
   });
 }
 
@@ -98,9 +99,6 @@ export function createActivityDocument(
     if (!rendered.ok) return rendered;
     components.push(rendered.value);
   }
-  const stack = createStack(
-    components,
-    activity?.state === "approval" ? "head" : "tail",
-  );
+  const stack = createStack(components, "head");
   return stack;
 }

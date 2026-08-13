@@ -86,7 +86,9 @@ Transcript, activity, notice, completion, and composer use that projection;
 resizing recomputes it without mutating application state. The footer uses the
 same projection so the pulse ends exactly with the composer surface. User requests occupy one
 stage-wide neutral subtle surface with one cell
-of horizontal padding and italic default-foreground text. Assistant responses
+of horizontal and vertical padding and italic default-foreground text. A
+one-line request therefore paints three rows; multiline content adds only its
+visible content rows between the shared top and bottom padding. Assistant responses
 remain unboxed when they are ordinary prose. Fenced code and strict pipe tables
 use one content-fit transparent technical region. Complete fences with one or two
 visible logical rows use zero horizontal padding; larger fences and tables use
@@ -196,7 +198,10 @@ ochre, or red background reinforces success, active or approval, and negative
 terminal state; the written state remains explicit. The canonical tool name is
 neutral italic text. Tool identity, written state, safe scope, and approval
 actions use neutral plain or emphasized foregrounds for contrast against every
-semantic background. Approval uses the same component. The exact `/approve`
+semantic background. The surface has one horizontal padding cell and no vertical
+padding, so the current header plus detail occupies two rows. If only one row
+fits, the header retains tool identity and written state before optional detail.
+Approval uses the same component. The exact `/approve`
 and `/deny` commands receive retention
 priority over optional safe detail in a short viewport. No activity rail,
 border, private panel, or empty activity document is rendered.
@@ -275,6 +280,10 @@ governs the shared fluid stage, stage-wide user regions, tests, rollback, and
 removal. Decision [0040](../decisions/0040-owned-quiet-conversation-rhythm.md)
 governs neutral input surfaces, transparent technical regions, compact completion, uniform
 lower-shell rhythm, physical pulse alignment, tests, rollback, and removal.
+Decision [0043](../decisions/0043-owned-conversation-density.md) governs the
+frozen CLI density record, breathing user surfaces, compact activity surfaces,
+identity-first clipping, focused composer padding, reference viewport matrix,
+tests, rollback, and removal.
 
 ## Evidence
 
@@ -319,6 +328,7 @@ lower-shell rhythm, physical pulse alignment, tests, rollback, and removal.
 - Semantic activity surfaces: `docs/decisions/0033-owned-semantic-activity-surfaces.md`
 - Slash-command completion: `docs/decisions/0034-owned-slash-command-completion.md`
 - Quiet conversation rhythm: `docs/decisions/0040-owned-quiet-conversation-rhythm.md`
+- Conversation density: `docs/decisions/0043-owned-conversation-density.md`
 - Multiline composer, paste, and word editing: `docs/decisions/0035-owned-multiline-composer-and-paste.md`
 - Generic surface: `packages/agent-tui/src/surface.ts`
 - Composable text styles: `packages/agent-tui/src/text-style.ts`
@@ -328,6 +338,7 @@ lower-shell rhythm, physical pulse alignment, tests, rollback, and removal.
 - Generic scroll view: `packages/agent-tui/src/scroll-view.ts`
 - Terminal host: `packages/agent-cli/src/node-terminal-host.ts`
 - Product view composition: `packages/agent-cli/src/chat-view.ts`
+- Product density policy: `packages/agent-cli/src/conversation-density.ts`
 - Conversation document composition: `packages/agent-cli/src/conversation-view.ts`
 - Activity document composition: `packages/agent-cli/src/activity-view.ts`
 - Command completion composition: `packages/agent-cli/src/command-completion-view.ts`

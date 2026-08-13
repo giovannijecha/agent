@@ -2,11 +2,16 @@
 
 - Status: accepted
 - Date: 2026-08-11
+- Density amended by: decision 0043
 
 Decision 0034 refines foreground contrast without changing these semantic
 backgrounds: tool identity, written state, safe detail, and approval actions use
 neutral plain or emphasized foregrounds so they remain legible on every closed
 activity surface.
+
+Decision 0043 removes the surface's vertical padding and anchors constrained
+activity at its head so tool identity and written state survive before optional
+detail. The semantic background and lifecycle contract below remain current.
 
 ## Context
 

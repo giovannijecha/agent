@@ -74,7 +74,8 @@ agent.”
   private cards, empty metrics, or parallel view models. User and assistant
   content remain structured role entries but render without redundant `you` or
   `agent` labels. A user turn uses one stage-wide borderless subtle surface with
-  italic content; assistant prose remains unboxed, while fenced code and strict
+  one cell of horizontal and vertical padding and italic content;
+  assistant prose remains unboxed, while fenced code and strict
   pipe tables use one content-fit transparent structured region. Complete fences with at
   most two visible logical rows use zero horizontal padding; larger fences and
   tables retain one cell. An exact Markdown `---` renders through the shared
@@ -96,8 +97,10 @@ agent.”
   restrained dark green for success, ochre for active or approval, and red for
   negative terminal state. Tool identity is neutral italic text; identity,
   written state, safe detail, and approval actions use neutral high-contrast
-  foregrounds. Written state remains explicit, and no tool or approval path adds
-  a private rail, border, or panel. The contextual activity surface shows only the latest snapshot while a
+  foregrounds. Activity surfaces use one cell of horizontal padding and zero
+  vertical padding. When height is constrained, their head retains tool identity
+  and written state before optional detail. Written state remains explicit, and
+  no tool or approval path adds a private rail, border, or panel. The contextual activity surface shows only the latest snapshot while a
   turn is active: the next tool replaces it, turn settlement removes it, and
   tool activity never enters the transcript. An empty session renders no welcome
   or embedded help; operator guidance stays in the maintained manual. The

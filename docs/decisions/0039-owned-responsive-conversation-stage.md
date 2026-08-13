@@ -3,13 +3,16 @@
 - Status: Accepted
 - Date: 2026-08-12
 - Updated: 2026-08-13
-- Amended by: decisions 0040 and 0041
+- Amended by: decisions 0040, 0041, and 0043
 
 Decision 0040 makes technical content and completion surfaces transparent,
 retains neutral subtle user and input surfaces, removes the command hint, gives
 each adjacent lower-shell region the same optional one-row rhythm, and lets the
 footer pulse align with the composer's right edge. The fluid stage and pure
 projection below remain in force.
+Decision 0043 removes vertical padding from activity surfaces while retaining
+one vertical padding row around user and composer content and the shared
+external rhythm. Stage width and projection remain unchanged.
 
 ## Context
 

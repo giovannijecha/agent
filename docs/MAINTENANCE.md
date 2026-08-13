@@ -141,7 +141,8 @@ runtime, and core must stay green.
 Conversation-shell changes require panel, surface, text-style, split-line,
 three-column-line, horizontal-inset, side-rail, spacer, footer, composer,
 transcript-role, activity, notice, empty-state, tiny-viewport, semantic-state,
-and manual regressions under decisions 0026, 0027, 0028, 0039, 0040, and 0041. Keep the transcript
+and manual regressions under decisions 0026, 0027, 0028, 0039, 0040, 0041, and
+0043. Keep the transcript
 dominant, omit absent contextual blocks, and render only status facts already
 held by the composition root or application reducer. Preserve the footer's
 left/physical-center/right anchors and right-center-left narrow-width retention.
@@ -160,6 +161,12 @@ and language labels and lighter blues for fenced syntax only,
 and reserve green, yellow, and red for authoritative success, active, and
 negative state. Complete recognized fences may use only the five closed syntax
 roles; unknown or unlabeled fences remain plain.
+Conversation-density changes go through the one frozen CLI-owned record and
+decision 0043. Keep user and composer vertical padding at one, activity
+vertical padding at zero, and external rhythm at one optional row unless all
+three wide, medium, and short geometry matrices change together. On clipping,
+retain the activity head with tool identity and written state before optional
+detail. Do not duplicate these values in presenters or generic TUI components.
 A contextual notice remains one latest transparent region below activity and
 above completion or the composer. Preserve the independent muted-information
 and attention-warning levels, one-cell content alignment, replacement semantics,

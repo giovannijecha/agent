@@ -24,13 +24,13 @@ import {
 } from "./activity-view.js";
 import type { ApplicationController } from "./application.js";
 import { createCommandCompletionDocument } from "./command-completion-view.js";
+import { CONVERSATION_DENSITY } from "./conversation-density.js";
 import { createConversationStage } from "./conversation-stage.js";
 import { createConversationDocument } from "./conversation-view.js";
 import { isMotionActive } from "./motion-policy.js";
 import { createSpacer, createSpan } from "./view-components.js";
 
 const DOCUMENT_SLOT = 0;
-const CONVERSATION_RHYTHM_ROWS = 1;
 const CONVERSATION_RHYTHM_PRIORITY = 6;
 const COMPOSER_MAXIMUM_CONTENT_ROWS = 6;
 
@@ -107,7 +107,7 @@ function createComposer(
     horizontalPadding: 1,
     slant: "inherit",
     surface: "subtle",
-    verticalPadding: 1,
+    verticalPadding: CONVERSATION_DENSITY.composerVerticalPadding,
   });
   return surface;
 }
@@ -149,7 +149,7 @@ export function createChatRender(
     if (!activityHeight.ok) return activityHeight;
     activityRows = activityHeight.value.preferredRows;
   }
-  const conversationRhythm = createSpacer(CONVERSATION_RHYTHM_ROWS);
+  const conversationRhythm = createSpacer(CONVERSATION_DENSITY.rhythmRows);
   if (!conversationRhythm.ok) return conversationRhythm;
 
   const commandCompletion = application.projectCommandCompletion();
@@ -185,7 +185,7 @@ export function createChatRender(
       flex: 0,
       minimumRows: 0,
       preferredRows:
-        focusedActivity === undefined ? 0 : CONVERSATION_RHYTHM_ROWS,
+        focusedActivity === undefined ? 0 : CONVERSATION_DENSITY.rhythmRows,
       priority: CONVERSATION_RHYTHM_PRIORITY,
     }),
     Object.freeze({
@@ -200,7 +200,9 @@ export function createChatRender(
       flex: 0,
       minimumRows: 0,
       preferredRows:
-        application.notice.length === 0 ? 0 : CONVERSATION_RHYTHM_ROWS,
+        application.notice.length === 0
+          ? 0
+          : CONVERSATION_DENSITY.rhythmRows,
       priority: CONVERSATION_RHYTHM_PRIORITY,
     }),
     Object.freeze({
@@ -218,7 +220,9 @@ export function createChatRender(
       flex: 0,
       minimumRows: 0,
       preferredRows:
-        commandCompletion === undefined ? 0 : CONVERSATION_RHYTHM_ROWS,
+        commandCompletion === undefined
+          ? 0
+          : CONVERSATION_DENSITY.rhythmRows,
       priority: CONVERSATION_RHYTHM_PRIORITY,
     }),
     Object.freeze({
@@ -235,7 +239,7 @@ export function createChatRender(
       component: conversationRhythm.value,
       flex: 0,
       minimumRows: 0,
-      preferredRows: CONVERSATION_RHYTHM_ROWS,
+      preferredRows: CONVERSATION_DENSITY.rhythmRows,
       priority: CONVERSATION_RHYTHM_PRIORITY,
     }),
     Object.freeze({
@@ -249,7 +253,7 @@ export function createChatRender(
       component: conversationRhythm.value,
       flex: 0,
       minimumRows: 0,
-      preferredRows: CONVERSATION_RHYTHM_ROWS,
+      preferredRows: CONVERSATION_DENSITY.rhythmRows,
       priority: CONVERSATION_RHYTHM_PRIORITY,
     }),
     Object.freeze({

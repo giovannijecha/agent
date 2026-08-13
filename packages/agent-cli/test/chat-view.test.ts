@@ -15,6 +15,7 @@ import {
 import { ApplicationController } from "../dist/application.js";
 import { projectCurrentActivity } from "../dist/activity-view.js";
 import { createChatRender } from "../dist/chat-view.js";
+import { CONVERSATION_DENSITY } from "../dist/conversation-density.js";
 import { createConversationDocument } from "../dist/conversation-view.js";
 
 function viewport(columns: number, rows: number): Viewport {
@@ -115,6 +116,16 @@ function requestTool(
   );
   assert.ok(requested.ok);
 }
+
+test("owns one frozen conversation density policy", () => {
+  assert.deepEqual(CONVERSATION_DENSITY, {
+    activityVerticalPadding: 0,
+    composerVerticalPadding: 1,
+    rhythmRows: 1,
+    userVerticalPadding: 1,
+  });
+  assert.equal(Object.isFrozen(CONVERSATION_DENSITY), true);
+});
 
 test("keeps an empty session visually empty", () => {
   const application = new ApplicationController(false);
@@ -226,6 +237,12 @@ test("grows the composer for wrapped and pasted lines without displacing the foo
   assert.equal(text.some((row) => row.includes("second line that")), true);
   assert.equal(text.some((row) => row.includes("wraps")), true);
   assert.equal(text.some((row) => row.includes("third line")), true);
+  assert.equal(
+    rows.filter((row) =>
+      row.spans.some((span) => span.surface === "subtle"),
+    ).length,
+    6,
+  );
   assert.equal(rows.at(-1)?.text.includes(canonicalWorkspaceRoot), true);
   assert.equal(rendered.value.caret !== undefined, true);
 });
@@ -257,6 +274,7 @@ test("uses one subtle italic user region and one unboxed assistant turn", () => 
   const user = rows.find((row) => row.text.includes("question"));
   const assistant = rows.find((row) => row.text.includes("answer"));
   const userContent = user?.spans.filter((span) => span.text.trim().length > 0);
+  const userIndex = user === undefined ? -1 : rows.indexOf(user);
   assert.equal(user?.text.trim(), "question");
   assert.equal(
     userContent?.every((span) => span.slant === "italic"),
@@ -267,6 +285,28 @@ test("uses one subtle italic user region and one unboxed assistant turn", () => 
     true,
   );
   assert.equal(user?.text.includes("\u203a"), false);
+  assert.equal(rows[userIndex - 1]?.text.trim(), "");
+  assert.equal(
+    rows[userIndex - 1]?.spans.some((span) => span.surface === "subtle") ??
+      false,
+    true,
+  );
+  assert.equal(rows[userIndex + 1]?.text.trim(), "");
+  assert.equal(
+    rows[userIndex + 1]?.spans.some((span) => span.surface === "subtle") ??
+      false,
+    true,
+  );
+  assert.equal(
+    rows[userIndex - 2]?.spans.some((span) => span.surface === "subtle") ??
+      false,
+    false,
+  );
+  assert.equal(
+    rows[userIndex + 2]?.spans.some((span) => span.surface === "subtle") ??
+      false,
+    false,
+  );
   assert.equal(assistant?.text.trim(), "answer");
   assert.equal(
     assistant?.spans.find((span) => span.text.includes("answer"))?.tone,
@@ -278,6 +318,144 @@ test("uses one subtle italic user region and one unboxed assistant turn", () => 
   );
   assert.equal(rows.some((row) => row.text.trim() === "you"), false);
   assert.equal(rows.some((row) => row.text.trim() === "agent"), false);
+});
+
+test("frames multiline user turns with one shared padding row per side", () => {
+  const application = new ApplicationController(true);
+  assert.ok(application.turnAccepted(started(4, "first line\nsecond line")).ok);
+
+  const rendered = frame(application, 48, 14);
+  assert.ok(rendered.ok);
+  const rows = rendered.value.rows;
+  const first = rows.findIndex((row) => row.text.includes("first line"));
+  const second = rows.findIndex((row) => row.text.includes("second line"));
+  assert.ok(first >= 0);
+  assert.equal(second, first + 1);
+  assert.equal(
+    rows[first]?.spans.some((span) => span.surface === "subtle"),
+    true,
+  );
+  assert.equal(
+    rows[second]?.spans.some((span) => span.surface === "subtle"),
+    true,
+  );
+  assert.equal(rows[first - 1]?.text.trim(), "");
+  assert.equal(
+    rows[first - 1]?.spans.some((span) => span.surface === "subtle"),
+    true,
+  );
+  assert.equal(rows[second + 1]?.text.trim(), "");
+  assert.equal(
+    rows[second + 1]?.spans.some((span) => span.surface === "subtle"),
+    true,
+  );
+  assert.equal(
+    rows.filter((row) =>
+      row.spans.some((span) => span.surface === "subtle"),
+    ).length,
+    7,
+  );
+});
+
+test("applies compact surfaces and external rhythm at wide and medium sizes", () => {
+  for (const [columns, rowCount] of [[72, 22], [48, 14]] as const) {
+    const application = new ApplicationController(true);
+    assert.ok(application.turnAccepted(started(5, "question")).ok);
+    requestTool(application, {
+      approval: false,
+      callId: "density-read",
+      name: "read_file",
+      risk: "read",
+      turnId: 5,
+    });
+    application.feed("draft");
+
+    const rendered = frame(application, columns, rowCount);
+    assert.ok(rendered.ok);
+    const rows = rendered.value.rows;
+    const subtleIndexes = rows
+      .map((row, index) =>
+        row.spans.some((span) => span.surface === "subtle") ? index : -1,
+      )
+      .filter((index) => index >= 0);
+    const activityIndexes = rows
+      .map((row, index) =>
+        row.spans.some((span) => span.surface === "attention") ? index : -1,
+      )
+      .filter((index) => index >= 0);
+    const userIndex = rows.findIndex((row) => row.text.includes("question"));
+    const composerTop = (rendered.value.caret?.row ?? 0) - 1;
+    const firstActivity = activityIndexes.at(0);
+    const lastActivity = activityIndexes.at(-1);
+
+    assert.equal(subtleIndexes.length, 6);
+    assert.equal(activityIndexes.length, 2);
+    assert.ok(userIndex >= 0);
+    assert.ok(firstActivity !== undefined);
+    assert.ok(lastActivity !== undefined);
+    assert.equal(subtleIndexes.includes(userIndex), true);
+    assert.deepEqual(
+      subtleIndexes.slice(0, 3),
+      [userIndex - 1, userIndex, userIndex + 1],
+    );
+    assert.deepEqual(
+      subtleIndexes.slice(-3),
+      [composerTop, composerTop + 1, composerTop + 2],
+    );
+    assert.equal(rows[firstActivity - 1]?.text.trim(), "");
+    assert.equal(
+      rows[firstActivity - 1]?.spans.every(
+        (span) => span.surface === "none",
+      ),
+      true,
+    );
+    assert.equal(rows[lastActivity + 1]?.text.trim(), "");
+    assert.equal(composerTop, lastActivity + 2);
+  }
+});
+
+test("keeps required compact content and the caret in a short viewport", () => {
+  const application = new ApplicationController(true);
+  assert.ok(application.turnAccepted(started(6, "question")).ok);
+  requestTool(application, {
+    approval: false,
+    callId: "short-density-read",
+    name: "read_file",
+    risk: "read",
+    turnId: 6,
+  });
+  application.feed("draft");
+
+  const rendered = createChatRender(application, viewport(24, 8));
+  assert.ok(rendered.ok);
+  const rows = rendered.value.frame.rows;
+  const activityRows = rows.filter((row) =>
+    row.spans.some((span) => span.surface === "attention"),
+  );
+  const composerTop = (rendered.value.frame.caret?.row ?? 0) - 1;
+  const composerIndexes = rows
+    .map((row, index) =>
+      index >= composerTop &&
+        row.spans.some((span) => span.surface === "subtle")
+        ? index
+        : -1,
+    )
+    .filter((index) => index >= 0);
+  assert.equal(rows.length, 8);
+  assert.deepEqual(rendered.value.transcript, {
+    contentRows: 3,
+    viewportRows: 2,
+  });
+  assert.equal(rows.some((row) => row.text.includes("question")), true);
+  assert.deepEqual(rendered.value.frame.caret, { row: 5, column: 7 });
+  assert.deepEqual(composerIndexes, [4, 5, 6]);
+  assert.equal(activityRows.length, 1);
+  assert.equal(activityRows.at(0)?.text.includes("read_file"), true);
+  assert.equal(activityRows.at(0)?.text.includes("queued"), true);
+  assert.equal(
+    activityRows.every((row) => row.text.trim().length > 0),
+    true,
+  );
 });
 
 test("composes the maximum retained history plus an active turn within component bounds", () => {
@@ -375,7 +553,7 @@ test("renders successful tools on one borderless semantic surface", () => {
   const activityRows = rendered.value.rows.filter((row) =>
     row.spans.some((span) => span.surface === "success"),
   );
-  assert.equal(activityRows.length, 4);
+  assert.equal(activityRows.length, 2);
   assert.equal(activityRows.every((row) => !row.text.includes("│")), true);
   const state = rendered.value.rows
     .flatMap((row) => row.spans)
@@ -413,7 +591,7 @@ test("renders approval through the same borderless semantic surface", () => {
   const activityRows = rendered.value.rows.filter((row) =>
     row.spans.some((span) => span.surface === "attention"),
   );
-  assert.equal(activityRows.length, 4);
+  assert.equal(activityRows.length, 2);
   assert.equal(activityRows.every((row) => !row.text.includes("│")), true);
   const title = rendered.value.rows
     .flatMap((row) => row.spans)
@@ -608,7 +786,7 @@ test("moves slash selection, hides exact completion, and coexists with activity"
   const firstCompletionIndex = rows.findIndex((row) =>
     row.text.includes("/providers"),
   );
-  assert.equal(activityIndexes.length, 4);
+  assert.equal(activityIndexes.length, 2);
   const firstActivityIndex = activityIndexes.at(0);
   const lastActivityIndex = activityIndexes.at(-1);
   assert.ok(firstActivityIndex !== undefined);
@@ -668,7 +846,7 @@ test("separates activity from the composer with one stage rhythm row", () => {
   const composerTopIndex = rows.findIndex(
     (_row, index) => index === (active.value.caret?.row ?? 0) - 1,
   );
-  assert.equal(activityIndexes.length, 4);
+  assert.equal(activityIndexes.length, 2);
   const firstActivityIndex = activityIndexes.at(0);
   const lastActivityIndex = activityIndexes.at(-1);
   assert.ok(firstActivityIndex !== undefined);
