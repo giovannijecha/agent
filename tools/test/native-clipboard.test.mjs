@@ -40,12 +40,19 @@ function launch(input, arguments_ = []) {
   });
 }
 
-function assertRejected(input, arguments_ = []) {
-  const result = launch(input, arguments_);
+function assertRejectedResult(result) {
   assert.equal(result.error, undefined);
   assert.notEqual(result.status, 0);
   assert.equal(result.stdout.length, 0);
   assert.equal(result.stderr.length, 0);
+}
+
+function assertRejectedArguments(arguments_) {
+  assertRejectedResult(launch(undefined, arguments_));
+}
+
+function assertRejectedFrame(input) {
+  assertRejectedResult(launch(input));
 }
 
 test("native clipboard fixture accepts one exact scalar frame", () => {
@@ -58,7 +65,7 @@ test("native clipboard fixture accepts one exact scalar frame", () => {
 });
 
 test("native clipboard fixture rejects arguments and invalid frames", () => {
-  assertRejected(frame("agent copy\u{1f642}"), ["unexpected"]);
+  assertRejectedArguments(["unexpected"]);
 
   const badMagic = frame("agent copy\u{1f642}");
   badMagic[0] = 0;
@@ -97,6 +104,6 @@ test("native clipboard fixture rejects arguments and invalid frames", () => {
     trailing,
     frame("different scalar text"),
   ]) {
-    assertRejected(candidate);
+    assertRejectedFrame(candidate);
   }
 });
