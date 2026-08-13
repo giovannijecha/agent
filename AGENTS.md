@@ -131,14 +131,21 @@ agent.”
   mouse modes 1002 and 1006 for its alternate-screen lifetime and restores them
   on every cleanup path. The TUI decoder, logical text references, selection
   mark, exact visible HTTPS hyperlinks, and bounded OSC 52 encoder stay generic
-  and Node-free. The CLI routes the latest planned frame, owns stable transcript
-  document identities and monotonic double-click timing, reuses `ScrollState`,
-  and asks the same `LineEditor` to select composer text. Drag settles and
+  and Node-free. A failed OSC 8 or OSC 52 write leaves one renderer-owned
+  terminal-string recovery obligation; ST and a complete link close must settle
+  before later renderer output or cleanup. The CLI routes the latest planned
+  frame, owns stable transcript document identities and monotonic double-click
+  timing, reuses `ScrollState`,
+  and asks the same `LineEditor` to select composer text. Every action decoded
+  from one chunk crosses the synchronous reducer in order; an interrupt followed
+  by shutdown retains cancellation before one deduplicated exit. Drag settles and
   copies one bounded logical selection; double-click release copies one word,
   while holding the second press extends by complete word runs. On Windows x64,
   the CLI invokes the exact owned C17 clipboard broker and reports success only
-  after `CF_UNICODETEXT` transfer. Other platforms retain serialized OSC 52 and
-  report only that the terminal request was written. Clipboard settlements reuse
+  after `CF_UNICODETEXT` transfer. Its operation and post-kill cleanup deadlines
+  are both hard; late process events are inert. Other platforms retain
+  serialized OSC 52 and report only that the terminal request was written.
+  Clipboard settlements reuse
   the ephemeral notice lifecycle as a compact right-edge composer status that
   reserves no row or editor width and collapses when it cannot fit. Copy failures
   are nonfatal, a composer pointer action dismisses the current notice, resize
@@ -184,6 +191,8 @@ agent.”
   fail closed. One bounded owned native resolver obtains those protected roots
   from operating-system account and known-folder contracts with an empty
   environment; inherited home and temporary variables are never authoritative.
+  Its operation and post-kill cleanup deadlines are both hard, and late native
+  events cannot change the settled root result.
   The footer and every built-in tool consume that same canonical absolute root.
   One immutable CLI-owned read policy is loaded after root selection and before
   credentials, providers, tools, or terminal ownership. Non-removable built-in

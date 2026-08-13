@@ -236,7 +236,7 @@ export class SessionController {
             : undefined;
         } else if (event.kind === "enter") {
           if (exitCandidate === "/exit") {
-            actions.push(Object.freeze({ kind: "exit" as const }));
+            emit(Object.freeze({ kind: "exit" as const }));
             stopChunk = true;
           }
           exitCandidate = undefined;

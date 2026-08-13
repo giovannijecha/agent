@@ -29,6 +29,30 @@ class MemoryOutput implements TextOutput<string> {
   }
 }
 
+class PartialFailureOutput implements TextOutput<string> {
+  readonly chunks: string[] = [];
+  #failure: Readonly<{ error: string; fragment: string }> | undefined;
+
+  failNextAfter(fragment: string, error = "blocked"): void {
+    this.#failure = Object.freeze({ error, fragment });
+  }
+
+  async write(text: string): Promise<Result<void, string>> {
+    const failure = this.#failure;
+    if (failure === undefined) {
+      this.chunks.push(text);
+      return Object.freeze({ ok: true, value: undefined });
+    }
+    this.#failure = undefined;
+    const offset = text.indexOf(failure.fragment);
+    if (offset < 0) {
+      throw new Error("partial output fragment invariant");
+    }
+    this.chunks.push(text.slice(0, offset + failure.fragment.length));
+    return Object.freeze({ ok: false, error: failure.error });
+  }
+}
+
 function tonedFrame(
   lines: readonly string[],
   tones: readonly Tone[],
@@ -131,6 +155,89 @@ test("serializes a validated clipboard request between frame writes", async () =
   assert.ok(copied.ok);
   assert.equal(output.chunks.at(1), "\u001B]52;c;Y29weQ==\u001B\\");
   assert.equal(output.chunks.length, 3);
+  assert.equal(output.chunks.at(2)?.startsWith("\u001B\\\u001B]8;;"), false);
+});
+
+test("recovers a partial OSC 52 before finish cleanup", async () => {
+  const output = new PartialFailureOutput();
+  const renderer = new Renderer(output);
+  const payload = ClipboardPayload.create("copy");
+  assert.ok(payload.ok);
+  await renderer.render(frame(["agent"]), viewport());
+  output.failNextAfter("\u001B]52;c;");
+
+  const copied = await renderer.copy(payload.value);
+  const finished = await renderer.finish();
+
+  assert.deepEqual(copied, { ok: false, error: "blocked" });
+  assert.ok(finished.ok);
+  assert.equal(output.chunks.at(2), "\u001B\\\u001B]8;;\u001B\\");
+  assert.equal(output.chunks.at(3)?.startsWith("\u001B[0m"), true);
+});
+
+test("recovers a partial OSC 52 before the next frame", async () => {
+  const output = new PartialFailureOutput();
+  const renderer = new Renderer(output);
+  const payload = ClipboardPayload.create("copy");
+  assert.ok(payload.ok);
+  await renderer.render(frame(["agent"]), viewport());
+  output.failNextAfter("\u001B]52;c;");
+  await renderer.copy(payload.value);
+
+  const rendered = await renderer.render(frame(["ready"]), viewport());
+
+  assert.ok(rendered.ok);
+  assert.equal(output.chunks.at(2), "\u001B\\\u001B]8;;\u001B\\");
+  assert.equal(output.chunks.at(3)?.startsWith("\u001B[?2026h"), true);
+});
+
+test("recovers a partial OSC 8 before finish cleanup", async () => {
+  const output = new PartialFailureOutput();
+  const renderer = new Renderer(output);
+  await renderer.render(frame(["agent"]), viewport());
+  const span = TextSpan.create(
+    "https://example.com",
+    "accent",
+    undefined,
+    { hyperlink: "https://example.com" },
+  );
+  assert.ok(span.ok);
+  const row = RichRow.create([span.value]);
+  assert.ok(row.ok);
+  const linked = Frame.create([row.value], { row: 0, column: 0 });
+  assert.ok(linked.ok);
+  output.failNextAfter("\u001B]8;;https://example.com");
+
+  const rendered = await renderer.render(linked.value, viewport());
+  const finished = await renderer.finish();
+
+  assert.deepEqual(rendered, { ok: false, error: "blocked" });
+  assert.ok(finished.ok);
+  assert.equal(output.chunks.at(2), "\u001B\\\u001B]8;;\u001B\\");
+  assert.equal(output.chunks.at(3)?.startsWith("\u001B[?2026l"), true);
+});
+
+test("retries failed terminal-string recovery and then finishes idempotently", async () => {
+  const output = new PartialFailureOutput();
+  const renderer = new Renderer(output);
+  const payload = ClipboardPayload.create("copy");
+  assert.ok(payload.ok);
+  await renderer.render(frame(["agent"]), viewport());
+  output.failNextAfter("\u001B]52;c;");
+  await renderer.copy(payload.value);
+  output.failNextAfter("\u001B");
+
+  const failed = await renderer.finish();
+  const retried = await renderer.finish();
+  const settledSize = output.chunks.length;
+  const idempotent = await renderer.finish();
+
+  assert.deepEqual(failed, { ok: false, error: "blocked" });
+  assert.ok(retried.ok);
+  assert.ok(idempotent.ok);
+  assert.equal(output.chunks.at(-2), "\u001B\\\u001B]8;;\u001B\\");
+  assert.equal(output.chunks.at(-1)?.startsWith("\u001B[0m"), true);
+  assert.equal(output.chunks.length, settledSize);
 });
 
 test("renders only fixed semantic tones and resets each styled span", async () => {

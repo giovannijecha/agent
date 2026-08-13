@@ -1,6 +1,10 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import {
+  spawn,
+  type ChildProcess,
+  type SpawnOptions,
+} from "node:child_process";
 import path from "node:path";
-import { clearTimeout, setTimeout, type Timeout } from "node:timers";
+import { clearTimeout, setTimeout } from "node:timers";
 import { fileURLToPath } from "node:url";
 
 import { err, ok, type Result } from "@agent/core";
@@ -16,7 +20,19 @@ const CLIPBOARD_STDIO = Object.freeze([
   "pipe",
   "pipe",
 ] as const);
-const CLIPBOARD_TIMEOUT_MILLISECONDS = 2_000;
+export const PLATFORM_CLIPBOARD_DEADLINES = Object.freeze({
+  cleanupMilliseconds: 250,
+  operationMilliseconds: 2_000,
+});
+
+export type PlatformClipboardBoundary = Readonly<{
+  launch(
+    executable: string,
+    arguments_: readonly string[],
+    options: SpawnOptions,
+  ): ChildProcess;
+  schedule(listener: () => void, milliseconds: number): () => void;
+}>;
 
 export type ClipboardDisposition = "copied" | "unsupported";
 
@@ -47,24 +63,50 @@ function clipboardPath(): string {
   );
 }
 
+const platformClipboardBoundary: PlatformClipboardBoundary = Object.freeze({
+  launch: (executable, arguments_, options) =>
+    spawn(executable, arguments_, options),
+  schedule: (listener, milliseconds) => {
+    const deadline = setTimeout(listener, milliseconds);
+    return () => clearTimeout(deadline);
+  },
+});
+
 function observeClipboard(
   child: ChildProcess,
   frame: Uint8Array,
+  boundary: PlatformClipboardBoundary,
 ): Promise<Result<ClipboardDisposition, PlatformClipboardError>> {
   return new Promise((resolve) => {
     let forcedFailure: PlatformClipboardError | undefined;
     let settled = false;
-    let guard: Timeout | undefined;
+    let cancelCleanupDeadline: (() => void) | undefined;
+    let cancelOperationDeadline: (() => void) | undefined;
     const settle = (
       result: Result<ClipboardDisposition, PlatformClipboardError>,
     ): void => {
       if (settled) return;
       settled = true;
-      if (guard !== undefined) clearTimeout(guard);
+      cancelCleanupDeadline?.();
+      cancelOperationDeadline?.();
       resolve(result);
     };
     const stop = (error: PlatformClipboardError): void => {
-      forcedFailure ??= error;
+      if (settled || forcedFailure !== undefined) {
+        return;
+      }
+      forcedFailure = error;
+      cancelOperationDeadline?.();
+      cancelOperationDeadline = undefined;
+      try {
+        cancelCleanupDeadline = boundary.schedule(
+          () => settle(err(error)),
+          PLATFORM_CLIPBOARD_DEADLINES.cleanupMilliseconds,
+        );
+      } catch (_cause: unknown) {
+        settle(err(error));
+        return;
+      }
       try {
         child.stdin.destroy();
         if (!child.kill()) settle(err(error));
@@ -75,8 +117,13 @@ function observeClipboard(
     child.stdout.on("data", () => stop(failure("protocol")));
     child.stderr.on("data", () => stop(failure("protocol")));
     child.stdin.once("error", () => stop(failure("native")));
-    child.once("error", () => settle(err(failure("launch"))));
+    child.once("error", () =>
+      settle(err(forcedFailure ?? failure("launch"))),
+    );
     child.once("close", (code, signal) => {
+      if (settled) {
+        return;
+      }
       if (forcedFailure !== undefined) {
         settle(err(forcedFailure));
       } else if (code === 0 && signal === null) {
@@ -85,13 +132,15 @@ function observeClipboard(
         settle(err(failure("native")));
       }
     });
-    guard = setTimeout(
+    cancelOperationDeadline = boundary.schedule(
       () => stop(failure("timeout")),
-      CLIPBOARD_TIMEOUT_MILLISECONDS,
+      PLATFORM_CLIPBOARD_DEADLINES.operationMilliseconds,
     );
     try {
       child.stdin.write(frame);
-      child.stdin.end();
+      if (!settled && forcedFailure === undefined) {
+        child.stdin.end();
+      }
     } catch (_cause: unknown) {
       stop(failure("launch"));
     }
@@ -101,11 +150,17 @@ function observeClipboard(
 /** Exact removable platform clipboard boundary for confirmed Windows copies. */
 export class PlatformClipboard implements ClipboardPort {
   readonly #architecture: string;
+  readonly #boundary: PlatformClipboardBoundary;
   readonly #platform: string;
 
-  constructor(platform: string, architecture: string) {
+  constructor(
+    platform: string,
+    architecture: string,
+    boundary: PlatformClipboardBoundary = platformClipboardBoundary,
+  ) {
     this.#platform = platform;
     this.#architecture = architecture;
+    this.#boundary = boundary;
     Object.freeze(this);
   }
 
@@ -120,14 +175,14 @@ export class PlatformClipboard implements ClipboardPort {
       return Promise.resolve(err(failure("protocol")));
     }
     try {
-      const child = spawn(clipboardPath(), EMPTY_ARGUMENTS, {
+      const child = this.#boundary.launch(clipboardPath(), EMPTY_ARGUMENTS, {
         cwd: packageRoot(),
         env: EMPTY_ENVIRONMENT,
         shell: false,
         stdio: CLIPBOARD_STDIO,
         windowsHide: true,
       });
-      return observeClipboard(child, encoded.value);
+      return observeClipboard(child, encoded.value, this.#boundary);
     } catch (_cause: unknown) {
       return Promise.resolve(err(failure("launch")));
     }

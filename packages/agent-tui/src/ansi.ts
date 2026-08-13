@@ -21,7 +21,7 @@ export const MOUSE_SGR_DISABLE = "\u001B[?1006l";
 export const SYNCHRONIZED_OUTPUT_BEGIN = "\u001B[?2026h";
 export const SYNCHRONIZED_OUTPUT_END = "\u001B[?2026l";
 export const STYLE_RESET = "\u001B[0m";
-const STRING_TERMINATOR = "\u001B\\";
+export const TERMINAL_STRING_TERMINATOR = "\u001B\\";
 
 function toneParameters(tone: Tone): readonly string[] {
   switch (tone) {
@@ -84,10 +84,10 @@ export function beginStyle(
 
 /** Opens one prevalidated visible HTTPS hyperlink. */
 export function openHyperlink(target: string): string {
-  return "\u001B]8;;" + target + STRING_TERMINATOR;
+  return "\u001B]8;;" + target + TERMINAL_STRING_TERMINATOR;
 }
 
-export const HYPERLINK_CLOSE = "\u001B]8;;" + STRING_TERMINATOR;
+export const HYPERLINK_CLOSE = "\u001B]8;;" + TERMINAL_STRING_TERMINATOR;
 
 /** Converts a zero-based cell position into an ANSI cursor command. */
 export function moveTo(zeroBasedRow: number, zeroBasedColumn: number): string {

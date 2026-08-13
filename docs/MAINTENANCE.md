@@ -229,14 +229,20 @@ gesture, Shift native-selection escape hatch, exact visible HTTPS destination,
 65,536-code-unit copy bound, release settlement, word-wise double-click drag,
 truthful `copied`/`requested`/`failed` notices, typed failures, and cleanup retry.
 Preserve exact within-chunk decoder order by applying pointer actions before
-later editor mutations through the one synchronous application reducer.
+later editor mutations through the one synchronous application reducer. Route
+interrupt, EOF, command, and exit through the same emission function; retain
+cancellation before shutdown and deduplicate only a repeated terminal exit
+effect within that chunk.
 Clipboard notice presentation must retain one generation and timer, one closed
 composer placement, constrained collapse, and identical transcript, composer,
 and caret geometry before and after settlement. Composer pointer interaction
 dismisses that generation; transcript pointer interaction does not.
 Keep the Windows x64 clipboard port, UTF-16LE protocol, native C17 broker, exact
-path, empty environment, fixed timeout, hidden-window ownership, bounded retry,
-and fixture tests together. To remove native copy, delete that CLI boundary and
+path, empty environment, two-second operation deadline, 250-millisecond cleanup
+deadline, late-event guards, hidden-window ownership, bounded retry, and fixture
+tests together. A partial OSC 8 or OSC 52 write must retain renderer recovery
+until ST and one complete link close succeed before any later renderer output.
+To remove native copy, delete that CLI boundary and
 native build target together while retaining the truthful OSC 52 request path.
 To remove all clipboard copy, delete both paths and application settlement while
 retaining selection. To remove links, delete both the HTTPS interaction metadata
@@ -427,7 +433,9 @@ Linux must continue to query the account database for `geteuid()` and protect
 `FOLDERID_LocalAppData` for the current user, derive `Temp`, and release every
 operating-system allocation. The Node adapter must use the exact package-local
 binary, one 8,212-byte maximum frame, 4,096-byte roots, strict scalar UTF-8, and
-a five-second deadline. Do not add an environment fallback.
+a five-second operation deadline followed by a 250-millisecond cleanup deadline.
+It must settle even without `close` and ignore late events. Do not add an
+environment fallback.
 
 A root-selection change must prove invalid and inaccessible input, non-directory
 input, symbolic-link aliases, filesystem volume roots, the exact user home, the
