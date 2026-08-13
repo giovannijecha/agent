@@ -28,6 +28,12 @@ symlink traversal, unauthorized tool execution, cancellation and cleanup,
 secret retention, credential storage, provider identity, protocol decoding,
 and verification bypasses.
 
+Normal startup canonicalizes the exact current directory once and rejects a
+filesystem volume root, the exact user home, and the exact shared temporary
+directory before credentials or terminal ownership. It never widens authority
+by discovering a parent Git repository. The same immutable absolute root feeds
+the footer and every built-in tool.
+
 Model and tool text cannot provide styling metadata or terminal escapes. Generic
 components and frames validate one closed semantic tone per printable row; only
 the owned renderer emits fixed ANSI and resets it during row output and cleanup.
@@ -36,9 +42,12 @@ The project enables one exact outbound HTTPS path for an operator-configured
 OpenCode Go API key. The owned startup prompt disables echo, bounds input, and
 restores terminal state before TUI startup. It enables no provider OAuth login,
 arbitrary network
-transport, persistent credential or session store, redirect policy, or
-child-process tool. Reports about provider traffic should identify the exact
-CLI transport, wire decoder, or configuration boundary involved.
+transport, persistent credential or session store, or redirect policy. The
+single `run_process` capability admits only an exactly approved bounded `node`
+invocation through owned descendant-tree containment. That containment is not a
+filesystem or network sandbox; approved code retains the launching user's
+operating-system authority. Reports about provider traffic should identify the
+exact CLI transport, wire decoder, or configuration boundary involved.
 
 ## Disclosure
 

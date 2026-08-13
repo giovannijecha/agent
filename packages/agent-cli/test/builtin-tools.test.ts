@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
+import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import { execPath } from "node:process";
 import test from "node:test";
@@ -14,6 +22,7 @@ import {
   type ProcessRunRequest,
   type ProcessRunner,
 } from "../dist/process-runner.js";
+import { WorkspaceBoundary } from "../dist/workspace-boundary.js";
 
 const cancellation: ToolCancellation = Object.freeze({
   requested: false,
@@ -32,11 +41,18 @@ const processRunner: ProcessRunner = Object.freeze({
     ),
 });
 
-function engine(
+const workspaceProtection = Object.freeze({
+  homeDirectory: homedir(),
+  temporaryDirectory: tmpdir(),
+});
+
+async function engine(
   root: string,
   runner: ProcessRunner = processRunner,
-): ToolEngine {
-  const created = createBuiltinToolEngine(root, {
+): Promise<ToolEngine> {
+  const boundary = await WorkspaceBoundary.create(root, workspaceProtection);
+  assert.ok(boundary.ok);
+  const created = createBuiltinToolEngine(boundary.value, {
     nodeExecutable: execPath,
     processRunner: runner,
   });
@@ -60,7 +76,21 @@ function engine(
 
 test("runs only the registered program with structured arguments", async () => {
   await withWorkspace(async (workspace) => {
-    const tools = engine(workspace);
+    let received: ProcessRunRequest | undefined;
+    const trackingRunner: ProcessRunner = Object.freeze({
+      run: async (request: ProcessRunRequest) => {
+        received = request;
+        return ok(
+          Object.freeze({
+            exitCode: 0,
+            outcome: "exited" as const,
+            stderr: "",
+            stdout: request.arguments.join("\u0000"),
+          }),
+        );
+      },
+    });
+    const tools = await engine(workspace, trackingRunner);
     const execution = await execute(tools, "run_process", {
       arguments: ["--version", "literal value"],
       program: "node",
@@ -68,6 +98,7 @@ test("runs only the registered program with structured arguments", async () => {
     });
     assert.equal(execution.result.status, "success");
     assert.equal(output(execution).get("stdout"), "--version\u0000literal value");
+    assert.equal(received?.workingDirectory, await realpath(workspace));
 
     const unsupportedInput = structuredValueFromUnknown({
       arguments: [],
@@ -104,7 +135,7 @@ test("rejects process text and approval projections beyond their exact limits", 
         );
       },
     });
-    const tools = engine(workspace, trackingRunner);
+    const tools = await engine(workspace, trackingRunner);
 
     const oversizedUtf8 = structuredValueFromUnknown({
       arguments: [
@@ -156,7 +187,7 @@ test("preserves a nonzero process result as a recoverable failed tool outcome", 
         ),
     });
     const execution = await execute(
-      engine(workspace, failedRunner),
+      await engine(workspace, failedRunner),
       "run_process",
       {
         arguments: ["--owned"],
@@ -173,7 +204,7 @@ test("preserves a nonzero process result as a recoverable failed tool outcome", 
   });
 });
 
-test("distinguishes invalid roots from invalid platform adapters", () => {
+test("distinguishes invalid roots from invalid platform adapters", async () => {
   assert.deepEqual(
     createBuiltinToolEngine("relative", {
       nodeExecutable: execPath,
@@ -182,7 +213,32 @@ test("distinguishes invalid roots from invalid platform adapters", () => {
     { ok: false, error: { kind: "invalidRoot" } },
   );
   assert.deepEqual(
-    createBuiltinToolEngine(path.resolve("."), {
+    createBuiltinToolEngine(Object.freeze({ root: path.resolve(".") }), {
+      nodeExecutable: execPath,
+      processRunner,
+    }),
+    { ok: false, error: { kind: "invalidRoot" } },
+  );
+  const forgedPrototype = Object.create(WorkspaceBoundary.prototype) as {
+    root?: string;
+  };
+  Object.defineProperty(forgedPrototype, "root", {
+    value: path.resolve("."),
+  });
+  assert.deepEqual(
+    createBuiltinToolEngine(forgedPrototype, {
+      nodeExecutable: execPath,
+      processRunner,
+    }),
+    { ok: false, error: { kind: "invalidRoot" } },
+  );
+  const boundary = await WorkspaceBoundary.create(
+    path.resolve("."),
+    workspaceProtection,
+  );
+  assert.ok(boundary.ok);
+  assert.deepEqual(
+    createBuiltinToolEngine(boundary.value, {
       nodeExecutable: "relative",
       processRunner,
     }),
@@ -232,7 +288,7 @@ async function withWorkspace(
 
 test("creates, reads, replaces, lists, and searches bounded workspace text", async () => {
   await withWorkspace(async (workspace) => {
-    const tools = engine(workspace);
+    const tools = await engine(workspace);
     const created = await execute(tools, "create_file", {
       content: "α € 😀\nbeta\n",
       path: "notes.txt",
@@ -265,7 +321,7 @@ test("creates, reads, replaces, lists, and searches bounded workspace text", asy
 
 test("rejects parent traversal, overwrite, ambiguous replacement, and symlinks", async () => {
   await withWorkspace(async (workspace, outside) => {
-    const tools = engine(workspace);
+    const tools = await engine(workspace);
     await writeFile(path.join(workspace, "duplicate.txt"), "x x", {
       encoding: "utf8",
       flag: "wx",

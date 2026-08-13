@@ -365,6 +365,33 @@ source, delete the root `bin` and installation script, argument parser, prompt,
 tests, decision, documentation, and verifier expectations together; retain
 `npm start` as the rollback entry point.
 
+## Update or remove the workspace trust boundary
+
+Decision 0042, `workspace-boundary.ts`, the CLI composition root, built-in tool
+registration, exact footer projection, focused boundary regressions, manuals,
+and policy registries form one contract. Resolve the startup working directory
+once before credentials, providers, runtime, tools, or terminal ownership. Keep
+the accepted value immutable, canonical, absolute, and shared; no handler or UI
+path may derive a different authority root.
+
+A root-selection change must prove invalid and inaccessible input, non-directory
+input, symbolic-link aliases, filesystem volume roots, the exact user home, the
+exact shared temporary directory, hostile protection values, content-free
+failures, tool consumption, and exact footer display. Never add implicit Git
+root discovery because it can widen the operator's selected authority.
+
+Process containment remains a separate contract. Changing the workspace root
+does not prove that approved Node code is filesystem- or network-sandboxed. Any
+such isolation requires its own Windows and Linux decision and adversarial
+proof. The privacy and stale-safe effect-plan tranches in decision 0042 remain
+future behavior until their own code, tests, documentation, and rollback land.
+
+To remove the current root boundary, first remove every filesystem and process
+capability that consumes it or replace it with a stronger accepted authority.
+Then remove its composition, footer claim, source, tests, policy entries, and
+current-behavior documentation together. Do not leave a raw working-directory
+string feeding any surviving tool.
+
 ## Research or enable a provider
 
 1. Check current official provider documentation. If it lags observed behavior,

@@ -28,9 +28,11 @@ italic text. Approval uses the same component and retains `/approve` and
 
 ## Guarantees and limits
 
-Every tool receives a validated structured object and resolves paths beneath
-one explicit absolute workspace root. Absolute inputs, parent escape, symbolic
-links, unsupported file kinds, unknown fields, and oversized data fail closed.
+Every tool receives a validated structured object and the same immutable
+canonical workspace boundary selected before startup. The footer exposes that
+exact absolute root; tool handlers do not select or recanonicalize another one.
+Absolute model inputs, parent escape, symbolic links, unsupported file kinds,
+unknown fields, and oversized data fail closed.
 Files are limited to 262,144 code units. Directory listing is limited to 512
 entries. Recursive exact-text search is limited to 512 directories, 4,096
 entries, 2,048 files, 256 matches, and 4,194,304 scanned code units.
@@ -49,6 +51,13 @@ limited to 8,192 UTF-16 code units before execution. Descendants are capped at
 16, stdout and stderr at 65,536 bytes each, and execution at 120 seconds.
 `run_process` runs terminating commands only. A local server or other persistent
 process is not retained after the bounded invocation.
+
+The workspace boundary constrains path selection for built-in filesystem tools
+and the initial process working directory. Whole-tree containment constrains
+the approved process lifetime and descendants. Neither is a machine sandbox:
+approved Node code still has the launching user's filesystem and network
+authority. Do not approve untrusted programs on the assumption that they are
+confined to the displayed workspace.
 
 One model response may select up to 32 ordered tool calls, subject to the
 remaining per-turn, argument, output, and conversation limits. The complete
@@ -125,6 +134,8 @@ function defined by decision 0022.
 
 - Tool contracts and engine: `packages/agent-tools/src/index.ts`
 - Built-in filesystem adapters: `packages/agent-cli/src/builtin-tools.ts`
+- Canonical workspace boundary: `packages/agent-cli/src/workspace-boundary.ts`
+- Workspace trust decision: `docs/decisions/0042-owned-workspace-trust-boundary.md`
 - Process runner port: `packages/agent-cli/src/process-runner.ts`
 - Node process adapter: `packages/agent-cli/src/node-process-runner.ts`
 - Native broker protocol: `packages/agent-cli/src/process-broker-protocol.ts`

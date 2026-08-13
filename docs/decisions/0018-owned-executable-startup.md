@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-09
+- Amended: 2026-08-13 by decision 0042 for workspace-first startup
 
 ## Context
 
@@ -29,6 +30,12 @@ disabled. Enter selects providerless startup and Ctrl+C cancels startup. The
 prompt restores cooked input and removes listeners before the TUI takes terminal
 ownership. Non-TTY execution never prompts and preserves exact plain output.
 
+For normal startup, decision 0042 resolves the exact current directory into one
+canonical immutable workspace boundary before the environment credential is
+read or the prompt starts. Unsafe or inaccessible roots fail with one fixed
+content-free diagnostic and cannot acquire provider, tool, runtime, or terminal
+authority. Help and version remain independent of workspace selection.
+
 The prompt is a CLI platform adapter, not part of core, runtime, tools, TUI, or
 the provider wire package. It returns only an in-memory credential or a typed
 content-free outcome. It writes no file, environment variable, history entry,
@@ -37,10 +44,11 @@ mask character, telemetry event, or diagnostic cause.
 ## Verification
 
 Focused tests cover exact arguments, hidden input, editing, skip, cancellation,
-invalid and oversized input, non-TTY behavior, listener removal, and raw-mode
-restoration. The canonical smoke test proves the executable remains escape-free
-and providerless when redirected. Manifest verification binds the binary and
-script definitions exactly.
+invalid and oversized input, non-TTY behavior, listener removal, raw-mode
+restoration, workspace canonicalization, protected-root rejection, and exact
+footer display. The canonical smoke test proves the executable remains
+escape-free and providerless when redirected. Manifest verification binds the
+binary and script definitions exactly.
 
 ## Update, rollback, and removal
 

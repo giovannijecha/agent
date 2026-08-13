@@ -194,8 +194,14 @@ allowed to import approved `node:` APIs. It uses only
 named stdin, stdout, stderr, and exit capabilities rather than a broad process
 object. Reusable terminal mechanics belong behind the TUI contract. Model turn
 mechanics remain behind the runtime session contract. It also implements the
-registered bounded Node filesystem tools. Every path is rooted, canonicalized,
-and denied on traversal or symlink crossing.
+registered bounded Node filesystem tools. Before credentials, providers,
+runtime, tools, or terminal ownership, one CLI-owned boundary canonicalizes the
+exact startup directory. It rejects filesystem volume roots, the exact user
+home, and the exact shared temporary directory, and it never walks upward to a
+Git root. One immutable canonical absolute path feeds the footer, filesystem
+handlers, and process working-directory resolution. Model-selected relative
+paths are then denied on traversal or symbolic-link crossing; handlers do not
+replace or independently recanonicalize the authority root.
 CLI also owns the exact OpenCode Go HTTPS adapter and startup configuration. It
 admits only `opencode.ai:443`, never follows an application-selected origin,
 keeps the API key in memory, and exposes only bytes and response metadata to the
@@ -210,7 +216,9 @@ broker through the operating system API so Node can initialize without
 inheriting user state. Matching platform tests prove descendant cancellation,
 bounded output, owner-loss behavior, isolated target environment, and complete
 cleanup. The capability runs terminating commands only and never retains a
-background or persistent service.
+background or persistent service. This is descendant lifecycle containment,
+not a machine sandbox: approved Node code still has the launching user's
+filesystem and network authority outside its selected initial directory.
 
 ## Lean tool harness
 

@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-07
+- Amended: 2026-08-13 by decision 0042 for canonical root ownership
 
 ## Context
 
@@ -38,9 +39,12 @@ advertised or allowlisted until the replacing cross-platform process-tree
 boundary proves cancellation, timeout, environment isolation, output bounds,
 owner-loss behavior, and cleanup without a shell.
 
-Every path is resolved beneath one explicit workspace root. Symlink traversal,
-absolute input paths, parent traversal, oversized input/output, unknown fields,
-and unsupported file kinds fail closed. Read-only calls run automatically.
+Decision 0042 supersedes raw workspace-root composition. The CLI resolves the
+exact startup directory once into one immutable canonical boundary before
+credentials, providers, tools, or terminal ownership. Every path is resolved
+beneath that accepted root. Symlink traversal, absolute input paths, parent
+traversal, oversized input/output, unknown fields, and unsupported file kinds
+fail closed. Read-only calls run automatically.
 Write and execute calls require the exact interactive `/approve` or `/deny`
 command for the single pending call. No approval is cached or broadened.
 Mutation descriptors declare a bounded approval summary. The CLI shows the

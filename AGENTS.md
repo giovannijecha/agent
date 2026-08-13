@@ -149,7 +149,12 @@ agent.”
   one bounded tool-activity lifecycle and presentation path, terminal/runtime
   arbitration, transcript-navigation state, built-in workspace tools, raw mode,
   filesystem and process access, and all Node lifecycle; it is the only
-  platform boundary.
+  platform boundary. Before credentials, providers, tools, or terminal
+  ownership, it resolves the exact startup directory into one immutable
+  canonical workspace boundary. It never discovers a broader repository root;
+  volume roots, the exact user home, and the exact shared temporary directory
+  fail closed. The footer and every built-in tool consume that same canonical
+  absolute root.
 - `run_process` is the only admitted execute tool. It accepts the registered
   `node` token, literal arguments, and one workspace-relative directory; it
   never accepts a shell, executable path, PATH lookup, stdin, inherited or
