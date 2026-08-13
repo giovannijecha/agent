@@ -31,9 +31,11 @@ non-regular, or oversized policy makes startup fail closed.
 
 `read_file` rejects denied targets before observing them. `list_directory`
 omits denied children, and `search_text` prunes denied directories and files
-before opening them. These rules protect only automatic built-in disclosure;
-they do not scan file contents or alter approved writes. Start `agent` from the
-narrowest intended directory and keep credentials outside it whenever possible.
+before opening them. Resolved targets pass the same policy again, and Windows
+DOS short-name aliases fail closed rather than bypassing a long-name denial.
+These rules protect only automatic built-in disclosure; they do not scan file
+contents or alter approved writes. Start `agent` from the narrowest intended
+directory and keep credentials outside it whenever possible.
 An approved `run_process` invocation is lifecycle-contained but not filesystem-
 
 ## Terminal selection and links

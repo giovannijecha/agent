@@ -440,8 +440,11 @@ Before observing a read target, normalize its lexical path through the injected
 policy. A denied `read_file` target returns `permission`; a denied listing or
 search root does the same. Filter listing children and prune search directories
 and files before canonicalization or content reads, while still counting every
-raw directory entry against the existing traversal bounds. Never copy this
-logic into schemas, runtime, TUI, or individual private matchers.
+raw directory entry against the existing traversal bounds. Reapply that same
+policy after canonical resolution and at later identity checks. On Windows,
+reject DOS short-name components such as `~1` before observation because the
+runtime may preserve the alias spelling. Never copy this logic into schemas,
+runtime, TUI, or individual private matchers.
 New-file creation refuses overwrite;
 replacement requires exactly one old-text occurrence. Enumerate directories
 incrementally and bound directory entries, searched directories, aggregate

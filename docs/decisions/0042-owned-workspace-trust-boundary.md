@@ -180,17 +180,26 @@ The owned grammar is deliberately smaller than `.gitignore`:
 
 Matching is case-sensitive on Linux. Windows matching folds ASCII `A` through
 `Z` only; non-ASCII names remain exact so the policy does not claim to reproduce
-undocumented filesystem collation. Rule and target work is bounded by the file,
-rule, line, segment, tool-path, and traversal limits already enforced.
+undocumented filesystem collation. Windows target components containing a DOS
+short-name suffix such as `~1` fail closed because Node's path canonicalization
+can preserve that alias spelling instead of recovering the long name needed by
+the deny rules. This deliberately rejects an otherwise valid long component
+with the same spelling rather than allowing an ambiguous disclosure path. Rule
+and target work is bounded by the file, rule, line, segment, tool-path, and
+traversal limits already enforced.
 
 `read_file` checks the normalized lexical path before observing the filesystem
-and returns `permission` for a denial. `list_directory` rejects a denied target
-and omits denied children from its bounded result. `search_text` rejects a
-denied starting directory, prunes denied directories before traversal, and
-never opens or returns a denied file. Denied entries still count against the
-existing raw enumeration limits so exclusions cannot create unbounded work.
-No denied path or content enters tool results, provider requests, transcript,
-activity, notices, errors, logs, fixtures, or documentation.
+and returns `permission` for a denial. Every accepted read target is checked
+again under the same policy after canonical resolution and at the existing
+pre- and post-observation identity checks. `list_directory` rejects a denied
+target and omits denied children from its bounded result. `search_text` rejects
+a denied starting directory, prunes denied directories before traversal, and
+never opens or returns a denied file; its resolved directories and files pass
+the same shared canonical-policy check before observation. Denied entries still
+count against the existing raw enumeration limits so exclusions cannot create
+unbounded work. No denied path or content enters tool results, provider
+requests, transcript, activity, notices, errors, logs, fixtures, or
+documentation.
 
 This tranche does not alter `create_file`, `replace_text`, or `run_process`.
 Writes still require exact approval, and approved Node code remains capable of
@@ -238,6 +247,8 @@ must fail closed rather than being presented as active.
   temporary roots.
 - Automatic content-bearing reads and directory discovery share one immutable
   built-in and workspace-local denial policy.
+- Windows DOS short-name aliases fail closed, and every resolved read path is
+  rechecked by the same policy before observation.
 - No new model-facing tool, provider, dependency, package, or TUI primitive is
   introduced.
 - The full trust-boundary milestone remains incomplete until stale-safe effect
@@ -288,11 +299,12 @@ limits, matching, descendant denial, and platform case behavior. Loader tests
 cover absence, strict UTF-8, file type, symbolic links, size, canonical
 rechecks, immutable session snapshots, content-free errors, and invalid
 boundaries and platforms. Built-in tool tests prove pre-observation denial,
-filtered listings, pruned search, unchanged enumeration bounds, and absence of
-denied path and content in outputs. Process-level startup tests prove malformed
-policy rejection before credentials and terminal ownership. Later effect-plan
-changes add their own adversarial matrix before being described as current
-behavior. The canonical Windows and Linux gate must pass for every tranche.
+resolved-path policy rechecks, Windows DOS-alias denial, filtered listings,
+pruned search, unchanged enumeration bounds, and absence of denied path and
+content in outputs. Process-level startup tests prove malformed policy rejection
+before credentials and terminal ownership. Later effect-plan changes add their
+own adversarial matrix before being described as current behavior. The
+canonical Windows and Linux gate must pass for every tranche.
 
 ## Update, rollback, and removal
 
@@ -302,6 +314,12 @@ this decision, native and startup tests, boundary tests, built-in tool tests,
 architecture, manual, maintenance guidance, and ownership policy together. The
 native resolver is rebuilt with the registered C17 and Clang toolchain on every
 supported platform; generated binaries remain ignored.
+
+Changing read-path canonicalization, Windows alias handling, or the points at
+which the policy is rechecked requires this decision, all three read-tool
+regressions, privacy and security prose, manual, maintenance guidance, and both
+platform gates to change together. No handler may substitute a private matcher
+or treat canonicalization as an authorization decision.
 
 The platform resolver can be rolled back independently only by replacing it
 with another accepted environment-independent source for both protected roots.

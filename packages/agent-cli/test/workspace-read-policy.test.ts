@@ -152,6 +152,10 @@ test("uses platform-declared case behavior without locale folding", async () => 
     assert.equal(denied(windows, "docs/file.owned"), true);
     assert.equal(denied(windows, ".ENV.LOCAL"), true);
     assert.equal(denied(linux, ".ENV.LOCAL"), false);
+    assert.equal(denied(windows, "CREDEN~1/secret.txt"), true);
+    assert.equal(denied(windows, "PACKAG~12.JSO"), true);
+    assert.equal(denied(linux, "CREDEN~1/secret.txt"), false);
+    assert.equal(denied(windows, "owned~1suffix.txt"), false);
     assert.equal(denied(windows, "ärea/secret"), false);
     assert.equal(denied(windows, "Ärea/secret"), true);
   });

@@ -442,9 +442,11 @@ non-symlink loading, immutable session snapshots, Linux exact case, and Windows
 ASCII-only folding. Update grammar, loader, startup, built-in tool, privacy,
 security, manual, and removal evidence together. Keep policy construction
 separate from tool mechanics: inject one root-bound value and enforce it before
-read observation. Listing and search must prune denied children while counting
-raw entries against existing traversal limits. Do not let `.agentignore`, an
-approval, a tool call, or process output weaken a built-in rule.
+read observation and again after canonical resolution. Windows DOS short-name
+components must fail closed rather than bypass long-name rules. Listing and
+search must prune denied children while counting raw entries against existing
+traversal limits. Do not let `.agentignore`, an approval, a tool call, or
+process output weaken a built-in rule.
 
 Process containment remains a separate contract. Changing the workspace root
 does not prove that approved Node code is filesystem- or network-sandboxed. Any

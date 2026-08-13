@@ -63,6 +63,7 @@ const BUILTIN_POLICY = [
 ].join("\n");
 
 const workspaceReadPolicyAuthority = Object.freeze({});
+const WINDOWS_DOS_ALIAS = /~[0-9]+(?:\.|$)/u;
 
 function failure(
   kind: WorkspaceReadPolicyErrorKind,
@@ -94,6 +95,13 @@ function caseForPlatform(
     : platform === "win32"
       ? ok("asciiInsensitive")
       : failure("invalidPlatform");
+}
+
+function containsWindowsDosAlias(relative: unknown): boolean {
+  return (
+    typeof relative === "string" &&
+    relative.split("/").some((component) => WINDOWS_DOS_ALIAS.test(component))
+  );
 }
 
 async function readWorkspaceRules(
@@ -150,6 +158,7 @@ async function readWorkspaceRules(
 /** Immutable built-in plus workspace-local disclosure boundary. */
 export class WorkspaceReadPolicy {
   readonly #builtins: WorkspaceIgnore;
+  readonly #rejectWindowsDosAliases: boolean;
   readonly #root: string;
   readonly #workspace: WorkspaceIgnore;
 
@@ -157,12 +166,14 @@ export class WorkspaceReadPolicy {
     root: string,
     builtins: WorkspaceIgnore,
     workspace: WorkspaceIgnore,
+    rejectWindowsDosAliases: boolean,
     authority: unknown,
   ) {
     if (authority !== workspaceReadPolicyAuthority) {
       throw new WorkspaceReadPolicyError("invalidPolicy");
     }
     this.#builtins = builtins;
+    this.#rejectWindowsDosAliases = rejectWindowsDosAliases;
     this.#root = root;
     this.#workspace = workspace;
     Object.freeze(this);
@@ -199,6 +210,7 @@ export class WorkspaceReadPolicy {
         acceptedRoot.value,
         builtins.value,
         workspace.value,
+        platform === "win32",
         workspaceReadPolicyAuthority,
       ),
     );
@@ -225,6 +237,12 @@ export class WorkspaceReadPolicy {
         return failure("invalidPolicy");
       }
       if (builtIn.value) {
+        return ok(true);
+      }
+      if (
+        this.#rejectWindowsDosAliases &&
+        containsWindowsDosAlias(relative)
+      ) {
         return ok(true);
       }
       const workspace = this.#workspace.denies(relative);
