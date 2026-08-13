@@ -270,6 +270,10 @@ export class NodeProcessRunner implements ProcessRunner {
         forcedFailure ??= failure;
         requestCancellation();
       };
+      const failControlInput = (): void => {
+        forcedFailure ??= toolFailure("io");
+        cancelSent = true;
+      };
       const acceptStatus = (status: ProcessBrokerStatus): void => {
         if (terminal !== undefined) {
           failAndCancel(toolFailure("io"));
@@ -301,6 +305,7 @@ export class NodeProcessRunner implements ProcessRunner {
         }
       });
       child.stderr.on("data", () => undefined);
+      child.stdin.once("error", failControlInput);
       const targetStdout = child.stdio.at(3);
       const targetStderr = child.stdio.at(4);
       if (
