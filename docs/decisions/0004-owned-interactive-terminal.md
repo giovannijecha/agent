@@ -92,11 +92,14 @@ The output contract and renderer become asynchronous, so all current callers and
 tests change together. The event queue adds a small amount of owned code but
 prevents input, resize, and redraw races.
 
-Width calculation remains conservative: printable ASCII and the exact closed
-framework-owned box glyph set `─│┌┐└┘` occupy one cell and every other code
-point occupies two. Editing never splits UTF-16 surrogate pairs, but
-full grapheme-cluster and Unicode-width tables are deferred until they can be
-implemented and maintained as an owned capability.
+Width calculation initially remained conservative: printable ASCII and the
+exact closed framework-owned box glyph set `─│┌┐└┘` occupied one cell and every
+other code point occupied two. Decision 0044 later admits one exact
+precomposed-Latin prose profile through the same shared function; all remaining
+unregistered non-ASCII scalars retain the two-cell fallback. Editing never
+splits UTF-16 surrogate pairs, but full grapheme-cluster and Unicode-width
+tables remain deferred until they can be implemented and maintained as an
+owned capability.
 
 ## Update, rollback, and removal
 

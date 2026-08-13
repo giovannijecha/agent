@@ -41,7 +41,7 @@ test("wraps prose at word boundaries with a cell fallback for long words", () =>
     viewport(10, 3),
   );
   const exact = block("alpha beta", "head").render(viewport(5, 2));
-  const wide = block("ciao è", "head").render(viewport(6, 2));
+  const latinExact = block("ciao è", "head").render(viewport(6, 2));
   const wrapped = block("abcdef", "head").render(viewport(3, 2));
   const narrow = block(smile, "head").render(viewport(1, 1));
 
@@ -53,8 +53,11 @@ test("wraps prose at word boundaries with a cell fallback for long words", () =>
   ]);
   assert.ok(exact.ok);
   assert.deepEqual(exact.value.rows.map((row) => row.text), ["alpha", "beta"]);
-  assert.ok(wide.ok);
-  assert.deepEqual(wide.value.rows.map((row) => row.text), ["ciao", "è"]);
+  assert.ok(latinExact.ok);
+  assert.deepEqual(latinExact.value.rows.map((row) => row.text), [
+    "ciao è",
+    "",
+  ]);
   assert.ok(wrapped.ok);
   assert.deepEqual(wrapped.value.rows.map((row) => row.text), ["abc", "def"]);
   assert.ok(narrow.ok);

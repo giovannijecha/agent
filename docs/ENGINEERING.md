@@ -71,6 +71,12 @@ tests, update and rollback procedures, and an independent removal path.
   runtime events.
 - Motion must preserve row count, cell width, and caret geometry across phases.
   Phase 0 is the deterministic static baseline.
+- Route every width decision through `cell-width.ts`. Keep its printable ASCII,
+  structural glyph, and decision-0044 Latin prose registrations closed and
+  explicit; unregistered non-ASCII scalars remain two cells. Do not patch
+  `Surface`, composer, Markdown, table, clipping, or caret geometry privately,
+  and do not assign combining marks zero width without an owned grapheme
+  contract.
 - The footer pulse is the only right-edge footer content. Show it only for
   autonomous progress (`generating`, `runningTool`, or `cancelling`); leave the
   edge empty while idle or awaiting approval. Its final cell coincides with the

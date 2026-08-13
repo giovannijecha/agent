@@ -190,6 +190,18 @@ test("keeps the caret visible through horizontal projection", () => {
   assert.deepEqual(startProjection, { text: "abcd", caretColumn: 0 });
 });
 
+test("projects pasted Latin prose with its physical caret width", () => {
+  const editor = new LineEditor();
+  editor.apply(paste("perch\u00e9 l\u2019agent"));
+
+  const projection = editor.project(15);
+
+  assert.deepEqual(projection, {
+    text: "perch\u00e9 l\u2019agent",
+    caretColumn: 14,
+  });
+});
+
 test("enforces the fixed input bound atomically", () => {
   const editor = new LineEditor();
   assert.equal(editor.apply(text("x".repeat(4_096))).kind, "changed");

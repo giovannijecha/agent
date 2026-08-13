@@ -72,6 +72,32 @@ test("can fill its viewport while preserving child tones", () => {
   assert.equal(rendered.value.rows.at(0)?.spans.at(0)?.surface, "subtle");
 });
 
+test("fills the physical viewport around narrow Latin prose", () => {
+  const text = TextBlock.create(
+    "perch\u00e9 l\u2019agent",
+    "head",
+    "plain",
+  );
+  assert.ok(text.ok);
+  const surface = Surface.create(text.value, {
+    extent: "viewport",
+    horizontalPadding: 1,
+    slant: "italic",
+    surface: "subtle",
+    verticalPadding: 0,
+  });
+  assert.ok(surface.ok);
+
+  const rendered = surface.value.render(viewport(20, 1));
+
+  assert.ok(rendered.ok);
+  assert.equal(
+    rendered.value.rows.at(0)?.text,
+    " perch\u00e9 l\u2019agent     ",
+  );
+  assert.equal(rendered.value.rows.at(0)?.cellWidth, 20);
+});
+
 test("paints every closed semantic lifecycle surface", () => {
   for (const semantic of ["attention", "failure", "success"] as const) {
     const text = TextBlock.create("state", "head", "emphasis");

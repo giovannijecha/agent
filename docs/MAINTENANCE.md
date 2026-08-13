@@ -118,7 +118,7 @@ redraw, panel composition, split retention, horizontal insetting, side rails,
 surfaces, text styles, spacers, responsive shell priority, caret
 rules, or public limits only with focused boundary tests and decisions 0006,
 0019, 0020, 0021, 0022, 0023, 0024, 0025, 0026, 0027, 0028, 0030, 0031, 0032,
-and 0035. Preserve normalized bounded spans,
+0035, and 0044. Preserve normalized bounded spans,
 exact-row fragments, content-free errors, hostile accessor containment,
 deterministic priority/preference/flex allocation, and `Frame` as the final
 terminal-safety boundary. Product concepts remain in CLI.
@@ -235,6 +235,17 @@ and body cell before painting and use one shared visible width per column. The
 single muted header rule must use the resulting total row extent and remain in
 the same structured surface. Change its geometry, tone, tests, and decision
 evidence together; do not introduce an outer border or parallel table painter.
+
+Cell-width changes require decision 0044, focused `RichRow`, `Surface`, editor,
+composer, transcript, wrapping, caret, wide-scalar, and renderer regressions,
+plus visual review on supported terminals. Keep one-cell Latin ranges and exact
+punctuation explicit in `cell-width.ts`; all unregistered non-ASCII scalars use
+the two-cell fallback. Do not add per-component exceptions, normalize retained
+text, import Unicode tables, or assign combining marks zero width without a
+complete owned grapheme contract. To roll back the Latin prose profile, remove
+its ranges and focused tests together and restore the documented conservative
+fallback. Removing the shared width module requires a stronger accepted single
+authority for every current consumer.
 
 Shared wrapping changes only through decision 0025. Preserve one layout for
 `TextBlock` and `MarkdownBlock`, explicit word and literal-cell modes, protected

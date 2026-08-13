@@ -320,6 +320,38 @@ test("uses one subtle italic user region and one unboxed assistant turn", () => 
   assert.equal(rows.some((row) => row.text.trim() === "agent"), false);
 });
 
+test("paints copied Latin prose completely in user and composer surfaces", () => {
+  const content = "perch\u00e9 l\u2019agent";
+  const application = new ApplicationController(true);
+  assert.ok(application.turnAccepted(started(2, content)).ok);
+  application.feed("\u001B[200~" + content + "\u001B[201~");
+
+  const rendered = frame(application, 48, 14);
+
+  assert.ok(rendered.ok);
+  const contentRows = rendered.value.rows.filter((row) =>
+    row.text.includes(content),
+  );
+  assert.equal(contentRows.length, 2);
+  assert.equal(
+    contentRows.every((row) => row.text.length === row.cellWidth),
+    true,
+  );
+  assert.equal(
+    contentRows.every((row) =>
+      row.spans.at(0)?.surface === "none" &&
+        row.spans.slice(1).every((span) => span.surface === "subtle"),
+    ),
+    true,
+  );
+  const composer = rendered.value.rows.at(rendered.value.caret?.row ?? -1);
+  assert.ok(composer !== undefined);
+  assert.equal(
+    rendered.value.caret?.column,
+    composer.text.indexOf(content) + content.length,
+  );
+});
+
 test("frames multiline user turns with one shared padding row per side", () => {
   const application = new ApplicationController(true);
   assert.ok(application.turnAccepted(started(4, "first line\nsecond line")).ok);
