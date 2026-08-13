@@ -344,22 +344,34 @@ than expanding the runtime registry. Product descriptor construction stays in
 the registered CLI module; the generic tool engine owns mechanics only.
 
 Tool descriptors and schemas are immutable provider-neutral data. Read tools may
-run automatically; every write tool requires one exact pending-call decision
-from `/approve` or `/deny`. One model response may select a bounded ordered
-batch, but complete preflight precedes effects and handlers run sequentially in
-provider order. No tool may use ambient network access. Process execution remains unavailable under decisions 0008 and
-0015. A future backend must fail closed without the required Job Object or
-delegated cgroup boundary and pass the registered adversarial platform proof
-before any descriptor is advertised.
+run automatically; every write or execute tool requires one exact pending-call
+decision from `/approve` or `/deny`. One model response may select a bounded
+ordered batch, but complete preflight precedes effects and handlers run
+sequentially in provider order. Filesystem tools use no ambient network access.
+Decision 0036 admits only `run_process`, the registered `node` token, and the
+owned native whole-tree containment broker; no other process capability may be
+advertised.
 
-All filesystem paths are workspace-relative. Resolve lexical and canonical
-containment, reject absolute paths, parent escape, symlinks, unsupported file
-kinds, and oversized input or output. New-file creation refuses overwrite;
+Resolve the exact startup directory once, before credential acquisition, into
+the immutable CLI-owned workspace boundary from decision 0042. Never walk
+upward to discover a Git root. Reject filesystem volume roots, the exact user
+home, and the exact shared temporary directory. Show the same canonical
+absolute root in the footer and pass that boundary to every built-in tool;
+handlers must not replace or independently recanonicalize it.
+
+All model-selected filesystem paths are workspace-relative. Resolve lexical and
+canonical containment beneath the accepted boundary, reject absolute paths,
+parent escape, symlinks, unsupported file kinds, and oversized input or output.
+New-file creation refuses overwrite;
 replacement requires exactly one old-text occurrence. Enumerate directories
 incrementally and bound directory entries, searched directories, aggregate
 entries, files, text, and matches. Expected I/O failures become content-free
 structured tool results. After handler invocation, contract corruption becomes
 a generic checkpointed failure before the runtime terminates the turn.
+
+Do not describe process-tree containment as a filesystem or network sandbox.
+The broker bounds one approved terminating descendant tree; approved Node code
+still runs with the launching user's general operating-system authority.
 
 Checkpoint the structured call and result before the next model step. Later
 cancellation or failure must not erase the recorded truth of an attempted side

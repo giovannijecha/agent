@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import path from "node:path";
+import { homedir, tmpdir } from "node:os";
 import {
   arch,
   argv,
@@ -32,17 +32,13 @@ import { resolveOpenCodeGoConfiguration } from "./provider-configuration.js";
 import { run } from "./run.js";
 import { MotionScheduler } from "./motion-scheduler.js";
 import { acquireOpenCodeGoCredential } from "./startup-credential.js";
+import { WorkspaceBoundary } from "./workspace-boundary.js";
 
 const PROVIDER_PRESENTATION: ProviderPresentation = Object.freeze({
   authentication: "memory-only API key",
   displayName: "OpenCode Go",
   model: OPENCODE_GO_MODEL,
 });
-
-const workspaceRoot = cwd();
-const workspaceName = path.basename(workspaceRoot);
-const workspaceLabel =
-  workspaceName.length === 0 ? workspaceRoot : "./" + workspaceName;
 
 async function writeAndExit(
   output: WritableStream,
@@ -76,6 +72,15 @@ if (!launch.ok) {
   await writeAndExit(stdout, "agent 0.1.0\n", 0);
 }
 
+const workspace = await WorkspaceBoundary.create(cwd(), {
+  homeDirectory: homedir(),
+  temporaryDirectory: tmpdir(),
+});
+const workspaceBoundary = workspace.ok
+  ? workspace.value
+  : await writeAndExit(stderr, "agent rejected the workspace root\n", 1);
+const workspaceRoot = workspaceBoundary.root;
+
 const credential = await acquireOpenCodeGoCredential(
   env.AGENT_OPENCODE_GO_API_KEY,
   launch.ok &&
@@ -104,7 +109,7 @@ if (!configuration.ok) {
     terminalHost,
     undefined,
     undefined,
-    workspaceLabel,
+    workspaceRoot,
     motion,
     notices,
   );
@@ -121,7 +126,7 @@ if (!configuration.ok) {
     : transport;
   const processRunner = NodeProcessRunner.create(platform, arch);
   const tools = processRunner.ok
-    ? createBuiltinToolEngine(workspaceRoot, {
+    ? createBuiltinToolEngine(workspaceBoundary, {
         nodeExecutable: execPath,
         processRunner: processRunner.value,
       })
@@ -135,7 +140,7 @@ if (!configuration.ok) {
       terminalHost,
       new AgentRuntime(model.value, tools.value),
       PROVIDER_PRESENTATION,
-      workspaceLabel,
+      workspaceRoot,
       motion,
       notices,
     );

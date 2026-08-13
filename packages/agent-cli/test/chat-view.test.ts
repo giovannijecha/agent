@@ -140,12 +140,13 @@ test("keeps an empty session visually empty", () => {
   );
 });
 
-test("renders one neutral composer without a prompt marker and a three-zone footer", () => {
+test("renders one neutral composer and the exact canonical workspace root", () => {
+  const canonicalWorkspaceRoot = "/owned/workspace";
   const application = new ApplicationController(true, {
     authentication: "memory-only API key",
     displayName: "OpenCode Go",
     model: "configured-model",
-  }, "./workspace");
+  }, canonicalWorkspaceRoot);
   application.feed("draft");
 
   const rendered = frame(application, 72, 18);
@@ -183,8 +184,8 @@ test("renders one neutral composer without a prompt marker and a three-zone foot
     rows[composerIndex + 2]?.spans.every((span) => span.surface === "none"),
     true,
   );
-  assert.equal(rows.at(-1)?.text.includes("./workspace"), true);
-  assert.equal(rows.at(-1)?.text.indexOf("./workspace"), 1);
+  assert.equal(rows.at(-1)?.text.includes(canonicalWorkspaceRoot), true);
+  assert.equal(rows.at(-1)?.text.indexOf(canonicalWorkspaceRoot), 1);
   assert.equal(
     rows.at(-1)?.text.includes("OpenCode Go \u00b7 configured-model"),
     true,
@@ -206,7 +207,12 @@ test("renders one neutral composer without a prompt marker and a three-zone foot
 });
 
 test("grows the composer for wrapped and pasted lines without displacing the footer", () => {
-  const application = new ApplicationController(false, undefined, "./workspace");
+  const canonicalWorkspaceRoot = "/owned/workspace";
+  const application = new ApplicationController(
+    false,
+    undefined,
+    canonicalWorkspaceRoot,
+  );
   application.feed(
     "\u001B[200~first line\nsecond line that wraps\nthird line\u001B[201~",
   );
@@ -220,7 +226,7 @@ test("grows the composer for wrapped and pasted lines without displacing the foo
   assert.equal(text.some((row) => row.includes("second line that")), true);
   assert.equal(text.some((row) => row.includes("wraps")), true);
   assert.equal(text.some((row) => row.includes("third line")), true);
-  assert.equal(rows.at(-1)?.text.includes("./workspace"), true);
+  assert.equal(rows.at(-1)?.text.includes(canonicalWorkspaceRoot), true);
   assert.equal(rendered.value.caret !== undefined, true);
 });
 

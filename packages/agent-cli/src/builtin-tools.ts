@@ -37,6 +37,7 @@ import {
 
 import type { ProcessRunner } from "./process-runner.js";
 import { PROCESS_RUNNER_LIMITS } from "./process-runner.js";
+import { WorkspaceBoundary } from "./workspace-boundary.js";
 
 export const BUILTIN_TOOL_LIMITS = Object.freeze({
   directoryEntries: 512,
@@ -155,7 +156,6 @@ async function existingPath(
     if (!noSymlinks.ok) {
       return noSymlinks;
     }
-    const canonicalRoot = await realpath(root);
     const status = await lstat(lexical);
     if (status.isSymbolicLink()) {
       return toolFailure("permission");
@@ -167,7 +167,7 @@ async function existingPath(
       return toolFailure("unsupported");
     }
     const canonical = await realpath(lexical);
-    return inside(canonicalRoot, canonical)
+    return inside(root, canonical)
       ? ok(canonical)
       : toolFailure("permission");
   } catch (cause: unknown) {
@@ -191,9 +191,8 @@ async function creationPath(
     if (!noSymlinks.ok) {
       return noSymlinks;
     }
-    const canonicalRoot = await realpath(root);
     const canonicalParent = await realpath(path.dirname(lexical));
-    return inside(canonicalRoot, canonicalParent)
+    return inside(root, canonicalParent)
       ? ok(path.join(canonicalParent, path.basename(lexical)))
       : toolFailure("permission");
   } catch (cause: unknown) {
@@ -458,7 +457,7 @@ function searchTextHandler(root: string): ToolHandler {
     const directories = [resolved.value];
     const files: string[] = [];
     try {
-      const canonicalRoot = await realpath(root);
+      const canonicalRoot = root;
       let visitedDirectories = 0;
       let visitedEntries = 0;
       while (directories.length > 0) {
@@ -909,18 +908,16 @@ function registrations(root: string, platform: BuiltinToolsPlatform) {
   ]);
 }
 
-/** Creates the complete initial tool engine for one explicit absolute root. */
+/** Creates the complete initial tool engine for one accepted workspace. */
 export function createBuiltinToolEngine(
-  root: string,
+  boundary: unknown,
   platform: BuiltinToolsPlatform,
 ): Result<ToolEngine, BuiltinToolsError> {
-  if (
-    typeof root !== "string" ||
-    !path.isAbsolute(root) ||
-    root.includes("\u0000")
-  ) {
+  const acceptedRoot = WorkspaceBoundary.rootOf(boundary);
+  if (!acceptedRoot.ok) {
     return err(Object.freeze({ kind: "invalidRoot" as const }));
   }
+  const root = acceptedRoot.value;
   if (
     platform === null ||
     typeof platform !== "object" ||
@@ -935,7 +932,7 @@ export function createBuiltinToolEngine(
   }
   try {
     const registry = ToolRegistry.create(
-      registrations(path.resolve(root), platform),
+      registrations(root, platform),
     );
     if (!registry.ok) {
       return err(Object.freeze({ kind: "invariant" as const }));

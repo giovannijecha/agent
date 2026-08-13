@@ -13,11 +13,21 @@ written to disk, or sent over a network.
 
 ## Local tools
 
-The five current tools operate only inside the selected workspace. They do not
-use ambient network access. Read operations are automatic; each write operation
-requires its own explicit approval. The terminal UI avoids placing raw prompts,
-file contents, tool outputs, credentials, and foreign error causes in notices or
-logs.
+The five filesystem tools share the one canonical workspace selected at
+startup, and `run_process` starts in one selected directory beneath it.
+Filesystem handlers do not use ambient network access. Read operations are
+automatic; each write or execute operation requires its own explicit approval.
+The terminal UI avoids placing raw prompts, file contents, tool outputs,
+credentials, and foreign error causes in notices or logs.
+
+The current release has no `.agentignore` or built-in sensitive-path filter.
+Supported files anywhere beneath the selected root may therefore be returned by
+a read tool and sent to the configured provider as a tool result. Start `agent`
+from the narrowest intended directory and do not place credentials or unrelated
+personal content inside it. Decision 0042 records the separate future privacy
+tranche; its acceptance is not a claim that filtering already exists.
+An approved `run_process` invocation is lifecycle-contained but not filesystem-
+or network-sandboxed; its Node code retains the launching user's authority.
 
 ## OpenCode Go connection
 

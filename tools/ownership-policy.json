@@ -56,7 +56,8 @@
     "docs/decisions/0038-owned-deterministic-tui-motion.md",
     "docs/decisions/0039-owned-responsive-conversation-stage.md",
     "docs/decisions/0040-owned-quiet-conversation-rhythm.md",
-    "docs/decisions/0041-owned-ephemeral-contextual-notices.md"
+    "docs/decisions/0041-owned-ephemeral-contextual-notices.md",
+    "docs/decisions/0042-owned-workspace-trust-boundary.md"
   ],
   "workspaces": [
     {
@@ -110,6 +111,7 @@
       "node:child_process",
       "node:fs/promises",
       "node:https",
+      "node:os",
       "node:path",
       "node:process",
       "node:timers",
