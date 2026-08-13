@@ -282,7 +282,7 @@ and one ready event per source. The losing read is never abandoned. One event is
 reduced and at most one output write is awaited at a time. The renderer enters an
 alternate screen for interactive sessions, enables bracketed-paste mode,
 DEC 1002 button-event tracking, and 1006 SGR mouse mode, hides the cursor only
-during redraw, selects a steady block caret for the interactive session, and
+during redraw, selects a steady vertical bar caret for the interactive session, and
 restores mouse modes, paste mode, the terminal-default cursor style, cursor
 visibility, and the prior screen during idempotent cleanup. Unsupported
 terminals may ignore the paste or shape command without
@@ -313,6 +313,10 @@ pointer path exists.
 CLI gesture state is isolated in `terminal-interaction.ts` behind a narrow
 editor interaction port; the application reducer retains only arbitration,
 scroll reconciliation, notices, and ordered effects.
+The session invokes that reducer synchronously at each decoded action boundary,
+so a pointer mutation cannot be overtaken by later text, deletion, or paste from
+the same terminal chunk. This remains one serialized input transaction rather
+than a deferred pointer queue or second editor path.
 
 A settled non-empty range is reconstructed from visible logical text. On
 Windows x64, the CLI clipboard port sends one bounded UTF-16LE frame to the exact
@@ -324,6 +328,8 @@ settlements through the existing notice generation. Clipboard notices use the
 closed composer placement: `InputArea` paints the short status on the caret
 row's physical right edge only when it fits, without changing its measurement,
 editor width, caret, composer allocation, or transcript allocation. Only the
+same reducer dismisses the current generation when a composer pointer action is
+applied; transcript pointer interaction leaves it intact. Only the
 renderer emits OSC 8 links, OSC 52 requests, mouse lifecycle controls, styles,
 or any other terminal sequence. The same VT pointer path serves Windows and Linux; Shift remains an
 optional terminal-native selection escape hatch, Ctrl+C remains the agent

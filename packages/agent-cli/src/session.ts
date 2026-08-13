@@ -52,6 +52,11 @@ export type SessionUpdate = Readonly<{
   redraw: boolean;
 }>;
 
+export type SessionReductionPort = Readonly<{
+  apply(action: SessionAction): void;
+  editorRedrawn(): void;
+}>;
+
 function notice(...lines: string[]): SessionAction {
   return Object.freeze({
     kind: "notice" as const,
@@ -61,17 +66,17 @@ function notice(...lines: string[]): SessionAction {
 }
 
 function dispatchSubmission(
-  actions: SessionAction[],
+  emit: (action: SessionAction) => void,
   input: string,
   provider: ProviderPresentation | undefined,
 ): boolean {
   const command = executeSubmission(input, provider);
   if (command.kind === "exit") {
-    actions.push(Object.freeze({ kind: "exit" as const }));
+    emit(Object.freeze({ kind: "exit" as const }));
     return true;
   }
   if (command.kind === "notice") {
-    actions.push(
+    emit(
       Object.freeze({
         kind: "notice" as const,
         level: command.level,
@@ -79,11 +84,11 @@ function dispatchSubmission(
       }),
     );
   } else if (command.kind === "submit") {
-    actions.push(
+    emit(
       Object.freeze({ kind: "submit" as const, text: command.text }),
     );
   } else if (command.kind === "approve" || command.kind === "deny") {
-    actions.push(Object.freeze({ kind: command.kind }));
+    emit(Object.freeze({ kind: command.kind }));
   }
   return false;
 }
@@ -190,24 +195,39 @@ export class SessionController {
     ).kind === "changed";
   }
 
-  /** Decodes one chunk into ordered immutable application actions. */
-  feed(chunk: string, timeMilliseconds = 0): SessionUpdate {
+  /** Reduces one chunk through one optional synchronous application port. */
+  feed(
+    chunk: string,
+    timeMilliseconds = 0,
+    reduction?: SessionReductionPort,
+  ): SessionUpdate {
     const actions: SessionAction[] = [];
+    let redraw = false;
+    const emit = (action: SessionAction): void => {
+      if (reduction === undefined) {
+        actions.push(action);
+      } else {
+        reduction.apply(action);
+      }
+    };
+    const markEditorRedrawn = (): void => {
+      redraw = true;
+      reduction?.editorRedrawn();
+    };
     let afterInterrupt = false;
     let exitCandidate: string | undefined = "";
-    let redraw = false;
     let stopChunk = false;
     for (const event of this.#decoder.feed(chunk)) {
       if (stopChunk) {
         break;
       }
       if (event.kind !== "pointer" && this.#pointerContext) {
-        actions.push(Object.freeze({ kind: "interactionBreak" as const }));
+        emit(Object.freeze({ kind: "interactionBreak" as const }));
         this.#pointerContext = false;
       }
       if (afterInterrupt) {
         if (event.kind === "eof") {
-          actions.push(Object.freeze({ kind: "exit" as const }));
+          emit(Object.freeze({ kind: "exit" as const }));
           stopChunk = true;
         } else if (event.kind === "text" && exitCandidate !== undefined) {
           const nextCandidate: string = exitCandidate + event.text;
@@ -225,7 +245,7 @@ export class SessionController {
       }
       if (event.kind === "pointer") {
         this.#pointerContext = true;
-        actions.push(
+        emit(
           Object.freeze({
             event,
             kind: "pointer" as const,
@@ -254,7 +274,7 @@ export class SessionController {
                 );
           if (next !== completion.selectedIndex) {
             this.#completionIndex = next;
-            redraw = true;
+            markEditorRedrawn();
           }
           continue;
         }
@@ -264,7 +284,7 @@ export class SessionController {
             : event.kind === "down"
               ? "lineDown"
               : event.kind;
-        actions.push(
+        emit(
           Object.freeze({
             kind: "navigateTranscript" as const,
             movement,
@@ -280,7 +300,7 @@ export class SessionController {
             const completed = this.#editor.replace(selected.command);
             this.#completionIndex = 0;
             if (completed.kind === "changed") {
-              redraw = true;
+              markEditorRedrawn();
             }
             continue;
           }
@@ -293,9 +313,9 @@ export class SessionController {
           if (selected !== undefined) {
             this.#editor.clear();
             this.#completionIndex = 0;
-            redraw = true;
+            markEditorRedrawn();
             stopChunk = dispatchSubmission(
-              actions,
+              emit,
               selected.command,
               this.#provider,
             );
@@ -306,29 +326,27 @@ export class SessionController {
       const outcome = this.#editor.apply(event);
       if (outcome.kind === "changed") {
         this.#completionIndex = 0;
-        redraw = true;
+        markEditorRedrawn();
       } else if (outcome.kind === "submitted") {
         this.#completionIndex = 0;
-        redraw = true;
+        markEditorRedrawn();
         stopChunk = dispatchSubmission(
-          actions,
+          emit,
           outcome.text,
           this.#provider,
         );
       } else if (outcome.kind === "interrupt") {
-        actions.push(Object.freeze({ kind: "interrupt" as const }));
+        emit(Object.freeze({ kind: "interrupt" as const }));
         afterInterrupt = true;
       } else if (outcome.kind === "eof") {
-        actions.push(Object.freeze({ kind: "exit" as const }));
+        emit(Object.freeze({ kind: "exit" as const }));
         stopChunk = true;
       } else if (outcome.kind === "limit") {
-        actions.push(
-          notice("Input limit reached; additional text was ignored."),
-        );
-        redraw = true;
+        markEditorRedrawn();
+        emit(notice("Input limit reached; additional text was ignored."));
       } else if (outcome.kind === "unsupported") {
-        actions.push(notice("Unsupported key sequence was ignored."));
-        redraw = true;
+        markEditorRedrawn();
+        emit(notice("Unsupported key sequence was ignored."));
       }
     }
     return Object.freeze({ actions: Object.freeze(actions), redraw });

@@ -122,7 +122,7 @@ agent.”
   grows from one through six content rows using the same bounded
   editor and submission path. Bracketed paste is one atomic editor event and
   never implies Enter; only a separately decoded Enter submits. The renderer
-  owns paste-mode and steady-block-caret lifecycle and restores both terminal
+  owns paste-mode and steady-vertical-bar-caret lifecycle and restores both terminal
   defaults during cleanup. Ctrl+Left and Ctrl+Right move by the editor's one
   whitespace-delimited word rule; Ctrl+Backspace, Ctrl+W, and Ctrl+Delete
   remove through the same semantic decoder/editor path. Do not reproduce word
@@ -141,7 +141,8 @@ agent.”
   report only that the terminal request was written. Clipboard settlements reuse
   the ephemeral notice lifecycle as a compact right-edge composer status that
   reserves no row or editor width and collapses when it cannot fit. Copy failures
-  are nonfatal, resize clears geometry-dependent selection, Shift remains the optional native
+  are nonfatal, a composer pointer action dismisses the current notice, resize
+  clears geometry-dependent selection, Shift remains the optional native
   terminal-selection escape hatch, and Ctrl+C remains the agent interrupt. Do
   not add a browser launcher, foreign clipboard package or executable, global
   mouse hook, screen-coordinate transcript archive, or separate pointer paths.

@@ -43,7 +43,7 @@ existing user, activity, composer, and rhythm presenters.
   anchors at its head so tool identity and written state survive before optional
   detail.
 - The composer retains one cell of horizontal and vertical padding. It is the
-  only focused surface, remains recognizable at rest, keeps the steady block
+  only focused surface, remains recognizable at rest, keeps the steady vertical bar
   caret away from the surface edge, and continues to grow from one through six
   content rows through the same `InputArea`.
 - The shared conversation rhythm remains one optional row with zero minimum

@@ -31,7 +31,6 @@ import {
   SessionController,
   type CommandCompletionProjection,
   type SessionAction,
-  type SessionUpdate,
 } from "./session.js";
 import {
   ToolActivityLog,
@@ -288,13 +287,28 @@ export class ApplicationController
     return this.#session.projectCommandCompletion();
   }
 
-  /** Reduces one terminal input chunk into application effects. */
-  feed(chunk: string, timeMilliseconds = 0): SessionUpdate {
-    const session = this.#session.feed(chunk, timeMilliseconds);
-    if (session.redraw && this.#notice.length > 0) {
-      this.#setNotice([]);
-    }
-    return session;
+  /** Reduces one terminal input chunk in exact decoder order. */
+  feed(
+    chunk: string,
+    timeMilliseconds = 0,
+    pointerProjection?: PointerProjection,
+  ): ApplicationUpdate {
+    const effects: ApplicationEffect[] = [];
+    let redraw = false;
+    const session = this.#session.feed(chunk, timeMilliseconds, {
+      apply: (action) => {
+        const applied = this.applySessionAction(action, pointerProjection);
+        redraw = redraw || applied.redraw;
+        effects.push(...applied.effects);
+      },
+      editorRedrawn: () => {
+        if (this.#notice.length > 0) {
+          this.#setNotice([]);
+        }
+        redraw = true;
+      },
+    });
+    return update(redraw || session.redraw, effects);
   }
 
   /** Returns and clears one bounded clipboard request after serialized input. */
@@ -321,8 +335,15 @@ export class ApplicationController
   }
 
   /** Reduces terminal EOF into the canonical exit effect. */
-  end(): SessionUpdate {
-    return this.#session.end();
+  end(): ApplicationUpdate {
+    const effects: ApplicationEffect[] = [];
+    let redraw = false;
+    for (const action of this.#session.end().actions) {
+      const applied = this.applySessionAction(action);
+      redraw = redraw || applied.redraw;
+      effects.push(...applied.effects);
+    }
+    return update(redraw, effects);
   }
 
   /** Reconciles application-owned scroll state with one planned transcript slot. */
@@ -391,12 +412,20 @@ export class ApplicationController
         this.#chat.transcriptEntries(),
         this.#session,
       );
+      let redraw = interaction.redraw;
+      if (interaction.composerInteraction && this.#notice.length > 0) {
+        this.#setNotice([]);
+        redraw = true;
+      }
       if (interaction.notice !== undefined) {
         this.#setNotice(interaction.notice);
+        redraw = true;
       }
-      return interaction.scrollDelta === undefined
-        ? update(interaction.redraw || interaction.notice !== undefined)
-        : this.#moveTranscript(interaction.scrollDelta);
+      if (interaction.scrollDelta !== undefined) {
+        const moved = this.#moveTranscript(interaction.scrollDelta);
+        return update(redraw || moved.redraw, moved.effects);
+      }
+      return update(redraw);
     }
     this.#terminalInteraction.breakSequence();
     if (action.kind === "interactionBreak") {

@@ -206,7 +206,7 @@ Generic TUI components, application state, renderer, motion, and terminal
 lifecycle remain unchanged.
 
 Cursor-style changes require exact renderer initialization, partial-write,
-cleanup, retry, and idempotence tests. To remove the steady block caret, delete
+cleanup, retry, and idempotence tests. To remove the steady vertical bar caret, delete
 both the style-selection and default-style restoration sequences together;
 leave caret geometry, visibility restoration, alternate-screen cleanup, and
 editor behavior unchanged.
@@ -228,9 +228,12 @@ review, and Linux visual review together. Preserve the 500-millisecond word
 gesture, Shift native-selection escape hatch, exact visible HTTPS destination,
 65,536-code-unit copy bound, release settlement, word-wise double-click drag,
 truthful `copied`/`requested`/`failed` notices, typed failures, and cleanup retry.
+Preserve exact within-chunk decoder order by applying pointer actions before
+later editor mutations through the one synchronous application reducer.
 Clipboard notice presentation must retain one generation and timer, one closed
 composer placement, constrained collapse, and identical transcript, composer,
-and caret geometry before and after settlement.
+and caret geometry before and after settlement. Composer pointer interaction
+dismisses that generation; transcript pointer interaction does not.
 Keep the Windows x64 clipboard port, UTF-16LE protocol, native C17 broker, exact
 path, empty environment, fixed timeout, hidden-window ownership, bounded retry,
 and fixture tests together. To remove native copy, delete that CLI boundary and

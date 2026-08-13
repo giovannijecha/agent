@@ -31,7 +31,9 @@ character within 500 milliseconds selects its complete whitespace or non-
 whitespace run; release copies that word. Keep the second press held and drag to
 extend the range through complete word runs before release. In the composer,
 typing, paste, Backspace, Delete, and word deletion replace or remove the active
-range through the same editor path.
+range through the same editor path. If a terminal delivers pointer and editor
+input together, `agent` preserves their decoded order, so later input uses the
+new caret or selection.
 
 Copied logical text excludes soft wrapping and surface padding while preserving
 source line breaks and message order. Windows x64 shows `Copied!` only after its
@@ -42,6 +44,8 @@ short statuses use the composer's right edge and expire normally. They reserve
 no row or draft width and collapse when they cannot fit, so copying never moves
 the transcript, composer, or caret. Copy is bounded to 65,536 UTF-16 code units;
 a larger range remains selected and shows a warning instead of being truncated.
+Clicking or dragging in the composer dismisses the current status immediately;
+conversation selection and scrolling leave it until replacement or expiry.
 
 The mouse wheel over the transcript reuses its normal scroll state. A settled
 logical selection survives scrolling, so a long message can be reviewed without
@@ -150,7 +154,7 @@ approval-sensitive state and document content; the footer collapses before
 required interaction.
 
 During an interactive session the renderer requests bracketed-paste mode, DEC
-button-event tracking, SGR mouse reports, and a steady block caret. This
+button-event tracking, SGR mouse reports, and a steady vertical bar caret. This
 is terminal chrome, not a character in the draft. A terminal that ignores the
 standard shape command keeps its native caret. On exit or cleanup retry, agent
 disables both mouse modes and bracketed-paste mode, then restores the terminal-

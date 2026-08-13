@@ -8,7 +8,7 @@ import {
   CURSOR_HIDE,
   CURSOR_HOME,
   CURSOR_SHOW,
-  CURSOR_STEADY_BLOCK,
+  CURSOR_STEADY_BAR,
   CURSOR_STYLE_DEFAULT,
   MOUSE_BUTTON_EVENT_DISABLE,
   MOUSE_BUTTON_EVENT_ENABLE,
@@ -129,7 +129,7 @@ export class Renderer<E> {
         MOUSE_BUTTON_EVENT_ENABLE +
         BRACKETED_PASTE_ENABLE +
         CURSOR_HIDE +
-        CURSOR_STEADY_BLOCK +
+        CURSOR_STEADY_BAR +
         CLEAR_SCREEN +
         CURSOR_HOME;
       this.#alternateMayBeActive = true;

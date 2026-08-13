@@ -20,6 +20,7 @@ import {
   ApplicationController,
   type ApplicationEffect,
   type ApplicationError,
+  type ApplicationUpdate,
   type ClipboardSettlement,
 } from "./application.js";
 import { createChatRender } from "./chat-view.js";
@@ -29,7 +30,6 @@ import {
   type ArbiterError,
   EventArbiter,
 } from "./event-arbiter.js";
-import type { SessionUpdate } from "./session.js";
 import type { TerminalHost } from "./terminal-host.js";
 import type { MotionController } from "./motion-scheduler.js";
 import { isMotionActive } from "./motion-policy.js";
@@ -439,55 +439,6 @@ function applyEffect<E, RE>(
   }
 }
 
-function applySessionUpdate<E, RE>(
-  session: SessionUpdate,
-  application: ApplicationController,
-  arbiter: EventArbiter<E, RE>,
-  runtime: RuntimeSession<RE> | undefined,
-  render: ChatRender | undefined,
-): EffectOutcome<E> {
-  let redraw = session.redraw;
-  for (const action of session.actions) {
-    let applicationUpdate;
-    try {
-      applicationUpdate = application.applySessionAction(
-        action,
-        render === undefined
-          ? undefined
-          : Object.freeze({
-              composer: render.composer,
-              frame: render.frame,
-              stageColumns: render.stage.columns,
-              stageLeft: render.stage.left,
-              transcript: render.transcript,
-            }),
-      );
-    } catch (_cause: unknown) {
-      return Object.freeze({
-        exit: false,
-        failure: Object.freeze({
-          kind: "unexpected" as const,
-          operation: "application" as const,
-        }),
-        redraw: false,
-      });
-    }
-    redraw = redraw || applicationUpdate.redraw;
-    for (const effect of applicationUpdate.effects) {
-      const outcome = applyEffect(effect, application, arbiter, runtime);
-      redraw = redraw || outcome.redraw;
-      if (outcome.failure !== undefined || outcome.exit) {
-        return Object.freeze({
-          exit: outcome.exit,
-          failure: outcome.failure,
-          redraw,
-        });
-      }
-    }
-  }
-  return Object.freeze({ exit: false, failure: undefined, redraw });
-}
-
 function applyApplicationUpdate<E, RE>(
   update: Readonly<{
     effects: readonly ApplicationEffect[];
@@ -734,19 +685,36 @@ export async function run<E, RE = never>(
             application.resize();
             redraw = true;
           } else {
-            const session =
-              terminal.kind === "end"
-                ? application.end()
-                : application.feed(
-                    terminal.text,
-                    terminal.monotonicMilliseconds,
-                  );
-            const outcome = applySessionUpdate(
-              session,
+            let applicationUpdate: ApplicationUpdate;
+            try {
+              applicationUpdate =
+                terminal.kind === "end"
+                  ? application.end()
+                  : application.feed(
+                      terminal.text,
+                      terminal.monotonicMilliseconds,
+                      lastRender === undefined
+                        ? undefined
+                        : Object.freeze({
+                            composer: lastRender.composer,
+                            frame: lastRender.frame,
+                            stageColumns: lastRender.stage.columns,
+                            stageLeft: lastRender.stage.left,
+                            transcript: lastRender.transcript,
+                          }),
+                    );
+            } catch (_cause: unknown) {
+              primary = Object.freeze({
+                kind: "unexpected" as const,
+                operation: "application" as const,
+              });
+              break;
+            }
+            const outcome = applyApplicationUpdate(
+              applicationUpdate,
               application,
               arbiter,
               runtime,
-              lastRender,
             );
             redraw = outcome.redraw;
             if (outcome.failure !== undefined) {
