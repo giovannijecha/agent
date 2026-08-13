@@ -615,6 +615,10 @@ tools, runtime text chat, TUI, and terminal lifecycle remain usable throughout.
 
 Update a canonical brand asset together with `assets/brand/manifest.json`, its
 digest, `docs/BRAND.md`, decision 0037, validator tests, and every published use.
+Keep the passive-capability check ahead of digest acceptance. Element and
+attribute names remain unqualified; colons in quoted values and text remain
+data. Roll back a validator rule together with its regression and documented
+contract rather than authorizing rejected capability through a new digest.
 Rollback restores the complete prior manifest and asset set; never mix versions.
 Removing the visual signature removes its assets, references, registry entries,
 validator, tests, and decision while leaving the product identity `agent`.
