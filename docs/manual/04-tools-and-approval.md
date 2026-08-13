@@ -36,6 +36,25 @@ unknown fields, and oversized data fail closed.
 Files are limited to 262,144 code units. Directory listing is limited to 512
 entries. Recursive exact-text search is limited to 512 directories, 4,096
 entries, 2,048 files, 256 matches, and 4,194,304 scanned code units.
+
+The automatic read tools share one immutable disclosure policy loaded before
+credentials. Mandatory rules deny `.agentignore`, `.git`, `.env` and `.env.*`,
+common SSH and cloud credential directories, package and Git credential files,
+conventional private-key names, and `.key`, `.pem`, `.p12`, `.pfx`, `.jks`, and
+`.keystore` files. One optional root `.agentignore` may add at most 128 rules in
+16,384 bytes. Empty and `#` lines are ignored; other lines are root-relative
+deny patterns using `/`, segment-local `*`, at most one complete `**` segment,
+and optional trailing `/` directory shorthand. Negation, absolute paths,
+backslashes, whitespace padding, empty, `.` or `..` segments, controls, format
+characters, duplicates, lines over 256 code units, and patterns over 32
+segments are invalid. Linux matches exactly; Windows folds ASCII letters only.
+
+`read_file` returns `permission` for a denied lexical target before observing
+the filesystem. `list_directory` rejects a denied target and omits denied
+children. `search_text` rejects a denied root and prunes denied directories and
+files before opening them. Hidden entries still consume the raw enumeration
+bounds. The policy does not inspect content and does not restrict `create_file`,
+`replace_text`, or approved `run_process` code.
 `create_file` refuses overwrite; `replace_text` requires exactly one match.
 `run_process` accepts only the registered `node` program token, enforced before
 approval by an owned exact-literal schema, an ordered list of literal arguments,
@@ -108,6 +127,10 @@ Process groups, enumerated PID trees, and `taskkill /T` remain rejected
 substitutes for the no-breakaway guarantee. Product support is limited to x64
 Windows and x64 Linux; every other target fails closed.
 
+An invalid `.agentignore` prevents startup rather than silently dropping custom
+rules. The diagnostic contains no rejected pattern or path. Changes made after
+startup do not affect the current session.
+
 The release gate rejects duplicate canonical names, capability identifiers, or
 necessity records; unsupported descriptor syntax; descriptor risk drift; and a
 manual inventory that does not match source. It also confines production
@@ -122,6 +145,10 @@ tests. Add, rename, or remove one tool together with its descriptor, handler,
 focused tests, policy record, and this inventory. A rename removes the old name;
 it never retains an alias. Remove an advertised descriptor before deleting its
 implementation, and keep the remaining registry buildable. Changing the
+read-policy inventory, grammar, bounds, platform case behavior, loader, or
+enforcement requires decision 0042, privacy/security prose, grammar and loader
+tests, startup regression, and all three read-tool regressions in the same
+change. Never add negation or a handler-specific bypass. Changing the
 process registry, protocol, limits, output contract, executable resolution, or
 containment backend also requires the complete Windows and Linux proof and
 decision 0036 to change in the same review. Remove `run_process` advertisement
@@ -135,6 +162,8 @@ function defined by decision 0022.
 - Tool contracts and engine: `packages/agent-tools/src/index.ts`
 - Built-in filesystem adapters: `packages/agent-cli/src/builtin-tools.ts`
 - Canonical workspace boundary: `packages/agent-cli/src/workspace-boundary.ts`
+- Workspace-ignore grammar: `packages/agent-cli/src/workspace-ignore.ts`
+- Workspace read policy: `packages/agent-cli/src/workspace-read-policy.ts`
 - Trusted platform-root adapter: `packages/agent-cli/src/platform-workspace-roots.ts`
 - Native platform-root resolver: `packages/agent-cli/native/workspace-roots/`
 - Workspace trust decision: `docs/decisions/0042-owned-workspace-trust-boundary.md`

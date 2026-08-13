@@ -424,9 +424,24 @@ API and derives its user `Temp` root. Keep its process environment empty, frame
 and path bounds exact, UTF-8 decoding strict, deadline fixed, and failures
 content-free. Unsupported platforms fail closed.
 
+Load the workspace read policy immediately after accepting the boundary and
+before credentials, provider/runtime construction, tool registration, or
+terminal ownership. Keep `.agentignore` parsing pure, bounded, and deny-only;
+do not reuse `.gitignore`, add negation, infer locale collation, or let a
+workspace rule weaken the built-ins. Accept only strict scalar UTF-8 from one
+regular non-symlink root file, recheck its identity and metadata after reading,
+and keep the compiled snapshot immutable until restart. Startup failures remain
+content-free.
+
 All model-selected filesystem paths are workspace-relative. Resolve lexical and
 canonical containment beneath the accepted boundary, reject absolute paths,
 parent escape, symlinks, unsupported file kinds, and oversized input or output.
+Before observing a read target, normalize its lexical path through the injected
+policy. A denied `read_file` target returns `permission`; a denied listing or
+search root does the same. Filter listing children and prune search directories
+and files before canonicalization or content reads, while still counting every
+raw directory entry against the existing traversal bounds. Never copy this
+logic into schemas, runtime, TUI, or individual private matchers.
 New-file creation refuses overwrite;
 replacement requires exactly one old-text occurrence. Enumerate directories
 incrementally and bound directory entries, searched directories, aggregate

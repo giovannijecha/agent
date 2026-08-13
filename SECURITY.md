@@ -37,6 +37,14 @@ protected roots from operating-system account and known-folder contracts with
 an empty inherited environment; `HOME`, `USERPROFILE`, `TMPDIR`, `TMP`, and
 `TEMP` cannot relocate those protections.
 
+The same startup sequence fixes one deny-only read policy before credentials,
+providers, tools, or terminal ownership. Built-in sensitive-path rules cannot
+be overridden; a bounded optional root `.agentignore` can only add denials.
+Malformed or unsupported policy input fails closed. The three automatic read
+tools reject or prune denied paths before file content is opened or returned.
+This is a disclosure boundary, not content-based secret detection, write
+protection, or a sandbox for approved processes.
+
 Model and tool text cannot provide styling metadata or terminal escapes. Generic
 components and frames validate one closed semantic tone per printable row; only
 the owned renderer emits fixed ANSI and resets it during row output and cleanup.

@@ -34,6 +34,7 @@ import { run } from "./run.js";
 import { MotionScheduler } from "./motion-scheduler.js";
 import { acquireOpenCodeGoCredential } from "./startup-credential.js";
 import { WorkspaceBoundary } from "./workspace-boundary.js";
+import { WorkspaceReadPolicy } from "./workspace-read-policy.js";
 
 const PROVIDER_PRESENTATION: ProviderPresentation = Object.freeze({
   authentication: "memory-only API key",
@@ -82,6 +83,17 @@ const workspaceBoundary = workspace.ok
   ? workspace.value
   : await writeAndExit(stderr, "agent rejected the workspace root\n", 1);
 const workspaceRoot = workspaceBoundary.root;
+const workspaceReadPolicyResult = await WorkspaceReadPolicy.load(
+  workspaceBoundary,
+  platform,
+);
+const workspaceReadPolicy = workspaceReadPolicyResult.ok
+  ? workspaceReadPolicyResult.value
+  : await writeAndExit(
+      stderr,
+      "agent rejected the workspace privacy policy\n",
+      1,
+    );
 
 const credential = await acquireOpenCodeGoCredential(
   env.AGENT_OPENCODE_GO_API_KEY,
@@ -130,7 +142,7 @@ if (!configuration.ok) {
     : transport;
   const processRunner = NodeProcessRunner.create(platform, arch);
   const tools = processRunner.ok
-    ? createBuiltinToolEngine(workspaceBoundary, {
+    ? createBuiltinToolEngine(workspaceBoundary, workspaceReadPolicy, {
         nodeExecutable: execPath,
         processRunner: processRunner.value,
       })

@@ -411,11 +411,13 @@ tests, decision, documentation, and verifier expectations together; retain
 
 ## Update or remove the workspace trust boundary
 
-Decision 0042, `workspace-boundary.ts`, the CLI composition root, built-in tool
-registration, `platform-workspace-roots.ts`, its bounded protocol and native
-backends, exact footer projection, focused regressions, manuals, and policy
-registries form one contract. Resolve protected roots and the startup working
-directory before credentials, providers, runtime, tools, or terminal ownership.
+Decision 0042, `workspace-boundary.ts`, `workspace-ignore.ts`,
+`workspace-read-policy.ts`, the CLI composition root, built-in tool registration,
+`platform-workspace-roots.ts`, its bounded protocol and native backends, exact
+footer projection, focused regressions, manuals, and policy registries form one
+contract. Resolve protected roots, the startup working directory, and the
+immutable read policy before credentials, providers, runtime, tools, or terminal
+ownership.
 Keep the accepted workspace immutable, canonical, absolute, and shared; no
 handler or UI path may derive a different authority root.
 
@@ -434,11 +436,22 @@ failures, hostile inherited home and temporary variables, native protocol
 limits, tool consumption, and exact footer display. Never add implicit Git root
 discovery because it can widen the operator's selected authority.
 
+A read-policy change must preserve mandatory built-in denial, deny-only
+workspace rules, exact file/rule/line/segment bounds, strict scalar UTF-8,
+non-symlink loading, immutable session snapshots, Linux exact case, and Windows
+ASCII-only folding. Update grammar, loader, startup, built-in tool, privacy,
+security, manual, and removal evidence together. Keep policy construction
+separate from tool mechanics: inject one root-bound value and enforce it before
+read observation. Listing and search must prune denied children while counting
+raw entries against existing traversal limits. Do not let `.agentignore`, an
+approval, a tool call, or process output weaken a built-in rule.
+
 Process containment remains a separate contract. Changing the workspace root
 does not prove that approved Node code is filesystem- or network-sandboxed. Any
 such isolation requires its own Windows and Linux decision and adversarial
-proof. The privacy and stale-safe effect-plan tranches in decision 0042 remain
-future behavior until their own code, tests, documentation, and rollback land.
+proof. The read-privacy tranche is current behavior; stale-safe effect plans
+remain future behavior until their own code, tests, documentation, and rollback
+land.
 
 To remove the current root boundary, first remove every filesystem and process
 capability that consumes it or replace it with a stronger accepted authority.
@@ -449,6 +462,14 @@ together. Never roll back to environment-derived protection.
 Then remove its composition, footer claim, source, tests, policy entries, and
 current-behavior documentation together. Do not leave a raw working-directory
 string feeding any surviving tool.
+
+To remove the read policy independently, first disable automatic content-bearing
+read tools or replace it with a stronger accepted disclosure boundary. Then
+remove policy injection, grammar and loader modules, focused and startup tests,
+built-in and `.agentignore` documentation, and policy registrations together.
+Never leave one read handler bypassing the common policy or silently remove only
+the workspace rules while claiming that the complete disclosure contract
+remains active.
 
 ## Research or enable a provider
 

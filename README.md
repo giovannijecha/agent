@@ -19,6 +19,7 @@ maintainer-controlled workspace without third-party runtime packages.
 - Runs bounded local coding tools through explicit schemas and risk classes.
 - Requires a separate approval for every write or process execution.
 - Executes ordered tool-call batches sequentially and checkpoints their truth.
+- Filters automatic reads through an owned deny-only workspace privacy policy.
 - Contains the admitted `node` process token through an owned native broker.
 - Verifies source, ownership, build, tests, and CLI behavior offline.
 
@@ -50,6 +51,9 @@ volume root, the user home, or the shared temporary directory before reading a
 credential. The protected home and temporary roots come from the operating
 system through an owned native resolver, not from inherited environment
 variables. Startup never widens the selection to a parent Git repository.
+It then loads built-in sensitive-path denials plus an optional bounded root
+`.agentignore` before credentials or tools. Malformed policy fails startup;
+policy changes take effect only after restart.
 Interactive startup can request the optional key without echo; see
 [providers and authentication](docs/manual/05-providers-and-authentication.md)
 for the controlled environment-variable path.
@@ -104,6 +108,8 @@ terminal-native selection path, while Ctrl+C remains the agent interrupt.
 - One model response may select one bounded ordered tool-call batch.
 - Read tools may run automatically; every write or execute call needs its own
   exact approval.
+- `read_file`, `list_directory`, and `search_text` share one immutable built-in
+  plus `.agentignore` disclosure policy; denied targets never enter tool output.
 - `run_process` accepts only the registered `node` token, literal arguments,
   and one workspace-relative directory. It accepts no shell, executable path,
   PATH lookup, stdin, inherited environment, or model-selected limit.
