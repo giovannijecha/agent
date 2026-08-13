@@ -47,7 +47,9 @@ agent
 The exact current directory becomes the coding-tool workspace boundary. Startup
 canonicalizes it once, shows that absolute path in the footer, and rejects a
 volume root, the user home, or the shared temporary directory before reading a
-credential. It never widens the selection to a parent Git repository.
+credential. The protected home and temporary roots come from the operating
+system through an owned native resolver, not from inherited environment
+variables. Startup never widens the selection to a parent Git repository.
 Interactive startup can request the optional key without echo; see
 [providers and authentication](docs/manual/05-providers-and-authentication.md)
 for the controlled environment-variable path.

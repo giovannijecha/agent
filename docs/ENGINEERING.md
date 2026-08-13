@@ -374,6 +374,14 @@ home, and the exact shared temporary directory. Show the same canonical
 absolute root in the footer and pass that boundary to every built-in tool;
 handlers must not replace or independently recanonicalize it.
 
+Never source protected roots from `homedir()`, `tmpdir()`, or inherited home and
+temporary environment variables. Maintain the owned platform resolver as a
+separate CLI adapter: Linux queries the effective-user account database and
+uses `/tmp`; Windows queries Profile and Local AppData through the Known Folder
+API and derives its user `Temp` root. Keep its process environment empty, frame
+and path bounds exact, UTF-8 decoding strict, deadline fixed, and failures
+content-free. Unsupported platforms fail closed.
+
 All model-selected filesystem paths are workspace-relative. Resolve lexical and
 canonical containment beneath the accepted boundary, reject absolute paths,
 parent escape, symlinks, unsupported file kinds, and oversized input or output.

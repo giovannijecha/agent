@@ -32,7 +32,10 @@ Normal startup canonicalizes the exact current directory once and rejects a
 filesystem volume root, the exact user home, and the exact shared temporary
 directory before credentials or terminal ownership. It never widens authority
 by discovering a parent Git repository. The same immutable absolute root feeds
-the footer and every built-in tool.
+the footer and every built-in tool. An owned bounded native resolver obtains the
+protected roots from operating-system account and known-folder contracts with
+an empty inherited environment; `HOME`, `USERPROFILE`, `TMPDIR`, `TMP`, and
+`TEMP` cannot relocate those protections.
 
 Model and tool text cannot provide styling metadata or terminal escapes. Generic
 components and frames validate one closed semantic tone per printable row; only

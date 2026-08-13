@@ -18,6 +18,13 @@ the footer shows only a basename-derived label. This permits no path escape, but
 it leaves the selected authority implicit and does not prove that display,
 filesystem tools, and process working directories share one immutable root.
 
+The initial boundary also received its protected home and temporary roots from
+Node's `homedir()` and `tmpdir()` helpers. Those helpers intentionally honor
+environment variables. An operator or parent process can therefore move the
+protection away from the effective user's real home or the platform temporary
+root before `agent` starts. Canonicalizing a mutable answer does not make its
+source authoritative.
+
 Process-tree containment is also narrower than a machine sandbox. An approved
 `node` program retains the launching user's filesystem and network authority
 even though its environment, duration, output, descendants, and cleanup are
@@ -105,6 +112,34 @@ root therefore cannot cause a key prompt, provider connection, runtime
 construction, tool registration, alternate-screen entry, or model-visible
 content. Startup emits one fixed diagnostic and exits nonzero.
 
+## Trusted platform roots
+
+The CLI obtains protected roots from one separately removable owned native
+resolver before constructing the workspace boundary. It does not read or
+inherit `HOME`, `USERPROFILE`, `TMPDIR`, `TMP`, `TEMP`, or any other process
+environment value. On Linux, the resolver asks the operating-system account
+database for the effective user's home and uses the platform shared temporary
+root `/tmp`. On Windows, it asks the Known Folder API for the effective profile
+and local application-data roots and derives the user's `Temp` directory from
+that operating-system result. Unsupported platforms and architectures fail
+closed.
+
+The resolver is not a model-facing tool and never enters the runtime. Its
+executable path is derived from the installed CLI package, it accepts no
+arguments or input, launches without a shell and with an empty environment,
+and has one fixed five-second completion deadline. It emits exactly one
+versioned bounded binary frame. That frame contains only the two absolute roots
+as strictly decoded UTF-8. Each path and the complete frame have fixed byte
+limits; malformed, truncated, oversized, trailing, empty, relative,
+control-bearing, duplicate, timed-out, or unsuccessful output is rejected with
+one content-free error. Native diagnostics are discarded.
+
+The Node adapter owns process launch and protocol validation; the existing
+`WorkspaceBoundary` continues to own filesystem canonicalization and exact-root
+denial. This separation keeps platform discovery independent of boundary
+policy. Neither component may silently substitute an environment-derived or
+hard-coded user home after discovery fails.
+
 ## Read privacy tranche
 
 The future privacy tranche will apply before `read_file` returns content and
@@ -155,6 +190,8 @@ must fail closed rather than being presented as active.
 - Root selection is explicit and cannot widen itself through repository
   discovery.
 - Over-broad roots fail before credentials or terminal ownership.
+- Mutable inherited environment values cannot relocate the protected home or
+  temporary roots.
 - No new model-facing tool, provider, dependency, package, or TUI primitive is
   introduced.
 - The full trust-boundary milestone remains incomplete until privacy and
@@ -166,6 +203,14 @@ must fail closed rather than being presented as active.
 
 - Keep passing `cwd()` as an ordinary string: display and execution would still
   lack one proven authority object.
+- Use `homedir()` or `tmpdir()` as security authorities: their documented
+  environment precedence lets inherited variables relocate the protections.
+- Trust environment values only when they name existing directories:
+  canonicalization proves identity, not authority, so an attacker-selected
+  directory can still pass.
+- Derive Windows profile paths from account-name strings or registry guesses:
+  redirected and non-default profiles require the operating-system Known Folder
+  contract.
 - Automatically select the nearest Git root: walking upward can silently widen
   access beyond the directory chosen by the operator.
 - Treat `.gitignore` as a secret policy: repository publication intent is not a
@@ -183,6 +228,11 @@ must fail closed rather than being presented as active.
 Tranche 1 tests invalid candidates, files instead of directories, volume roots,
 exact protected roots, symbolic-link canonicalization, immutable results,
 content-free errors, one canonical tool-engine root, and exact footer display.
+The platform-root amendment adds native protocol tests, malformed and bounded
+output tests, adapter failure tests, and process-level startup regressions with
+all relevant home and temporary environment variables redirected to unrelated
+existing directories. Those regressions must still reject the actual
+operating-system home and temporary roots before credential or TUI ownership.
 Startup and built-in tool tests must continue to prove providerless behavior,
 path containment, symlink denial, process working-directory containment, and
 cleanup.
@@ -193,10 +243,18 @@ must pass for every tranche.
 
 ## Update, rollback, and removal
 
-Changing root selection, protected-root classes, resolution order, display, or
-tool consumption requires updating this decision, startup tests, boundary
-tests, built-in tool tests, architecture, manual, maintenance guidance, and
-ownership policy together.
+Changing root selection, platform discovery APIs, protocol, limits, protected-
+root classes, resolution order, display, or tool consumption requires updating
+this decision, native and startup tests, boundary tests, built-in tool tests,
+architecture, manual, maintenance guidance, and ownership policy together. The
+native resolver is rebuilt with the registered C17 and Clang toolchain on every
+supported platform; generated binaries remain ignored.
+
+The platform resolver can be rolled back independently only by replacing it
+with another accepted environment-independent source for both protected roots.
+Removal deletes its native sources, protocol decoder, Node launch adapter,
+tests, generated-artifact registrations, and current-behavior documentation as
+one change. Falling back to environment-derived roots is forbidden.
 
 Rollback of tranche 1 removes the boundary module and its tests, restores the
 prior raw-working-directory composition, removes current-behavior claims, and
