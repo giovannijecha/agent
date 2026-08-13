@@ -3,6 +3,7 @@ import {
   LineEditor,
   type EditorAreaProjection,
   type EditorProjection,
+  type PointerEvent,
 } from "@agent/tui";
 
 import {
@@ -28,6 +29,7 @@ export type SessionAction =
   | Readonly<{ kind: "approve" }>
   | Readonly<{ kind: "deny" }>
   | Readonly<{ kind: "exit" }>
+  | Readonly<{ kind: "interactionBreak" }>
   | Readonly<{ kind: "interrupt" }>
   | Readonly<{
       kind: "navigateTranscript";
@@ -37,6 +39,11 @@ export type SessionAction =
       kind: "notice";
       level: NoticeLevel;
       lines: readonly string[];
+    }>
+  | Readonly<{
+      event: PointerEvent;
+      kind: "pointer";
+      timeMilliseconds: number;
     }>
   | Readonly<{ kind: "submit"; text: string }>;
 
@@ -87,6 +94,7 @@ export class SessionController {
   readonly #editor = new LineEditor();
   readonly #provider: ProviderPresentation | undefined;
   #completionIndex = 0;
+  #pointerContext = false;
 
   constructor(provider?: ProviderPresentation) {
     this.#provider = provider;
@@ -116,8 +124,74 @@ export class SessionController {
     return Object.freeze({ items, selectedIndex });
   }
 
+  get selectedEditorText(): string | undefined {
+    return this.#editor.selectedText;
+  }
+
+  clearEditorSelection(): boolean {
+    return this.#editor.clearSelection().kind === "changed";
+  }
+
+  editorPositionAt(
+    columns: number,
+    maximumRows: number,
+    row: number,
+    column: number,
+  ): number | undefined {
+    return this.#editor.positionAt(
+      columns,
+      maximumRows,
+      row,
+      column,
+    );
+  }
+
+  selectEditorAt(
+    columns: number,
+    maximumRows: number,
+    row: number,
+    column: number,
+    extend: boolean,
+  ): boolean {
+    return this.#editor.selectAt(
+      columns,
+      maximumRows,
+      row,
+      column,
+      extend,
+    ).kind === "changed";
+  }
+
+  selectEditorWordAt(
+    columns: number,
+    maximumRows: number,
+    row: number,
+    column: number,
+  ): boolean {
+    return this.#editor.selectWordAt(
+      columns,
+      maximumRows,
+      row,
+      column,
+    ).kind === "changed";
+  }
+
+  selectEditorWordThroughAt(
+    columns: number,
+    maximumRows: number,
+    row: number,
+    column: number,
+  ): boolean {
+    return this.#editor.selectWordThroughAt(
+      columns,
+      maximumRows,
+      row,
+      column,
+    ).kind === "changed";
+  }
+
   /** Decodes one chunk into ordered immutable application actions. */
-  feed(chunk: string): SessionUpdate {
+  feed(chunk: string, timeMilliseconds = 0): SessionUpdate {
     const actions: SessionAction[] = [];
     let afterInterrupt = false;
     let exitCandidate: string | undefined = "";
@@ -126,6 +200,10 @@ export class SessionController {
     for (const event of this.#decoder.feed(chunk)) {
       if (stopChunk) {
         break;
+      }
+      if (event.kind !== "pointer" && this.#pointerContext) {
+        actions.push(Object.freeze({ kind: "interactionBreak" as const }));
+        this.#pointerContext = false;
       }
       if (afterInterrupt) {
         if (event.kind === "eof") {
@@ -143,6 +221,17 @@ export class SessionController {
           }
           exitCandidate = undefined;
         }
+        continue;
+      }
+      if (event.kind === "pointer") {
+        this.#pointerContext = true;
+        actions.push(
+          Object.freeze({
+            event,
+            kind: "pointer" as const,
+            timeMilliseconds,
+          }),
+        );
         continue;
       }
       if (
@@ -248,6 +337,7 @@ export class SessionController {
   /** Discards incomplete decoder state when the terminal source ends. */
   end(): SessionUpdate {
     this.#decoder.finish();
+    this.#pointerContext = false;
     return Object.freeze({
       actions: Object.freeze([
         Object.freeze({ kind: "exit" as const }),
@@ -261,5 +351,6 @@ export class SessionController {
     this.#decoder.finish();
     this.#editor.clear();
     this.#completionIndex = 0;
+    this.#pointerContext = false;
   }
 }

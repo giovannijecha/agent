@@ -551,7 +551,11 @@ class ControlledNotice implements NoticeController {
 }
 
 function input(text: string): HostEvent {
-  return Object.freeze({ kind: "input" as const, text });
+  return Object.freeze({
+    kind: "input" as const,
+    monotonicMilliseconds: 0,
+    text,
+  });
 }
 
 function delta(turnId: number, text: string): RuntimeEvent<string> {

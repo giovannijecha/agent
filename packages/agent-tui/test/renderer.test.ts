@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  ClipboardPayload,
   Frame,
   RichRow,
   type Result,
@@ -69,7 +70,7 @@ test("enters the alternate screen and shows the requested caret", async () => {
 
   assert.equal(
     output.text,
-    "\u001B[?2026h\u001B[?1049h\u001B[?2004h\u001B[?25l\u001B[2 q\u001B[2J\u001B[H" +
+    "\u001B[?2026h\u001B[?1049h\u001B[?1006h\u001B[?1002h\u001B[?2004h\u001B[?25l\u001B[2 q\u001B[2J\u001B[H" +
       "\u001B[1;1H\u001B[2Kagent" +
       "\u001B[1;6H\u001B[?25h\u001B[?2026l",
   );
@@ -115,6 +116,21 @@ test("redraws only changed rows at unchanged geometry", async () => {
     "\u001B[?2026h\u001B[?25l\u001B[2;1H\u001B[2Kready" +
       "\u001B[2;6H\u001B[?25h\u001B[?2026l",
   );
+});
+
+test("serializes a validated clipboard request between frame writes", async () => {
+  const output = new MemoryOutput();
+  const renderer = new Renderer(output);
+  const payload = ClipboardPayload.create("copy");
+  assert.ok(payload.ok);
+
+  await renderer.render(frame(["agent"]), viewport());
+  const copied = await renderer.copy(payload.value);
+  await renderer.render(frame(["ready"]), viewport());
+
+  assert.ok(copied.ok);
+  assert.equal(output.chunks.at(1), "\u001B]52;c;Y29weQ==\u001B\\");
+  assert.equal(output.chunks.length, 3);
 });
 
 test("renders only fixed semantic tones and resets each styled span", async () => {
@@ -220,6 +236,33 @@ test("renders closed italic and subtle-background styles compositionally", async
   );
   assert.equal(
     output.text.includes("\u001B[1;3;48;2;31;38;47manswer\u001B[0m"),
+    true,
+  );
+});
+
+test("renders selected HTTPS spans through closed SGR and OSC 8 sequences", async () => {
+  const output = new MemoryOutput();
+  const renderer = new Renderer(output);
+  const span = TextSpan.create(
+    "https://example.com",
+    "accent",
+    { mark: "selected" },
+    { hyperlink: "https://example.com" },
+  );
+  assert.ok(span.ok);
+  const row = RichRow.create([span.value]);
+  assert.ok(row.ok);
+  const rendered = Frame.create([row.value], { row: 0, column: 0 });
+  assert.ok(rendered.ok);
+
+  await renderer.render(rendered.value, viewport());
+
+  assert.equal(
+    output.text.includes(
+      "\u001B]8;;https://example.com\u001B\\" +
+        "\u001B[38;2;102;155;210;7mhttps://example.com" +
+        "\u001B]8;;\u001B\\\u001B[0m",
+    ),
     true,
   );
 });
@@ -443,7 +486,7 @@ test("ends a possibly partial synchronized update and restores the cursor style 
   assert.ok(finished.ok);
   assert.equal(
     output.chunks.at(-1),
-    "\u001B[?2026l\u001B[0m\u001B[?2004l\u001B[0 q\u001B[?25h\u001B[?1049l",
+    "\u001B[?2026l\u001B[0m\u001B[?1002l\u001B[?1006l\u001B[?2004l\u001B[0 q\u001B[?25h\u001B[?1049l",
   );
 });
 
@@ -457,7 +500,7 @@ test("leaves the alternate screen and cleanup is idempotent", async () => {
   await renderer.finish();
 
   assert.equal(
-    afterFirstFinish.endsWith("\u001B[?2004l\u001B[0 q\u001B[?25h\u001B[?1049l"),
+    afterFirstFinish.endsWith("\u001B[?1002l\u001B[?1006l\u001B[?2004l\u001B[0 q\u001B[?25h\u001B[?1049l"),
     true,
   );
   assert.equal(output.text, afterFirstFinish);
@@ -476,7 +519,7 @@ test("retries cleanup after a failed leave write", async () => {
   assert.deepEqual(failed, { ok: false, error: "blocked" });
   assert.ok(retried.ok);
   assert.equal(
-    output.text.endsWith("\u001B[?2004l\u001B[0 q\u001B[?25h\u001B[?1049l"),
+    output.text.endsWith("\u001B[?1002l\u001B[?1006l\u001B[?2004l\u001B[0 q\u001B[?25h\u001B[?1049l"),
     true,
   );
 });

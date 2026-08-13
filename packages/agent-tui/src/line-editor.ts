@@ -19,8 +19,17 @@ export type EditorProjection = Readonly<{
 
 export type EditorAreaProjection = Readonly<{
   rows: readonly string[];
+  selections: readonly Readonly<{ end: number; start: number }>[];
   caretRow: number;
   caretColumn: number;
+}>;
+
+type EditorAreaDetails = Readonly<{
+  caretColumn: number;
+  caretRow: number;
+  indices: readonly (readonly number[])[];
+  rowEnds: readonly number[];
+  rows: readonly string[];
 }>;
 
 const OUTCOMES = Object.freeze({
@@ -69,8 +78,11 @@ function pasteCharacters(text: string): readonly string[] | undefined {
 function appendProjectedCharacter(
   rows: string[],
   widths: number[],
+  indices: number[][],
+  rowEnds: number[],
   character: string,
   columns: number,
+  sourceIndex: number,
 ): void {
   let rendered = character;
   let width = characterCellWidth(rendered);
@@ -81,12 +93,17 @@ function appendProjectedCharacter(
   const row = rows.length - 1;
   const currentWidth = widths.at(row) ?? 0;
   if (currentWidth + width > columns) {
+    rowEnds.splice(row, 1, sourceIndex);
     rows.push(rendered);
     widths.push(width);
+    indices.push([sourceIndex]);
+    rowEnds.push(sourceIndex + 1);
     return;
   }
   rows.splice(row, 1, (rows.at(row) ?? "") + rendered);
   widths.splice(row, 1, currentWidth + width);
+  indices.at(row)?.push(sourceIndex);
+  rowEnds.splice(row, 1, sourceIndex + 1);
 }
 
 function projectedWordWidth(
@@ -117,6 +134,11 @@ function isWordSeparator(character: string | undefined): boolean {
 export class LineEditor {
   #characters: string[] = [];
   #cursor = 0;
+  #selectionAnchor: number | undefined;
+  #selectionFocus: number | undefined;
+  #selectionOrigin: number | undefined;
+  #wordSelectionEnd: number | undefined;
+  #wordSelectionStart: number | undefined;
 
   /** Returns the complete current draft. */
   get text(): string {
@@ -128,11 +150,34 @@ export class LineEditor {
     return this.#characters.length;
   }
 
+  get selection(): Readonly<{ end: number; start: number }> | undefined {
+    const bounds = this.#selectionBounds();
+    return bounds === undefined ? undefined : Object.freeze(bounds);
+  }
+
+  get selectedText(): string | undefined {
+    const bounds = this.#selectionBounds();
+    return bounds === undefined
+      ? undefined
+      : this.#characters.slice(bounds.start, bounds.end).join("");
+  }
+
+  /** Collapses the current selection without changing editor content. */
+  clearSelection(): EditorOutcome {
+    if (this.#selectionBounds() === undefined) {
+      this.#clearSelection();
+      return OUTCOMES.unchanged;
+    }
+    this.#clearSelection();
+    return OUTCOMES.changed;
+  }
+
   /** Releases all retained draft characters and restores the initial caret. */
   clear(): boolean {
     const changed = this.#characters.length > 0 || this.#cursor !== 0;
     this.#characters.splice(0);
     this.#cursor = 0;
+    this.#clearSelection();
     return changed;
   }
 
@@ -159,6 +204,7 @@ export class LineEditor {
     }
     this.#characters = [...replacement];
     this.#cursor = replacement.length;
+    this.#clearSelection();
     return OUTCOMES.changed;
   }
 
@@ -172,14 +218,30 @@ export class LineEditor {
       if (inserted === undefined || inserted.length === 0) {
         return OUTCOMES.unsupported;
       }
-      if (this.#characters.length + inserted.length > MAX_CODE_POINTS) {
+      const selection = this.#selectionBounds();
+      const removed = selection === undefined ? 0 : selection.end - selection.start;
+      if (this.#characters.length - removed + inserted.length > MAX_CODE_POINTS) {
         return OUTCOMES.limit;
+      }
+      if (selection !== undefined) {
+        this.#characters.splice(
+          selection.start,
+          selection.end - selection.start,
+        );
+        this.#cursor = selection.start;
       }
       this.#characters.splice(this.#cursor, 0, ...inserted);
       this.#cursor += inserted.length;
+      this.#clearSelection();
       return OUTCOMES.changed;
     }
     if (event.kind === "left") {
+      const selection = this.#selectionBounds();
+      if (selection !== undefined) {
+        this.#cursor = selection.start;
+        this.#clearSelection();
+        return OUTCOMES.changed;
+      }
       if (this.#cursor === 0) {
         return OUTCOMES.unchanged;
       }
@@ -187,6 +249,12 @@ export class LineEditor {
       return OUTCOMES.changed;
     }
     if (event.kind === "right") {
+      const selection = this.#selectionBounds();
+      if (selection !== undefined) {
+        this.#cursor = selection.end;
+        this.#clearSelection();
+        return OUTCOMES.changed;
+      }
       if (this.#cursor === this.#characters.length) {
         return OUTCOMES.unchanged;
       }
@@ -194,6 +262,18 @@ export class LineEditor {
       return OUTCOMES.changed;
     }
     if (event.kind === "wordLeft" || event.kind === "wordBackspace") {
+      const selection = this.#selectionBounds();
+      if (selection !== undefined) {
+        if (event.kind === "wordBackspace") {
+          this.#characters.splice(
+            selection.start,
+            selection.end - selection.start,
+          );
+        }
+        this.#cursor = selection.start;
+        this.#clearSelection();
+        return OUTCOMES.changed;
+      }
       let target = this.#cursor;
       while (
         target > 0 &&
@@ -214,9 +294,24 @@ export class LineEditor {
         this.#characters.splice(target, this.#cursor - target);
       }
       this.#cursor = target;
+      this.#clearSelection();
       return OUTCOMES.changed;
     }
     if (event.kind === "wordRight" || event.kind === "wordDelete") {
+      const selection = this.#selectionBounds();
+      if (selection !== undefined) {
+        if (event.kind === "wordDelete") {
+          this.#characters.splice(
+            selection.start,
+            selection.end - selection.start,
+          );
+          this.#cursor = selection.start;
+        } else {
+          this.#cursor = selection.end;
+        }
+        this.#clearSelection();
+        return OUTCOMES.changed;
+      }
       let target = this.#cursor;
       while (
         target < this.#characters.length &&
@@ -238,23 +333,42 @@ export class LineEditor {
       } else {
         this.#cursor = target;
       }
+      this.#clearSelection();
       return OUTCOMES.changed;
     }
     if (event.kind === "home") {
+      const selection = this.#selectionBounds();
+      if (selection !== undefined) {
+        this.#cursor = 0;
+        this.#clearSelection();
+        return OUTCOMES.changed;
+      }
       if (this.#cursor === 0) {
         return OUTCOMES.unchanged;
       }
       this.#cursor = 0;
+      this.#clearSelection();
       return OUTCOMES.changed;
     }
     if (event.kind === "end") {
+      const selection = this.#selectionBounds();
+      if (selection !== undefined) {
+        this.#cursor = this.#characters.length;
+        this.#clearSelection();
+        return OUTCOMES.changed;
+      }
       if (this.#cursor === this.#characters.length) {
         return OUTCOMES.unchanged;
       }
       this.#cursor = this.#characters.length;
+      this.#clearSelection();
       return OUTCOMES.changed;
     }
     if (event.kind === "backspace") {
+      const selection = this.#deleteSelection();
+      if (selection) {
+        return OUTCOMES.changed;
+      }
       if (this.#cursor === 0) {
         return OUTCOMES.unchanged;
       }
@@ -263,6 +377,10 @@ export class LineEditor {
       return OUTCOMES.changed;
     }
     if (event.kind === "delete") {
+      const selection = this.#deleteSelection();
+      if (selection) {
+        return OUTCOMES.changed;
+      }
       if (this.#cursor === this.#characters.length) {
         return OUTCOMES.unchanged;
       }
@@ -273,6 +391,7 @@ export class LineEditor {
       const submitted = this.text;
       this.#characters = [];
       this.#cursor = 0;
+      this.#clearSelection();
       return Object.freeze({ kind: "submitted" as const, text: submitted });
     }
     if (event.kind === "interrupt") {
@@ -326,6 +445,155 @@ export class LineEditor {
 
   /** Projects a wrapped multiline viewport while keeping the caret visible. */
   projectArea(columns: number, maximumRows: number): EditorAreaProjection {
+    const details = this.#projectAreaDetails(columns, maximumRows);
+    const selection = this.#selectionBounds();
+    const selections = details.indices.map((row) => {
+      if (selection === undefined) {
+        return Object.freeze({ end: 0, start: 0 });
+      }
+      let start = -1;
+      let end = -1;
+      for (let index = 0; index < row.length; index += 1) {
+        const source = row.at(index);
+        if (
+          source !== undefined &&
+          source >= selection.start &&
+          source < selection.end
+        ) {
+          if (start < 0) start = index;
+          end = index + 1;
+        }
+      }
+      return start < 0
+        ? Object.freeze({ end: 0, start: 0 })
+        : Object.freeze({ end, start });
+    });
+    return Object.freeze({
+      rows: details.rows,
+      selections: Object.freeze(selections),
+      caretRow: details.caretRow,
+      caretColumn: details.caretColumn,
+    });
+  }
+
+  /** Resolves one exact visible editor cell to its source boundary. */
+  positionAt(
+    columns: number,
+    maximumRows: number,
+    row: number,
+    column: number,
+  ): number | undefined {
+    return this.#indexAt(columns, maximumRows, row, column);
+  }
+
+  /** Moves or extends the selection from one exact visible editor cell. */
+  selectAt(
+    columns: number,
+    maximumRows: number,
+    row: number,
+    column: number,
+    extend: boolean,
+  ): EditorOutcome {
+    const target = this.#indexAt(columns, maximumRows, row, column);
+    if (target === undefined) {
+      return OUTCOMES.unchanged;
+    }
+    this.#wordSelectionStart = undefined;
+    this.#wordSelectionEnd = undefined;
+    const previousCursor = this.#cursor;
+    const previous = this.#selectionBounds();
+    if (!extend || this.#selectionOrigin === undefined) {
+      this.#selectionAnchor = target;
+      this.#selectionOrigin = target;
+    }
+    const origin = this.#selectionOrigin;
+    const afterOrigin = extend && origin !== undefined && target >= origin;
+    if (extend && origin !== undefined) {
+      this.#selectionAnchor = afterOrigin ? origin : origin + 1;
+    }
+    const focus = afterOrigin && target < this.#characters.length
+      ? target + 1
+      : target;
+    this.#selectionFocus = focus;
+    this.#cursor = focus;
+    const next = this.#selectionBounds();
+    return previousCursor === this.#cursor &&
+      previous?.start === next?.start &&
+      previous?.end === next?.end
+      ? OUTCOMES.unchanged
+      : OUTCOMES.changed;
+  }
+
+  /** Selects one whitespace or non-whitespace run at a visible editor cell. */
+  selectWordAt(
+    columns: number,
+    maximumRows: number,
+    row: number,
+    column: number,
+  ): EditorOutcome {
+    const target = this.#indexAt(columns, maximumRows, row, column);
+    if (target === undefined || target >= this.#characters.length) {
+      return OUTCOMES.unchanged;
+    }
+    const bounds = this.#wordBounds(target);
+    const start = bounds.start;
+    const end = bounds.end;
+    this.#selectionAnchor = start;
+    this.#selectionFocus = end;
+    this.#selectionOrigin = undefined;
+    this.#wordSelectionStart = start;
+    this.#wordSelectionEnd = end;
+    this.#cursor = end;
+    return OUTCOMES.changed;
+  }
+
+  /** Extends a word selection through one whitespace or non-whitespace run. */
+  selectWordThroughAt(
+    columns: number,
+    maximumRows: number,
+    row: number,
+    column: number,
+  ): EditorOutcome {
+    const target = this.#indexAt(columns, maximumRows, row, column);
+    const baseStart = this.#wordSelectionStart;
+    const baseEnd = this.#wordSelectionEnd;
+    if (
+      target === undefined ||
+      target >= this.#characters.length ||
+      baseStart === undefined ||
+      baseEnd === undefined
+    ) {
+      return OUTCOMES.unchanged;
+    }
+    const previousCursor = this.#cursor;
+    const previous = this.#selectionBounds();
+    const targetBounds = this.#wordBounds(target);
+    if (targetBounds.end <= baseStart) {
+      this.#selectionAnchor = baseEnd;
+      this.#selectionFocus = targetBounds.start;
+      this.#cursor = targetBounds.start;
+    } else if (targetBounds.start >= baseEnd) {
+      this.#selectionAnchor = baseStart;
+      this.#selectionFocus = targetBounds.end;
+      this.#cursor = targetBounds.end;
+    } else {
+      this.#selectionAnchor = baseStart;
+      this.#selectionFocus = baseEnd;
+      this.#cursor = baseEnd;
+    }
+    this.#selectionOrigin = undefined;
+    const next = this.#selectionBounds();
+    return previousCursor === this.#cursor &&
+      previous?.start === next?.start &&
+      previous?.end === next?.end
+      ? OUTCOMES.unchanged
+      : OUTCOMES.changed;
+  }
+
+  #projectAreaDetails(
+    columns: number,
+    maximumRows: number,
+  ): EditorAreaDetails {
     if (!Number.isSafeInteger(columns) || columns < 1) {
       throw new RangeError("editor columns must be a positive safe integer");
     }
@@ -335,6 +603,8 @@ export class LineEditor {
 
     const rows = [""];
     const widths = [0];
+    const indices: number[][] = [[]];
+    const rowEnds = [0];
     let caretRow = 0;
     let caretColumn = 0;
     for (let index = 0; index <= this.#characters.length; index += 1) {
@@ -342,8 +612,11 @@ export class LineEditor {
         caretRow = rows.length - 1;
         caretColumn = widths.at(caretRow) ?? 0;
         if (caretColumn === columns) {
+          rowEnds.splice(caretRow, 1, index);
           rows.push("");
           widths.push(0);
+          indices.push([]);
+          rowEnds.push(index);
           caretRow += 1;
           caretColumn = 0;
         }
@@ -353,8 +626,11 @@ export class LineEditor {
         break;
       }
       if (character === "\n") {
+        rowEnds.splice(rows.length - 1, 1, index);
         rows.push("");
         widths.push(0);
+        indices.push([]);
+        rowEnds.push(index + 1);
         continue;
       }
       if (character === " ") {
@@ -365,8 +641,11 @@ export class LineEditor {
           nextWordWidth > 0 &&
           width + 1 + nextWordWidth > columns
         ) {
+          rowEnds.splice(rows.length - 1, 1, index);
           rows.push("");
           widths.push(0);
+          indices.push([]);
+          rowEnds.push(index + 1);
           continue;
         }
       }
@@ -379,18 +658,39 @@ export class LineEditor {
           nextWordWidth > 0 &&
           width + spaces + nextWordWidth > columns
         ) {
+          rowEnds.splice(rows.length - 1, 1, index);
           rows.push("");
           widths.push(0);
+          indices.push([]);
+          rowEnds.push(index + 1);
           width = 0;
           spaces = 4;
         }
         for (let space = 0; space < spaces; space += 1) {
-          appendProjectedCharacter(rows, widths, " ", columns);
+          appendProjectedCharacter(
+            rows,
+            widths,
+            indices,
+            rowEnds,
+            " ",
+            columns,
+            index,
+          );
         }
         continue;
       }
-      appendProjectedCharacter(rows, widths, character, columns);
+      appendProjectedCharacter(
+        rows,
+        widths,
+        indices,
+        rowEnds,
+        character,
+        columns,
+        index,
+      );
     }
+
+    rowEnds.splice(rows.length - 1, 1, this.#characters.length);
 
     const start = Math.max(
       0,
@@ -399,8 +699,100 @@ export class LineEditor {
     const visibleRows = Object.freeze(rows.slice(start, start + maximumRows));
     return Object.freeze({
       rows: visibleRows,
+      indices: Object.freeze(
+        indices
+          .slice(start, start + maximumRows)
+          .map((row) => Object.freeze([...row])),
+      ),
+      rowEnds: Object.freeze(rowEnds.slice(start, start + maximumRows)),
       caretRow: caretRow - start,
       caretColumn,
     });
+  }
+
+  #indexAt(
+    columns: number,
+    maximumRows: number,
+    row: number,
+    column: number,
+  ): number | undefined {
+    if (
+      !Number.isSafeInteger(row) ||
+      row < 0 ||
+      !Number.isSafeInteger(column) ||
+      column < 0
+    ) {
+      return undefined;
+    }
+    const details = this.#projectAreaDetails(columns, maximumRows);
+    const text = details.rows.at(row);
+    const indices = details.indices.at(row);
+    const rowEnd = details.rowEnds.at(row);
+    if (text === undefined || indices === undefined || rowEnd === undefined) {
+      return undefined;
+    }
+    let currentColumn = 0;
+    let characterIndex = 0;
+    for (const character of text) {
+      const width = characterCellWidth(character);
+      if (column < currentColumn + width) {
+        return indices.at(characterIndex) ?? rowEnd;
+      }
+      currentColumn += width;
+      characterIndex += 1;
+    }
+    return rowEnd;
+  }
+
+  #selectionBounds(): { end: number; start: number } | undefined {
+    const anchor = this.#selectionAnchor;
+    const focus = this.#selectionFocus;
+    if (anchor === undefined || focus === undefined || anchor === focus) {
+      return undefined;
+    }
+    return anchor < focus
+      ? { end: focus, start: anchor }
+      : { end: anchor, start: focus };
+  }
+
+  #clearSelection(): void {
+    this.#selectionAnchor = undefined;
+    this.#selectionFocus = undefined;
+    this.#selectionOrigin = undefined;
+    this.#wordSelectionStart = undefined;
+    this.#wordSelectionEnd = undefined;
+  }
+
+  #wordBounds(target: number): { end: number; start: number } {
+    const selectedSeparator = isWordSeparator(this.#characters.at(target));
+    let start = target;
+    let end = target + 1;
+    while (
+      start > 0 &&
+      isWordSeparator(this.#characters.at(start - 1)) === selectedSeparator
+    ) {
+      start -= 1;
+    }
+    while (
+      end < this.#characters.length &&
+      isWordSeparator(this.#characters.at(end)) === selectedSeparator
+    ) {
+      end += 1;
+    }
+    return { end, start };
+  }
+
+  #deleteSelection(): boolean {
+    const selection = this.#selectionBounds();
+    if (selection === undefined) {
+      return false;
+    }
+    this.#characters.splice(
+      selection.start,
+      selection.end - selection.start,
+    );
+    this.#cursor = selection.start;
+    this.#clearSelection();
+    return true;
   }
 }

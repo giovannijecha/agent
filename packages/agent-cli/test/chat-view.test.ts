@@ -476,6 +476,7 @@ test("keeps required compact content and the caret in a short viewport", () => {
   assert.equal(rows.length, 8);
   assert.deepEqual(rendered.value.transcript, {
     contentRows: 3,
+    startRow: 0,
     viewportRows: 2,
   });
   assert.equal(rows.some((row) => row.text.includes("question")), true);
@@ -492,10 +493,10 @@ test("keeps required compact content and the caret in a short viewport", () => {
 
 test("composes the maximum retained history plus an active turn within component bounds", () => {
   const entries = Array.from({ length: 128 }, (_, turn) => [
-    Object.freeze({ content: "question-" + String(turn), role: "user" as const }),
-    Object.freeze({ content: "answer-" + String(turn), role: "assistant" as const }),
+    Object.freeze({ content: "question-" + String(turn), document: turn * 2, role: "user" as const }),
+    Object.freeze({ content: "answer-" + String(turn), document: turn * 2 + 1, role: "assistant" as const }),
   ]).flat();
-  entries.push(Object.freeze({ content: "active-question", role: "user" }));
+  entries.push(Object.freeze({ content: "active-question", document: 256, role: "user" }));
 
   const document = createConversationDocument(entries);
 
@@ -708,6 +709,45 @@ test("places compact phase-independent notices between activity and composer", (
   assert.equal(infoSpan?.tone, "muted");
   assert.equal(infoSpan?.surface, "none");
   assert.equal(infoRows.some((row) => row.text.includes("Unknown command")), false);
+});
+
+test("places copy feedback on the composer edge without moving the transcript", () => {
+  const application = new ApplicationController(true);
+  assert.ok(application.turnAccepted(started(32, "copy this answer")).ok);
+  application.feed("draft");
+  const size = viewport(72, 18);
+  const before = createChatRender(application, size);
+  assert.ok(before.ok);
+
+  application.clipboardSettled("copied");
+  const after = createChatRender(application, size);
+  assert.ok(after.ok);
+
+  assert.deepEqual(after.value.transcript, before.value.transcript);
+  assert.deepEqual(after.value.composer, before.value.composer);
+  assert.deepEqual(after.value.frame.caret, before.value.frame.caret);
+  assert.equal(after.value.frame.rows.length, before.value.frame.rows.length);
+  const copiedRows = after.value.frame.rows.filter((row) =>
+    row.text.includes("Copied!")
+  );
+  assert.equal(copiedRows.length, 1);
+  assert.equal(
+    copiedRows.at(0),
+    after.value.frame.rows.at(after.value.frame.caret?.row ?? -1),
+  );
+  assert.equal(copiedRows.at(0)?.text.endsWith("Copied! "), true);
+  assert.equal(
+    copiedRows.at(0)?.spans.find((span) =>
+      span.text.includes("Copied!")
+    )?.tone,
+    "muted",
+  );
+  assert.equal(
+    after.value.frame.rows.some((row) =>
+      row.text.includes("Copied to clipboard")
+    ),
+    false,
+  );
 });
 
 test("renders failed tool truth only through failure state", () => {

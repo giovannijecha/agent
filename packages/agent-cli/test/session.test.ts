@@ -246,3 +246,14 @@ test("turns terminal end into exit and discards incomplete decoder state", () =>
 
   assert.deepEqual(ended, { actions: [{ kind: "exit" }], redraw: false });
 });
+
+test("orders an explicit interaction break between pointer and keyboard input", () => {
+  const session = new SessionController();
+
+  const pointer = session.feed("\u001B[<0;2;3M", 100);
+  const keyboard = session.feed("x", 110);
+
+  assert.equal(pointer.actions.at(0)?.kind, "pointer");
+  assert.deepEqual(keyboard.actions, [{ kind: "interactionBreak" }]);
+  assert.equal(session.projectEditor(20).text, "x");
+});

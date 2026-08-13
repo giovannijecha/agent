@@ -9,6 +9,7 @@ export type TranscriptRole = "assistant" | "user";
 
 export type TranscriptEntry = Readonly<{
   content: string;
+  document: number;
   role: TranscriptRole;
 }>;
 
@@ -37,30 +38,40 @@ export class ChatStateError {
 
 type CompletedTurn = Readonly<{
   assistant: string;
+  assistantDocument: number;
   codeUnits: number;
   user: string;
+  userDocument: number;
 }>;
 
 type ActiveTurn = {
+  readonly assistantDocument: number;
   readonly chunks: string[];
   readonly segments: string[];
   readonly turnId: number;
   readonly user: string;
+  readonly userDocument: number;
   preparedAssistant: string | undefined;
   responseCodeUnits: number;
 };
 
-function entry(role: TranscriptRole, content: string): TranscriptEntry {
-  return Object.freeze({ content, role });
+function entry(
+  document: number,
+  role: TranscriptRole,
+  content: string,
+): TranscriptEntry {
+  return Object.freeze({ content, document, role });
 }
 
 function turnEntries(
+  userDocument: number,
+  assistantDocument: number,
   user: string,
   assistant: string,
 ): readonly TranscriptEntry[] {
-  const entries: TranscriptEntry[] = [entry("user", user)];
+  const entries: TranscriptEntry[] = [entry(userDocument, "user", user)];
   if (assistant.length > 0) {
-    entries.push(entry("assistant", assistant));
+    entries.push(entry(assistantDocument, "assistant", assistant));
   }
   return Object.freeze(entries);
 }
@@ -70,6 +81,8 @@ function tail(text: string, codeUnits: number): string {
 }
 
 function clippedTurnEntries(
+  userDocument: number,
+  assistantDocument: number,
   user: string,
   assistant: string,
 ): readonly TranscriptEntry[] {
@@ -84,7 +97,12 @@ function clippedTurnEntries(
     assistant,
     contentCodeUnits - retainedUser.length,
   );
-  return turnEntries(retainedUser, retainedAssistant);
+  return turnEntries(
+    userDocument,
+    assistantDocument,
+    retainedUser,
+    retainedAssistant,
+  );
 }
 
 function entryCodeUnits(entries: readonly TranscriptEntry[]): number {
@@ -110,6 +128,7 @@ export class ChatState {
   readonly #completed: CompletedTurn[] = [];
   #active: ActiveTurn | undefined;
   #completedCodeUnits = 0;
+  #nextDocument = 0;
 
   get activeTurnId(): number | undefined {
     return this.#active?.turnId;
@@ -129,18 +148,22 @@ export class ChatState {
       turnId < 1 ||
       typeof user !== "string" ||
       user.trim().length === 0 ||
-      inputTooLong(user)
+      inputTooLong(user) ||
+      this.#nextDocument > Number.MAX_SAFE_INTEGER - 2
     ) {
       return err(new ChatStateError("invalidTurn"));
     }
     this.#active = {
+      assistantDocument: this.#nextDocument + 1,
       chunks: [],
       segments: [],
       preparedAssistant: undefined,
       responseCodeUnits: 0,
       turnId,
       user,
+      userDocument: this.#nextDocument,
     };
+    this.#nextDocument += 2;
     return ok(undefined);
   }
 
@@ -240,8 +263,10 @@ export class ChatState {
     }
     const completed = Object.freeze({
       assistant,
+      assistantDocument: active.assistantDocument,
       codeUnits: active.user.length + assistant.length,
       user: active.user,
+      userDocument: active.userDocument,
     });
     this.#active = undefined;
     this.#completed.push(completed);
@@ -274,6 +299,7 @@ export class ChatState {
     this.#active = undefined;
     this.#completed.splice(0);
     this.#completedCodeUnits = 0;
+    this.#nextDocument = 0;
   }
 
   /** Builds isolated chronological role/content entries within the TUI bound. */
@@ -288,6 +314,8 @@ export class ChatState {
           .filter((segment) => segment.trim().length > 0)
           .join(TRANSCRIPT_SEPARATOR);
       const prospective = turnEntries(
+        active.userDocument,
+        active.assistantDocument,
         active.user,
         assistant,
       );
@@ -295,7 +323,12 @@ export class ChatState {
         .map((item) => item.content)
         .join(TRANSCRIPT_SEPARATOR);
       if (completeProspective.length > TUI_LIMITS.displayTextCodeUnits) {
-        const clipped = clippedTurnEntries(active.user, assistant);
+        const clipped = clippedTurnEntries(
+          active.userDocument,
+          active.assistantDocument,
+          active.user,
+          assistant,
+        );
         newest.push(clipped);
         codeUnits += entryCodeUnits(clipped);
       } else {
@@ -308,7 +341,12 @@ export class ChatState {
       if (turn === undefined) {
         continue;
       }
-      const entries = turnEntries(turn.user, turn.assistant);
+      const entries = turnEntries(
+        turn.userDocument,
+        turn.assistantDocument,
+        turn.user,
+        turn.assistant,
+      );
       const formattedLength = entryCodeUnits(entries);
       const separator = newest.length === 0 ? 0 : TRANSCRIPT_SEPARATOR.length;
       if (
@@ -349,8 +387,10 @@ export class ChatState {
   #publish(active: ActiveTurn, assistant: string): void {
     const completed = Object.freeze({
       assistant,
+      assistantDocument: active.assistantDocument,
       codeUnits: active.user.length + assistant.length,
       user: active.user,
+      userDocument: active.userDocument,
     });
     active.chunks.splice(0);
     active.segments.splice(0);

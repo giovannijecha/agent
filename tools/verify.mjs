@@ -595,7 +595,7 @@ function verifyRepositoryLayout() {
         /^test\/[a-z0-9-]+\.test\.ts$/u.test(relativeFile) ||
         (
           workspaceRoot === "packages/agent-cli/" &&
-          /^native\/(?:process-broker|workspace-roots)\/[a-z0-9-]+\.(?:c|h)$/u.test(relativeFile)
+          /^native\/(?:clipboard|process-broker|workspace-roots)\/[a-z0-9-]+\.(?:c|h)$/u.test(relativeFile)
         )
       ) {
         continue;
@@ -641,13 +641,18 @@ function verifyRepositoryLayout() {
     .filter((file) => file.startsWith("packages/agent-cli/.native-build/"))
     .sort();
   if (actualNativeGenerated.length > 0 || requireGenerated) {
+    const expectedNativeGenerated = [
+      nativeRoot + "agent-clipboard-fixture" + nativeSuffix,
+      nativeRoot + "agent-process-broker" + nativeSuffix,
+      nativeRoot + "agent-process-fixture" + nativeSuffix,
+      nativeRoot + "agent-workspace-roots" + nativeSuffix,
+    ];
+    if (process.platform === "win32") {
+      expectedNativeGenerated.push(nativeRoot + "agent-clipboard.exe");
+    }
     compareObjects(
       actualNativeGenerated,
-      [
-        nativeRoot + "agent-process-broker" + nativeSuffix,
-        nativeRoot + "agent-process-fixture" + nativeSuffix,
-        nativeRoot + "agent-workspace-roots" + nativeSuffix,
-      ],
+      expectedNativeGenerated.sort(),
       "native generated artifact set",
     );
   }

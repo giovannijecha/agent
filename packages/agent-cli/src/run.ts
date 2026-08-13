@@ -6,6 +6,7 @@ import type {
 } from "@agent/runtime";
 import {
   advanceMotionPhase,
+  ClipboardPayload,
   err,
   type ComponentError,
   type MotionPhase,
@@ -19,8 +20,10 @@ import {
   ApplicationController,
   type ApplicationEffect,
   type ApplicationError,
+  type ClipboardSettlement,
 } from "./application.js";
 import { createChatRender } from "./chat-view.js";
+import type { ChatRender } from "./chat-view.js";
 import type { ProviderPresentation } from "./commands.js";
 import {
   type ArbiterError,
@@ -31,6 +34,7 @@ import type { TerminalHost } from "./terminal-host.js";
 import type { MotionController } from "./motion-scheduler.js";
 import { isMotionActive } from "./motion-policy.js";
 import type { NoticeController } from "./notice-scheduler.js";
+import type { ClipboardPort } from "./platform-clipboard.js";
 
 export const PLAIN_STATUS =
   "agent\ninteractive terminal requires TTY input and output\n";
@@ -110,6 +114,30 @@ function terminalFailure<E>(
   return Object.freeze({ kind: "terminal" as const, operation, error });
 }
 
+async function copySelection<E>(
+  text: string,
+  renderer: Renderer<E>,
+  clipboard: ClipboardPort | undefined,
+): Promise<ClipboardSettlement> {
+  if (clipboard !== undefined) {
+    try {
+      const copied = await clipboard.copy(text);
+      if (!copied.ok) return "failed";
+      if (copied.value === "copied") return "copied";
+    } catch (_cause: unknown) {
+      return "failed";
+    }
+  }
+  const payload = ClipboardPayload.create(text);
+  if (!payload.ok) return "failed";
+  try {
+    const requested = await renderer.copy(payload.value);
+    return requested.ok ? "requested" : "failed";
+  } catch (_cause: unknown) {
+    return "failed";
+  }
+}
+
 function beginRuntimeStop<RE>(
   runtime: RuntimeSession<RE> | undefined,
 ): Promise<RuntimeStopSettlement> | undefined {
@@ -172,7 +200,7 @@ async function renderApplication<E>(
   application: ApplicationController,
   viewport: Viewport,
   motionPhase: MotionPhase,
-): Promise<Result<void, RunFailure<E>>> {
+): Promise<Result<ChatRender, RunFailure<E>>> {
   const prepared = createChatRender(application, viewport, motionPhase);
   if (!prepared.ok) {
     return err(Object.freeze({ kind: "frame" as const, error: prepared.error }));
@@ -188,7 +216,7 @@ async function renderApplication<E>(
   }
   const rendered = await renderer.render(prepared.value.frame, viewport);
   return rendered.ok
-    ? ok(undefined)
+    ? ok(prepared.value)
     : err(terminalFailure("output", rendered.error));
 }
 
@@ -416,12 +444,24 @@ function applySessionUpdate<E, RE>(
   application: ApplicationController,
   arbiter: EventArbiter<E, RE>,
   runtime: RuntimeSession<RE> | undefined,
+  render: ChatRender | undefined,
 ): EffectOutcome<E> {
   let redraw = session.redraw;
   for (const action of session.actions) {
     let applicationUpdate;
     try {
-      applicationUpdate = application.applySessionAction(action);
+      applicationUpdate = application.applySessionAction(
+        action,
+        render === undefined
+          ? undefined
+          : Object.freeze({
+              composer: render.composer,
+              frame: render.frame,
+              stageColumns: render.stage.columns,
+              stageLeft: render.stage.left,
+              transcript: render.transcript,
+            }),
+      );
     } catch (_cause: unknown) {
       return Object.freeze({
         exit: false,
@@ -573,6 +613,7 @@ export async function run<E, RE = never>(
   workspace?: string,
   motion?: MotionController,
   notices?: NoticeController,
+  clipboard?: ClipboardPort,
 ): Promise<Result<void, RunError<E, RE>>> {
   if (!host.interactive) {
     let primary: RunFailure<E> | undefined;
@@ -634,6 +675,7 @@ export async function run<E, RE = never>(
       if (!initial.ok) {
         primary = initial.error;
       }
+      let lastRender = initial.ok ? initial.value : undefined;
 
       let running = primary === undefined;
       while (running && primary === undefined) {
@@ -689,17 +731,22 @@ export async function run<E, RE = never>(
               break;
             }
             viewport = measured.value;
+            application.resize();
             redraw = true;
           } else {
             const session =
               terminal.kind === "end"
                 ? application.end()
-                : application.feed(terminal.text);
+                : application.feed(
+                    terminal.text,
+                    terminal.monotonicMilliseconds,
+                  );
             const outcome = applySessionUpdate(
               session,
               application,
               arbiter,
               runtime,
+              lastRender,
             );
             redraw = outcome.redraw;
             if (outcome.failure !== undefined) {
@@ -750,6 +797,16 @@ export async function run<E, RE = never>(
               break;
             }
           }
+        }
+
+        const pendingCopy = application.takePendingCopy();
+        if (pendingCopy !== undefined) {
+          const settlement = await copySelection(
+            pendingCopy,
+            renderer,
+            clipboard,
+          );
+          redraw = application.clipboardSettled(settlement).redraw || redraw;
         }
 
         const functionalRedraw =
@@ -804,7 +861,10 @@ export async function run<E, RE = never>(
           );
           if (!rendered.ok) {
             primary = rendered.error;
-          } else if (motionActive) {
+          } else {
+            lastRender = rendered.value;
+          }
+          if (rendered.ok && motionActive) {
             try {
               motion?.frameRendered();
             } catch (_cause: unknown) {

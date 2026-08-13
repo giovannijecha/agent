@@ -3,7 +3,11 @@ import type { Result, TextOutput, Viewport } from "@agent/tui";
 /** Ordered platform event consumed by the serialized CLI loop. */
 export type HostEvent =
   | Readonly<{ kind: "end" }>
-  | Readonly<{ kind: "input"; text: string }>
+  | Readonly<{
+      kind: "input";
+      monotonicMilliseconds: number;
+      text: string;
+    }>
   | Readonly<{ kind: "resize" }>;
 
 /** Narrow terminal capability implemented only at the CLI platform edge. */

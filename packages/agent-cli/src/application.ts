@@ -15,6 +15,7 @@ import {
   type InputProjectionSource,
   type Result,
   ScrollState,
+  type TextSelection,
   TUI_LIMITS,
 } from "@agent/tui";
 
@@ -23,6 +24,7 @@ import type { ProviderPresentation } from "./commands.js";
 import {
   createNoticeToken,
   type NoticeLevel,
+  type NoticePlacement,
   type NoticeToken,
 } from "./notice.js";
 import {
@@ -35,6 +37,12 @@ import {
   ToolActivityLog,
   type ToolActivitySnapshot,
 } from "./tool-activity-log.js";
+import {
+  type PointerProjection,
+  TerminalInteraction,
+} from "./terminal-interaction.js";
+
+export type { PointerProjection } from "./terminal-interaction.js";
 
 const MAX_NOTICE_LINES = 16;
 const MAX_NOTICE_CODE_UNITS = 1_024;
@@ -45,6 +53,8 @@ export type ApplicationPhase =
   | "generating"
   | "idle"
   | "runningTool";
+
+export type ClipboardSettlement = "copied" | "failed" | "requested";
 
 export type ApplicationEffect =
   | Readonly<{ kind: "acknowledgeTurn"; turnId: number }>
@@ -154,9 +164,11 @@ export class ApplicationController
   readonly #chat = new ChatState();
   readonly #provider: ProviderPresentation | undefined;
   readonly #session: SessionController;
+  readonly #terminalInteraction = new TerminalInteraction();
   readonly #workspace: string | undefined;
   #notice: readonly string[];
   #noticeLevel: NoticeLevel = "info";
+  #noticePlacement: NoticePlacement = "context";
   #noticeToken: NoticeToken | undefined = undefined;
   #phase: ApplicationPhase = "idle";
   #transcriptGeometry:
@@ -209,6 +221,10 @@ export class ApplicationController
     return this.#noticeLevel;
   }
 
+  get noticePlacement(): NoticePlacement {
+    return this.#noticePlacement;
+  }
+
   get noticeToken(): NoticeToken | undefined {
     return this.#noticeToken;
   }
@@ -241,6 +257,10 @@ export class ApplicationController
     return this.#transcriptScroll;
   }
 
+  get transcriptSelection(): TextSelection | undefined {
+    return this.#terminalInteraction.transcriptSelection;
+  }
+
   get viewingHistory(): boolean {
     return !this.#transcriptScroll.followingEnd;
   }
@@ -269,12 +289,35 @@ export class ApplicationController
   }
 
   /** Reduces one terminal input chunk into application effects. */
-  feed(chunk: string): SessionUpdate {
-    const session = this.#session.feed(chunk);
+  feed(chunk: string, timeMilliseconds = 0): SessionUpdate {
+    const session = this.#session.feed(chunk, timeMilliseconds);
     if (session.redraw && this.#notice.length > 0) {
       this.#setNotice([]);
     }
     return session;
+  }
+
+  /** Returns and clears one bounded clipboard request after serialized input. */
+  takePendingCopy(): string | undefined {
+    return this.#terminalInteraction.takePendingCopy();
+  }
+
+  /** Presents one truthful clipboard outcome at the composer edge. */
+  clipboardSettled(settlement: ClipboardSettlement): ApplicationUpdate {
+    if (settlement === "copied") {
+      this.#setNotice(["Copied!"], "info", "composer");
+    } else if (settlement === "requested") {
+      this.#setNotice(["Copy requested!"], "info", "composer");
+    } else {
+      this.#setNotice(["Copy failed!"], "warning", "composer");
+    }
+    return update(true);
+  }
+
+  /** Clears geometry-dependent interaction state after terminal resize. */
+  resize(): void {
+    this.#terminalInteraction.reset();
+    this.#session.clearEditorSelection();
   }
 
   /** Reduces terminal EOF into the canonical exit effect. */
@@ -320,10 +363,12 @@ export class ApplicationController
     this.#chat.clear();
     this.#notice = Object.freeze([]);
     this.#noticeLevel = "info";
+    this.#noticePlacement = "context";
     this.#noticeToken = undefined;
     this.#phase = "idle";
     this.#transcriptGeometry = undefined;
     this.#transcriptScroll = ScrollState.followEnd();
+    this.#terminalInteraction.reset();
     this.#checkpointObserved = false;
     this.#preparedCleanup = false;
     this.#preparedCheckpointed = false;
@@ -331,7 +376,32 @@ export class ApplicationController
   }
 
   /** Reduces one decoded action so capability feedback can preserve ordering. */
-  applySessionAction(action: SessionAction): ApplicationUpdate {
+  applySessionAction(
+    action: SessionAction,
+    pointerProjection?: PointerProjection,
+  ): ApplicationUpdate {
+    if (action.kind === "pointer") {
+      if (pointerProjection === undefined) {
+        return update(false);
+      }
+      const interaction = this.#terminalInteraction.apply(
+        action.event,
+        action.timeMilliseconds,
+        pointerProjection,
+        this.#chat.transcriptEntries(),
+        this.#session,
+      );
+      if (interaction.notice !== undefined) {
+        this.#setNotice(interaction.notice);
+      }
+      return interaction.scrollDelta === undefined
+        ? update(interaction.redraw || interaction.notice !== undefined)
+        : this.#moveTranscript(interaction.scrollDelta);
+    }
+    this.#terminalInteraction.breakSequence();
+    if (action.kind === "interactionBreak") {
+      return update(false);
+    }
     if (action.kind === "notice") {
       this.#setNotice(action.lines, action.level);
       return update(true);
@@ -350,20 +420,7 @@ export class ApplicationController
             : action.movement === "pageUp"
               ? -pageRows
               : pageRows;
-      const moved = this.#transcriptScroll.move(
-        delta,
-        geometry.contentRows,
-        geometry.viewportRows,
-      );
-      if (!moved.ok) {
-        this.#setNotice(["Transcript navigation state could not be updated."]);
-        return update(true);
-      }
-      const changed =
-        moved.value.offset !== this.#transcriptScroll.offset ||
-        moved.value.followingEnd !== this.#transcriptScroll.followingEnd;
-      this.#transcriptScroll = moved.value;
-      return update(changed);
+      return this.#moveTranscript(delta);
     }
     if (action.kind === "approve" || action.kind === "deny") {
       const tool = this.#tool;
@@ -460,6 +517,7 @@ export class ApplicationController
     this.#phase = "generating";
     this.#transcriptGeometry = undefined;
     this.#transcriptScroll = ScrollState.followEnd();
+    this.#terminalInteraction.reset();
     this.#checkpointObserved = false;
     this.#setNotice([]);
     return ok(undefined);
@@ -816,18 +874,42 @@ export class ApplicationController
   #setNotice(
     lines: readonly string[],
     level: NoticeLevel = "warning",
+    placement: NoticePlacement = "context",
   ): void {
     if (validNotice(lines)) {
       this.#notice = Object.freeze([...lines]);
       this.#noticeLevel = level;
+      this.#noticePlacement = placement;
     } else {
       this.#notice = Object.freeze([
         "Application status was rejected by its safety limit.",
       ]);
       this.#noticeLevel = "warning";
+      this.#noticePlacement = "context";
     }
     this.#noticeToken = this.#notice.length > 0
       ? createNoticeToken()
       : undefined;
+  }
+
+  #moveTranscript(delta: number): ApplicationUpdate {
+    const geometry = this.#transcriptGeometry;
+    if (geometry === undefined) {
+      return update(false);
+    }
+    const moved = this.#transcriptScroll.move(
+      delta,
+      geometry.contentRows,
+      geometry.viewportRows,
+    );
+    if (!moved.ok) {
+      this.#setNotice(["Transcript navigation state could not be updated."]);
+      return update(true);
+    }
+    const changed =
+      moved.value.offset !== this.#transcriptScroll.offset ||
+      moved.value.followingEnd !== this.#transcriptScroll.followingEnd;
+    this.#transcriptScroll = moved.value;
+    return update(changed);
   }
 }

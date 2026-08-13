@@ -220,6 +220,29 @@ status state.
 Remove `VerticalLayoutPlan` only after no remaining caller consumes planned
 geometry; direct layout rendering must continue through one allocation path.
 
+Terminal pointer interaction changes only through decision 0045. Update SGR
+decoding, renderer mode lifecycle, planned geometry, logical span references,
+selection marking, editor ranges, CLI routing, monotonic timestamps, scroll,
+clipboard encoding, link emission, privacy, manual evidence, Windows visual
+review, and Linux visual review together. Preserve the 500-millisecond word
+gesture, Shift native-selection escape hatch, exact visible HTTPS destination,
+65,536-code-unit copy bound, release settlement, word-wise double-click drag,
+truthful `copied`/`requested`/`failed` notices, typed failures, and cleanup retry.
+Clipboard notice presentation must retain one generation and timer, one closed
+composer placement, constrained collapse, and identical transcript, composer,
+and caret geometry before and after settlement.
+Keep the Windows x64 clipboard port, UTF-16LE protocol, native C17 broker, exact
+path, empty environment, fixed timeout, hidden-window ownership, bounded retry,
+and fixture tests together. To remove native copy, delete that CLI boundary and
+native build target together while retaining the truthful OSC 52 request path.
+To remove all clipboard copy, delete both paths and application settlement while
+retaining selection. To remove links, delete both the HTTPS interaction metadata
+and OSC 8 emission. To remove pointer ownership, disable modes 1002 and 1006
+first, then remove decoder events, logical ranges, editor pointer routing,
+tests, evidence, and decision registration. Keyboard editing, transcript
+navigation, rendering, Ctrl+C interrupt, and native Shift selection must remain
+operational throughout removal.
+
 Markdown syntax, delimiter completion, precedence, roles, structured surfaces,
 lexical aliases, separator behavior, compact-fence density, fallback, or bounds
 change only through decisions 0023, 0030, 0031, and 0032 with parser, internal highlighter, component, shared-layout, surface painter,
@@ -556,6 +579,12 @@ Terminal protocol changes affect two independent owners:
    tones stay closed, application-neutral, structured-row, and renderer-owned,
    with normalization, bounded span count, and reset after emphasized spans and
    on cleanup.
+7. For pointer changes, preserve decision 0045 and exact tests for fragmented
+   SGR reports, logical hit geometry, scroll-stable and cross-message selection,
+   composer replacement, double-click timing and word-wise drag, Shift fallback,
+   OSC 8 closure, OSC 52 bounds and ordering, Windows clipboard framing and
+   native fixture rejection, truthful settlements, resize reset, partial
+   initialization, cleanup retry, and the same Windows/Linux VT pointer contract.
 
 To remove interactivity, first remove runtime event composition, then delete the
 TUI decoder/editor/viewport modules and CLI session/chat-view/host modules.

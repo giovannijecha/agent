@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-10
-- Amended by: decisions 0030, 0031, 0033, 0035, 0038, 0039, 0040, and 0043
+- Amended by: decisions 0030, 0031, 0033, 0035, 0038, 0039, 0040, 0043, and 0045
 
 Decision 0033 later replaces the unboxed-activity and approval-panel
 distinction with one borderless semantic surface for every activity state.
@@ -12,6 +12,8 @@ red backgrounds for authoritative tool lifecycle state.
 Decision 0043 later removes vertical padding from activity surfaces while
 retaining one vertical padding row around user text and focused composer text,
 plus the external rhythm.
+Decision 0045 adds an independent selection mark to conversation and composer
+text without changing their surface, slant, foreground, or spacing grammar.
 Decisions 0035, 0038, and 0039 replace the original `InputLine` panel, textual
 footer lifecycle, role-local width, and bordered geometry below with the
 stage-wide multiline composer, bounded pulse, and one responsive stage. Those

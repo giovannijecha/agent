@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-10
-- Amended by: decision 0032
+- Amended by: decisions 0032 and 0045
 
 ## Context
 
@@ -51,6 +51,11 @@ viewports.
 Mouse input, a scrollbar, numeric position chrome, history aliases, message
 selection, horizontal scrolling, and a second transcript component are
 excluded.
+
+Decision 0045 later admits bounded SGR mouse input and logical message
+selection through this decision's same `ScrollState`, planned geometry, and
+single transcript component. Scrollbars, numeric position chrome, history
+aliases, horizontal scrolling, and a second transcript remain excluded.
 
 ## Bounds, failures, and security
 

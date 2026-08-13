@@ -132,7 +132,13 @@ class PullNotice implements NoticeSource {
 }
 
 function terminalInput(text: string): Result<HostEvent, string> {
-  return ok(Object.freeze({ kind: "input" as const, text }));
+  return ok(
+    Object.freeze({
+      kind: "input" as const,
+      monotonicMilliseconds: 0,
+      text,
+    }),
+  );
 }
 
 function runtimeDelta(turnId: number, text: string) {

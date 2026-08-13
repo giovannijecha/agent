@@ -8,9 +8,14 @@ import { err, ok, type Result } from "./result.js";
 import {
   normalizeTextStyle,
   type SurfaceTone,
+  type TextMark,
   type TextSlant,
   type TextStyleOptions,
 } from "./text-style.js";
+import {
+  normalizeTextInteraction,
+  type TextPosition,
+} from "./text-interaction.js";
 import { isTone, type Tone } from "./tone.js";
 
 const CONTROL_CHARACTER = /[\u0000-\u001F\u007F-\u009F]/u;
@@ -80,17 +85,26 @@ export class TextSpan {
   readonly #surface: SurfaceTone;
   readonly #text: string;
   readonly #tone: Tone;
+  readonly #hyperlink: string | undefined;
+  readonly #mark: TextMark;
+  readonly #position: TextPosition | undefined;
 
   private constructor(
     text: string,
     tone: Tone,
+    mark: TextMark,
     slant: TextSlant,
     surface: SurfaceTone,
+    hyperlink: string | undefined,
+    position: TextPosition | undefined,
   ) {
     this.#text = text;
     this.#tone = tone;
+    this.#mark = mark;
     this.#slant = slant;
     this.#surface = surface;
+    this.#hyperlink = hyperlink;
+    this.#position = position;
     Object.freeze(this);
   }
 
@@ -98,6 +112,7 @@ export class TextSpan {
     text: unknown,
     tone: unknown = "plain",
     style?: unknown,
+    interaction?: unknown,
   ): Result<TextSpan, RichRowError> {
     const validated = validateText(text);
     if (!validated.ok) {
@@ -110,12 +125,19 @@ export class TextSpan {
     if (normalizedStyle === undefined) {
       return err(new RichRowError("invalidStyle", undefined));
     }
+    const normalizedInteraction = normalizeTextInteraction(interaction);
+    if (normalizedInteraction === undefined) {
+      return err(new RichRowError("invalidSpan", undefined));
+    }
     return ok(
       new TextSpan(
         validated.value,
         tone,
+        normalizedStyle.mark,
         normalizedStyle.slant,
         normalizedStyle.surface,
+        normalizedInteraction.hyperlink,
+        normalizedInteraction.position,
       ),
     );
   }
@@ -127,8 +149,12 @@ export class TextSpan {
     }
     try {
       return TextSpan.create(value.#text, value.#tone, {
+        mark: value.#mark,
         slant: value.#slant,
         surface: value.#surface,
+      }, {
+        hyperlink: value.#hyperlink,
+        position: value.#position,
       });
     } catch (_cause: unknown) {
       return err(new RichRowError("invalidSpan", undefined));
@@ -143,12 +169,24 @@ export class TextSpan {
     return this.#slant;
   }
 
+  get mark(): TextMark {
+    return this.#mark;
+  }
+
   get surface(): SurfaceTone {
     return this.#surface;
   }
 
   get tone(): Tone {
     return this.#tone;
+  }
+
+  get hyperlink(): string | undefined {
+    return this.#hyperlink;
+  }
+
+  get position(): TextPosition | undefined {
+    return this.#position;
   }
 }
 
@@ -197,6 +235,10 @@ export class RichRow {
 
       const groups: Array<{
         chunks: string[];
+        hyperlink: string | undefined;
+        length: number;
+        mark: TextMark;
+        position: TextPosition | undefined;
         slant: TextSlant;
         surface: SurfaceTone;
         tone: Tone;
@@ -222,15 +264,30 @@ export class RichRow {
         }
 
         const previous = groups.at(-1);
+        const contiguousPosition =
+          previous?.position === undefined
+            ? copied.value.position === undefined
+            : copied.value.position !== undefined &&
+              previous.position.document === copied.value.position.document &&
+              previous.position.offset + previous.length ===
+                copied.value.position.offset;
         if (
           previous?.tone === copied.value.tone &&
+          previous.mark === copied.value.mark &&
           previous.slant === copied.value.slant &&
-          previous.surface === copied.value.surface
+          previous.surface === copied.value.surface &&
+          previous.hyperlink === copied.value.hyperlink &&
+          contiguousPosition
         ) {
           previous.chunks.push(copied.value.text);
+          previous.length += codePointLength(copied.value.text);
         } else {
           groups.push({
             chunks: [copied.value.text],
+            hyperlink: copied.value.hyperlink,
+            length: codePointLength(copied.value.text),
+            mark: copied.value.mark,
+            position: copied.value.position,
             slant: copied.value.slant,
             surface: copied.value.surface,
             tone: copied.value.tone,
@@ -244,8 +301,12 @@ export class RichRow {
       const normalized: TextSpan[] = [];
       for (const group of groups) {
         const merged = TextSpan.create(group.chunks.join(""), group.tone, {
+          mark: group.mark,
           slant: group.slant,
           surface: group.surface,
+        }, {
+          hyperlink: group.hyperlink,
+          position: group.position,
         });
         if (!merged.ok) {
           return merged;
@@ -300,8 +361,12 @@ export class RichRow {
         }
         if (characters.length > 0) {
           const created = TextSpan.create(characters.join(""), span.tone, {
+            mark: span.mark,
             slant: span.slant,
             surface: span.surface,
+          }, {
+            hyperlink: span.hyperlink,
+            position: span.position,
           });
           if (!created.ok) {
             return created;
@@ -333,8 +398,12 @@ export class RichRow {
         if (
           left?.text !== right?.text ||
           left?.tone !== right?.tone ||
+          left?.mark !== right?.mark ||
           left?.slant !== right?.slant ||
-          left?.surface !== right?.surface
+          left?.surface !== right?.surface ||
+          left?.hyperlink !== right?.hyperlink ||
+          left?.position?.document !== right?.position?.document ||
+          left?.position?.offset !== right?.position?.offset
         ) {
           return false;
         }

@@ -10,6 +10,11 @@ import {
 } from "@agent/tui";
 
 import { PLAIN_STATUS, run } from "../dist/run.js";
+import type {
+  ClipboardDisposition,
+  ClipboardPort,
+  PlatformClipboardError,
+} from "../dist/platform-clipboard.js";
 import type { HostEvent, TerminalHost } from "../dist/terminal-host.js";
 
 class FakeHost implements TerminalHost<string> {
@@ -61,6 +66,22 @@ class FakeHost implements TerminalHost<string> {
   }
 }
 
+class FakeClipboard implements ClipboardPort {
+  readonly copies: string[] = [];
+  readonly #result: Result<ClipboardDisposition, PlatformClipboardError>;
+
+  constructor(result: Result<ClipboardDisposition, PlatformClipboardError>) {
+    this.#result = result;
+  }
+
+  copy(
+    text: string,
+  ): Promise<Result<ClipboardDisposition, PlatformClipboardError>> {
+    this.copies.push(text);
+    return Promise.resolve(this.#result);
+  }
+}
+
 test("uses exact escape-free plain output outside a TTY", async () => {
   const host = new FakeHost(false);
 
@@ -75,7 +96,7 @@ test("uses exact escape-free plain output outside a TTY", async () => {
 
 test("runs an interactive session until the exact exit command", async () => {
   const host = new FakeHost(true, [
-    ok(Object.freeze({ kind: "input" as const, text: "/exit\r" })),
+    ok(Object.freeze({ kind: "input" as const, monotonicMilliseconds: 0, text: "/exit\r" })),
   ]);
 
   const result = await run(host);
@@ -89,15 +110,15 @@ test("runs an interactive session until the exact exit command", async () => {
   );
   assert.equal(
     host.writes.at(-1),
-    "\u001B[0m\u001B[?2004l\u001B[0 q\u001B[?25h\u001B[?1049l",
+    "\u001B[0m\u001B[?1002l\u001B[?1006l\u001B[?2004l\u001B[0 q\u001B[?25h\u001B[?1049l",
   );
 });
 
 test("redraws after input and resize without losing the draft", async () => {
   const host = new FakeHost(true, [
-    ok(Object.freeze({ kind: "input" as const, text: "draft" })),
+    ok(Object.freeze({ kind: "input" as const, monotonicMilliseconds: 0, text: "draft" })),
     ok(Object.freeze({ kind: "resize" as const })),
-    ok(Object.freeze({ kind: "input" as const, text: "\u0003" })),
+    ok(Object.freeze({ kind: "input" as const, monotonicMilliseconds: 1, text: "\u0003" })),
   ]);
   host.setViewport(40, 8);
 
@@ -107,6 +128,153 @@ test("redraws after input and resize without losing the draft", async () => {
   assert.equal(host.writes.join("").includes("\u203a"), false);
   assert.equal(host.writes.join("").includes("draft"), true);
   assert.equal(host.writes.join("").includes("\u001B[2J"), true);
+});
+
+test("serializes one settled composer selection through owned OSC 52", async () => {
+  const host = new FakeHost(true, [
+    ok(Object.freeze({
+      kind: "input" as const,
+      monotonicMilliseconds: 0,
+      text: "alpha beta",
+    })),
+    ok(Object.freeze({
+      kind: "input" as const,
+      monotonicMilliseconds: 100,
+      text: "\u001B[<0;9;5M",
+    })),
+    ok(Object.freeze({
+      kind: "input" as const,
+      monotonicMilliseconds: 110,
+      text: "\u001B[<0;9;5m",
+    })),
+    ok(Object.freeze({
+      kind: "input" as const,
+      monotonicMilliseconds: 450,
+      text: "\u001B[<0;9;5M",
+    })),
+    ok(Object.freeze({
+      kind: "input" as const,
+      monotonicMilliseconds: 460,
+      text: "\u001B[<0;9;5m",
+    })),
+    ok(Object.freeze({
+      kind: "input" as const,
+      monotonicMilliseconds: 500,
+      text: "\u0003",
+    })),
+  ]);
+  host.setViewport(40, 8);
+
+  const result = await run(host);
+
+  assert.ok(result.ok);
+  const output = host.writes.join("");
+  assert.equal(output.includes("\u001B]52;c;YmV0YQ==\u001B\\"), true);
+  assert.equal(output.includes("Copy requested!"), true);
+});
+
+test("uses confirmed platform copy without emitting OSC 52", async () => {
+  const host = new FakeHost(true, [
+    ok(Object.freeze({
+      kind: "input" as const,
+      monotonicMilliseconds: 0,
+      text: "alpha beta",
+    })),
+    ok(Object.freeze({
+      kind: "input" as const,
+      monotonicMilliseconds: 100,
+      text: "\u001B[<0;9;5M",
+    })),
+    ok(Object.freeze({
+      kind: "input" as const,
+      monotonicMilliseconds: 110,
+      text: "\u001B[<0;9;5m",
+    })),
+    ok(Object.freeze({
+      kind: "input" as const,
+      monotonicMilliseconds: 450,
+      text: "\u001B[<0;9;5M",
+    })),
+    ok(Object.freeze({
+      kind: "input" as const,
+      monotonicMilliseconds: 460,
+      text: "\u001B[<0;9;5m",
+    })),
+    ok(Object.freeze({
+      kind: "input" as const,
+      monotonicMilliseconds: 500,
+      text: "\u0003",
+    })),
+  ]);
+  const clipboard = new FakeClipboard(ok("copied"));
+  host.setViewport(40, 8);
+
+  const result = await run(
+    host,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    clipboard,
+  );
+
+  assert.ok(result.ok);
+  assert.deepEqual(clipboard.copies, ["beta"]);
+  const output = host.writes.join("");
+  assert.equal(output.includes("\u001B]52;"), false);
+  assert.equal(output.includes("Copied!"), true);
+});
+
+test("keeps clipboard failure nonfatal and reports it truthfully", async () => {
+  const host = new FakeHost(true, [
+    ok(Object.freeze({
+      kind: "input" as const,
+      monotonicMilliseconds: 0,
+      text: "alpha beta",
+    })),
+    ok(Object.freeze({
+      kind: "input" as const,
+      monotonicMilliseconds: 100,
+      text: "\u001B[<0;9;5M",
+    })),
+    ok(Object.freeze({
+      kind: "input" as const,
+      monotonicMilliseconds: 110,
+      text: "\u001B[<0;9;5m",
+    })),
+    ok(Object.freeze({
+      kind: "input" as const,
+      monotonicMilliseconds: 450,
+      text: "\u001B[<0;9;5M",
+    })),
+    ok(Object.freeze({
+      kind: "input" as const,
+      monotonicMilliseconds: 460,
+      text: "\u001B[<0;9;5m",
+    })),
+    ok(Object.freeze({
+      kind: "input" as const,
+      monotonicMilliseconds: 500,
+      text: "\u0003",
+    })),
+  ]);
+  const clipboard = new FakeClipboard(err({ kind: "native" }));
+  host.setViewport(40, 8);
+
+  const result = await run(
+    host,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    clipboard,
+  );
+
+  assert.ok(result.ok);
+  assert.deepEqual(clipboard.copies, ["beta"]);
+  assert.equal(host.writes.join("").includes("Copy failed!"), true);
 });
 
 test("preserves primary and cleanup failures independently", async () => {

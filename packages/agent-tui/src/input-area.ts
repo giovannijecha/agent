@@ -9,12 +9,14 @@ import {
 import { Fragment } from "./fragment.js";
 import type { EditorAreaProjection } from "./line-editor.js";
 import { TUI_LIMITS } from "./limits.js";
-import { RichRow } from "./rich-row.js";
+import { RichRow, TextSpan } from "./rich-row.js";
 import { err, ok, type Result } from "./result.js";
+import type { TextMark } from "./text-style.js";
 import { isTone, type Tone } from "./tone.js";
 import type { Viewport } from "./viewport.js";
 
 const CONTROL_CHARACTER = /[\u0000-\u001F\u007F-\u009F]/u;
+const MAX_TRAILING_STATUS_CODE_POINTS = 32;
 
 /** Pure projection source used by the generic multiline input component. */
 export interface InputAreaProjectionSource {
@@ -24,13 +26,43 @@ export interface InputAreaProjectionSource {
 export type InputAreaOptions = Readonly<{
   maximumRows: number;
   textTone: Tone;
+  trailingStatus?:
+    | Readonly<{
+        text: string;
+        tone: Tone;
+      }>
+    | undefined;
 }>;
 
 type StableProjection = Readonly<{
   rows: readonly string[];
+  selections: readonly Readonly<{ end: number; start: number }>[];
   caretRow: number;
   caretColumn: number;
 }>;
+
+function appendProjectionSpan(
+  spans: TextSpan[],
+  characters: readonly string[],
+  start: number,
+  end: number,
+  tone: Tone,
+  mark: TextMark,
+): boolean {
+  if (start === end) {
+    return true;
+  }
+  const span = TextSpan.create(
+    characters.slice(start, end).join(""),
+    tone,
+    { mark },
+  );
+  if (!span.ok) {
+    return false;
+  }
+  spans.push(span.value);
+  return true;
+}
 
 /** Bounded focused editor area backed by one synchronous projection source. */
 export class InputArea implements Component {
@@ -40,6 +72,9 @@ export class InputArea implements Component {
     maximumRows: number,
   ) => EditorAreaProjection;
   readonly #textTone: Tone;
+  readonly #trailingStatus:
+    | Readonly<{ text: string; tone: Tone }>
+    | undefined;
 
   private constructor(
     project: (columns: number, maximumRows: number) => EditorAreaProjection,
@@ -48,6 +83,7 @@ export class InputArea implements Component {
     this.#project = project;
     this.#maximumRows = options.maximumRows;
     this.#textTone = options.textTone;
+    this.#trailingStatus = options.trailingStatus;
     Object.freeze(this);
   }
 
@@ -61,6 +97,7 @@ export class InputArea implements Component {
     let method: unknown;
     let maximumRows: unknown;
     let textTone: unknown;
+    let trailingStatus: unknown;
     try {
       method = source.projectArea;
       if (typeof options !== "object" || options === null) {
@@ -68,6 +105,7 @@ export class InputArea implements Component {
       }
       maximumRows = options.maximumRows;
       textTone = options.textTone;
+      trailingStatus = options.trailingStatus;
     } catch (_cause: unknown) {
       return err(new ComponentError("invalidSource", undefined));
     }
@@ -85,6 +123,40 @@ export class InputArea implements Component {
     if (!isTone(textTone)) {
       return err(new ComponentError("invalidTone", undefined));
     }
+    let stableTrailingStatus:
+      | Readonly<{ text: string; tone: Tone }>
+      | undefined;
+    if (trailingStatus !== undefined) {
+      if (typeof trailingStatus !== "object" || trailingStatus === null) {
+        return err(new ComponentError("invalidProjection", undefined));
+      }
+      let statusText: unknown;
+      let statusTone: unknown;
+      try {
+        const candidate = trailingStatus as Partial<{
+          text: string;
+          tone: Tone;
+        }>;
+        statusText = candidate.text;
+        statusTone = candidate.tone;
+      } catch (_cause: unknown) {
+        return err(new ComponentError("invalidProjection", undefined));
+      }
+      if (
+        typeof statusText !== "string" ||
+        statusText.length === 0 ||
+        Array.from(statusText).length > MAX_TRAILING_STATUS_CODE_POINTS ||
+        CONTROL_CHARACTER.test(statusText) ||
+        hasLoneSurrogate(statusText) ||
+        !isTone(statusTone)
+      ) {
+        return err(new ComponentError("invalidProjection", undefined));
+      }
+      stableTrailingStatus = Object.freeze({
+        text: statusText,
+        tone: statusTone,
+      });
+    }
     const stableProject = (
       columns: number,
       rows: number,
@@ -92,7 +164,11 @@ export class InputArea implements Component {
     return ok(
       new InputArea(
         stableProject,
-        Object.freeze({ maximumRows, textTone }),
+        Object.freeze({
+          maximumRows,
+          textTone,
+          trailingStatus: stableTrailingStatus,
+        }),
       ),
     );
   }
@@ -119,8 +195,63 @@ export class InputArea implements Component {
       return projection;
     }
     const rows: RichRow[] = [];
-    for (const text of projection.value.rows) {
-      const row = RichRow.fromText(text, this.#textTone);
+    for (let index = 0; index < projection.value.rows.length; index += 1) {
+      const text = projection.value.rows.at(index);
+      const selection = projection.value.selections.at(index);
+      if (text === undefined || selection === undefined) {
+        return err(new ComponentError("invalidProjection", index));
+      }
+      const characters = Array.from(text);
+      const spans: TextSpan[] = [];
+      if (
+        !appendProjectionSpan(
+          spans,
+          characters,
+          0,
+          selection.start,
+          this.#textTone,
+          "none",
+        ) ||
+        !appendProjectionSpan(
+          spans,
+          characters,
+          selection.start,
+          selection.end,
+          this.#textTone,
+          "selected",
+        ) ||
+        !appendProjectionSpan(
+          spans,
+          characters,
+          selection.end,
+          characters.length,
+          this.#textTone,
+          "none",
+        )
+      ) {
+        return err(new ComponentError("invalidRow", rows.length));
+      }
+      const trailingStatus = this.#trailingStatus;
+      if (index === projection.value.caretRow && trailingStatus !== undefined) {
+        const textWidth = textCellWidth(text);
+        const statusWidth = textCellWidth(trailingStatus.text);
+        const gap = viewport.columns - textWidth - statusWidth;
+        if (gap >= 1) {
+          const spacing = TextSpan.create(
+            " ".repeat(gap),
+            this.#textTone,
+          );
+          const status = TextSpan.create(
+            trailingStatus.text,
+            trailingStatus.tone,
+          );
+          if (!spacing.ok || !status.ok) {
+            return err(new ComponentError("invalidRow", rows.length));
+          }
+          spans.push(spacing.value, status.value);
+        }
+      }
+      const row = RichRow.create(spans);
       if (!row.ok) {
         return err(new ComponentError("invalidRow", rows.length));
       }
@@ -146,12 +277,15 @@ export class InputArea implements Component {
       }
       const projection = candidate as Partial<EditorAreaProjection>;
       const sourceRows = projection.rows;
+      const sourceSelections = projection.selections;
       const caretRow = projection.caretRow;
       const caretColumn = projection.caretColumn;
       if (
         !Array.isArray(sourceRows) ||
+        !Array.isArray(sourceSelections) ||
         sourceRows.length < 1 ||
         sourceRows.length > maximumRows ||
+        sourceSelections.length !== sourceRows.length ||
         !Number.isSafeInteger(caretRow) ||
         (caretRow as number) < 0 ||
         (caretRow as number) >= sourceRows.length ||
@@ -162,17 +296,38 @@ export class InputArea implements Component {
         return err(new ComponentError("invalidProjection", undefined));
       }
       const rows: string[] = [];
+      const selections: Readonly<{ end: number; start: number }>[] = [];
       for (let index = 0; index < sourceRows.length; index += 1) {
         const row: unknown = sourceRows.at(index);
+        const selection: unknown = sourceSelections.at(index);
         if (
           typeof row !== "string" ||
           CONTROL_CHARACTER.test(row) ||
           hasLoneSurrogate(row) ||
-          textCellWidth(row) > columns
+          textCellWidth(row) > columns ||
+          typeof selection !== "object" ||
+          selection === null
+        ) {
+          return err(new ComponentError("invalidProjection", index));
+        }
+        const range = selection as Partial<{ end: number; start: number }>;
+        const codePoints = Array.from(row).length;
+        if (
+          !Number.isSafeInteger(range.start) ||
+          (range.start as number) < 0 ||
+          !Number.isSafeInteger(range.end) ||
+          (range.end as number) < (range.start as number) ||
+          (range.end as number) > codePoints
         ) {
           return err(new ComponentError("invalidProjection", index));
         }
         rows.push(row);
+        selections.push(
+          Object.freeze({
+            end: range.end as number,
+            start: range.start as number,
+          }),
+        );
       }
       const caretText = rows.at(caretRow as number);
       if (
@@ -184,6 +339,7 @@ export class InputArea implements Component {
       return ok(
         Object.freeze({
           rows: Object.freeze(rows),
+          selections: Object.freeze(selections),
           caretRow: caretRow as number,
           caretColumn: caretColumn as number,
         }),

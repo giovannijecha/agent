@@ -1,0 +1,380 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import type { RuntimeEvent, StartedTurn } from "@agent/runtime";
+import {
+  type PointerAction,
+  type PointerEvent,
+  type TextPosition,
+  Viewport,
+} from "@agent/tui";
+
+import {
+  ApplicationController,
+  type PointerProjection,
+} from "../dist/application.js";
+import {
+  createChatRender,
+  type ChatRender,
+} from "../dist/chat-view.js";
+
+type Cell = Readonly<{ column: number; row: number }>;
+
+function started(turnId: number, content: string): StartedTurn {
+  return Object.freeze({
+    turnId,
+    user: Object.freeze({ content }),
+  }) as unknown as StartedTurn;
+}
+
+function render(
+  application: ApplicationController,
+  columns = 40,
+  rows = 16,
+): ChatRender {
+  const viewport = Viewport.create(columns, rows);
+  assert.ok(viewport.ok);
+  const rendered = createChatRender(application, viewport.value);
+  assert.ok(rendered.ok);
+  const observed = application.observeTranscriptGeometry(
+    rendered.value.transcript.contentRows,
+    rendered.value.transcript.viewportRows,
+  );
+  assert.ok(observed.ok);
+  return rendered.value;
+}
+
+function projection(rendered: ChatRender): PointerProjection {
+  return Object.freeze({
+    composer: rendered.composer,
+    frame: rendered.frame,
+    stageColumns: rendered.stage.columns,
+    stageLeft: rendered.stage.left,
+    transcript: rendered.transcript,
+  });
+}
+
+function cellFor(
+  rendered: ChatRender,
+  target: TextPosition,
+): Cell {
+  for (let row = 0; row < rendered.frame.rows.length; row += 1) {
+    const line = rendered.frame.rows.at(row);
+    if (line === undefined) continue;
+    let column = 0;
+    for (const span of line.spans) {
+      let offset = span.position?.offset;
+      for (const character of span.text) {
+        if (
+          span.position?.document === target.document &&
+          offset === target.offset
+        ) {
+          return Object.freeze({ column, row });
+        }
+        assert.equal(character.codePointAt(0) !== undefined, true);
+        column += 1;
+        if (offset !== undefined) offset += 1;
+      }
+    }
+  }
+  throw new Error("logical text position was not visible in the planned frame");
+}
+
+function pointer(
+  application: ApplicationController,
+  rendered: ChatRender,
+  cell: Cell,
+  action: PointerAction,
+  timeMilliseconds: number,
+  shift = false,
+): void {
+  const event: PointerEvent = Object.freeze({
+    action,
+    alt: false,
+    button: "left",
+    column: cell.column,
+    control: false,
+    kind: "pointer",
+    row: cell.row,
+    shift,
+    wheel: undefined,
+  });
+  application.applySessionAction(
+    Object.freeze({ event, kind: "pointer", timeMilliseconds }),
+    projection(rendered),
+  );
+}
+
+function wheel(
+  application: ApplicationController,
+  rendered: ChatRender,
+  direction: "down" | "up",
+): boolean {
+  const event: PointerEvent = Object.freeze({
+    action: "wheel",
+    alt: false,
+    button: "none",
+    column: rendered.stage.left,
+    control: false,
+    kind: "pointer",
+    row: rendered.transcript.startRow,
+    shift: false,
+    wheel: direction,
+  });
+  return application.applySessionAction(
+    Object.freeze({ event, kind: "pointer", timeMilliseconds: 0 }),
+    projection(rendered),
+  ).redraw;
+}
+
+test("selects planned transcript positions and preserves them through wheel scroll", () => {
+  const application = new ApplicationController(true);
+  const content = Array.from(
+    { length: 20 },
+    (_, index) =>
+      "line" + index.toString().padStart(2, "0") + " alpha beta",
+  ).join("\n");
+  assert.ok(application.turnAccepted(started(1, content)).ok);
+  let rendered = render(application, 32, 12);
+  assert.equal(rendered.transcript.contentRows > rendered.transcript.viewportRows, true);
+  const visible = rendered.frame.rows
+    .flatMap((row) => row.spans)
+    .find((span) => span.position?.document === 0);
+  assert.ok(visible?.position !== undefined);
+  const start = cellFor(rendered, visible.position);
+  const end = cellFor(rendered, {
+    document: 0,
+    offset: visible.position.offset + Math.min(4, visible.text.length - 1),
+  });
+
+  pointer(application, rendered, start, "press", 100);
+  pointer(application, rendered, end, "move", 120);
+  pointer(application, rendered, end, "release", 130);
+  assert.ok(
+    application.transcriptSelection !== undefined &&
+    !application.transcriptSelection.empty,
+  );
+  assert.ok(application.takePendingCopy() !== undefined);
+
+  pointer(application, rendered, start, "press", 140);
+  pointer(application, rendered, end, "move", 150);
+  pointer(
+    application,
+    rendered,
+    { column: rendered.stage.left, row: rendered.transcript.startRow },
+    "release",
+    160,
+  );
+  assert.ok(application.takePendingCopy() !== undefined);
+  const selection = application.transcriptSelection;
+  assert.ok(selection !== undefined);
+
+  const oldOffset = application.transcriptScroll.offset;
+  assert.equal(wheel(application, rendered, "up"), true);
+  assert.equal(application.transcriptScroll.offset < oldOffset, true);
+  assert.equal(application.transcriptSelection, selection);
+  rendered = render(application, 32, 12);
+  assert.equal(
+    rendered.frame.rows
+      .flatMap((row) => row.spans)
+      .some((span) => span.mark === "selected"),
+    true,
+  );
+});
+
+test("extends one active transcript drag through a changed scroll viewport", () => {
+  const application = new ApplicationController(true);
+  const content = Array.from(
+    { length: 30 },
+    (_, index) =>
+      "line" + index.toString().padStart(2, "0") + " alpha beta",
+  ).join("\n");
+  assert.ok(application.turnAccepted(started(1, content)).ok);
+  let rendered = render(application, 32, 12);
+  const tailPosition = rendered.frame.rows
+    .flatMap((row) => row.spans)
+    .find((span) => span.position?.document === 0)?.position;
+  assert.ok(tailPosition !== undefined);
+  const tail = cellFor(rendered, tailPosition);
+
+  pointer(application, rendered, tail, "press", 100);
+  assert.equal(wheel(application, rendered, "up"), true);
+  rendered = render(application, 32, 12);
+  const earlierPosition = rendered.frame.rows
+    .flatMap((row) => row.spans)
+    .find((span) =>
+      span.position?.document === 0 &&
+      span.position.offset < tailPosition.offset
+    )?.position;
+  assert.ok(earlierPosition !== undefined);
+  const earlier = cellFor(rendered, earlierPosition);
+
+  pointer(application, rendered, earlier, "move", 140);
+  pointer(application, rendered, earlier, "release", 150);
+
+  const selection = application.transcriptSelection;
+  assert.ok(selection !== undefined);
+  assert.deepEqual(selection.start, earlierPosition);
+  assert.deepEqual(selection.end, {
+    document: tailPosition.document,
+    offset: tailPosition.offset + 1,
+  });
+  assert.ok(application.takePendingCopy() !== undefined);
+});
+
+test("double click selects one transcript word and Shift preserves native handling", () => {
+  const application = new ApplicationController(true);
+  assert.ok(application.turnAccepted(started(1, "alpha beta gamma")).ok);
+  const rendered = render(application);
+  const beta = cellFor(rendered, { document: 0, offset: 6 });
+
+  pointer(application, rendered, beta, "press", 100);
+  pointer(application, rendered, beta, "release", 110);
+  assert.equal(application.takePendingCopy(), undefined);
+  pointer(application, rendered, beta, "press", 450);
+  assert.equal(application.takePendingCopy(), undefined);
+  pointer(application, rendered, beta, "release", 460);
+  assert.equal(application.takePendingCopy(), "beta");
+
+  const selected = application.transcriptSelection;
+  pointer(application, rendered, beta, "press", 500, true);
+  assert.equal(application.transcriptSelection, selected);
+
+  const invalidTime = application.feed("\u001B[<0;9;2M", Number.NaN);
+  const action = invalidTime.actions.at(0);
+  assert.ok(action !== undefined);
+  assert.equal(
+    application.applySessionAction(action, projection(rendered)).redraw,
+    false,
+  );
+});
+
+test("copies one logical range across message documents in chronological order", () => {
+  const application = new ApplicationController(true);
+  assert.ok(application.turnAccepted(started(1, "first")).ok);
+  const delta: RuntimeEvent<string> = Object.freeze({
+    kind: "assistantDelta",
+    text: "second",
+    turnId: 1,
+  });
+  assert.ok(application.applyRuntime(delta).ok);
+  assert.ok(application.applyRuntime(Object.freeze({
+    assistant: Object.freeze({ content: "second" }),
+    checkpointed: false,
+    cleanup: Object.freeze([]),
+    kind: "turnPrepared",
+    turnId: 1,
+  }) as unknown as RuntimeEvent<string>).ok);
+  assert.ok(application.turnCommitResolved(1, { kind: "committed" }).ok);
+  const rendered = render(application);
+  const first = cellFor(rendered, { document: 0, offset: 3 });
+  const second = cellFor(rendered, { document: 1, offset: 2 });
+
+  pointer(application, rendered, first, "press", 100);
+  pointer(application, rendered, second, "move", 120);
+  pointer(application, rendered, second, "release", 130);
+
+  assert.equal(application.takePendingCopy(), "st\n\nsec");
+
+  pointer(application, rendered, second, "press", 200);
+  pointer(application, rendered, first, "move", 220);
+  pointer(application, rendered, first, "release", 230);
+  assert.equal(application.takePendingCopy(), "st\n\nsec");
+});
+
+test("routes composer double click, replacement, and resize through LineEditor", () => {
+  const application = new ApplicationController(false);
+  application.feed("alpha beta");
+  const rendered = render(application);
+  const verticalPadding = rendered.composer.viewportRows >= 3 ? 1 : 0;
+  const horizontalPadding = rendered.stage.columns >= 3 ? 1 : 0;
+  const beta = Object.freeze({
+    column: rendered.stage.left + horizontalPadding + 6,
+    row: rendered.composer.startRow + verticalPadding,
+  });
+
+  pointer(application, rendered, beta, "press", 100);
+  pointer(application, rendered, beta, "release", 110);
+  assert.equal(application.takePendingCopy(), undefined);
+  pointer(application, rendered, beta, "press", 450);
+  assert.equal(application.takePendingCopy(), undefined);
+  pointer(application, rendered, beta, "release", 460);
+  assert.equal(application.takePendingCopy(), "beta");
+  assert.equal(application.projectArea(36, 6).selections.at(0)?.end, 10);
+
+  application.feed("owned");
+  assert.equal(application.project(36).text, "alpha owned");
+  pointer(application, render(application), beta, "press", 900);
+  pointer(application, render(application), beta, "release", 910);
+  pointer(application, render(application), beta, "press", 1_100);
+  pointer(application, render(application), beta, "release", 1_110);
+  assert.equal(application.takePendingCopy(), "owned");
+  application.resize();
+  assert.equal(
+    application.projectArea(36, 6).selections.every(
+      (selection) => selection.start === selection.end,
+    ),
+    true,
+  );
+});
+
+test("extends transcript and composer double clicks by complete words", () => {
+  const transcript = new ApplicationController(true);
+  assert.ok(transcript.turnAccepted(started(1, "alpha beta gamma")).ok);
+  const transcriptRender = render(transcript);
+  const transcriptBeta = cellFor(transcriptRender, {
+    document: 0,
+    offset: 6,
+  });
+  const transcriptGamma = cellFor(transcriptRender, {
+    document: 0,
+    offset: 11,
+  });
+
+  pointer(transcript, transcriptRender, transcriptBeta, "press", 100);
+  pointer(transcript, transcriptRender, transcriptBeta, "release", 110);
+  pointer(transcript, transcriptRender, transcriptBeta, "press", 400);
+  pointer(transcript, transcriptRender, transcriptGamma, "move", 420);
+  pointer(transcript, transcriptRender, transcriptGamma, "release", 430);
+  assert.equal(transcript.takePendingCopy(), "beta gamma");
+
+  const composer = new ApplicationController(false);
+  composer.feed("alpha beta gamma");
+  const composerRender = render(composer);
+  const verticalPadding = composerRender.composer.viewportRows >= 3 ? 1 : 0;
+  const horizontalPadding = composerRender.stage.columns >= 3 ? 1 : 0;
+  const composerBeta = Object.freeze({
+    column: composerRender.stage.left + horizontalPadding + 6,
+    row: composerRender.composer.startRow + verticalPadding,
+  });
+  const composerGamma = Object.freeze({
+    column: composerRender.stage.left + horizontalPadding + 11,
+    row: composerRender.composer.startRow + verticalPadding,
+  });
+
+  pointer(composer, composerRender, composerBeta, "press", 100);
+  pointer(composer, composerRender, composerBeta, "release", 110);
+  pointer(composer, composerRender, composerBeta, "press", 400);
+  pointer(composer, composerRender, composerGamma, "move", 420);
+  pointer(composer, composerRender, composerGamma, "release", 430);
+  assert.equal(composer.takePendingCopy(), "beta gamma");
+});
+
+test("projects only exact visible HTTPS text as terminal links", () => {
+  const application = new ApplicationController(true);
+  assert.ok(application.turnAccepted(started(
+    1,
+    "open https://example.com/docs and [hidden](https://invalid.example)",
+  )).ok);
+  const rendered = render(application, 80, 14);
+  const links = rendered.frame.rows
+    .flatMap((row) => row.spans)
+    .filter((span) => span.hyperlink !== undefined);
+
+  assert.deepEqual(links.map((span) => span.hyperlink), [
+    "https://example.com/docs",
+    "https://invalid.example",
+  ]);
+  assert.equal(links.at(0)?.text, "https://example.com/docs");
+  assert.equal(links.at(1)?.text, "https://invalid.example");
+});

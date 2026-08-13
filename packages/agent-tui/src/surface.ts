@@ -69,12 +69,22 @@ function paintSurfaceRow(
   }
   const transparent = options.surface === "none";
   const rightPadding = width - padding - row.cellWidth;
-  const last = row.spans.length - 1;
   const spans: TextSpan[] = [];
-  if (transparent && padding > 0) {
-    const leading = TextSpan.create(" ".repeat(padding), "plain", {
-      surface: "none",
+  if (row.spans.length === 0) {
+    return RichRow.fromText(" ".repeat(width), "plain", {
+      surface: options.surface,
     });
+  }
+  if (padding > 0) {
+    const leading = TextSpan.create(
+      " ".repeat(padding),
+      transparent ? "plain" : row.spans.at(0)?.tone ?? "plain",
+      {
+        slant:
+          !transparent && options.slant === "italic" ? "italic" : "normal",
+        surface: options.surface,
+      },
+    );
     if (!leading.ok) {
       return leading;
     }
@@ -85,33 +95,33 @@ function paintSurfaceRow(
     if (span === undefined) {
       return err(new RichRowError("invalidSpan", position));
     }
-    const text = transparent
-      ? span.text
-      : (position === 0 ? " ".repeat(padding) : "") +
-        span.text +
-        (position === last ? " ".repeat(rightPadding) : "");
-    const created = TextSpan.create(text, span.tone, {
+    const created = TextSpan.create(span.text, span.tone, {
+      mark: span.mark,
       slant: options.slant === "italic" ? "italic" : span.slant,
       surface: transparent ? span.surface : options.surface,
+    }, {
+      hyperlink: span.hyperlink,
+      position: span.position,
     });
     if (!created.ok) {
       return created;
     }
     spans.push(created.value);
   }
-  if (transparent && row.spans.length > 0 && rightPadding > 0) {
-    const trailing = TextSpan.create(" ".repeat(rightPadding), "plain", {
-      surface: "none",
-    });
+  if (row.spans.length > 0 && rightPadding > 0) {
+    const trailing = TextSpan.create(
+      " ".repeat(rightPadding),
+      transparent ? "plain" : row.spans.at(-1)?.tone ?? "plain",
+      {
+        slant:
+          !transparent && options.slant === "italic" ? "italic" : "normal",
+        surface: options.surface,
+      },
+    );
     if (!trailing.ok) {
       return trailing;
     }
     spans.push(trailing.value);
-  }
-  if (spans.length === 0) {
-    return RichRow.fromText(" ".repeat(width), "plain", {
-      surface: options.surface,
-    });
   }
   return RichRow.create(spans);
 }

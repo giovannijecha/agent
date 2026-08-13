@@ -12,8 +12,8 @@ test("publishes a streamed pair only after exact completion", () => {
 
   assert.equal(chat.transcriptText(), "question\n\nans");
   assert.deepEqual(chat.transcriptEntries(), [
-    { content: "question", role: "user" },
-    { content: "ans", role: "assistant" },
+    { content: "question", document: 0, role: "user" },
+    { content: "ans", document: 1, role: "assistant" },
   ]);
   assert.ok(chat.append(1, "wer").ok);
   assert.ok(chat.prepare(1, "answer").ok);
@@ -22,8 +22,8 @@ test("publishes a streamed pair only after exact completion", () => {
   assert.equal(chat.activeTurnId, undefined);
   assert.equal(chat.transcriptText(), "question\n\nanswer");
   assert.deepEqual(chat.transcriptEntries(), [
-    { content: "question", role: "user" },
-    { content: "answer", role: "assistant" },
+    { content: "question", document: 0, role: "user" },
+    { content: "answer", document: 1, role: "assistant" },
   ]);
 });
 
@@ -139,6 +139,7 @@ test("tail-clips active role entries without joining their Markdown", () => {
   assert.equal(entries.length, 2);
   assert.deepEqual(entries.at(0), {
     content: "```text\nquestion",
+    document: 0,
     role: "user",
   });
   assert.equal(entries.at(1)?.role, "assistant");

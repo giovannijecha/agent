@@ -149,7 +149,15 @@ test("owns raw mode and ordered input lifecycle", async () => {
   const stopped = await host.stop();
 
   assert.ok(started.ok);
-  assert.deepEqual(event, { ok: true, value: { kind: "input", text: "hello" } });
+  assert.equal(event.ok, true);
+  if (event.ok) {
+    assert.equal(event.value.kind, "input");
+    if (event.value.kind === "input") {
+      assert.equal(event.value.text, "hello");
+      assert.equal(Number.isSafeInteger(event.value.monotonicMilliseconds), true);
+      assert.equal(event.value.monotonicMilliseconds >= 0, true);
+    }
+  }
   assert.ok(stopped.ok);
   assert.deepEqual(input.rawModes, [true, false]);
   assert.equal(input.encoding, "utf8");
@@ -169,10 +177,15 @@ test("coalesces queued resize events without dropping input", async () => {
   input.emitData("x");
 
   assert.deepEqual(await host.nextEvent(), { ok: true, value: { kind: "resize" } });
-  assert.deepEqual(await host.nextEvent(), {
-    ok: true,
-    value: { kind: "input", text: "x" },
-  });
+  const queuedInput = await host.nextEvent();
+  assert.equal(queuedInput.ok, true);
+  if (queuedInput.ok) {
+    assert.equal(queuedInput.value.kind, "input");
+    if (queuedInput.value.kind === "input") {
+      assert.equal(queuedInput.value.text, "x");
+      assert.equal(Number.isSafeInteger(queuedInput.value.monotonicMilliseconds), true);
+    }
+  }
   await host.stop();
 });
 

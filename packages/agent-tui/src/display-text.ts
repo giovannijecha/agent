@@ -7,14 +7,29 @@ import { TUI_LIMITS } from "./limits.js";
 import { RichRow, TextSpan } from "./rich-row.js";
 import { err, ok, type Result } from "./result.js";
 import { paintSurfaceRows } from "./surface.js";
-import { isSurfaceTone, type SurfaceTone } from "./text-style.js";
+import {
+  isSurfaceTone,
+  isTextMark,
+  type SurfaceTone,
+  type TextMark,
+} from "./text-style.js";
+import {
+  normalizeTextInteraction,
+  type TextPosition,
+} from "./text-interaction.js";
 import { isTone, type Tone } from "./tone.js";
 
 const TAB_CELLS = 4;
 const REPLACEMENT = "?";
 
 /** Internal printable run consumed by the single structured display layout. */
-export type DisplayRun = Readonly<{ text: string; tone: Tone }>;
+export type DisplayRun = Readonly<{
+  hyperlink?: string;
+  mark?: TextMark;
+  position?: TextPosition;
+  text: string;
+  tone: Tone;
+}>;
 
 export type DisplayWrap = "cell" | "word";
 
@@ -38,6 +53,9 @@ export type DisplayLine = Readonly<{
 }>;
 
 type DisplayCell = Readonly<{
+  hyperlink: string | undefined;
+  mark: TextMark;
+  position: TextPosition | undefined;
   text: string;
   tone: Tone;
   width: number;
@@ -248,13 +266,40 @@ export function layoutDisplayLines(
       if (complete || failure !== undefined) {
         return;
       }
-      const groups: Array<{ chunks: string[]; tone: Tone }> = [];
+      const groups: Array<{
+        chunks: string[];
+        hyperlink: string | undefined;
+        length: number;
+        mark: TextMark;
+        position: TextPosition | undefined;
+        tone: Tone;
+      }> = [];
       for (const cell of rowCells) {
         const previous = groups.at(-1);
-        if (previous?.tone === cell.tone) {
+        const contiguousPosition =
+          previous?.position === undefined
+            ? cell.position === undefined
+            : cell.position !== undefined &&
+              previous.position.document === cell.position.document &&
+              previous.position.offset + previous.length ===
+                cell.position.offset;
+        if (
+          previous?.tone === cell.tone &&
+          previous.mark === cell.mark &&
+          previous.hyperlink === cell.hyperlink &&
+          contiguousPosition
+        ) {
           previous.chunks.push(cell.text);
+          previous.length += 1;
         } else {
-          groups.push({ chunks: [cell.text], tone: cell.tone });
+          groups.push({
+            chunks: [cell.text],
+            hyperlink: cell.hyperlink,
+            length: 1,
+            mark: cell.mark,
+            position: cell.position,
+            tone: cell.tone,
+          });
         }
       }
       const spans: TextSpan[] = [];
@@ -264,7 +309,12 @@ export function layoutDisplayLines(
           failure = new ComponentError("invalidRow", position);
           return;
         }
-        const span = TextSpan.create(group.chunks.join(""), group.tone);
+        const span = TextSpan.create(group.chunks.join(""), group.tone, {
+          mark: group.mark,
+        }, {
+          hyperlink: group.hyperlink,
+          position: group.position,
+        });
         if (!span.ok) {
           failure = new ComponentError("invalidRow", position);
           return;
@@ -285,8 +335,17 @@ export function layoutDisplayLines(
       width = 0;
     };
 
-    const appendCell = (text: string, tone: Tone, cellWidth: number): void => {
-      cells.push(Object.freeze({ text, tone, width: cellWidth }));
+    const appendCell = (
+      text: string,
+      tone: Tone,
+      cellWidth: number,
+      mark: TextMark = "none",
+      hyperlink: string | undefined = undefined,
+      position: TextPosition | undefined = undefined,
+    ): void => {
+      cells.push(
+        Object.freeze({ hyperlink, mark, position, text, tone, width: cellWidth }),
+      );
       width += cellWidth;
     };
 
@@ -351,6 +410,9 @@ export function layoutDisplayLines(
       character: string,
       tone: Tone,
       wrap: DisplayWrap,
+      mark: TextMark = "none",
+      hyperlink: string | undefined = undefined,
+      position: TextPosition | undefined = undefined,
     ): void => {
       let printable = character;
       let cellWidth = characterCellWidth(printable);
@@ -402,7 +464,7 @@ export function layoutDisplayLines(
       if (complete || failure !== undefined) {
         return;
       }
-      appendCell(printable, tone, cellWidth);
+      appendCell(printable, tone, cellWidth, mark, hyperlink, position);
     };
 
     const compileContinuation = (
@@ -419,7 +481,14 @@ export function layoutDisplayLines(
                 return Object.freeze([]);
               }
               compiled.push(
-                Object.freeze({ text: " ", tone: candidate.tone, width: 1 }),
+                Object.freeze({
+                  hyperlink: undefined,
+                  mark: "none" as const,
+                  position: undefined,
+                  text: " ",
+                  tone: candidate.tone,
+                  width: 1,
+                }),
               );
               compiledWidth += 1;
             }
@@ -435,6 +504,9 @@ export function layoutDisplayLines(
             }
             compiled.push(
               Object.freeze({
+                hyperlink: undefined,
+                mark: "none" as const,
+                position: undefined,
                 text: printable,
                 tone: candidate.tone,
                 width: cellWidth,
@@ -486,7 +558,12 @@ export function layoutDisplayLines(
         if (
           candidate === undefined ||
           typeof candidate.text !== "string" ||
-          !isTone(candidate.tone)
+          !isTone(candidate.tone) ||
+          !isTextMark(candidate.mark ?? "none") ||
+          normalizeTextInteraction({
+            hyperlink: candidate.hyperlink,
+            position: candidate.position,
+          }) === undefined
         ) {
           return err(new ComponentError("invalidRow", position));
         }
@@ -517,14 +594,39 @@ export function layoutDisplayLines(
         if (candidate === undefined) {
           return err(new ComponentError("invalidRow", position));
         }
+        let candidateOffset = candidate.position?.offset;
         for (const character of candidate.text) {
+          const characterPosition =
+            candidate.position === undefined || candidateOffset === undefined
+              ? undefined
+              : Object.freeze({
+                  document: candidate.position.document,
+                  offset: candidateOffset,
+                });
           if (character === "\t") {
             const spaces = TAB_CELLS - (width % TAB_CELLS);
             for (let count = 0; count < spaces; count += 1) {
-              appendPrintable(" ", candidate.tone, line.wrap);
+              appendPrintable(
+                " ",
+                candidate.tone,
+                line.wrap,
+                candidate.mark,
+                candidate.hyperlink,
+                characterPosition,
+              );
             }
           } else {
-            appendPrintable(character, candidate.tone, line.wrap);
+            appendPrintable(
+              character,
+              candidate.tone,
+              line.wrap,
+              candidate.mark,
+              candidate.hyperlink,
+              characterPosition,
+            );
+          }
+          if (candidateOffset !== undefined) {
+            candidateOffset += 1;
           }
           if (complete || failure !== undefined) {
             break;

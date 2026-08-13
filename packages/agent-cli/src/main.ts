@@ -24,6 +24,7 @@ import { readHiddenOpenCodeGoCredential } from "./hidden-credential-prompt.js";
 import { parseLaunchCommand } from "./launch-command.js";
 import { NodeTerminalHost } from "./node-terminal-host.js";
 import { NodeOpenCodeGoTransport } from "./node-opencode-go-transport.js";
+import { PlatformClipboard } from "./platform-clipboard.js";
 import { resolvePlatformWorkspaceRoots } from "./platform-workspace-roots.js";
 import { NodeProcessRunner } from "./node-process-runner.js";
 import { NodeTimerClock } from "./node-timer-clock.js";
@@ -103,6 +104,7 @@ const motion = timerClock !== undefined
 const notices = timerClock !== undefined
   ? new NoticeScheduler(timerClock)
   : undefined;
+const clipboard = new PlatformClipboard(platform, arch);
 if (!configuration.ok) {
   stderr.write("agent rejected the provider configuration\n", () => exit(1));
 } else if (configuration.value.kind === "disabled") {
@@ -113,6 +115,7 @@ if (!configuration.ok) {
     workspaceRoot,
     motion,
     notices,
+    clipboard,
   );
   if (!result.ok) {
     const label = result.error.primary?.kind ?? "cleanup";
@@ -144,6 +147,7 @@ if (!configuration.ok) {
       workspaceRoot,
       motion,
       notices,
+      clipboard,
     );
     if (!result.ok) {
       const label = result.error.primary?.kind ?? "cleanup";

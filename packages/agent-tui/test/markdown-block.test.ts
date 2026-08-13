@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   MarkdownBlock,
+  TextSelection,
   TUI_LIMITS,
   type TextAnchor,
   Viewport,
@@ -62,6 +63,89 @@ test("compiles the complete owned block and inline subset into semantic spans", 
       { text: "quote", tone: "plain" },
     ],
   ]);
+});
+
+test("assigns stable pre-wrap offsets, closed selection, and visible HTTPS links", () => {
+  const selection = TextSelection.create(
+    { document: 9, offset: 6 },
+    { document: 9, offset: 11 },
+  );
+  assert.ok(selection !== undefined);
+  const created = MarkdownBlock.create(
+    "hello world https://example.com/path, tail",
+    "head",
+    { document: 9, selection },
+  );
+  assert.ok(created.ok);
+
+  const rendered = created.value.render(viewport(12, 5));
+  assert.ok(rendered.ok);
+  const retained = rendered.value.rows.flatMap((row) => row.spans);
+  const selected = retained.filter((span) => span.mark === "selected");
+  const linked = retained.filter((span) => span.hyperlink !== undefined);
+
+  assert.equal(selected.map((span) => span.text).join(""), "world");
+  assert.equal(
+    linked.every((span) => span.hyperlink === "https://example.com/path"),
+    true,
+  );
+  assert.equal(linked.map((span) => span.text).join(""), "https://example.com/path");
+  assert.equal(created.value.selectionText(), "hello world https://example.com/path, tail");
+});
+
+test("rejects hostile interactive selection metadata without retaining it", () => {
+  const selection = TextSelection.create(
+    { document: 1, offset: 0 },
+    { document: 1, offset: 2 },
+  );
+  assert.ok(selection !== undefined);
+  const proxied = new Proxy(selection, {});
+  const throwing = new Proxy({}, {
+    get() {
+      throw new Error("private interaction");
+    },
+  });
+
+  const proxyResult = MarkdownBlock.create("private", "head", {
+    document: 1,
+    selection: proxied,
+  });
+  const throwingResult = MarkdownBlock.create(
+    "private",
+    "head",
+    throwing as never,
+  );
+
+  assert.equal(proxyResult.ok, false);
+  assert.equal(throwingResult.ok, false);
+});
+
+test("keeps interactive offsets contiguous across soft wraps and skips Markdown syntax", () => {
+  const created = MarkdownBlock.create(
+    "**alpha** beta gamma",
+    "head",
+    { document: 4 },
+  );
+  assert.ok(created.ok);
+
+  const rendered = created.value.render(viewport(7, 3));
+  assert.ok(rendered.ok);
+  const positioned = rendered.value.rows
+    .flatMap((row) => row.spans)
+    .filter((span) => span.position !== undefined);
+
+  assert.equal(created.value.selectionText(), "alpha beta gamma");
+  assert.deepEqual(
+    positioned.map((span) => ({
+      offset: span.position?.offset,
+      text: span.text,
+    })),
+    [
+      { offset: 0, text: "alpha" },
+      { offset: 6, text: "beta" },
+      { offset: 11, text: "gamma" },
+    ],
+  );
 });
 
 test("keeps unsupported, incomplete, nested, and escaped syntax literal", () => {

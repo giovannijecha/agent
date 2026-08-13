@@ -116,6 +116,136 @@ test("retains page navigation sequences across every chunk split", () => {
   }
 });
 
+test("decodes bounded SGR pointer reports into closed zero-based events", () => {
+  const decoder = new InputDecoder();
+  const events = decoder.feed(
+    "\u001B[<0;2;3M" +
+      "\u001B[<52;4;5M" +
+      "\u001B[<0;6;7m" +
+      "\u001B[<64;8;9M" +
+      "\u001B[<65;10;11M" +
+      "\u001B[<10;12;13M" +
+      "\u001B[<1;14;15m",
+  );
+
+  assert.deepEqual(events, [
+    {
+      action: "press",
+      alt: false,
+      button: "left",
+      column: 1,
+      control: false,
+      kind: "pointer",
+      row: 2,
+      shift: false,
+      wheel: undefined,
+    },
+    {
+      action: "move",
+      alt: false,
+      button: "left",
+      column: 3,
+      control: true,
+      kind: "pointer",
+      row: 4,
+      shift: true,
+      wheel: undefined,
+    },
+    {
+      action: "release",
+      alt: false,
+      button: "left",
+      column: 5,
+      control: false,
+      kind: "pointer",
+      row: 6,
+      shift: false,
+      wheel: undefined,
+    },
+      {
+        action: "wheel",
+      alt: false,
+      button: "none",
+      column: 7,
+      control: false,
+      kind: "pointer",
+      row: 8,
+      shift: false,
+      wheel: "up",
+    },
+    {
+      action: "wheel",
+      alt: false,
+      button: "none",
+      column: 9,
+      control: false,
+      kind: "pointer",
+      row: 10,
+        shift: false,
+        wheel: "down",
+      },
+      {
+        action: "press",
+        alt: true,
+        button: "right",
+        column: 11,
+        control: false,
+        kind: "pointer",
+        row: 12,
+        shift: false,
+        wheel: undefined,
+      },
+      {
+        action: "release",
+        alt: false,
+        button: "middle",
+        column: 13,
+        control: false,
+        kind: "pointer",
+        row: 14,
+        shift: false,
+        wheel: undefined,
+      },
+    ]);
+});
+
+test("retains every fragmented SGR pointer report", () => {
+  const sequence = "\u001B[<20;16384;4096M";
+  for (let split = 1; split < sequence.length; split += 1) {
+    const decoder = new InputDecoder();
+    assert.deepEqual(decoder.feed(sequence.slice(0, split)), []);
+    const events = decoder.feed(sequence.slice(split));
+    assert.equal(events.length, 1);
+    assert.deepEqual(events.at(0), {
+      action: "press",
+      alt: false,
+      button: "left",
+      column: 16_383,
+      control: true,
+      kind: "pointer",
+      row: 4_095,
+      shift: true,
+      wheel: undefined,
+    });
+  }
+});
+
+test("rejects malformed, unsupported, and out-of-range SGR pointer reports", () => {
+  const decoder = new InputDecoder();
+  const events = decoder.feed(
+    "\u001B[<0;0;1M" +
+      "\u001B[<0;1;0M" +
+      "\u001B[<0;16385;1M" +
+      "\u001B[<0;1;4097M" +
+      "\u001B[<66;1;1M" +
+      "\u001B[<32;1;1m" +
+      "\u001B[<3;1;1M" +
+      "\u001B[<0;1M",
+  );
+
+  assert.deepEqual(kinds(events), ["unsupported"]);
+});
+
 test("preserves shutdown controls after an incomplete escape", () => {
   for (const control of ["\u0003", "\u0004"]) {
     const decoder = new InputDecoder();

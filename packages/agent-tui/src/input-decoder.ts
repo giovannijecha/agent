@@ -1,3 +1,5 @@
+import { TUI_LIMITS } from "./limits.js";
+
 const MAX_CHUNK_CODE_UNITS = 65_536;
 const MAX_ESCAPE_CODE_UNITS = 32;
 const MAX_PASTE_CODE_UNITS = 65_536;
@@ -18,6 +20,7 @@ export type KeyEvent =
   | Readonly<{ kind: "pageDown" }>
   | Readonly<{ kind: "pageUp" }>
   | Readonly<{ kind: "paste"; text: string }>
+  | PointerEvent
   | Readonly<{ kind: "right" }>
   | Readonly<{ kind: "tab" }>
   | Readonly<{ kind: "text"; text: string }>
@@ -27,6 +30,22 @@ export type KeyEvent =
   | Readonly<{ kind: "wordLeft" }>
   | Readonly<{ kind: "wordRight" }>
   | Readonly<{ kind: "unsupported" }>;
+
+export type PointerButton = "left" | "middle" | "none" | "right";
+export type PointerAction = "move" | "press" | "release" | "wheel";
+
+/** One bounded zero-based SGR mouse report with closed semantic fields. */
+export type PointerEvent = Readonly<{
+  action: PointerAction;
+  alt: boolean;
+  button: PointerButton;
+  column: number;
+  control: boolean;
+  kind: "pointer";
+  row: number;
+  shift: boolean;
+  wheel: "down" | "up" | undefined;
+}>;
 
 const SIMPLE_EVENTS = Object.freeze({
   backspace: Object.freeze({ kind: "backspace" as const }),
@@ -145,6 +164,114 @@ function completeEscapeLength(source: string): number | undefined {
   return undefined;
 }
 
+function pointerButton(value: number): PointerButton | undefined {
+  if (value === 0) return "left";
+  if (value === 1) return "middle";
+  if (value === 2) return "right";
+  if (value === 3) return "none";
+  return undefined;
+}
+
+function decodePointer(sequence: string): PointerEvent | undefined {
+  if (!sequence.startsWith(ESCAPE + "[<")) {
+    return undefined;
+  }
+  const final = sequence.at(-1);
+  if (final !== "M" && final !== "m") {
+    return undefined;
+  }
+  const fields = sequence.slice(3, -1).split(";");
+  if (fields.length !== 3 || fields.some((field) => !/^\d{1,5}$/u.test(field))) {
+    return undefined;
+  }
+  const encoded = Number(fields.at(0));
+  const oneBasedColumn = Number(fields.at(1));
+  const oneBasedRow = Number(fields.at(2));
+  if (
+    !Number.isSafeInteger(encoded) ||
+    encoded < 0 ||
+    encoded > 95 ||
+    !Number.isSafeInteger(oneBasedColumn) ||
+    oneBasedColumn < 1 ||
+    oneBasedColumn > TUI_LIMITS.componentColumns ||
+    !Number.isSafeInteger(oneBasedRow) ||
+    oneBasedRow < 1 ||
+    oneBasedRow > TUI_LIMITS.frameRows
+  ) {
+    return undefined;
+  }
+
+  const base = encoded & 3;
+  const motion = (encoded & 32) !== 0;
+  const wheel = (encoded & 64) !== 0;
+  const button = pointerButton(base);
+  if (button === undefined) {
+    return undefined;
+  }
+  if (wheel) {
+    if (motion || final !== "M" || base > 1) {
+      return undefined;
+    }
+    return Object.freeze({
+      action: "wheel" as const,
+      alt: (encoded & 8) !== 0,
+      button: "none" as const,
+      column: oneBasedColumn - 1,
+      control: (encoded & 16) !== 0,
+      kind: "pointer" as const,
+      row: oneBasedRow - 1,
+      shift: (encoded & 4) !== 0,
+      wheel: base === 0 ? "up" as const : "down" as const,
+    });
+  }
+  if (final === "m") {
+    if (motion || button === "none") {
+      return undefined;
+    }
+    return Object.freeze({
+      action: "release" as const,
+      alt: (encoded & 8) !== 0,
+      button,
+      column: oneBasedColumn - 1,
+      control: (encoded & 16) !== 0,
+      kind: "pointer" as const,
+      row: oneBasedRow - 1,
+      shift: (encoded & 4) !== 0,
+      wheel: undefined,
+    });
+  }
+  if (motion) {
+    if (button === "none") {
+      return undefined;
+    }
+    return Object.freeze({
+      action: "move" as const,
+      alt: (encoded & 8) !== 0,
+      button,
+      column: oneBasedColumn - 1,
+      control: (encoded & 16) !== 0,
+      kind: "pointer" as const,
+      row: oneBasedRow - 1,
+      shift: (encoded & 4) !== 0,
+      wheel: undefined,
+    });
+  }
+  if (button === "none") {
+    return undefined;
+  }
+  return Object.freeze({
+    action: "press" as const,
+    alt: (encoded & 8) !== 0,
+    button,
+    column: oneBasedColumn - 1,
+    control: (encoded & 16) !== 0,
+    kind: "pointer" as const,
+    row: oneBasedRow - 1,
+    shift: (encoded & 4) !== 0,
+    wheel: undefined,
+  });
+}
+
 /** Incrementally converts bounded terminal input into owned key events. */
 export class InputDecoder {
   #pendingEscape = "";
@@ -244,6 +371,14 @@ export class InputDecoder {
         if (known !== undefined) {
           appendEvent(events, known.event);
           index += known.sequence.length;
+          this.#previousWasCarriageReturn = false;
+          continue;
+        }
+        const pointerLength = completeEscapeLength(remaining);
+        if (pointerLength !== undefined && remaining.startsWith(ESCAPE + "[<")) {
+          const pointer = decodePointer(remaining.slice(0, pointerLength));
+          appendEvent(events, pointer ?? SIMPLE_EVENTS.unsupported);
+          index += pointerLength;
           this.#previousWasCarriageReturn = false;
           continue;
         }

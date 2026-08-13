@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-07
+- Input lifecycle amended by: decision 0045
 
 ## Context
 
@@ -66,7 +67,8 @@ the shape command; no custom glyph enters editor or frame content.
 The milestone deliberately did not add a workspace, model, provider adapter,
 history, multiline editing, pasted-text batching, completion, mouse support,
 persistence, colors, or tool execution. Decision 0035 later adds bounded
-multiline projection and atomic bracketed paste without changing this terminal
+multiline projection and atomic bracketed paste, and decision 0045 adds bounded
+SGR mouse interaction and logical selection without changing this terminal
 ownership boundary.
 
 Because the shell no longer imports domain state, its inactive local dependency

@@ -2,6 +2,11 @@
 
 - Status: accepted
 - Date: 2026-08-09
+- Amended by: decision 0045
+
+Decision 0045 adds independent closed selection and validated interaction
+metadata to spans while retaining this decision's one canonical row carrier,
+bounds, normalization, clipping, comparison, and renderer ownership.
 
 ## Context
 

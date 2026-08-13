@@ -35,6 +35,7 @@ declare module "node:process" {
   export const argv: readonly string[];
   export const arch: string;
   export const execPath: string;
+  export const hrtime: Readonly<{ bigint(): bigint }>;
   export const env: Readonly<{
     AGENT_OPENCODE_GO_API_KEY?: string;
   }>;
@@ -52,6 +53,7 @@ declare module "node:child_process" {
     readonly destroyed: boolean;
     destroy(): void;
     end(): void;
+    once(event: "error", listener: (cause: unknown) => void): this;
     write(chunk: Uint8Array): boolean;
   }
 

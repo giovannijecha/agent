@@ -105,6 +105,7 @@ test("plans exact component geometry through the canonical layout algorithm", ()
   assert.ok(transcript.ok);
   assert.deepEqual(transcript.value, {
     contentRows: 3,
+    startRow: 0,
     viewportRows: 2,
   });
   assert.equal(invalid.ok, false);
