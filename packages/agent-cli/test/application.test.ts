@@ -22,18 +22,14 @@ function completed(turnId: number, content: string): RuntimeEvent<string> {
   }) as unknown as RuntimeEvent<string>;
 }
 
-function applyOnlyAction(application: ApplicationController, input: string) {
-  const session = application.feed(input);
-  assert.equal(session.actions.length, 1);
-  const action = session.actions.at(0);
-  assert.ok(action !== undefined);
-  return application.applySessionAction(action);
+function reduceInput(application: ApplicationController, input: string) {
+  return application.feed(input);
 }
 
 test("discards no-runtime input without adding transcript or echoing it", () => {
   const application = new ApplicationController(false);
   const privateText = "private no-provider request";
-  const submission = applyOnlyAction(application, privateText + "\r");
+  const submission = reduceInput(application, privateText + "\r");
 
   assert.equal(submission.effects.at(0)?.kind, "startTurn");
   application.noRuntime();
@@ -50,7 +46,7 @@ test("never presents a provider without an executable runtime", () => {
     model: "configured-model",
   });
 
-  const result = applyOnlyAction(application, "/providers\r");
+  const result = reduceInput(application, "/providers\r");
 
   assert.deepEqual(result.effects, []);
   assert.equal(application.provider, undefined);
@@ -62,12 +58,12 @@ test("never presents a provider without an executable runtime", () => {
 test("replaces, dismisses, and expires only the current notice generation", () => {
   const application = new ApplicationController(false);
 
-  applyOnlyAction(application, "/unknown\r");
+  reduceInput(application, "/unknown\r");
   const stale = application.noticeToken;
   assert.ok(stale !== undefined);
   assert.equal(application.noticeLevel, "warning");
 
-  applyOnlyAction(application, "/providers\r");
+  reduceInput(application, "/providers\r");
   const current = application.noticeToken;
   assert.ok(current !== undefined);
   assert.equal(current === stale, false);
@@ -78,7 +74,7 @@ test("replaces, dismisses, and expires only the current notice generation", () =
   assert.deepEqual(application.notice, []);
   assert.equal(application.noticeToken, undefined);
 
-  applyOnlyAction(application, "/unknown\r");
+  reduceInput(application, "/unknown\r");
   assert.ok(application.noticeToken !== undefined);
   application.feed("x");
   assert.deepEqual(application.notice, []);
@@ -113,8 +109,8 @@ test("active Ctrl+C requests one cancellation and preserves the draft", () => {
   assert.ok(application.turnAccepted(started(1, "question")).ok);
   application.feed("next draft");
 
-  const first = applyOnlyAction(application, "\u0003");
-  const second = applyOnlyAction(application, "\u0003");
+  const first = reduceInput(application, "\u0003");
+  const second = reduceInput(application, "\u0003");
 
   assert.deepEqual(first.effects, [{ kind: "cancelTurn", turnId: 1 }]);
   assert.deepEqual(second.effects, []);
@@ -228,15 +224,15 @@ test("clamps manual history after content shrink and resumes follow on movement"
 });
 
 test("idle Ctrl+C and every explicit exit path emit exit", () => {
-  const interrupt = applyOnlyAction(
+  const interrupt = reduceInput(
     new ApplicationController(false),
     "\u0003",
   );
-  const command = applyOnlyAction(
+  const command = reduceInput(
     new ApplicationController(false),
     "/exit\r",
   );
-  const eof = applyOnlyAction(new ApplicationController(false), "\u0004");
+  const eof = reduceInput(new ApplicationController(false), "\u0004");
 
   assert.deepEqual(interrupt.effects, [{ kind: "exit" }]);
   assert.deepEqual(command.effects, [{ kind: "exit" }]);
@@ -343,7 +339,7 @@ test("discards a second submission while a turn is active", () => {
   application.turnAccepted(started(1, "first question"));
   const secondText = "second private question";
 
-  const update = applyOnlyAction(application, secondText + "\r");
+  const update = reduceInput(application, secondText + "\r");
 
   assert.deepEqual(update.effects, []);
   assert.equal(application.notice.join("\n").includes(secondText), false);
@@ -401,7 +397,7 @@ test("requires exact approval commands and exposes one bounded activity snapshot
     false,
   );
 
-  const approved = applyOnlyAction(application, "/approve\r");
+  const approved = reduceInput(application, "/approve\r");
   assert.deepEqual(approved.effects, [
     {
       approved: true,
@@ -411,7 +407,7 @@ test("requires exact approval commands and exposes one bounded activity snapshot
     },
   ]);
   assert.equal(application.activities.at(0)?.state, "queued");
-  const repeated = applyOnlyAction(application, "/approve\r");
+  const repeated = reduceInput(application, "/approve\r");
   assert.deepEqual(repeated.effects, []);
   assert.deepEqual(application.notice, ["No tool approval is pending."]);
 });
@@ -582,7 +578,7 @@ test("makes tool cancellation visible through authoritative lifecycle states", (
     ).ok,
   );
 
-  const cancelling = applyOnlyAction(application, "\u0003");
+  const cancelling = reduceInput(application, "\u0003");
   assert.deepEqual(cancelling.effects, [{ kind: "cancelTurn", turnId: 30 }]);
   assert.equal(application.activities.at(0)?.state, "cancelling");
 
@@ -601,7 +597,7 @@ test("makes tool cancellation visible through authoritative lifecycle states", (
 
 test("reports approval commands as contextual when no tool is pending", () => {
   const application = new ApplicationController(true);
-  const denied = applyOnlyAction(application, "/deny\r");
+  const denied = reduceInput(application, "/deny\r");
 
   assert.deepEqual(denied.effects, []);
   assert.deepEqual(application.notice, ["No tool approval is pending."]);
@@ -693,7 +689,7 @@ test("rejects tool events that bypass approval or contradict checkpoints", () =>
       }),
     ).ok,
   );
-  applyOnlyAction(afterDenial, "/deny\r");
+  reduceInput(afterDenial, "/deny\r");
   assert.equal(
     afterDenial.applyRuntime(
       Object.freeze({

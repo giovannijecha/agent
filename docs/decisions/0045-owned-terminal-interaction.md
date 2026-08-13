@@ -48,6 +48,15 @@ unselectable. A selection stores two logical document offsets, so scrolling
 does not change its meaning. Resize clears the selection because it replaces
 the wrapped projection rather than guessing across changed geometry.
 
+One terminal input chunk is reduced as one ordered transaction. The session
+decoder may expose several pointer, keyboard, text, deletion, or paste events
+from that chunk, but the application reducer consumes every emitted action at
+the exact decoder boundary before the session advances to the next event.
+Pointer selection therefore mutates the same editor seen by immediately
+following text, Backspace, Delete, word deletion, or paste. No editor mutation
+may overtake a queued pointer action, and no second input queue, replay path, or
+component-owned reducer is introduced.
+
 A left press starts a linear selection, reported motion extends it, and release
 settles and copies it. Wheel input over the transcript reuses its one
 `ScrollState`; there is no second scrollbar or offset. A second left press on
@@ -100,7 +109,10 @@ failed!` respectively. The generic input area paints the status at its right
 edge only when it fits after the draft; it never reserves width, changes editor
 projection, moves the caret, changes composer height, or displaces transcript
 content. Expiry and input dismissal reuse the one existing notice generation
-and scheduler.
+and scheduler. A pointer action applied to the composer is editor interaction
+and dismisses the current notice generation before any later clipboard
+settlement may create a replacement; transcript selection and scrolling do not
+dismiss composer feedback.
 
 Exact visible ASCII `https://` references are split by the display compiler
 and carry one validated destination equal to their rendered text. The renderer
@@ -156,8 +168,10 @@ word-wise double-click drag, replacement, deletion, paste, multiline wrapping,
 wide cells, empty drafts, and caret-visible projection. CLI tests prove exact
 planned hit geometry, persistent selection through transcript wheel scrolling,
 double-click timing, resize reset, cross-message copy order, composer routing,
-link spans, Shift escape-hatch documentation, confirmed, requested, and failed
-composer-edge feedback without layout movement, and serialized copy output.
+coalesced pointer-plus-editor chunks preserving decoder order, composer pointer
+dismissal of the current notice generation, link spans, Shift escape-hatch
+documentation, confirmed, requested, and failed composer-edge feedback without
+layout movement, and serialized copy output.
 Native tests prove exact frame validation, hidden-
 window implementation contract, contention bounds, no-argument invocation, and
 backend handoff without touching the operator clipboard. Manual Windows review
@@ -169,11 +183,11 @@ one SGR/OSC-capable Linux terminal.
 ## Update, rollback, and removal
 
 Changing a mode, report grammar, coordinate bound, timestamp rule, word rule,
-logical-offset mapping, link grammar, clipboard frame, native API, retry or
-timeout, copy limit, host fallback, notice truth or placement, or cleanup order requires this
-decision, native and TypeScript protocol tests, editor and display tests, CLI
-integration, manual, architecture, maintenance, privacy, and ownership policy
-to change together.
+logical-offset mapping, within-chunk reduction order, link grammar, clipboard
+frame, native API, retry or timeout, copy limit, host fallback, notice truth,
+placement or dismissal, or cleanup order requires this decision, native and
+TypeScript protocol tests, editor and display tests, CLI integration, manual,
+architecture, maintenance, privacy, and ownership policy to change together.
 
 To remove Windows clipboard integration, remove its CLI boundary and native
 build target together, then retain the truthful OSC 52 requested path. To

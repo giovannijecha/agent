@@ -23,6 +23,7 @@ export type PointerProjection = Readonly<{
 }>;
 
 export type PointerInteractionUpdate = Readonly<{
+  composerInteraction: boolean;
   notice: readonly string[] | undefined;
   redraw: boolean;
   scrollDelta: number | undefined;
@@ -60,11 +61,13 @@ export type EditorInteractionPort = Readonly<{
 function interactionUpdate(
   redraw: boolean,
   options: Readonly<{
+    composerInteraction?: boolean | undefined;
     notice?: readonly string[] | undefined;
     scrollDelta?: number | undefined;
   }> = Object.freeze({}),
 ): PointerInteractionUpdate {
   return Object.freeze({
+    composerInteraction: options.composerInteraction ?? false,
     notice: options.notice,
     redraw,
     scrollDelta: options.scrollDelta,
@@ -211,7 +214,7 @@ export class TerminalInteraction {
       event.button === "left" &&
       event.action !== "wheel"
     ) {
-      return this.#applyComposer(
+      const composerUpdate = this.#applyComposer(
         event,
         timeMilliseconds,
         composerColumns,
@@ -220,6 +223,11 @@ export class TerminalInteraction {
         composerColumn,
         editor,
       );
+      return interactionUpdate(composerUpdate.redraw, {
+        composerInteraction: true,
+        notice: composerUpdate.notice,
+        scrollDelta: composerUpdate.scrollDelta,
+      });
     }
 
     const transcript = projection.transcript;

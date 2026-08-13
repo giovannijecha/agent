@@ -78,7 +78,7 @@ lifecycle facts. Working folder is left-aligned, provider/model is physically
 centered, and history plus lifecycle is right-aligned. The lifecycle remains on
 the right edge and is never duplicated above the composer.
 
-The renderer selects the standard steady-block cursor shape when it first takes
+The renderer selects the standard steady vertical-bar cursor shape when it first takes
 interactive terminal ownership. Cursor shape remains terminal chrome rather
 than editor content or application state. Cleanup restores the terminal-default
 shape before showing the cursor and leaving the alternate screen. Terminals
@@ -137,7 +137,7 @@ identifiers remain absent from display state.
 At acceptance, deterministic component tests proved compact and viewport surfaces, style
 composition, panel caret translation, split input tones, malformed callback
 containment, one-cell fallbacks, and exact structured rows. Renderer byte tests
-prove closed foreground/slant/surface composition, steady-block selection,
+prove closed foreground/slant/surface composition, steady-bar selection,
 default-style restoration, partial-write recovery, and idempotent cleanup. CLI
 tests prove an empty initial document,
 conversation documents, turn rhythm, unboxed tool activity, one contextual

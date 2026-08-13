@@ -666,9 +666,7 @@ test("places compact phase-independent notices between activity and composer", (
     turnId: 31,
   });
 
-  const warningAction = application.feed("/unknown\r").actions.at(0);
-  assert.ok(warningAction !== undefined);
-  application.applySessionAction(warningAction);
+  application.feed("/unknown\r");
   const warning = frame(application, 72, 22);
   assert.ok(warning.ok);
   const warningRows = warning.value.rows;
@@ -689,9 +687,7 @@ test("places compact phase-independent notices between activity and composer", (
   assert.equal(warningSpan?.tone, "attention");
   assert.equal(warningSpan?.surface, "none");
 
-  const infoAction = application.feed("/providers\r").actions.at(0);
-  assert.ok(infoAction !== undefined);
-  application.applySessionAction(infoAction);
+  application.feed("/providers\r");
   const info = frame(application, 72, 22);
   assert.ok(info.ok);
   const infoRows = info.value.rows;
@@ -1097,18 +1093,14 @@ test("navigates the conversation document and resumes follow-end", () => {
   );
   assert.equal(initial.value.frame.rows.some((row) => row.text.includes("line-20")), true);
 
-  const pageUp = application.feed("\u001B[5~").actions.at(0);
-  assert.ok(pageUp !== undefined);
-  application.applySessionAction(pageUp);
+  application.feed("\u001B[5~");
   const history = createChatRender(application, viewport(36, 14));
   assert.ok(history.ok);
   assert.equal(history.value.frame.rows.some((row) => row.text.includes("line-20")), false);
   assert.equal(history.value.frame.rows.at(-1)?.text.includes("history"), false);
 
   for (let count = 0; count < 12 && application.viewingHistory; count += 1) {
-    const pageDown = application.feed("\u001B[6~").actions.at(0);
-    assert.ok(pageDown !== undefined);
-    application.applySessionAction(pageDown);
+    application.feed("\u001B[6~");
   }
   const latest = createChatRender(application, viewport(36, 14));
   assert.ok(latest.ok);

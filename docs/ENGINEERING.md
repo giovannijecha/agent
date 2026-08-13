@@ -193,6 +193,11 @@ press may extend by complete word runs before exactly one copy. An ordered non-
 pointer input event breaks double-click state, and resize clears selection. Do
 not add screen-coordinate archives or product hit calculations to generic
 components.
+Reduce every decoded terminal chunk in exact event order. Apply each pointer
+action to the application and shared editor before decoding may mutate that
+editor with later text, deletion, or paste from the same chunk. Do not queue
+only pointer events or add a replay buffer; use the one synchronous reducer
+boundary.
 
 Only the renderer may enable or disable mouse modes, mark selected spans, emit
 exact visible HTTPS OSC 8 links, or send bounded OSC 52 clipboard requests.
@@ -205,6 +210,8 @@ an unsupported platform may request OSC 52, and no failure may claim success or
 exit the application. Route its short settlement through the one notice
 generation and generic `InputArea` trailing status; it must not add a layout
 slot, reserve editor columns, move the caret, or displace transcript content.
+Dismiss the current generation when that reducer applies a composer pointer
+action; do not dismiss it for transcript selection or scrolling.
 Treat Shift as the optional native-selection escape hatch and Ctrl+C as the agent interrupt. Use the same VT pointer contract on Windows
 and Linux; never add a global hook, browser launcher, foreign helper or library,
 terminal probe, or environment-selected fallback.
@@ -338,7 +345,7 @@ split-line, three-column-line, inset, rail, marker, spacer, activity-stack, scro
 vertical-layout paths. Keep role and content structured in the CLI, but do not
 prefix visible messages with redundant role labels. Separate adjacent role
 entries with one blank row and no leading or trailing decorative gap.
-The renderer owns the interactive steady block cursor command and restores the
+The renderer owns the interactive steady vertical bar cursor command and restores the
 terminal-default style on every cleanup path. Keep cursor shape out of editor
 text, frame content, and product state.
 

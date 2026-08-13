@@ -54,6 +54,23 @@ function projection(rendered: ChatRender): PointerProjection {
   });
 }
 
+function pointerSequence(
+  cell: Cell,
+  action: "move" | "press" | "release",
+): string {
+  const code = action === "move" ? 32 : 0;
+  const suffix = action === "release" ? "m" : "M";
+  return (
+    "\u001B[<" +
+    code.toString() +
+    ";" +
+    (cell.column + 1).toString() +
+    ";" +
+    (cell.row + 1).toString() +
+    suffix
+  );
+}
+
 function cellFor(
   rendered: ChatRender,
   target: TextPosition,
@@ -240,11 +257,12 @@ test("double click selects one transcript word and Shift preserves native handli
   pointer(application, rendered, beta, "press", 500, true);
   assert.equal(application.transcriptSelection, selected);
 
-  const invalidTime = application.feed("\u001B[<0;9;2M", Number.NaN);
-  const action = invalidTime.actions.at(0);
-  assert.ok(action !== undefined);
   assert.equal(
-    application.applySessionAction(action, projection(rendered)).redraw,
+    application.feed(
+      "\u001B[<0;9;2M",
+      Number.NaN,
+      projection(rendered),
+    ).redraw,
     false,
   );
 });
@@ -316,6 +334,76 @@ test("routes composer double click, replacement, and resize through LineEditor",
     ),
     true,
   );
+});
+
+test("reduces coalesced composer pointer and editor events in decoder order", () => {
+  const clicked = new ApplicationController(false);
+  clicked.feed("alpha beta");
+  let rendered = render(clicked);
+  const verticalPadding = rendered.composer.viewportRows >= 3 ? 1 : 0;
+  const horizontalPadding = rendered.stage.columns >= 3 ? 1 : 0;
+  const betaStart = Object.freeze({
+    column: rendered.stage.left + horizontalPadding + 6,
+    row: rendered.composer.startRow + verticalPadding,
+  });
+
+  clicked.feed(
+    pointerSequence(betaStart, "press") + "owned",
+    100,
+    projection(rendered),
+  );
+  assert.equal(clicked.project(36).text, "alpha ownedbeta");
+
+  const replaced = new ApplicationController(false);
+  replaced.feed("alpha beta gamma");
+  rendered = render(replaced);
+  const replacedBetaStart = Object.freeze({
+    column: rendered.stage.left + horizontalPadding + 6,
+    row: rendered.composer.startRow + verticalPadding,
+  });
+  const betaEnd = Object.freeze({
+    column: rendered.stage.left + horizontalPadding + 9,
+    row: rendered.composer.startRow + verticalPadding,
+  });
+  replaced.feed(
+    pointerSequence(replacedBetaStart, "press") +
+      pointerSequence(betaEnd, "move") +
+      pointerSequence(betaEnd, "release") +
+      "\u001B[200~owned\u001B[201~",
+    200,
+    projection(rendered),
+  );
+  assert.equal(replaced.project(36).text, "alpha owned gamma");
+});
+
+test("dismisses the current notice only for composer pointer interaction", () => {
+  const application = new ApplicationController(true);
+  assert.ok(application.turnAccepted(started(1, "visible transcript")).ok);
+  application.feed("alpha beta");
+  application.clipboardSettled("copied");
+  let rendered = render(application);
+  const transcriptCell = cellFor(rendered, { document: 0, offset: 0 });
+
+  pointer(application, rendered, transcriptCell, "press", 100);
+  pointer(application, rendered, transcriptCell, "release", 110);
+  assert.deepEqual(application.notice, ["Copied!"]);
+
+  const verticalPadding = rendered.composer.viewportRows >= 3 ? 1 : 0;
+  const horizontalPadding = rendered.stage.columns >= 3 ? 1 : 0;
+  const composerCell = Object.freeze({
+    column: rendered.stage.left + horizontalPadding + 2,
+    row: rendered.composer.startRow + verticalPadding,
+  });
+  rendered = render(application);
+  const update = application.feed(
+    pointerSequence(composerCell, "press"),
+    200,
+    projection(rendered),
+  );
+
+  assert.equal(update.redraw, true);
+  assert.deepEqual(application.notice, []);
+  assert.equal(application.noticeToken, undefined);
 });
 
 test("extends transcript and composer double clicks by complete words", () => {

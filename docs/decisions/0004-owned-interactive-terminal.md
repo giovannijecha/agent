@@ -58,7 +58,7 @@ plain non-TTY output and renderer cleanup remain inside the typed failure
 contract. The input queue is bounded by both event count and aggregate payload;
 overflow discards queued personal text before returning an owned error.
 
-Decision 0028 later selects a steady block cursor for the interactive session.
+Decision 0028 later selects a steady vertical bar cursor for the interactive session.
 The renderer emits the closed standard cursor-shape command only while it owns
 the alternate screen and restores the terminal-default shape during the same
 idempotent cleanup that restores visibility. Unsupported terminals may ignore
