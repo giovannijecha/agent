@@ -25,6 +25,10 @@ user home, and the exact shared temporary directory are deliberately rejected
 as over-broad roots. An owned native resolver obtains the protected home and
 temporary roots directly from the operating system, so inherited `HOME`,
 `USERPROFILE`, `TMPDIR`, `TMP`, and `TEMP` values cannot move the protections.
+Startup then loads mandatory sensitive-path denials and one optional root
+`.agentignore` before reading a credential or constructing tools. The file may
+only add denials through the bounded grammar in chapter 04. Its compiled value
+is fixed until restart, so edit it before starting the session.
 Maintainers can instead use `npm run dev` from the repository root to rebuild
 and start, or `npm start` to start an existing build.
 
@@ -47,6 +51,7 @@ is skipped and the exact OpenCode Go environment variable is absent. Normal
 text is then discarded after a generic notice and never becomes transcript or
 conversation state. Workspace rejection occurs before a credential is read, a
 provider or tool is constructed, or the terminal enters interactive mode.
+Workspace privacy-policy rejection has the same ordering.
 Chapter 05 owns provider setup and data-flow details.
 
 ## Failure behavior
@@ -58,7 +63,9 @@ and a short category label; private causes, keys, and submitted content are not
 printed. An unavailable platform-root resolver or an invalid, inaccessible,
 non-directory, or over-broad workspace emits only
 `agent rejected the workspace root` and exits nonzero. The shutdown path still
-attempts terminal and renderer cleanup independently.
+attempts terminal and renderer cleanup independently. A linked, non-regular,
+inaccessible, malformed, detectably changed, or oversized `.agentignore` emits
+only `agent rejected the workspace privacy policy` and exits nonzero.
 
 ## Maintenance and removal
 
@@ -76,6 +83,8 @@ composition is verified.
 - Executable edge: `packages/agent-cli/src/main.ts`
 - Executable decision: `docs/decisions/0018-owned-executable-startup.md`
 - Workspace boundary: `packages/agent-cli/src/workspace-boundary.ts`
+- Workspace-ignore grammar: `packages/agent-cli/src/workspace-ignore.ts`
+- Workspace read-policy loader: `packages/agent-cli/src/workspace-read-policy.ts`
 - Workspace decision: `docs/decisions/0042-owned-workspace-trust-boundary.md`
 - Hidden credential prompt: `packages/agent-cli/src/hidden-credential-prompt.ts`
 - Exact argument parser: `packages/agent-cli/src/launch-command.ts`

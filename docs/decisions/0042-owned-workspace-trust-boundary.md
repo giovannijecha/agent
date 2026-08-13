@@ -9,8 +9,8 @@
 process capability. Those adapters already reject absolute model paths, parent
 traversal, symbolic-link crossing, unsupported file kinds, oversized data,
 shell execution, ambient process environment, and uncontained descendants.
-They do not yet form one complete statement of what the application may know,
-send to a provider, approve, mutate, or execute.
+Before the privacy tranche, they did not form one complete statement of what
+the application may know, send to a provider, approve, mutate, or execute.
 
 Startup currently derives tool authority directly from the process working
 directory. Individual handlers canonicalize that string independently, while
@@ -35,7 +35,7 @@ is designed.
 
 Adopt one CLI-owned workspace trust boundary. It is the sole authority source
 for workspace display, filesystem path resolution, process working-directory
-resolution, future privacy policy, and future mutation effect plans.
+resolution, read privacy, and future mutation effect plans.
 
 The boundary is implemented in independent delivery tranches:
 
@@ -50,9 +50,9 @@ The boundary is implemented in independent delivery tranches:
    process-tree containment, and any later filesystem or network sandbox.
 
 Acceptance of this decision does not claim that incomplete tranches already
-exist. The initial change implements only tranche 1. Each later tranche requires
-its own focused behavior, regression tests, documentation, rollback, and
-reviewable commit.
+exist. Tranche 1 is complete. The current change implements tranche 2 only.
+Each later tranche requires its own focused behavior, regression tests,
+documentation, rollback, and reviewable commit.
 
 ## Threat model
 
@@ -73,7 +73,7 @@ user authority. Those remain platform and machine trust assumptions.
 | Layer | Authority | Denial rule |
 | --- | --- | --- |
 | Machine sandbox | Future operating-system filesystem and network isolation | Cannot be weakened by workspace or tool policy. |
-| Workspace boundary | One canonical root and future read-privacy policy | Rejects paths or content before tool execution or provider context. |
+| Workspace boundary | One canonical root and immutable read-privacy policy | Rejects paths or content before tool execution or provider context. |
 | Tool schema and handler | One bounded capability and risk class | Cannot broaden the workspace or sandbox. |
 | Effect plan | One immutable observed mutation and approval identity | Any stale observation conflicts before mutation. |
 | Operator decision | One exact pending write or execute call | Never persists, aliases, or authorizes another effect. |
@@ -142,17 +142,61 @@ hard-coded user home after discovery fails.
 
 ## Read privacy tranche
 
-The future privacy tranche will apply before `read_file` returns content and
-before `search_text` traverses or returns matches. Built-in sensitive-path rules
-will deny common credential material independently of repository ignore files.
-One optional `.agentignore` file will use an owned bounded grammar; no third-party
-glob engine or complete `.gitignore` implementation is admitted. `.gitignore`
-may provide evidence for a later design but cannot be the only secret boundary.
+One immutable CLI-owned `WorkspaceReadPolicy` is bound to the accepted
+workspace root. Startup constructs it after root selection and before reading a
+provider credential, constructing a provider or runtime, registering tools, or
+owning the terminal. The policy combines non-removable built-in sensitive-path
+rules with one optional root `.agentignore`; both are deny-only and no later
+layer or approval can override either source.
 
-Denied content must not enter provider requests, tool results, transcript,
-activity, notices, errors, logs, tests, or documentation. That tranche will
-define exact rule precedence, traversal limits, update behavior, and removal
-before implementation.
+The built-in rules deny `.agentignore`, `.git`, every `.env` or `.env.*` path,
+SSH and common cloud credential directories, package-manager and Git credential
+files, conventional private-key names, and files ending in `.key`, `.pem`,
+`.p12`, `.pfx`, `.jks`, or `.keystore`. These are path rules, not a claim that
+content scanning can identify every secret. Changing this inventory requires
+privacy documentation and adversarial tests in the same review.
+
+The optional `.agentignore` is at most 16,384 bytes and 128 effective rules.
+It must be one regular non-symbolic-link file containing strict Unicode-scalar
+UTF-8. Loading rechecks its type, canonical path, and byte size after reading;
+absence means built-ins only, while inaccessible, malformed, detectably changed,
+oversized, or unsupported input fails startup with one content-free diagnostic.
+The compiled policy remains fixed for the session; an on-disk change takes
+effect only after restart.
+
+The owned grammar is deliberately smaller than `.gitignore`:
+
+- empty lines and lines beginning with `#` are ignored;
+- every other line is one root-relative deny pattern using `/` separators;
+- leading or trailing whitespace, absolute paths, `!` negation, `\`, NUL,
+  controls, format characters, empty segments, `.` segments, and `..` segments
+  are invalid;
+- `*` matches zero or more code units inside one segment;
+- one optional segment equal to `**` matches zero or more complete segments;
+- a trailing `/` is the exact shorthand for an appended `**` segment;
+- a matched path and every descendant beneath it are denied;
+- each line is at most 256 code units and 32 segments, and duplicate normalized
+  rules are invalid.
+
+Matching is case-sensitive on Linux. Windows matching folds ASCII `A` through
+`Z` only; non-ASCII names remain exact so the policy does not claim to reproduce
+undocumented filesystem collation. Rule and target work is bounded by the file,
+rule, line, segment, tool-path, and traversal limits already enforced.
+
+`read_file` checks the normalized lexical path before observing the filesystem
+and returns `permission` for a denial. `list_directory` rejects a denied target
+and omits denied children from its bounded result. `search_text` rejects a
+denied starting directory, prunes denied directories before traversal, and
+never opens or returns a denied file. Denied entries still count against the
+existing raw enumeration limits so exclusions cannot create unbounded work.
+No denied path or content enters tool results, provider requests, transcript,
+activity, notices, errors, logs, fixtures, or documentation.
+
+This tranche does not alter `create_file`, `replace_text`, or `run_process`.
+Writes still require exact approval, and approved Node code remains capable of
+reading outside this policy because process containment is not a filesystem or
+network sandbox. The effect-plan and machine-isolation tranches remain
+separate.
 
 ## Effect-plan tranche
 
@@ -192,10 +236,12 @@ must fail closed rather than being presented as active.
 - Over-broad roots fail before credentials or terminal ownership.
 - Mutable inherited environment values cannot relocate the protected home or
   temporary roots.
+- Automatic content-bearing reads and directory discovery share one immutable
+  built-in and workspace-local denial policy.
 - No new model-facing tool, provider, dependency, package, or TUI primitive is
   introduced.
-- The full trust-boundary milestone remains incomplete until privacy and
-  stale-safe effect-plan tranches are delivered.
+- The full trust-boundary milestone remains incomplete until stale-safe effect
+  plans are delivered.
 - TUI density is an independent visual contract and is not changed by this
   security boundary.
 
@@ -237,9 +283,16 @@ Startup and built-in tool tests must continue to prove providerless behavior,
 path containment, symlink denial, process working-directory containment, and
 cleanup.
 
-Later privacy and effect-plan changes add their own adversarial matrices before
-they are described as current behavior. The canonical Windows and Linux gate
-must pass for every tranche.
+Tranche 2 adds pure grammar tests for every admitted and rejected form, exact
+limits, matching, descendant denial, and platform case behavior. Loader tests
+cover absence, strict UTF-8, file type, symbolic links, size, canonical
+rechecks, immutable session snapshots, content-free errors, and invalid
+boundaries and platforms. Built-in tool tests prove pre-observation denial,
+filtered listings, pruned search, unchanged enumeration bounds, and absence of
+denied path and content in outputs. Process-level startup tests prove malformed
+policy rejection before credentials and terminal ownership. Later effect-plan
+changes add their own adversarial matrix before being described as current
+behavior. The canonical Windows and Linux gate must pass for every tranche.
 
 ## Update, rollback, and removal
 
@@ -266,3 +319,10 @@ filesystem and process capability that consumes it, or replacing it with a
 stronger accepted authority contract. Privacy rules and effect plans remain
 independently removable only while their earlier denial guarantees are not
 weakened silently.
+
+To remove tranche 2, first disable automatic content-bearing read tools or
+replace this policy with a stronger accepted disclosure boundary. Then remove
+policy injection from the tool registry, delete loader and grammar modules and
+tests, remove `.agentignore` and built-in-rule documentation, and restore the
+privacy warning in the same change. Removing only workspace rules while leaving
+the built-in claim, or bypassing the policy from one read handler, is forbidden.

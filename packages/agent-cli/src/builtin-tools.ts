@@ -38,6 +38,7 @@ import {
 import type { ProcessRunner } from "./process-runner.js";
 import { PROCESS_RUNNER_LIMITS } from "./process-runner.js";
 import { WorkspaceBoundary } from "./workspace-boundary.js";
+import { WorkspaceReadPolicy } from "./workspace-read-policy.js";
 
 export const BUILTIN_TOOL_LIMITS = Object.freeze({
   directoryEntries: 512,
@@ -51,6 +52,7 @@ export const BUILTIN_TOOL_LIMITS = Object.freeze({
 
 export type BuiltinToolsErrorKind =
   | "invalidPlatform"
+  | "invalidReadPolicy"
   | "invalidRoot"
   | "invariant";
 export type BuiltinToolsError = Readonly<{ kind: BuiltinToolsErrorKind }>;
@@ -118,6 +120,34 @@ function lexicalPath(root: string, relative: string): string | undefined {
 function relativeFromRoot(root: string, target: string): string {
   const relative = path.relative(root, target);
   return relative.length === 0 ? "." : relative;
+}
+
+function policyPath(root: string, target: string): string {
+  return relativeFromRoot(root, target).split(path.sep).join("/");
+}
+
+function permittedReadPath(
+  root: string,
+  policy: WorkspaceReadPolicy,
+  relative: string,
+): Result<string, ToolHandlerError> {
+  const lexical = lexicalPath(root, relative);
+  if (lexical === undefined) {
+    return toolFailure("permission");
+  }
+  const normalized = policyPath(root, lexical);
+  const denied = policy.denies(normalized);
+  return denied.ok && !denied.value
+    ? ok(normalized)
+    : toolFailure("permission");
+}
+
+function permittedDiscoveredPath(
+  policy: WorkspaceReadPolicy,
+  relative: string,
+): boolean {
+  const denied = policy.denies(relative);
+  return denied.ok && !denied.value;
 }
 
 async function rejectSymlinkTraversal(
@@ -326,12 +356,16 @@ function encodeUtf8(content: string): Uint8Array {
   return bytes.slice(0, offset);
 }
 
-function readFileHandler(root: string): ToolHandler {
+function readFileHandler(root: string, policy: WorkspaceReadPolicy): ToolHandler {
   return async (input, cancellation) => {
     if (cancellation.requested) {
       return toolFailure("cancelled");
     }
     const relative = text(input, "path");
+    const permitted = permittedReadPath(root, policy, relative);
+    if (!permitted.ok) {
+      return permitted;
+    }
     const resolved = await existingPath(root, relative, "file");
     if (!resolved.ok) {
       return resolved;
@@ -364,9 +398,16 @@ function readFileHandler(root: string): ToolHandler {
   };
 }
 
-function listDirectoryHandler(root: string): ToolHandler {
+function listDirectoryHandler(
+  root: string,
+  policy: WorkspaceReadPolicy,
+): ToolHandler {
   return async (input, cancellation) => {
     const relative = text(input, "path");
+    const permitted = permittedReadPath(root, policy, relative);
+    if (!permitted.ok) {
+      return permitted;
+    }
     const resolved = await existingPath(
       root,
       relative,
@@ -394,6 +435,12 @@ function listDirectoryHandler(root: string): ToolHandler {
     entries.sort((left, right) => left.name.localeCompare(right.name, "en"));
     const output: Readonly<{ kind: string; name: string }>[] = [];
     for (const entry of entries) {
+      const childRelative = permitted.value === "."
+        ? entry.name
+        : permitted.value + "/" + entry.name;
+      if (!permittedDiscoveredPath(policy, childRelative)) {
+        continue;
+      }
       const kind = entry.isDirectory()
         ? "directory"
         : entry.isFile()
@@ -443,12 +490,20 @@ function collectMatches(
   }
 }
 
-function searchTextHandler(root: string): ToolHandler {
+function searchTextHandler(
+  root: string,
+  policy: WorkspaceReadPolicy,
+): ToolHandler {
   return async (input, cancellation) => {
     const query = text(input, "query");
+    const requestedPath = text(input, "path");
+    const permitted = permittedReadPath(root, policy, requestedPath);
+    if (!permitted.ok) {
+      return permitted;
+    }
     const resolved = await existingPath(
       root,
-      text(input, "path"),
+      requestedPath,
       "directory",
     );
     if (!resolved.ok) {
@@ -504,6 +559,10 @@ function searchTextHandler(root: string): ToolHandler {
             continue;
           }
           const child = path.join(directory, entry.name);
+          const childRelative = policyPath(canonicalRoot, child);
+          if (!permittedDiscoveredPath(policy, childRelative)) {
+            continue;
+          }
           if (entry.isDirectory()) {
             const checked = await existingPath(
               root,
@@ -771,7 +830,11 @@ const PROCESS_TEXT_SCHEMA_OPTIONS: StringSchemaOptions = Object.freeze({
   rejectNul: true,
 });
 
-function registrations(root: string, platform: BuiltinToolsPlatform) {
+function registrations(
+  root: string,
+  policy: WorkspaceReadPolicy,
+  platform: BuiltinToolsPlatform,
+) {
   const pathField = {
     description: "Workspace-relative path.",
     name: "path",
@@ -788,25 +851,25 @@ function registrations(root: string, platform: BuiltinToolsPlatform) {
     Object.freeze({
       descriptor: descriptor(
         "read_file",
-        "Read one bounded UTF-8 workspace file.",
+        "Read one permitted bounded UTF-8 workspace file.",
         "read",
         objectSchema([pathField]),
       ),
-      handler: readFileHandler(root),
+      handler: readFileHandler(root, policy),
     }),
     Object.freeze({
       descriptor: descriptor(
         "list_directory",
-        "List one bounded workspace directory without following symlinks.",
+        "List permitted entries in one bounded workspace directory without following symlinks.",
         "read",
         objectSchema([pathField]),
       ),
-      handler: listDirectoryHandler(root),
+      handler: listDirectoryHandler(root, policy),
     }),
     Object.freeze({
       descriptor: descriptor(
         "search_text",
-        "Search exact text in bounded workspace files.",
+        "Search exact text in permitted bounded workspace files.",
         "read",
         objectSchema([
           pathField,
@@ -818,7 +881,7 @@ function registrations(root: string, platform: BuiltinToolsPlatform) {
           },
         ]),
       ),
-      handler: searchTextHandler(root),
+      handler: searchTextHandler(root, policy),
     }),
     Object.freeze({
       descriptor: descriptor(
@@ -911,6 +974,7 @@ function registrations(root: string, platform: BuiltinToolsPlatform) {
 /** Creates the complete initial tool engine for one accepted workspace. */
 export function createBuiltinToolEngine(
   boundary: unknown,
+  readPolicy: unknown,
   platform: BuiltinToolsPlatform,
 ): Result<ToolEngine, BuiltinToolsError> {
   const acceptedRoot = WorkspaceBoundary.rootOf(boundary);
@@ -918,6 +982,10 @@ export function createBuiltinToolEngine(
     return err(Object.freeze({ kind: "invalidRoot" as const }));
   }
   const root = acceptedRoot.value;
+  const acceptedPolicy = WorkspaceReadPolicy.forRoot(readPolicy, root);
+  if (!acceptedPolicy.ok) {
+    return err(Object.freeze({ kind: "invalidReadPolicy" as const }));
+  }
   if (
     platform === null ||
     typeof platform !== "object" ||
@@ -932,7 +1000,7 @@ export function createBuiltinToolEngine(
   }
   try {
     const registry = ToolRegistry.create(
-      registrations(root, platform),
+      registrations(root, acceptedPolicy.value, platform),
     );
     if (!registry.ok) {
       return err(Object.freeze({ kind: "invariant" as const }));

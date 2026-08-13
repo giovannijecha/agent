@@ -165,6 +165,8 @@
     "packages/agent-cli/src/run.ts",
     "packages/agent-cli/src/tool-activity-log.ts",
     "packages/agent-cli/src/workspace-boundary.ts",
+    "packages/agent-cli/src/workspace-ignore.ts",
+    "packages/agent-cli/src/workspace-read-policy.ts",
     "packages/agent-provider-opencode-go/src/index.ts",
     "packages/agent-cli/native/process-broker/backend-linux.c",
     "packages/agent-cli/native/process-broker/backend-windows.c",

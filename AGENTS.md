@@ -185,6 +185,13 @@ agent.”
   from operating-system account and known-folder contracts with an empty
   environment; inherited home and temporary variables are never authoritative.
   The footer and every built-in tool consume that same canonical absolute root.
+  One immutable CLI-owned read policy is loaded after root selection and before
+  credentials, providers, tools, or terminal ownership. Non-removable built-in
+  sensitive-path denials combine with one optional bounded root `.agentignore`;
+  both are deny-only. `read_file` rejects denied targets before observation,
+  `list_directory` omits denied children, and `search_text` prunes denied
+  directories and files before opening them. Writes and approved processes are
+  outside this disclosure policy.
 - `run_process` is the only admitted execute tool. It accepts the registered
   `node` token, literal arguments, and one workspace-relative directory; it
   never accepts a shell, executable path, PATH lookup, stdin, inherited or

@@ -20,14 +20,21 @@ automatic; each write or execute operation requires its own explicit approval.
 The terminal UI avoids placing raw prompts, file contents, tool outputs,
 credentials, and foreign error causes in notices or logs.
 
-The current release has no `.agentignore` or built-in sensitive-path filter.
-Supported files anywhere beneath the selected root may therefore be returned by
-a read tool and sent to the configured provider as a tool result. Start `agent`
-from the narrowest intended directory and do not place credentials or unrelated
-personal content inside it. Decision 0042 records the separate future privacy
-tranche; its acceptance is not a claim that filtering already exists.
+Before credentials or terminal ownership, `agent` fixes one immutable read
+policy for the session. Built-in rules deny `.agentignore`, `.git`, `.env` and
+`.env.*`, common SSH and cloud credential directories, package and Git
+credential files, conventional private-key names, and `.key`, `.pem`, `.p12`,
+`.pfx`, `.jks`, and `.keystore` files. An optional root `.agentignore` adds
+deny-only workspace rules through the bounded grammar in decision 0042. A
+missing file means built-ins only; an inaccessible, malformed, linked,
+non-regular, or oversized policy makes startup fail closed.
+
+`read_file` rejects denied targets before observing them. `list_directory`
+omits denied children, and `search_text` prunes denied directories and files
+before opening them. These rules protect only automatic built-in disclosure;
+they do not scan file contents or alter approved writes. Start `agent` from the
+narrowest intended directory and keep credentials outside it whenever possible.
 An approved `run_process` invocation is lifecycle-contained but not filesystem-
-or network-sandboxed; its Node code retains the launching user's authority.
 
 ## Terminal selection and links
 

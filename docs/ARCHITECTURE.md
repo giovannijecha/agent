@@ -221,6 +221,18 @@ handlers, and process working-directory resolution. Model-selected relative
 paths are then denied on traversal or symbolic-link crossing; handlers do not
 replace or independently recanonicalize the authority root.
 
+The CLI next constructs one immutable `WorkspaceReadPolicy`, still before
+credentials, provider/runtime construction, tool registration, or terminal
+ownership. A pure grammar module compiles the closed, bounded, deny-only rules;
+the CLI loader owns filesystem observation and binds the result to the branded
+root. Built-in sensitive-path rules are mandatory and one optional root
+`.agentignore` may only add denials. `read_file` checks a normalized lexical
+target before filesystem observation, `list_directory` filters children, and
+`search_text` prunes directories and files before opening them. Raw discovered
+entries retain the existing work bounds. The policy is injected into the
+existing tool registry and creates no tool, package, provider, or alternate path
+resolver.
+
 Protected home and temporary roots come from one separate CLI-owned native
 resolver. Linux uses the effective-user account database and `/tmp`; Windows
 uses the current-user Profile and Local AppData Known Folders. The Node adapter

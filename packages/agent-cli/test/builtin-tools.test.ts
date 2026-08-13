@@ -10,10 +10,15 @@ import {
 } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import path from "node:path";
-import { execPath } from "node:process";
+import { execPath, platform } from "node:process";
 import test from "node:test";
 
-import { ok, StructuredObject, structuredValueFromUnknown } from "@agent/core";
+import {
+  ok,
+  StructuredList,
+  StructuredObject,
+  structuredValueFromUnknown,
+} from "@agent/core";
 import type { ToolCancellation, ToolEngine, ToolExecution } from "@agent/tools";
 
 import { createBuiltinToolEngine } from "../dist/builtin-tools.js";
@@ -23,6 +28,7 @@ import {
   type ProcessRunner,
 } from "../dist/process-runner.js";
 import { WorkspaceBoundary } from "../dist/workspace-boundary.js";
+import { WorkspaceReadPolicy } from "../dist/workspace-read-policy.js";
 
 const cancellation: ToolCancellation = Object.freeze({
   requested: false,
@@ -52,7 +58,9 @@ async function engine(
 ): Promise<ToolEngine> {
   const boundary = await WorkspaceBoundary.create(root, workspaceProtection);
   assert.ok(boundary.ok);
-  const created = createBuiltinToolEngine(boundary.value, {
+  const policy = await WorkspaceReadPolicy.load(boundary.value, platform);
+  assert.ok(policy.ok);
+  const created = createBuiltinToolEngine(boundary.value, policy.value, {
     nodeExecutable: execPath,
     processRunner: runner,
   });
@@ -204,19 +212,23 @@ test("preserves a nonzero process result as a recoverable failed tool outcome", 
   });
 });
 
-test("distinguishes invalid roots from invalid platform adapters", async () => {
+test("distinguishes invalid roots, read policies, and platform adapters", async () => {
   assert.deepEqual(
-    createBuiltinToolEngine("relative", {
+    createBuiltinToolEngine("relative", undefined, {
       nodeExecutable: execPath,
       processRunner,
     }),
     { ok: false, error: { kind: "invalidRoot" } },
   );
   assert.deepEqual(
-    createBuiltinToolEngine(Object.freeze({ root: path.resolve(".") }), {
+    createBuiltinToolEngine(
+      Object.freeze({ root: path.resolve(".") }),
+      undefined,
+      {
       nodeExecutable: execPath,
       processRunner,
-    }),
+      },
+    ),
     { ok: false, error: { kind: "invalidRoot" } },
   );
   const forgedPrototype = Object.create(WorkspaceBoundary.prototype) as {
@@ -226,7 +238,7 @@ test("distinguishes invalid roots from invalid platform adapters", async () => {
     value: path.resolve("."),
   });
   assert.deepEqual(
-    createBuiltinToolEngine(forgedPrototype, {
+    createBuiltinToolEngine(forgedPrototype, undefined, {
       nodeExecutable: execPath,
       processRunner,
     }),
@@ -237,8 +249,17 @@ test("distinguishes invalid roots from invalid platform adapters", async () => {
     workspaceProtection,
   );
   assert.ok(boundary.ok);
+  const policy = await WorkspaceReadPolicy.load(boundary.value, platform);
+  assert.ok(policy.ok);
   assert.deepEqual(
-    createBuiltinToolEngine(boundary.value, {
+    createBuiltinToolEngine(boundary.value, undefined, {
+      nodeExecutable: execPath,
+      processRunner,
+    }),
+    { ok: false, error: { kind: "invalidReadPolicy" } },
+  );
+  assert.deepEqual(
+    createBuiltinToolEngine(boundary.value, policy.value, {
       nodeExecutable: "relative",
       processRunner,
     }),
@@ -263,6 +284,16 @@ async function execute(
 function output(execution: ToolExecution): StructuredObject {
   assert.ok(execution.result.output instanceof StructuredObject);
   return execution.result.output;
+}
+
+function objectList(
+  execution: ToolExecution,
+  field: string,
+): readonly StructuredObject[] {
+  const value = output(execution).get(field);
+  assert.ok(value instanceof StructuredList);
+  assert.ok(value.values.every((item) => item instanceof StructuredObject));
+  return value.values as readonly StructuredObject[];
 }
 
 async function withWorkspace(
@@ -316,6 +347,124 @@ test("creates, reads, replaces, lists, and searches bounded workspace text", asy
       query: "owned",
     });
     assert.equal(searched.result.status, "success");
+  });
+});
+
+test("enforces the disclosure policy before reads and prunes discovery", async () => {
+  await withWorkspace(async (workspace) => {
+    await mkdir(path.join(workspace, "private"));
+    await mkdir(path.join(workspace, ".git"));
+    await mkdir(path.join(workspace, "public"));
+    await writeFile(
+      path.join(workspace, ".agentignore"),
+      "private/\n**/*.secret\n",
+      { encoding: "utf8", flag: "wx" },
+    );
+    await writeFile(path.join(workspace, ".env"), "owned-marker env-secret", {
+      encoding: "utf8",
+      flag: "wx",
+    });
+    await writeFile(
+      path.join(workspace, ".git", "config"),
+      "owned-marker repository-secret",
+      { encoding: "utf8", flag: "wx" },
+    );
+    await writeFile(
+      path.join(workspace, "private", "report.txt"),
+      "owned-marker private-secret",
+      { encoding: "utf8", flag: "wx" },
+    );
+    await writeFile(
+      path.join(workspace, "token.secret"),
+      "owned-marker token-secret",
+      { encoding: "utf8", flag: "wx" },
+    );
+    await writeFile(
+      path.join(workspace, "server.pem"),
+      "owned-marker key-secret",
+      { encoding: "utf8", flag: "wx" },
+    );
+    await writeFile(
+      path.join(workspace, "public", "report.txt"),
+      "owned-marker public-value",
+      { encoding: "utf8", flag: "wx" },
+    );
+    await writeFile(
+      path.join(workspace, "README.md"),
+      "owned-marker readme-value",
+      { encoding: "utf8", flag: "wx" },
+    );
+
+    const tools = await engine(workspace);
+    for (const execution of [
+      await execute(tools, "read_file", { path: ".agentignore" }),
+      await execute(tools, "read_file", { path: ".env" }),
+      await execute(tools, "read_file", { path: ".env.missing" }),
+      await execute(tools, "read_file", { path: "private/report.txt" }),
+      await execute(tools, "read_file", { path: "token.secret" }),
+      await execute(tools, "read_file", { path: "server.pem" }),
+      await execute(tools, "list_directory", { path: "private" }),
+      await execute(tools, "search_text", {
+        path: "private",
+        query: "owned-marker",
+      }),
+    ]) {
+      assert.equal(execution.result.status, "failure");
+      assert.equal(output(execution).get("error"), "permission");
+    }
+
+    const listed = await execute(tools, "list_directory", { path: "." });
+    assert.equal(listed.result.status, "success");
+    assert.deepEqual(
+      objectList(listed, "entries").map((entry) => entry.get("name")),
+      ["public", "README.md"],
+    );
+
+    const searched = await execute(tools, "search_text", {
+      path: ".",
+      query: "owned-marker",
+    });
+    assert.equal(searched.result.status, "success");
+    const matches = objectList(searched, "matches");
+    assert.deepEqual(
+      matches.map((match) => match.get("path")),
+      ["README.md", path.join("public", "report.txt")],
+    );
+    assert.deepEqual(
+      matches.map((match) => match.get("text")),
+      ["owned-marker readme-value", "owned-marker public-value"],
+    );
+
+    const created = await execute(tools, "create_file", {
+      content: "created without disclosure",
+      path: "private/created.txt",
+    });
+    assert.equal(created.result.status, "success");
+    const replaced = await execute(tools, "replace_text", {
+      newText: "updated without disclosure",
+      oldText: "private-secret",
+      path: "private/report.txt",
+    });
+    assert.equal(replaced.result.status, "success");
+  });
+});
+
+test("counts denied directory entries against the raw enumeration bound", async () => {
+  await withWorkspace(async (workspace) => {
+    for (let index = 0; index <= 512; index += 1) {
+      await writeFile(
+        path.join(workspace, ".env." + String(index)),
+        "private",
+        { encoding: "utf8", flag: "wx" },
+      );
+    }
+    const listed = await execute(
+      await engine(workspace),
+      "list_directory",
+      { path: "." },
+    );
+    assert.equal(listed.result.status, "failure");
+    assert.equal(output(listed).get("error"), "limit");
   });
 });
 

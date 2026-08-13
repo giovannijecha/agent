@@ -195,6 +195,10 @@ declare module "node:fs/promises" {
   }
 
   export interface Stats {
+    readonly ctimeMs: number;
+    readonly dev: number;
+    readonly ino: number;
+    readonly mtimeMs: number;
     readonly size: number;
     isDirectory(): boolean;
     isFile(): boolean;
@@ -219,6 +223,7 @@ declare module "node:fs/promises" {
   export function mkdtemp(prefix: string): Promise<string>;
   export function open(path: string, flags: "r+"): Promise<FileHandle>;
   export function opendir(path: string): Promise<Dir>;
+  export function readFile(path: string): Promise<Uint8Array>;
   export function readFile(path: string, options: { encoding: "utf8" }): Promise<string>;
   export function readdir(
     path: string,
@@ -227,17 +232,18 @@ declare module "node:fs/promises" {
   export function realpath(path: string): Promise<string>;
   export function rm(
     path: string,
-    options: { force: true; recursive: true },
+    options: { force: true; recursive: boolean },
   ): Promise<void>;
   export function symlink(
     target: string,
     path: string,
     type: "junction",
   ): Promise<void>;
+  export function writeFile(path: string, data: Uint8Array): Promise<void>;
   export function writeFile(
     path: string,
     data: string,
-    options: { encoding: "utf8"; flag: "wx" },
+    options: { encoding: "utf8"; flag: "w" | "wx" },
   ): Promise<void>;
 }
 
