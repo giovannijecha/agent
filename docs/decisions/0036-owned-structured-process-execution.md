@@ -82,12 +82,20 @@ one launch frame and at most one cancellation frame, incrementally validates
 all status frames, and separately bounds target stdout, target stderr, and
 broker status. Broker diagnostics are drained without retention; diagnostics
 and native causes are never returned to the model or rendered to the operator.
+The adapter observes the broker control-input channel from spawn through its
+first failure or close. A close racing a launch or cancellation write is
+reduced through the same invocation state instead of escaping as an unhandled
+stream error.
 
 The adapter observes target output while the broker enforces the tree timeout
 and process count. Output overflow requests cancellation and returns `limit`.
 An operator or runtime cancellation requests broker cancellation and returns
 `cancelled`. Timeout returns `limit`. Unsupported host capability returns
 `unsupported`; launch, protocol, monitor, or cleanup failure returns `io`.
+An asynchronous control-input failure preserves an already recorded failure,
+such as output `limit`; otherwise it records `io`. In every case the adapter
+still waits for broker settlement, so the channel failure cannot claim
+target-tree cleanup that the broker did not prove.
 The broker remains responsible for proving target-tree cleanup before it
 reports completion.
 
@@ -97,9 +105,10 @@ Pure protocol tests cover exact encoding, fragmented status frames, malformed
 lengths, unknown kinds, duplicate terminal states, and incomplete streams.
 Adapter tests exercise exact arguments, the platform-owned target environment,
 real Node cryptographic initialization, working directory, stdout and stderr
-separation, nonzero exits, timeout,
-cancellation, overflow, unsupported registry tokens, malformed broker output,
-and controller failure. Tool tests prove the schema, exact approval preview,
+separation, nonzero exits, timeout, cancellation, overflow, unsupported
+registry tokens, malformed broker output, controller failure, and a broker
+control-input close racing cancellation. Tool tests prove the schema, exact
+approval preview,
 workspace boundary, handler mapping, and absence of command-string or
 environment fields. The existing native Windows and Linux containment suite
 continues to prove descendant cleanup, process storms, controller loss,

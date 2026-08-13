@@ -121,7 +121,7 @@ test("returns bounded stdout, stderr, working directory, and exit code", async (
   assert.equal(exitResult.value.exitCode, 23);
 });
 
-test("fails closed on timeout, cancellation, and output overflow", async () => {
+test("fails closed on timeout and cancellation", async () => {
   const timeout = await runner().run(
     request(["sleep"], { timeoutMilliseconds: 50 }),
     idleCancellation,
@@ -133,12 +133,16 @@ test("fails closed on timeout, cancellation, and output overflow", async () => {
     whenRequested: async () => undefined,
   });
   assert.deepEqual(cancelled, { ok: false, error: { kind: "cancelled" } });
+});
 
-  const overflow = await runner().run(
-    request(["flood", "257"], { stdoutBytes: 256 }),
-    idleCancellation,
-  );
-  assert.deepEqual(overflow, { ok: false, error: { kind: "limit" } });
+test("contains control-input close races during output cancellation", async () => {
+  for (let attempt = 0; attempt < 16; attempt += 1) {
+    const overflow = await runner().run(
+      request(["flood", "257"], { stdoutBytes: 256 }),
+      idleCancellation,
+    );
+    assert.deepEqual(overflow, { ok: false, error: { kind: "limit" } });
+  }
 });
 
 test("rejects unsupported process-containment targets", () => {

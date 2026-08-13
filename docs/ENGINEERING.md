@@ -404,6 +404,10 @@ sequentially in provider order. Filesystem tools use no ambient network access.
 Decision 0036 admits only `run_process`, the registered `node` token, and the
 owned native whole-tree containment broker; no other process capability may be
 advertised.
+Keep the broker control-input error listener active from spawn through its
+first failure or close. Treat a synchronous or asynchronous launch/cancel write
+failure as one content-free adapter failure, preserving any earlier typed
+cause, and never settle successful cleanup before the broker closes.
 
 Resolve the exact startup directory once, before credential acquisition, into
 the immutable CLI-owned workspace boundary from decision 0042. Never walk

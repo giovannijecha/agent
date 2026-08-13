@@ -241,7 +241,10 @@ environment. Windows targets receive only `SystemRoot`, queried directly by the
 broker through the operating system API so Node can initialize without
 inheriting user state. Matching platform tests prove descendant cancellation,
 bounded output, owner-loss behavior, isolated target environment, and complete
-cleanup. The capability runs terminating commands only and never retains a
+cleanup. The Node adapter observes the broker control-input stream from spawn
+through its first failure or close; a write racing broker shutdown is reduced
+to the invocation's existing typed failure and cannot escape the serialized
+lifecycle. The capability runs terminating commands only and never retains a
 background or persistent service. This is descendant lifecycle containment,
 not a machine sandbox: approved Node code still has the launching user's
 filesystem and network authority outside its selected initial directory.
