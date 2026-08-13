@@ -8,6 +8,7 @@ import {
 } from "@agent/tui";
 
 import type { TranscriptEntry } from "./chat-state.js";
+import { CONVERSATION_DENSITY } from "./conversation-density.js";
 import { createSpacer, createStack } from "./view-components.js";
 
 function createEntryComponent(
@@ -21,7 +22,10 @@ function createEntryComponent(
     horizontalPadding: 1,
     slant: entry.role === "user" ? "italic" : "inherit",
     surface: entry.role === "user" ? "subtle" : "none",
-    verticalPadding: entry.role === "user" ? 1 : 0,
+    verticalPadding:
+      entry.role === "user"
+        ? CONVERSATION_DENSITY.userVerticalPadding
+        : 0,
   });
 }
 

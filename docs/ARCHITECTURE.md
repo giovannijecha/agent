@@ -189,6 +189,11 @@ raw mode, the ordered terminal-event queue, bounded display-only chat state, the
 single-writer application reducer, one bounded tool-activity log and presentation
 path, the responsive conversation shell and truthful status footer,
 application-owned transcript navigation, and fair two-source event arbitration.
+One frozen CLI-owned conversation-density record supplies closed padding and
+rhythm values to the existing presenters: user turns and the focused composer
+retain one cell above and below their content, activity surfaces have zero
+vertical padding, and external lower-shell rhythm remains one optional row. Activity
+stack clipping retains its identity/state head before optional detail.
 It is the only product package
 allowed to import approved `node:` APIs. It uses only
 named stdin, stdout, stderr, and exit capabilities rather than a broad process
@@ -298,7 +303,7 @@ Decision 0022 defines update and removal of this surface independently from the
 tool engine, runtime protocol, structured rows, scroll view, and renderer.
 
 The responsive conversation shell follows decisions 0026, 0027, 0028, 0039,
-0040, and 0041. In vertical order the CLI composes a flexible document,
+0040, 0041, and 0043. In vertical order the CLI composes a flexible document,
 contextual activity, one latest ephemeral notice, completion, one bounded
 stage-wide neutral composer, and a compact status line. The document remains
 dominant; absent contextual state consumes no rows.

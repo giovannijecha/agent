@@ -58,7 +58,9 @@ The transcript stays dominant. User turns and the composer use one quiet neutral
 surface so role and input remain immediately visible. Assistant prose, code,
 tables, and completion stay transparent; green, ochre, and red backgrounds are
 reserved for tool activity, approval, success, and failure. One shared rhythm
-separates every lower-shell region. The footer keeps workspace and provider
+separates every lower-shell region. User turns retain one quiet padding row
+above and below their text, activity surfaces follow their content height, and
+the focused composer retains one vertical padding row on each side. The footer keeps workspace and provider
 facts quiet while a soft active-work pulse aligns with the composer's right
 edge. Command feedback appears as one transparent contextual notice below any
 tool activity; it is replaced by newer feedback, disappears after five seconds,

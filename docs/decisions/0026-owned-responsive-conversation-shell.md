@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-10
-- Current stage and rhythm refined by: decisions 0039 and 0040
+- Current stage, rhythm, and density refined by: decisions 0039, 0040, and 0043
 - Notice placement and lifetime refined by: decision 0041
 - Palette refined by: decision 0031, updated 2026-08-13
 

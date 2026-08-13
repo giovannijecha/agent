@@ -262,6 +262,14 @@ composer use the same full usable width, retaining one technical outer column
 per side when the viewport permits it. Apply that stage to the footer and place
 the pulse on the composer's final surface cell. Do not let
 product components invent private shell widths or arbitrary reading-width caps.
+Under decision 0043, read every internal padding and external rhythm value from
+the one frozen CLI-owned conversation-density record. A user surface retains
+one vertical row above and below its content, so a one-line user occupies three
+painted rows. Activity surfaces use zero vertical padding, and the current
+activity header plus detail occupies two rows. The focused composer retains one
+vertical row above and below its one-through-six content rows. Keep
+the external rhythm at one optional row and do not trade it for private surface
+padding.
 Project lower regions in authoritative order: transcript, activity, latest
 notice, completion, composer, and footer. A notice is transparent product
 feedback, not transcript or tool lifecycle. Give it one closed `info` or
@@ -313,7 +321,8 @@ Compose sequential component documents through the one bounded generic stack
 defined by decision 0022. Product lifecycle state never enters that component:
 the CLI owns one tool-activity log and maps every registered tool through the
 same presentation function. Preserve the focused activity header before
-optional scope in short viewports. Every state uses one generic borderless
+optional scope in short viewports by anchoring the shared stack at its head.
+Every state uses one generic borderless
 semantic `Surface`; success, attention, and failure are closed renderer-owned
 backgrounds selected from authoritative CLI state. Keep the tool name neutral
 and italic, retain the written state, and do not add per-tool components,
