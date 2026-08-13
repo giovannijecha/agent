@@ -5,8 +5,10 @@ import type {
   RuntimeStopError,
 } from "@agent/runtime";
 import {
+  advanceMotionPhase,
   err,
   type ComponentError,
+  type MotionPhase,
   ok,
   type Result,
   Renderer,
@@ -26,6 +28,9 @@ import {
 } from "./event-arbiter.js";
 import type { SessionUpdate } from "./session.js";
 import type { TerminalHost } from "./terminal-host.js";
+import type { MotionController } from "./motion-scheduler.js";
+import { isMotionActive } from "./motion-policy.js";
+import type { NoticeController } from "./notice-scheduler.js";
 
 export const PLAIN_STATUS =
   "agent\ninteractive terminal requires TTY input and output\n";
@@ -39,7 +44,10 @@ export type RunFailure<E> =
       operation: "acknowledge" | "approval" | "cancel" | "commit" | "event";
       error: RuntimeCommandError | RuntimeSourceError;
     }>
-  | Readonly<{ kind: "source"; source: "runtime" | "terminal" }>
+  | Readonly<{
+      kind: "source";
+      source: "motion" | "notice" | "runtime" | "terminal";
+    }>
   | Readonly<{
       kind: "terminal";
       operation: "event" | "output" | "start" | "viewport";
@@ -49,6 +57,8 @@ export type RunFailure<E> =
       kind: "unexpected";
       operation:
         | "application"
+        | "motion"
+        | "notice"
         | "runtimeAcknowledge"
         | "runtimeApproval"
         | "runtimeCancel"
@@ -63,7 +73,7 @@ export type CleanupFailure<E, RE> =
   | Readonly<{ kind: "terminal"; error: E }>
   | Readonly<{
       kind: "unexpected";
-      operation: "renderer" | "runtime" | "terminal";
+      operation: "motion" | "notice" | "renderer" | "runtime" | "terminal";
     }>;
 
 export type RunError<E, RE> = Readonly<{
@@ -161,8 +171,9 @@ async function renderApplication<E>(
   renderer: Renderer<E>,
   application: ApplicationController,
   viewport: Viewport,
+  motionPhase: MotionPhase,
 ): Promise<Result<void, RunFailure<E>>> {
-  const prepared = createChatRender(application, viewport);
+  const prepared = createChatRender(application, viewport, motionPhase);
   if (!prepared.ok) {
     return err(Object.freeze({ kind: "frame" as const, error: prepared.error }));
   }
@@ -466,10 +477,12 @@ async function cleanup<E, RE>(
   renderer: Renderer<E>,
   runtime: RuntimeSession<RE> | undefined,
   arbiter: EventArbiter<E, RE> | undefined,
+  motion: MotionController | undefined,
+  notices: NoticeController | undefined,
 ): Promise<readonly CleanupFailure<E, RE>[]> {
+  const failures = closeAuxiliaryControllers<E, RE>(motion, notices);
   arbiter?.close();
   const runtimeStop = beginRuntimeStop(runtime);
-  const failures: CleanupFailure<E, RE>[] = [];
   try {
     const stopped = await host.stop();
     if (!stopped.ok) {
@@ -510,6 +523,34 @@ async function cleanup<E, RE>(
   return Object.freeze(failures);
 }
 
+function closeAuxiliaryControllers<E, RE>(
+  motion: MotionController | undefined,
+  notices: NoticeController | undefined,
+): CleanupFailure<E, RE>[] {
+  const failures: CleanupFailure<E, RE>[] = [];
+  try {
+    notices?.close();
+  } catch (_cause: unknown) {
+    failures.push(
+      Object.freeze({
+        kind: "unexpected" as const,
+        operation: "notice" as const,
+      }),
+    );
+  }
+  try {
+    motion?.close();
+  } catch (_cause: unknown) {
+    failures.push(
+      Object.freeze({
+        kind: "unexpected" as const,
+        operation: "motion" as const,
+      }),
+    );
+  }
+  return failures;
+}
+
 async function cleanupPlainRuntime<RE>(
   runtime: RuntimeSession<RE> | undefined,
 ): Promise<readonly CleanupFailure<never, RE>[]> {
@@ -530,6 +571,8 @@ export async function run<E, RE = never>(
   runtime?: RuntimeSession<RE>,
   provider?: ProviderPresentation,
   workspace?: string,
+  motion?: MotionController,
+  notices?: NoticeController,
 ): Promise<Result<void, RunError<E, RE>>> {
   if (!host.interactive) {
     let primary: RunFailure<E> | undefined;
@@ -544,11 +587,14 @@ export async function run<E, RE = never>(
         operation: "terminal" as const,
       });
     }
+    const cleanupFailures = closeAuxiliaryControllers<E, RE>(motion, notices);
     const runtimeCleanup = await cleanupPlainRuntime(runtime);
-    const cleanupFailures = runtimeCleanup as readonly CleanupFailure<E, RE>[];
+    cleanupFailures.push(
+      ...(runtimeCleanup as readonly CleanupFailure<E, RE>[]),
+    );
     return primary === undefined && cleanupFailures.length === 0
       ? ok(undefined)
-      : runError(primary, cleanupFailures);
+      : runError(primary, Object.freeze(cleanupFailures));
   }
 
   const renderer = new Renderer(host);
@@ -556,6 +602,7 @@ export async function run<E, RE = never>(
   let arbiter: EventArbiter<E, RE> | undefined;
   let primary: RunFailure<E> | undefined;
   let viewport: Viewport | undefined;
+  let motionPhase: MotionPhase = 0;
   try {
     const measured = host.viewport();
     if (!measured.ok) {
@@ -577,8 +624,13 @@ export async function run<E, RE = never>(
         provider,
         workspace,
       );
-      arbiter = new EventArbiter(host, runtime);
-      const initial = await renderApplication(renderer, application, viewport);
+      arbiter = new EventArbiter(host, runtime, motion, notices);
+      const initial = await renderApplication(
+        renderer,
+        application,
+        viewport,
+        motionPhase,
+      );
       if (!initial.ok) {
         primary = initial.error;
       }
@@ -603,7 +655,28 @@ export async function run<E, RE = never>(
         }
 
         let redraw = false;
-        if (event.kind === "terminal") {
+        if (event.kind === "motion") {
+          if (!event.result.ok) {
+            primary = Object.freeze({
+              kind: "source" as const,
+              source: "motion" as const,
+            });
+            break;
+          }
+          if (isMotionActive(application.phase)) {
+            motionPhase = advanceMotionPhase(motionPhase);
+            redraw = true;
+          }
+        } else if (event.kind === "notice") {
+          if (!event.result.ok) {
+            primary = Object.freeze({
+              kind: "source" as const,
+              source: "notice" as const,
+            });
+            break;
+          }
+          redraw = application.expireNotice(event.result.value.token).redraw;
+        } else if (event.kind === "terminal") {
           if (!event.result.ok) {
             primary = terminalFailure("event", event.result.error);
             break;
@@ -679,14 +752,67 @@ export async function run<E, RE = never>(
           }
         }
 
+        const functionalRedraw =
+          redraw && (event.kind === "terminal" || event.kind === "runtime");
+        const authoritativeRedraw = redraw && event.kind !== "motion";
+        if (authoritativeRedraw) {
+          if (functionalRedraw) {
+            motionPhase = 0;
+          }
+          try {
+            motion?.discardReady();
+            arbiter.discardMotionReady();
+          } catch (_cause: unknown) {
+            primary = Object.freeze({
+              kind: "unexpected" as const,
+              operation: "motion" as const,
+            });
+            break;
+          }
+        }
+
+        try {
+          notices?.setNotice(application.noticeToken);
+        } catch (_cause: unknown) {
+          primary = Object.freeze({
+            kind: "unexpected" as const,
+            operation: "notice" as const,
+          });
+          break;
+        }
+
+        const motionActive = isMotionActive(application.phase);
+        if (!motionActive) {
+          motionPhase = 0;
+        }
+        try {
+          motion?.setActive(motionActive);
+        } catch (_cause: unknown) {
+          primary = Object.freeze({
+            kind: "unexpected" as const,
+            operation: "motion" as const,
+          });
+          break;
+        }
+
         if (running && primary === undefined && redraw) {
           const rendered = await renderApplication(
             renderer,
             application,
             viewport,
+            motionPhase,
           );
           if (!rendered.ok) {
             primary = rendered.error;
+          } else if (motionActive) {
+            try {
+              motion?.frameRendered();
+            } catch (_cause: unknown) {
+              primary = Object.freeze({
+                kind: "unexpected" as const,
+                operation: "motion" as const,
+              });
+            }
           }
         }
       }
@@ -699,7 +825,14 @@ export async function run<E, RE = never>(
   }
 
   application?.clear();
-  const cleanupFailures = await cleanup(host, renderer, runtime, arbiter);
+  const cleanupFailures = await cleanup(
+    host,
+    renderer,
+    runtime,
+    arbiter,
+    motion,
+    notices,
+  );
   return primary === undefined && cleanupFailures.length === 0
     ? ok(undefined)
     : runError(primary, cleanupFailures);

@@ -1,9 +1,15 @@
+import type { NoticeLevel } from "./notice.js";
+
 export type CommandResult =
   | Readonly<{ kind: "approve" }>
   | Readonly<{ kind: "deny" }>
   | Readonly<{ kind: "exit" }>
   | Readonly<{ kind: "none" }>
-  | Readonly<{ kind: "notice"; lines: readonly string[] }>
+  | Readonly<{
+      kind: "notice";
+      level: NoticeLevel;
+      lines: readonly string[];
+    }>
   | Readonly<{ kind: "submit"; text: string }>;
 
 export type ProviderPresentation = Readonly<{
@@ -39,8 +45,12 @@ export const COMMANDS: readonly CommandDefinition[] = Object.freeze([
 const EXIT = Object.freeze({ kind: "exit" as const });
 const NONE = Object.freeze({ kind: "none" as const });
 
-function notice(...lines: string[]): CommandResult {
-  return Object.freeze({ kind: "notice" as const, lines: Object.freeze(lines) });
+function notice(level: NoticeLevel, ...lines: string[]): CommandResult {
+  return Object.freeze({
+    kind: "notice" as const,
+    level,
+    lines: Object.freeze(lines),
+  });
 }
 
 /** Returns bounded exact-prefix matches without accepting aliases or arguments. */
@@ -80,15 +90,15 @@ export function executeSubmission(
   if (exact === "/providers") {
     if (provider !== undefined) {
       return notice(
-        provider.displayName + " is enabled.",
-        "Model: " + provider.model + ".",
-        "Authentication: " + provider.authentication + ".",
+        "info",
+        provider.displayName +
+          " \u00b7 " +
+          provider.model +
+          " \u00b7 " +
+          provider.authentication,
       );
     }
-    return notice(
-      "No providers are enabled.",
-      "Subscription integrations require owned authorization.",
-    );
+    return notice("info", "No provider configured");
   }
   if (exact === "/approve") {
     return Object.freeze({ kind: "approve" as const });
@@ -97,7 +107,7 @@ export function executeSubmission(
     return Object.freeze({ kind: "deny" as const });
   }
   if (command.startsWith("/")) {
-    return notice("Unknown command.");
+    return notice("warning", "Unknown command");
   }
   return Object.freeze({ kind: "submit" as const, text: input });
 }

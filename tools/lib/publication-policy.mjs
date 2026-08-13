@@ -229,7 +229,7 @@ function validatePublicDocuments(context) {
     [
       "# 0038: Owned deterministic TUI motion",
       "Motion is state communication, not decoration.",
-      "Visible animation is not implemented by this decision.",
+      "The first visible projection is one constant-width three-cell pulse",
     ],
     "motion decision",
   );

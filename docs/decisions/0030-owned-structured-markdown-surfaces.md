@@ -2,12 +2,17 @@
 
 - Status: accepted
 - Date: 2026-08-11
-- Amended by: decisions 0031 and 0032
+- Amended by: decisions 0031, 0032, and 0040
 
 Decision 0031 changes the structured surface from `subtle` to dark `inset`,
 changes the accent mapping, and permits only its bounded internal lexical
 highlighter for complete recognized fences. The grammar and single rendering
 path below remain in force.
+
+Decision 0040 makes structured regions transparent while preserving their
+identity, content-fit padding, table geometry, syntax roles, and single
+rendering path. Its background-authority refinement supersedes background
+references below.
 
 ## Context
 

@@ -37,6 +37,12 @@ export {
   type EditorProjection,
 } from "./line-editor.js";
 export { MarkdownBlock } from "./markdown-block.js";
+export {
+  activityPulseTones,
+  advanceMotionPhase,
+  MOTION_PHASE_COUNT,
+  type MotionPhase,
+} from "./motion.js";
 export { Panel, type PanelOptions } from "./panel.js";
 export { TUI_LIMITS } from "./limits.js";
 export type { TextOutput } from "./output.js";

@@ -2,6 +2,11 @@
 
 - Status: accepted
 - Date: 2026-08-11
+- Composer surface amended by: decision 0040
+
+Decision 0040 replaces the original enclosing `Panel` below with one
+stage-wide borderless neutral `Surface`; `InputArea`, editor ownership, bounds,
+paste semantics, and caret behavior remain unchanged.
 
 ## Context
 

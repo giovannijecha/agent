@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-07
+- Event sources extended by: decisions 0038 and 0041
 
 ## Context
 
@@ -28,9 +29,10 @@ Split the CLI into these cohesive owners:
 - `SessionController` decodes input and emits ordered immutable actions;
 - `ApplicationController` is the only writer of phase, notices, display-only chat
   state, active turn identity, and command policy;
-- `EventArbiter` retains at most one terminal read and one explicitly armed
-  runtime read, buffers at most one ready event per source, and chooses simultaneous
-  readiness fairly without abandoning promises;
+- `EventArbiter` retains at most one read per registered terminal, runtime,
+  notice-expiry, or motion source, buffers at most one ready event per source,
+  and chooses simultaneous readiness by its accepted functional, expiry, then
+  cosmetic policy without abandoning promises;
 - `ChatState` bounds completed display turns and prospective chunks separately;
 - `chat-view` maps an immutable application projection onto generic TUI components;
 - `run` alone interprets effects, invokes host/runtime capabilities, renders, and
@@ -74,8 +76,11 @@ unknown. Decision 0028 later removes the duplicated `/help` surface.
 
 The arbiter starts one terminal read immediately. Runtime reads are armed only
 after a turn starts and after each accepted delta, so it never performs an idle
-read after a terminal turn event. Closing wakes its application waiter, clears
-ready slots, and observes all late settlements without mutating state.
+read after a terminal turn event. Decision 0041 adds content-free notice expiry
+below terminal and runtime priority and above cosmetic motion; identity checks
+prevent stale expiry from clearing replacement feedback. Closing wakes its
+application waiter, clears ready slots, and observes all late settlements
+without mutating state.
 
 Shutdown closes the arbiter, clears draft and display-only transcript references,
 starts runtime stop so cancellation is synchronous, stops the terminal host,

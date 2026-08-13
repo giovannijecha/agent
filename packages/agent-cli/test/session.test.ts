@@ -15,7 +15,7 @@ test("edits a draft and rejects removed command surfaces", () => {
       kind: "submit",
       text: "ac",
     },
-    { kind: "notice", lines: ["Unknown command."] },
+    { kind: "notice", level: "warning", lines: ["Unknown command"] },
   ]);
 });
 
@@ -24,7 +24,7 @@ test("emits canonical exit and never treats slash quit as an alias", () => {
   const command = new SessionController().feed("/exit\rignored");
 
   assert.deepEqual(rejected.actions, [
-    { kind: "notice", lines: ["Unknown command."] },
+    { kind: "notice", level: "warning", lines: ["Unknown command"] },
   ]);
   assert.deepEqual(command.actions, [{ kind: "exit" }]);
 });
@@ -135,7 +135,11 @@ test("recomputes completion after editing and keeps unsupported Tab explicit", (
   });
   assert.deepEqual(new SessionController().feed("\t"), {
     actions: [
-      { kind: "notice", lines: ["Unsupported key sequence was ignored."] },
+      {
+        kind: "notice",
+        level: "warning",
+        lines: ["Unsupported key sequence was ignored."],
+      },
     ],
     redraw: true,
   });
@@ -210,10 +214,8 @@ test("returns ordered actions from a multi-submission chunk", () => {
     { kind: "submit", text: "one" },
     {
       kind: "notice",
-      lines: [
-        "No providers are enabled.",
-        "Subscription integrations require owned authorization.",
-      ],
+      level: "info",
+      lines: ["No provider configured"],
     },
     { kind: "exit" },
   ]);
@@ -230,11 +232,8 @@ test("reports one configured provider without changing command ownership", () =>
   assert.deepEqual(session.feed("/providers\r").actions, [
     {
       kind: "notice",
-      lines: [
-        "OpenCode Go is enabled.",
-        "Model: kimi-k2.7-code.",
-        "Authentication: memory-only API key.",
-      ],
+      level: "info",
+      lines: ["OpenCode Go \u00b7 kimi-k2.7-code \u00b7 memory-only API key"],
     },
   ]);
 });

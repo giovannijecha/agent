@@ -2,6 +2,13 @@
 
 - Status: accepted
 - Date: 2026-08-11
+- Surface, footer, and palette refined by: decision 0040 and the 2026-08-13
+  update to decision 0031
+
+The exact separator and compact-fence padding below remain current. Decision
+0040 later makes structured regions transparent and removes the history footer
+label, while decision 0031 now owns the fixed RGB palette. The original inset,
+history-label, and indexed-SGR descriptions remain historical baselines.
 
 ## Context
 

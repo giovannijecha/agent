@@ -2,14 +2,17 @@
 
 - Status: accepted
 - Date: 2026-08-10
-- Amended by: decisions 0028, 0031, and 0033
+- Amended by: decisions 0028, 0031, 0033, 0038, and 0040
 
 Decision 0028 later supersedes this decision's composer, conversation, and
 `/help` presentation details. Decision 0031 later changes the accent mapping
 and adds code-only tones without changing traffic-light truth. Decision 0033
 adds semantic activity backgrounds and removes the activity rail and approval
 panel without changing that truth. The single lifecycle location remains in
-force.
+force. Decisions 0038 and 0040 replace the footer's textual lifecycle label
+with the constant-width active-work pulse and leave the right edge empty while
+idle or awaiting approval. They also replace the original indexed palette with
+the current closed renderer mapping documented by decision 0031.
 
 ## Context
 

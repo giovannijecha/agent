@@ -7,6 +7,7 @@ import {
 } from "./component.js";
 import { measureComponent, renderComponent } from "./component-boundary.js";
 import { Fragment, type FragmentCaret } from "./fragment.js";
+import { TUI_LIMITS } from "./limits.js";
 import { RichRow, RichRowError, TextSpan } from "./rich-row.js";
 import { err, ok, type Result } from "./result.js";
 import { isSurfaceTone, type SurfaceTone } from "./text-style.js";
@@ -20,6 +21,7 @@ export type SurfaceOptions = Readonly<{
   horizontalPadding: 0 | 1;
   slant: SurfaceSlant;
   surface: SurfaceTone;
+  verticalPadding: 0 | 1;
 }>;
 
 function isSurfaceExtent(value: unknown): value is SurfaceExtent {
@@ -40,7 +42,8 @@ function validSurfaceOptions(value: unknown): value is SurfaceOptions {
       isSurfaceExtent(options.extent) &&
       (options.horizontalPadding === 0 || options.horizontalPadding === 1) &&
       isSurfaceSlant(options.slant) &&
-      isSurfaceTone(options.surface)
+      isSurfaceTone(options.surface) &&
+      (options.verticalPadding === 0 || options.verticalPadding === 1)
     );
   } catch (_cause: unknown) {
     return false;
@@ -49,6 +52,10 @@ function validSurfaceOptions(value: unknown): value is SurfaceOptions {
 
 function surfacePadding(columns: number, requested: 0 | 1): 0 | 1 {
   return requested === 1 && columns >= 3 ? 1 : 0;
+}
+
+function surfaceVerticalPadding(rows: number, requested: 0 | 1): 0 | 1 {
+  return requested === 1 && rows >= 3 ? 1 : 0;
 }
 
 function paintSurfaceRow(
@@ -60,26 +67,46 @@ function paintSurfaceRow(
   if (width === 0) {
     return ok(RichRow.empty());
   }
+  const transparent = options.surface === "none";
   const rightPadding = width - padding - row.cellWidth;
   const last = row.spans.length - 1;
   const spans: TextSpan[] = [];
+  if (transparent && padding > 0) {
+    const leading = TextSpan.create(" ".repeat(padding), "plain", {
+      surface: "none",
+    });
+    if (!leading.ok) {
+      return leading;
+    }
+    spans.push(leading.value);
+  }
   for (let position = 0; position < row.spans.length; position += 1) {
     const span = row.spans.at(position);
     if (span === undefined) {
       return err(new RichRowError("invalidSpan", position));
     }
-    const text =
-      (position === 0 ? " ".repeat(padding) : "") +
-      span.text +
-      (position === last ? " ".repeat(rightPadding) : "");
+    const text = transparent
+      ? span.text
+      : (position === 0 ? " ".repeat(padding) : "") +
+        span.text +
+        (position === last ? " ".repeat(rightPadding) : "");
     const created = TextSpan.create(text, span.tone, {
       slant: options.slant === "italic" ? "italic" : span.slant,
-      surface: options.surface,
+      surface: transparent ? span.surface : options.surface,
     });
     if (!created.ok) {
       return created;
     }
     spans.push(created.value);
+  }
+  if (transparent && row.spans.length > 0 && rightPadding > 0) {
+    const trailing = TextSpan.create(" ".repeat(rightPadding), "plain", {
+      surface: "none",
+    });
+    if (!trailing.ok) {
+      return trailing;
+    }
+    spans.push(trailing.value);
   }
   if (spans.length === 0) {
     return RichRow.fromText(" ".repeat(width), "plain", {
@@ -139,6 +166,7 @@ export class Surface implements Component {
   readonly #horizontalPadding: 0 | 1;
   readonly #slant: SurfaceSlant;
   readonly #surface: SurfaceTone;
+  readonly #verticalPadding: 0 | 1;
 
   private constructor(component: Component, options: SurfaceOptions) {
     this.#component = component;
@@ -146,6 +174,7 @@ export class Surface implements Component {
     this.#horizontalPadding = options.horizontalPadding;
     this.#slant = options.slant;
     this.#surface = options.surface;
+    this.#verticalPadding = options.verticalPadding;
     Object.freeze(this);
   }
 
@@ -173,6 +202,7 @@ export class Surface implements Component {
             horizontalPadding: options.horizontalPadding,
             slant: options.slant,
             surface: options.surface,
+            verticalPadding: options.verticalPadding,
           }),
         ),
       );
@@ -185,10 +215,19 @@ export class Surface implements Component {
     if (!validComponentColumns(columns)) {
       return err(new ComponentError("invalidGeometry", undefined));
     }
-    return measureComponent(
+    const measured = measureComponent(
       this.#component,
       this.#innerColumns(columns, this.#padding(columns)),
     );
+    if (!measured.ok || measured.value.preferredRows === 0) {
+      return measured;
+    }
+    const preferredRows =
+      measured.value.preferredRows + this.#verticalPadding * 2;
+    if (preferredRows > TUI_LIMITS.frameRows) {
+      return err(new ComponentError("invalidMeasurement", undefined));
+    }
+    return ok(Object.freeze({ preferredRows }));
   }
 
   render(viewport: Viewport): Result<Fragment, ComponentError> {
@@ -196,9 +235,13 @@ export class Surface implements Component {
       return err(new ComponentError("invalidGeometry", undefined));
     }
     const padding = this.#padding(viewport.columns);
+    const verticalPadding = surfaceVerticalPadding(
+      viewport.rows,
+      this.#verticalPadding,
+    );
     const childViewport = Viewport.create(
       this.#innerColumns(viewport.columns, padding),
-      viewport.rows,
+      viewport.rows - verticalPadding * 2,
     );
     if (!childViewport.ok) {
       return err(new ComponentError("invalidGeometry", undefined));
@@ -213,19 +256,39 @@ export class Surface implements Component {
       horizontalPadding: this.#horizontalPadding,
       slant: this.#slant,
       surface: this.#surface,
+      verticalPadding: this.#verticalPadding,
     });
     if (!rows.ok) {
       return rows;
+    }
+
+    const renderedRows = [...rows.value];
+    if (verticalPadding === 1) {
+      const width =
+        this.#extent === "viewport"
+          ? viewport.columns
+          : Math.max(
+              1,
+              ...renderedRows.map((row) => row.cellWidth),
+            );
+      const blank = RichRow.fromText(" ".repeat(width), "plain", {
+        surface: this.#surface,
+      });
+      if (!blank.ok) {
+        return err(new ComponentError("invalidRow", undefined));
+      }
+      renderedRows.unshift(blank.value);
+      renderedRows.push(blank.value);
     }
 
     let caret: FragmentCaret | undefined;
     if (child.value.caret !== undefined) {
       caret = Object.freeze({
         column: child.value.caret.column + padding,
-        row: child.value.caret.row,
+        row: child.value.caret.row + verticalPadding,
       });
     }
-    return Fragment.create(viewport, rows.value, caret);
+    return Fragment.create(viewport, renderedRows, caret);
   }
 
   #innerColumns(columns: number, padding: 0 | 1): number {

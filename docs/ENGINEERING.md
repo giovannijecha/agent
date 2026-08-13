@@ -65,10 +65,19 @@ tests, update and rollback procedures, and an independent removal path.
   inherit foreign component structure, identifiers, styles, timings, or redraw
   algorithms.
 - Animation phases are pure TUI inputs; scheduling remains at the CLI platform
-  boundary. TUI code never reads wall-clock time. A future CLI scheduler uses a
-  monotonic source, retains at most one pending tick, runs at no more than ten
-  frames per second, and yields to terminal events.
-- Phase 0 implements no visible animation.
+  boundary. TUI code never reads wall-clock time. The owned CLI scheduler uses
+  the platform clock, retains at most one pending tick, runs at eight frames per
+  second, re-arms only after a successful render, and yields to terminal and
+  runtime events.
+- Motion must preserve row count, cell width, and caret geometry across phases.
+  Phase 0 is the deterministic static baseline.
+- The footer pulse is the only right-edge footer content. Show it only for
+  autonomous progress (`generating`, `runningTool`, or `cancelling`); leave the
+  edge empty while idle or awaiting approval. Its final cell coincides with the
+  composer's final surface cell. Keep the six-phase neutral-lead, ochre-head,
+  neutral-trail sequence pure and constant-width. Keep its owned bullet in the
+  exact single-cell structural-glyph set together with the footer's owned middle
+  dot separator.
 
 ## Documentation rules
 
@@ -227,17 +236,18 @@ For product navigation, follow decision 0024. Obtain content and viewport rows
 from one immutable `VerticalLayoutPlan`; never repeat allocation math in CLI or
 mutate application state from a component callback. The application reducer
 alone owns scroll and observed geometry. Keep transcript keys out of the line
-editor, preserve draft and caret, use one-row page overlap, and expose only the
-quiet `↑ history` footer truth while follow-end is disabled.
+editor, preserve draft and caret, and use one-row page overlap. Keep navigation
+truth in the reducer; do not expose it as footer telemetry.
 
-Compose the product shell through decisions 0026, 0027, and 0028. The CLI alone
+Compose the product shell through decisions 0026, 0027, 0028, and 0039. The CLI alone
 decides vertical order, slot priorities, product wording, semantic tones, and
 truthful status facts. `Panel`, `SplitLine`, `ThreeColumnLine`,
 `HorizontalInset`, `SideRail`, `Surface`, `SelectionList`, and `Spacer`
 remain Node-free, agent-agnostic
 component mechanics. A panel must render its complete border or delegate its
 entire viewport without a border; partial boxes are forbidden. Compose the
-composer from one `Panel` and the prompt-free `InputArea`; never create a second
+composer from one borderless neutral `Surface` and the prompt-free `InputArea`;
+never create a second
 editor, decoder, draft, or submission path. Let the area grow from one to six
 content rows, wrap at word boundaries when possible, and keep the real terminal
 caret visible as the projection moves. Bracketed paste is one bounded atomic
@@ -246,17 +256,37 @@ renderer owns enabling and disabling bracketed-paste mode with its other
 terminal lifecycle controls. Map admitted Ctrl word controls into semantic
 decoder events, and keep the whitespace-delimited movement and deletion rule
 inside the bounded editor. Never duplicate control decoding or word mutation in
-CLI state. Keep the draft neutral. Render the
-working folder left, provider/model at the physical center, and lifecycle phase
-plus optional history once at the footer's right edge. When width is scarce,
-retain right, then center, then left. Do not add a static product header or
-duplicate lifecycle notice. Footer facts come only from the composition root or
-authoritative application state. Compose compact transcript cards with
+CLI state. Keep the draft neutral. Project one shared conversation stage in the
+CLI before composing the shell: transcript, activity, notice, completion, and
+composer use the same full usable width, retaining one technical outer column
+per side when the viewport permits it. Apply that stage to the footer and place
+the pulse on the composer's final surface cell. Do not let
+product components invent private shell widths or arbitrary reading-width caps.
+Project lower regions in authoritative order: transcript, activity, latest
+notice, completion, composer, and footer. A notice is transparent product
+feedback, not transcript or tool lifecycle. Give it one closed `info` or
+`warning` level, one content-free generation token, one-cell horizontal inset,
+and no private panel. Replace rather than accumulate notices, dismiss on editor
+interaction, and expire only the exact current token after 5,000 milliseconds.
+Route expiry through the CLI arbiter after terminal and runtime events and
+before cosmetic motion; a timer callback must never mutate the reducer, view,
+renderer, or terminal directly. Rebase pending cosmetic work only when a
+functional event or notice expiry actually produces an authoritative redraw.
+No-redraw input must not cancel the active motion schedule; notice expiry may
+preserve the current phase but must discard a cached tick before its own frame.
+Render the
+working folder left and provider/model at the physical center. Reserve the
+footer's right edge for the constant-width active-work pulse and leave it empty
+otherwise. When width is scarce, retain right, then center, then left. Do not add
+a static product header or duplicate lifecycle or navigation prose. Footer facts
+come only from the composition root or authoritative application state. Compose stage-wide user transcript regions with
 `Surface`; keep surface, slant, and foreground tone independent, closed, and
-renderer-owned. Use the user surface for role distinction, leave assistant
-prose direct, and reuse the content-fit dark `inset` painter for registered
-structured Markdown regions. Keep green for
-success/readiness, yellow for active/approval, and red for negative terminal
+renderer-owned. Use italic slant for user role distinction, leave assistant
+prose direct, and reuse the content-fit transparent painter for registered
+structured Markdown regions. Use the neutral subtle surface for user turns and
+the composer. Reserve green, ochre, and red backgrounds for authoritative tool
+lifecycle state. Keep green for
+success, yellow for active/approval, and red for negative terminal
 state. Do not add permanent dashboards, empty metrics, speculative progress, or
 integration-specific cards. Future tools and integrations reuse the same
 split-line, three-column-line, inset, rail, marker, spacer, activity-stack, scroll, and
@@ -275,7 +305,9 @@ without creating an action. While completion is visible, Enter clears the draft
 and dispatches the selected exact command through the same canonical submission
 path; do not add a menu-specific dispatcher. Map catalog rows through the generic
 one-row `SelectionList`; never teach the TUI package command names, aliases,
-execution, or provider policy.
+execution, or provider policy. Compose command and description as one compact
+transparent inline row with a fixed two-cell gap. Do not add a passive keyboard
+hint or right-align the description.
 
 Compose sequential component documents through the one bounded generic stack
 defined by decision 0022. Product lifecycle state never enters that component:
@@ -291,11 +323,12 @@ while its turn is active. The next tool replaces it, turn settlement removes
 it, and no activity enters the scrollable conversation. Do not add a second
 archive or lifecycle model. Activity
 is limited to the current or most recently settled turn and is scrubbed during
-cleanup. Place one optional generic one-row `Spacer` before non-empty contextual
-activity. Give it zero minimum height so constrained viewports discard rhythm
-before required interaction or activity content. Keep activity directly
-adjacent to following completion or composer content; do not add a trailing
-spacer or component-private padding. Keep the empty session empty and keep
+cleanup. Reuse one CLI-owned one-row rhythm through the generic `Spacer` before
+each non-empty activity or completion region, before the composer, and before
+the footer. Give every instance zero minimum height so constrained viewports
+discard rhythm before required interaction or activity content. Do not add
+component-private margins.
+Keep the empty session empty and keep
 operator guidance in the manual; do not recreate welcome suggestions or an
 embedded help document.
 

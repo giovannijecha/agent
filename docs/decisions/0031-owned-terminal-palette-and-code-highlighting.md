@@ -2,7 +2,14 @@
 
 - Status: accepted
 - Date: 2026-08-11
-- Amended by: decision 0032
+- Updated: 2026-08-13
+- Amended by: decisions 0032 and 0040
+
+Decision 0040 removes the structured-region background while retaining this
+decision's closed foreground roles, lexical roles, bounded language profiles,
+and renderer contracts. The 2026-08-13 visual refinement replaces the earlier
+indexed SGR values below with one fixed RGB mapping; the earlier values remain
+the historical baseline for the original decision.
 
 ## Context
 
@@ -38,6 +45,28 @@ Five code-only foreground roles are added:
 These are renderer-owned semantic roles, not arbitrary RGB values or a public
 theme registry. Markdown may derive them only from a complete recognized fence.
 They never express lifecycle state, and untrusted text cannot name a role.
+
+The current renderer mapping is one closed 24-bit SGR palette:
+
+- `accent`: `102,155,210`;
+- `muted`: `112,124,137`;
+- bold `attention`: `230,191,95`;
+- bold `success`: `134,203,146`;
+- bold `failure`: `232,112,112`;
+- `syntaxKeyword`: `105,184,255`;
+- `syntaxName`: `131,213,245`;
+- `syntaxString`: `221,184,134`;
+- `syntaxLiteral`: `166,213,123`; and
+- `syntaxComment`: `127,157,135`.
+
+The current closed surfaces are `subtle` at `31,38,47`, retained `inset` at
+`18,24,31`, `success` at `22,55,34`, `attention` at `62,50,19`, and `failure`
+at `62,24,27`. `plain`, bold `emphasis`, and italic slant retain their existing
+non-color semantics. The renderer emits these only through `38;2` and `48;2`
+SGR sequences; there is no theme registry, terminal probe, environment-driven
+palette, or model-selected value. A terminal without 24-bit color support may
+degrade the colors, but text, geometry, semantic state, and cleanup remain
+authoritative.
 
 The closed surface vocabulary adds `inset`. `subtle` keeps the existing user
 turn background. `inset` maps to dark anthracite (`48;5;235`) and is used by
@@ -88,7 +117,7 @@ padding still drops before content on viewports narrower than three cells.
 
 ## Verification
 
-Focused tests prove exact renderer sequences for every new role and `inset`,
+Focused tests prove exact renderer sequences for every closed role and surface,
 the unchanged traffic-light mappings, the unchanged user `subtle` surface,
 plain fallback for empty and unknown languages, bounded span fallback, and
 representative markup with embedded style/script, script, JSON, CSS, and shell
@@ -100,14 +129,16 @@ is the release gate.
 
 ## Update, rollback, and removal
 
-Changing an alias, lexical rule, semantic role, SGR mapping, surface mapping,
+Changing an alias, lexical rule, semantic role, RGB value, SGR mapping, surface mapping,
 fallback, or bound requires this decision, tone and style guards, highlighter,
 Markdown compiler, renderer tests, manual, architecture, policy, and removal
 guidance to change together. A new language profile needs a concrete current
 display need and representative adversarial tests; it cannot arrive through a
 runtime registry.
 
-To remove highlighting while keeping structured surfaces, replace highlighted
+To roll back only 24-bit color, restore one reviewed fixed indexed mapping and
+its exact renderer, decision, manual, and policy tests without changing semantic
+roles. To remove highlighting while keeping structured surfaces, replace highlighted
 fence rows with one `plain` run and delete the internal highlighter and its
 tests. To remove the technical palette, map structured regions back to
 `subtle`, remove `inset` and the five syntax roles from validation and the

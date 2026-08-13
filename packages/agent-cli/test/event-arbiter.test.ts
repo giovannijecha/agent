@@ -14,6 +14,17 @@ import type {
 import { err, ok, type Result, type Viewport } from "@agent/tui";
 
 import { EventArbiter } from "../dist/event-arbiter.js";
+import type {
+  MotionEvent,
+  MotionSource,
+  MotionSourceError,
+} from "../dist/motion-scheduler.js";
+import { createNoticeToken } from "../dist/notice.js";
+import type {
+  NoticeEvent,
+  NoticeSource,
+  NoticeSourceError,
+} from "../dist/notice-scheduler.js";
 import type { HostEvent, TerminalHost } from "../dist/terminal-host.js";
 
 class Deferred<T> {
@@ -100,6 +111,26 @@ class PullRuntime implements RuntimeSession<string> {
   }
 }
 
+class PullMotion implements MotionSource {
+  readonly reads: Deferred<Result<MotionEvent, MotionSourceError>>[] = [];
+
+  nextEvent(): Promise<Result<MotionEvent, MotionSourceError>> {
+    const read = new Deferred<Result<MotionEvent, MotionSourceError>>();
+    this.reads.push(read);
+    return read.promise;
+  }
+}
+
+class PullNotice implements NoticeSource {
+  readonly reads: Deferred<Result<NoticeEvent, NoticeSourceError>>[] = [];
+
+  nextEvent(): Promise<Result<NoticeEvent, NoticeSourceError>> {
+    const read = new Deferred<Result<NoticeEvent, NoticeSourceError>>();
+    this.reads.push(read);
+    return read.promise;
+  }
+}
+
 function terminalInput(text: string): Result<HostEvent, string> {
   return ok(Object.freeze({ kind: "input" as const, text }));
 }
@@ -153,6 +184,59 @@ test("selects simultaneous readiness fairly with terminal-first initial tie", as
   assert.ok(second.ok);
   assert.equal(first.value.kind, "terminal");
   assert.equal(second.value.kind, "runtime");
+});
+
+test("orders functional readiness before notice expiry and cosmetic motion", async () => {
+  const host = new PullHost();
+  const runtime = new PullRuntime();
+  const motion = new PullMotion();
+  const notice = new PullNotice();
+  const token = createNoticeToken();
+  const arbiter = new EventArbiter(host, runtime, motion, notice);
+  assert.ok(arbiter.armRuntime().ok);
+
+  host.reads.at(0)?.resolve(terminalInput("x"));
+  runtime.reads.at(0)?.resolve(runtimeDelta(1, "a"));
+  notice.reads.at(0)?.resolve(ok(Object.freeze({
+    kind: "expired" as const,
+    token,
+  })));
+  motion.reads.at(0)?.resolve(ok(Object.freeze({ kind: "tick" as const })));
+  await Promise.resolve();
+  await Promise.resolve();
+
+  const first = await arbiter.nextEvent();
+  const second = await arbiter.nextEvent();
+  const third = await arbiter.nextEvent();
+  const fourth = await arbiter.nextEvent();
+
+  assert.ok(first.ok);
+  assert.ok(second.ok);
+  assert.ok(third.ok);
+  assert.ok(fourth.ok);
+  assert.equal(first.value.kind, "terminal");
+  assert.equal(second.value.kind, "runtime");
+  assert.equal(third.value.kind, "notice");
+  assert.equal(fourth.value.kind, "motion");
+  arbiter.close();
+});
+
+test("discards cached cosmetic readiness after a semantic event", async () => {
+  const host = new PullHost();
+  const motion = new PullMotion();
+  const arbiter = new EventArbiter(host, undefined, motion);
+
+  motion.reads.at(0)?.resolve(ok(Object.freeze({ kind: "tick" as const })));
+  await Promise.resolve();
+  await Promise.resolve();
+  arbiter.discardMotionReady();
+  host.reads.at(0)?.resolve(terminalInput("x"));
+
+  const event = await arbiter.nextEvent();
+  assert.ok(event.ok);
+  assert.equal(event.value.kind, "terminal");
+  assert.equal(motion.reads.length, 2);
+  arbiter.close();
 });
 
 test("rejects concurrent application reads and close wakes the retained waiter", async () => {

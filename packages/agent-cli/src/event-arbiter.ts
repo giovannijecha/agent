@@ -5,19 +5,34 @@ import type {
 } from "@agent/runtime";
 import { err, ok, type Result } from "@agent/tui";
 
+import type {
+  MotionEvent,
+  MotionSource,
+  MotionSourceError,
+} from "./motion-scheduler.js";
+import type {
+  NoticeEvent,
+  NoticeSource,
+  NoticeSourceError,
+} from "./notice-scheduler.js";
 import type { HostEvent, TerminalHost } from "./terminal-host.js";
 
 export type ArbiterEvent<HE, RE> =
+  | Readonly<{ kind: "motion"; result: Result<MotionEvent, MotionSourceError> }>
+  | Readonly<{ kind: "notice"; result: Result<NoticeEvent, NoticeSourceError> }>
   | Readonly<{ kind: "runtime"; result: Result<RuntimeEvent<RE>, RuntimeSourceError> }>
   | Readonly<{ kind: "terminal"; result: Result<HostEvent, HE> }>
-  | Readonly<{ kind: "unexpectedSource"; source: "runtime" | "terminal" }>;
+  | Readonly<{
+      kind: "unexpectedSource";
+      source: "motion" | "notice" | "runtime" | "terminal";
+    }>;
 
 export type ArbiterErrorKind =
   | "closed"
   | "concurrentRead"
   | "runtimeUnavailable";
 
-/** Content-free misuse of the two-source event arbiter. */
+/** Content-free misuse of the prioritized event arbiter. */
 export type ArbiterError = Readonly<{ kind: ArbiterErrorKind }>;
 
 type Waiter<HE, RE> = (
@@ -52,13 +67,21 @@ function readResult<T, E>(value: unknown): Result<T, E> | undefined {
 }
 
 /**
- * Fair two-source pull arbiter with one retained read and one ready slot per
- * source. Runtime reads are armed explicitly only while a turn is active.
+ * Prioritized pull arbiter with one retained read and one ready slot per
+ * source. Terminal and runtime events are selected fairly and always outrank
+ * notice expiry, which outranks cosmetic motion. Runtime reads are armed only
+ * while a turn is active.
  */
 export class EventArbiter<HE, RE> {
+  readonly #motion: MotionSource | undefined;
+  readonly #notice: NoticeSource | undefined;
   readonly #runtime: RuntimeSession<RE> | undefined;
   readonly #terminal: TerminalHost<HE>;
   #closed = false;
+  #motionPending: Promise<void> | undefined;
+  #motionReady: ArbiterEvent<HE, RE> | undefined;
+  #noticePending: Promise<void> | undefined;
+  #noticeReady: ArbiterEvent<HE, RE> | undefined;
   #preferTerminal = true;
   #runtimePending: Promise<void> | undefined;
   #runtimeReady: ArbiterEvent<HE, RE> | undefined;
@@ -66,10 +89,23 @@ export class EventArbiter<HE, RE> {
   #terminalReady: ArbiterEvent<HE, RE> | undefined;
   #waiter: Waiter<HE, RE> | undefined;
 
-  constructor(terminal: TerminalHost<HE>, runtime?: RuntimeSession<RE>) {
+  constructor(
+    terminal: TerminalHost<HE>,
+    runtime?: RuntimeSession<RE>,
+    motion?: MotionSource,
+    notice?: NoticeSource,
+  ) {
     this.#terminal = terminal;
     this.#runtime = runtime;
+    this.#motion = motion;
+    this.#notice = notice;
     this.#scheduleTerminal();
+    if (motion !== undefined) {
+      this.#scheduleMotion(motion);
+    }
+    if (notice !== undefined) {
+      this.#scheduleNotice(notice);
+    }
   }
 
   /** Arms one runtime read idempotently without disturbing a retained read. */
@@ -82,6 +118,14 @@ export class EventArbiter<HE, RE> {
     }
     this.#scheduleRuntime(this.#runtime);
     return ok(undefined);
+  }
+
+  /** Invalidates a cached cosmetic event after authoritative state changes. */
+  discardMotionReady(): void {
+    this.#motionReady = undefined;
+    if (this.#motion !== undefined) {
+      this.#scheduleMotion(this.#motion);
+    }
   }
 
   /** Resolves the next fairly selected source event with one-waiter semantics. */
@@ -108,6 +152,8 @@ export class EventArbiter<HE, RE> {
       return;
     }
     this.#closed = true;
+    this.#motionReady = undefined;
+    this.#noticeReady = undefined;
     this.#runtimeReady = undefined;
     this.#terminalReady = undefined;
     const waiter = this.#waiter;
@@ -115,6 +161,104 @@ export class EventArbiter<HE, RE> {
     if (waiter !== undefined) {
       waiter(err(arbiterError("closed")));
     }
+  }
+
+  #scheduleMotion(motion: MotionSource): void {
+    if (
+      this.#closed ||
+      this.#motionPending !== undefined ||
+      this.#motionReady !== undefined
+    ) {
+      return;
+    }
+    let requested: Promise<Result<MotionEvent, MotionSourceError>>;
+    try {
+      requested = motion.nextEvent();
+    } catch (_cause: unknown) {
+      this.#motionReady = Object.freeze({
+        kind: "unexpectedSource" as const,
+        source: "motion" as const,
+      });
+      this.#notify();
+      return;
+    }
+    let operation: Promise<void>;
+    operation = Promise.resolve(requested).then(
+      (result: unknown) => {
+        const snapshot = readResult<MotionEvent, MotionSourceError>(result);
+        this.#settleMotion(
+          snapshot !== undefined
+            ? Object.freeze({
+                kind: "motion" as const,
+                result: snapshot,
+              })
+            : Object.freeze({
+                kind: "unexpectedSource" as const,
+                source: "motion" as const,
+              }),
+          operation,
+        );
+      },
+      (_cause: unknown) => {
+        this.#settleMotion(
+          Object.freeze({
+            kind: "unexpectedSource" as const,
+            source: "motion" as const,
+          }),
+          operation,
+        );
+      },
+    );
+    this.#motionPending = operation;
+  }
+
+  #scheduleNotice(notice: NoticeSource): void {
+    if (
+      this.#closed ||
+      this.#noticePending !== undefined ||
+      this.#noticeReady !== undefined
+    ) {
+      return;
+    }
+    let requested: Promise<Result<NoticeEvent, NoticeSourceError>>;
+    try {
+      requested = notice.nextEvent();
+    } catch (_cause: unknown) {
+      this.#noticeReady = Object.freeze({
+        kind: "unexpectedSource" as const,
+        source: "notice" as const,
+      });
+      this.#notify();
+      return;
+    }
+    let operation: Promise<void>;
+    operation = Promise.resolve(requested).then(
+      (result: unknown) => {
+        const snapshot = readResult<NoticeEvent, NoticeSourceError>(result);
+        this.#settleNotice(
+          snapshot !== undefined
+            ? Object.freeze({
+                kind: "notice" as const,
+                result: snapshot,
+              })
+            : Object.freeze({
+                kind: "unexpectedSource" as const,
+                source: "notice" as const,
+              }),
+          operation,
+        );
+      },
+      (_cause: unknown) => {
+        this.#settleNotice(
+          Object.freeze({
+            kind: "unexpectedSource" as const,
+            source: "notice" as const,
+          }),
+          operation,
+        );
+      },
+    );
+    this.#noticePending = operation;
   }
 
   #scheduleTerminal(): void {
@@ -226,6 +370,28 @@ export class EventArbiter<HE, RE> {
     this.#notify();
   }
 
+  #settleMotion(event: ArbiterEvent<HE, RE>, operation: Promise<void>): void {
+    if (this.#motionPending === operation) {
+      this.#motionPending = undefined;
+    }
+    if (this.#closed) {
+      return;
+    }
+    this.#motionReady = event;
+    this.#notify();
+  }
+
+  #settleNotice(event: ArbiterEvent<HE, RE>, operation: Promise<void>): void {
+    if (this.#noticePending === operation) {
+      this.#noticePending = undefined;
+    }
+    if (this.#closed) {
+      return;
+    }
+    this.#noticeReady = event;
+    this.#notify();
+  }
+
   #settleRuntime(event: ArbiterEvent<HE, RE>, operation: Promise<void>): void {
     if (this.#runtimePending === operation) {
       this.#runtimePending = undefined;
@@ -270,6 +436,12 @@ export class EventArbiter<HE, RE> {
       selected = this.#runtimeReady;
       this.#runtimeReady = undefined;
       this.#preferTerminal = true;
+    } else if (this.#noticeReady !== undefined) {
+      selected = this.#noticeReady;
+      this.#noticeReady = undefined;
+    } else if (this.#motionReady !== undefined) {
+      selected = this.#motionReady;
+      this.#motionReady = undefined;
     }
     return selected;
   }
@@ -277,11 +449,27 @@ export class EventArbiter<HE, RE> {
   #afterTake(selected: ArbiterEvent<HE, RE>): void {
     if (selected.kind === "terminal") {
       this.#scheduleTerminal();
+    } else if (selected.kind === "motion" && this.#motion !== undefined) {
+      this.#scheduleMotion(this.#motion);
+    } else if (selected.kind === "notice" && this.#notice !== undefined) {
+      this.#scheduleNotice(this.#notice);
     } else if (
       selected.kind === "unexpectedSource" &&
       selected.source === "terminal"
     ) {
       this.#scheduleTerminal();
+    } else if (
+      selected.kind === "unexpectedSource" &&
+      selected.source === "motion" &&
+      this.#motion !== undefined
+    ) {
+      this.#scheduleMotion(this.#motion);
+    } else if (
+      selected.kind === "unexpectedSource" &&
+      selected.source === "notice" &&
+      this.#notice !== undefined
+    ) {
+      this.#scheduleNotice(this.#notice);
     }
   }
 }

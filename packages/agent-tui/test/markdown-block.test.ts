@@ -109,7 +109,7 @@ test("does not interpret inline syntax inside code spans or fenced code", () => 
   assert.equal(code?.text.trim(), "**literal** `literal`");
   assert.deepEqual(code?.spans.map((span) => span.tone), ["plain"]);
   assert.equal(
-    code?.spans.every((span) => span.surface === "inset"),
+    code?.spans.every((span) => span.surface === "none"),
     true,
   );
 });
@@ -164,27 +164,27 @@ test("uses hanging structural prefixes on wrapped Markdown prose", () => {
   ]);
 });
 
-test("compacts a one-row fenced region without changing its surface", () => {
+test("keeps a one-row fenced region compact and transparent", () => {
   const rendered = block("```\nab cd\n```").render(viewport(7, 2));
 
   assert.ok(rendered.ok);
   assert.equal(rendered.value.rows.at(0)?.text, "ab cd");
   assert.equal(
     rendered.value.rows.at(0)?.spans.every(
-      (span) => span.surface === "inset" && span.slant === "normal",
+      (span) => span.surface === "none" && span.slant === "normal",
     ),
     true,
   );
   assert.equal(rendered.value.rows.at(1)?.text, "");
 });
 
-test("keeps a complete empty fenced region visibly inset", () => {
+test("keeps a complete empty fenced region visibly structured and transparent", () => {
   const rendered = block("```\n```").render(viewport(8, 1));
 
   assert.ok(rendered.ok);
   assert.equal(rendered.value.rows.at(0)?.text, " ");
   assert.equal(rendered.value.rows.at(0)?.cellWidth, 1);
-  assert.equal(rendered.value.rows.at(0)?.spans.at(0)?.surface, "inset");
+  assert.equal(rendered.value.rows.at(0)?.spans.at(0)?.surface, "none");
 });
 
 test("retains padded literal wrapping for larger fenced regions", () => {
@@ -197,7 +197,7 @@ test("retains padded literal wrapping for larger fenced regions", () => {
   ]);
   assert.equal(
     rendered.value.rows.every((row) =>
-      row.spans.every((span) => span.surface === "inset"),
+      row.spans.every((span) => span.surface === "none"),
     ),
     true,
   );
@@ -208,7 +208,7 @@ test("drops structured padding before content in a one-column viewport", () => {
 
   assert.ok(rendered.ok);
   assert.equal(rendered.value.rows.at(0)?.text, "a");
-  assert.equal(rendered.value.rows.at(0)?.spans.at(0)?.surface, "inset");
+  assert.equal(rendered.value.rows.at(0)?.spans.at(0)?.surface, "none");
 });
 
 test("paints only the retained tail of a clipped structured region", () => {
@@ -224,7 +224,7 @@ test("paints only the retained tail of a clipped structured region", () => {
   ]);
   assert.equal(
     rendered.value.rows.every((row) =>
-      row.spans.every((span) => span.surface === "inset"),
+      row.spans.every((span) => span.surface === "none"),
     ),
     true,
   );
@@ -250,7 +250,7 @@ test("renders fenced language labels as parser-owned accents", () => {
   );
   assert.equal(
     rendered.value.rows.every((row) =>
-      row.spans.every((span) => span.surface === "inset"),
+      row.spans.every((span) => span.surface === "none"),
     ),
     true,
   );
@@ -298,7 +298,7 @@ test("keeps unsupported separator variants literal", () => {
   ]);
 });
 
-test("highlights the closed HTML, CSS, and script profiles inside one inset", () => {
+test("highlights the closed HTML, CSS, and script profiles transparently", () => {
   const rendered = block(
     "```html\n" +
       '<main class="shell">\n' +
@@ -314,7 +314,7 @@ test("highlights the closed HTML, CSS, and script profiles inside one inset", ()
 
   assert.ok(rendered.ok);
   const allSpans = rendered.value.rows.flatMap((row) => row.spans);
-  assert.equal(allSpans.every((span) => span.surface === "inset"), true);
+  assert.equal(allSpans.every((span) => span.surface === "none"), true);
   assert.equal(
     allSpans.some(
       (span) => span.text === "main" && span.tone === "syntaxName",
@@ -471,7 +471,7 @@ test("highlights commands, flags, variables, strings, and comments", () => {
   );
 });
 
-test("keeps unknown and unlabeled fences plain inside the technical inset", () => {
+test("keeps unknown and unlabeled fences plain inside the technical region", () => {
   const unknown = block("```rust\nlet value = 1;\n```").render(
     viewport(40, 2),
   );
@@ -491,7 +491,7 @@ test("keeps unknown and unlabeled fences plain inside the technical inset", () =
   );
   assert.equal(
     unknown.value.rows.at(1)?.spans.at(0)?.surface,
-    "inset",
+    "none",
   );
 });
 
@@ -527,7 +527,7 @@ test("carries multiline lexical state and falls back when syntax spans overflow"
   );
 });
 
-test("renders strict pipe tables as one structured surface", () => {
+test("renders strict pipe tables as one transparent structured region", () => {
   const rendered = block(
     "| name | kind |\n| --- | :---: |\n| agent | `owned` |",
   ).render(viewport(32, 3));
@@ -539,20 +539,26 @@ test("renders strict pipe tables as one structured surface", () => {
     "agent │ owned",
   ]);
   assert.deepEqual(
-    rendered.value.rows.at(0)?.spans.map((span) => span.tone),
+    rendered.value.rows.at(0)?.spans
+      .filter((span) => span.text.trim().length > 0)
+      .map((span) => span.tone),
     ["emphasis", "muted", "emphasis"],
   );
   assert.deepEqual(
-    rendered.value.rows.at(1)?.spans.map((span) => span.tone),
+    rendered.value.rows.at(1)?.spans
+      .filter((span) => span.text.trim().length > 0)
+      .map((span) => span.tone),
     ["muted"],
   );
   assert.deepEqual(
-    rendered.value.rows.at(2)?.spans.map((span) => span.tone),
+    rendered.value.rows.at(2)?.spans
+      .filter((span) => span.text.trim().length > 0)
+      .map((span) => span.tone),
     ["plain", "muted", "accent"],
   );
   assert.equal(
     rendered.value.rows.every((row) =>
-      row.spans.every((span) => span.surface === "inset"),
+      row.spans.every((span) => span.surface === "none"),
     ),
     true,
   );

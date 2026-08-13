@@ -46,7 +46,10 @@ never contacts a provider. Remote checkout and approved toolchain provisioning
 finish before that offline gate begins.
 
 The brand validator rejects unregistered files, digest or dimension drift,
-unsafe SVG content, and identity drift before build or publication.
+unsafe SVG content, and identity drift before build or publication. Unsafe SVG
+includes scripts, event-handler attributes, animation and foreign content,
+references, embedded or imported resources, active styling URLs, DTDs,
+entities, and XML processing stylesheets.
 
 ## Failure behavior
 

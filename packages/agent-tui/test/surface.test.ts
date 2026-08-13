@@ -24,6 +24,7 @@ test("paints one compact rectangular content surface without a border", () => {
     horizontalPadding: 1,
     slant: "italic",
     surface: "subtle",
+    verticalPadding: 0,
   });
   assert.ok(surface.ok);
 
@@ -57,6 +58,7 @@ test("can fill its viewport while preserving child tones", () => {
     horizontalPadding: 1,
     slant: "inherit",
     surface: "subtle",
+    verticalPadding: 0,
   });
   assert.ok(surface.ok);
 
@@ -79,6 +81,7 @@ test("paints every closed semantic lifecycle surface", () => {
       horizontalPadding: 1,
       slant: "inherit",
       surface: semantic,
+      verticalPadding: 0,
     });
     assert.ok(surface.ok);
 
@@ -101,6 +104,7 @@ test("drops optional padding but retains styling in a one-column viewport", () =
     horizontalPadding: 1,
     slant: "italic",
     surface: "subtle",
+    verticalPadding: 0,
   });
   assert.ok(surface.ok);
 
@@ -120,6 +124,7 @@ test("paints one styled cell for an empty content surface", () => {
     horizontalPadding: 0,
     slant: "inherit",
     surface: "inset",
+    verticalPadding: 0,
   });
   assert.ok(surface.ok);
 
@@ -147,6 +152,7 @@ test("translates a child caret through surface padding", () => {
     horizontalPadding: 1,
     slant: "inherit",
     surface: "subtle",
+    verticalPadding: 0,
   });
   assert.ok(surface.ok);
 
@@ -171,6 +177,7 @@ test("contains hostile children and malformed style metadata", () => {
     horizontalPadding: 1,
     slant: "italic",
     surface: "subtle",
+    verticalPadding: 0,
   });
   assert.ok(surface.ok);
   const measured = surface.value.measure(8);
@@ -182,20 +189,91 @@ test("contains hostile children and malformed style metadata", () => {
     horizontalPadding: 2 as 1,
     slant: "italic",
     surface: "subtle",
+    verticalPadding: 0,
   });
   const invalidStyle = Surface.create(text.value, {
     extent: "private" as "content",
     horizontalPadding: 1,
     slant: "italic",
     surface: "subtle",
+    verticalPadding: 0,
+  });
+  const invalidVerticalPadding = Surface.create(text.value, {
+    extent: "content",
+    horizontalPadding: 1,
+    slant: "italic",
+    surface: "subtle",
+    verticalPadding: 2 as 1,
   });
 
   assert.equal(measured.ok, false);
   assert.equal(rendered.ok, false);
   assert.equal(invalidPadding.ok, false);
+  assert.equal(invalidVerticalPadding.ok, false);
   assert.equal(invalidStyle.ok, false);
   if (!measured.ok) assert.equal(measured.error.kind, "unexpectedComponent");
   if (!rendered.ok) assert.equal(rendered.error.kind, "unexpectedComponent");
   if (!invalidStyle.ok) assert.equal(invalidStyle.error.kind, "invalidStyle");
   assert.equal(JSON.stringify([measured, rendered]).includes("private"), false);
+});
+
+test("adds bounded vertical rhythm to a viewport surface", () => {
+  const text = TextBlock.create("status", "head", "plain");
+  assert.ok(text.ok);
+  const surface = Surface.create(text.value, {
+    extent: "viewport",
+    horizontalPadding: 1,
+    slant: "inherit",
+    surface: "subtle",
+    verticalPadding: 1,
+  });
+  assert.ok(surface.ok);
+
+  assert.deepEqual(surface.value.measure(12), {
+    ok: true,
+    value: { preferredRows: 3 },
+  });
+  const rendered = surface.value.render(viewport(12, 3));
+
+  assert.ok(rendered.ok);
+  assert.deepEqual(rendered.value.rows.map((row) => row.text), [
+    "            ",
+    " status     ",
+    "            ",
+  ]);
+  assert.equal(
+    rendered.value.rows.every((row) =>
+      row.spans.every((span) => span.surface === "subtle"),
+    ),
+    true,
+  );
+});
+
+test("a transparent surface preserves nested semantic surfaces", () => {
+  const text = TextBlock.create("code", "head", "accent");
+  assert.ok(text.ok);
+  const inset = Surface.create(text.value, {
+    extent: "content",
+    horizontalPadding: 0,
+    slant: "inherit",
+    surface: "inset",
+    verticalPadding: 0,
+  });
+  assert.ok(inset.ok);
+  const surface = Surface.create(inset.value, {
+    extent: "viewport",
+    horizontalPadding: 1,
+    slant: "inherit",
+    surface: "none",
+    verticalPadding: 0,
+  });
+  assert.ok(surface.ok);
+
+  const rendered = surface.value.render(viewport(10, 1));
+
+  assert.ok(rendered.ok);
+  assert.equal(rendered.value.rows.at(0)?.text, " code     ");
+  assert.equal(rendered.value.rows.at(0)?.spans.at(0)?.surface, "none");
+  assert.equal(rendered.value.rows.at(0)?.spans.at(1)?.surface, "inset");
+  assert.equal(rendered.value.rows.at(0)?.spans.at(2)?.surface, "none");
 });

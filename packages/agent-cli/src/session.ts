@@ -11,6 +11,7 @@ import {
   type CommandDefinition,
   type ProviderPresentation,
 } from "./commands.js";
+import type { NoticeLevel } from "./notice.js";
 
 export type CommandCompletionProjection = Readonly<{
   items: readonly CommandDefinition[];
@@ -32,7 +33,11 @@ export type SessionAction =
       kind: "navigateTranscript";
       movement: TranscriptMovement;
     }>
-  | Readonly<{ kind: "notice"; lines: readonly string[] }>
+  | Readonly<{
+      kind: "notice";
+      level: NoticeLevel;
+      lines: readonly string[];
+    }>
   | Readonly<{ kind: "submit"; text: string }>;
 
 export type SessionUpdate = Readonly<{
@@ -43,6 +48,7 @@ export type SessionUpdate = Readonly<{
 function notice(...lines: string[]): SessionAction {
   return Object.freeze({
     kind: "notice" as const,
+    level: "warning" as const,
     lines: Object.freeze(lines),
   });
 }
@@ -59,7 +65,11 @@ function dispatchSubmission(
   }
   if (command.kind === "notice") {
     actions.push(
-      Object.freeze({ kind: "notice" as const, lines: command.lines }),
+      Object.freeze({
+        kind: "notice" as const,
+        level: command.level,
+        lines: command.lines,
+      }),
     );
   } else if (command.kind === "submit") {
     actions.push(

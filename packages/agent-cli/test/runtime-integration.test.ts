@@ -25,6 +25,17 @@ import {
 } from "@agent/tui";
 
 import { run } from "../dist/run.js";
+import type {
+  MotionController,
+  MotionEvent,
+  MotionSourceError,
+} from "../dist/motion-scheduler.js";
+import type { NoticeToken } from "../dist/notice.js";
+import type {
+  NoticeController,
+  NoticeEvent,
+  NoticeSourceError,
+} from "../dist/notice-scheduler.js";
 import type { HostEvent, TerminalHost } from "../dist/terminal-host.js";
 
 class Deferred<T> {
@@ -56,9 +67,11 @@ class ControlledHost implements TerminalHost<string> {
   readonly started = new Deferred<void>();
   #events: Result<HostEvent, string>[] = [];
   #eventWaiter: ((result: Result<HostEvent, string>) => void) | undefined;
+  #readWaiters: CountWaiter[] = [];
   #viewport: Viewport;
   readonly #writeGates = new Map<number, Deferred<void>>();
   #writeWaiters: CountWaiter[] = [];
+  readCalls = 0;
   startCalls = 0;
   stopCalls = 0;
   stopFailure: string | undefined;
@@ -109,6 +122,11 @@ class ControlledHost implements TerminalHost<string> {
   }
 
   nextEvent(): Promise<Result<HostEvent, string>> {
+    this.readCalls += 1;
+    this.#readWaiters = this.#notifyCount(
+      this.#readWaiters,
+      this.readCalls,
+    );
     const queued = this.#events.shift();
     if (queued !== undefined) {
       return Promise.resolve(queued);
@@ -154,10 +172,31 @@ class ControlledHost implements TerminalHost<string> {
     });
   }
 
+  waitForReads(count: number): Promise<void> {
+    if (this.readCalls >= count) {
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      this.#readWaiters.push(Object.freeze({ count, resolve }));
+    });
+  }
+
   blockWrite(count: number): Deferred<void> {
     const gate = new Deferred<void>();
     this.#writeGates.set(count, gate);
     return gate;
+  }
+
+  #notifyCount(waiters: CountWaiter[], current: number): CountWaiter[] {
+    const retained: CountWaiter[] = [];
+    for (const waiter of waiters) {
+      if (current >= waiter.count) {
+        waiter.resolve();
+      } else {
+        retained.push(waiter);
+      }
+    }
+    return retained;
   }
 }
 
@@ -338,6 +377,179 @@ class ControlledRuntime implements RuntimeSession<string> {
   }
 }
 
+class ControlledMotion implements MotionController {
+  #eventWaiter:
+    | ((result: Result<MotionEvent, MotionSourceError>) => void)
+    | undefined;
+  #frameWaiters: CountWaiter[] = [];
+  #activeWaiters: CountWaiter[] = [];
+  activeCalls = 0;
+  closeCalls = 0;
+  discardCalls = 0;
+  frameCalls = 0;
+  throwOnClose = false;
+
+  setActive(active: boolean): void {
+    if (!active) {
+      return;
+    }
+    this.activeCalls += 1;
+    this.#notifyCount(this.#activeWaiters, this.activeCalls);
+  }
+
+  frameRendered(): void {
+    this.frameCalls += 1;
+    this.#notifyCount(this.#frameWaiters, this.frameCalls);
+  }
+
+  discardReady(): void {
+    this.discardCalls += 1;
+  }
+
+  nextEvent(): Promise<Result<MotionEvent, MotionSourceError>> {
+    if (this.#eventWaiter !== undefined) {
+      return Promise.resolve(
+        err(Object.freeze({ kind: "concurrentRead" as const })),
+      );
+    }
+    return new Promise((resolve) => {
+      this.#eventWaiter = resolve;
+    });
+  }
+
+  emitTick(): void {
+    const waiter = this.#eventWaiter;
+    assert.ok(waiter !== undefined);
+    this.#eventWaiter = undefined;
+    waiter(ok(Object.freeze({ kind: "tick" as const })));
+  }
+
+  emitFailure(): void {
+    const waiter = this.#eventWaiter;
+    assert.ok(waiter !== undefined);
+    this.#eventWaiter = undefined;
+    waiter(err(Object.freeze({ kind: "closed" as const })));
+  }
+
+  close(): void {
+    this.closeCalls += 1;
+    if (this.throwOnClose) {
+      throw new Error("motion close failed");
+    }
+    const waiter = this.#eventWaiter;
+    this.#eventWaiter = undefined;
+    waiter?.(err(Object.freeze({ kind: "closed" as const })));
+  }
+
+  waitForActiveCalls(count: number): Promise<void> {
+    return this.#waitForCount(this.#activeWaiters, this.activeCalls, count);
+  }
+
+  waitForFrameCalls(count: number): Promise<void> {
+    return this.#waitForCount(this.#frameWaiters, this.frameCalls, count);
+  }
+
+  #waitForCount(
+    waiters: CountWaiter[],
+    current: number,
+    count: number,
+  ): Promise<void> {
+    if (current >= count) {
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      waiters.push(Object.freeze({ count, resolve }));
+    });
+  }
+
+  #notifyCount(waiters: CountWaiter[], current: number): void {
+    const retained: CountWaiter[] = [];
+    for (const waiter of waiters) {
+      if (current >= waiter.count) {
+        waiter.resolve();
+      } else {
+        retained.push(waiter);
+      }
+    }
+    waiters.splice(0, waiters.length, ...retained);
+  }
+}
+
+class ControlledNotice implements NoticeController {
+  #eventWaiter:
+    | ((result: Result<NoticeEvent, NoticeSourceError>) => void)
+    | undefined;
+  #setWaiters: CountWaiter[] = [];
+  closeCalls = 0;
+  readonly tokens: (NoticeToken | undefined)[] = [];
+  throwOnClose = false;
+  throwOnSet = false;
+
+  setNotice(token: NoticeToken | undefined): void {
+    if (this.throwOnSet) {
+      throw new Error("notice update failed");
+    }
+    this.tokens.push(token);
+    this.#notifyCount(this.#setWaiters, this.tokens.length);
+  }
+
+  nextEvent(): Promise<Result<NoticeEvent, NoticeSourceError>> {
+    if (this.#eventWaiter !== undefined) {
+      return Promise.resolve(
+        err(Object.freeze({ kind: "concurrentRead" as const })),
+      );
+    }
+    return new Promise((resolve) => {
+      this.#eventWaiter = resolve;
+    });
+  }
+
+  emitExpiry(token: NoticeToken): void {
+    const waiter = this.#eventWaiter;
+    assert.ok(waiter !== undefined);
+    this.#eventWaiter = undefined;
+    waiter(ok(Object.freeze({ kind: "expired" as const, token })));
+  }
+
+  emitFailure(): void {
+    const waiter = this.#eventWaiter;
+    assert.ok(waiter !== undefined);
+    this.#eventWaiter = undefined;
+    waiter(err(Object.freeze({ kind: "closed" as const })));
+  }
+
+  close(): void {
+    this.closeCalls += 1;
+    if (this.throwOnClose) {
+      throw new Error("notice close failed");
+    }
+    const waiter = this.#eventWaiter;
+    this.#eventWaiter = undefined;
+    waiter?.(err(Object.freeze({ kind: "closed" as const })));
+  }
+
+  waitForSetCalls(count: number): Promise<void> {
+    if (this.tokens.length >= count) {
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      this.#setWaiters.push(Object.freeze({ count, resolve }));
+    });
+  }
+
+  #notifyCount(waiters: CountWaiter[], current: number): void {
+    const retained: CountWaiter[] = [];
+    for (const waiter of waiters) {
+      if (current >= waiter.count) {
+        waiter.resolve();
+      } else {
+        retained.push(waiter);
+      }
+    }
+    waiters.splice(0, waiters.length, ...retained);
+  }
+}
+
 function input(text: string): HostEvent {
   return Object.freeze({ kind: "input" as const, text });
 }
@@ -386,6 +598,229 @@ test("streams one runtime turn into chat and exits only on later idle Ctrl+C", a
   assert.equal(runtime.stopCalls, 1);
   assert.equal(host.writes.join("").includes("question"), true);
   assert.equal(host.writes.join("").includes("answer"), true);
+});
+
+test("routes cosmetic ticks through the serialized application loop", async () => {
+  const host = new ControlledHost();
+  const runtime = new ControlledRuntime();
+  const motion = new ControlledMotion();
+  const running = run(host, runtime, undefined, undefined, motion);
+  await host.started.promise;
+  await host.waitForWrites(1);
+
+  host.emit(input("question\r"));
+  await runtime.waitForStarts(1);
+  await motion.waitForActiveCalls(1);
+  await motion.waitForFrameCalls(1);
+  await host.waitForWrites(2);
+
+  motion.emitTick();
+  await motion.waitForFrameCalls(2);
+  await host.waitForWrites(3);
+
+  runtime.emit(delta(1, "answer"));
+  await host.waitForWrites(4);
+  assert.equal(motion.discardCalls > 0, true);
+
+  host.emit(input("/exit\r"));
+  const result = await running;
+
+  assert.ok(result.ok);
+  assert.equal(motion.closeCalls, 1);
+  assert.equal(host.stopCalls, 1);
+});
+
+test("preserves pending motion across functional input without a redraw", async () => {
+  const host = new ControlledHost();
+  const runtime = new ControlledRuntime();
+  const motion = new ControlledMotion();
+  const running = run(host, runtime, undefined, undefined, motion);
+  await host.started.promise;
+  await host.waitForWrites(1);
+
+  host.emit(input("question\r"));
+  await runtime.waitForStarts(1);
+  await motion.waitForFrameCalls(1);
+  await host.waitForWrites(2);
+  const discardCalls = motion.discardCalls;
+
+  host.emit(input("\u001B"));
+  await host.waitForReads(3);
+  motion.emitTick();
+  await motion.waitForFrameCalls(2);
+  await host.waitForWrites(3);
+  assert.equal(motion.discardCalls, discardCalls);
+
+  host.emit(input("\u0004"));
+  const result = await running;
+  assert.ok(result.ok);
+});
+
+test("rebases cached motion when notice expiry redraws", async () => {
+  const host = new ControlledHost();
+  const runtime = new ControlledRuntime();
+  const motion = new ControlledMotion();
+  const notices = new ControlledNotice();
+  const running = run(
+    host,
+    runtime,
+    undefined,
+    undefined,
+    motion,
+    notices,
+  );
+  await host.started.promise;
+  await host.waitForWrites(1);
+
+  host.emit(input("question\r"));
+  await runtime.waitForStarts(1);
+  await motion.waitForFrameCalls(1);
+  await host.waitForWrites(2);
+
+  const blocked = host.blockWrite(3);
+  host.emit(input("/missing\r"));
+  await notices.waitForSetCalls(1);
+  await host.waitForWrites(3);
+  const token = notices.tokens.at(-1);
+  assert.ok(token !== undefined);
+  const discardCalls = motion.discardCalls;
+
+  motion.emitTick();
+  notices.emitExpiry(token);
+  blocked.resolve(undefined);
+  await notices.waitForSetCalls(2);
+  await motion.waitForFrameCalls(3);
+  await host.waitForWrites(4);
+  assert.equal(motion.discardCalls, discardCalls + 1);
+
+  motion.emitTick();
+  await motion.waitForFrameCalls(4);
+  await host.waitForWrites(5);
+
+  host.emit(input("/exit\r"));
+  const result = await running;
+  assert.ok(result.ok);
+});
+
+test("routes notice expiry through the serialized application loop", async () => {
+  const host = new ControlledHost();
+  const notices = new ControlledNotice();
+  const running = run(host, undefined, undefined, undefined, undefined, notices);
+  await host.started.promise;
+  await host.waitForWrites(1);
+
+  host.emit(input("/missing\r"));
+  await notices.waitForSetCalls(1);
+  await host.waitForWrites(2);
+  const token = notices.tokens.at(-1);
+  assert.ok(token !== undefined);
+  assert.equal(host.writes.join("").includes("Unknown command"), true);
+
+  notices.emitExpiry(token);
+  await notices.waitForSetCalls(2);
+  await host.waitForWrites(3);
+  assert.equal(notices.tokens.at(-1), undefined);
+
+  host.emit(input("/exit\r"));
+  const result = await running;
+
+  assert.ok(result.ok);
+  assert.equal(notices.closeCalls, 1);
+});
+
+test("contains a motion source failure", async () => {
+  const host = new ControlledHost();
+  const motion = new ControlledMotion();
+  const running = run(host, undefined, undefined, undefined, motion);
+  await host.started.promise;
+  await host.waitForWrites(1);
+  motion.emitFailure();
+
+  const result = await running;
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.deepEqual(result.error.primary, {
+      kind: "source",
+      source: "motion",
+    });
+  }
+});
+
+test("contains a notice source failure", async () => {
+  const host = new ControlledHost();
+  const notices = new ControlledNotice();
+  const running = run(
+    host,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    notices,
+  );
+  await host.started.promise;
+  await host.waitForWrites(1);
+  notices.emitFailure();
+
+  const result = await running;
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.deepEqual(result.error.primary, {
+      kind: "source",
+      source: "notice",
+    });
+  }
+});
+
+test("contains a notice controller update failure", async () => {
+  const host = new ControlledHost();
+  const notices = new ControlledNotice();
+  notices.throwOnSet = true;
+  const running = run(
+    host,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    notices,
+  );
+  await host.started.promise;
+  await host.waitForWrites(1);
+  host.emit(input("question\r"));
+
+  const result = await running;
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.deepEqual(result.error.primary, {
+      kind: "unexpected",
+      operation: "notice",
+    });
+  }
+});
+
+test("preserves independent auxiliary cleanup failures outside a TTY", async () => {
+  const host = new ControlledHost(false);
+  const motion = new ControlledMotion();
+  const notices = new ControlledNotice();
+  motion.throwOnClose = true;
+  notices.throwOnClose = true;
+
+  const result = await run(
+    host,
+    undefined,
+    undefined,
+    undefined,
+    motion,
+    notices,
+  );
+
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.equal(result.error.primary, undefined);
+    assert.deepEqual(result.error.cleanup, [
+      { kind: "unexpected", operation: "notice" },
+      { kind: "unexpected", operation: "motion" },
+    ]);
+  }
 });
 
 test("active Ctrl+C cancels, preserves the draft, and keeps the shell open", async () => {
@@ -453,7 +888,7 @@ test("navigates transcript history through fresh resize geometry only", async ()
   assert.equal(runtime.readCalls, readsBeforeNavigation);
   assert.equal(runtime.startCalls, 1);
   assert.equal(runtime.cancelCalls, 0);
-  assert.equal(host.writes.join("").includes("history"), true);
+  assert.equal(host.writes.join("").includes("history"), false);
 
   host.setViewport(40, 8);
   host.emit(Object.freeze({ kind: "resize" as const }));

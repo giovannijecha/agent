@@ -54,10 +54,35 @@ test("never presents a provider without an executable runtime", () => {
 
   assert.deepEqual(result.effects, []);
   assert.equal(application.provider, undefined);
-  assert.deepEqual(application.notice, [
-    "No providers are enabled.",
-    "Subscription integrations require owned authorization.",
-  ]);
+  assert.deepEqual(application.notice, ["No provider configured"]);
+  assert.equal(application.noticeLevel, "info");
+  assert.ok(application.noticeToken !== undefined);
+});
+
+test("replaces, dismisses, and expires only the current notice generation", () => {
+  const application = new ApplicationController(false);
+
+  applyOnlyAction(application, "/unknown\r");
+  const stale = application.noticeToken;
+  assert.ok(stale !== undefined);
+  assert.equal(application.noticeLevel, "warning");
+
+  applyOnlyAction(application, "/providers\r");
+  const current = application.noticeToken;
+  assert.ok(current !== undefined);
+  assert.equal(current === stale, false);
+  assert.equal(application.noticeLevel, "info");
+  assert.equal(application.expireNotice(stale).redraw, false);
+  assert.deepEqual(application.notice, ["No provider configured"]);
+  assert.equal(application.expireNotice(current).redraw, true);
+  assert.deepEqual(application.notice, []);
+  assert.equal(application.noticeToken, undefined);
+
+  applyOnlyAction(application, "/unknown\r");
+  assert.ok(application.noticeToken !== undefined);
+  application.feed("x");
+  assert.deepEqual(application.notice, []);
+  assert.equal(application.noticeToken, undefined);
 });
 
 test("active Ctrl+C requests one cancellation and preserves the draft", () => {

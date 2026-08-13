@@ -250,13 +250,13 @@ test("preserves composable style while fitting and comparing rows", () => {
 });
 
 test("measures the closed structural and prompt glyph set as single cells", () => {
-  const border = RichRow.fromText("\u2192\u250c\u2500\u2510\u2502\u2514\u2518");
+  const border = RichRow.fromText("\u00b7\u2022\u2192\u250c\u2500\u2510\u2502\u2514\u2518");
 
   assert.ok(border.ok);
-  assert.equal(border.value.cellWidth, 7);
+  assert.equal(border.value.cellWidth, 9);
   const fitted = border.value.fit(4);
   assert.ok(fitted.ok);
-  assert.equal(fitted.value.text, "\u2192\u250c\u2500\u2510");
+  assert.equal(fitted.value.text, "\u00b7\u2022\u2192\u250c");
 });
 
 test("snapshots rows without trusting public accessors", () => {

@@ -83,6 +83,22 @@ test("rejects single-agent public contract drift", () => {
   }
 });
 
+test("rejects deterministic motion public contract drift", () => {
+  const context = currentContext();
+  context.files["docs/decisions/0038-owned-deterministic-tui-motion.md"] =
+    context.files[
+      "docs/decisions/0038-owned-deterministic-tui-motion.md"
+    ].replace(
+      "The first visible projection is one constant-width three-cell pulse",
+      "The visible projection may change width between frames",
+    );
+
+  assert.throws(
+    () => validatePublicationPolicy(policy, context),
+    PublicationPolicyError,
+  );
+});
+
 test("rejects modified license terms", () => {
   const context = currentContext();
   context.files.LICENSE = context.files.LICENSE.replace(

@@ -2,7 +2,10 @@
 
 - Status: accepted
 - Date: 2026-08-10
-- Amended by: decisions 0030, 0031, and 0032
+- Amended by: decisions 0030, 0031, 0032, and 0040
+
+Decision 0040 makes fenced code and strict table regions transparent while
+retaining this decision's grammar, bounds, padding, wrapping, and renderer path.
 
 ## Context
 

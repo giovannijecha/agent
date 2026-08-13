@@ -131,11 +131,26 @@ test("renders only fixed semantic tones and resets each styled span", async () =
     viewport(),
   );
 
-  assert.equal(output.text.includes("\u001B[38;5;67magent\u001B[0m"), true);
-  assert.equal(output.text.includes("\u001B[2mready\u001B[0m"), true);
-  assert.equal(output.text.includes("\u001B[1;33mapprove\u001B[0m"), true);
-  assert.equal(output.text.includes("\u001B[1;32msuccess\u001B[0m"), true);
-  assert.equal(output.text.includes("\u001B[1;31mfailure\u001B[0m"), true);
+  assert.equal(
+    output.text.includes("\u001B[38;2;102;155;210magent\u001B[0m"),
+    true,
+  );
+  assert.equal(
+    output.text.includes("\u001B[38;2;112;124;137mready\u001B[0m"),
+    true,
+  );
+  assert.equal(
+    output.text.includes("\u001B[1;38;2;230;191;95mapprove\u001B[0m"),
+    true,
+  );
+  assert.equal(
+    output.text.includes("\u001B[1;38;2;134;203;146msuccess\u001B[0m"),
+    true,
+  );
+  assert.equal(
+    output.text.includes("\u001B[1;38;2;232;112;112mfailure\u001B[0m"),
+    true,
+  );
   assert.equal(output.text.includes("\u001B[1memphasis\u001B[0m"), true);
 });
 
@@ -150,11 +165,11 @@ test("renders the closed restrained syntax palette on the technical inset", asyn
     "syntaxComment",
   ];
   const expected = [
-    "38;5;75",
-    "38;5;117",
-    "38;5;180",
-    "38;5;150",
-    "38;5;108",
+    "38;2;105;184;255",
+    "38;2;131;213;245",
+    "38;2;221;184;134",
+    "38;2;166;213;123",
+    "38;2;127;157;135",
   ];
   const rows = tones.map((tone, index) => {
     const span = TextSpan.create("sample", tone, { surface: "inset" });
@@ -172,7 +187,7 @@ test("renders the closed restrained syntax palette on the technical inset", asyn
   for (const parameters of expected) {
     assert.equal(
       output.text.includes(
-        "\u001B[" + parameters + ";48;5;235msample\u001B[0m",
+        "\u001B[" + parameters + ";48;2;18;24;31msample\u001B[0m",
       ),
       true,
     );
@@ -200,11 +215,11 @@ test("renders closed italic and subtle-background styles compositionally", async
   await renderer.render(styled.value, viewport());
 
   assert.equal(
-    output.text.includes("\u001B[3;100m question \u001B[0m"),
+    output.text.includes("\u001B[3;48;2;31;38;47m question \u001B[0m"),
     true,
   );
   assert.equal(
-    output.text.includes("\u001B[1;3;100manswer\u001B[0m"),
+    output.text.includes("\u001B[1;3;48;2;31;38;47manswer\u001B[0m"),
     true,
   );
 });
@@ -213,9 +228,9 @@ test("renders closed semantic lifecycle backgrounds", async () => {
   const output = new MemoryOutput();
   const renderer = new Renderer(output);
   const definitions = [
-    ["success", "22"],
-    ["attention", "58"],
-    ["failure", "52"],
+    ["success", "22;55;34"],
+    ["attention", "62;50;19"],
+    ["failure", "62;24;27"],
   ] as const;
   const rows = definitions.map(([surface]) => {
     const span = TextSpan.create(surface, "plain", { surface });
@@ -232,7 +247,7 @@ test("renders closed semantic lifecycle backgrounds", async () => {
   for (const [surface, color] of definitions) {
     assert.equal(
       output.text.includes(
-        "\u001B[48;5;" + color + "m" + surface + "\u001B[0m",
+        "\u001B[48;2;" + color + "m" + surface + "\u001B[0m",
       ),
       true,
     );
@@ -243,9 +258,9 @@ test("composes neutral emphasis with semantic lifecycle backgrounds", async () =
   const output = new MemoryOutput();
   const renderer = new Renderer(output);
   const definitions = [
-    ["succeeded", "success", "22"],
-    ["approval required", "attention", "58"],
-    ["failed", "failure", "52"],
+    ["succeeded", "success", "22;55;34"],
+    ["approval required", "attention", "62;50;19"],
+    ["failed", "failure", "62;24;27"],
   ] as const;
   const rows = definitions.map(([label, surface]) => {
     const span = TextSpan.create(label, "emphasis", { surface });
@@ -262,7 +277,7 @@ test("composes neutral emphasis with semantic lifecycle backgrounds", async () =
   for (const [label, _surface, color] of definitions) {
     assert.equal(
       output.text.includes(
-        "\u001B[1;48;5;" + color + "m" + label + "\u001B[0m",
+        "\u001B[1;48;2;" + color + "m" + label + "\u001B[0m",
       ),
       true,
     );
@@ -290,7 +305,7 @@ test("redraws a row when only its composable style changes", async () => {
 
   assert.equal(
     output.text.slice(firstSize).includes(
-      "\u001B[3;100mmessage\u001B[0m",
+      "\u001B[3;48;2;31;38;47mmessage\u001B[0m",
     ),
     true,
   );
@@ -330,13 +345,15 @@ test("renders and differentially compares mixed tones within one row", async () 
 
   assert.equal(
     output.text.includes(
-      "\u001B[38;5;67magent\u001B[0m\u001B[2m ready\u001B[0m plain",
+      "\u001B[38;2;102;155;210magent\u001B[0m" +
+        "\u001B[38;2;112;124;137m ready\u001B[0m plain",
     ),
     true,
   );
   assert.equal(
     output.text.slice(firstSize).includes(
-      "\u001B[38;5;67magent\u001B[0m\u001B[1;33m active\u001B[0m plain",
+      "\u001B[38;2;102;155;210magent\u001B[0m" +
+        "\u001B[1;38;2;230;191;95m active\u001B[0m plain",
     ),
     true,
   );
@@ -348,7 +365,7 @@ test("normalizes an empty emphasized row to plain terminal output", async () => 
 
   await renderer.render(tonedFrame([""], ["accent"]), viewport(1, 1));
 
-  assert.equal(output.text.includes("\u001B[38;5;67m"), false);
+  assert.equal(output.text.includes("\u001B[38;2;102;155;210m"), false);
   assert.equal(output.text.includes("\u001B[1;33m"), false);
   assert.equal(output.text.includes("\u001B[1m"), false);
   assert.equal(output.text.includes("\u001B[2m"), false);
@@ -366,7 +383,7 @@ test("redraws a row when only its semantic tone changes", async () => {
   assert.equal(
     output.text.slice(firstSize),
     "\u001B[?2026h\u001B[?25l\u001B[1;1H\u001B[2K" +
-      "\u001B[38;5;67magent\u001B[0m" +
+      "\u001B[38;2;102;155;210magent\u001B[0m" +
       "\u001B[1;6H\u001B[?25h\u001B[?2026l",
   );
 });
