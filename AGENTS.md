@@ -66,6 +66,11 @@ agent.”
   wrapping path with explicit literal-code and continuation-prefix policies,
   Markdown state cannot cross bounded document boundaries, only the renderer
   emits ANSI, and every scrollable surface reuses the same generic scroll path.
+  One cell-width authority admits printable ASCII, the closed structural set,
+  and the exact precomposed Latin prose profile from decision 0044 as one cell;
+  every other non-ASCII scalar retains the two-cell conservative fallback.
+  Components, Markdown, surfaces, editors, and applications never add private
+  width exceptions.
 - The TUI is conversation-first, not a permanent dashboard. Keep the transcript
   dominant, the composer fixed and recognizable, and every information block
   contextual to authoritative state. Future tools and integrations reuse the

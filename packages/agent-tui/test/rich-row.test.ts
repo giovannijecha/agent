@@ -259,6 +259,18 @@ test("measures the closed structural and prompt glyph set as single cells", () =
   assert.equal(fitted.value.text, "\u00b7\u2022\u2192\u250c");
 });
 
+test("measures the closed Latin prose profile without widening unknown text", () => {
+  const prose = RichRow.fromText(
+    "\u00e8\u017e\u1e85\u2013\u2019\u201c\u2026\u2039\u20ac",
+  );
+  const conservative = RichRow.fromText("\u00ad\u0301\u{1F642}");
+
+  assert.ok(prose.ok);
+  assert.equal(prose.value.cellWidth, 9);
+  assert.ok(conservative.ok);
+  assert.equal(conservative.value.cellWidth, 6);
+});
+
 test("snapshots rows without trusting public accessors", () => {
   const row = RichRow.fromText("agent", "accent");
   assert.ok(row.ok);

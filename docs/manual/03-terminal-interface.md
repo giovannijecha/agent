@@ -71,6 +71,15 @@ sanitized before the frame performs a final control-character check. Rendering
 is serialized, differential, and commits its snapshot only after a complete
 successful write.
 
+Cell measurement is shared by the editor, composer, transcript, Markdown,
+tables, surfaces, clipping, caret, and renderer. Printable ASCII, interface
+glyphs, and the maintained precomposed Latin prose profile occupy one cell;
+unknown non-ASCII text remains conservatively two cells. This keeps accents and
+typographic quotes physically aligned after paste without claiming complete
+Unicode grapheme support or changing retained text.
+Decision [0044](../decisions/0044-owned-latin-prose-cell-width.md) defines the
+exact admitted profile, fallback, verification, and removal contract.
+
 The shell is conversation-first rather than a permanent dashboard. An empty
 session contains no welcome, suggestions, provider prompt, or embedded help.
 Only the composer and factual footer remain. Contextual activity, notice, and completion
@@ -305,6 +314,7 @@ tests, rollback, and removal.
 - Bounded code highlighter: `packages/agent-tui/src/syntax-highlighter.ts`
 - Semantic tones: `packages/agent-tui/src/tone.ts`
 - Structured rows: `packages/agent-tui/src/rich-row.ts`
+- Shared cell-width policy: `packages/agent-tui/src/cell-width.ts`
 - Pure motion phases: `packages/agent-tui/src/motion.ts`
 - Tone contract: `docs/decisions/0019-owned-semantic-terminal-tones.md`
 - Scroll contract: `docs/decisions/0020-owned-scrollable-screen-foundation.md`
@@ -329,6 +339,7 @@ tests, rollback, and removal.
 - Slash-command completion: `docs/decisions/0034-owned-slash-command-completion.md`
 - Quiet conversation rhythm: `docs/decisions/0040-owned-quiet-conversation-rhythm.md`
 - Conversation density: `docs/decisions/0043-owned-conversation-density.md`
+- Latin prose cell width: `docs/decisions/0044-owned-latin-prose-cell-width.md`
 - Multiline composer, paste, and word editing: `docs/decisions/0035-owned-multiline-composer-and-paste.md`
 - Generic surface: `packages/agent-tui/src/surface.ts`
 - Composable text styles: `packages/agent-tui/src/text-style.ts`

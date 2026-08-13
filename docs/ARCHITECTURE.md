@@ -138,7 +138,7 @@ tool policy, or second agent identity. It imports only core, runtime, and tools.
 
 Owns incremental terminal-key and bracketed-paste decoding, bounded editing,
 one-row and multiline projected input components, validated
-viewports and atomic frames, conservative cell measurement, immutable fragments,
+viewports and atomic frames, owned cell measurement, immutable fragments,
 bounded text and input components, bounded generic component stacks, normalized
 structured rows with twelve closed semantic span tones and six closed surface
 roles, one bounded line-oriented Markdown subset with an exact semantic
@@ -154,6 +154,13 @@ It knows nothing about agents or Node. Unknown control sequences never become
 editable text; display text sanitizes controls and lone surrogates; structured
 rows, fragments, and frames reject unsafe scalar or terminal-control content
 independently.
+One cell-width module feeds structured rows, wrapping, Markdown, tables,
+surfaces, editors, carets, clipping, and rendering. Printable ASCII, the closed
+structural glyph set, and the exact precomposed Latin prose ranges and
+punctuation in decision 0044 occupy one cell. Every other non-ASCII scalar keeps
+the conservative two-cell fallback. The profile performs no normalization,
+locale lookup, terminal probing, or grapheme clustering, and no consumer may
+carry a private exception.
 Plain text and Markdown share one normalization, word-aware span-preserving
 wrapping, anchoring, and padding implementation under decision 0025. Logical
 lines declare structural prefixes, continuation prefixes, and either word or

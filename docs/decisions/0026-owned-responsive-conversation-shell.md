@@ -118,13 +118,15 @@ style metadata, component callbacks, rows, padding, priority, or caret
 translation returns a content-free `ComponentError`.
 
 Borders, rails, padding, gap text, and status labels are owned printable glyphs.
-The cell-width contract grants one cell only to printable ASCII and the exact
-closed structural set `·•→─│┌┐└┘`; all other non-ASCII text remains conservatively
-two cells. The owned footer separator and activity bullet joined that set under
-decisions 0038 and 0040 so their layout widths match their terminal cells. Model
-text, tool output, provider content, paths, errors, and callbacks cannot emit
-ANSI, choose geometry, create panels, or select semantic tones. Only the
-renderer emits terminal controls. Non-interactive output remains unchanged and
+The cell-width contract initially granted one cell only to printable ASCII and
+the exact closed structural set `·•→─│┌┐└┘`; decision 0044 later added its exact
+precomposed-Latin prose profile while retaining two cells for every other
+unregistered non-ASCII scalar. The owned footer separator and activity bullet
+joined the structural set under decisions 0038 and 0040 so their layout widths
+match their terminal cells. Model text, tool output, provider content, paths,
+errors, and callbacks cannot emit ANSI, choose geometry, create panels, or
+select semantic tones. Only the renderer emits terminal controls.
+Non-interactive output remains unchanged and
 escape-free.
 
 ## Verification and visual review
