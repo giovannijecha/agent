@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import { homedir, tmpdir } from "node:os";
 import {
   arch,
   argv,
@@ -25,6 +24,7 @@ import { readHiddenOpenCodeGoCredential } from "./hidden-credential-prompt.js";
 import { parseLaunchCommand } from "./launch-command.js";
 import { NodeTerminalHost } from "./node-terminal-host.js";
 import { NodeOpenCodeGoTransport } from "./node-opencode-go-transport.js";
+import { resolvePlatformWorkspaceRoots } from "./platform-workspace-roots.js";
 import { NodeProcessRunner } from "./node-process-runner.js";
 import { NodeTimerClock } from "./node-timer-clock.js";
 import { NoticeScheduler } from "./notice-scheduler.js";
@@ -72,10 +72,11 @@ if (!launch.ok) {
   await writeAndExit(stdout, "agent 0.1.0\n", 0);
 }
 
-const workspace = await WorkspaceBoundary.create(cwd(), {
-  homeDirectory: homedir(),
-  temporaryDirectory: tmpdir(),
-});
+const platformRoots = await resolvePlatformWorkspaceRoots(platform, arch);
+const workspaceProtection = platformRoots.ok
+  ? platformRoots.value
+  : await writeAndExit(stderr, "agent rejected the workspace root\n", 1);
+const workspace = await WorkspaceBoundary.create(cwd(), workspaceProtection);
 const workspaceBoundary = workspace.ok
   ? workspace.value
   : await writeAndExit(stderr, "agent rejected the workspace root\n", 1);

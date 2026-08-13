@@ -386,17 +386,27 @@ tests, decision, documentation, and verifier expectations together; retain
 ## Update or remove the workspace trust boundary
 
 Decision 0042, `workspace-boundary.ts`, the CLI composition root, built-in tool
-registration, exact footer projection, focused boundary regressions, manuals,
-and policy registries form one contract. Resolve the startup working directory
-once before credentials, providers, runtime, tools, or terminal ownership. Keep
-the accepted value immutable, canonical, absolute, and shared; no handler or UI
-path may derive a different authority root.
+registration, `platform-workspace-roots.ts`, its bounded protocol and native
+backends, exact footer projection, focused regressions, manuals, and policy
+registries form one contract. Resolve protected roots and the startup working
+directory before credentials, providers, runtime, tools, or terminal ownership.
+Keep the accepted workspace immutable, canonical, absolute, and shared; no
+handler or UI path may derive a different authority root.
+
+The native resolver accepts no argument or input and inherits no environment.
+Linux must continue to query the account database for `geteuid()` and protect
+`/tmp`. Windows must initialize COM, query `FOLDERID_Profile` and
+`FOLDERID_LocalAppData` for the current user, derive `Temp`, and release every
+operating-system allocation. The Node adapter must use the exact package-local
+binary, one 8,212-byte maximum frame, 4,096-byte roots, strict scalar UTF-8, and
+a five-second deadline. Do not add an environment fallback.
 
 A root-selection change must prove invalid and inaccessible input, non-directory
 input, symbolic-link aliases, filesystem volume roots, the exact user home, the
 exact shared temporary directory, hostile protection values, content-free
-failures, tool consumption, and exact footer display. Never add implicit Git
-root discovery because it can widen the operator's selected authority.
+failures, hostile inherited home and temporary variables, native protocol
+limits, tool consumption, and exact footer display. Never add implicit Git root
+discovery because it can widen the operator's selected authority.
 
 Process containment remains a separate contract. Changing the workspace root
 does not prove that approved Node code is filesystem- or network-sandboxed. Any
@@ -406,6 +416,10 @@ future behavior until their own code, tests, documentation, and rollback land.
 
 To remove the current root boundary, first remove every filesystem and process
 capability that consumes it or replace it with a stronger accepted authority.
+The platform resolver is independently removable only after another accepted
+environment-independent source replaces both roots; delete its C sources,
+protocol, Node adapter, tests, build output registration, and documentation
+together. Never roll back to environment-derived protection.
 Then remove its composition, footer claim, source, tests, policy entries, and
 current-behavior documentation together. Do not leave a raw working-directory
 string feeding any surviving tool.

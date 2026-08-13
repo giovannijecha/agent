@@ -214,6 +214,14 @@ Git root. One immutable canonical absolute path feeds the footer, filesystem
 handlers, and process working-directory resolution. Model-selected relative
 paths are then denied on traversal or symbolic-link crossing; handlers do not
 replace or independently recanonicalize the authority root.
+
+Protected home and temporary roots come from one separate CLI-owned native
+resolver. Linux uses the effective-user account database and `/tmp`; Windows
+uses the current-user Profile and Local AppData Known Folders. The Node adapter
+starts that exact package-relative executable with no arguments, shell, input,
+or inherited environment, accepts one strictly decoded bounded binary frame,
+and enforces a five-second deadline. Platform discovery remains separate from
+the boundary's filesystem canonicalization and exact-root denial.
 CLI also owns the exact OpenCode Go HTTPS adapter and startup configuration. It
 admits only `opencode.ai:443`, never follows an application-selected origin,
 keeps the API key in memory, and exposes only bytes and response metadata to the

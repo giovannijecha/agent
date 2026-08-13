@@ -595,7 +595,7 @@ function verifyRepositoryLayout() {
         /^test\/[a-z0-9-]+\.test\.ts$/u.test(relativeFile) ||
         (
           workspaceRoot === "packages/agent-cli/" &&
-          /^native\/process-broker\/[a-z0-9-]+\.(?:c|h)$/u.test(relativeFile)
+          /^native\/(?:process-broker|workspace-roots)\/[a-z0-9-]+\.(?:c|h)$/u.test(relativeFile)
         )
       ) {
         continue;
@@ -646,6 +646,7 @@ function verifyRepositoryLayout() {
       [
         nativeRoot + "agent-process-broker" + nativeSuffix,
         nativeRoot + "agent-process-fixture" + nativeSuffix,
+        nativeRoot + "agent-workspace-roots" + nativeSuffix,
       ],
       "native generated artifact set",
     );

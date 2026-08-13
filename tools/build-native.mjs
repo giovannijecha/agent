@@ -6,9 +6,13 @@ import process from "node:process";
 import { projectRoot } from "./lib/project.mjs";
 
 const minimumClangMajor = 18;
-const nativeRoot = path.join(
+const processBrokerRoot = path.join(
   projectRoot,
   "packages/agent-cli/native/process-broker",
+);
+const workspaceRootsRoot = path.join(
+  projectRoot,
+  "packages/agent-cli/native/workspace-roots",
 );
 
 function runCompiler(arguments_) {
@@ -83,9 +87,9 @@ const backend = process.platform === "win32"
 runCompiler([
   ...commonFlags,
   ...platformFlags,
-  path.join(nativeRoot, "main.c"),
-  path.join(nativeRoot, "protocol.c"),
-  path.join(nativeRoot, backend),
+  path.join(processBrokerRoot, "main.c"),
+  path.join(processBrokerRoot, "protocol.c"),
+  path.join(processBrokerRoot, backend),
   "-o",
   path.join(outputDirectory, "agent-process-broker" + executableSuffix),
 ]);
@@ -94,9 +98,21 @@ runCompiler([
   ...commonFlags,
   ...platformFlags,
   ...(process.platform === "win32" ? ["-municode"] : []),
-  path.join(nativeRoot, "test-fixture.c"),
+  path.join(processBrokerRoot, "test-fixture.c"),
   "-o",
   path.join(outputDirectory, "agent-process-fixture" + executableSuffix),
 ]);
 
-process.stdout.write("Built owned native process fixtures for " + platformDirectory + ".\n");
+runCompiler([
+  ...commonFlags,
+  ...platformFlags,
+  path.join(workspaceRootsRoot, "main.c"),
+  path.join(workspaceRootsRoot, backend),
+  ...(process.platform === "win32"
+    ? ["-lshell32", "-lole32", "-luuid"]
+    : []),
+  "-o",
+  path.join(outputDirectory, "agent-workspace-roots" + executableSuffix),
+]);
+
+process.stdout.write("Built owned native executables for " + platformDirectory + ".\n");

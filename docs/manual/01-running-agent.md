@@ -22,8 +22,11 @@ from the exact directory that should become the coding-tool workspace. Startup
 canonicalizes that directory once and does not walk upward to a Git root. The
 footer shows the resulting absolute path. A filesystem volume root, the exact
 user home, and the exact shared temporary directory are deliberately rejected
-as over-broad roots. Maintainers can instead use `npm run dev` from the
-repository root to rebuild and start, or `npm start` to start an existing build.
+as over-broad roots. An owned native resolver obtains the protected home and
+temporary roots directly from the operating system, so inherited `HOME`,
+`USERPROFILE`, `TMPDIR`, `TMP`, and `TEMP` values cannot move the protections.
+Maintainers can instead use `npm run dev` from the repository root to rebuild
+and start, or `npm start` to start an existing build.
 
 Use `agent --help` for executable help and `agent --version` for the exact
 version. Unknown or combined arguments fail; credentials are never accepted on
@@ -52,9 +55,10 @@ A missing build means neither the linked command nor npm start can execute. A
 missing or mismatched toolchain causes verification to fail. Prompt, startup,
 viewport, input, rendering, or cleanup failures return a nonzero process status
 and a short category label; private causes, keys, and submitted content are not
-printed. An invalid, inaccessible, non-directory, or over-broad workspace emits
-only `agent rejected the workspace root` and exits nonzero. The shutdown path
-still attempts terminal and renderer cleanup independently.
+printed. An unavailable platform-root resolver or an invalid, inaccessible,
+non-directory, or over-broad workspace emits only
+`agent rejected the workspace root` and exits nonzero. The shutdown path still
+attempts terminal and renderer cleanup independently.
 
 ## Maintenance and removal
 

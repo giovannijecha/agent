@@ -55,10 +55,16 @@ declare module "node:child_process" {
     write(chunk: Uint8Array): boolean;
   }
 
-  export interface ChildProcess {
+  export interface ReadOnlyChildProcess {
     readonly stderr: ChildReadableStream;
-    readonly stdin: ChildWritableStream;
     readonly stdout: ChildReadableStream;
+    kill(): boolean;
+    once(event: "close", listener: (code: number | null, signal: string | null) => void): this;
+    once(event: "error", listener: (cause: unknown) => void): this;
+  }
+
+  export interface ChildProcess extends ReadOnlyChildProcess {
+    readonly stdin: ChildWritableStream;
     readonly stdio: readonly [
       ChildWritableStream,
       ChildReadableStream,
@@ -66,10 +72,15 @@ declare module "node:child_process" {
       ChildReadableStream,
       ChildReadableStream,
     ];
-    kill(): boolean;
-    once(event: "close", listener: (code: number | null, signal: string | null) => void): this;
-    once(event: "error", listener: (cause: unknown) => void): this;
   }
+
+  export type SpawnReadOptions = Readonly<{
+    cwd: string;
+    env: Readonly<Record<string, string>>;
+    shell: false;
+    stdio: readonly ["ignore", "pipe", "pipe"];
+    windowsHide: true;
+  }>;
 
   export type SpawnOptions = Readonly<{
     cwd: string;
@@ -78,6 +89,12 @@ declare module "node:child_process" {
     stdio: readonly ["pipe", "pipe", "pipe", "pipe", "pipe"];
     windowsHide: true;
   }>;
+
+  export function spawn(
+    executable: string,
+    arguments_: readonly string[],
+    options: SpawnReadOptions,
+  ): ReadOnlyChildProcess;
 
   export function spawn(
     executable: string,

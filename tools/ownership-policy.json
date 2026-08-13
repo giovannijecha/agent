@@ -113,7 +113,6 @@
       "node:child_process",
       "node:fs/promises",
       "node:https",
-      "node:os",
       "node:path",
       "node:process",
       "node:timers",

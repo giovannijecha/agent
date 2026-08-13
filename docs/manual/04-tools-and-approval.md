@@ -135,6 +135,8 @@ function defined by decision 0022.
 - Tool contracts and engine: `packages/agent-tools/src/index.ts`
 - Built-in filesystem adapters: `packages/agent-cli/src/builtin-tools.ts`
 - Canonical workspace boundary: `packages/agent-cli/src/workspace-boundary.ts`
+- Trusted platform-root adapter: `packages/agent-cli/src/platform-workspace-roots.ts`
+- Native platform-root resolver: `packages/agent-cli/native/workspace-roots/`
 - Workspace trust decision: `docs/decisions/0042-owned-workspace-trust-boundary.md`
 - Process runner port: `packages/agent-cli/src/process-runner.ts`
 - Node process adapter: `packages/agent-cli/src/node-process-runner.ts`

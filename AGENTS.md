@@ -161,8 +161,10 @@ agent.”
   ownership, it resolves the exact startup directory into one immutable
   canonical workspace boundary. It never discovers a broader repository root;
   volume roots, the exact user home, and the exact shared temporary directory
-  fail closed. The footer and every built-in tool consume that same canonical
-  absolute root.
+  fail closed. One bounded owned native resolver obtains those protected roots
+  from operating-system account and known-folder contracts with an empty
+  environment; inherited home and temporary variables are never authoritative.
+  The footer and every built-in tool consume that same canonical absolute root.
 - `run_process` is the only admitted execute tool. It accepts the registered
   `node` token, literal arguments, and one workspace-relative directory; it
   never accepts a shell, executable path, PATH lookup, stdin, inherited or

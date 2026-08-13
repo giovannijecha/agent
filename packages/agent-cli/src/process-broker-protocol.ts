@@ -6,6 +6,7 @@ import {
 } from "@agent/core";
 
 import { PROCESS_RUNNER_LIMITS } from "./process-runner.js";
+import { decodeUtf8Text } from "./utf8-text.js";
 
 export const PROCESS_BROKER_LIMITS = Object.freeze({
   arguments: PROCESS_RUNNER_LIMITS.arguments,
@@ -95,71 +96,11 @@ export function encodeProcessText(
   return ok(bytes);
 }
 
-function continuation(byte: number | undefined): byte is number {
-  return byte !== undefined && (byte & 0xc0) === 0x80;
-}
-
 export function decodeProcessText(
   bytes: Uint8Array,
 ): Result<string, ProcessBrokerProtocolError> {
-  const scalars: string[] = [];
-  for (let offset = 0; offset < bytes.length; ) {
-    const first = bytes.at(offset);
-    if (first === undefined) {
-      return err(failure("invalidText"));
-    }
-    let point: number;
-    let width: number;
-    if (first <= 0x7f) {
-      point = first;
-      width = 1;
-    } else if (first >= 0xc2 && first <= 0xdf) {
-      const second = bytes.at(offset + 1);
-      if (!continuation(second)) {
-        return err(failure("invalidText"));
-      }
-      point = ((first & 0x1f) << 6) | (second & 0x3f);
-      width = 2;
-    } else if (first >= 0xe0 && first <= 0xef) {
-      const second = bytes.at(offset + 1);
-      const third = bytes.at(offset + 2);
-      if (
-        !continuation(second) ||
-        !continuation(third) ||
-        (first === 0xe0 && second < 0xa0) ||
-        (first === 0xed && second >= 0xa0)
-      ) {
-        return err(failure("invalidText"));
-      }
-      point =
-        ((first & 0x0f) << 12) | ((second & 0x3f) << 6) | (third & 0x3f);
-      width = 3;
-    } else if (first >= 0xf0 && first <= 0xf4) {
-      const second = bytes.at(offset + 1);
-      const third = bytes.at(offset + 2);
-      const fourth = bytes.at(offset + 3);
-      if (
-        !continuation(second) ||
-        !continuation(third) ||
-        !continuation(fourth) ||
-        (first === 0xf0 && second < 0x90) ||
-        (first === 0xf4 && second >= 0x90)
-      ) {
-        return err(failure("invalidText"));
-      }
-      point =
-        ((first & 0x07) << 18) |
-        ((second & 0x3f) << 12) |
-        ((third & 0x3f) << 6) |
-        (fourth & 0x3f);
-      width = 4;
-    } else {
-      return err(failure("invalidText"));
-    }
-    scalars.push(String.fromCodePoint(point));
-    offset += width;
-  }
-  return ok(scalars.join(""));
+  const decoded = decodeUtf8Text(bytes);
+  return decoded.ok ? decoded : err(failure("invalidText"));
 }
 
 function writeU32(bytes: Uint8Array, offset: number, value: number): void {
