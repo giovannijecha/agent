@@ -25,9 +25,11 @@ roles, dimensions, palette, provenance, and SHA-256 digests are registered in
 
 Registered SVG is passive identity data. The verifier rejects scriptable
 elements, event-handler attributes, animation, external or embedded references,
-active styling URLs, DTDs, entities, and XML processing stylesheets before a
-digest can be admitted. This fail-closed capability check is independent of the
-host that eventually displays the asset.
+active styling URLs, DTDs, entities, XML processing stylesheets, and
+namespace-qualified element or attribute names before a digest can be admitted.
+The canonical assets require no qualified names; colons inside quoted values or
+text content remain ordinary data. This fail-closed capability check is
+independent of the host that eventually displays the asset.
 
 The brand is used only where identity materially helps: repository
 documentation, provider applications, authentication surfaces, and future

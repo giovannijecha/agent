@@ -98,6 +98,42 @@ test("rejects SVG event-handler attributes", () => {
   }
 });
 
+test("rejects namespace-qualified SVG names", () => {
+  const mutations = [
+    (text) =>
+      text.replace(
+        "</svg>",
+        '<s:script xmlns:s="http://www.w3.org/2000/svg">void 0</s:script></svg>',
+      ),
+    (text) =>
+      text.replace(
+        "<rect ",
+        '<rect xml:lang="en" ',
+      ),
+  ];
+  for (const mutate of mutations) {
+    const { changed, context } = contextWithChangedSvg(mutate);
+    assert.throws(
+      () => validateBrandPolicy(changed, context),
+      BrandPolicyError,
+    );
+  }
+});
+
+test("allows colons outside SVG markup names", () => {
+  const mutations = [
+    (text) => text.replace("</desc>", ": owned identity</desc>"),
+    (text) => text.replace(
+      "<rect ",
+      '<rect data-note="owned a:b=1" ',
+    ),
+  ];
+  for (const mutate of mutations) {
+    const { changed, context } = contextWithChangedSvg(mutate);
+    assert.doesNotThrow(() => validateBrandPolicy(changed, context));
+  }
+});
+
 test("rejects other active SVG features", () => {
   const mutations = [
     (text) => text.replace("</svg>", "<animate attributeName=\"x\"/></svg>"),

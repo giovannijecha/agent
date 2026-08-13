@@ -111,6 +111,134 @@ function validatePng(bytes, asset) {
   }
 }
 
+function isSvgMarkupSpace(value) {
+  return value === " " || value === "\t" || value === "\r" || value === "\n";
+}
+
+function skipSvgMarkupSpace(text, start) {
+  let cursor = start;
+  while (isSvgMarkupSpace(text.at(cursor))) {
+    cursor += 1;
+  }
+  return cursor;
+}
+
+function svgMarkupNameEnd(text, start) {
+  let cursor = start;
+  while (cursor < text.length) {
+    const value = text.at(cursor);
+    if (
+      value === undefined ||
+      isSvgMarkupSpace(value) ||
+      value === "/" ||
+      value === ">" ||
+      value === "=" ||
+      value === "?"
+    ) {
+      break;
+    }
+    cursor += 1;
+  }
+  return cursor;
+}
+
+function hasQualifiedSvgName(text) {
+  let cursor = 0;
+  while (cursor < text.length) {
+    const opening = text.indexOf("<", cursor);
+    if (opening < 0) {
+      return false;
+    }
+    if (text.startsWith("<!--", opening)) {
+      const closing = text.indexOf("-->", opening + 4);
+      if (closing < 0) {
+        return true;
+      }
+      cursor = closing + 3;
+      continue;
+    }
+    if (text.startsWith("<![CDATA[", opening)) {
+      const closing = text.indexOf("]]>", opening + 9);
+      if (closing < 0) {
+        return true;
+      }
+      cursor = closing + 3;
+      continue;
+    }
+    let position = opening + 1;
+    const marker = text.at(position);
+    if (marker === "!") {
+      const closing = text.indexOf(">", position + 1);
+      if (closing < 0) {
+        return true;
+      }
+      cursor = closing + 1;
+      continue;
+    }
+    const processing = marker === "?";
+    if (processing || marker === "/") {
+      position += 1;
+    }
+    position = skipSvgMarkupSpace(text, position);
+    const nameEnd = svgMarkupNameEnd(text, position);
+    if (
+      nameEnd === position ||
+      text.slice(position, nameEnd).includes(":")
+    ) {
+      return true;
+    }
+    if (processing) {
+      const closing = text.indexOf("?>", nameEnd);
+      if (closing < 0) {
+        return true;
+      }
+      cursor = closing + 2;
+      continue;
+    }
+    position = nameEnd;
+    let closed = false;
+    while (position < text.length) {
+      position = skipSvgMarkupSpace(text, position);
+      const value = text.at(position);
+      if (value === ">") {
+        cursor = position + 1;
+        closed = true;
+        break;
+      }
+      if (value === "/" && text.at(position + 1) === ">") {
+        cursor = position + 2;
+        closed = true;
+        break;
+      }
+      const attributeEnd = svgMarkupNameEnd(text, position);
+      if (
+        attributeEnd === position ||
+        text.slice(position, attributeEnd).includes(":")
+      ) {
+        return true;
+      }
+      position = skipSvgMarkupSpace(text, attributeEnd);
+      if (text.at(position) !== "=") {
+        return true;
+      }
+      position = skipSvgMarkupSpace(text, position + 1);
+      const quote = text.at(position);
+      if (quote !== '"' && quote !== "'") {
+        return true;
+      }
+      const valueEnd = text.indexOf(quote, position + 1);
+      if (valueEnd < 0) {
+        return true;
+      }
+      position = valueEnd + 1;
+    }
+    if (!closed) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function validateSvg(bytes, asset) {
   let text;
   try {
@@ -133,6 +261,7 @@ function validateSvg(bytes, asset) {
     fail("brand SVG contract mismatch");
   }
   if (
+    hasQualifiedSvgName(text) ||
     /<(?:animate|animateMotion|animateTransform|discard|foreignObject|handler|image|script|set|style|use)\b/iu.test(
       text,
     ) ||
