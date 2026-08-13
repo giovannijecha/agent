@@ -127,9 +127,12 @@ closed.
 The resolver is not a model-facing tool and never enters the runtime. Its
 executable path is derived from the installed CLI package, it accepts no
 arguments or input, launches without a shell and with an empty environment,
-and has one fixed five-second completion deadline. It emits exactly one
-versioned bounded binary frame. That frame contains only the two absolute roots
-as strictly decoded UTF-8. Each path and the complete frame have fixed byte
+and has one fixed five-second operation deadline followed by one shorter fixed
+cleanup deadline after a termination request. The operation settles
+content-free when either deadline expires even if the child never emits
+`close`; late child events cannot settle twice or mutate accepted roots. It
+emits exactly one versioned bounded binary frame. That frame contains only the
+two absolute roots as strictly decoded UTF-8. Each path and the complete frame have fixed byte
 limits; malformed, truncated, oversized, trailing, empty, relative,
 control-bearing, duplicate, timed-out, or unsuccessful output is rejected with
 one content-free error. Native diagnostics are discarded.

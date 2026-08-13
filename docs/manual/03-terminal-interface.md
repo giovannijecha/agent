@@ -37,7 +37,8 @@ new caret or selection.
 
 Copied logical text excludes soft wrapping and surface padding while preserving
 source line breaks and message order. Windows x64 shows `Copied!` only after its
-owned native clipboard boundary succeeds. Other platforms show `Copy
+owned native clipboard boundary succeeds within its two-second operation and
+250-millisecond post-kill cleanup deadlines. Other platforms show `Copy
 requested!` after the bounded OSC 52 request is written; the terminal may still
 reject or ignore it. Failure shows `Copy failed!` without closing `agent`. These
 short statuses use the composer's right edge and expire normally. They reserve
@@ -46,6 +47,10 @@ the transcript, composer, or caret. Copy is bounded to 65,536 UTF-16 code units;
 a larger range remains selected and shows a warning instead of being truncated.
 Clicking or dragging in the composer dismisses the current status immediately;
 conversation selection and scrolling leave it until replacement or expiry.
+If an OSC 8 link or OSC 52 copy write is interrupted, the next serialized
+renderer operation first closes the possible terminal string and hyperlink.
+Rendering and terminal cleanup do not continue until that recovery write
+succeeds.
 
 The mouse wheel over the transcript reuses its normal scroll state. A settled
 logical selection survives scrolling, so a long message can be reviewed without
@@ -55,6 +60,8 @@ input breaks a pending double-click sequence. Hold Shift when pressing or
 dragging for the terminal's optional native selection behavior. This is an
 escape hatch, not the application copy path. Ctrl+C remains cancellation during
 active work and exits while idle; it is not a copy shortcut.
+If Ctrl+C and `/exit` or EOF arrive in one terminal chunk, cancellation remains
+ordered before one exit request; an idle chunk never emits duplicate exits.
 
 Exact visible ASCII text beginning with `https://` is exposed as a terminal
 hyperlink with the same visible destination. The terminal chooses the click or

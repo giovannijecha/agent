@@ -25,6 +25,9 @@ user home, and the exact shared temporary directory are deliberately rejected
 as over-broad roots. An owned native resolver obtains the protected home and
 temporary roots directly from the operating system, so inherited `HOME`,
 `USERPROFILE`, `TMPDIR`, `TMP`, and `TEMP` values cannot move the protections.
+The resolver has a five-second operation deadline and a 250-millisecond
+post-kill cleanup deadline; startup fails closed even if the native child never
+reports `close`.
 Startup then loads mandatory sensitive-path denials and one optional root
 `.agentignore` before reading a credential or constructing tools. The file may
 only add denials through the bounded grammar in chapter 04. Its compiled value

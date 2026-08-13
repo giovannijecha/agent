@@ -50,6 +50,12 @@ without that admitted native boundary, the renderer writes OSC 52 and reports
 only that it asked the terminal host to copy; the host may ignore the request or
 apply its own clipboard policy. Failure is visible and nonfatal.
 
+The native copy boundary has a two-second operation deadline and a
+250-millisecond post-kill cleanup deadline; missing or late child events cannot
+turn a failure into success. A failed OSC 8 or OSC 52 output leaves no personal
+content in application state, and the renderer closes the possible terminal
+string before emitting later frames or cleanup controls.
+
 Both paths are limited to 65,536 UTF-16 code units, contain no layout padding
 or hidden Markdown destination, retain no clipboard history, make no network
 request, and launch no foreign clipboard program. Clipboard content is external

@@ -197,15 +197,19 @@ Reduce every decoded terminal chunk in exact event order. Apply each pointer
 action to the application and shared editor before decoding may mutate that
 editor with later text, deletion, or paste from the same chunk. Do not queue
 only pointer events or add a replay buffer; use the one synchronous reducer
-boundary.
+boundary for interrupt, EOF, command, and exit actions as well. Preserve
+cancellation before shutdown and publish at most one exit effect per chunk.
 
 Only the renderer may enable or disable mouse modes, mark selected spans, emit
 exact visible HTTPS OSC 8 links, or send bounded OSC 52 clipboard requests.
 Keep destination equal to visible ASCII HTTPS text, cap clipboard input before
-encoding, and serialize copy with frame writes. The CLI's removable clipboard
-port may invoke only the exact owned Windows x64 C17 broker with its versioned
-UTF-16LE stdin frame, empty environment, fixed timeout, and no arguments, shell,
-PATH lookup, or retained process. Confirm success only after broker exit zero;
+encoding, and serialize copy with frame writes. Mark a terminal string as
+possibly active before either OSC write and, after failure, require ST plus one
+complete OSC 8 close before later render, copy, or cleanup output. The CLI's
+removable clipboard port may invoke only the exact owned Windows x64 C17 broker with its versioned
+UTF-16LE stdin frame, empty environment, two-second operation deadline,
+250-millisecond cleanup deadline, and no arguments, shell, PATH lookup, or
+retained process. Confirm success only after broker exit zero;
 an unsupported platform may request OSC 52, and no failure may claim success or
 exit the application. Route its short settlement through the one notice
 generation and generic `InputArea` trailing status; it must not add a layout
@@ -421,7 +425,8 @@ temporary environment variables. Maintain the owned platform resolver as a
 separate CLI adapter: Linux queries the effective-user account database and
 uses `/tmp`; Windows queries Profile and Local AppData through the Known Folder
 API and derives its user `Temp` root. Keep its process environment empty, frame
-and path bounds exact, UTF-8 decoding strict, deadline fixed, and failures
+and path bounds exact, UTF-8 decoding strict, its five-second operation and
+250-millisecond cleanup deadlines fixed, late events inert, and failures
 content-free. Unsupported platforms fail closed.
 
 Load the workspace read policy immediately after accepting the boundary and

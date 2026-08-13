@@ -55,7 +55,10 @@ the exact decoder boundary before the session advances to the next event.
 Pointer selection therefore mutates the same editor seen by immediately
 following text, Backspace, Delete, word deletion, or paste. No editor mutation
 may overtake a queued pointer action, and no second input queue, replay path, or
-component-owned reducer is introduced.
+component-owned reducer is introduced. Every decoded action, including an
+`exit` recognized after an interrupt in the same chunk, traverses the same
+emission function; no branch writes into a side array when a synchronous
+reduction port is present.
 
 A left press starts a linear selection, reported motion extends it, and release
 settles and copies it. Wheel input over the transcript reuses its one
@@ -92,7 +95,10 @@ arguments, and oversized input, creates one hidden owned window, and calls
 `GMEM_MOVEABLE` memory. Clipboard contention receives only a fixed bounded
 retry. Exit success confirms that Windows accepted the data and transferred
 memory ownership; only then does the CLI settle the existing ephemeral notice
-as `Copied!`.
+as `Copied!`. The CLI boundary owns one operation deadline and one shorter
+cleanup deadline after a termination request. The copy settles content-free at
+the cleanup deadline even if the child never emits `close`; late child events
+cannot settle twice, publish output, or change application state.
 
 On platforms without an admitted native clipboard broker, the serialized
 renderer emits the existing owned UTF-8/Base64 OSC 52 request terminated with
@@ -101,6 +107,15 @@ truthful notice is `Copy requested!`; it does not claim host acceptance.
 Unsupported hosts may ignore it. Failure shows `Copy failed!` and keeps the
 application open. No copy path claims success before its authoritative boundary
 settles.
+
+Before a renderer write containing OSC 52 or OSC 8, the renderer marks a
+terminal string as possibly active and clears that state only after the complete
+write succeeds. Before any later render, copy, or finish, a possibly active
+string is recovered by writing ST followed by one complete OSC 8 close. Normal
+synchronized-output recovery and terminal-mode cleanup occur only after that
+write succeeds. A failed recovery remains pending and makes the current
+operation fail so a later serialized operation can retry it; completed OSC
+writes and completed recovery add no later terminator.
 
 Clipboard settlement presentation uses the notice system's closed `composer`
 placement without adding a row between transcript and composer. Confirmed,
@@ -144,7 +159,9 @@ clock value carried with the host input event. Pure reducers receive that value
 explicitly. They do not consult ambient time or schedule a private timer.
 
 Only the renderer emits terminal control sequences. Partial initialization and
-write failure leave mouse modes marked for retryable cleanup. The Windows
+write failure leave mouse modes marked for retryable cleanup. A partial OSC
+write also leaves one conservative terminal-string recovery obligation that
+must settle before any other renderer output. The Windows
 clipboard broker is the sole admitted platform-native copy executable and
 receives no model-controlled field, path, argument, environment, or limit.
 Launch, timeout, protocol, operating-system, and renderer failures collapse to
@@ -161,7 +178,8 @@ button/modifier/motion form, coordinate and sequence limits, interaction
 metadata validation and preservation, soft-wrap offsets, padding exclusion,
 hyperlink validation, exact OSC 8 closure, selection styling, owned UTF-8 and
 Base64 vectors, OSC 52 bounds, renderer initialization failure, cleanup retry,
-and idempotent finish.
+idempotent finish, partial OSC 52 and OSC 8 recovery before render and finish,
+failed recovery retry, and absence of recovery bytes after successful writes.
 
 Editor tests prove click positioning, drag ranges, whitespace word selection,
 word-wise double-click drag, replacement, deletion, paste, multiline wrapping,
@@ -171,11 +189,14 @@ double-click timing, resize reset, cross-message copy order, composer routing,
 coalesced pointer-plus-editor chunks preserving decoder order, composer pointer
 dismissal of the current notice generation, link spans, Shift escape-hatch
 documentation, confirmed, requested, and failed composer-edge feedback without
-layout movement, and serialized copy output.
+layout movement, serialized copy output, and coalesced interrupt plus shutdown
+actions through the synchronous application reducer.
 Native tests prove exact frame validation, hidden-
 window implementation contract, contention bounds, no-argument invocation, and
-backend handoff without touching the operator clipboard. Manual Windows review
-proves the real clipboard result. Existing terminal, Markdown, scroll, renderer,
+backend handoff without touching the operator clipboard. Injected lifecycle
+tests prove operation and cleanup deadlines, kill failures, missing and late
+`close`, late stream events, and success only after an exact zero exit. Manual
+Windows review proves the real clipboard result. Existing terminal, Markdown, scroll, renderer,
 privacy, and application tests remain required. The canonical Windows and Linux
 verifier is the release gate, followed by manual review in Windows Terminal and
 one SGR/OSC-capable Linux terminal.

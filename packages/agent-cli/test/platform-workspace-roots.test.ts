@@ -7,7 +7,122 @@ import {
   decodePlatformWorkspaceRoots,
   PLATFORM_WORKSPACE_ROOTS_LIMITS,
 } from "../dist/platform-workspace-roots-protocol.js";
-import { resolvePlatformWorkspaceRoots } from "../dist/platform-workspace-roots.js";
+import {
+  PLATFORM_WORKSPACE_ROOTS_DEADLINES,
+  type PlatformWorkspaceRootsBoundary,
+  resolvePlatformWorkspaceRoots,
+} from "../dist/platform-workspace-roots.js";
+
+class FakeReadable {
+  readonly #listeners: ((chunk: Uint8Array) => void)[] = [];
+
+  on(event: "data", listener: (chunk: Uint8Array) => void): this {
+    assert.equal(event, "data");
+    this.#listeners.push(listener);
+    return this;
+  }
+
+  emit(chunk: Uint8Array): void {
+    for (const listener of this.#listeners) {
+      listener(chunk);
+    }
+  }
+}
+
+class FakeResolverChild {
+  readonly stderr = new FakeReadable();
+  readonly stdout = new FakeReadable();
+  killCause: unknown;
+  killResult = true;
+  kills = 0;
+  #close: ((code: number | null, signal: string | null) => void) | undefined;
+  #error: ((cause: unknown) => void) | undefined;
+
+  kill(): boolean {
+    this.kills += 1;
+    if (this.killCause !== undefined) {
+      throw this.killCause;
+    }
+    return this.killResult;
+  }
+
+  once(
+    event: "close",
+    listener: (code: number | null, signal: string | null) => void,
+  ): this;
+  once(event: "error", listener: (cause: unknown) => void): this;
+  once(
+    event: "close" | "error",
+    listener:
+      | ((code: number | null, signal: string | null) => void)
+      | ((cause: unknown) => void),
+  ): this {
+    if (event === "close") {
+      this.#close = listener as (
+        code: number | null,
+        signal: string | null,
+      ) => void;
+    } else {
+      this.#error = listener as (cause: unknown) => void;
+    }
+    return this;
+  }
+
+  emitClose(code: number | null, signal: string | null): void {
+    const listener = this.#close;
+    this.#close = undefined;
+    listener?.(code, signal);
+  }
+
+  emitError(cause: unknown): void {
+    const listener = this.#error;
+    this.#error = undefined;
+    listener?.(cause);
+  }
+}
+
+class FakeDeadlines {
+  readonly #entries: {
+    active: boolean;
+    listener: () => void;
+    milliseconds: number;
+  }[] = [];
+
+  schedule(listener: () => void, milliseconds: number): () => void {
+    const entry = { active: true, listener, milliseconds };
+    this.#entries.push(entry);
+    return () => {
+      entry.active = false;
+    };
+  }
+
+  count(milliseconds: number): number {
+    return this.#entries.filter(
+      (entry) => entry.active && entry.milliseconds === milliseconds,
+    ).length;
+  }
+
+  fire(milliseconds: number): void {
+    const entry = this.#entries.find(
+      (candidate) =>
+        candidate.active && candidate.milliseconds === milliseconds,
+    );
+    assert.ok(entry !== undefined);
+    entry.active = false;
+    entry.listener();
+  }
+}
+
+function boundary(
+  child: FakeResolverChild,
+  deadlines: FakeDeadlines,
+): PlatformWorkspaceRootsBoundary {
+  return Object.freeze({
+    launch: (_executable, _arguments, _options) => child,
+    schedule: (listener: () => void, milliseconds: number) =>
+      deadlines.schedule(listener, milliseconds),
+  });
+}
 
 function ascii(value: string): Uint8Array {
   const bytes = new Uint8Array(value.length);
@@ -130,4 +245,72 @@ test("resolves current roots and fails closed on unsupported targets", async () 
     assert.equal(unsupported.error.kind, "unsupportedPlatform");
     assert.equal(Object.isFrozen(unsupported.error), true);
   }
+});
+
+test("settles at the resolver cleanup deadline when close never arrives", async () => {
+  const child = new FakeResolverChild();
+  const deadlines = new FakeDeadlines();
+  const pending = resolvePlatformWorkspaceRoots(
+    "win32",
+    "x64",
+    boundary(child, deadlines),
+  );
+
+  deadlines.fire(PLATFORM_WORKSPACE_ROOTS_DEADLINES.operationMilliseconds);
+  assert.equal(child.kills, 1);
+  assert.equal(
+    deadlines.count(PLATFORM_WORKSPACE_ROOTS_DEADLINES.cleanupMilliseconds),
+    1,
+  );
+  deadlines.fire(PLATFORM_WORKSPACE_ROOTS_DEADLINES.cleanupMilliseconds);
+
+  assert.deepEqual(await pending, { ok: false, error: { kind: "timeout" } });
+  child.stdout.emit(Uint8Array.from([1, 2, 3]));
+  child.stderr.emit(Uint8Array.from([4]));
+  child.emitClose(null, "SIGTERM");
+  child.emitError(new Error("late"));
+});
+
+test("settles resolver timeout when kill fails or throws", async () => {
+  for (const mode of ["false", "throw"] as const) {
+    const child = new FakeResolverChild();
+    const deadlines = new FakeDeadlines();
+    if (mode === "false") {
+      child.killResult = false;
+    } else {
+      child.killCause = new Error("private native cause");
+    }
+    const pending = resolvePlatformWorkspaceRoots(
+      "linux",
+      "x64",
+      boundary(child, deadlines),
+    );
+
+    deadlines.fire(PLATFORM_WORKSPACE_ROOTS_DEADLINES.operationMilliseconds);
+
+    assert.deepEqual(await pending, {
+      ok: false,
+      error: { kind: "timeout" },
+    });
+    assert.equal(child.kills, 1);
+  }
+});
+
+test("settles the resolver failure when close arrives during cleanup", async () => {
+  const child = new FakeResolverChild();
+  const deadlines = new FakeDeadlines();
+  const pending = resolvePlatformWorkspaceRoots(
+    "linux",
+    "x64",
+    boundary(child, deadlines),
+  );
+
+  deadlines.fire(PLATFORM_WORKSPACE_ROOTS_DEADLINES.operationMilliseconds);
+  child.emitClose(null, "SIGTERM");
+
+  assert.deepEqual(await pending, { ok: false, error: { kind: "timeout" } });
+  assert.equal(
+    deadlines.count(PLATFORM_WORKSPACE_ROOTS_DEADLINES.cleanupMilliseconds),
+    0,
+  );
 });

@@ -294,12 +294,24 @@ export class ApplicationController
     pointerProjection?: PointerProjection,
   ): ApplicationUpdate {
     const effects: ApplicationEffect[] = [];
+    let exitEmitted = false;
     let redraw = false;
+    const appendEffects = (next: readonly ApplicationEffect[]): void => {
+      for (const effect of next) {
+        if (effect.kind === "exit") {
+          if (exitEmitted) {
+            continue;
+          }
+          exitEmitted = true;
+        }
+        effects.push(effect);
+      }
+    };
     const session = this.#session.feed(chunk, timeMilliseconds, {
       apply: (action) => {
         const applied = this.applySessionAction(action, pointerProjection);
         redraw = redraw || applied.redraw;
-        effects.push(...applied.effects);
+        appendEffects(applied.effects);
       },
       editorRedrawn: () => {
         if (this.#notice.length > 0) {

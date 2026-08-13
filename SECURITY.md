@@ -49,6 +49,9 @@ protection, or a sandbox for approved processes.
 Model and tool text cannot provide styling metadata or terminal escapes. Generic
 components and frames validate one closed semantic tone per printable row; only
 the owned renderer emits fixed ANSI and resets it during row output and cleanup.
+Interrupted OSC strings are conservatively closed before later renderer output.
+Native root and clipboard helpers have hard operation and post-kill cleanup
+deadlines; late events cannot change settled content-free results.
 
 The project enables one exact outbound HTTPS path for an operator-configured
 OpenCode Go API key. The owned startup prompt disables echo, bounds input, and

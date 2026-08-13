@@ -119,6 +119,34 @@ test("active Ctrl+C requests one cancellation and preserves the draft", () => {
   assert.deepEqual(application.notice, []);
 });
 
+test("preserves ordered coalesced shutdown actions without duplicate exit", () => {
+  const command = new ApplicationController(true);
+  assert.ok(command.turnAccepted(started(1, "question")).ok);
+  command.feed("preserved draft");
+  const commandExit = command.feed("\u0003/exit\r");
+  assert.deepEqual(commandExit.effects, [
+    { kind: "cancelTurn", turnId: 1 },
+    { kind: "exit" },
+  ]);
+  assert.equal(command.project(40).text, "preserved draft");
+
+  const idleExit = new ApplicationController(false).feed("\u0003/exit\r");
+  assert.deepEqual(idleExit.effects, [{ kind: "exit" }]);
+
+  const unknown = new ApplicationController(true);
+  assert.ok(unknown.turnAccepted(started(2, "question")).ok);
+  assert.deepEqual(unknown.feed("\u0003/not-exit\r").effects, [
+    { kind: "cancelTurn", turnId: 2 },
+  ]);
+
+  const eof = new ApplicationController(true);
+  assert.ok(eof.turnAccepted(started(3, "question")).ok);
+  assert.deepEqual(eof.feed("\u0003\u0004").effects, [
+    { kind: "cancelTurn", turnId: 3 },
+    { kind: "exit" },
+  ]);
+});
+
 test("owns bounded transcript navigation and resumes follow at the end", () => {
   const application = new ApplicationController(true);
   assert.ok(application.observeTranscriptGeometry(20, 5).ok);

@@ -238,7 +238,9 @@ resolver. Linux uses the effective-user account database and `/tmp`; Windows
 uses the current-user Profile and Local AppData Known Folders. The Node adapter
 starts that exact package-relative executable with no arguments, shell, input,
 or inherited environment, accepts one strictly decoded bounded binary frame,
-and enforces a five-second deadline. Platform discovery remains separate from
+and enforces a five-second operation deadline plus a 250-millisecond cleanup
+deadline after termination is requested. Missing or late `close` cannot keep or
+later mutate the content-free result. Platform discovery remains separate from
 the boundary's filesystem canonicalization and exact-root denial.
 CLI also owns the exact OpenCode Go HTTPS adapter and startup configuration. It
 admits only `opencode.ai:443`, never follows an application-selected origin,
@@ -306,6 +308,10 @@ invocation bypasses the renderer and writes plain text containing no escape byte
 then releases any injected runtime. Every write installs a scoped output-error
 listener until its completion callback, including renderer cleanup after host
 shutdown.
+Before a write containing OSC 8 or OSC 52, the renderer marks a terminal string
+as possibly active. A failed write must be closed by ST and one complete OSC 8
+close before any later frame, copy, synchronized-output recovery, or terminal
+mode cleanup proceeds.
 
 Terminal memory limits are explicit: one input chunk and one bracketed-paste
 payload are each at most 65,536 UTF-16 code units, queued input is at most
@@ -331,12 +337,16 @@ scroll reconciliation, notices, and ordered effects.
 The session invokes that reducer synchronously at each decoded action boundary,
 so a pointer mutation cannot be overtaken by later text, deletion, or paste from
 the same terminal chunk. This remains one serialized input transaction rather
-than a deferred pointer queue or second editor path.
+than a deferred pointer queue or second editor path. Interrupt, command, EOF,
+and exit actions use that same emission path; one transaction retains
+cancellation before shutdown while publishing at most one terminal exit effect.
 
 A settled non-empty range is reconstructed from visible logical text. On
 Windows x64, the CLI clipboard port sends one bounded UTF-16LE frame to the exact
 package-relative owned C17 broker; broker exit success confirms the Win32
-`CF_UNICODETEXT` transfer. On unsupported platforms, the port returns
+`CF_UNICODETEXT` transfer. Its two-second operation deadline is followed by a
+250-millisecond post-kill cleanup deadline, after which the content-free failure
+settles even if `close` is absent. On unsupported platforms, the port returns
 `unsupported` and the serialized renderer emits the bounded OSC 52 fallback.
 The single-writer reducer distinguishes `copied`, `requested`, and `failed`
 settlements through the existing notice generation. Clipboard notices use the

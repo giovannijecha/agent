@@ -17,6 +17,7 @@ import {
   STYLE_RESET,
   SYNCHRONIZED_OUTPUT_BEGIN,
   SYNCHRONIZED_OUTPUT_END,
+  TERMINAL_STRING_TERMINATOR,
   beginStyle,
   HYPERLINK_CLOSE,
   moveTo,
@@ -52,6 +53,10 @@ function renderRow(row: RichRow): string {
   return rendered.join("");
 }
 
+function rowContainsHyperlink(row: RichRow): boolean {
+  return row.spans.some((span) => span.hyperlink !== undefined);
+}
+
 function fitRenderedRow(row: RichRow, columns: number): RichRow {
   const fitted = row.fit(columns);
   if (!fitted.ok) {
@@ -73,6 +78,7 @@ export class Renderer<E> {
   #mouseButtonEventsMayBeActive = false;
   #mouseSgrMayBeActive = false;
   #synchronizationMayBeActive = false;
+  #terminalStringMayBeActive = false;
   #tail: Promise<void> = Promise.resolve();
 
   constructor(output: TextOutput<E>) {
@@ -95,8 +101,17 @@ export class Renderer<E> {
   /** Writes one prevalidated OSC 52 request in renderer order. */
   copy(payload: ClipboardPayload): Promise<Result<void, E>> {
     return this.#enqueue(async () => {
+      const recovered = await this.#recoverTerminalString();
+      if (!recovered.ok) {
+        return recovered;
+      }
       const sequence = ClipboardPayload.sequence(payload);
-      return this.#output.write(sequence);
+      this.#terminalStringMayBeActive = true;
+      const written = await this.#output.write(sequence);
+      if (written.ok) {
+        this.#terminalStringMayBeActive = false;
+      }
+      return written;
     });
   }
 
@@ -110,6 +125,10 @@ export class Renderer<E> {
   }
 
   async #render(frame: Frame, viewport: Viewport): Promise<Result<void, E>> {
+    const recovered = await this.#recoverTerminalString();
+    if (!recovered.ok) {
+      return recovered;
+    }
     const next = Object.freeze(
       frame.rows
         .slice(0, viewport.rows)
@@ -121,6 +140,7 @@ export class Renderer<E> {
       this.#previousViewport.rows !== viewport.rows;
     const initializing = !this.#started;
     let buffer = "";
+    let containsTerminalString = false;
 
     if (initializing) {
       buffer +=
@@ -157,6 +177,7 @@ export class Renderer<E> {
       }
       buffer += moveTo(row, 0) + CLEAR_ROW;
       if (nextLine !== undefined) {
+        containsTerminalString ||= rowContainsHyperlink(nextLine);
         buffer += renderRow(nextLine);
       }
     }
@@ -184,6 +205,7 @@ export class Renderer<E> {
       ? SYNCHRONIZED_OUTPUT_END + STYLE_RESET
       : "";
     this.#synchronizationMayBeActive = true;
+    this.#terminalStringMayBeActive = containsTerminalString;
     const written = await this.#output.write(
       recovery + SYNCHRONIZED_OUTPUT_BEGIN + buffer + SYNCHRONIZED_OUTPUT_END,
     );
@@ -192,6 +214,7 @@ export class Renderer<E> {
     }
 
     this.#synchronizationMayBeActive = false;
+    this.#terminalStringMayBeActive = false;
     this.#started = true;
     this.#previous = next;
     this.#previousViewport = viewport;
@@ -200,6 +223,10 @@ export class Renderer<E> {
   }
 
   async #finish(): Promise<Result<void, E>> {
+    const recovered = await this.#recoverTerminalString();
+    if (!recovered.ok) {
+      return recovered;
+    }
     if (
       !this.#alternateMayBeActive &&
       !this.#bracketedPasteMayBeActive &&
@@ -248,5 +275,18 @@ export class Renderer<E> {
     this.#previous = Object.freeze([]);
     this.#previousViewport = undefined;
     return ok(undefined);
+  }
+
+  async #recoverTerminalString(): Promise<Result<void, E>> {
+    if (!this.#terminalStringMayBeActive) {
+      return ok(undefined);
+    }
+    const recovered = await this.#output.write(
+      TERMINAL_STRING_TERMINATOR + HYPERLINK_CLOSE,
+    );
+    if (recovered.ok) {
+      this.#terminalStringMayBeActive = false;
+    }
+    return recovered;
   }
 }
