@@ -2,6 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-08-12
+- Updated: 2026-08-13
 
 ## Context
 
@@ -22,6 +23,12 @@ The original asset bytes are stored under `assets/brand/`. Their filenames,
 roles, dimensions, palette, provenance, and SHA-256 digests are registered in
 `assets/brand/manifest.json` and enforced by the canonical verifier.
 
+Registered SVG is passive identity data. The verifier rejects scriptable
+elements, event-handler attributes, animation, external or embedded references,
+active styling URLs, DTDs, entities, and XML processing stylesheets before a
+digest can be admitted. This fail-closed capability check is independent of the
+host that eventually displays the asset.
+
 The brand is used only where identity materially helps: repository
 documentation, provider applications, authentication surfaces, and future
 distribution metadata. It does not add a persistent terminal banner, welcome
@@ -33,6 +40,7 @@ screen, dashboard, or product dependency inside `@agent/tui`.
 - Hosts may select a registered vector or raster variant without altering it.
 - Any byte, dimension, filename, palette, or asset-set change is explicit and
   reviewable.
+- A matching digest cannot authorize active SVG capabilities.
 - The terminal remains conversation-first and can evolve independently from the
   brand system.
 

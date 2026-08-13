@@ -28,6 +28,24 @@ function currentContext() {
   };
 }
 
+function contextWithChangedSvg(transform) {
+  const changed = structuredClone(manifest);
+  const context = currentContext();
+  const index = changed.assets.findIndex(
+    (asset) => asset.mediaType === "image/svg+xml",
+  );
+  const target = changed.assets[index].path;
+  const unsafe = Buffer.from(
+    transform(new TextDecoder().decode(context.files[target])),
+    "utf8",
+  );
+  changed.assets[index].sha256 = createHash("sha256")
+    .update(unsafe)
+    .digest("hex");
+  context.files[target] = unsafe;
+  return { changed, context };
+}
+
 test("accepts the canonical brand pack", () => {
   assert.doesNotThrow(() => validateBrandPolicy(manifest, currentContext()));
 });
@@ -52,23 +70,50 @@ test("rejects modified brand bytes", () => {
 });
 
 test("rejects unsafe SVG capabilities", () => {
-  const changed = structuredClone(manifest);
-  const context = currentContext();
-  const index = changed.assets.findIndex((asset) => asset.mediaType === "image/svg+xml");
-  const target = changed.assets[index].path;
-  const unsafe = Buffer.from(
-    new TextDecoder().decode(context.files[target]).replace(
+  const { changed, context } = contextWithChangedSvg((text) =>
+    text.replace(
       "</svg>",
       "<script>void 0</script></svg>",
     ),
-    "utf8",
   );
-  changed.assets[index].sha256 = createHash("sha256").update(unsafe).digest("hex");
-  context.files[target] = unsafe;
   assert.throws(
     () => validateBrandPolicy(changed, context),
     BrandPolicyError,
   );
+});
+
+test("rejects SVG event-handler attributes", () => {
+  for (const attribute of [
+    'onload="void 0"',
+    'ONCLICK = "void 0"',
+    'onfocusin\n= "void 0"',
+  ]) {
+    const { changed, context } = contextWithChangedSvg((text) =>
+      text.replace("<rect ", "<rect " + attribute + " "),
+    );
+    assert.throws(
+      () => validateBrandPolicy(changed, context),
+      BrandPolicyError,
+    );
+  }
+});
+
+test("rejects other active SVG features", () => {
+  const mutations = [
+    (text) => text.replace("</svg>", "<animate attributeName=\"x\"/></svg>"),
+    (text) => text.replace(
+      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
+      "<?xml version=\"1.0\" encoding=\"UTF-8\"?><?xml-stylesheet href=\"x\"?>",
+    ),
+    (text) => text.replace("<svg ", "<!DOCTYPE svg><svg "),
+  ];
+  for (const mutate of mutations) {
+    const { changed, context } = contextWithChangedSvg(mutate);
+    assert.throws(
+      () => validateBrandPolicy(changed, context),
+      BrandPolicyError,
+    );
+  }
 });
 
 test("rejects an unregistered brand file", () => {

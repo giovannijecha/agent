@@ -133,9 +133,15 @@ function validateSvg(bytes, asset) {
     fail("brand SVG contract mismatch");
   }
   if (
-    /<(?:script|foreignObject|image|use|style)\b/iu.test(text) ||
+    /<(?:animate|animateMotion|animateTransform|discard|foreignObject|handler|image|script|set|style|use)\b/iu.test(
+      text,
+    ) ||
     /\b(?:href|xlink:href)\s*=/iu.test(text) ||
-    /(?:data:|@import|url\s*\()/iu.test(text)
+    /\bon[a-z][\w:.-]*\s*=/iu.test(text) ||
+    /\bev:event\s*=/iu.test(text) ||
+    /(?:data:|@import|url\s*\()/iu.test(text) ||
+    /<!(?:DOCTYPE|ENTITY)\b/iu.test(text) ||
+    /<\?xml-stylesheet\b/iu.test(text)
   ) {
     fail("brand SVG contains an unsafe capability");
   }
