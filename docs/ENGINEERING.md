@@ -180,6 +180,35 @@ viewport, and validate the complete frame before output. Without a runtime,
 references synchronously before awaiting external shutdown. Aggregate limits
 must count queued payload size as well as event count.
 
+Pointer input follows decision 0045. Decode only bounded SGR 1006 reports into
+closed immutable events; coordinates, modifiers, button state, motion, wheel,
+and release never enter draft text. Route events only against the exact latest
+successful frame and its planned allocations. Keep transcript selection in
+stable document/offset space before wrapping, preserve that metadata through
+the shared display path, and reuse the existing scroll state for wheel input.
+Keep composer range ownership inside `LineEditor`, including hit resolution,
+whitespace word selection, word-wise extension, replacement, deletion, and
+paste. Settle simple drag and double-click gestures on release so the second
+press may extend by complete word runs before exactly one copy. An ordered non-
+pointer input event breaks double-click state, and resize clears selection. Do
+not add screen-coordinate archives or product hit calculations to generic
+components.
+
+Only the renderer may enable or disable mouse modes, mark selected spans, emit
+exact visible HTTPS OSC 8 links, or send bounded OSC 52 clipboard requests.
+Keep destination equal to visible ASCII HTTPS text, cap clipboard input before
+encoding, and serialize copy with frame writes. The CLI's removable clipboard
+port may invoke only the exact owned Windows x64 C17 broker with its versioned
+UTF-16LE stdin frame, empty environment, fixed timeout, and no arguments, shell,
+PATH lookup, or retained process. Confirm success only after broker exit zero;
+an unsupported platform may request OSC 52, and no failure may claim success or
+exit the application. Route its short settlement through the one notice
+generation and generic `InputArea` trailing status; it must not add a layout
+slot, reserve editor columns, move the caret, or displace transcript content.
+Treat Shift as the optional native-selection escape hatch and Ctrl+C as the agent interrupt. Use the same VT pointer contract on Windows
+and Linux; never add a global hook, browser launcher, foreign helper or library,
+terminal probe, or environment-selected fallback.
+
 Raw mode, listeners, and stream errors remain at the CLI edge. Generic decoding,
 editing, component layout, viewport, frame, and rendering behavior remains
 Node-free in the TUI. Runtime streaming and cancellation remain terminal-free.
@@ -222,9 +251,10 @@ the parser. Under decision 0031 as amended by 0032, complete recognized
 fences may select only the five closed syntax roles through the internal
 bounded line scanner, and unknown or unlabeled fences remain plain. Never infer
 operational state or arbitrary style from model content. Do not add rendered
-HTML, active links, images, arbitrary styles, parser callbacks, extensions, a
+HTML, Markdown-supplied hidden links, images, arbitrary styles, parser callbacks, extensions, a
 syntax-highlighting dependency or registry, a retained AST, or a second
-rendering engine. If inline role
+rendering engine. Decision 0045 permits only a validated OSC 8 destination
+identical to exact visible ASCII HTTPS text. If inline role
 count exceeds the row bound, fall back to the complete sanitized literal line.
 Snapshot document collections before parsing, bound their count and total text,
 and restart syntax state at every document boundary. Conversation roles use
@@ -262,7 +292,8 @@ renderer owns enabling and disabling bracketed-paste mode with its other
 terminal lifecycle controls. Map admitted Ctrl word controls into semantic
 decoder events, and keep the whitespace-delimited movement and deletion rule
 inside the bounded editor. Never duplicate control decoding or word mutation in
-CLI state. Keep the draft neutral. Project one shared conversation stage in the
+CLI state. Pointer selection must project and mutate this same editor range.
+Keep the draft neutral. Project one shared conversation stage in the
 CLI before composing the shell: transcript, activity, notice, completion, and
 composer use the same full usable width, retaining one technical outer column
 per side when the viewport permits it. Apply that stage to the footer and place

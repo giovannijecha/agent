@@ -86,6 +86,19 @@ Editing, multiline paste, transcript navigation, approval behavior, colors,
 motion, and failure handling are documented in the
 [terminal-interface manual](docs/manual/03-terminal-interface.md).
 
+Inside the alternate screen, `agent` owns pointer interaction on Windows and
+Linux through the same terminal protocol. Drag to select conversation or
+composer text and copy on release. Double-click and release copies one
+whitespace-delimited word; hold the second press and drag to extend by complete
+words. The wheel moves the transcript's existing scroll position without
+losing a settled selection. Windows x64 confirms copies through the owned native
+clipboard boundary; other platforms issue a bounded OSC 52 request and say so
+without claiming host success. A short result appears inside the composer's
+right edge without adding a row or moving the conversation.
+Exact visible `https://` text is exposed as a terminal hyperlink; the terminal
+chooses its activation gesture and security UI. Shift remains an optional
+terminal-native selection path, while Ctrl+C remains the agent interrupt.
+
 ## Safety boundaries
 
 - One model response may select one bounded ordered tool-call batch.
@@ -118,7 +131,7 @@ the sole controller for deterministic reduction.
 | `packages/agent-provider-opencode-go` | Node-free OpenCode Go wire adapter |
 | `packages/agent-tui` | Generic input, layout, Markdown, frames, and renderer |
 | `packages/agent-cli` | Commands, chat, tools, terminal, Node I/O, and composition |
-| `packages/agent-cli/native` | Private Windows and Linux process containment |
+| `packages/agent-cli/native` | Private platform roots, clipboard, and process containment |
 | `types` | Minimal owned Node declarations |
 | `tools` | Build, ownership, test, policy, and smoke verification |
 | `docs` | Operator manual, architecture, decisions, and provenance |

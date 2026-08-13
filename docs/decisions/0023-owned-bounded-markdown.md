@@ -2,10 +2,13 @@
 
 - Status: accepted
 - Date: 2026-08-10
-- Amended by: decisions 0030, 0031, 0032, and 0040
+- Amended by: decisions 0030, 0031, 0032, 0040, and 0045
 
 Decision 0040 makes fenced code and strict table regions transparent while
 retaining this decision's grammar, bounds, padding, wrapping, and renderer path.
+Decision 0045 preserves Markdown link syntax as literal text but recognizes an
+exact visible ASCII HTTPS target after parsing for terminal-owned activation.
+No hidden Markdown destination or new Markdown construct is admitted.
 
 ## Context
 

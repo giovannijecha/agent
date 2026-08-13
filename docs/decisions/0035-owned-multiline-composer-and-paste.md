@@ -3,6 +3,7 @@
 - Status: accepted
 - Date: 2026-08-11
 - Composer surface amended by: decision 0040
+- Editor interaction amended by: decision 0045
 
 Decision 0040 replaces the original enclosing `Panel` below with one
 stage-wide borderless neutral `Surface`; `InputArea`, editor ownership, bounds,
@@ -46,6 +47,11 @@ events. A word boundary is a run of spaces, tabs, or line feeds; every other
 code point belongs to the adjacent word. Movement and deletion first cross
 immediate whitespace and then one word. The editor owns this rule, so terminal
 escape syntax never leaks into the CLI or application reducer.
+
+Decision 0045 later adds pointer positioning and selection to this same
+`LineEditor`. Its ranges reuse the whitespace word rule and the existing edit,
+paste, deletion, submission, projection, and caret paths; no second composer
+editor is introduced.
 
 The TUI adds one generic `InputArea` component beside the retained one-row
 `InputLine`. Its synchronous projection contains printable rows and one local

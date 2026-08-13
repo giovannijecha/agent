@@ -60,6 +60,71 @@ test("composes and normalizes closed slant and surface dimensions", () => {
   );
 });
 
+test("validates and preserves independent selection and interaction metadata", () => {
+  const first = TextSpan.create(
+    "https://example.com",
+    "accent",
+    { mark: "selected", slant: "italic", surface: "subtle" },
+    {
+      hyperlink: "https://example.com",
+      position: { document: 7, offset: 3 },
+    },
+  );
+  const continuation = TextSpan.create(
+    "/path",
+    "accent",
+    { mark: "selected", slant: "italic", surface: "subtle" },
+    {
+      hyperlink: "https://example.com",
+      position: { document: 7, offset: 22 },
+    },
+  );
+  assert.ok(first.ok);
+  assert.ok(continuation.ok);
+
+  const row = RichRow.create([first.value, continuation.value]);
+  assert.ok(row.ok);
+  assert.equal(row.value.spans.length, 1);
+  assert.equal(row.value.spans.at(0)?.mark, "selected");
+  assert.equal(row.value.spans.at(0)?.hyperlink, "https://example.com");
+  assert.deepEqual(row.value.spans.at(0)?.position, {
+    document: 7,
+    offset: 3,
+  });
+
+  const fitted = row.value.fit(10);
+  assert.ok(fitted.ok);
+  assert.equal(fitted.value.spans.at(0)?.mark, "selected");
+  assert.equal(fitted.value.spans.at(0)?.hyperlink, "https://example.com");
+  assert.deepEqual(fitted.value.spans.at(0)?.position, {
+    document: 7,
+    offset: 3,
+  });
+});
+
+test("rejects hidden, unsafe, and malformed interaction metadata", () => {
+  const scheme = TextSpan.create("visible", "plain", undefined, {
+    hyperlink: "http://example.com",
+  });
+  const control = TextSpan.create("visible", "plain", undefined, {
+    hyperlink: "https://example.com\u001B",
+  });
+  const credentials = TextSpan.create("visible", "plain", undefined, {
+    hyperlink: "https://user:secret@example.com/path",
+  });
+  const missingHost = TextSpan.create("visible", "plain", undefined, {
+    hyperlink: "https:///path",
+  });
+  const position = TextSpan.create("visible", "plain", undefined, {
+    position: { document: -1, offset: 0 },
+  });
+
+  for (const result of [scheme, control, credentials, missingHost, position]) {
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.equal(result.error.kind, "invalidSpan");
+  }
+});
+
 test("accepts only the closed semantic surface vocabulary", () => {
   for (const surface of [
     "attention",

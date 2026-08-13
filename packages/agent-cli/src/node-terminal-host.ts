@@ -1,4 +1,5 @@
 import {
+  hrtime,
   stdin,
   stdout,
   type ReadableStream,
@@ -266,7 +267,16 @@ export class NodeTerminalHost implements TerminalHost<NodeTerminalError> {
       this.#failQueue("terminal input chunk exceeded the owned limit");
       return;
     }
-    this.#enqueue(ok(Object.freeze({ kind: "input" as const, text })));
+    const monotonicMilliseconds = Number(hrtime.bigint() / 1_000_000n);
+    this.#enqueue(
+      ok(
+        Object.freeze({
+          kind: "input" as const,
+          monotonicMilliseconds,
+          text,
+        }),
+      ),
+    );
   };
 
   readonly #onEnd = (): void => {

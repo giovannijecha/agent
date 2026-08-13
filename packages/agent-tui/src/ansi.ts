@@ -1,6 +1,6 @@
 /** ANSI control sequences owned by the renderer. */
 
-import type { SurfaceTone, TextSlant } from "./text-style.js";
+import type { SurfaceTone, TextMark, TextSlant } from "./text-style.js";
 import type { Tone } from "./tone.js";
 
 export const CLEAR_SCREEN = "\u001B[2J";
@@ -14,9 +14,14 @@ export const ALTERNATE_SCREEN_ENTER = "\u001B[?1049h";
 export const ALTERNATE_SCREEN_LEAVE = "\u001B[?1049l";
 export const BRACKETED_PASTE_ENABLE = "\u001B[?2004h";
 export const BRACKETED_PASTE_DISABLE = "\u001B[?2004l";
+export const MOUSE_BUTTON_EVENT_ENABLE = "\u001B[?1002h";
+export const MOUSE_BUTTON_EVENT_DISABLE = "\u001B[?1002l";
+export const MOUSE_SGR_ENABLE = "\u001B[?1006h";
+export const MOUSE_SGR_DISABLE = "\u001B[?1006l";
 export const SYNCHRONIZED_OUTPUT_BEGIN = "\u001B[?2026h";
 export const SYNCHRONIZED_OUTPUT_END = "\u001B[?2026l";
 export const STYLE_RESET = "\u001B[0m";
+const STRING_TERMINATOR = "\u001B\\";
 
 function toneParameters(tone: Tone): readonly string[] {
   switch (tone) {
@@ -50,10 +55,14 @@ function toneParameters(tone: Tone): readonly string[] {
 /** Maps one validated composable span style to a renderer-owned SGR sequence. */
 export function beginStyle(
   tone: Tone,
+  mark: TextMark,
   slant: TextSlant,
   surface: SurfaceTone,
 ): string {
   const parameters = [...toneParameters(tone)];
+  if (mark === "selected") {
+    parameters.push("7");
+  }
   if (slant === "italic") {
     parameters.push("3");
   }
@@ -72,6 +81,13 @@ export function beginStyle(
     ? ""
     : "\u001B[" + parameters.join(";") + "m";
 }
+
+/** Opens one prevalidated visible HTTPS hyperlink. */
+export function openHyperlink(target: string): string {
+  return "\u001B]8;;" + target + STRING_TERMINATOR;
+}
+
+export const HYPERLINK_CLOSE = "\u001B]8;;" + STRING_TERMINATOR;
 
 /** Converts a zero-based cell position into an ANSI cursor command. */
 export function moveTo(zeroBasedRow: number, zeroBasedColumn: number): string {

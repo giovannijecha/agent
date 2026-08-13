@@ -1,6 +1,13 @@
 /** Public terminal UI surface for agent. */
 
 export {
+  CLIPBOARD_CODE_UNIT_LIMIT,
+  ClipboardError,
+  type ClipboardErrorKind,
+  ClipboardPayload,
+} from "./clipboard.js";
+
+export {
   ComponentError,
   type Component,
   type ComponentErrorKind,
@@ -29,7 +36,13 @@ export {
   type InputLineOptions,
   type InputProjectionSource,
 } from "./input-line.js";
-export { InputDecoder, type KeyEvent } from "./input-decoder.js";
+export {
+  InputDecoder,
+  type KeyEvent,
+  type PointerAction,
+  type PointerButton,
+  type PointerEvent,
+} from "./input-decoder.js";
 export {
   LineEditor,
   type EditorAreaProjection,
@@ -37,6 +50,7 @@ export {
   type EditorProjection,
 } from "./line-editor.js";
 export { MarkdownBlock } from "./markdown-block.js";
+export { markdownSelectionText } from "./interactive-markdown.js";
 export {
   activityPulseTones,
   advanceMotionPhase,
@@ -76,10 +90,18 @@ export {
 export { type Tone } from "./tone.js";
 export {
   type SurfaceTone,
+  type TextMark,
   type TextSlant,
   type TextStyle,
   type TextStyleOptions,
 } from "./text-style.js";
+export {
+  isHttpsTarget,
+  type TextInteraction,
+  type TextPosition,
+  TextSelection,
+} from "./text-interaction.js";
+export { hitTextPosition } from "./text-hit.js";
 export {
   Surface,
   type SurfaceExtent,

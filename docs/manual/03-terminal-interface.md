@@ -25,6 +25,39 @@ A bracketed paste is inserted as one atomic draft edit. Line feeds and tabs
 remain draft content, control-looking bytes inside the paste are not interpreted
 as keys or commands, and only a separately typed Enter submits the result.
 
+In an interactive alternate screen, left-drag selects visible conversation or
+composer text and copies it on release. A second press on the same logical
+character within 500 milliseconds selects its complete whitespace or non-
+whitespace run; release copies that word. Keep the second press held and drag to
+extend the range through complete word runs before release. In the composer,
+typing, paste, Backspace, Delete, and word deletion replace or remove the active
+range through the same editor path.
+
+Copied logical text excludes soft wrapping and surface padding while preserving
+source line breaks and message order. Windows x64 shows `Copied!` only after its
+owned native clipboard boundary succeeds. Other platforms show `Copy
+requested!` after the bounded OSC 52 request is written; the terminal may still
+reject or ignore it. Failure shows `Copy failed!` without closing `agent`. These
+short statuses use the composer's right edge and expire normally. They reserve
+no row or draft width and collapse when they cannot fit, so copying never moves
+the transcript, composer, or caret. Copy is bounded to 65,536 UTF-16 code units;
+a larger range remains selected and shows a warning instead of being truncated.
+
+The mouse wheel over the transcript reuses its normal scroll state. A settled
+logical selection survives scrolling, so a long message can be reviewed without
+turning the range into screen coordinates. Resize clears transcript and composer
+selection because the wrapped geometry has changed. Any intervening keyboard
+input breaks a pending double-click sequence. Hold Shift when pressing or
+dragging for the terminal's optional native selection behavior. This is an
+escape hatch, not the application copy path. Ctrl+C remains cancellation during
+active work and exits while idle; it is not a copy shortcut.
+
+Exact visible ASCII text beginning with `https://` is exposed as a terminal
+hyperlink with the same visible destination. The terminal chooses the click or
+modifier gesture, confirmation, browser, and security UI. `agent` does not
+launch a browser. Markdown link labels, hidden targets, non-HTTPS schemes, and
+credentials are not admitted as hyperlink destinations.
+
 Type `/` or a non-exact command prefix to open completion above the composer.
 The list contains only the four exact commands. While it is visible, Up and Down
 move the selection without wrapping and do not move the transcript. Tab copies
@@ -92,7 +125,8 @@ On a wide terminal every shell region uses one CLI-owned conversation stage
 that fills the terminal except for one technical outer column per side when
 space permits.
 Transcript, activity, notice, completion, and composer use that projection;
-resizing recomputes it without mutating application state. The footer uses the
+resizing recomputes it without changing transcript, draft, or model state and
+clears only geometry-dependent selection. The footer uses the
 same projection so the pulse ends exactly with the composer surface. User requests occupy one
 stage-wide neutral subtle surface with one cell
 of horizontal and vertical padding and italic default-foreground text. A
@@ -115,11 +149,12 @@ from the footer. The composer survives first, followed by
 approval-sensitive state and document content; the footer collapses before
 required interaction.
 
-During an interactive session the renderer requests bracketed-paste mode and a
-steady block caret. This
+During an interactive session the renderer requests bracketed-paste mode, DEC
+button-event tracking, SGR mouse reports, and a steady block caret. This
 is terminal chrome, not a character in the draft. A terminal that ignores the
 standard shape command keeps its native caret. On exit or cleanup retry, agent
-disables bracketed-paste mode and restores the terminal-default cursor style
+disables both mouse modes and bracketed-paste mode, then restores the terminal-
+default cursor style
 before restoring visibility and the previous screen.
 
 The visual language is deliberately small. Ordinary conversation, tool names,
@@ -179,8 +214,9 @@ TypeScript, JSON, CSS/SCSS, and common shell dialects; empty or unknown labels
 remain plain. Inline delimiters
 must be exact and cannot be part of a longer run. Missing closing delimiters,
 longer delimiter runs, malformed tables, and every unsupported construct stay
-visible literally. Links, images, rendered HTML, escaped pipes, task lists, and
-extensions are not interpreted. Code highlighting is lexical display assistance,
+visible literally. Markdown link syntax, images, rendered HTML, escaped pipes,
+task lists, and extensions are not interpreted. Exact visible HTTPS text may
+carry only the terminal interaction described above. Code highlighting is lexical display assistance,
 not compiler semantics, execution, language discovery, or an extension system.
 Markdown shares the plain-text sanitizer, Unicode cell
 measurement, wrapping, anchoring, padding, structured rows, and final renderer;
@@ -281,6 +317,10 @@ generic selection list, contrast refinement, tests, rollback, and removal.
 Decision [0035](../decisions/0035-owned-multiline-composer-and-paste.md) governs
 multiline composition, atomic bracketed paste, semantic word editing, bounds,
 terminal lifecycle, tests, rollback, and removal.
+Decision [0045](../decisions/0045-owned-terminal-interaction.md) governs mouse
+lifecycle and decoding, logical selection, composer routing, scrolling, exact
+visible HTTPS links, bounded clipboard copy, Shift fallback, tests, rollback,
+and removal.
 Decision [0038](../decisions/0038-owned-deterministic-tui-motion.md) records
 deterministic phase ownership, scheduler bounds, terminal-event priority,
 the generating pulse, static Phase 0, tests, rollback, and removal.
@@ -309,6 +349,13 @@ tests, rollback, and removal.
 - Conversation-stage tests: `packages/agent-cli/test/conversation-stage.test.ts`
 - Generic side rail: `packages/agent-tui/src/side-rail.ts`
 - Shared display layout: `packages/agent-tui/src/display-text.ts`
+- Interactive Markdown projection: `packages/agent-tui/src/interactive-markdown.ts`
+- Logical text interaction: `packages/agent-tui/src/text-interaction.ts`
+- Planned-frame hit testing: `packages/agent-tui/src/text-hit.ts`
+- Bounded terminal clipboard encoding: `packages/agent-tui/src/clipboard.ts`
+- Platform clipboard port: `packages/agent-cli/src/platform-clipboard.ts`
+- Platform clipboard protocol: `packages/agent-cli/src/platform-clipboard-protocol.ts`
+- Owned native clipboard broker: `packages/agent-cli/native/clipboard`
 - Bounded Markdown component: `packages/agent-tui/src/markdown-block.ts`
 - Bounded Markdown parser: `packages/agent-tui/src/markdown-parser.ts`
 - Bounded code highlighter: `packages/agent-tui/src/syntax-highlighter.ts`
@@ -340,6 +387,7 @@ tests, rollback, and removal.
 - Quiet conversation rhythm: `docs/decisions/0040-owned-quiet-conversation-rhythm.md`
 - Conversation density: `docs/decisions/0043-owned-conversation-density.md`
 - Latin prose cell width: `docs/decisions/0044-owned-latin-prose-cell-width.md`
+- Owned terminal interaction: `docs/decisions/0045-owned-terminal-interaction.md`
 - Multiline composer, paste, and word editing: `docs/decisions/0035-owned-multiline-composer-and-paste.md`
 - Generic surface: `packages/agent-tui/src/surface.ts`
 - Composable text styles: `packages/agent-tui/src/text-style.ts`
@@ -349,6 +397,9 @@ tests, rollback, and removal.
 - Generic scroll view: `packages/agent-tui/src/scroll-view.ts`
 - Terminal host: `packages/agent-cli/src/node-terminal-host.ts`
 - Product view composition: `packages/agent-cli/src/chat-view.ts`
+- Product pointer routing: `packages/agent-cli/src/application.ts`
+- Pointer gesture state: `packages/agent-cli/src/terminal-interaction.ts`
+- Terminal-interaction regressions: `packages/agent-cli/test/terminal-interaction.test.ts`
 - Product density policy: `packages/agent-cli/src/conversation-density.ts`
 - Conversation document composition: `packages/agent-cli/src/conversation-view.ts`
 - Activity document composition: `packages/agent-cli/src/activity-view.ts`

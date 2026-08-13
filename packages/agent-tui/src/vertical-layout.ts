@@ -37,6 +37,7 @@ type PlannedAllocation = Readonly<{
 /** Public immutable geometry for one component in a planned layout. */
 export type VerticalAllocation = Readonly<{
   contentRows: number;
+  startRow: number;
   viewportRows: number;
 }>;
 
@@ -135,9 +136,14 @@ class PlannedVerticalLayout implements VerticalLayoutPlan {
     if (allocation === undefined) {
       return err(new ComponentError("invalidSlot", position));
     }
+    let startRow = 0;
+    for (let index = 0; index < position; index += 1) {
+      startRow += this.#allocations.at(index)?.rows ?? 0;
+    }
     return ok(
       Object.freeze({
         contentRows: allocation.measurement.preferredRows,
+        startRow,
         viewportRows: allocation.rows,
       }),
     );

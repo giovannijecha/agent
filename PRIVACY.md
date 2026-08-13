@@ -29,6 +29,30 @@ tranche; its acceptance is not a claim that filtering already exists.
 An approved `run_process` invocation is lifecycle-contained but not filesystem-
 or network-sandboxed; its Node code retains the launching user's authority.
 
+## Terminal selection and links
+
+Conversation and composer selections remain bounded in process memory. When a
+non-empty range settles, `agent` copies its visible logical text. On Windows
+x64, the CLI passes one bounded UTF-16LE frame to its exact generated C17 broker
+with no arguments, shell, inherited environment, or retained service. The
+broker writes `CF_UNICODETEXT` through the operating-system clipboard API, and
+the UI confirms success only after that API accepts ownership. On platforms
+without that admitted native boundary, the renderer writes OSC 52 and reports
+only that it asked the terminal host to copy; the host may ignore the request or
+apply its own clipboard policy. Failure is visible and nonfatal.
+
+Both paths are limited to 65,536 UTF-16 code units, contain no layout padding
+or hidden Markdown destination, retain no clipboard history, make no network
+request, and launch no foreign clipboard program. Clipboard content is external
+operating-system or terminal state after acceptance.
+
+Exact visible ASCII `https://` text may be emitted as an OSC 8 hyperlink whose
+destination is identical to the visible text. Markdown labels, hidden targets,
+other schemes, credentials, browser launching, and link telemetry are excluded.
+The terminal owns activation and any security prompt. Holding Shift retains the
+terminal's optional native selection route while application mouse reporting is
+active. Ctrl+C remains the agent interrupt and is not a copy shortcut.
+
 ## OpenCode Go connection
 
 When the operator enters an OpenCode Go key through the owned hidden prompt or
@@ -57,7 +81,9 @@ must not silently upload or synchronize session data.
 ## Removal
 
 Closing the current process releases its in-memory conversation, display state,
-and key reference. The operator must also remove the environment variable from
+selection state, and key reference. Clipboard content accepted by the terminal
+is external host state and must be cleared through that terminal or operating
+system. The operator must also remove the environment variable from
 any still-running parent shell. Removing the workspace removes all owned source and generated artifacts;
 installed toolchain software remains outside the project. Future persistence or
 credential features must add exact deletion instructions here before they ship.

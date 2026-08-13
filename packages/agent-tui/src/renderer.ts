@@ -10,13 +10,20 @@ import {
   CURSOR_SHOW,
   CURSOR_STEADY_BLOCK,
   CURSOR_STYLE_DEFAULT,
+  MOUSE_BUTTON_EVENT_DISABLE,
+  MOUSE_BUTTON_EVENT_ENABLE,
+  MOUSE_SGR_DISABLE,
+  MOUSE_SGR_ENABLE,
   STYLE_RESET,
   SYNCHRONIZED_OUTPUT_BEGIN,
   SYNCHRONIZED_OUTPUT_END,
   beginStyle,
+  HYPERLINK_CLOSE,
   moveTo,
+  openHyperlink,
 } from "./ansi.js";
 import type { Frame } from "./frame.js";
+import { ClipboardPayload } from "./clipboard.js";
 import type { TextOutput } from "./output.js";
 import { RichRow } from "./rich-row.js";
 import { ok, type Result } from "./result.js";
@@ -32,9 +39,14 @@ function rowsEqual(
 function renderRow(row: RichRow): string {
   const rendered: string[] = [];
   for (const span of row.spans) {
-    const prefix = beginStyle(span.tone, span.slant, span.surface);
+    const prefix = beginStyle(span.tone, span.mark, span.slant, span.surface);
+    const hyperlink = span.hyperlink;
+    const opened = hyperlink === undefined ? "" : openHyperlink(hyperlink);
+    const closed = hyperlink === undefined ? "" : HYPERLINK_CLOSE;
     rendered.push(
-      prefix.length === 0 ? span.text : prefix + span.text + STYLE_RESET,
+      prefix.length === 0
+        ? opened + span.text + closed
+        : opened + prefix + span.text + closed + STYLE_RESET,
     );
   }
   return rendered.join("");
@@ -58,6 +70,8 @@ export class Renderer<E> {
   #bracketedPasteMayBeActive = false;
   #cursorMayBeHidden = false;
   #cursorStyleMayBeChanged = false;
+  #mouseButtonEventsMayBeActive = false;
+  #mouseSgrMayBeActive = false;
   #synchronizationMayBeActive = false;
   #tail: Promise<void> = Promise.resolve();
 
@@ -76,6 +90,14 @@ export class Renderer<E> {
   /** Shows the cursor, leaves the alternate screen, and resets after success. */
   finish(): Promise<Result<void, E>> {
     return this.#enqueue(() => this.#finish());
+  }
+
+  /** Writes one prevalidated OSC 52 request in renderer order. */
+  copy(payload: ClipboardPayload): Promise<Result<void, E>> {
+    return this.#enqueue(async () => {
+      const sequence = ClipboardPayload.sequence(payload);
+      return this.#output.write(sequence);
+    });
   }
 
   #enqueue<T>(operation: () => Promise<T>): Promise<T> {
@@ -103,12 +125,16 @@ export class Renderer<E> {
     if (initializing) {
       buffer +=
         ALTERNATE_SCREEN_ENTER +
+        MOUSE_SGR_ENABLE +
+        MOUSE_BUTTON_EVENT_ENABLE +
         BRACKETED_PASTE_ENABLE +
         CURSOR_HIDE +
         CURSOR_STEADY_BLOCK +
         CLEAR_SCREEN +
         CURSOR_HOME;
       this.#alternateMayBeActive = true;
+      this.#mouseSgrMayBeActive = true;
+      this.#mouseButtonEventsMayBeActive = true;
       this.#bracketedPasteMayBeActive = true;
       this.#cursorStyleMayBeChanged = true;
     } else if (viewportChanged) {
@@ -179,6 +205,8 @@ export class Renderer<E> {
       !this.#bracketedPasteMayBeActive &&
       !this.#cursorMayBeHidden &&
       !this.#cursorStyleMayBeChanged &&
+      !this.#mouseButtonEventsMayBeActive &&
+      !this.#mouseSgrMayBeActive &&
       !this.#synchronizationMayBeActive
     ) {
       return ok(undefined);
@@ -188,6 +216,12 @@ export class Renderer<E> {
       ? SYNCHRONIZED_OUTPUT_END
       : "";
     cleanup += STYLE_RESET;
+    if (this.#mouseButtonEventsMayBeActive) {
+      cleanup += MOUSE_BUTTON_EVENT_DISABLE;
+    }
+    if (this.#mouseSgrMayBeActive) {
+      cleanup += MOUSE_SGR_DISABLE;
+    }
     if (this.#bracketedPasteMayBeActive) {
       cleanup += BRACKETED_PASTE_DISABLE;
     }
@@ -208,6 +242,8 @@ export class Renderer<E> {
     this.#bracketedPasteMayBeActive = false;
     this.#cursorMayBeHidden = false;
     this.#cursorStyleMayBeChanged = false;
+    this.#mouseButtonEventsMayBeActive = false;
+    this.#mouseSgrMayBeActive = false;
     this.#synchronizationMayBeActive = false;
     this.#previous = Object.freeze([]);
     this.#previousViewport = undefined;

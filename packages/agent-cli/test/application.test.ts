@@ -85,6 +85,29 @@ test("replaces, dismisses, and expires only the current notice generation", () =
   assert.equal(application.noticeToken, undefined);
 });
 
+test("routes clipboard settlement through one composer notice generation", () => {
+  const application = new ApplicationController(false);
+
+  assert.equal(application.clipboardSettled("copied").redraw, true);
+  assert.deepEqual(application.notice, ["Copied!"]);
+  assert.equal(application.noticeLevel, "info");
+  assert.equal(application.noticePlacement, "composer");
+  const copied = application.noticeToken;
+  assert.ok(copied !== undefined);
+
+  application.clipboardSettled("failed");
+  assert.deepEqual(application.notice, ["Copy failed!"]);
+  assert.equal(application.noticeLevel, "warning");
+  assert.equal(application.noticePlacement, "composer");
+  assert.equal(application.expireNotice(copied).redraw, false);
+
+  const failed = application.noticeToken;
+  assert.ok(failed !== undefined);
+  assert.equal(application.expireNotice(failed).redraw, true);
+  assert.deepEqual(application.notice, []);
+  assert.equal(application.noticePlacement, "context");
+});
+
 test("active Ctrl+C requests one cancellation and preserves the draft", () => {
   const application = new ApplicationController(true);
   assert.ok(application.turnAccepted(started(1, "question")).ok);

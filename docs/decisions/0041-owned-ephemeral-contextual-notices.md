@@ -19,15 +19,16 @@ adding another application writer or allowing a timer to mutate the frame.
 ## Decision
 
 The application continues to own one latest notice. A notice carries bounded
-lines, one closed semantic level (`info` or `warning`), and one immutable
-generation token. A new notice replaces the previous notice atomically.
+lines, one closed semantic level (`info` or `warning`), one closed placement
+(`context` or `composer`), and one immutable generation token. A new notice
+replaces the previous notice atomically.
 
-The CLI presents that notice after contextual tool activity and before slash
-completion or the composer. One shared optional rhythm row separates it from
-the preceding region. A transparent stage-wide `Surface` supplies one cell of
-horizontal padding, so notice text shares the content axis used by user text,
-assistant prose, and the draft. Notices add no background, border, rail, icon,
-or private panel.
+The CLI presents a `context` notice after contextual tool activity and before
+slash completion or the composer. One shared optional rhythm row separates it
+from the preceding region. A transparent stage-wide `Surface` supplies one cell
+of horizontal padding, so notice text shares the content axis used by user text,
+assistant prose, and the draft. Context notices add no background, border, rail,
+icon, or private panel.
 
 `info` uses muted foreground text. `warning` uses attention foreground text.
 Notice tone never derives from the current application or tool phase. Provider
@@ -35,6 +36,16 @@ status is one compact informational line containing display name, model, and
 authentication joined by the owned middle-dot separator. Unknown slash input
 uses one short warning line. Notice content remains CLI-owned and model text
 cannot select its level.
+
+Clipboard settlements from decision 0045 are the only `composer` placement.
+They use one short line: `Copied!`, `Copy requested!`, or `Copy failed!`. The
+generic `InputArea` may paint that text against the physical right edge of its
+caret row only when at least one separating cell remains after the projected
+draft. It does not reserve columns, alter projection width, wrap the draft,
+change preferred rows, move the caret, or add a layout slot; if it cannot fit,
+the visual status collapses while the generation still expires normally. The
+composer surface supplies its existing background. No second state owner,
+timer, overlay framework, or private panel is introduced.
 
 Every notice is ephemeral. The CLI-owned notice scheduler receives the current
 generation token and publishes one expiry event after exactly 5,000
@@ -77,10 +88,12 @@ escape-free fixed output.
 ## Verification
 
 Command and application tests prove compact provider information, independent
-notice levels, replacement, input dismissal, exact-token expiry, and stale-token
-rejection. View tests prove content-axis alignment, phase-independent tones,
-placement after activity, uniform rhythm, no background, and coexistence with
-completion. Scheduler tests use the owned manual clock to prove the exact delay,
+notice levels and placements, replacement, input dismissal, exact-token expiry,
+and stale-token rejection. View and generic input tests prove content-axis
+alignment, phase-independent tones, contextual placement after activity,
+composer-edge placement without geometry or caret change, constrained collapse,
+uniform rhythm, no added background, and coexistence with completion. Scheduler
+tests use the owned manual clock to prove the exact delay,
 replacement, cancellation, close, synchronous callbacks, one reader, and late
 callback rejection without sleeping. Arbiter and run-loop tests prove source
 priority, serialized expiry, cached-motion rebasing, preservation across
@@ -94,6 +107,11 @@ integration, manual, and visual regressions together. Add a notice level only by
 updating the closed application type, presenter, renderer-owned mapping,
 commands, safety tests, and this decision. Do not add per-command timers or
 private notice components.
+
+Change a placement only with its producer, `InputArea` contract, view geometry
+regressions, decision 0045 when applicable, and this decision. To remove the
+composer placement, return clipboard settlements to `context`, then remove the
+optional generic trailing status; ordinary contextual notices remain unchanged.
 
 To remove timed notices, delete the notice scheduler and its arbiter source,
 remove token expiry from the application, and retain input dismissal and the

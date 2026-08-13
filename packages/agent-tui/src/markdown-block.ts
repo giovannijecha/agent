@@ -4,23 +4,40 @@ import {
   type Component,
   type ComponentMeasurement,
 } from "./component.js";
-import { layoutDisplayLines } from "./display-text.js";
+import {
+  type DisplayLine,
+  layoutDisplayLines,
+} from "./display-text.js";
 import { Fragment } from "./fragment.js";
 import { TUI_LIMITS } from "./limits.js";
 import { markdownDisplayDocuments } from "./markdown-parser.js";
+import {
+  interactiveMarkdownLines,
+  markdownSelectionText,
+} from "./interactive-markdown.js";
 import { RichRow } from "./rich-row.js";
 import { err, ok, type Result } from "./result.js";
 import type { TextAnchor } from "./text-block.js";
+import { TextSelection } from "./text-interaction.js";
 import type { Viewport } from "./viewport.js";
 
 /** Immutable untrusted document component for the closed owned Markdown subset. */
 export class MarkdownBlock implements Component {
   readonly #anchor: TextAnchor;
   readonly #documents: readonly string[];
+  readonly #document: number | undefined;
+  readonly #selection: TextSelection | undefined;
 
-  private constructor(documents: readonly string[], anchor: TextAnchor) {
+  private constructor(
+    documents: readonly string[],
+    anchor: TextAnchor,
+    document: number | undefined = undefined,
+    selection: TextSelection | undefined = undefined,
+  ) {
     this.#documents = Object.freeze([...documents]);
     this.#anchor = anchor;
+    this.#document = document;
+    this.#selection = selection;
     Object.freeze(this);
   }
 
@@ -28,8 +45,48 @@ export class MarkdownBlock implements Component {
   static create(
     text: string,
     anchor: TextAnchor,
+    interaction?: Readonly<{
+      document: number;
+      selection?: TextSelection | undefined;
+    }>,
   ): Result<MarkdownBlock, ComponentError> {
-    return MarkdownBlock.createDocuments([text], anchor);
+    if (interaction === undefined) {
+      return MarkdownBlock.createDocuments([text], anchor);
+    }
+    if (typeof interaction !== "object" || interaction === null) {
+      return err(new ComponentError("invalidText", undefined));
+    }
+    let document: unknown;
+    let selection: unknown;
+    try {
+      document = interaction.document;
+      selection = interaction.selection;
+    } catch (_cause: unknown) {
+      return err(new ComponentError("invalidText", undefined));
+    }
+    const retainedSelection = selection === undefined
+      ? undefined
+      : selection instanceof TextSelection
+        ? TextSelection.snapshot(selection)
+        : undefined;
+    if (
+      !Number.isSafeInteger(document) ||
+      (document as number) < 0 ||
+      (selection !== undefined && retainedSelection === undefined)
+    ) {
+      return err(new ComponentError("invalidText", undefined));
+    }
+    const created = MarkdownBlock.createDocuments([text], anchor);
+    return created.ok
+      ? ok(
+          new MarkdownBlock(
+            created.value.#documents,
+            anchor,
+            document as number,
+            retainedSelection,
+          ),
+        )
+      : created;
   }
 
   /** Snapshots bounded documents whose Markdown state cannot cross a boundary. */
@@ -72,7 +129,7 @@ export class MarkdownBlock implements Component {
 
   measure(columns: number): Result<ComponentMeasurement, ComponentError> {
     const laidOut = layoutDisplayLines(
-      markdownDisplayDocuments(this.#documents),
+      this.#displayLines(),
       columns,
       this.#anchor,
       TUI_LIMITS.frameRows,
@@ -87,7 +144,7 @@ export class MarkdownBlock implements Component {
       return err(new ComponentError("invalidGeometry", undefined));
     }
     const laidOut = layoutDisplayLines(
-      markdownDisplayDocuments(this.#documents),
+      this.#displayLines(),
       viewport.columns,
       this.#anchor,
       viewport.rows,
@@ -105,5 +162,20 @@ export class MarkdownBlock implements Component {
         ? [...visible, ...padding]
         : [...padding, ...visible];
     return Fragment.create(viewport, rows);
+  }
+
+  /** Returns exact unwrapped visible text for one interactive document. */
+  selectionText(): string | undefined {
+    const document = this.#documents.at(0);
+    return this.#document === undefined || document === undefined
+      ? undefined
+      : markdownSelectionText(document);
+  }
+
+  #displayLines(): Iterable<DisplayLine> {
+    const document = this.#documents.at(0);
+    return this.#document === undefined || document === undefined
+      ? markdownDisplayDocuments(this.#documents)
+      : interactiveMarkdownLines(document, this.#document, this.#selection);
   }
 }

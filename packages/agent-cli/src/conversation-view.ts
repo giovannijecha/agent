@@ -5,6 +5,7 @@ import {
   MarkdownBlock,
   type Result,
   Surface,
+  TextSelection,
 } from "@agent/tui";
 
 import type { TranscriptEntry } from "./chat-state.js";
@@ -13,8 +14,12 @@ import { createSpacer, createStack } from "./view-components.js";
 
 function createEntryComponent(
   entry: TranscriptEntry,
+  selection: TextSelection | undefined,
 ): Result<Component, ComponentError> {
-  const markdown = MarkdownBlock.create(entry.content, "head");
+  const markdown = MarkdownBlock.create(entry.content, "head", {
+    document: entry.document,
+    selection,
+  });
   if (!markdown.ok) return markdown;
 
   return Surface.create(markdown.value, {
@@ -31,6 +36,7 @@ function createEntryComponent(
 
 function createTurnComponent(
   entries: readonly TranscriptEntry[],
+  selection: TextSelection | undefined,
 ): Result<Component, ComponentError> {
   const components: Component[] = [];
   for (let position = 0; position < entries.length; position += 1) {
@@ -38,7 +44,7 @@ function createTurnComponent(
     if (entry === undefined) {
       return err(new ComponentError("invalidComponent", position));
     }
-    const component = createEntryComponent(entry);
+    const component = createEntryComponent(entry, selection);
     if (!component.ok) return component;
     components.push(component.value);
 
@@ -54,6 +60,7 @@ function createTurnComponent(
 /** Builds the single role-free conversation document shared by every turn. */
 export function createConversationDocument(
   entries: readonly TranscriptEntry[],
+  selection: TextSelection | undefined = undefined,
 ): Result<Component, ComponentError> {
   const components: Component[] = [];
   for (let position = 0; position < entries.length;) {
@@ -66,7 +73,7 @@ export function createConversationDocument(
       entry.role === "user" && next?.role === "assistant"
         ? entries.slice(position, position + 2)
         : entries.slice(position, position + 1);
-    const turn = createTurnComponent(turnEntries);
+    const turn = createTurnComponent(turnEntries, selection);
     if (!turn.ok) return turn;
     components.push(turn.value);
     position += turnEntries.length;

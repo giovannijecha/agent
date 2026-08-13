@@ -127,6 +127,24 @@ agent.”
   whitespace-delimited word rule; Ctrl+Backspace, Ctrl+W, and Ctrl+Delete
   remove through the same semantic decoder/editor path. Do not reproduce word
   editing in CLI session or application state.
+- Interactive pointer behavior follows decision 0045. The renderer owns SGR
+  mouse modes 1002 and 1006 for its alternate-screen lifetime and restores them
+  on every cleanup path. The TUI decoder, logical text references, selection
+  mark, exact visible HTTPS hyperlinks, and bounded OSC 52 encoder stay generic
+  and Node-free. The CLI routes the latest planned frame, owns stable transcript
+  document identities and monotonic double-click timing, reuses `ScrollState`,
+  and asks the same `LineEditor` to select composer text. Drag settles and
+  copies one bounded logical selection; double-click release copies one word,
+  while holding the second press extends by complete word runs. On Windows x64,
+  the CLI invokes the exact owned C17 clipboard broker and reports success only
+  after `CF_UNICODETEXT` transfer. Other platforms retain serialized OSC 52 and
+  report only that the terminal request was written. Clipboard settlements reuse
+  the ephemeral notice lifecycle as a compact right-edge composer status that
+  reserves no row or editor width and collapses when it cannot fit. Copy failures
+  are nonfatal, resize clears geometry-dependent selection, Shift remains the optional native
+  terminal-selection escape hatch, and Ctrl+C remains the agent interrupt. Do
+  not add a browser launcher, foreign clipboard package or executable, global
+  mouse hook, screen-coordinate transcript archive, or separate pointer paths.
 - Slash completion reuses one exact CLI-owned command catalog for dispatch and
   discovery. The generic TUI owns only a bounded `SelectionList`. While a
   completion is visible, Up and Down select without wrapping and Tab completes
@@ -156,7 +174,8 @@ agent.”
 - `@agent/cli` owns commands, bounded display chat, the single-writer reducer,
   one bounded tool-activity lifecycle and presentation path, terminal/runtime
   arbitration, transcript-navigation state, built-in workspace tools, raw mode,
-  filesystem and process access, and all Node lifecycle; it is the only
+  pointer routing and monotonic input timestamps, filesystem and process access,
+  and all Node lifecycle; it is the only
   platform boundary. Before credentials, providers, tools, or terminal
   ownership, it resolves the exact startup directory into one immutable
   canonical workspace boundary. It never discovers a broader repository root;

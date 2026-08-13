@@ -6,6 +6,10 @@ import process from "node:process";
 import { projectRoot } from "./lib/project.mjs";
 
 const minimumClangMajor = 18;
+const clipboardRoot = path.join(
+  projectRoot,
+  "packages/agent-cli/native/clipboard",
+);
 const processBrokerRoot = path.join(
   projectRoot,
   "packages/agent-cli/native/process-broker",
@@ -114,5 +118,28 @@ runCompiler([
   "-o",
   path.join(outputDirectory, "agent-workspace-roots" + executableSuffix),
 ]);
+
+runCompiler([
+  ...commonFlags,
+  ...platformFlags,
+  path.join(clipboardRoot, "main.c"),
+  path.join(clipboardRoot, "protocol.c"),
+  path.join(clipboardRoot, "backend-fixture.c"),
+  "-o",
+  path.join(outputDirectory, "agent-clipboard-fixture" + executableSuffix),
+]);
+
+if (process.platform === "win32") {
+  runCompiler([
+    ...commonFlags,
+    ...platformFlags,
+    path.join(clipboardRoot, "main.c"),
+    path.join(clipboardRoot, "protocol.c"),
+    path.join(clipboardRoot, "backend-windows.c"),
+    "-luser32",
+    "-o",
+    path.join(outputDirectory, "agent-clipboard.exe"),
+  ]);
+}
 
 process.stdout.write("Built owned native executables for " + platformDirectory + ".\n");

@@ -25,17 +25,23 @@ import {
 import type { ApplicationController } from "./application.js";
 import { createCommandCompletionDocument } from "./command-completion-view.js";
 import { CONVERSATION_DENSITY } from "./conversation-density.js";
-import { createConversationStage } from "./conversation-stage.js";
+import {
+  createConversationStage,
+  projectConversationStage,
+} from "./conversation-stage.js";
 import { createConversationDocument } from "./conversation-view.js";
 import { isMotionActive } from "./motion-policy.js";
 import { createSpacer, createSpan } from "./view-components.js";
 
 const DOCUMENT_SLOT = 0;
+const COMPOSER_SLOT = 8;
 const CONVERSATION_RHYTHM_PRIORITY = 6;
 const COMPOSER_MAXIMUM_CONTENT_ROWS = 6;
 
 export type ChatRender = Readonly<{
+  composer: VerticalAllocation;
   frame: Frame;
+  stage: Readonly<{ columns: number; left: number }>;
   transcript: VerticalAllocation;
 }>;
 
@@ -73,14 +79,20 @@ function createFooter(
 function createDocument(
   application: ApplicationController,
 ): Result<Component, ComponentError> {
-  return createConversationDocument(application.transcriptEntries());
+  return createConversationDocument(
+    application.transcriptEntries(),
+    application.transcriptSelection,
+  );
 }
 
 function createNotice(
   application: ApplicationController,
 ): Result<Component, ComponentError> {
+  const lines = application.noticePlacement === "context"
+    ? application.notice
+    : Object.freeze([]);
   const text = TextBlock.create(
-    application.notice.join("\n"),
+    lines.join("\n"),
     "tail",
     application.noticeLevel === "warning" ? "attention" : "muted",
   );
@@ -97,9 +109,22 @@ function createNotice(
 function createComposer(
   application: ApplicationController,
 ): Result<Component, ComponentError> {
+  const notice = application.noticePlacement === "composer"
+    ? application.notice.at(0)
+    : undefined;
   const input = InputArea.create(application, {
     maximumRows: COMPOSER_MAXIMUM_CONTENT_ROWS,
     textTone: "plain",
+    ...(notice === undefined
+      ? {}
+      : {
+          trailingStatus: Object.freeze({
+            text: notice,
+            tone: application.noticeLevel === "warning"
+              ? "attention" as const
+              : "muted" as const,
+          }),
+        }),
   });
   if (!input.ok) return input;
   const surface = Surface.create(input.value, {
@@ -122,6 +147,9 @@ export function createChatRender(
     application.activities,
     application.activeTurnId !== undefined,
   );
+  const contextualNoticeVisible =
+    application.noticePlacement === "context" &&
+    application.notice.length > 0;
   const document = createDocument(application);
   if (!document.ok) return document;
   const documentView = ScrollView.create(
@@ -200,7 +228,7 @@ export function createChatRender(
       flex: 0,
       minimumRows: 0,
       preferredRows:
-        application.notice.length === 0
+        !contextualNoticeVisible
           ? 0
           : CONVERSATION_DENSITY.rhythmRows,
       priority: CONVERSATION_RHYTHM_PRIORITY,
@@ -208,9 +236,9 @@ export function createChatRender(
     Object.freeze({
       component: noticeColumn.value,
       flex: 0,
-      minimumRows: application.notice.length > 0 ? 1 : 0,
+      minimumRows: contextualNoticeVisible ? 1 : 0,
       preferredRows:
-        application.notice.length === 0
+        !contextualNoticeVisible
           ? 0
           : noticeHeight.value.preferredRows,
       priority: 5,
@@ -270,11 +298,15 @@ export function createChatRender(
   if (!planned.ok) return planned;
   const documentGeometry = planned.value.allocation(DOCUMENT_SLOT);
   if (!documentGeometry.ok) return documentGeometry;
+  const composerGeometry = planned.value.allocation(COMPOSER_SLOT);
+  if (!composerGeometry.ok) return composerGeometry;
   const frame = planned.value.render();
   return frame.ok
     ? ok(
         Object.freeze({
+          composer: composerGeometry.value,
           frame: frame.value,
+          stage: projectConversationStage(viewport),
           transcript: documentGeometry.value,
         }),
       )

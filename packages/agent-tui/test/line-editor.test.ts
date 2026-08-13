@@ -166,6 +166,85 @@ test("projects a bounded multiline area with the caret visible", () => {
   assert.equal(bounded.caretColumn, 0);
 });
 
+test("selects by visible cells across wrapping and replaces one owned range", () => {
+  const editor = new LineEditor();
+  editor.apply(paste("alpha beta gamma"));
+
+  assert.equal(editor.selectAt(7, 6, 0, 0, false).kind, "changed");
+  assert.equal(editor.selectAt(7, 6, 1, 3, true).kind, "changed");
+  assert.equal(editor.selectedText, "alpha beta");
+  const projected = editor.projectArea(7, 6);
+  assert.deepEqual(projected.rows, ["alpha", "beta", "gamma"]);
+  assert.deepEqual(projected.selections, [
+    { end: 5, start: 0 },
+    { end: 4, start: 0 },
+    { end: 0, start: 0 },
+  ]);
+
+  assert.equal(editor.apply(text("owned")).kind, "changed");
+  assert.equal(editor.text, "owned gamma");
+  assert.equal(editor.selection, undefined);
+});
+
+test("includes both visible endpoint characters when selecting backward", () => {
+  const editor = new LineEditor();
+  editor.apply(paste("alpha beta"));
+
+  assert.equal(editor.selectAt(20, 2, 0, 9, false).kind, "changed");
+  assert.equal(editor.selectAt(20, 2, 0, 6, true).kind, "changed");
+
+  assert.equal(editor.selectedText, "beta");
+  assert.equal(editor.apply(home).kind, "changed");
+  assert.equal(editor.selection, undefined);
+
+  editor.selectWordAt(20, 2, 0, 7);
+  assert.equal(editor.apply(end).kind, "changed");
+  assert.equal(editor.selection, undefined);
+});
+
+test("double-click word selection reuses whitespace boundaries", () => {
+  const editor = new LineEditor();
+  editor.apply(paste("alpha  beta\ngamma"));
+
+  assert.equal(editor.selectWordAt(12, 4, 0, 8).kind, "changed");
+  assert.equal(editor.selectedText, "beta");
+  assert.equal(editor.apply(backspace).kind, "changed");
+  assert.equal(editor.text, "alpha  \ngamma");
+
+  assert.equal(editor.selectWordAt(12, 4, 0, 5).kind, "changed");
+  assert.equal(editor.selectedText, "  \n");
+  assert.equal(editor.apply(paste(" ")).kind, "changed");
+  assert.equal(editor.text, "alpha gamma");
+});
+
+test("extends one double-click selection through complete word runs", () => {
+  const editor = new LineEditor();
+  editor.apply(paste("alpha beta gamma"));
+
+  assert.equal(editor.selectWordAt(20, 2, 0, 7).kind, "changed");
+  assert.equal(editor.selectWordThroughAt(20, 2, 0, 13).kind, "changed");
+  assert.equal(editor.selectedText, "beta gamma");
+  assert.equal(editor.selectWordThroughAt(20, 2, 0, 1).kind, "changed");
+  assert.equal(editor.selectedText, "alpha beta");
+
+  editor.clearSelection();
+  assert.equal(
+    editor.selectWordThroughAt(20, 2, 0, 13).kind,
+    "unchanged",
+  );
+});
+
+test("maps wide characters and tab cells to one code-point selection", () => {
+  const editor = new LineEditor();
+  editor.apply(paste("a🙂\tb"));
+
+  assert.equal(editor.selectAt(8, 2, 0, 1, false).kind, "changed");
+  assert.equal(editor.selectAt(8, 2, 0, 2, true).kind, "changed");
+  assert.equal(editor.selectedText, "🙂");
+  assert.equal(editor.selectWordAt(8, 2, 0, 3).kind, "changed");
+  assert.equal(editor.selectedText, "\t");
+});
+
 test("places the caret on the wrapped row at an exact column boundary", () => {
   const editor = new LineEditor();
   editor.apply(text("abcdeX"));

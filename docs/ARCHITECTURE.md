@@ -136,11 +136,13 @@ tool policy, or second agent identity. It imports only core, runtime, and tools.
 
 ### `@agent/tui`
 
-Owns incremental terminal-key and bracketed-paste decoding, bounded editing,
+Owns incremental terminal-key, bracketed-paste, and bounded SGR pointer
+decoding, bounded editing,
 one-row and multiline projected input components, validated
 viewports and atomic frames, owned cell measurement, immutable fragments,
 bounded text and input components, bounded generic component stacks, normalized
-structured rows with twelve closed semantic span tones and six closed surface
+structured rows with twelve closed semantic span tones, one independent closed
+selection mark, validated logical text interaction, and six closed surface
 roles, one bounded line-oriented Markdown subset with an exact semantic
 separator, one bounded internal lexical highlighter, one generic bordered
 panel, one generic split line,
@@ -169,8 +171,10 @@ width, quotes repeat their rail, and fenced code reserves its declared zero- or
 one-cell surface padding before literal wrapping. The exact `---` separator
 expands only after the viewport width is known. Markdown compiles directly into
 structured rows and has no
-AST, extension registry, rendered HTML, active links, images, or alternate
-renderer. Complete recognized code fences may use the internal line-oriented
+AST, extension registry, rendered HTML, Markdown link destination, images, or
+alternate renderer. Exact visible ASCII HTTPS text may carry only an identical
+validated OSC 8 target under decision 0045. Complete recognized code fences may
+use the internal line-oriented
 highlighter; it has closed language aliases and roles, performs no I/O or code
 execution, and falls back to plain text for unknown labels or excessive spans.
 Only the renderer translates validated span tones into fixed
@@ -195,7 +199,9 @@ Owns commands, application view composition, startup, shutdown, process streams,
 raw mode, the ordered terminal-event queue, bounded display-only chat state, the
 single-writer application reducer, one bounded tool-activity log and presentation
 path, the responsive conversation shell and truthful status footer,
-application-owned transcript navigation, and fair two-source event arbitration.
+application-owned transcript navigation and pointer selection, stable display
+document identities, monotonic input timestamps, and fair two-source event
+arbitration.
 One frozen CLI-owned conversation-density record supplies closed padding and
 rhythm values to the existing presenters: user turns and the focused composer
 retain one cell above and below their content, activity surfaces have zero
@@ -262,10 +268,10 @@ generic tools workspace owns validation mechanics, not advertised product tools.
 ```text
 bounded terminal FIFO ----+
                            v
-                   two-source arbiter -> single-writer application reducer
+                  two-source arbiter -> single-writer application reducer
                            ^                         |
 runtime pull event --------+                         v
- planned layout + inset + panel/rail + split line + Markdown + activity + scroll
+ planned layout + logical hit map + Markdown + activity + scroll + editor range
                                                    |
                                                    v
                          atomic frame + synchronized differential renderer
@@ -274,9 +280,10 @@ runtime pull event --------+                         v
 The arbiter retains at most one terminal read, one explicitly armed runtime read,
 and one ready event per source. The losing read is never abandoned. One event is
 reduced and at most one output write is awaited at a time. The renderer enters an
-alternate screen for interactive sessions, enables bracketed-paste mode, hides
-the cursor only during redraw, selects a steady block caret for the interactive
-session, and restores paste mode, the terminal-default cursor style, cursor
+alternate screen for interactive sessions, enables bracketed-paste mode,
+DEC 1002 button-event tracking, and 1006 SGR mouse mode, hides the cursor only
+during redraw, selects a steady block caret for the interactive session, and
+restores mouse modes, paste mode, the terminal-default cursor style, cursor
 visibility, and the prior screen during idempotent cleanup. Unsupported
 terminals may ignore the paste or shape command without
 changing editor geometry or lifecycle truth. A non-TTY
@@ -291,6 +298,36 @@ payload are each at most 65,536 UTF-16 code units, queued input is at most
 points, the composer exposes at most six content rows, and an incomplete escape
 sequence is bounded to 32 code units. Overflow discards queued input, pauses stdin, and
 returns a typed failure through normal cleanup.
+
+Pointer interaction follows decision 0045. The latest successful layout plan
+returns exact transcript and composer allocations with the frame that was
+rendered. Transcript spans carry stable document identities and pre-wrap logical
+offsets through surfaces, wrapping, clipping, scrolling, and frame assembly;
+padding and continuation indentation carry no text reference. The application
+stores anchor and focus in that logical space, so its existing `ScrollState` may
+move while a selection remains meaningful. Resize clears geometry-dependent
+selection. Composer cells resolve through the same `LineEditor`, whose one range
+contract also owns word selection, word-wise extension, replacement, deletion,
+paste, and submission cleanup. No screen transcript, second editor, or platform
+pointer path exists.
+CLI gesture state is isolated in `terminal-interaction.ts` behind a narrow
+editor interaction port; the application reducer retains only arbitration,
+scroll reconciliation, notices, and ordered effects.
+
+A settled non-empty range is reconstructed from visible logical text. On
+Windows x64, the CLI clipboard port sends one bounded UTF-16LE frame to the exact
+package-relative owned C17 broker; broker exit success confirms the Win32
+`CF_UNICODETEXT` transfer. On unsupported platforms, the port returns
+`unsupported` and the serialized renderer emits the bounded OSC 52 fallback.
+The single-writer reducer distinguishes `copied`, `requested`, and `failed`
+settlements through the existing notice generation. Clipboard notices use the
+closed composer placement: `InputArea` paints the short status on the caret
+row's physical right edge only when it fits, without changing its measurement,
+editor width, caret, composer allocation, or transcript allocation. Only the
+renderer emits OSC 8 links, OSC 52 requests, mouse lifecycle controls, styles,
+or any other terminal sequence. The same VT pointer path serves Windows and Linux; Shift remains an
+optional terminal-native selection escape hatch, Ctrl+C remains the agent
+interrupt, and exact visible HTTPS activation remains terminal-owned.
 
 Transcript navigation follows decision 0024. The decoder maps only the exact
 Up, Down, Page Up, and Page Down sequences to ordered session actions. The
@@ -318,7 +355,7 @@ Decision 0022 defines update and removal of this surface independently from the
 tool engine, runtime protocol, structured rows, scroll view, and renderer.
 
 The responsive conversation shell follows decisions 0026, 0027, 0028, 0039,
-0040, 0041, and 0043. In vertical order the CLI composes a flexible document,
+0040, 0041, 0043, and 0045. In vertical order the CLI composes a flexible document,
 contextual activity, one latest ephemeral notice, completion, one bounded
 stage-wide neutral composer, and a compact status line. The document remains
 dominant; absent contextual state consumes no rows.
@@ -330,9 +367,11 @@ Bracketed paste reaches that editor as one atomic non-submitting event; a later
 typed Enter remains the only submission event. Ctrl+Left, Ctrl+Right,
 Ctrl+Backspace, Ctrl+W, and Ctrl+Delete arrive as semantic decoder events and
 use the editor's single whitespace-delimited word rule; the CLI never
-reinterprets terminal encodings or duplicates draft mutation. The generic
-surface owns the composer padding, subtle neutral background, and caret
-translation without adding a border. The
+reinterprets terminal encodings or duplicates draft mutation. The generic area
+also projects the editor's closed selection mark; pointer
+positioning and double-click word selection call that same editor rather than
+mutate a CLI copy. The generic surface owns the composer padding, subtle neutral
+background, and caret translation without adding a border. The
 footer renders stable context only: the working-folder label at the left edge
 and configured provider/model at the physical center. Its right edge is reserved
 for one constant-width three-cell pulse while autonomous work advances through
@@ -402,7 +441,7 @@ exact command without submitting it, while Enter dispatches the selected exact
 command through the same canonical path as a fully typed submission. The generic
 TUI selection list owns only one-row measurement, clipping, caret translation,
 and selected-row visibility; it knows no command names or execution policy. The
-completion slot is below contextual activity and any notice, and above the composer. Each entry
+completion slot is below contextual activity and any context notice, and above the composer. Each entry
 is one compact transparent inline row with its description immediately after
 the command; no passive keyboard hint is rendered. One shared optional generic
 spacer row precedes each adjacent non-empty activity, notice, or completion
