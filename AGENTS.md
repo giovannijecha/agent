@@ -190,8 +190,9 @@ agent.”
   sensitive-path denials combine with one optional bounded root `.agentignore`;
   both are deny-only. `read_file` rejects denied targets before observation,
   `list_directory` omits denied children, and `search_text` prunes denied
-  directories and files before opening them. Writes and approved processes are
-  outside this disclosure policy.
+  directories and files before opening them. Every resolved read target passes
+  the same policy again; Windows DOS short-name aliases fail closed. Writes and
+  approved processes are outside this disclosure policy.
 - `run_process` is the only admitted execute tool. It accepts the registered
   `node` token, literal arguments, and one workspace-relative directory; it
   never accepts a shell, executable path, PATH lookup, stdin, inherited or

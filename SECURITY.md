@@ -41,7 +41,8 @@ The same startup sequence fixes one deny-only read policy before credentials,
 providers, tools, or terminal ownership. Built-in sensitive-path rules cannot
 be overridden; a bounded optional root `.agentignore` can only add denials.
 Malformed or unsupported policy input fails closed. The three automatic read
-tools reject or prune denied paths before file content is opened or returned.
+tools reject or prune denied paths before file content is opened or returned,
+recheck resolved targets, and reject ambiguous Windows DOS short-name aliases.
 This is a disclosure boundary, not content-based secret detection, write
 protection, or a sandbox for approved processes.
 

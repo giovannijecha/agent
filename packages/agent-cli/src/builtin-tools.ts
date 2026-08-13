@@ -135,7 +135,18 @@ function permittedReadPath(
   if (lexical === undefined) {
     return toolFailure("permission");
   }
-  const normalized = policyPath(root, lexical);
+  return permittedResolvedReadPath(root, policy, lexical);
+}
+
+function permittedResolvedReadPath(
+  root: string,
+  policy: WorkspaceReadPolicy,
+  target: string,
+): Result<string, ToolHandlerError> {
+  if (!inside(root, target)) {
+    return toolFailure("permission");
+  }
+  const normalized = policyPath(root, target);
   const denied = policy.denies(normalized);
   return denied.ok && !denied.value
     ? ok(normalized)
@@ -203,6 +214,20 @@ async function existingPath(
   } catch (cause: unknown) {
     return err(mapIoError(cause));
   }
+}
+
+async function existingReadPath(
+  root: string,
+  policy: WorkspaceReadPolicy,
+  relative: string,
+  kind: "directory" | "file",
+): Promise<Result<string, ToolHandlerError>> {
+  const resolved = await existingPath(root, relative, kind);
+  if (!resolved.ok) {
+    return resolved;
+  }
+  const permitted = permittedResolvedReadPath(root, policy, resolved.value);
+  return permitted.ok ? resolved : permitted;
 }
 
 async function creationPath(
@@ -366,7 +391,7 @@ function readFileHandler(root: string, policy: WorkspaceReadPolicy): ToolHandler
     if (!permitted.ok) {
       return permitted;
     }
-    const resolved = await existingPath(root, relative, "file");
+    const resolved = await existingReadPath(root, policy, relative, "file");
     if (!resolved.ok) {
       return resolved;
     }
@@ -384,7 +409,7 @@ function readFileHandler(root: string, policy: WorkspaceReadPolicy): ToolHandler
           cancellation.requested ? "cancelled" : "limit",
         );
       }
-      const checked = await existingPath(root, relative, "file");
+      const checked = await existingReadPath(root, policy, relative, "file");
       if (
         !checked.ok ||
         path.relative(checked.value, resolved.value) !== ""
@@ -408,8 +433,9 @@ function listDirectoryHandler(
     if (!permitted.ok) {
       return permitted;
     }
-    const resolved = await existingPath(
+    const resolved = await existingReadPath(
       root,
+      policy,
       relative,
       "directory",
     );
@@ -424,7 +450,12 @@ function listDirectoryHandler(
     if (!read.ok) {
       return read;
     }
-    const checked = await existingPath(root, relative, "directory");
+    const checked = await existingReadPath(
+      root,
+      policy,
+      relative,
+      "directory",
+    );
     if (
       !checked.ok ||
       path.relative(checked.value, resolved.value) !== ""
@@ -434,10 +465,11 @@ function listDirectoryHandler(
     const entries = [...read.value];
     entries.sort((left, right) => left.name.localeCompare(right.name, "en"));
     const output: Readonly<{ kind: string; name: string }>[] = [];
+    const resolvedRelative = policyPath(root, resolved.value);
     for (const entry of entries) {
-      const childRelative = permitted.value === "."
+      const childRelative = resolvedRelative === "."
         ? entry.name
-        : permitted.value + "/" + entry.name;
+        : resolvedRelative + "/" + entry.name;
       if (!permittedDiscoveredPath(policy, childRelative)) {
         continue;
       }
@@ -501,8 +533,9 @@ function searchTextHandler(
     if (!permitted.ok) {
       return permitted;
     }
-    const resolved = await existingPath(
+    const resolved = await existingReadPath(
       root,
+      policy,
       requestedPath,
       "directory",
     );
@@ -527,8 +560,9 @@ function searchTextHandler(
         if (visitedDirectories > BUILTIN_TOOL_LIMITS.searchDirectories) {
           return toolFailure("limit");
         }
-        const checkedDirectory = await existingPath(
+        const checkedDirectory = await existingReadPath(
           root,
+          policy,
           relativeFromRoot(canonicalRoot, directory),
           "directory",
         );
@@ -564,8 +598,9 @@ function searchTextHandler(
             continue;
           }
           if (entry.isDirectory()) {
-            const checked = await existingPath(
+            const checked = await existingReadPath(
               root,
+              policy,
               relativeFromRoot(canonicalRoot, child),
               "directory",
             );
@@ -574,8 +609,9 @@ function searchTextHandler(
             }
             directories.push(checked.value);
           } else if (entry.isFile()) {
-            const checked = await existingPath(
+            const checked = await existingReadPath(
               root,
+              policy,
               relativeFromRoot(canonicalRoot, child),
               "file",
             );
@@ -596,7 +632,12 @@ function searchTextHandler(
           return toolFailure("cancelled");
         }
         const relative = relativeFromRoot(canonicalRoot, file);
-        const checkedBefore = await existingPath(root, relative, "file");
+        const checkedBefore = await existingReadPath(
+          root,
+          policy,
+          relative,
+          "file",
+        );
         if (
           !checkedBefore.ok ||
           path.relative(checkedBefore.value, file) !== ""
@@ -614,7 +655,12 @@ function searchTextHandler(
           continue;
         }
         const content = await readFile(checkedBefore.value, { encoding: "utf8" });
-        const checkedAfter = await existingPath(root, relative, "file");
+        const checkedAfter = await existingReadPath(
+          root,
+          policy,
+          relative,
+          "file",
+        );
         if (
           !checkedAfter.ok ||
           path.relative(checkedAfter.value, checkedBefore.value) !== ""

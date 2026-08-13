@@ -47,13 +47,16 @@ deny patterns using `/`, segment-local `*`, at most one complete `**` segment,
 and optional trailing `/` directory shorthand. Negation, absolute paths,
 backslashes, whitespace padding, empty, `.` or `..` segments, controls, format
 characters, duplicates, lines over 256 code units, and patterns over 32
-segments are invalid. Linux matches exactly; Windows folds ASCII letters only.
+segments are invalid. Linux matches exactly; Windows folds ASCII letters only
+and rejects DOS short-name components such as `~1` as ambiguous.
 
 `read_file` returns `permission` for a denied lexical target before observing
-the filesystem. `list_directory` rejects a denied target and omits denied
-children. `search_text` rejects a denied root and prunes denied directories and
-files before opening them. Hidden entries still consume the raw enumeration
-bounds. The policy does not inspect content and does not restrict `create_file`,
+the filesystem and rechecks the resolved target under the same policy.
+`list_directory` rejects a denied target and omits denied children.
+`search_text` rejects a denied root and prunes denied directories and files
+before opening them; resolved traversal targets are rechecked before
+observation. Hidden entries still consume the raw enumeration bounds. The
+policy does not inspect content and does not restrict `create_file`,
 `replace_text`, or approved `run_process` code.
 `create_file` refuses overwrite; `replace_text` requires exactly one match.
 `run_process` accepts only the registered `node` program token, enforced before

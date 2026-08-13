@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {
+  lstat,
   mkdir,
   mkdtemp,
   readFile,
@@ -446,6 +447,46 @@ test("enforces the disclosure policy before reads and prunes discovery", async (
       path: "private/report.txt",
     });
     assert.equal(replaced.result.status, "success");
+  });
+});
+
+test("rejects Windows DOS aliases for denied read paths", async () => {
+  if (platform !== "win32") {
+    return;
+  }
+  await withWorkspace(async (workspace) => {
+    const deniedDirectory = path.join(workspace, "credential-store");
+    const aliasDirectory = path.join(workspace, "CREDEN~1");
+    await mkdir(deniedDirectory);
+    await writeFile(
+      path.join(workspace, ".agentignore"),
+      "credential-store/\n",
+      { encoding: "utf8", flag: "wx" },
+    );
+    await writeFile(
+      path.join(deniedDirectory, "secret.txt"),
+      "owned-marker alias-secret",
+      { encoding: "utf8", flag: "wx" },
+    );
+    const longStatus = await lstat(deniedDirectory);
+    const aliasStatus = await lstat(aliasDirectory);
+    assert.equal(aliasStatus.dev, longStatus.dev);
+    assert.equal(aliasStatus.ino, longStatus.ino);
+
+    const tools = await engine(workspace);
+    for (const execution of [
+      await execute(tools, "read_file", {
+        path: path.join("CREDEN~1", "secret.txt"),
+      }),
+      await execute(tools, "list_directory", { path: "CREDEN~1" }),
+      await execute(tools, "search_text", {
+        path: "CREDEN~1",
+        query: "owned-marker",
+      }),
+    ]) {
+      assert.equal(execution.result.status, "failure");
+      assert.equal(output(execution).get("error"), "permission");
+    }
   });
 });
 
