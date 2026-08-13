@@ -51,14 +51,16 @@ test("never treats the rejected exit alias as a command", () => {
 
   assert.deepEqual(result, {
     kind: "notice",
-    lines: ["Unknown command."],
+    level: "warning",
+    lines: ["Unknown command"],
   });
 });
 
 test("keeps documentation outside the command surface", () => {
   assert.deepEqual(executeSubmission("/help"), {
     kind: "notice",
-    lines: ["Unknown command."],
+    level: "warning",
+    lines: ["Unknown command"],
   });
 });
 
@@ -67,11 +69,24 @@ test("reports integration status without creating an adapter", () => {
 
   assert.deepEqual(result, {
     kind: "notice",
-    lines: [
-      "No providers are enabled.",
-      "Subscription integrations require owned authorization.",
-    ],
+    level: "info",
+    lines: ["No provider configured"],
   });
+});
+
+test("reports one configured provider as one compact informational line", () => {
+  assert.deepEqual(
+    executeSubmission("/providers", {
+      authentication: "memory-only API key",
+      displayName: "OpenCode Go",
+      model: "configured-model",
+    }),
+    {
+      kind: "notice",
+      level: "info",
+      lines: ["OpenCode Go \u00b7 configured-model \u00b7 memory-only API key"],
+    },
+  );
 });
 
 test("classifies ordinary text for transient runtime submission", () => {

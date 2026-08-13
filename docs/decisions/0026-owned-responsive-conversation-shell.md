@@ -2,6 +2,16 @@
 
 - Status: accepted
 - Date: 2026-08-10
+- Current stage and rhythm refined by: decisions 0039 and 0040
+- Notice placement and lifetime refined by: decision 0041
+- Palette refined by: decision 0031, updated 2026-08-13
+
+Decisions 0035, 0039, and 0040 replace the original `InputLine` panel, fixed
+144-column inset, bordered role treatment, textual footer phase, and no-motion
+constraints below. Decision 0031's current fixed RGB mapping supersedes the
+original increment's no-true-color constraint. Those clauses remain historical
+context; the current contract is the stage-wide `InputArea`, borderless
+surfaces, compact factual footer, and bounded active-work pulse.
 
 ## Context
 
@@ -20,9 +30,10 @@ one shared visual path instead of tool-specific cards.
 
 ## Decision
 
-Adopt one responsive conversation shell in `@agent/cli`. In vertical order it
-contains the flexible scrollable transcript, a transient actionable notice, one
-contextual activity surface, a rectangular composer, and a compact status line.
+Adopt one responsive conversation shell in `@agent/cli`. In current vertical
+order it contains the flexible scrollable transcript, one contextual activity
+surface, one latest ephemeral notice, completion, a rectangular composer, and a
+compact status line.
 Decision 0027 removes the initial static identity line after visual review. The
 transcript remains the primary surface. Activity, changed-file,
 approval, or future integration blocks appear only when authoritative
@@ -108,8 +119,9 @@ translation returns a content-free `ComponentError`.
 
 Borders, rails, padding, gap text, and status labels are owned printable glyphs.
 The cell-width contract grants one cell only to printable ASCII and the exact
-closed structural set `→─│┌┐└┘`; all other non-ASCII text remains conservatively
-two cells. Model
+closed structural set `·•→─│┌┐└┘`; all other non-ASCII text remains conservatively
+two cells. The owned footer separator and activity bullet joined that set under
+decisions 0038 and 0040 so their layout widths match their terminal cells. Model
 text, tool output, provider content, paths, errors, and callbacks cannot emit
 ANSI, choose geometry, create panels, or select semantic tones. Only the
 renderer emits terminal controls. Non-interactive output remains unchanged and

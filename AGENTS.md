@@ -73,14 +73,17 @@ agent.”
   side-rail, spacer, activity, scroll, and layout paths; they do not add
   private cards, empty metrics, or parallel view models. User and assistant
   content remain structured role entries but render without redundant `you` or
-  `agent` labels. A user turn uses one compact borderless subtle surface with
+  `agent` labels. A user turn uses one stage-wide borderless subtle surface with
   italic content; assistant prose remains unboxed, while fenced code and strict
-  pipe tables use one content-fit dark inset surface. Complete fences with at
+  pipe tables use one content-fit transparent structured region. Complete fences with at
   most two visible logical rows use zero horizontal padding; larger fences and
   tables retain one cell. An exact Markdown `---` renders through the shared
   display path as one muted responsive separator, while unsupported variants
   remain literal. Surface, slant, and
-  foreground tone remain independent closed style dimensions. Strict tables
+  foreground tone remain independent closed style dimensions. The neutral
+  subtle surface distinguishes user input without implying lifecycle state;
+  green, ochre, and red backgrounds are reserved for authoritative tool
+  lifecycle state. Strict tables
   measure every header and body cell before display and pad each column to one
   shared visible width, so the technical surface stays rectangular. One muted
   rule spans that exact measured width between the header and body inside the
@@ -98,8 +101,17 @@ agent.”
   turn is active: the next tool replaces it, turn settlement removes it, and
   tool activity never enters the transcript. An empty session renders no welcome
   or embedded help; operator guidance stays in the maintained manual. The
-  composer is one prompt-free rectangular `Panel` around the generic
-  `InputArea`. It grows from one through six content rows using the same bounded
+  application owns one latest ephemeral contextual notice after activity and
+  before completion or the composer. Notices are transparent, stage-wide, and
+  horizontally inset by one cell: informational text is muted and warnings use
+  the attention foreground independently of application phase. A new notice
+  replaces the previous one, any editor interaction dismisses it, and the
+  CLI-owned scheduler expires the exact current generation after 5,000
+  milliseconds through the serialized event arbiter. Notice timers contain no
+  notice text and never mutate application or renderer state directly. The
+  composer is one prompt-free, borderless, stage-wide subtle `Surface` around the
+  generic `InputArea`, with one cell of horizontal and vertical padding. It
+  grows from one through six content rows using the same bounded
   editor and submission path. Bracketed paste is one atomic editor event and
   never implies Enter; only a separately decoded Enter submits. The renderer
   owns paste-mode and steady-block-caret lifecycle and restores both terminal
@@ -112,14 +124,27 @@ agent.”
   completion is visible, Up and Down select without wrapping and Tab completes
   without submitting; Enter dispatches the selected exact command through the
   canonical dispatcher. Otherwise existing transcript and editor controls
-  remain authoritative. One optional generic leading spacer row separates
-  non-empty contextual activity from the transcript or notice above; activity
-  stays directly adjacent to completion or the composer below. The leading row
-  collapses before required content on constrained viewports.
-- Future motion keeps pure deterministic animation phases in `@agent/tui` and a
-  monotonic scheduler at the CLI platform boundary. The scheduler permits at
-  most one pending tick, runs at no more than ten frames per second, and yields
-  to terminal events. Phase 0 adds no visible animation.
+  remain authoritative. Each entry is one compact transparent inline row with
+  the description immediately after the command; no passive keyboard hint is
+  rendered. One shared optional one-row spacer separates every adjacent lower
+  shell region: transcript, activity, notice, completion, composer, and
+  footer. Each spacer collapses before required content on constrained viewports.
+- The CLI owns one pure responsive conversation-stage projection. It gives
+  every shell region the full usable terminal width while retaining one
+  technical outer column per side when the terminal permits. Tiny viewports use
+  all available columns. No shell region may carry a private width calculation
+  or an arbitrary reading-width cap. The footer uses the same stage so its pulse
+  ends on the same cell as the composer surface.
+- Visible motion is one constant-width active-work pulse. It ends at the
+  composer's right edge, is the footer's only right-edge content, and
+  appears only while autonomous progress advances
+  (`generating`, `runningTool`, or `cancelling`); idle and approval-waiting
+  states leave that edge empty. Six pure deterministic phases move one ochre
+  head through a neutral leading and trailing step. They stay in `@agent/tui`;
+  the owned CLI scheduler runs at eight frames per second, retains at most one
+  pending tick, re-arms only after a successful
+  render, and yields to terminal and runtime events. Phase 0 is the static
+  baseline.
 - `@agent/cli` owns commands, bounded display chat, the single-writer reducer,
   one bounded tool-activity lifecycle and presentation path, terminal/runtime
   arbitration, transcript-navigation state, built-in workspace tools, raw mode,

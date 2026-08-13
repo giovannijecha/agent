@@ -4,6 +4,7 @@ import test from "node:test";
 import type { StartedTurn } from "@agent/runtime";
 import {
   type Frame,
+  type MotionPhase,
   RichRow,
   type Result,
   TextSpan,
@@ -26,10 +27,62 @@ function frame(
   application: ApplicationController,
   columns: number,
   rows: number,
+  motionPhase: MotionPhase = 0,
 ): Result<Frame, unknown> {
-  const rendered = createChatRender(application, viewport(columns, rows));
+  const rendered = createChatRender(
+    application,
+    viewport(columns, rows),
+    motionPhase,
+  );
   return rendered.ok ? ok(rendered.value.frame) : rendered;
 }
+
+test("projects a smooth fixed-width active-work pulse on the composer edge", () => {
+  const application = new ApplicationController(true, {
+    authentication: "memory-only API key",
+    displayName: "OpenCode Go",
+    model: "configured-model",
+  });
+  assert.ok(application.turnAccepted(started(91, "question")).ok);
+
+  const frames = ([0, 1, 2, 3, 4, 5] as const).map((phase) => {
+    const result = frame(application, 72, 18, phase);
+    assert.ok(result.ok);
+    return result.value;
+  });
+  const rendered = frames.map((current) => current.rows.at(-1));
+
+  assert.equal(new Set(rendered.map((row) => row?.text)).size, 1);
+  assert.equal(rendered[0]?.text.includes("generating"), false);
+  assert.equal(rendered[0]?.text.includes("working"), false);
+  assert.equal(rendered[0]?.cellWidth, 71);
+  assert.equal(rendered[0]?.text.endsWith("\u2022\u2022\u2022"), true);
+  const composer = frames[0]?.rows.at(frames[0]?.caret?.row ?? -1);
+  assert.equal(composer?.cellWidth, rendered[0]?.cellWidth);
+  assert.equal(composer?.spans.at(-1)?.surface, "subtle");
+  assert.equal(
+    rendered[0]?.text.lastIndexOf("\u2022"),
+    (composer?.cellWidth ?? 0) - 1,
+  );
+  assert.deepEqual(
+    rendered.map((row) =>
+      row?.spans
+        .flatMap((span) =>
+          [...span.text]
+            .filter((character) => character === "\u2022")
+            .map(() => span.tone),
+        ),
+    ),
+    [
+      ["muted", "muted", "muted"],
+      ["plain", "muted", "muted"],
+      ["attention", "plain", "muted"],
+      ["plain", "attention", "plain"],
+      ["muted", "plain", "attention"],
+      ["muted", "muted", "plain"],
+    ],
+  );
+});
 
 function started(turnId: number, content: string): StartedTurn {
   return Object.freeze({
@@ -77,11 +130,17 @@ test("keeps an empty session visually empty", () => {
   assert.equal(text.includes("agent\n"), false);
   assert.equal(rendered.value.transcript.contentRows, 0);
   assert.equal(text.includes("\u203a"), false);
-  assert.equal(text.includes("\u250c"), true);
-  assert.equal(text.includes("\u2514"), true);
+  assert.equal(text.includes("\u250c"), false);
+  assert.equal(text.includes("\u2514"), false);
+  const caretRow = rendered.value.frame.caret?.row ?? -1;
+  assert.equal(
+    rows.slice(caretRow - 1, caretRow + 2)
+      .every((row) => row.spans.some((span) => span.surface === "subtle")),
+    true,
+  );
 });
 
-test("renders one rectangular composer without a prompt marker and a three-zone footer", () => {
+test("renders one neutral composer without a prompt marker and a three-zone footer", () => {
   const application = new ApplicationController(true, {
     authentication: "memory-only API key",
     displayName: "OpenCode Go",
@@ -92,26 +151,40 @@ test("renders one rectangular composer without a prompt marker and a three-zone 
   const rendered = frame(application, 72, 18);
   assert.ok(rendered.ok);
   const rows = rendered.value.rows;
-  const top = rows.find((row) => row.text.includes("\u250c"));
-  const bottom = rows.find((row) => row.text.includes("\u2514"));
   const composer = rows.find((row) => row.text.includes("draft"));
-  assert.equal(rows.filter((row) => row.text.includes("\u250c")).length, 1);
-  assert.equal(rows.filter((row) => row.text.includes("\u2514")).length, 1);
-  assert.equal(top?.text.startsWith(" \u250c"), true);
-  assert.equal(top?.text.trimEnd().endsWith("\u2510"), true);
-  assert.equal(bottom?.text.startsWith(" \u2514"), true);
-  assert.equal(bottom?.text.trimEnd().endsWith("\u2518"), true);
+  const composerIndex = composer === undefined ? -1 : rows.indexOf(composer);
+  assert.equal(rows.some((row) => row.text.includes("\u250c")), false);
+  assert.equal(rows.some((row) => row.text.includes("\u2514")), false);
+  assert.ok(composerIndex > 0);
+  assert.equal(
+    rows[composerIndex - 1]?.spans.some((span) => span.surface === "subtle"),
+    true,
+  );
+  assert.equal(
+    rows[composerIndex + 1]?.spans.some((span) => span.surface === "subtle"),
+    true,
+  );
   assert.equal(composer?.text.includes("\u203a"), false);
   assert.equal(
-    composer?.spans.find((span) => span.text === "draft")?.tone,
+    composer?.spans.some((span) => span.surface === "subtle"),
+    true,
+  );
+  assert.equal(
+    composer?.spans.find((span) => span.text.includes("draft"))?.tone,
     "plain",
   );
   assert.equal(
-    rows.slice((bottom === undefined ? -1 : rows.indexOf(bottom)) + 1)
+    rows.slice(composerIndex + 2)
       .some((row) => row.text.includes("\u2500".repeat(20))),
     false,
   );
+  assert.equal(rows[composerIndex + 2]?.text.trim(), "");
+  assert.equal(
+    rows[composerIndex + 2]?.spans.every((span) => span.surface === "none"),
+    true,
+  );
   assert.equal(rows.at(-1)?.text.includes("./workspace"), true);
+  assert.equal(rows.at(-1)?.text.indexOf("./workspace"), 1);
   assert.equal(
     rows.at(-1)?.text.includes("OpenCode Go \u00b7 configured-model"),
     true,
@@ -128,8 +201,8 @@ test("renders one rectangular composer without a prompt marker and a three-zone 
       return Math.floor((72 - center.value.cellWidth) / 2);
     })(),
   );
-  assert.equal(rows.at(-1)?.text.trimEnd().endsWith("ready"), true);
-  assert.equal(rows.at(-1)?.spans.at(-1)?.tone, "success");
+  assert.equal(rows.at(-1)?.text.includes("ready"), false);
+  assert.equal(rows.at(-1)?.text.includes("\u2022"), false);
 });
 
 test("grows the composer for wrapped and pasted lines without displacing the footer", () => {
@@ -157,11 +230,11 @@ test("keeps a valid caret as the only one-cell priority", () => {
 
   const rendered = frame(application, 1, 1);
   assert.ok(rendered.ok);
-  assert.deepEqual(rendered.value.rows.map((row) => row.text), [""]);
+  assert.deepEqual(rendered.value.rows.map((row) => row.text), [" "]);
   assert.deepEqual(rendered.value.caret, { row: 0, column: 0 });
 });
 
-test("uses one compact user surface and one unboxed assistant turn", () => {
+test("uses one subtle italic user region and one unboxed assistant turn", () => {
   const application = new ApplicationController(true);
   assert.ok(application.turnAccepted(started(1, "question")).ok);
   assert.ok(
@@ -172,23 +245,19 @@ test("uses one compact user surface and one unboxed assistant turn", () => {
     }).ok,
   );
 
-  const rendered = frame(application, 48, 14);
+  const rendered = frame(application, 48, 20);
   assert.ok(rendered.ok);
   const rows = rendered.value.rows;
   const user = rows.find((row) => row.text.includes("question"));
   const assistant = rows.find((row) => row.text.includes("answer"));
-  const userSurface = user?.spans.filter(
-    (span) => span.surface === "subtle",
-  );
-  assert.equal(userSurface?.map((span) => span.text).join(""), " question ");
+  const userContent = user?.spans.filter((span) => span.text.trim().length > 0);
+  assert.equal(user?.text.trim(), "question");
   assert.equal(
-    userSurface?.every((span) => span.slant === "italic"),
+    userContent?.every((span) => span.slant === "italic"),
     true,
   );
   assert.equal(
-    user?.spans
-      .filter((span) => span.surface === "none")
-      .every((span) => span.slant === "normal"),
+    user?.spans.some((span) => span.surface === "subtle"),
     true,
   );
   assert.equal(user?.text.includes("\u203a"), false);
@@ -217,7 +286,7 @@ test("composes the maximum retained history plus an active turn within component
   assert.ok(document.ok);
 });
 
-test("uses the technical inset and syntax roles for structured assistant output", () => {
+test("uses transparent structured regions and syntax roles for assistant output", () => {
   const application = new ApplicationController(true);
   assert.ok(application.turnAccepted(started(8, "show code")).ok);
   assert.ok(
@@ -228,7 +297,7 @@ test("uses the technical inset and syntax roles for structured assistant output"
     }).ok,
   );
 
-  const rendered = frame(application, 48, 14);
+  const rendered = frame(application, 48, 20);
   assert.ok(rendered.ok);
   const language = rendered.value.rows.find((row) => row.text.trim() === "ts");
   const code = rendered.value.rows.find(
@@ -241,7 +310,7 @@ test("uses the technical inset and syntax roles for structured assistant output"
   assert.equal(
     language?.spans
       .filter((span) => span.text.trim().length > 0)
-      .every((span) => span.surface === "inset"),
+      .every((span) => span.surface === "none"),
     true,
   );
   assert.equal(
@@ -255,7 +324,7 @@ test("uses the technical inset and syntax roles for structured assistant output"
   assert.equal(
     code?.spans
       .filter((span) => span.text.trim().length > 0)
-      .every((span) => span.surface === "inset"),
+      .every((span) => span.surface === "none"),
     true,
   );
 });
@@ -296,11 +365,11 @@ test("renders successful tools on one borderless semantic surface", () => {
   assert.equal(text.includes("list_directory"), true);
   assert.equal(text.includes("succeeded"), true);
   assert.equal(text.includes("private-read"), false);
-  assert.equal(text.split("┌").length - 1, 1);
+  assert.equal(text.split("┌").length - 1, 0);
   const activityRows = rendered.value.rows.filter((row) =>
     row.spans.some((span) => span.surface === "success"),
   );
-  assert.equal(activityRows.length, 2);
+  assert.equal(activityRows.length, 4);
   assert.equal(activityRows.every((row) => !row.text.includes("│")), true);
   const state = rendered.value.rows
     .flatMap((row) => row.spans)
@@ -334,11 +403,11 @@ test("renders approval through the same borderless semantic surface", () => {
   assert.equal(text.includes("replace_text"), true);
   assert.equal(text.includes('path="src/index.ts"'), true);
   assert.equal(text.includes("private-write"), false);
-  assert.equal(text.split("┌").length - 1, 1);
+  assert.equal(text.split("┌").length - 1, 0);
   const activityRows = rendered.value.rows.filter((row) =>
     row.spans.some((span) => span.surface === "attention"),
   );
-  assert.equal(activityRows.length, 2);
+  assert.equal(activityRows.length, 4);
   assert.equal(activityRows.every((row) => !row.text.includes("│")), true);
   const title = rendered.value.rows
     .flatMap((row) => row.spans)
@@ -362,6 +431,67 @@ test("renders approval through the same borderless semantic surface", () => {
       .find((span) => span.text.includes('path="src/index.ts"'))?.tone,
     "plain",
   );
+});
+
+test("places compact phase-independent notices between activity and composer", () => {
+  const application = new ApplicationController(true, {
+    authentication: "memory-only API key",
+    displayName: "OpenCode Go",
+    model: "configured-model",
+  });
+  assert.ok(application.turnAccepted(started(31, "change")).ok);
+  requestTool(application, {
+    approval: true,
+    callId: "notice-write",
+    name: "replace_text",
+    preview: 'path="src/index.ts" oldText=<5 code units>',
+    risk: "write",
+    turnId: 31,
+  });
+
+  const warningAction = application.feed("/unknown\r").actions.at(0);
+  assert.ok(warningAction !== undefined);
+  application.applySessionAction(warningAction);
+  const warning = frame(application, 72, 22);
+  assert.ok(warning.ok);
+  const warningRows = warning.value.rows;
+  const warningIndex = warningRows.findIndex((row) =>
+    row.text.includes("Unknown command"),
+  );
+  const lastActivityIndex = warningRows
+    .map((row) => row.spans.some((span) => span.surface === "attention"))
+    .lastIndexOf(true);
+  const composerTop = (warning.value.caret?.row ?? 0) - 1;
+  const warningSpan = warningRows.at(warningIndex)?.spans.find((span) =>
+    span.text.includes("Unknown command"),
+  );
+
+  assert.equal(warningIndex, lastActivityIndex + 2);
+  assert.equal(composerTop, warningIndex + 2);
+  assert.equal(warningRows.at(warningIndex)?.text.indexOf("Unknown command"), 2);
+  assert.equal(warningSpan?.tone, "attention");
+  assert.equal(warningSpan?.surface, "none");
+
+  const infoAction = application.feed("/providers\r").actions.at(0);
+  assert.ok(infoAction !== undefined);
+  application.applySessionAction(infoAction);
+  const info = frame(application, 72, 22);
+  assert.ok(info.ok);
+  const infoRows = info.value.rows;
+  const infoComposerTop = (info.value.caret?.row ?? 0) - 1;
+  const providerRows = infoRows.filter(
+    (row, index) =>
+      index < infoComposerTop &&
+      row.text.includes("OpenCode Go \u00b7 configured-model"),
+  );
+  const infoSpan = providerRows.at(0)?.spans.find((span) =>
+    span.text.includes("OpenCode Go"),
+  );
+
+  assert.equal(providerRows.length, 1);
+  assert.equal(infoSpan?.tone, "muted");
+  assert.equal(infoSpan?.surface, "none");
+  assert.equal(infoRows.some((row) => row.text.includes("Unknown command")), false);
 });
 
 test("renders failed tool truth only through failure state", () => {
@@ -415,22 +545,34 @@ test("renders bounded slash completion above the composer", () => {
   const rows = rendered.value.rows;
   const providers = rows.find((row) => row.text.includes("/providers"));
   const approve = rows.find((row) => row.text.includes("/approve"));
-  const composerTop = rows.findIndex((row) => row.text.includes("\u250c"));
+  const composerTop = rendered.value.caret?.row ?? -1;
   const providersIndex = rows.findIndex((row) => row === providers);
   assert.ok(providers !== undefined);
   assert.ok(approve !== undefined);
   assert.equal(providersIndex < composerTop, true);
   assert.equal(
+    providers.text.trim(),
+    "/providers  show integration availability",
+  );
+  assert.equal(
+    providers.text.indexOf("show integration availability"),
+    providers.text.indexOf("/providers") + "/providers".length + 2,
+  );
+  assert.equal(
     providers.spans
       .filter((span) => span.text.trim().length > 0)
-      .every((span) => span.surface === "subtle"),
+      .every((span) => span.surface === "none"),
     true,
   );
   assert.equal(
     approve.spans
       .filter((span) => span.text.trim().length > 0)
-      .every((span) => span.surface === "inset"),
+      .every((span) => span.surface === "none"),
     true,
+  );
+  assert.equal(
+    rows.some((row) => row.text.includes("navigate")),
+    false,
   );
 });
 
@@ -460,20 +602,31 @@ test("moves slash selection, hides exact completion, and coexists with activity"
   const firstCompletionIndex = rows.findIndex((row) =>
     row.text.includes("/providers"),
   );
-  assert.equal(activityIndexes.length, 2);
+  assert.equal(activityIndexes.length, 4);
   const firstActivityIndex = activityIndexes.at(0);
   const lastActivityIndex = activityIndexes.at(-1);
   assert.ok(firstActivityIndex !== undefined);
   assert.ok(lastActivityIndex !== undefined);
   assert.equal(rows[firstActivityIndex - 1]?.text.trim(), "");
-  assert.equal(firstCompletionIndex, lastActivityIndex + 1);
+  assert.equal(rows[lastActivityIndex + 1]?.text.trim(), "");
+  assert.equal(firstCompletionIndex, lastActivityIndex + 2);
   assert.equal(approveIndex, firstCompletionIndex + 1);
   assert.equal(
     approve?.spans
       .filter((span) => span.text.trim().length > 0)
-      .every((span) => span.surface === "subtle"),
+      .every((span) => span.surface === "none"),
     true,
   );
+  assert.equal(
+    approve?.spans.find((span) => span.text === "/approve")?.tone,
+    "emphasis",
+  );
+  const lastCompletionIndex = rows.findIndex((row) =>
+    row.text.includes("/exit"),
+  );
+  const composerTopIndex = (active.value.caret?.row ?? 0) - 1;
+  assert.equal(rows[lastCompletionIndex + 1]?.text.trim(), "");
+  assert.equal(composerTopIndex, lastCompletionIndex + 2);
 
   const exact = new ApplicationController(false);
   exact.feed("/providers");
@@ -487,7 +640,7 @@ test("moves slash selection, hides exact completion, and coexists with activity"
   );
 });
 
-test("keeps activity directly adjacent to the composer when completion is absent", () => {
+test("separates activity from the composer with one stage rhythm row", () => {
   const application = new ApplicationController(true);
   assert.ok(application.turnAccepted(started(10, "inspect")).ok);
   requestTool(application, {
@@ -506,14 +659,17 @@ test("keeps activity directly adjacent to the composer when completion is absent
       row.spans.some((span) => span.surface === "attention") ? index : -1,
     )
     .filter((index) => index >= 0);
-  const composerTopIndex = rows.findIndex((row) => row.text.includes("\u250c"));
-  assert.equal(activityIndexes.length, 2);
+  const composerTopIndex = rows.findIndex(
+    (_row, index) => index === (active.value.caret?.row ?? 0) - 1,
+  );
+  assert.equal(activityIndexes.length, 4);
   const firstActivityIndex = activityIndexes.at(0);
   const lastActivityIndex = activityIndexes.at(-1);
   assert.ok(firstActivityIndex !== undefined);
   assert.ok(lastActivityIndex !== undefined);
   assert.equal(rows[firstActivityIndex - 1]?.text.trim(), "");
-  assert.equal(composerTopIndex, lastActivityIndex + 1);
+  assert.equal(rows[lastActivityIndex + 1]?.text.trim(), "");
+  assert.equal(composerTopIndex, lastActivityIndex + 2);
 });
 
 test("replaces the contextual tool and clears it when the turn settles", () => {
@@ -576,7 +732,8 @@ test("replaces the contextual tool and clears it when the turn settles", () => {
   assert.equal(text.includes("replace_text"), true);
   assert.equal(text.includes("approval required"), true);
   assert.equal(text.includes("\u203a"), false);
-  assert.equal(text.trimEnd().endsWith("approval"), true);
+  assert.equal(rendered.value.rows.at(-1)?.text.includes("approval"), false);
+  assert.equal(rendered.value.rows.at(-1)?.text.includes("\u2022"), false);
 
   application.applySessionAction({ kind: "approve" });
   assert.ok(
@@ -690,7 +847,7 @@ test("navigates the conversation document and resumes follow-end", () => {
   const history = createChatRender(application, viewport(36, 14));
   assert.ok(history.ok);
   assert.equal(history.value.frame.rows.some((row) => row.text.includes("line-20")), false);
-  assert.equal(history.value.frame.rows.at(-1)?.text.includes("\u2191 history"), true);
+  assert.equal(history.value.frame.rows.at(-1)?.text.includes("history"), false);
 
   for (let count = 0; count < 12 && application.viewingHistory; count += 1) {
     const pageDown = application.feed("\u001B[6~").actions.at(0);
@@ -704,12 +861,42 @@ test("navigates the conversation document and resumes follow-end", () => {
   assert.equal(latest.value.frame.rows.at(-1)?.text.includes("history"), false);
 });
 
+test("separates a scrollable transcript from the composer", () => {
+  const application = new ApplicationController(true);
+  const question = Array.from(
+    { length: 20 },
+    (_, index) => "line-" + String(index + 1).padStart(2, "0"),
+  ).join("\n");
+  assert.ok(application.turnAccepted(started(12, question)).ok);
+
+  const rendered = createChatRender(application, viewport(36, 14));
+  assert.ok(rendered.ok);
+  const composerTop = (rendered.value.frame.caret?.row ?? 0) - 1;
+
+  assert.equal(
+    rendered.value.transcript.contentRows >
+      rendered.value.transcript.viewportRows,
+    true,
+  );
+  assert.equal(
+    rendered.value.frame.rows.at(rendered.value.transcript.viewportRows)?.text.trim(),
+    "",
+  );
+  assert.equal(
+    composerTop,
+    rendered.value.transcript.viewportRows + 1,
+  );
+});
+
 test("keeps the composer ahead of every other region on one row", () => {
   const application = new ApplicationController(true);
   assert.ok(application.turnAccepted(started(7, "line-1\nline-2")).ok);
   const rendered = frame(application, 16, 1);
 
   assert.ok(rendered.ok);
-  assert.deepEqual(rendered.value.rows.map((row) => row.text), [" "]);
-  assert.deepEqual(rendered.value.caret, { row: 0, column: 1 });
+  assert.equal(
+    rendered.value.rows.at(0)?.spans.some((span) => span.surface === "subtle"),
+    true,
+  );
+  assert.deepEqual(rendered.value.caret, { row: 0, column: 2 });
 });

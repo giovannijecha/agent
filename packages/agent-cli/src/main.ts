@@ -26,8 +26,11 @@ import { parseLaunchCommand } from "./launch-command.js";
 import { NodeTerminalHost } from "./node-terminal-host.js";
 import { NodeOpenCodeGoTransport } from "./node-opencode-go-transport.js";
 import { NodeProcessRunner } from "./node-process-runner.js";
+import { NodeTimerClock } from "./node-timer-clock.js";
+import { NoticeScheduler } from "./notice-scheduler.js";
 import { resolveOpenCodeGoConfiguration } from "./provider-configuration.js";
 import { run } from "./run.js";
+import { MotionScheduler } from "./motion-scheduler.js";
 import { acquireOpenCodeGoCredential } from "./startup-credential.js";
 
 const PROVIDER_PRESENTATION: ProviderPresentation = Object.freeze({
@@ -86,14 +89,24 @@ const credential = await acquireOpenCodeGoCredential(
 const configuration = resolveOpenCodeGoConfiguration(
   credential,
 );
+const terminalHost = new NodeTerminalHost();
+const timerClock = terminalHost.interactive ? new NodeTimerClock() : undefined;
+const motion = timerClock !== undefined
+  ? new MotionScheduler(timerClock)
+  : undefined;
+const notices = timerClock !== undefined
+  ? new NoticeScheduler(timerClock)
+  : undefined;
 if (!configuration.ok) {
   stderr.write("agent rejected the provider configuration\n", () => exit(1));
 } else if (configuration.value.kind === "disabled") {
   const result = await run(
-    new NodeTerminalHost(),
+    terminalHost,
     undefined,
     undefined,
     workspaceLabel,
+    motion,
+    notices,
   );
   if (!result.ok) {
     const label = result.error.primary?.kind ?? "cleanup";
@@ -119,10 +132,12 @@ if (!configuration.ok) {
     );
   } else {
     const result = await run(
-      new NodeTerminalHost(),
+      terminalHost,
       new AgentRuntime(model.value, tools.value),
       PROVIDER_PRESENTATION,
       workspaceLabel,
+      motion,
+      notices,
     );
     if (!result.ok) {
       const label = result.error.primary?.kind ?? "cleanup";

@@ -2,6 +2,11 @@
 
 - Status: accepted
 - Date: 2026-08-11
+- Amended by: decision 0040
+
+Decision 0040 replaces split, background-filled rows and the passive keyboard
+hint with compact transparent inline rows. Catalog, selection, key, dispatch,
+and bounded-window behavior below remain in force.
 
 ## Context
 

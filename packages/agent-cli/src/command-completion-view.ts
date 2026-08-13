@@ -2,10 +2,9 @@ import {
   type Component,
   ComponentError,
   err,
+  InlineText,
   type Result,
   SelectionList,
-  SplitLine,
-  Surface,
 } from "@agent/tui";
 
 import type { CommandCompletionProjection } from "./session.js";
@@ -29,22 +28,21 @@ export function createCommandCompletionDocument(
       item.command,
       selected ? "emphasis" : "plain",
     );
-    const description = createSpan(item.description, "plain");
+    const gap = createSpan("  ", "muted");
+    const description = createSpan(
+      item.description,
+      selected ? "plain" : "muted",
+    );
     if (!command.ok) return command;
+    if (!gap.ok) return gap;
     if (!description.ok) return description;
-    const line = SplitLine.create([command.value], [description.value], {
-      gap: 2,
-      priority: "left",
-    });
+    const line = InlineText.create([
+      command.value,
+      gap.value,
+      description.value,
+    ]);
     if (!line.ok) return line;
-    const surface = Surface.create(line.value, {
-      extent: "viewport",
-      horizontalPadding: 1,
-      slant: "inherit",
-      surface: selected ? "subtle" : "inset",
-    });
-    if (!surface.ok) return surface;
-    rows.push(surface.value);
+    rows.push(line.value);
   }
   return SelectionList.create(rows, projection.selectedIndex);
 }

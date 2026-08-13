@@ -140,14 +140,19 @@ runtime, and core must stay green.
 
 Conversation-shell changes require panel, surface, text-style, split-line,
 three-column-line, horizontal-inset, side-rail, spacer, footer, composer,
-transcript-role, activity, empty-state, tiny-viewport, semantic-state, and
-manual regressions under decisions 0026, 0027, and 0028. Keep the transcript
+transcript-role, activity, notice, empty-state, tiny-viewport, semantic-state,
+and manual regressions under decisions 0026, 0027, 0028, 0039, 0040, and 0041. Keep the transcript
 dominant, omit absent contextual blocks, and render only status facts already
 held by the composition root or application reducer. Preserve the footer's
 left/physical-center/right anchors and right-center-left narrow-width retention.
-Render lifecycle phase once in the footer; do not recreate a static header or lifecycle notice. Keep the draft and ordinary
-conversation foreground neutral, use the closed `subtle` surface for user turn
-grouping and the dark `inset` surface for registered structured Markdown. Keep
+Keep stable context at left and center; reserve the right edge for the active-work
+pulse, place its final cell on the composer's final surface cell, and render no
+lifecycle or navigation words there. Do not recreate a static
+header or lifecycle notice. Keep the draft and ordinary
+conversation foreground neutral. Keep one neutral subtle background on user
+turns and the composer, and keep other non-operational regions transparent. Use
+italic slant for user turn grouping and the transparent content-fit surface
+path for registered structured Markdown. Keep
 complete one- and two-row fences compact with zero horizontal padding, larger
 fences and tables at one cell, and exact `---` on the shared responsive muted
 separator path. Reserve restrained steel blue for parser-recognized inline code
@@ -155,6 +160,17 @@ and language labels and lighter blues for fenced syntax only,
 and reserve green, yellow, and red for authoritative success, active, and
 negative state. Complete recognized fences may use only the five closed syntax
 roles; unknown or unlabeled fences remain plain.
+A contextual notice remains one latest transparent region below activity and
+above completion or the composer. Preserve the independent muted-information
+and attention-warning levels, one-cell content alignment, replacement semantics,
+immediate editor dismissal, exact 5,000-millisecond expiry, and identity-based
+stale-event rejection. Update its command, application, view, scheduler,
+arbiter, integration, and manual tests together. Do not turn notices into
+transcript entries, persistent status, tool surfaces, or per-command timers.
+When expiry redraws during active motion, discard and re-arm cached cosmetic
+work through that successful frame without resetting the visible phase. An
+input fragment or stale event that produces no redraw must leave pending motion
+intact.
 A future tool or integration must reuse the generic activity document rather
 than add its own card. Every state uses the same borderless semantic `Surface`
 with a closed success, attention, or failure background, neutral italic tool
@@ -171,6 +187,17 @@ unused marker, spacer, panel, split-line, three-column-line, inset, and rail
 exports, tests, decision 0028, and its policy and manual evidence.
 Scrolling, Markdown, tool lifecycle, runtime, and providers remain unchanged.
 
+Responsive-stage changes require the pure stage projection, shared wrapper,
+wide, narrow, tiny-viewport, lower-shell rhythm, resize, manual, and policy
+evidence to change together. Keep the minimum technical margin in one CLI
+module and the one-row lower-shell rhythm in the chat composition; transcript,
+activity, completion, composer, and footer must not carry private copies. To
+remove the shared stage, first replace the five inset CLI wrappers with their
+direct components and restore an explicit footer-left policy, then delete the
+projector, its tests, decision 0039, and its ownership-policy registration.
+Generic TUI components, application state, renderer, motion, and terminal
+lifecycle remain unchanged.
+
 Cursor-style changes require exact renderer initialization, partial-write,
 cleanup, retry, and idempotence tests. To remove the steady block caret, delete
 both the style-selection and default-style restoration sequences together;
@@ -178,9 +205,9 @@ leave caret geometry, visibility restoration, alternate-screen cleanup, and
 editor behavior unchanged.
 
 Transcript navigation changes only through decision 0024. Update decoder,
-session actions, layout-plan geometry, reducer state, resize behavior, history
-status truth, including the directional `↑ history` cue, focused tests, and
-manual evidence together. To remove it, first
+session actions, layout-plan geometry, reducer state, resize behavior, focused
+tests, and manual evidence together. Navigation state must not be duplicated as
+footer telemetry. To remove it, first
 unwrap the transcript `ScrollView`, then remove navigation actions and history
 status state.
 Remove `VerticalLayoutPlan` only after no remaining caller consumes planned
@@ -215,8 +242,8 @@ then delete `markdown-block`, `markdown-parser`, `syntax-highlighter`, their
 exports and tests, decisions 0023, 0030, 0031, and 0032, and their policy and manual
 evidence. First remove table recognition and its derived header rule,
 structured-region identities, the
-shared row-paint integration, `inset`, and the five syntax tones if unused; the
-generic `Surface` remains for user turns and other callers. If no remaining
+shared row-paint integration and the five syntax tones if unused; the generic
+`Surface` remains for user turns and other callers. If no remaining
 component uses the `emphasis` tone, remove only that renderer mapping in the same change. Decision
 0027's lifecycle success and failure tones remain independent. The remaining components, structured
 rows, scrolling, tool activity, input, runtime, and providers stay buildable.
@@ -227,12 +254,12 @@ Changing its states, retention, safe fields, ordering, tones, or bounds requires
 activity-log, reducer, view, narrow-viewport, privacy, cleanup, manual, and policy
 updates together. Do not add a tool-specific presenter, rail, or panel; the CLI
 may decorate the complete generic stack only through the shared semantic
-surface. Its optional leading rhythm slot must reuse the generic `Spacer`, retain
-zero minimum height, and disappear when activity is absent. Activity remains
-directly adjacent to completion or the composer below. To remove the
+surface. Its optional leading rhythm slot must reuse the shared CLI-owned
+one-row `Spacer`, retain zero minimum height, and disappear when activity is
+absent. The same rhythm path separates completion, composer, and footer. To remove the
 semantic activity colors while retaining activity, map that surface to `none`,
 then remove the unused surface roles and renderer mappings. To remove the
-surface, first remove its single CLI slot, leading rhythm slot, and lifecycle log,
+surface, first remove its single CLI slot, both rhythm slots, and lifecycle log,
 then remove the generic component stack only if it has no other consumer.
 The runtime tool protocol,
 approval commands, tool engine, structured rows, scroll view, and renderer must
@@ -287,7 +314,8 @@ replacement, view ordering, tests, decision 0034, manual, and policy registries
 form one contract. Preserve exact prefix matching, absence of aliases and
 arguments, bounded non-wrapping selection, contextual Up/Down interception, Tab
 completion without execution, selected-command dispatch through the canonical
-path on Enter, and selected-row visibility on short viewports.
+path on Enter, selected-row visibility on short viewports, compact inline
+descriptions, transparent rows, and absence of a passive keyboard hint.
 
 To remove presentation only, delete the CLI completion slot and presenter while
 retaining the catalog and exact dispatcher. To remove the capability entirely,
@@ -591,11 +619,25 @@ Rollback restores the complete prior manifest and asset set; never mix versions.
 Removing the visual signature removes its assets, references, registry entries,
 validator, tests, and decision while leaving the product identity `agent`.
 
-Future visible motion must preserve decision 0038: pure phase computation stays
-in TUI, scheduling stays in CLI, one monotonic tick is pending at most, terminal
-events win arbitration, and the rate remains bounded. Remove motion by deleting
-the CLI scheduler and phase input together; static component rendering remains.
-Phase 0 has no visible motion to remove.
+Visible motion must preserve decision 0038: pure phase computation stays in
+TUI, scheduling stays in CLI, one monotonic tick is pending at most, functional
+events win arbitration, and the eight-frame-per-second rate remains bounded.
+The pulse is the footer's only right-edge content and appears only for
+`generating`, `runningTool`, or `cancelling`; idle and approval leave that edge
+empty. Preserve its six-phase neutral-lead, ochre-head, neutral-trail sequence
+and composer-edge alignment. Update the pulse together with deterministic phase, scheduler,
+arbitration, and view tests. Remove motion by deleting its scheduler, arbiter
+source, phase projection, and pulse together; retain the generic timer port while
+timed notices use it. Static component rendering and
+Phase 0 remain.
+
+Timed-notice changes follow decision 0041. Change the duration only at the
+notice scheduler constant and update scheduler, integration, manual, and view
+regressions together. Remove timed expiry by deleting the notice scheduler,
+notice arbiter source, and application tokens while retaining latest-notice
+replacement and editor dismissal. Remove notices entirely only with command
+feedback, reducer state, view slots, tests, manual text, and the 0041 policy
+entry; the timer port remains while motion uses it.
 
 ## Release gate
 

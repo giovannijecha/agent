@@ -21,29 +21,29 @@ export const STYLE_RESET = "\u001B[0m";
 function toneParameters(tone: Tone): readonly string[] {
   switch (tone) {
     case "accent":
-      return Object.freeze(["38", "5", "67"]);
+      return Object.freeze(["38", "2", "102", "155", "210"]);
     case "attention":
-      return Object.freeze(["1", "33"]);
+      return Object.freeze(["1", "38", "2", "230", "191", "95"]);
     case "emphasis":
       return Object.freeze(["1"]);
     case "failure":
-      return Object.freeze(["1", "31"]);
+      return Object.freeze(["1", "38", "2", "232", "112", "112"]);
     case "muted":
-      return Object.freeze(["2"]);
+      return Object.freeze(["38", "2", "112", "124", "137"]);
     case "plain":
       return Object.freeze([]);
     case "success":
-      return Object.freeze(["1", "32"]);
+      return Object.freeze(["1", "38", "2", "134", "203", "146"]);
     case "syntaxComment":
-      return Object.freeze(["38", "5", "108"]);
+      return Object.freeze(["38", "2", "127", "157", "135"]);
     case "syntaxKeyword":
-      return Object.freeze(["38", "5", "75"]);
+      return Object.freeze(["38", "2", "105", "184", "255"]);
     case "syntaxLiteral":
-      return Object.freeze(["38", "5", "150"]);
+      return Object.freeze(["38", "2", "166", "213", "123"]);
     case "syntaxName":
-      return Object.freeze(["38", "5", "117"]);
+      return Object.freeze(["38", "2", "131", "213", "245"]);
     case "syntaxString":
-      return Object.freeze(["38", "5", "180"]);
+      return Object.freeze(["38", "2", "221", "184", "134"]);
   }
 }
 
@@ -58,15 +58,15 @@ export function beginStyle(
     parameters.push("3");
   }
   if (surface === "subtle") {
-    parameters.push("100");
+    parameters.push("48", "2", "31", "38", "47");
   } else if (surface === "inset") {
-    parameters.push("48", "5", "235");
+    parameters.push("48", "2", "18", "24", "31");
   } else if (surface === "success") {
-    parameters.push("48", "5", "22");
+    parameters.push("48", "2", "22", "55", "34");
   } else if (surface === "attention") {
-    parameters.push("48", "5", "58");
+    parameters.push("48", "2", "62", "50", "19");
   } else if (surface === "failure") {
-    parameters.push("48", "5", "52");
+    parameters.push("48", "2", "62", "24", "27");
   }
   return parameters.length === 0
     ? ""

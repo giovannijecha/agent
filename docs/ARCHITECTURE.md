@@ -55,9 +55,10 @@ supply component hierarchies, module boundaries, identifiers, styling values,
 animation timings, redraw algorithms, or source structure.
 
 Animation phases are pure TUI inputs; scheduling remains at the CLI platform
-boundary. A future monotonic scheduler may retain at most one pending tick,
-operate at no more than ten frames per second, and yield to terminal events.
-Phase 0 intentionally implements no visible animation.
+boundary. The owned monotonic scheduler retains at most one pending tick,
+operates at eight frames per second, re-arms only after a successful render,
+and yields to terminal and runtime events. The active-work footer pulse keeps
+constant cell geometry. Phase 0 is its deterministic static baseline.
 
 ## Single-agent execution model
 
@@ -268,9 +269,9 @@ Up, Down, Page Up, and Page Down sequences to ordered session actions. The
 single-writer reducer owns the immutable scroll state and last valid transcript
 geometry. The view wraps its one Markdown transcript in the generic scroll view
 and returns geometry from the same layout plan that rendered the frame. Moving
-away from the newest row adds the quiet `↑ history` footer state; returning to the
-end or accepting a new turn restores follow-end. Editor Home and End remain
-independent.
+away from the newest row changes only reducer-owned navigation state; returning
+to the end or accepting a new turn restores follow-end. Navigation truth is not
+duplicated as footer telemetry. Editor Home and End remain independent.
 
 Tool activity is application state, not terminal state. The CLI reducer maps
 validated runtime transitions into one bounded log and one generic component
@@ -288,10 +289,10 @@ hostile-component containment but knows no tool vocabulary.
 Decision 0022 defines update and removal of this surface independently from the
 tool engine, runtime protocol, structured rows, scroll view, and renderer.
 
-The responsive conversation shell follows decisions 0026, 0027, and 0028. In
-vertical order the CLI composes a flexible document, transient actionable
-notice, contextual activity, one bounded rectangular composer, and a compact
-status line. The document remains
+The responsive conversation shell follows decisions 0026, 0027, 0028, 0039,
+0040, and 0041. In vertical order the CLI composes a flexible document,
+contextual activity, one latest ephemeral notice, completion, one bounded
+stage-wide neutral composer, and a compact status line. The document remains
 dominant; absent contextual state consumes no rows.
 The composer projects the existing bounded editor through generic `InputArea`
 and therefore creates no second editor or submission path. It has no prompt
@@ -301,20 +302,36 @@ Bracketed paste reaches that editor as one atomic non-submitting event; a later
 typed Enter remains the only submission event. Ctrl+Left, Ctrl+Right,
 Ctrl+Backspace, Ctrl+W, and Ctrl+Delete arrive as semantic decoder events and
 use the editor's single whitespace-delimited word rule; the CLI never
-reinterprets terminal encodings or duplicates draft mutation. The generic panel owns the
-complete border. The
-footer is the only lifecycle phase surface. It renders the working-folder label
-at the left edge, configured provider/model at the physical center, and
-application phase plus optional directional history truth at the right edge. All values are
-already owned by the composition root or reducer. A generic three-column line
-keeps those anchors independent and retains right, then center, then left when
-width is scarce. Low-priority footer chrome collapses before required
-interaction rows. One generic inset centers conversation, activity, and the
-composer inside a bounded working column. The footer follows the composer
-without a separate decorative rule.
-User entries use one compact generic subtle surface. Assistant prose remains
-unboxed; fenced code and strict pipe tables use the generic content-fit dark
-`inset` surface painter after visible rows are selected. Complete fences with at
+reinterprets terminal encodings or duplicates draft mutation. The generic
+surface owns the composer padding, subtle neutral background, and caret
+translation without adding a border. The
+footer renders stable context only: the working-folder label at the left edge
+and configured provider/model at the physical center. Its right edge is reserved
+for one constant-width three-cell pulse while autonomous work advances through
+`generating`, `runningTool`, or `cancelling`; it is empty while idle or awaiting
+approval. The pulse ends at the composer's final surface cell. Lifecycle and
+navigation words are not duplicated there. A generic
+three-column line keeps those anchors independent and retains right, then center,
+then left when width is scarce. Low-priority footer chrome collapses before required
+interaction rows. One pure CLI projection gives every shell region the full
+usable terminal width while retaining one technical outer column per side when
+space permits. The generic inset applies that projection to the footer as well;
+individual shell regions own no width calculation or arbitrary reading-width
+cap. Six pure pulse phases add one neutral leading and trailing step around the
+ochre head while preserving the three-cell extent.
+The latest notice is reducer-owned bounded state with an independent `info` or
+`warning` level and a content-free generation token. Its transparent stage-wide
+surface uses one horizontal inset; informational text is muted and warnings use
+the attention foreground without inheriting the application phase. A new
+notice replaces the previous one, editor interaction dismisses it, and the
+CLI-owned scheduler submits the exact token for expiry after 5,000 milliseconds.
+The event arbiter serializes expiry after terminal and runtime work but before
+cosmetic motion, and a stale token cannot clear newer feedback. The generic
+timer port is shared substrate, while motion and notice scheduling retain
+independent lifecycle state.
+User entries use one stage-wide generic subtle surface. Assistant prose
+remains unboxed; fenced code and strict pipe tables use the generic content-fit
+transparent surface painter after visible rows are selected. Complete fences with at
 most two visible logical rows select zero horizontal padding through the same
 surface group; larger fences and tables select one cell. Strict table rows pad
 every column to the maximum visible cell width computed across that table, so
@@ -323,10 +340,12 @@ one muted header rule from the same measured total row extent and emits it
 inside that surface; it does not emit an outer border or a complete cell grid.
 No `you`, `agent`, or static
 header label is injected. Surface, slant, and foreground tone remain
-independent closed style dimensions. One blank row separates adjacent transcript entries. The empty state contributes no
-welcome or reference content. Semantic state is shared across
-footer and tool activity: green is successful or ready, yellow is active or
-approval-sensitive, and red is failed, denied, or cancelled. The TUI primitives
+independent closed style dimensions. The neutral subtle surface distinguishes
+user input and the composer; semantic green, ochre, and red backgrounds are
+reserved for authoritative tool lifecycle state. One blank row separates adjacent transcript entries. The empty state contributes no
+welcome or reference content. Semantic state is shared across interactive
+surfaces: green is successful, yellow is active or approval-sensitive, and red
+is failed, denied, or cancelled. The TUI primitives
 remain agent-agnostic.
 
 Conversation display uses the closed Markdown subset in decision 0023. The TUI
@@ -355,10 +374,12 @@ exact command without submitting it, while Enter dispatches the selected exact
 command through the same canonical path as a fully typed submission. The generic
 TUI selection list owns only one-row measurement, clipping, caret translation,
 and selected-row visibility; it knows no command names or execution policy. The
-  completion slot is below contextual activity and above the composer. One
-optional generic spacer row precedes non-empty activity, has zero minimum
-height, and collapses before required content. Activity is directly adjacent to
-completion or the composer below, matching completion-to-composer rhythm. The
+completion slot is below contextual activity and any notice, and above the composer. Each entry
+is one compact transparent inline row with its description immediately after
+the command; no passive keyboard hint is rendered. One shared optional generic
+spacer row precedes each adjacent non-empty activity, notice, or completion
+region, the composer, and the footer. Every instance has zero minimum height and collapses before
+required content. The
 composer remains the sole required row on a one-row viewport.
 Operator guidance lives in the maintained manual rather than a duplicated
 interactive help surface. Approval commands are contextual and authorize only the exact pending

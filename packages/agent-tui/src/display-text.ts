@@ -20,11 +20,11 @@ export type DisplayWrap = "cell" | "word";
 
 export type DisplayDecoration = "separator";
 
-/** Internal identity and renderer-owned background for one structured region. */
+/** Internal identity and renderer-owned style for one structured region. */
 export type DisplaySurfaceGroup = Readonly<{
   horizontalPadding: 0 | 1;
   id: number;
-  surface: Exclude<SurfaceTone, "none">;
+  surface: SurfaceTone;
 }>;
 
 /** Internal logical line with one explicit owned wrapping policy. */
@@ -171,6 +171,7 @@ function styleRetainedRows(
       horizontalPadding: group.horizontalPadding,
       slant: "inherit",
       surface: group.surface,
+      verticalPadding: 0,
     });
     if (!painted.ok) {
       return painted;

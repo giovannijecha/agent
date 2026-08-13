@@ -16,14 +16,12 @@ function createEntryComponent(
   const markdown = MarkdownBlock.create(entry.content, "head");
   if (!markdown.ok) return markdown;
 
-  if (entry.role !== "user") {
-    return markdown;
-  }
   return Surface.create(markdown.value, {
-    extent: "content",
+    extent: "viewport",
     horizontalPadding: 1,
-    slant: "italic",
-    surface: "subtle",
+    slant: entry.role === "user" ? "italic" : "inherit",
+    surface: entry.role === "user" ? "subtle" : "none",
+    verticalPadding: entry.role === "user" ? 1 : 0,
   });
 }
 

@@ -44,7 +44,7 @@ function structuredSurfaceGroup(
   id: number,
   horizontalPadding: 0 | 1 = 1,
 ): DisplaySurfaceGroup {
-  return Object.freeze({ horizontalPadding, id, surface: "inset" });
+  return Object.freeze({ horizontalPadding, id, surface: "none" });
 }
 
 function separatorLine(): DisplayLine {

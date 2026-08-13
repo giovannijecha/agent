@@ -53,7 +53,10 @@
     "assets/brand/README.md",
     "docs/BRAND.md",
     "docs/decisions/0037-canonical-agent-brand.md",
-    "docs/decisions/0038-owned-deterministic-tui-motion.md"
+    "docs/decisions/0038-owned-deterministic-tui-motion.md",
+    "docs/decisions/0039-owned-responsive-conversation-stage.md",
+    "docs/decisions/0040-owned-quiet-conversation-rhythm.md",
+    "docs/decisions/0041-owned-ephemeral-contextual-notices.md"
   ],
   "workspaces": [
     {

@@ -84,6 +84,7 @@ function createActivityRows(
     horizontalPadding: 1,
     slant: "inherit",
     surface: semanticTone,
+    verticalPadding: 1,
   });
 }
 

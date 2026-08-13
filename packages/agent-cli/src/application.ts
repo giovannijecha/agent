@@ -21,6 +21,11 @@ import {
 import { ChatState, type TranscriptEntry } from "./chat-state.js";
 import type { ProviderPresentation } from "./commands.js";
 import {
+  createNoticeToken,
+  type NoticeLevel,
+  type NoticeToken,
+} from "./notice.js";
+import {
   SessionController,
   type CommandCompletionProjection,
   type SessionAction,
@@ -151,6 +156,8 @@ export class ApplicationController
   readonly #session: SessionController;
   readonly #workspace: string | undefined;
   #notice: readonly string[];
+  #noticeLevel: NoticeLevel = "info";
+  #noticeToken: NoticeToken | undefined = undefined;
   #phase: ApplicationPhase = "idle";
   #transcriptGeometry:
     | Readonly<{ contentRows: number; viewportRows: number }>
@@ -196,6 +203,14 @@ export class ApplicationController
 
   get notice(): readonly string[] {
     return this.#notice;
+  }
+
+  get noticeLevel(): NoticeLevel {
+    return this.#noticeLevel;
+  }
+
+  get noticeToken(): NoticeToken | undefined {
+    return this.#noticeToken;
   }
 
   get provider(): ProviderPresentation | undefined {
@@ -255,7 +270,11 @@ export class ApplicationController
 
   /** Reduces one terminal input chunk into application effects. */
   feed(chunk: string): SessionUpdate {
-    return this.#session.feed(chunk);
+    const session = this.#session.feed(chunk);
+    if (session.redraw && this.#notice.length > 0) {
+      this.#setNotice([]);
+    }
+    return session;
   }
 
   /** Reduces terminal EOF into the canonical exit effect. */
@@ -300,6 +319,8 @@ export class ApplicationController
     this.#session.clear();
     this.#chat.clear();
     this.#notice = Object.freeze([]);
+    this.#noticeLevel = "info";
+    this.#noticeToken = undefined;
     this.#phase = "idle";
     this.#transcriptGeometry = undefined;
     this.#transcriptScroll = ScrollState.followEnd();
@@ -312,7 +333,7 @@ export class ApplicationController
   /** Reduces one decoded action so capability feedback can preserve ordering. */
   applySessionAction(action: SessionAction): ApplicationUpdate {
     if (action.kind === "notice") {
-      this.#setNotice(action.lines);
+      this.#setNotice(action.lines, action.level);
       return update(true);
     }
     if (action.kind === "navigateTranscript") {
@@ -407,6 +428,15 @@ export class ApplicationController
       ]);
     }
     return update(false, [Object.freeze({ kind: "exit" as const })]);
+  }
+
+  /** Clears only the notice generation named by one serialized expiry event. */
+  expireNotice(token: NoticeToken): ApplicationUpdate {
+    if (token !== this.#noticeToken) {
+      return update(false);
+    }
+    this.#setNotice([]);
+    return update(true);
   }
 
   /** Records a successful synchronous runtime start result. */
@@ -783,9 +813,21 @@ export class ApplicationController
     }
   }
 
-  #setNotice(lines: readonly string[]): void {
-    this.#notice = validNotice(lines)
-      ? Object.freeze([...lines])
-      : Object.freeze(["Application status was rejected by its safety limit."]);
+  #setNotice(
+    lines: readonly string[],
+    level: NoticeLevel = "warning",
+  ): void {
+    if (validNotice(lines)) {
+      this.#notice = Object.freeze([...lines]);
+      this.#noticeLevel = level;
+    } else {
+      this.#notice = Object.freeze([
+        "Application status was rejected by its safety limit.",
+      ]);
+      this.#noticeLevel = "warning";
+    }
+    this.#noticeToken = this.#notice.length > 0
+      ? createNoticeToken()
+      : undefined;
   }
 }
