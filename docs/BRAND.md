@@ -25,6 +25,12 @@ Use SVG where the host supports safe vector assets. Use the registered PNG
 variant when a host requires a fixed raster size. Never regenerate one format
 from another during a build.
 
+Canonical SVG updates pass a fail-closed capability check before their digest
+is admitted. Scriptable elements, event-handler attributes, animation,
+references, embedded or imported resources, active styling URLs, DTDs,
+entities, and XML processing stylesheets are rejected. Update SVG bytes,
+manifest digest, validator tests, and this contract atomically.
+
 ## Usage rules
 
 - Preserve the registered bytes, proportions, lowercase spelling, and palette.
