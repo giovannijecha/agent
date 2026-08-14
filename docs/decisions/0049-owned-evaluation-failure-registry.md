@@ -98,11 +98,15 @@ identity-changing, empty, or oversized registry before accepting source bytes.
 It compares the observed path and opened descriptor identities, reads through
 that descriptor into one fixed `registryBytes + 1` buffer, and rechecks identity
 and size before returning. The failure-registry module then owns bounded fatal
-UTF-8 decoding and JSON parsing for those bytes. Invalid UTF-8 and syntactically
-invalid JSON sources map to the same fixed registry error before structural
-validation; filesystem and parser diagnostics are never exposed. Validation
-returns only immutable closed classifications and counts. It emits no
-registered path or entry content in an error.
+UTF-8 decoding and JSON parsing for those bytes. It serializes the parsed value
+with the one owned two-space JSON representation and final LF, re-encodes that
+representation, and requires exact source-byte equality before structural
+validation. This rejects a BOM, CRLF, a missing final newline, trailing
+whitespace, noncanonical indentation or scalar spelling, and repeated keys.
+Invalid UTF-8, syntactically invalid JSON, and noncanonical representations map
+to the same fixed registry error; filesystem and parser diagnostics are never
+exposed. Validation returns only immutable closed classifications and counts.
+It emits no registered path or entry content in an error.
 
 Ordinary `list`, `prepare`, `grade`, and `validate-record` commands check the
 exact combined `evaluations/` inventory but do not parse failure entries or walk
@@ -128,10 +132,11 @@ occurrence cannot leave `observing` and that corpus-tree capacity includes the
 registry directory, file, and complete byte allowance. Source-boundary
 regressions cover regular files, exact size bounds, empty and oversized files,
 directories, and linked directories before the verifier read. Parser
-regressions prove that malformed JSON and invalid UTF-8 collapse to the fixed
-content-free error without echoing rejected source. Inventory tests prove that
-the evaluation corpus and failure registry jointly own every file under
-`evaluations/` and reject unregistered additions.
+regressions prove that malformed JSON, invalid UTF-8, BOM-prefixed source,
+CRLF, missing final LF, trailing whitespace, minification, and repeated keys
+collapse to the fixed content-free error without echoing rejected source.
+Inventory tests prove that the evaluation corpus and failure registry jointly
+own every file under `evaluations/` and reject unregistered additions.
 
 The canonical Windows and Linux gates validate the registry without creating a
 run, reading ignored state, launching `agent`, contacting a provider, executing

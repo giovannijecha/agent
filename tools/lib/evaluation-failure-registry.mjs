@@ -89,7 +89,10 @@ function fail(code) {
   throw new EvaluationFailureRegistryError(code);
 }
 
-/** Parses one bounded registry source without exposing rejected content. */
+/**
+ * Parses one bounded canonical registry source without exposing rejected
+ * content.
+ */
 export function parseEvaluationFailureRegistry(source) {
   if (
     !(source instanceof Uint8Array) ||
@@ -98,12 +101,23 @@ export function parseEvaluationFailureRegistry(source) {
   ) {
     fail("invalidRegistry");
   }
+  let registry;
   try {
     const text = new TextDecoder("utf-8", { fatal: true }).decode(source);
-    return JSON.parse(text);
+    registry = JSON.parse(text);
   } catch {
     fail("invalidRegistry");
   }
+  const canonical = new TextEncoder().encode(
+    JSON.stringify(registry, null, 2) + "\n",
+  );
+  if (
+    source.byteLength !== canonical.byteLength ||
+    canonical.some((byte, index) => byte !== source.at(index))
+  ) {
+    fail("invalidRegistry");
+  }
+  return registry;
 }
 
 function isRecord(value) {

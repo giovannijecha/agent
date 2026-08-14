@@ -57,6 +57,27 @@ test("parses registry source without exposing rejected content", () => {
   }
 });
 
+test("rejects every noncanonical registry source representation", () => {
+  const canonical = registryBytes.toString("utf8");
+  const duplicateKey = canonical.replace(
+    '      "category": "planning",',
+    '      "category": "security",\n      "category": "planning",',
+  );
+  for (const source of [
+    Buffer.from(canonical.replaceAll("\n", "\r\n"), "utf8"),
+    Buffer.from(canonical.slice(0, -1), "utf8"),
+    Buffer.from(canonical.slice(0, -1) + " \n", "utf8"),
+    Buffer.from(JSON.stringify(registry) + "\n", "utf8"),
+    Buffer.from(duplicateKey, "utf8"),
+    Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), registryBytes]),
+  ]) {
+    assert.throws(
+      () => parseEvaluationFailureRegistry(source),
+      expectCode("invalidRegistry"),
+    );
+  }
+});
+
 test("accepts the canonical content-free failure registry", () => {
   assert.deepEqual(validateEvaluationFailureRegistry(registry, context()), {
     actionable: 0,
