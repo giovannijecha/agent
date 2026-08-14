@@ -626,6 +626,12 @@ bounds, and input distinct from expected. Corpus history is part of result
 interpretation; do not compare records across a changed task revision as if the
 task were identical.
 
+Keep snapshot path bounds relative to `input/`, `expected/`, or the run
+workspace rather than charging the fixed corpus prefix against a task. Preserve
+cross-platform rejection of Windows device names for identifiers. Canonical
+snapshots remain non-empty; an empty candidate workspace must remain gradeable
+as a failed artifact with all expected paths missing.
+
 Use `node tools/evaluate.mjs list` to inspect the catalog and `prepare`, `grade`,
 and `validate-record` only as documented in `evaluations/README.md`. Preparation
 must remain create-only and expose no expected files. The evaluator must never
