@@ -35,6 +35,13 @@ export type EvaluationReceipt = Readonly<{
   turns: number;
 }>;
 
+export type EvaluationReceiptSettlementFailure = "complete" | "write";
+
+export type EvaluationExitDiagnostic =
+  | "product"
+  | "receiptComplete"
+  | "receiptWrite";
+
 function failure(kind: EvaluationReceiptErrorKind): EvaluationReceiptError {
   return Object.freeze({ kind });
 }
@@ -210,4 +217,21 @@ export class EvaluationReceiptRecorder {
 /** Formats the one closed ASCII receipt line emitted after terminal cleanup. */
 export function formatEvaluationReceipt(receipt: EvaluationReceipt): string {
   return JSON.stringify(receipt) + "\n";
+}
+
+/** Orders product and optional receipt failures without changing product priority. */
+export function planEvaluationExit(
+  productFailed: boolean,
+  receiptFailure: EvaluationReceiptSettlementFailure | undefined,
+): readonly EvaluationExitDiagnostic[] {
+  const diagnostics: EvaluationExitDiagnostic[] = [];
+  if (productFailed) {
+    diagnostics.push("product");
+  }
+  if (receiptFailure === "complete") {
+    diagnostics.push("receiptComplete");
+  } else if (receiptFailure === "write") {
+    diagnostics.push("receiptWrite");
+  }
+  return Object.freeze(diagnostics);
 }

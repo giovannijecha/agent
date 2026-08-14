@@ -748,7 +748,11 @@ export async function run<E, RE = never>(
           });
           break;
         } else {
-          const applied = application.applyRuntime(event.result.value);
+          const runtimeEvent = event.result.value;
+          const acceptedToolRequest =
+            runtimeEvent.kind === "toolRequested" &&
+            runtimeEvent.turnId === application.activeTurnId;
+          const applied = application.applyRuntime(runtimeEvent);
           if (!applied.ok) {
             primary = Object.freeze({
               kind: "application" as const,
@@ -756,7 +760,7 @@ export async function run<E, RE = never>(
             });
             break;
           }
-          if (event.result.value.kind === "toolRequested") {
+          if (acceptedToolRequest) {
             evaluation?.requestedTool();
           }
           const outcome = applyApplicationUpdate(

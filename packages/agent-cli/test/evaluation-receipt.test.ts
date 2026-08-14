@@ -5,6 +5,7 @@ import {
   EVALUATION_RECEIPT_LIMITS,
   EvaluationReceiptRecorder,
   formatEvaluationReceipt,
+  planEvaluationExit,
 } from "../dist/evaluation-receipt.js";
 
 test("emits only bounded content-free authoritative counters", () => {
@@ -95,4 +96,21 @@ test("fails closed on invalid lifecycle, clocks, observations, and bounds", () =
     elapsed.finish(EVALUATION_RECEIPT_LIMITS.elapsedMilliseconds + 1),
     { error: { kind: "limit" }, ok: false },
   );
+});
+
+test("keeps product failures ahead of receipt settlement failures", () => {
+  assert.deepEqual(planEvaluationExit(false, undefined), []);
+  assert.deepEqual(planEvaluationExit(true, undefined), ["product"]);
+  assert.deepEqual(planEvaluationExit(false, "complete"), [
+    "receiptComplete",
+  ]);
+  assert.deepEqual(planEvaluationExit(false, "write"), ["receiptWrite"]);
+  assert.deepEqual(planEvaluationExit(true, "complete"), [
+    "product",
+    "receiptComplete",
+  ]);
+  assert.deepEqual(planEvaluationExit(true, "write"), [
+    "product",
+    "receiptWrite",
+  ]);
 });
