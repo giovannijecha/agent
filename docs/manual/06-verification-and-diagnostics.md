@@ -69,6 +69,12 @@ unregistered, or identical snapshots, and keeps run records content-free.
 Exact grading proves file-tree equality only; a different artifact requires
 operator review and is never inferred to be semantically equivalent.
 
+The adjacent failure-registry validator binds durable negative evidence to the
+current task catalog. It accepts only closed category, priority, lifecycle,
+frequency, record, and grade fields. It reads no ignored run or candidate
+content, and a first observation cannot automatically alter the tool surface or
+product behavior.
+
 ## Failure behavior
 
 The gate stops at the first structural error and returns nonzero. Build and test
@@ -102,6 +108,13 @@ secondary. Post-cleanup output also consumes Node's error event after an
 errored write callback, so a closed output stream cannot escape as an unhandled
 exception or hide that ordering. The receipt is independently removable under
 decision 0048.
+
+Register a reviewed negative result only through
+`evaluations/failures/registry.json`. Increment an occurrence only after the
+same failure recurs on the same maintained task. `observing` and `actionable`
+entries have no resolution path; `resolved` entries point to tracked decision
+or regression evidence. Decision 0049 defines independent update, rollback, and
+removal.
 
 ## Evidence
 
@@ -138,6 +151,10 @@ decision 0048.
 - Evaluation receipt: `packages/agent-cli/src/evaluation-receipt.ts`
 - Composition-root output settlement: `packages/agent-cli/src/process-output.ts`
 - Evaluation receipt decision: `docs/decisions/0048-owned-content-free-evaluation-receipt.md`
+- Evaluation failure registry: `evaluations/failures/registry.json`
+- Evaluation failure validator: `tools/lib/evaluation-failure-registry.mjs`
+- Evaluation failure validator tests: `tools/test/evaluation-failure-registry.test.mjs`
+- Evaluation failure decision: `docs/decisions/0049-owned-evaluation-failure-registry.md`
 - Manual validator: `tools/lib/manual-policy.mjs`
 - Manual validator tests: `tools/test/manual-policy.test.mjs`
 - Publication registry: `tools/publication-policy.json`

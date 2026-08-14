@@ -562,6 +562,15 @@ subsequent error event settles failure. The receipt path therefore cannot leave
 an unhandled post-cleanup stream event or replace a previously classified
 product failure with raw stream content.
 
+`evaluations/failures/registry.json` and
+`tools/lib/evaluation-failure-registry.mjs` form one adjacent maintainer-only
+evidence boundary. The registry binds reviewed negative results to maintained
+task identifiers using closed category, priority, lifecycle, occurrence, record,
+and grade fields. The canonical verifier supplies the task catalog and tracked
+source inventory; the validator never reads ignored runs, candidate content, or
+provider output. Evaluator commands admit the exact inventory path but do not
+parse it, so failure evidence cannot affect preparation or grading.
+
 ## Implemented and planned boundaries
 
 New packages are created only with their first real implementation:
@@ -667,8 +676,9 @@ process access remain unavailable unless the CLI composes an explicit capability
   them. File tools, runtime text chat, and TUI remain independently buildable.
 - Remove task evaluation by deleting local ignored runs, then its corpus,
   manifest, evaluator entry point and library, tests, verifier hook, decision
-  0047, and documentation registrations. The independently optional receipt may
-  remain as generic interaction evidence. Remove the receipt separately by
+  0047, failure registry, validator, tests, decision 0049, and documentation
+  registrations. The independently optional receipt may remain as generic
+  interaction evidence. Remove the receipt separately by
   deleting its launch flag, recorder, composition hooks, tests, decision 0048,
   and registrations. The model-facing tool surface remains unchanged in either
   removal.

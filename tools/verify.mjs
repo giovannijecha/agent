@@ -13,6 +13,9 @@ import { fileURLToPath } from "node:url";
 import { analyzeModule } from "./lib/module-specifiers.mjs";
 import { validateBrandPolicy } from "./lib/brand-policy.mjs";
 import { validateCiPolicy } from "./lib/ci-policy.mjs";
+import {
+  validateEvaluationFailureRegistry,
+} from "./lib/evaluation-failure-registry.mjs";
 import { validateEvaluationSuite } from "./lib/evaluation-suite.mjs";
 import { validateManualPolicy } from "./lib/manual-policy.mjs";
 import { validateProviderPolicy } from "./lib/provider-policy.mjs";
@@ -32,6 +35,7 @@ if (
 const requireGenerated = arguments_[0] === "--require-generated";
 const brandManifest = readJson("assets/brand/manifest.json");
 const ciPolicy = readJson("tools/ci-policy.json");
+const evaluationPolicy = readJson("tools/evaluation-policy.json");
 const policy = readJson("tools/ownership-policy.json");
 const manualPolicy = readJson("tools/manual-policy.json");
 const providerPolicy = readJson("tools/provider-policy.json");
@@ -289,9 +293,10 @@ function verifyBrandPolicy() {
 
 function verifyEvaluationPolicy() {
   const root = "evaluations/";
+  const failureRegistryPath = "evaluations/failures/registry.json";
   const ownedPaths = listFiles("evaluations");
   const relativePaths = ownedPaths.map((file) => file.slice(root.length));
-  validateEvaluationSuite(readJson("tools/evaluation-policy.json"), {
+  validateEvaluationSuite(evaluationPolicy, {
     files: new Map(
       ownedPaths.map((file, index) => [
         relativePaths.at(index),
@@ -299,6 +304,11 @@ function verifyEvaluationPolicy() {
       ]),
     ),
     ownedPaths: relativePaths,
+  });
+  validateEvaluationFailureRegistry(readJson(failureRegistryPath), {
+    repositoryPaths: listFiles("."),
+    sourceBytes: readFileSync(absolute(failureRegistryPath)).length,
+    taskIds: evaluationPolicy.tasks.map((task) => task.id),
   });
   evaluationOwnedPaths = new Set(ownedPaths);
 }

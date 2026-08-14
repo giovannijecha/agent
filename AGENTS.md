@@ -267,6 +267,13 @@ agent.”
   remains secondary to an underlying product failure. Composition-root process
   output retains one temporary error listener across an errored Node write
   callback until the required subsequent error event settles the write.
+  Keep the versioned evaluation failure registry from decision 0049 separate
+  from ignored run state. It admits only closed content-free evidence bound to
+  maintained tasks, explicit occurrence counts, one category and priority, and
+  optional tracked resolution proof. The canonical verifier validates it
+  without reading ignored runs or inferring recurrence. One observed failure
+  remains `observing`; it does not justify a new tool, prompt change, or runtime
+  change by itself.
 
 ## Change discipline
 

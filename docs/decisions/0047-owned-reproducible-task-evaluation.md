@@ -135,7 +135,9 @@ favor reproducibility over broad semantic acceptance, so results remain
 evidence for review rather than a claim of model quality. Decision 0048 adds an
 opt-in content-free product receipt for five mechanically observable metrics;
 semantic classifications, manual corrections, and risky actions remain
-operator-entered.
+operator-entered. Decision 0049 adds one independently validated versioned
+failure registry for reviewed negative evidence; evaluator commands admit its
+inventory path but never parse it or read ignored runs.
 
 ## Update, rollback, and removal
 
@@ -146,7 +148,8 @@ must be reviewed as evaluation-contract changes.
 
 To roll back one task, remove its manifest entry and complete task directory.
 To remove the framework, first remove every evaluation run outside version
-control, then delete `evaluations/`, the evaluator library and entry point,
-their tests and verifier hook, this decision, and their ownership, manual,
-privacy, security, engineering, maintenance, and README references. Product
-packages and the model-facing tool registry require no rewrite.
+control, then delete `evaluations/`, the evaluator and failure-registry
+libraries and entry point, their tests and verifier hooks, this decision,
+decision 0049, and their ownership, manual, privacy, security, engineering,
+maintenance, and README references. Product packages and the model-facing tool
+registry require no rewrite.

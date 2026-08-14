@@ -131,6 +131,13 @@ JSON line with elapsed milliseconds and accepted turn, tool-call, approval, and
 repeated-read counts. It writes no file and ordinary `agent` runs do not create
 the recorder.
 
+The versioned evaluation failure registry is separate from local runs. It may
+retain only a maintained task identifier, closed classifications, priority,
+lifecycle, occurrence count, and fixture-relative changed, missing, or
+unexpected path names. It excludes run identifiers, metric samples, candidate
+contents, diffs, prompts, responses, transcripts, model or provider identity,
+timestamps, credentials, personal identifiers, and free-form notes.
+
 ## Removal
 
 Closing the current process releases its in-memory conversation, display state,

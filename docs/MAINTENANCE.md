@@ -55,6 +55,12 @@ values but never reads or writes evaluator state. Repository source traversal
 excludes the exact ignored root `state/`, so prepared runs cannot alter package,
 ownership, hygiene, or generated-artifact verification.
 
+Reviewed negative results are registered independently under decision 0049 in
+`evaluations/failures/registry.json`. The pure failure-registry validator binds
+closed evidence to current task identifiers and tracked resolution paths without
+reading ignored runs. One occurrence remains observational and never admits a
+new model-facing tool or product change on its own.
+
 ## Update or remove the streaming runtime
 
 Update model-stream events, limits, cancellation, or cleanup only with focused
@@ -653,14 +659,25 @@ artifact, manual corrections, risky actions, and primary constraint through
 operator review. Changing any receipt contract requires decision 0048, focused
 recorder, launch, tool, and runtime tests, plus privacy and manual updates.
 
+Maintain `evaluations/failures/registry.json` in canonical identifier order.
+Add or increment an entry only after operator review of the same reproducible
+failure against a maintained task. Keep category, priority, lifecycle, count,
+record classifications, and grader path sets closed and content-free. Do not
+store run identifiers, metrics, candidate content, prompts, responses,
+transcripts, provider identity, timestamps, or notes. Review affected entries
+whenever their task corpus changes. Promote `observing` to `actionable` only
+when frequency or impact justifies work; `resolved` requires an existing tracked
+decision or regression path.
+
 To remove evaluation, first delete any retained ignored runs. Then remove
 `evaluations/`, `tools/evaluation-policy.json`, `tools/evaluate.mjs`,
-`tools/lib/evaluation-suite.mjs`, its focused test and verifier hook, decision
-0047, and all ownership, manual, architecture, engineering, security, privacy,
-README, and AGENTS registrations. The receipt can remain as independent generic
-interaction evidence. To remove it too, delete its exact launch form, recorder,
-read and reducer observation hooks, tests, decision 0048, and registrations. No
-provider or model-facing tool needs replacement.
+`tools/lib/evaluation-suite.mjs`, the failure-registry validator, their focused
+tests and verifier hooks, decisions 0047 and 0049, and all ownership, manual,
+architecture, engineering, security, privacy, README, and AGENTS registrations.
+The receipt can remain as independent generic interaction evidence. To remove it
+too, delete its exact launch form, recorder, read and reducer observation hooks,
+tests, decision 0048, and registrations. No provider or model-facing tool needs
+replacement.
 
 ## Change a package
 

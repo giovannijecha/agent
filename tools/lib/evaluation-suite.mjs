@@ -471,7 +471,7 @@ export function validateEvaluationSuite(policy, context) {
     if (JSON.stringify(ids) !== JSON.stringify(sorted(ids))) {
       fail("invalidPolicy");
     }
-    const expectedPaths = ["README.md"];
+    const expectedPaths = ["README.md", "failures/registry.json"];
     const readmeBytes = context.files.get("README.md");
     if (readmeBytes === undefined) {
       fail("invalidCorpus");
