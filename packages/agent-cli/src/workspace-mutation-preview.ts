@@ -29,17 +29,34 @@ type ReplaceMutationPreview = Readonly<{
   resultingDigest: string;
 }>;
 
-function lineCount(content: string): number {
-  if (content.length === 0) {
-    return 0;
-  }
-  let lines = 1;
-  for (const character of content) {
-    if (character === "\n") {
-      lines += 1;
+function lineBreaksBefore(content: string, end: number): number {
+  let breaks = 0;
+  for (let index = 0; index < end; index += 1) {
+    const character = content.charAt(index);
+    if (character === "\r") {
+      breaks += 1;
+      if (index + 1 < end && content.charAt(index + 1) === "\n") {
+        index += 1;
+      }
+    } else if (character === "\n") {
+      breaks += 1;
     }
   }
-  return lines;
+  return breaks;
+}
+
+function lineCount(content: string): number {
+  return content.length === 0
+    ? 0
+    : lineBreaksBefore(content, content.length) + 1;
+}
+
+/** Returns the one-based preview line at one validated content offset. */
+export function mutationPreviewLineAt(
+  content: string,
+  offset: number,
+): number {
+  return lineBreaksBefore(content, offset) + 1;
 }
 
 function safePrefix(content: string, codeUnits: number): string {

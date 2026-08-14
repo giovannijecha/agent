@@ -112,6 +112,11 @@ successfully planned write or execute call pauses for its own decision; one
 approval never covers another call. A batch is one decision by the same agent,
 not delegation or multi-agent orchestration.
 
+Mutation preview line positions and added or removed line counts treat CRLF as
+one line boundary and lone CR or LF as one boundary. The displayed metadata
+therefore follows the same line-ending contract as the rest of the owned text
+pipeline without rewriting the approved content.
+
 The harness exposes one canonical name for each admitted capability and no
 aliases. The verified inventory records why each current tool is necessary:
 

@@ -20,6 +20,7 @@ import { BUILTIN_TOOL_LIMITS } from "./builtin-tool-limits.js";
 import { decodeUtf8Text } from "./utf8-text.js";
 import {
   createMutationPreview,
+  mutationPreviewLineAt,
   replaceMutationPreview,
 } from "./workspace-mutation-preview.js";
 import {
@@ -76,16 +77,6 @@ function text(input: StructuredObject, name: string): string {
 
 function digest(content: string): string {
   return createHash("sha256").update(content, "utf8").digest("hex");
-}
-
-function lineAt(content: string, offset: number): number {
-  let line = 1;
-  for (let index = 0; index < offset; index += 1) {
-    if (content.charAt(index) === "\n") {
-      line += 1;
-    }
-  }
-  return line;
 }
 
 async function writeFileHandleComplete(
@@ -517,7 +508,7 @@ export function replaceTextPlanner(root: string): ToolPlanner {
       replacement,
       replacementDigest: digest(replacement),
     });
-    const line = lineAt(observed.value.content, first);
+    const line = mutationPreviewLineAt(observed.value.content, first);
     const preview = replaceMutationPreview({
       line,
       newText,

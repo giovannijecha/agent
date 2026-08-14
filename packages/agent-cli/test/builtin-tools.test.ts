@@ -448,6 +448,16 @@ test("plans concrete bounded creation and replacement effects", async () => {
       true,
     );
 
+    const mixedCreation = await preparePlan(tools, "create_file", {
+      content: "one\r\ntwo\rthree\nfour",
+      path: path.join("docs", "mixed.txt"),
+    });
+    assert.equal(mixedCreation.planned.approvalRequired, true);
+    assert.equal(
+      mixedCreation.planned.approvalPreview.includes("lines=4"),
+      true,
+    );
+
     const replacement = await preparePlan(tools, "replace_text", {
       newText: "owned\nvalue",
       oldText: "beta",
@@ -481,6 +491,30 @@ test("plans concrete bounded creation and replacement effects", async () => {
       /resultingDigest="[0-9a-f]{64}"/u.test(
         replacement.planned.approvalPreview,
       ),
+      true,
+    );
+
+    await writeFile(
+      path.join(workspace, "mixed-lines.txt"),
+      "alpha\r\nbeta\rgamma\ndelta\rremove-a\rremove-b\r\nremove-c\nremove-d",
+      { encoding: "utf8", flag: "wx" },
+    );
+    const mixedReplacement = await preparePlan(tools, "replace_text", {
+      newText: "insert-a\rinsert-b\r\ninsert-c\ninsert-d",
+      oldText: "remove-a\rremove-b\r\nremove-c\nremove-d",
+      path: "mixed-lines.txt",
+    });
+    assert.equal(mixedReplacement.planned.approvalRequired, true);
+    assert.equal(
+      mixedReplacement.planned.approvalPreview.includes("line=5"),
+      true,
+    );
+    assert.equal(
+      mixedReplacement.planned.approvalPreview.includes("removedLines=4"),
+      true,
+    );
+    assert.equal(
+      mixedReplacement.planned.approvalPreview.includes("addedLines=4"),
       true,
     );
   });

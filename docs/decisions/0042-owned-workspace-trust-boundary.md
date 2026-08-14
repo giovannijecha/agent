@@ -237,8 +237,10 @@ target, file identity, complete bounded original content, original and result
 SHA-256 digests, the unique exact occurrence, and a delimited remove/insert
 preview. Short text is shown completely. Longer text uses explicit prefix,
 suffix, and omitted-code-unit fields; omission is never presented as complete
-content. Paths, input text, and previews must be Unicode-scalar UTF-8, and
-unsafe terminal scalars remain escaped by the shared structured projection.
+content. Preview line positions and counts treat CRLF as one boundary and lone
+CR or LF as one boundary. Paths, input text, and previews must be Unicode-scalar
+UTF-8, and unsafe terminal scalars remain escaped by the shared structured
+projection.
 
 The one pending approval names the immutable planned call, not the original
 input sizes. Denial discards that plan. Invocation opens and checks the observed
