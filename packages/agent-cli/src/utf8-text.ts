@@ -4,6 +4,46 @@ export type Utf8TextError = Readonly<{ kind: "invalidText" }>;
 
 const INVALID_TEXT = Object.freeze({ kind: "invalidText" as const });
 
+/** Strictly encodes Unicode-scalar text without a platform text encoder. */
+export function encodeUtf8Text(
+  value: unknown,
+  rejectNul: boolean = false,
+): Result<Uint8Array, Utf8TextError> {
+  if (typeof value !== "string" || typeof rejectNul !== "boolean") {
+    return err(INVALID_TEXT);
+  }
+  const bytes: number[] = [];
+  for (const character of value) {
+    const point = character.codePointAt(0);
+    if (
+      point === undefined ||
+      (rejectNul && point === 0) ||
+      (point >= 0xd800 && point <= 0xdfff)
+    ) {
+      return err(INVALID_TEXT);
+    }
+    if (point <= 0x7f) {
+      bytes.push(point);
+    } else if (point <= 0x7ff) {
+      bytes.push(0xc0 | (point >> 6), 0x80 | (point & 0x3f));
+    } else if (point <= 0xffff) {
+      bytes.push(
+        0xe0 | (point >> 12),
+        0x80 | ((point >> 6) & 0x3f),
+        0x80 | (point & 0x3f),
+      );
+    } else {
+      bytes.push(
+        0xf0 | (point >> 18),
+        0x80 | ((point >> 12) & 0x3f),
+        0x80 | ((point >> 6) & 0x3f),
+        0x80 | (point & 0x3f),
+      );
+    }
+  }
+  return ok(Uint8Array.from(bytes));
+}
+
 function continuation(byte: number | undefined): byte is number {
   return byte !== undefined && (byte & 0xc0) === 0x80;
 }

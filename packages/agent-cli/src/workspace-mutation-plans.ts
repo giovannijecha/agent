@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { lstat, open, writeFile } from "node:fs/promises";
+import { lstat, open } from "node:fs/promises";
 import path from "node:path";
 
 import {
@@ -18,6 +18,7 @@ import {
 
 import { BUILTIN_TOOL_LIMITS } from "./builtin-tool-limits.js";
 import { decodeUtf8Text } from "./utf8-text.js";
+import type { WorkspaceMutationCommitter } from "./workspace-mutation-committer.js";
 import {
   createMutationPreview,
   mutationPreviewLineAt,
@@ -36,10 +37,8 @@ import {
 type CreateEffectSnapshot = Readonly<{
   content: string;
   digest: string;
-  parent: string;
   parentIdentity: WorkspaceObjectIdentity;
   relative: string;
-  target: string;
 }>;
 
 type ObservedFileSnapshot = Readonly<{
@@ -47,7 +46,6 @@ type ObservedFileSnapshot = Readonly<{
   digest: string;
   identity: WorkspaceObjectIdentity;
   relative: string;
-  target: string;
 }>;
 
 type ReplaceEffectSnapshot = ObservedFileSnapshot & Readonly<{
@@ -77,32 +75,6 @@ function text(input: StructuredObject, name: string): string {
 
 function digest(content: string): string {
   return createHash("sha256").update(content, "utf8").digest("hex");
-}
-
-async function writeFileHandleComplete(
-  handle: Awaited<ReturnType<typeof open>>,
-  content: string,
-): Promise<Result<void, ToolHandlerError>> {
-  const bytes = encodeUtf8(content);
-  let offset = 0;
-  while (offset < bytes.length) {
-    const written = await handle.write(
-      bytes,
-      offset,
-      bytes.length - offset,
-      offset,
-    );
-    if (
-      !Number.isSafeInteger(written.bytesWritten) ||
-      written.bytesWritten < 1 ||
-      written.bytesWritten > bytes.length - offset
-    ) {
-      return toolFailure("io");
-    }
-    offset += written.bytesWritten;
-  }
-  await handle.truncate(bytes.length);
-  return ok(undefined);
 }
 
 async function readFileHandleBounded(
@@ -136,99 +108,29 @@ async function readFileHandleBounded(
   }
 }
 
-function encodeUtf8(content: string): Uint8Array {
-  const bytes = new Uint8Array(content.length * 3);
-  let offset = 0;
-  for (const character of content) {
-    let point = character.codePointAt(0) ?? 0xfffd;
-    if (point >= 0xd800 && point <= 0xdfff) {
-      point = 0xfffd;
-    }
-    if (point <= 0x7f) {
-      bytes.set([point], offset);
-      offset += 1;
-    } else if (point <= 0x7ff) {
-      bytes.set([0xc0 | (point >> 6), 0x80 | (point & 0x3f)], offset);
-      offset += 2;
-    } else if (point <= 0xffff) {
-      bytes.set(
-        [
-          0xe0 | (point >> 12),
-          0x80 | ((point >> 6) & 0x3f),
-          0x80 | (point & 0x3f),
-        ],
-        offset,
-      );
-      offset += 3;
-    } else {
-      bytes.set(
-        [
-          0xf0 | (point >> 18),
-          0x80 | ((point >> 12) & 0x3f),
-          0x80 | ((point >> 6) & 0x3f),
-          0x80 | (point & 0x3f),
-        ],
-        offset,
-      );
-      offset += 4;
-    }
-  }
-  return bytes.slice(0, offset);
-}
-
 function sameCanonicalPath(left: string, right: string): boolean {
   return path.relative(left, right) === "";
 }
 
 function createInvocation(
+  committer: WorkspaceMutationCommitter,
   root: string,
   snapshot: CreateEffectSnapshot,
 ): ToolHandler {
   return async (_input, cancellation) => {
-    if (cancellation.requested) {
-      return toolFailure("cancelled");
-    }
-    const current = await resolveWorkspaceCreationPath(
-      root,
-      snapshot.relative,
+    const committed = await committer.commit(
+      Object.freeze({
+        content: snapshot.content,
+        identity: snapshot.parentIdentity,
+        kind: "create" as const,
+        relativePath: snapshot.relative,
+        root,
+      }),
+      cancellation,
     );
-    if (
-      !current.ok ||
-      !sameCanonicalPath(current.value.canonical, snapshot.parent) ||
-      !sameCanonicalPath(current.value.target, snapshot.target) ||
-      !sameWorkspaceIdentity(current.value.identity, snapshot.parentIdentity)
-    ) {
-      return toolFailure("conflict");
-    }
-    try {
-      await lstat(current.value.target);
-      return toolFailure("conflict");
-    } catch (cause: unknown) {
-      if (!isMissingWorkspacePath(cause)) {
-        return toolFailure("conflict");
-      }
-    }
-    const checked = await resolveWorkspaceCreationPath(root, snapshot.relative);
-    if (
-      !checked.ok ||
-      !sameCanonicalPath(checked.value.canonical, snapshot.parent) ||
-      !sameCanonicalPath(checked.value.target, snapshot.target) ||
-      !sameWorkspaceIdentity(checked.value.identity, snapshot.parentIdentity)
-    ) {
-      return toolFailure("conflict");
-    }
-    if (cancellation.requested) {
-      return toolFailure("cancelled");
-    }
-    try {
-      await writeFile(snapshot.target, snapshot.content, {
-        encoding: "utf8",
-        flag: "wx",
-      });
-      return toolSuccess({ created: true });
-    } catch (cause: unknown) {
-      return err(mapWorkspaceIoError(cause));
-    }
+    return committed.ok
+      ? toolSuccess({ created: true })
+      : err(committed.error);
   };
 }
 
@@ -262,10 +164,8 @@ async function observeCreate(
     Object.freeze({
       content,
       digest: digest(content),
-      parent: observed.value.canonical,
       parentIdentity: observed.value.identity,
       relative: workspacePolicyPath(root, observed.value.target),
-      target: observed.value.target,
     }),
   );
 }
@@ -341,7 +241,6 @@ async function readObservedFile(
               digest: digest(decoded.value),
               identity: resolved.value.identity,
               relative: workspacePolicyPath(root, resolved.value.canonical),
-              target: resolved.value.canonical,
             }),
           );
         }
@@ -363,92 +262,33 @@ async function readObservedFile(
 }
 
 function replaceInvocation(
+  committer: WorkspaceMutationCommitter,
   root: string,
   snapshot: ReplaceEffectSnapshot,
 ): ToolHandler {
   return async (_input, cancellation) => {
-    if (cancellation.requested) {
-      return toolFailure("cancelled");
-    }
-    const resolved = await resolveExistingWorkspacePath(
-      root,
-      snapshot.relative,
-      "file",
+    const committed = await committer.commit(
+      Object.freeze({
+        expectedContent: snapshot.content,
+        identity: snapshot.identity,
+        kind: "replace" as const,
+        relativePath: snapshot.relative,
+        replacement: snapshot.replacement,
+        root,
+      }),
+      cancellation,
     );
-    if (
-      !resolved.ok ||
-      !sameCanonicalPath(resolved.value.canonical, snapshot.target) ||
-      !sameWorkspaceIdentity(resolved.value.identity, snapshot.identity)
-    ) {
-      return toolFailure("conflict");
-    }
-    let handle: Awaited<ReturnType<typeof open>> | undefined;
-    let result: Result<ToolHandlerOutcome, ToolHandlerError>;
-    try {
-      handle = await open(resolved.value.canonical, "r+");
-      const status = await handle.stat({ bigint: true });
-      const handleIdentity = Object.freeze({
-        device: status.dev,
-        inode: status.ino,
-      });
-      const bytes = await readFileHandleBounded(handle);
-      if (!bytes.ok) {
-        result = bytes.error.kind === "limit"
-          ? toolFailure("conflict")
-          : bytes;
-      } else {
-        const decoded = decodeUtf8Text(bytes.value);
-        const checked = await resolveExistingWorkspacePath(
-          root,
-          snapshot.relative,
-          "file",
-        );
-        const finalStatus = await handle.stat({ bigint: true });
-        const finalIdentity = Object.freeze({
-          device: finalStatus.dev,
-          inode: finalStatus.ino,
-        });
-        if (
-          !status.isFile() ||
-          !sameWorkspaceIdentity(handleIdentity, snapshot.identity) ||
-          !decoded.ok ||
-          decoded.value !== snapshot.content ||
-          !checked.ok ||
-          !sameCanonicalPath(checked.value.canonical, snapshot.target) ||
-          !sameWorkspaceIdentity(checked.value.identity, snapshot.identity) ||
-          !sameWorkspaceIdentity(finalIdentity, snapshot.identity)
-        ) {
-          result = toolFailure("conflict");
-        } else if (cancellation.requested) {
-          result = toolFailure("cancelled");
-        } else {
-          const written = await writeFileHandleComplete(
-            handle,
-            snapshot.replacement,
-          );
-          result = written.ok
-            ? toolSuccess({ replacements: 1 })
-            : written;
-        }
-      }
-    } catch (cause: unknown) {
-      result = err(mapWorkspaceIoError(cause));
-    }
-    if (handle !== undefined) {
-      try {
-        await handle.close();
-      } catch (cause: unknown) {
-        if (result.ok) {
-          result = err(mapWorkspaceIoError(cause));
-        }
-      }
-    }
-    return result;
+    return committed.ok
+      ? toolSuccess({ replacements: 1 })
+      : err(committed.error);
   };
 }
 
 /** Plans one bounded absent-target creation and binds invocation to its parent. */
-export function createFilePlanner(root: string): ToolPlanner {
+export function createFilePlanner(
+  root: string,
+  committer: WorkspaceMutationCommitter,
+): ToolPlanner {
   return async (input, cancellation) => {
     if (cancellation.requested) {
       return toolFailure("cancelled");
@@ -471,14 +311,17 @@ export function createFilePlanner(root: string): ToolPlanner {
     }
     const planned = ToolEffectPlan.create(
       preview,
-      createInvocation(root, observed.value),
+      createInvocation(committer, root, observed.value),
     );
     return planned.ok ? ok(planned.value) : toolFailure("limit");
   };
 }
 
 /** Plans one exact replacement and binds invocation to identity and content. */
-export function replaceTextPlanner(root: string): ToolPlanner {
+export function replaceTextPlanner(
+  root: string,
+  committer: WorkspaceMutationCommitter,
+): ToolPlanner {
   return async (input, cancellation) => {
     if (cancellation.requested) {
       return toolFailure("cancelled");
@@ -522,7 +365,7 @@ export function replaceTextPlanner(root: string): ToolPlanner {
     }
     const planned = ToolEffectPlan.create(
       preview,
-      replaceInvocation(root, snapshot),
+      replaceInvocation(committer, root, snapshot),
     );
     return planned.ok ? ok(planned.value) : toolFailure("limit");
   };

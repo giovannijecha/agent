@@ -426,7 +426,9 @@ tests, decision, documentation, and verifier expectations together; retain
 Decision 0042, `workspace-boundary.ts`, `workspace-ignore.ts`,
 `workspace-read-policy.ts`, `workspace-path.ts`,
 `workspace-mutation-plans.ts`, `workspace-mutation-preview.ts`, the CLI
-composition root, built-in tool registration,
+composition root, built-in tool registration, `workspace-mutation-committer.ts`,
+`platform-workspace-mutation-protocol.ts`,
+`platform-workspace-mutation.ts`, the native mutation broker,
 `platform-workspace-roots.ts`, its bounded protocol and native backends, exact
 footer projection, focused regressions, manuals, and policy registries form one
 contract. Resolve protected roots, the startup working directory, and the
@@ -467,12 +469,24 @@ process output weaken a built-in rule.
 Process containment remains a separate contract. Changing the workspace root
 does not prove that approved Node code is filesystem- or network-sandboxed. Any
 such isolation requires its own Windows and Linux decision and adversarial
-proof. The read-privacy tranche is current behavior; stale-safe effect plans
-for `create_file` and `replace_text` are also current behavior. They reject
-changes between planning and final revalidation. The final handle-relative
-Windows/Linux commit boundary remains future behavior; until it lands, do not
-claim that repeated pathname checks close the smaller external race after final
-revalidation.
+proof. The read-privacy tranche, stale-safe effect plans, and decision 0046
+native mutation committer are current behavior. Plans reject changes before
+approval; the committer then binds creation to the approved parent and
+replacement to the approved opened file without a pathname-write fallback.
+Preserve guarded `openat2`, unnamed-file publication, and write leases on Linux;
+preserve handle-relative opens, exclusive sharing, and delete-pending creation
+on Windows. Unsupported primitives fail closed. Do not broaden this into claims
+of multi-file atomicity, crash rollback, storage durability, or a filesystem
+sandbox.
+
+A mutation-commit change must keep the request frame, strict UTF-8, 16,384-byte
+path fields, 1,048,576-byte content fields, five-second operation deadline,
+250-millisecond post-kill deadline, empty environment, fixed response, and late-
+event suppression aligned across TypeScript and C. Prove absent creation,
+no-overwrite, complete large writes, identity/content/parent drift, symlink or
+reparse swaps, conflicting handles, forced termination, malformed input, and
+extra arguments on both canonical platform gates. Rollback removes both write
+tools before removing the committer; it never restores direct Node writes.
 
 To remove the current root boundary, first remove every filesystem and process
 capability that consumes it or replace it with a stronger accepted authority.

@@ -2,6 +2,8 @@
 
 - Status: accepted
 - Date: 2026-08-13
+- Amended: 2026-08-14 by decision 0046 for owned handle-relative mutation
+  commit
 
 ## Context
 
@@ -49,13 +51,11 @@ The boundary is implemented in independent delivery tranches:
 4. Preserve the explicit distinction between workspace authority,
    process-tree containment, and any later filesystem or network sandbox.
 
-Acceptance of this decision does not claim that incomplete tranches already
-exist. Tranches 1 and 2 are complete. The current change delivers the first
-part of tranche 3: concrete stale-safe plans and just-in-time approval binding.
-Closing the smaller race between the final in-process revalidation and the
-operating-system mutation requires the separately reviewable handle-relative
-commit boundary described below. Each remaining part requires its own focused
-behavior, regression tests, documentation, rollback, and reviewable commit.
+Tranches 1 and 2 are complete. Decision 0046 completes tranche 3 by placing one
+owned Windows/Linux handle-relative native committer behind the existing
+concrete stale-safe plans and just-in-time approval binding. The authority,
+privacy, mutation, and process-containment distinctions in tranche 4 remain
+continuous documentation obligations rather than a claim of machine sandboxing.
 
 ## Threat model
 
@@ -106,9 +106,9 @@ The accepted value is immutable and exposes only its canonical absolute root.
 That same string is shown in the footer and passed to every built-in tool.
 Handlers do not recanonicalize or replace the root. They continue to validate
 each model-selected relative path, reject symbolic-link traversal, and verify
-the selected target around reads. Mutation planning and invocation reuse that
-same shared path module. Root-handle identity and handle-relative commit
-operations remain the final part of the effect-plan tranche.
+the selected target around reads. Mutation planning reuses that shared path
+module. Decision 0046 invocation then binds the approved parent or file identity
+through the owned platform committer without a portable pathname-write fallback.
 
 Workspace resolution occurs before reading a provider credential. A rejected
 root therefore cannot cause a key prompt, provider connection, runtime
@@ -244,21 +244,20 @@ projection.
 
 The one pending approval names the immutable planned call, not the original
 input sizes. Denial discards that plan. Invocation opens and checks the observed
-object again, compares file or parent identity, rechecks path and symbolic-link
-state, and compares the complete original file content before writing through
-the opened file handle. A created target, removed or replaced parent, renamed
-or replaced file, symbolic-link swap, or content drift observed before mutation
-returns `conflict` without applying the approved effect. A plan failure requests
+object through the decision 0046 committer, compares file or parent identity,
+rejects guarded path changes, and compares complete original replacement bytes
+before the first write. A created target, removed or replaced parent, renamed
+or replaced file, symbolic-link or reparse swap, content drift, or conflicting
+open returns `conflict` without applying a stale effect. A plan failure requests
 no approval because no mutation handler exists to authorize.
 
-The current Node platform boundary cannot express a portable create relative to
-an already opened directory handle. It also cannot make comparison and write
-one indivisible filesystem transaction against a same-user actor. Therefore
-this delivery does not claim to close a replacement that wins after the final
-revalidation inside invocation. The remaining tranche must add one owned
-Windows/Linux handle-relative commit boundary, retain the same plans and
-approval identity, fail closed when unsupported, and add adversarial tests for
-that exact window. Multi-file atomic patches remain outside this decision.
+Linux uses guarded `openat2`, complete unnamed-file publication, and a write
+lease. Windows uses handle-relative opens, exclusive sharing, and delete-pending
+creation settlement. Unsupported platform or filesystem primitives fail closed
+instead of returning to Node writes. This closes ordinary namespace-retargeting
+and conflicting-content races for the selected object. Multi-file atomicity,
+crash rollback, storage durability, and machine sandboxing remain outside this
+decision.
 
 ## Process containment and machine isolation
 
@@ -292,8 +291,8 @@ must fail closed rather than being presented as active.
   introduced.
 - Write approvals now name concrete immutable effects and reject state that
   became stale before mutation.
-- The full trust-boundary milestone remains incomplete until the owned
-  handle-relative commit boundary closes the documented intra-invocation race.
+- Approved mutation invocation is bound to the selected object through one
+  owned handle-relative platform committer with no direct-write fallback.
 - TUI density is an independent visual contract and is not changed by this
   security boundary.
 
@@ -352,16 +351,17 @@ pruned search, unchanged enumeration bounds, and absence of denied path and
 content in outputs. Process-level startup tests prove malformed policy rejection
 before credentials and terminal ownership.
 
-The current effect-plan delivery proves that complete batch validation precedes
+The complete mutation delivery proves that batch validation precedes
 all planner calls, plans are just in time and sequential, approvals carry the
 concrete preview, planning conflicts skip approval, and planner failures remain
 contained. Built-in mutation tests cover exact and truncated previews, digests,
 ambiguous replacement, invalid scalar input, strict-UTF-8 rejection, target
 appearance, content drift, file-identity replacement, parent replacement, and
-symbolic-link swaps without an applied write. Runtime tests prove cancellation
-during planning cannot expose a late approval. The remaining native commit
-delivery must add concurrent swaps inside the final invocation window on both
-platforms. The canonical Windows and Linux gate must pass for every tranche.
+symbolic-link swaps without an applied stale write. Decision 0046 adds exact
+protocol, adapter lifecycle, complete large-write, no-overwrite, conflicting-
+handle, forced-termination, malformed-input, and native Windows/Linux evidence.
+Runtime tests prove cancellation during planning cannot expose a late approval.
+The canonical Windows and Linux gate must pass for every tranche.
 
 ## Update, rollback, and removal
 
@@ -385,14 +385,13 @@ tests, generated-artifact registrations, and current-behavior documentation as
 one change. Falling back to environment-derived roots is forbidden.
 
 Changing planner order, plan identity, preview bounds, digest algorithm,
-revalidation points, or planning-failure behavior requires updating this
-decision, tool-engine tests, runtime batch tests, built-in mutation tests,
-approval reducer tests, architecture, manual, and maintenance guidance in the
-same review. Removing the current effect-plan delivery restores direct mutation
-handlers only if every automatic mutation capability is removed at the same
-time; approval may not silently return to size-only intent. The later native
-commit boundary must remain independently removable behind the same plan
-contract.
+committer protocol, platform exclusion/publication primitive, or planning-
+failure behavior requires updating this decision, decision 0046, tool-engine
+tests, runtime batch tests, built-in and native mutation tests, approval reducer
+tests, architecture, manual, and maintenance guidance in the same review.
+Removing the effect-plan or native commit delivery first removes every automatic
+mutation capability; approval may not silently return to size-only intent or a
+portable direct write.
 
 Rollback of tranche 1 removes the boundary module and its tests, restores the
 prior raw-working-directory composition, removes current-behavior claims, and

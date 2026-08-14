@@ -459,6 +459,18 @@ entries, files, text, and matches. Expected I/O failures become content-free
 structured tool results. After handler invocation, contract corruption becomes
 a generic checkpointed failure before the runtime terminates the turn.
 
+Keep mutation observation and commit separate. A planner may read canonical
+state and construct one immutable preview, but after approval it must invoke
+the injected `WorkspaceMutationCommitter` exactly once. The committer request
+contains the accepted root, normalized relative path, approved parent or file
+identity, complete expected replacement bytes, and complete proposed bytes.
+Never add a Node `writeFile`, pathname revalidation, direct truncation, advisory
+lock, or platform fallback beside that port. The native protocol remains
+bounded and content-free on response; both platform backends change together.
+Windows retains a create only after complete flush and removal of its
+delete-pending state. Linux links only a complete unnamed file and requires a
+write lease for replacement. Unsupported primitives return `unsupported`.
+
 Do not describe process-tree containment as a filesystem or network sandbox.
 The broker bounds one approved terminating descendant tree; approved Node code
 still runs with the launching user's general operating-system authority.

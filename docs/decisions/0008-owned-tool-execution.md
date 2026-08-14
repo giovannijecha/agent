@@ -4,6 +4,8 @@
 - Date: 2026-08-07
 - Amended: 2026-08-13 by decision 0042 for canonical root ownership and
   mutation effect planning
+- Amended: 2026-08-14 by decision 0046 for owned handle-relative mutation
+  commit
 
 ## Context
 
@@ -103,14 +105,16 @@ entries, file size, text volume, and matches are bounded at the Node adapter.
 Foreign values, planner/handler promises, effect plans, and results are decoded
 into owned snapshots before state mutation. Errors never retain model arguments,
 file contents, credentials, or thrown causes. Mutation tools use explicit
-preconditions; `replace_text` requires one exact match and revalidates file
-identity plus complete content through its open handle, while `create_file`
-binds absence and parent identity and uses exclusive creation. Directory reads
-are incremental, and recursive search revalidates canonical paths before
-enumeration and before and after file reads. These checks reject stale approval
-state, but portable Node pathname APIs do not close the smaller race after final
-revalidation. Decision 0042 retains a future owned Windows/Linux handle-relative
-commit boundary; current behavior is not an atomic namespace sandbox.
+preconditions; `replace_text` requires one exact match and binds file identity
+plus complete content, while `create_file` binds absence and parent identity.
+Decision 0046 invokes those immutable effects through one owned Windows/Linux
+handle-relative committer with no portable pathname-write fallback. Unsupported
+exclusion or publication primitives fail closed. Directory reads are
+incremental, and recursive search revalidates canonical paths before enumeration
+and before and after file reads. The native commit closes ordinary retargeting
+and conflicting-content races for one selected object; current behavior is not
+a multi-file transaction, crash rollback, durability guarantee, or filesystem
+sandbox.
 
 ## Update, rollback, and removal
 

@@ -74,12 +74,22 @@ suffix excerpts plus an explicit omitted-code-unit count. Invocation rejects a
 changed identity, parent, target absence, canonical path, or complete content as
 `conflict` before mutation. No stale plan is silently refreshed or broadened.
 
-The current Node implementation revalidates immediately before `wx` creation or
-same-handle replacement, but Node exposes no portable handle-relative creation
-primitive. A hostile external process can still race a pathname in the smaller
-interval after final revalidation. Decision 0042 therefore keeps the final
-Windows/Linux handle-relative commit boundary as required future work; the
-current contract must not be described as an atomic namespace sandbox.
+After approval, both tools invoke the one decision 0046 native committer. It
+receives the immutable accepted root, normalized relative target, approved
+parent or file identity, complete expected replacement content, and complete
+proposed content. There is no Node pathname-write fallback. Linux guards lookup
+with `openat2`, publishes complete `O_TMPFILE` content without replacement, and
+holds a write lease while comparing and replacing. Windows traverses relative
+directory handles, reserves a new target through exclusive `FILE_CREATE` plus
+delete-pending cleanup, and replaces through one exclusive opened file. A
+missing kernel or filesystem primitive returns `unsupported` without mutation.
+
+This binds the write to the object approved by the operator and closes ordinary
+namespace-retargeting and conflicting-content races. It is not a multi-file
+transaction, crash rollback, storage-durability guarantee, or filesystem
+sandbox. On Windows, directory enumeration may briefly see an exclusively held
+new name before its complete content is retained; ordinary opens cannot observe
+partial content, and termination before settlement removes it.
 
 `run_process` accepts only the registered `node` program token, enforced before
 approval by an owned exact-literal schema, an ordered list of literal arguments,
@@ -183,12 +193,14 @@ read-policy inventory, grammar, bounds, platform case behavior, loader, or
 enforcement requires decision 0042, privacy/security prose, grammar and loader
 tests, startup regression, and all three read-tool regressions in the same
 change. Changing mutation planning, observation, identity checks, previews, or
-invocation requires decision 0042 plus absent-target, identity-swap,
-content-swap, parent-swap, malformed-Unicode, strict-UTF-8, cancellation, and
-bounded-preview regressions. Remove planner registration first, then remove the
-mutation-plan, preview, and shared path modules only after the affected write
-tools have been removed or replaced. Never roll back to size-only approval or a
-stale approved invocation. Never add negation or a handler-specific bypass. Changing the
+invocation requires decisions 0042 and 0046 plus absent-target, identity-swap,
+content-swap, parent-swap, malformed-Unicode, strict-UTF-8, cancellation,
+bounded-preview, native protocol, complete large-write, conflicting-handle, and
+forced-termination regressions on Windows and Linux. Remove planner registration
+first, then remove the mutation-plan, preview, committer, protocol, and native
+sources only after the affected write tools have been removed or replaced.
+Never roll back to size-only approval, a stale approved invocation, or direct
+Node writes. Never add negation or a handler-specific bypass. Changing the
 process registry, protocol, limits, output contract, executable resolution, or
 containment backend also requires the complete Windows and Linux proof and
 decision 0036 to change in the same review. Remove `run_process` advertisement
@@ -205,12 +217,22 @@ function defined by decision 0022.
 - Shared workspace path resolution: `packages/agent-cli/src/workspace-path.ts`
 - Mutation effect plans: `packages/agent-cli/src/workspace-mutation-plans.ts`
 - Bounded mutation previews: `packages/agent-cli/src/workspace-mutation-preview.ts`
+- Mutation commit port: `packages/agent-cli/src/workspace-mutation-committer.ts`
+- Native mutation adapter: `packages/agent-cli/src/platform-workspace-mutation.ts`
+- Native mutation protocol: `packages/agent-cli/src/platform-workspace-mutation-protocol.ts`
+- Native mutation entry point: `packages/agent-cli/native/mutation-commit/main.c`
+- Native mutation protocol: `packages/agent-cli/native/mutation-commit/protocol.c`
+- Native mutation contract: `packages/agent-cli/native/mutation-commit/mutation-commit.h`
+- Linux mutation backend: `packages/agent-cli/native/mutation-commit/backend-linux.c`
+- Windows mutation backend: `packages/agent-cli/native/mutation-commit/backend-windows.c`
+- Native mutation rejection proof: `tools/test/native-mutation-commit.test.mjs`
 - Canonical workspace boundary: `packages/agent-cli/src/workspace-boundary.ts`
 - Workspace-ignore grammar: `packages/agent-cli/src/workspace-ignore.ts`
 - Workspace read policy: `packages/agent-cli/src/workspace-read-policy.ts`
 - Trusted platform-root adapter: `packages/agent-cli/src/platform-workspace-roots.ts`
 - Native platform-root resolver: `packages/agent-cli/native/workspace-roots/`
 - Workspace trust decision: `docs/decisions/0042-owned-workspace-trust-boundary.md`
+- Handle-relative mutation decision: `docs/decisions/0046-owned-handle-relative-mutation-commit.md`
 - Process runner port: `packages/agent-cli/src/process-runner.ts`
 - Node process adapter: `packages/agent-cli/src/node-process-runner.ts`
 - Native broker protocol: `packages/agent-cli/src/process-broker-protocol.ts`

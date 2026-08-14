@@ -246,6 +246,18 @@ and enforces a five-second operation deadline plus a 250-millisecond cleanup
 deadline after termination is requested. Missing or late `close` cannot keep or
 later mutate the content-free result. Platform discovery remains separate from
 the boundary's filesystem canonicalization and exact-root denial.
+
+Approved `create_file` and `replace_text` plans cross a separate
+`WorkspaceMutationCommitter` port. The CLI adapter encodes one immutable plan,
+launches the exact package-local C17 broker with no arguments or environment,
+and accepts one fixed content-free settlement. Windows binds relative opens to
+directory handles, reserves creation with no replacement and delete-pending
+cleanup, and replaces through one exclusive opened object. Linux guards lookup
+with `openat2`, publishes a complete `O_TMPFILE` without replacement, and holds
+a write lease while comparing and replacing one opened object. The planner no
+longer contains a portable write path. Missing exclusion or publication
+support fails closed, and late process events cannot create a second result.
+
 CLI also owns the exact OpenCode Go HTTPS adapter and startup configuration. It
 admits only `opencode.ai:443`, never follows an application-selected origin,
 keeps the API key in memory, and exposes only bytes and response metadata to the

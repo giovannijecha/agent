@@ -12,7 +12,7 @@ import {
 } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import path from "node:path";
-import { execPath, platform } from "node:process";
+import { arch, execPath, platform } from "node:process";
 import test from "node:test";
 
 import {
@@ -30,6 +30,7 @@ import type {
 } from "@agent/tools";
 
 import { createBuiltinToolEngine } from "../dist/builtin-tools.js";
+import { PlatformWorkspaceMutationCommitter } from "../dist/platform-workspace-mutation.js";
 import {
   PROCESS_RUNNER_LIMITS,
   type ProcessRunRequest,
@@ -61,6 +62,16 @@ const workspaceProtection = Object.freeze({
   temporaryDirectory: tmpdir(),
 });
 
+function toolPlatform(runner: ProcessRunner = processRunner) {
+  const committer = PlatformWorkspaceMutationCommitter.create(platform, arch);
+  assert.ok(committer.ok);
+  return Object.freeze({
+    mutationCommitter: committer.value,
+    nodeExecutable: execPath,
+    processRunner: runner,
+  });
+}
+
 async function engine(
   root: string,
   runner: ProcessRunner = processRunner,
@@ -69,10 +80,11 @@ async function engine(
   assert.ok(boundary.ok);
   const policy = await WorkspaceReadPolicy.load(boundary.value, platform);
   assert.ok(policy.ok);
-  const created = createBuiltinToolEngine(boundary.value, policy.value, {
-    nodeExecutable: execPath,
-    processRunner: runner,
-  });
+  const created = createBuiltinToolEngine(
+    boundary.value,
+    policy.value,
+    toolPlatform(runner),
+  );
   assert.ok(created.ok);
   assert.deepEqual(
     created.value.descriptors.map((descriptor) => [
@@ -223,20 +235,14 @@ test("preserves a nonzero process result as a recoverable failed tool outcome", 
 
 test("distinguishes invalid roots, read policies, and platform adapters", async () => {
   assert.deepEqual(
-    createBuiltinToolEngine("relative", undefined, {
-      nodeExecutable: execPath,
-      processRunner,
-    }),
+    createBuiltinToolEngine("relative", undefined, toolPlatform()),
     { ok: false, error: { kind: "invalidRoot" } },
   );
   assert.deepEqual(
     createBuiltinToolEngine(
       Object.freeze({ root: path.resolve(".") }),
       undefined,
-      {
-      nodeExecutable: execPath,
-      processRunner,
-      },
+      toolPlatform(),
     ),
     { ok: false, error: { kind: "invalidRoot" } },
   );
@@ -247,10 +253,7 @@ test("distinguishes invalid roots, read policies, and platform adapters", async 
     value: path.resolve("."),
   });
   assert.deepEqual(
-    createBuiltinToolEngine(forgedPrototype, undefined, {
-      nodeExecutable: execPath,
-      processRunner,
-    }),
+    createBuiltinToolEngine(forgedPrototype, undefined, toolPlatform()),
     { ok: false, error: { kind: "invalidRoot" } },
   );
   const boundary = await WorkspaceBoundary.create(
@@ -261,15 +264,21 @@ test("distinguishes invalid roots, read policies, and platform adapters", async 
   const policy = await WorkspaceReadPolicy.load(boundary.value, platform);
   assert.ok(policy.ok);
   assert.deepEqual(
-    createBuiltinToolEngine(boundary.value, undefined, {
-      nodeExecutable: execPath,
-      processRunner,
-    }),
+    createBuiltinToolEngine(boundary.value, undefined, toolPlatform()),
     { ok: false, error: { kind: "invalidReadPolicy" } },
   );
   assert.deepEqual(
     createBuiltinToolEngine(boundary.value, policy.value, {
+      mutationCommitter: toolPlatform().mutationCommitter,
       nodeExecutable: "relative",
+      processRunner,
+    }),
+    { ok: false, error: { kind: "invalidPlatform" } },
+  );
+  assert.deepEqual(
+    createBuiltinToolEngine(boundary.value, policy.value, {
+      mutationCommitter: Object.freeze({}) as never,
+      nodeExecutable: execPath,
       processRunner,
     }),
     { ok: false, error: { kind: "invalidPlatform" } },
