@@ -681,11 +681,15 @@ test("bounds mutation previews and skips approval when no effect can be planned"
   });
 });
 
-test("rejects unsafe mutation text and non-UTF-8 observed files before approval", async () => {
+test("rejects unsafe mutation text and unsupported observed files before approval", async () => {
   await withWorkspace(async (workspace) => {
     await writeFile(
       path.join(workspace, "invalid.txt"),
       new Uint8Array([0xff, 0xfe]),
+    );
+    await writeFile(
+      path.join(workspace, "nul-source.txt"),
+      new Uint8Array([0x6f, 0x6c, 0x64, 0x00, 0x74, 0x61, 0x69, 0x6c]),
     );
     await writeFile(
       path.join(workspace, "oversized.txt"),
@@ -723,6 +727,21 @@ test("rejects unsafe mutation text and non-UTF-8 observed files before approval"
     assert.equal(retained.length, 2);
     assert.equal(retained.at(0), 0xff);
     assert.equal(retained.at(1), 0xfe);
+
+    const nulSource = await preparePlan(tools, "replace_text", {
+      newText: "new",
+      oldText: "old",
+      path: "nul-source.txt",
+    });
+    assert.equal(nulSource.planned.approvalRequired, false);
+    assert.equal(nulSource.planned.approvalPreview, "");
+    const unsupported = await tools.execute(nulSource.planned, cancellation);
+    assert.ok(unsupported.ok);
+    assert.equal(output(unsupported.value).get("error"), "unsupported");
+    assert.deepEqual(
+      Array.from(await readFile(path.join(workspace, "nul-source.txt"))),
+      [0x6f, 0x6c, 0x64, 0x00, 0x74, 0x61, 0x69, 0x6c],
+    );
 
     const oversized = await preparePlan(tools, "replace_text", {
       newText: "y",
