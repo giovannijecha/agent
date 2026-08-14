@@ -29,6 +29,12 @@ explicit omitted count. This approval content is neither transcript nor log and
 is released when the tool activity settles. Planning failures show no preview
 and request no approval.
 
+Approved mutation content crosses only the private package-local native commit
+broker in one bounded binary frame with an empty environment. Its response is a
+fixed content-free status: paths, file content, handles, identities, and native
+causes never return through that boundary or enter notices and logs. The broker
+persists no request state and is launched once per approved mutation.
+
 Before credentials or terminal ownership, `agent` fixes one immutable read
 policy for the session. Built-in rules deny `.agentignore`, `.git`, `.env` and
 `.env.*`, common SSH and cloud credential directories, package and Git

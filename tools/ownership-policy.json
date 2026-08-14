@@ -60,7 +60,8 @@
     "docs/decisions/0042-owned-workspace-trust-boundary.md",
     "docs/decisions/0043-owned-conversation-density.md",
     "docs/decisions/0044-owned-latin-prose-cell-width.md",
-    "docs/decisions/0045-owned-terminal-interaction.md"
+    "docs/decisions/0045-owned-terminal-interaction.md",
+    "docs/decisions/0046-owned-handle-relative-mutation-commit.md"
   ],
   "workspaces": [
     {

@@ -51,17 +51,21 @@ then planned just in time. `create_file` binds approval to target absence,
 canonical parent identity, complete proposed content, and its SHA-256 digest.
 `replace_text` binds approval to canonical file identity, strict UTF-8 complete
 content, one exact match, and observed/result digests. Invocation rejects stale
-path, identity, absence, or content state before mutation. These portable Node
-checks do not make pathname revalidation atomic against a same-user external
-actor; decision 0042 retains a required owned Windows/Linux handle-relative
-commit boundary for that final race.
+path, identity, absence, or content state before mutation. Decision 0046 routes
+the approved immutable effect through one owned Windows/Linux native committer.
+Linux uses guarded handle-relative lookup, unnamed-file publication, and a write
+lease; Windows uses handle-relative opens, exclusive sharing, and delete-pending
+creation. Missing platform or filesystem primitives fail closed. This closes
+ordinary retargeting and conflicting-content races for the selected object; it
+does not provide multi-file atomicity, crash rollback, storage durability, or a
+filesystem/network sandbox.
 
 Model and tool text cannot provide styling metadata or terminal escapes. Generic
 components and frames validate one closed semantic tone per printable row; only
 the owned renderer emits fixed ANSI and resets it during row output and cleanup.
 Interrupted OSC strings are conservatively closed before later renderer output.
-Native root and clipboard helpers have hard operation and post-kill cleanup
-deadlines; late events cannot change settled content-free results.
+Native root, mutation, and clipboard helpers have hard operation and post-kill
+cleanup deadlines; late events cannot change settled content-free results.
 
 The project enables one exact outbound HTTPS path for an operator-configured
 OpenCode Go API key. The owned startup prompt disables echo, bounds input, and

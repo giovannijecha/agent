@@ -35,6 +35,7 @@ import {
 import type { ProcessRunner } from "./process-runner.js";
 import { PROCESS_RUNNER_LIMITS } from "./process-runner.js";
 import { BUILTIN_TOOL_LIMITS } from "./builtin-tool-limits.js";
+import type { WorkspaceMutationCommitter } from "./workspace-mutation-committer.js";
 import { WorkspaceBoundary } from "./workspace-boundary.js";
 import {
   insideWorkspace as inside,
@@ -60,6 +61,7 @@ export type BuiltinToolsErrorKind =
 export type BuiltinToolsError = Readonly<{ kind: BuiltinToolsErrorKind }>;
 
 export type BuiltinToolsPlatform = Readonly<{
+  mutationCommitter: WorkspaceMutationCommitter;
   nodeExecutable: string;
   processRunner: ProcessRunner;
 }>;
@@ -682,7 +684,7 @@ function registrations(
           Object.freeze({ mode: "size" as const, name: "content" }),
         ]),
       ),
-      planner: createFilePlanner(root),
+      planner: createFilePlanner(root, platform.mutationCommitter),
     }),
     Object.freeze({
       descriptor: descriptor(
@@ -716,7 +718,7 @@ function registrations(
           Object.freeze({ mode: "size" as const, name: "newText" }),
         ]),
       ),
-      planner: replaceTextPlanner(root),
+      planner: replaceTextPlanner(root, platform.mutationCommitter),
     }),
     Object.freeze({
       descriptor: descriptor(
@@ -783,6 +785,9 @@ export function createBuiltinToolEngine(
   if (
     platform === null ||
     typeof platform !== "object" ||
+    platform.mutationCommitter === null ||
+    typeof platform.mutationCommitter !== "object" ||
+    typeof platform.mutationCommitter.commit !== "function" ||
     typeof platform.nodeExecutable !== "string" ||
     !path.isAbsolute(platform.nodeExecutable) ||
     platform.nodeExecutable.includes("\u0000") ||

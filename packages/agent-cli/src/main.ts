@@ -25,6 +25,7 @@ import { parseLaunchCommand } from "./launch-command.js";
 import { NodeTerminalHost } from "./node-terminal-host.js";
 import { NodeOpenCodeGoTransport } from "./node-opencode-go-transport.js";
 import { PlatformClipboard } from "./platform-clipboard.js";
+import { PlatformWorkspaceMutationCommitter } from "./platform-workspace-mutation.js";
 import { resolvePlatformWorkspaceRoots } from "./platform-workspace-roots.js";
 import { NodeProcessRunner } from "./node-process-runner.js";
 import { NodeTimerClock } from "./node-timer-clock.js";
@@ -141,31 +142,44 @@ if (!configuration.ok) {
     ? OpenCodeGoModel.create(transport.value, AGENT_INSTRUCTIONS)
     : transport;
   const processRunner = NodeProcessRunner.create(platform, arch);
-  const tools = processRunner.ok
-    ? createBuiltinToolEngine(workspaceBoundary, workspaceReadPolicy, {
-        nodeExecutable: execPath,
-        processRunner: processRunner.value,
-      })
-    : processRunner;
-  if (!model.ok || !processRunner.ok || !tools.ok) {
+  const mutationCommitter = PlatformWorkspaceMutationCommitter.create(
+    platform,
+    arch,
+  );
+  if (!model.ok || !processRunner.ok || !mutationCommitter.ok) {
     stderr.write("agent could not initialize the configured provider\n", () =>
       exit(1),
     );
   } else {
-    const result = await run(
-      terminalHost,
-      new AgentRuntime(model.value, tools.value),
-      PROVIDER_PRESENTATION,
-      workspaceRoot,
-      motion,
-      notices,
-      clipboard,
+    const tools = createBuiltinToolEngine(
+      workspaceBoundary,
+      workspaceReadPolicy,
+      {
+        mutationCommitter: mutationCommitter.value,
+        nodeExecutable: execPath,
+        processRunner: processRunner.value,
+      },
     );
-    if (!result.ok) {
-      const label = result.error.primary?.kind ?? "cleanup";
-      stderr.write("agent stopped after a " + label + " failure\n", () =>
+    if (!tools.ok) {
+      stderr.write("agent could not initialize the configured provider\n", () =>
         exit(1),
       );
+    } else {
+      const result = await run(
+        terminalHost,
+        new AgentRuntime(model.value, tools.value),
+        PROVIDER_PRESENTATION,
+        workspaceRoot,
+        motion,
+        notices,
+        clipboard,
+      );
+      if (!result.ok) {
+        const label = result.error.primary?.kind ?? "cleanup";
+        stderr.write("agent stopped after a " + label + " failure\n", () =>
+          exit(1),
+        );
+      }
     }
   }
 }

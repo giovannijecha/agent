@@ -225,9 +225,13 @@ agent.”
   approved effect to canonical paths, object identity, observed absence or
   complete content, and SHA-256 state digests; show exact bounded content or
   bounded excerpts with an omitted count; reject stale state before mutation.
-  Current portable Node revalidation is not a handle-relative atomic namespace
-  commit. Do not claim that final race closed until owned Windows and Linux
-  handle-relative backends and their adversarial proof replace it.
+  Invocation crosses the owned decision 0046 mutation committer exactly once;
+  it never returns to a portable pathname write. Linux uses guarded `openat2`,
+  `O_TMPFILE` publication, and an exclusive write lease. Windows uses
+  handle-relative `NtCreateFile`, exclusive sharing, and delete-pending create
+  settlement. Unsupported platform or filesystem primitives fail closed.
+  Describe the guarantee as one object-bound commit, not multi-file atomicity,
+  crash-safe rollback, storage durability, or a filesystem sandbox.
 - Future controller-internal concurrency may overlap only bounded independent
   mechanics over immutable snapshots during a read-only phase. It cannot enter
   the tool engine or overlap a mutation, and its results return to the sole

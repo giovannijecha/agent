@@ -111,7 +111,8 @@ terminal-native selection path, while Ctrl+C remains the agent interrupt.
 - Read tools may run automatically; every successfully planned write or execute
   call needs its own exact approval.
 - `create_file` and `replace_text` show one bounded concrete effect preview and
-  reject changed target state before mutation instead of reusing stale approval.
+  commit the approved state through one owned handle-relative Windows/Linux
+  broker. Changed identity, absence, path, or content fails as a conflict.
 - `read_file`, `list_directory`, and `search_text` share one immutable built-in
   plus `.agentignore` disclosure policy; denied targets never enter tool output.
 - `run_process` accepts only the registered `node` token, literal arguments,
@@ -119,9 +120,9 @@ terminal-native selection path, while Ctrl+C remains the agent interrupt.
   PATH lookup, stdin, inherited environment, or model-selected limit.
 - Model turns, tools, approvals, mutations, process execution, and terminal
   output remain serialized.
-- Portable Node pathname revalidation does not close the final external
-  namespace race; the owned Windows/Linux handle-relative commit boundary
-  remains an explicit next security tranche.
+- Mutation commit has no portable pathname-write fallback. Unsupported native
+  exclusion or publication primitives fail closed rather than weakening an
+  approved effect.
 - Secrets, raw tool arguments, call identifiers, and failure causes do not enter
   the contextual UI.
 
@@ -144,7 +145,7 @@ the sole controller for deterministic reduction.
 | `packages/agent-provider-opencode-go` | Node-free OpenCode Go wire adapter |
 | `packages/agent-tui` | Generic input, layout, Markdown, frames, and renderer |
 | `packages/agent-cli` | Commands, chat, tools, terminal, Node I/O, and composition |
-| `packages/agent-cli/native` | Private platform roots, clipboard, and process containment |
+| `packages/agent-cli/native` | Private platform roots, mutation commit, clipboard, and process containment |
 | `types` | Minimal owned Node declarations |
 | `tools` | Build, ownership, test, policy, and smoke verification |
 | `docs` | Operator manual, architecture, decisions, and provenance |

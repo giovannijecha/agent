@@ -14,6 +14,10 @@ const processBrokerRoot = path.join(
   projectRoot,
   "packages/agent-cli/native/process-broker",
 );
+const mutationCommitRoot = path.join(
+  projectRoot,
+  "packages/agent-cli/native/mutation-commit",
+);
 const workspaceRootsRoot = path.join(
   projectRoot,
   "packages/agent-cli/native/workspace-roots",
@@ -117,6 +121,16 @@ runCompiler([
     : []),
   "-o",
   path.join(outputDirectory, "agent-workspace-roots" + executableSuffix),
+]);
+
+runCompiler([
+  ...commonFlags,
+  ...platformFlags,
+  path.join(mutationCommitRoot, "main.c"),
+  path.join(mutationCommitRoot, "protocol.c"),
+  path.join(mutationCommitRoot, backend),
+  "-o",
+  path.join(outputDirectory, "agent-mutation-commit" + executableSuffix),
 ]);
 
 runCompiler([
