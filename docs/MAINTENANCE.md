@@ -94,7 +94,8 @@ private-use, and line-separator input. Preserve two independent defenses: the
 tool engine emits an escaped printable representation, and the CLI rejects raw
 unsafe scalars before any TUI component receives the summary. Mutation effect
 preview changes additionally require exact and excerpted content, digest,
-omitted-count, strict-UTF-8, stale-identity, and cancellation regressions.
+omitted-count, mixed CRLF/CR/LF line metadata, strict-UTF-8, stale-identity, and
+cancellation regressions.
 
 To remove one tool, stop advertising its descriptor, then delete its handler,
 focused tests, policy record, manual entry, and unused private helpers. Update
