@@ -56,7 +56,9 @@ excludes the exact ignored root `state/`, so prepared runs cannot alter package,
 ownership, hygiene, or generated-artifact verification.
 
 Reviewed negative results are registered independently under decision 0049 in
-`evaluations/failures/registry.json`. The pure failure-registry validator binds
+`evaluations/failures/registry.json`. The pure failure-registry parser owns
+bounded fatal UTF-8 decoding and JSON parsing so rejected source never enters a
+diagnostic. Its validator binds
 closed evidence to current task identifiers and tracked resolution paths without
 reading ignored runs. The evaluator loader reserves the registry directory,
 file, and complete byte allowance without parsing its contents. One occurrence

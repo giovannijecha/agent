@@ -14,6 +14,7 @@ import { analyzeModule } from "./lib/module-specifiers.mjs";
 import { validateBrandPolicy } from "./lib/brand-policy.mjs";
 import { validateCiPolicy } from "./lib/ci-policy.mjs";
 import {
+  parseEvaluationFailureRegistry,
   validateEvaluationFailureRegistry,
 } from "./lib/evaluation-failure-registry.mjs";
 import { validateEvaluationSuite } from "./lib/evaluation-suite.mjs";
@@ -294,6 +295,7 @@ function verifyBrandPolicy() {
 function verifyEvaluationPolicy() {
   const root = "evaluations/";
   const failureRegistryPath = "evaluations/failures/registry.json";
+  const failureRegistrySource = readFileSync(absolute(failureRegistryPath));
   const ownedPaths = listFiles("evaluations");
   const relativePaths = ownedPaths.map((file) => file.slice(root.length));
   validateEvaluationSuite(evaluationPolicy, {
@@ -305,11 +307,14 @@ function verifyEvaluationPolicy() {
     ),
     ownedPaths: relativePaths,
   });
-  validateEvaluationFailureRegistry(readJson(failureRegistryPath), {
-    repositoryPaths: listFiles("."),
-    sourceBytes: readFileSync(absolute(failureRegistryPath)).length,
-    taskIds: evaluationPolicy.tasks.map((task) => task.id),
-  });
+  validateEvaluationFailureRegistry(
+    parseEvaluationFailureRegistry(failureRegistrySource),
+    {
+      repositoryPaths: listFiles("."),
+      sourceBytes: failureRegistrySource.length,
+      taskIds: evaluationPolicy.tasks.map((task) => task.id),
+    },
+  );
   evaluationOwnedPaths = new Set(ownedPaths);
 }
 

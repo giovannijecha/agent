@@ -6,6 +6,7 @@ import test from "node:test";
 import {
   EVALUATION_FAILURE_LIMITS,
   EvaluationFailureRegistryError,
+  parseEvaluationFailureRegistry,
   validateEvaluationFailureRegistry,
 } from "../lib/evaluation-failure-registry.mjs";
 import { projectRoot } from "../lib/project.mjs";
@@ -39,6 +40,22 @@ function expectCode(code) {
     error.code === code &&
     error.message === "evaluation failure registry " + code;
 }
+
+test("parses registry source without exposing rejected content", () => {
+  assert.deepEqual(parseEvaluationFailureRegistry(registryBytes), registry);
+
+  for (const source of [
+    Buffer.from("PRIVATE_SECRET", "utf8"),
+    Uint8Array.of(0xff),
+    new Uint8Array(),
+    new Uint8Array(EVALUATION_FAILURE_LIMITS.registryBytes + 1),
+  ]) {
+    assert.throws(
+      () => parseEvaluationFailureRegistry(source),
+      expectCode("invalidRegistry"),
+    );
+  }
+});
 
 test("accepts the canonical content-free failure registry", () => {
   assert.deepEqual(validateEvaluationFailureRegistry(registry, context()), {
