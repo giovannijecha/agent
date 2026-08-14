@@ -274,8 +274,10 @@ agent.”
   without reading ignored runs or inferring recurrence. Its sole source read is
   rooted at the explicit canonical repository directory; every directory to the
   registry parent is non-linked and identity-stable before and after the bounded
-  descriptor read. One observed failure remains `observing`; it does not justify
-  a new tool, prompt change, or runtime change by itself.
+  descriptor read. The regular-file path and descriptor retain one identity,
+  size, modification time, and change time through opening and completion. One
+  observed failure remains `observing`; it does not justify a new tool, prompt
+  change, or runtime change by itself.
 
 ## Change discipline
 

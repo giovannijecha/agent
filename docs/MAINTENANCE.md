@@ -62,11 +62,12 @@ representation so rejected source never enters a diagnostic. Before parsing,
 the repository source boundary admits only one canonical-root-relative bounded
 regular file. Every directory from the explicit repository root through its
 parent must be non-linked and retain one identity; the complete chain and the
-path-to-descriptor identity agree before and after the fixed-size read. Its
-validator binds closed evidence to current task identifiers and tracked
-resolution paths without reading ignored runs. The canonical verifier retains
-that one bounded snapshot for registry parsing and exposes only its path, not a
-second value, to task-corpus validation. The evaluator loader records the exact
+path-to-descriptor snapshot retains one identity, size, modification time, and
+change time before and after the fixed-size read. Its validator binds closed
+evidence to current task identifiers and tracked resolution paths without
+reading ignored runs. The canonical verifier retains that one bounded snapshot
+for registry parsing and exposes only its path, not a second value, to
+task-corpus validation. The evaluator loader records the exact
 registry entry directly in its owned-path inventory without opening, following,
 descending through, or retaining it. It still reserves the registry directory,
 logical file, and complete byte allowance. One occurrence remains observational

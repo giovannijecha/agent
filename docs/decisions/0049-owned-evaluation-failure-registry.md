@@ -102,8 +102,9 @@ linked or identity-changing directory from that root through the registry's
 parent. It checks the complete directory chain before opening, rechecks it and
 the path-to-descriptor identity before the first descriptor read, reads through
 that descriptor into one fixed `registryBytes + 1` buffer, and rechecks the
-chain, identity, size, and modification state before returning. The
-failure-registry module then owns bounded fatal
+chain, identity, size, modification time, and non-user-resettable change time
+before returning. A same-length in-place rewrite cannot be accepted by restoring
+the prior modification time. The failure-registry module then owns bounded fatal
 UTF-8 decoding and JSON parsing for those bytes. It serializes the parsed value
 with the one owned two-space JSON representation and final LF, re-encodes that
 representation, and requires exact source-byte equality before structural
