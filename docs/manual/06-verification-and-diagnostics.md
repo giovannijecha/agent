@@ -75,7 +75,9 @@ frequency, record, and grade fields. It reads no ignored run or candidate
 content, and a first observation cannot automatically alter the tool surface or
 product behavior. The repository source boundary rejects a linked, non-regular,
 empty, oversized, or identity-changing registry before its first content read;
-filesystem and parser failures remain fixed and content-free.
+the registry parser then requires exact two-space JSON, LF endings, one final
+LF, and unique keys by byte-equivalent canonical serialization. Filesystem,
+syntax, encoding, and representation failures remain fixed and content-free.
 
 ## Failure behavior
 
