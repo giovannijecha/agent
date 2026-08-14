@@ -66,6 +66,11 @@ An empty candidate workspace remains a valid observable result: grading marks
 every expected path missing instead of treating the run as structurally unsafe.
 Canonical input and expected snapshots remain non-empty.
 
+Repository source traversal excludes the exact ignored root `state/`
+directory. A prepared candidate manifest or source file therefore cannot become
+a package, ownership, source-hygiene, or generated-artifact input to the
+canonical gate.
+
 The operator starts the normal `agent` executable from the prepared workspace,
 submits the registered brief, and retains responsibility for approvals. The
 framework does not inject prompts, inspect terminal output, capture a
@@ -127,9 +132,10 @@ gate validates the registered suite and runs those tests on Windows and Linux.
 Product changes can now be evaluated against stable coding tasks without
 expanding model authority or making CI depend on a provider. Exact snapshots
 favor reproducibility over broad semantic acceptance, so results remain
-evidence for review rather than a claim of model quality. Runtime duration and
-interaction counts remain operator-entered until a future decision proves a
-privacy-preserving owned observation boundary.
+evidence for review rather than a claim of model quality. Decision 0048 adds an
+opt-in content-free product receipt for five mechanically observable metrics;
+semantic classifications, manual corrections, and risky actions remain
+operator-entered.
 
 ## Update, rollback, and removal
 

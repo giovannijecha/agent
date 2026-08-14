@@ -122,6 +122,15 @@ only closed classifications and bounded integer counts. The operator must not
 place secrets or personal content in task paths or record fields. Removing the
 run directory removes all evaluation state owned by the framework.
 
+The exact interactive `agent --evaluation-receipt` option records no prompt,
+response, terminal output, file content, path, query, credential, or provider
+payload. During the session it keeps only counters and SHA-256 digests of
+bounded canonical successful read-request identities in memory. It emits no
+digest and clears them on close. After terminal restoration it prints one ASCII
+JSON line with elapsed milliseconds and accepted turn, tool-call, approval, and
+repeated-read counts. It writes no file and ordinary `agent` runs do not create
+the recorder.
+
 ## Removal
 
 Closing the current process releases its in-memory conversation, display state,

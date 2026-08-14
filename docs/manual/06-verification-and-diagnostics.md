@@ -91,7 +91,11 @@ Changing one evaluation task changes the evidence contract. Update its manifest
 entry, brief, both snapshots, focused tests, decision 0047, and maintenance
 guidance together. To remove evaluation, delete retained ignored runs first,
 then remove the corpus, policy, evaluator, tests, verifier hook, decision, and
-documentation registrations; product packages remain unchanged.
+documentation registrations. During a maintained run, start the product with
+`agent --evaluation-receipt` and copy its five mechanical values into the
+adjacent record after grading. Complete outcome, artifact, manual corrections,
+risky actions, and primary constraint yourself; the receipt deliberately cannot
+classify them. The receipt is independently removable under decision 0048.
 
 ## Evidence
 
@@ -112,6 +116,8 @@ documentation registrations; product packages remain unchanged.
 - Native proof controller: `tools/lib/native-process-broker.mjs`
 - Linux containment bootstrap: `tools/prepare-linux-containment.sh`
 - Owned verifier: `tools/verify.mjs`
+- Repository source boundary: `tools/lib/repository-source-boundary.mjs`
+- Repository source-boundary tests: `tools/test/repository-source-boundary.test.mjs`
 - Workspace ownership registry: `tools/ownership-policy.json`
 - Manual registry: `tools/manual-policy.json`
 - Canonical brand manifest: `assets/brand/manifest.json`
@@ -123,6 +129,8 @@ documentation registrations; product packages remain unchanged.
 - Evaluation validator and lifecycle: `tools/lib/evaluation-suite.mjs`
 - Evaluation validator tests: `tools/test/evaluation-suite.test.mjs`
 - Evaluation decision: `docs/decisions/0047-owned-reproducible-task-evaluation.md`
+- Evaluation receipt: `packages/agent-cli/src/evaluation-receipt.ts`
+- Evaluation receipt decision: `docs/decisions/0048-owned-content-free-evaluation-receipt.md`
 - Manual validator: `tools/lib/manual-policy.mjs`
 - Manual validator tests: `tools/test/manual-policy.test.mjs`
 - Publication registry: `tools/publication-policy.json`

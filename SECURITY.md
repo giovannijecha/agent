@@ -87,6 +87,12 @@ state-directory component before writing. Evaluation workspaces still contain
 untrusted candidate text and must not be executed outside the normal product
 approval and process contracts.
 
+The optional interactive evaluation receipt does not expand that boundary or
+weaken product controls. It observes only already accepted serialized lifecycle
+events, cannot approve or reorder work, retains read identities only as bounded
+memory-only digests, and emits no content or identifier. The exact flag requires
+TTY input and output and is rejected before credentials when redirected.
+
 ## Disclosure
 
 Keep a report private until a fix, regression test, affected-version statement,

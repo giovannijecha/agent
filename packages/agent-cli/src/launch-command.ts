@@ -6,7 +6,8 @@ export type LaunchCommandError = Readonly<{ kind: "invalidArguments" }>;
 export function parseLaunchCommand(
   arguments_: readonly string[],
 ): Readonly<
-  | { command: LaunchCommand; ok: true }
+  | { command: "help" | "version"; ok: true }
+  | { command: "run"; evaluationReceipt: boolean; ok: true }
   | { error: LaunchCommandError; ok: false }
 > {
   if (!Array.isArray(arguments_)) {
@@ -17,7 +18,11 @@ export function parseLaunchCommand(
   }
   try {
     if (arguments_.length === 0) {
-      return Object.freeze({ command: "run" as const, ok: true as const });
+      return Object.freeze({
+        command: "run" as const,
+        evaluationReceipt: false,
+        ok: true as const,
+      });
     }
     if (arguments_.length !== 1) {
       return Object.freeze({
@@ -31,6 +36,13 @@ export function parseLaunchCommand(
     }
     if (argument === "--version") {
       return Object.freeze({ command: "version" as const, ok: true as const });
+    }
+    if (argument === "--evaluation-receipt") {
+      return Object.freeze({
+        command: "run" as const,
+        evaluationReceipt: true,
+        ok: true as const,
+      });
     }
   } catch (_cause: unknown) {
     // Fall through to one content-free rejection.

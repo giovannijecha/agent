@@ -257,6 +257,12 @@ agent.”
   grading compares regular-file trees without executing candidate code; the
   canonical verifier validates the corpus but never creates a run, launches
   `agent`, contacts a provider, captures a transcript, or reads credentials.
+  The exact interactive `agent --evaluation-receipt` option from decision 0048
+  is a separate CLI-owned observer. It emits only duration, accepted-turn,
+  accepted-tool-call, affirmative-approval, and repeated-read counts after
+  terminal cleanup. It writes no evaluation state, captures no content, changes
+  no authority, and leaves semantic outcome, correction, and risk classification
+  to the operator.
 
 ## Change discipline
 

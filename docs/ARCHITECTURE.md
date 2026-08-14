@@ -543,6 +543,14 @@ on product packages and adds no provider, runtime, controller, tool descriptor,
 prompt, transcript, or terminal path. The canonical verifier validates this
 inventory and its regressions but never creates a run.
 
+`packages/agent-cli/src/evaluation-receipt.ts` is an adjacent, independently
+removable product observer, not part of the evaluator. The composition root
+constructs it only for exact interactive `--evaluation-receipt` launches. The
+serialized CLI and successful canonical read boundaries feed it content-free
+facts; after ordinary terminal cleanup it returns one bounded immutable receipt
+to the composition root. It has no evaluator, filesystem, network, TUI, runtime,
+or model-facing tool port and never changes an application transition.
+
 ## Implemented and planned boundaries
 
 New packages are created only with their first real implementation:
@@ -648,8 +656,11 @@ process access remain unavailable unless the CLI composes an explicit capability
   them. File tools, runtime text chat, and TUI remain independently buildable.
 - Remove task evaluation by deleting local ignored runs, then its corpus,
   manifest, evaluator entry point and library, tests, verifier hook, decision
-  0047, and documentation registrations. Product packages and the model-facing
-  tool surface remain unchanged.
+  0047, and documentation registrations. The independently optional receipt may
+  remain as generic interaction evidence. Remove the receipt separately by
+  deleting its launch flag, recorder, composition hooks, tests, decision 0048,
+  and registrations. The model-facing tool surface remains unchanged in either
+  removal.
 
 The exact registry and derived-artifact procedure is defined in
 `docs/MAINTENANCE.md`.

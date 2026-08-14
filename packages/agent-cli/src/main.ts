@@ -7,6 +7,7 @@ import {
   env,
   exit,
   execPath,
+  hrtime,
   platform,
   stderr,
   stdin,
@@ -21,6 +22,10 @@ import { AGENT_INSTRUCTIONS } from "./agent-instructions.js";
 import { createBuiltinToolEngine } from "./builtin-tools.js";
 import type { ProviderPresentation } from "./commands.js";
 import { readHiddenOpenCodeGoCredential } from "./hidden-credential-prompt.js";
+import {
+  EvaluationReceiptRecorder,
+  formatEvaluationReceipt,
+} from "./evaluation-receipt.js";
 import { parseLaunchCommand } from "./launch-command.js";
 import { NodeTerminalHost } from "./node-terminal-host.js";
 import { NodeOpenCodeGoTransport } from "./node-opencode-go-transport.js";
@@ -48,24 +53,79 @@ async function writeAndExit(
   text: string,
   code: number,
 ): Promise<never> {
+  await writeText(output, text);
+  exit(code);
+}
+
+async function writeText(
+  output: WritableStream,
+  text: string,
+): Promise<boolean> {
+  let written = true;
   await new Promise<void>((resolve) => {
     try {
-      output.write(text, () => resolve());
+      output.write(text, (cause?: unknown) => {
+        written = cause === undefined;
+        resolve();
+      });
     } catch (_cause: unknown) {
+      written = false;
       resolve();
     }
   });
-  exit(code);
+  return written;
+}
+
+function monotonicMilliseconds(): number {
+  return Number(hrtime.bigint() / 1_000_000n);
+}
+
+async function startEvaluation(
+  recorder: EvaluationReceiptRecorder | undefined,
+): Promise<void> {
+  if (recorder === undefined) {
+    return;
+  }
+  const started = recorder.start(monotonicMilliseconds());
+  if (!started.ok) {
+    await writeAndExit(stderr, "agent could not start evaluation receipt\n", 1);
+  }
+}
+
+async function finishEvaluation(
+  recorder: EvaluationReceiptRecorder | undefined,
+): Promise<void> {
+  if (recorder === undefined) {
+    return;
+  }
+  const finished = recorder.finish(monotonicMilliseconds());
+  const receipt = finished.ok
+    ? finished.value
+    : await writeAndExit(
+        stderr,
+        "agent could not complete evaluation receipt\n",
+        1,
+      );
+  const written = await writeText(stdout, formatEvaluationReceipt(receipt));
+  if (!written) {
+    await writeAndExit(stderr, "agent could not write evaluation receipt\n", 1);
+  }
 }
 
 const launch = parseLaunchCommand(argv.slice(2));
 if (!launch.ok) {
-  await writeAndExit(stderr, "usage: agent [--help | --version]\n", 2);
+  await writeAndExit(
+    stderr,
+    "usage: agent [--evaluation-receipt | --help | --version]\n",
+    2,
+  );
 } else if (launch.command === "help") {
   await writeAndExit(
     stdout,
     "agent - owned personal coding agent\n\n" +
-      "usage: agent [--help | --version]\n\n" +
+      "usage: agent [--evaluation-receipt | --help | --version]\n\n" +
+      "Use --evaluation-receipt only for one interactive owned task " +
+      "evaluation; it prints bounded content-free counts after cleanup.\n\n" +
       "Without a configured credential, interactive startup asks for the " +
       "OpenCode Go API key with terminal echo disabled. Press Enter to " +
       "continue without a model.\n",
@@ -73,6 +133,19 @@ if (!launch.ok) {
   );
 } else if (launch.command === "version") {
   await writeAndExit(stdout, "agent 0.1.0\n", 0);
+}
+
+if (
+  launch.ok &&
+  launch.command === "run" &&
+  launch.evaluationReceipt &&
+  (stdin.isTTY !== true || stdout.isTTY !== true)
+) {
+  await writeAndExit(
+    stderr,
+    "agent evaluation receipt requires TTY input and output\n",
+    2,
+  );
 }
 
 const platformRoots = await resolvePlatformWorkspaceRoots(platform, arch);
@@ -118,9 +191,14 @@ const notices = timerClock !== undefined
   ? new NoticeScheduler(timerClock)
   : undefined;
 const clipboard = new PlatformClipboard(platform, arch);
+const evaluation =
+  launch.ok && launch.command === "run" && launch.evaluationReceipt
+    ? new EvaluationReceiptRecorder()
+    : undefined;
 if (!configuration.ok) {
   stderr.write("agent rejected the provider configuration\n", () => exit(1));
 } else if (configuration.value.kind === "disabled") {
+  await startEvaluation(evaluation);
   const result = await run(
     terminalHost,
     undefined,
@@ -129,7 +207,9 @@ if (!configuration.ok) {
     motion,
     notices,
     clipboard,
+    evaluation,
   );
+  await finishEvaluation(evaluation);
   if (!result.ok) {
     const label = result.error.primary?.kind ?? "cleanup";
     stderr.write("agent stopped after a " + label + " failure\n", () => exit(1));
@@ -159,12 +239,14 @@ if (!configuration.ok) {
         nodeExecutable: execPath,
         processRunner: processRunner.value,
       },
+      evaluation,
     );
     if (!tools.ok) {
       stderr.write("agent could not initialize the configured provider\n", () =>
         exit(1),
       );
     } else {
+      await startEvaluation(evaluation);
       const result = await run(
         terminalHost,
         new AgentRuntime(model.value, tools.value),
@@ -173,7 +255,9 @@ if (!configuration.ok) {
         motion,
         notices,
         clipboard,
+        evaluation,
       );
+      await finishEvaluation(evaluation);
       if (!result.ok) {
         const label = result.error.primary?.kind ?? "cleanup";
         stderr.write("agent stopped after a " + label + " failure\n", () =>

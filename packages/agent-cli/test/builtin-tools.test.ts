@@ -30,6 +30,7 @@ import type {
 } from "@agent/tools";
 
 import { createBuiltinToolEngine } from "../dist/builtin-tools.js";
+import { EvaluationReceiptRecorder } from "../dist/evaluation-receipt.js";
 import { PlatformWorkspaceMutationCommitter } from "../dist/platform-workspace-mutation.js";
 import {
   PROCESS_RUNNER_LIMITS,
@@ -75,6 +76,7 @@ function toolPlatform(runner: ProcessRunner = processRunner) {
 async function engine(
   root: string,
   runner: ProcessRunner = processRunner,
+  observer?: EvaluationReceiptRecorder,
 ): Promise<ToolEngine> {
   const boundary = await WorkspaceBoundary.create(root, workspaceProtection);
   assert.ok(boundary.ok);
@@ -84,6 +86,7 @@ async function engine(
     boundary.value,
     policy.value,
     toolPlatform(runner),
+    observer,
   );
   assert.ok(created.ok);
   assert.deepEqual(
@@ -400,6 +403,46 @@ test("creates, reads, replaces, lists, and searches bounded workspace text", asy
       query: "owned",
     });
     assert.equal(searched.result.status, "success");
+  });
+});
+
+test("observes canonical successful read identities only when opted in", async () => {
+  await withWorkspace(async (workspace) => {
+    await writeFile(path.join(workspace, "notes.txt"), "alpha\n", {
+      encoding: "utf8",
+      flag: "wx",
+    });
+    const observer = new EvaluationReceiptRecorder();
+    assert.ok(observer.start(10).ok);
+    const tools = await engine(workspace, processRunner, observer);
+
+    assert.equal(
+      (await execute(tools, "read_file", { path: "notes.txt" })).result.status,
+      "success",
+    );
+    assert.equal(
+      (await execute(tools, "read_file", { path: "./notes.txt" })).result.status,
+      "success",
+    );
+    assert.equal(
+      (await execute(tools, "read_file", { path: "missing.txt" })).result.status,
+      "failure",
+    );
+    assert.equal(
+      (await execute(tools, "search_text", { path: ".", query: "alpha" }))
+        .result.status,
+      "success",
+    );
+    assert.equal(
+      (await execute(tools, "search_text", { path: ".", query: "alpha" }))
+        .result.status,
+      "success",
+    );
+
+    const receipt = observer.finish(20);
+    assert.ok(receipt.ok);
+    assert.equal(receipt.value.repeatedReads, 2);
+    assert.equal(receipt.value.toolCalls, 0);
   });
 });
 

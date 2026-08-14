@@ -63,6 +63,7 @@
     "docs/decisions/0045-owned-terminal-interaction.md",
     "docs/decisions/0046-owned-handle-relative-mutation-commit.md",
     "docs/decisions/0047-owned-reproducible-task-evaluation.md",
+    "docs/decisions/0048-owned-content-free-evaluation-receipt.md",
     "evaluations/README.md"
   ],
   "workspaces": [

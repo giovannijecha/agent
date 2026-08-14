@@ -23,6 +23,7 @@ maintainer-controlled workspace without third-party runtime packages.
 - Contains the admitted `node` process token through an owned native broker.
 - Verifies source, ownership, build, tests, and CLI behavior offline.
 - Provides a small owned corpus for reproducible, content-free task evaluation.
+- Can emit one opt-in content-free interaction receipt after an evaluation run.
 
 The current direct provider is OpenCode Go. It is optional: without an API key,
 `agent` starts providerless and does not send content anywhere. Credentials and
@@ -188,6 +189,12 @@ executing candidate code or contacting a provider:
 ```powershell
 node tools/evaluate.mjs list
 ```
+
+For a maintained run, start `agent --evaluation-receipt` inside the prepared
+workspace. After terminal cleanup it prints one JSON line containing only
+elapsed milliseconds and accepted turn, tool-call, approval, and repeated-read
+counts. Copy those five values into the run record; semantic outcome, artifact,
+correction, risk, and constraint fields remain operator judgments.
 
 Runs stay under ignored `state/evaluations/`. Exact equality is a reproducible
 artifact signal, not a universal quality score. See the
