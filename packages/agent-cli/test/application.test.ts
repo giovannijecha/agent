@@ -631,6 +631,37 @@ test("reports approval commands as contextual when no tool is pending", () => {
   assert.deepEqual(application.notice, ["No tool approval is pending."]);
 });
 
+test("accepts a failed mutation plan without exposing an approval", () => {
+  const application = new ApplicationController(true);
+  assert.ok(application.turnAccepted(started(12, "change")).ok);
+  assert.ok(
+    application.applyRuntime(
+      Object.freeze({
+        approvalPreview: "",
+        approvalRequired: false,
+        callId: "call-stale",
+        kind: "toolRequested" as const,
+        name: "replace_text",
+        risk: "write" as const,
+        turnId: 12,
+      }),
+    ).ok,
+  );
+  assert.equal(application.activities.at(0)?.state, "queued");
+  assert.deepEqual(reduceInput(application, "/approve\r").effects, []);
+  assert.ok(
+    application.applyRuntime(
+      Object.freeze({
+        callId: "call-stale",
+        kind: "toolStarted" as const,
+        name: "replace_text",
+        risk: "write" as const,
+        turnId: 12,
+      }),
+    ).ok,
+  );
+});
+
 test("rejects tool events that bypass approval or contradict checkpoints", () => {
   const deceptivePreview = new ApplicationController(true);
   assert.ok(deceptivePreview.turnAccepted(started(9, "change")).ok);

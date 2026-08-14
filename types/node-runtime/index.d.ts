@@ -105,6 +105,15 @@ declare module "node:child_process" {
   ): ChildProcess;
 }
 
+declare module "node:crypto" {
+  export interface Hash {
+    digest(encoding: "hex"): string;
+    update(data: string, encoding: "utf8"): this;
+  }
+
+  export function createHash(algorithm: "sha256"): Hash;
+}
+
 declare module "node:url" {
   export function fileURLToPath(url: string): string;
 }
@@ -205,9 +214,25 @@ declare module "node:fs/promises" {
     isSymbolicLink(): boolean;
   }
 
+  export interface BigIntStats {
+    readonly dev: bigint;
+    readonly ino: bigint;
+    readonly size: bigint;
+    isDirectory(): boolean;
+    isFile(): boolean;
+    isSymbolicLink(): boolean;
+  }
+
   export interface FileHandle {
     close(): Promise<void>;
+    read(
+      buffer: Uint8Array,
+      offset: number,
+      length: number,
+      position: number,
+    ): Promise<{ bytesRead: number }>;
     readFile(options: { encoding: "utf8" }): Promise<string>;
+    stat(options: { bigint: true }): Promise<BigIntStats>;
     stat(): Promise<Stats>;
     truncate(length?: number): Promise<void>;
     write(
@@ -218,13 +243,15 @@ declare module "node:fs/promises" {
     ): Promise<{ bytesWritten: number }>;
   }
 
+  export function lstat(path: string, options: { bigint: true }): Promise<BigIntStats>;
   export function lstat(path: string): Promise<Stats>;
   export function mkdir(path: string): Promise<void>;
   export function mkdtemp(prefix: string): Promise<string>;
-  export function open(path: string, flags: "r+"): Promise<FileHandle>;
+  export function open(path: string, flags: "r" | "r+"): Promise<FileHandle>;
   export function opendir(path: string): Promise<Dir>;
   export function readFile(path: string): Promise<Uint8Array>;
   export function readFile(path: string, options: { encoding: "utf8" }): Promise<string>;
+  export function rename(oldPath: string, newPath: string): Promise<void>;
   export function readdir(
     path: string,
     options: { withFileTypes: true },

@@ -53,11 +53,12 @@ content-free failures, total decoding of hostile boundary values, explicit
 prepared-turn acknowledgement, cancellation-before-commit ordering, and
 terminal-receipt acknowledgement across shutdown races. They must also prove
 non-retention of candidate conversations. Runtime tool-loop changes must preserve
-complete bounded batch preflight, unique ordered call identities, sequential
-handler execution, exact per-call approval identity, handler cancellation,
-complete structured exchange checkpoints, and the rule that only state newer
-than the last checkpoint may be discarded. Update decision 0029 with any batch
-order, limit, output-budget, cancellation, or checkpoint change.
+complete pure batch preflight, unique ordered call identities, just-in-time
+planning, sequential invocation, exact per-call approval identity, planner and
+handler cancellation, complete structured exchange checkpoints, and the rule
+that only state newer than the last checkpoint may be discarded. Update
+decision 0029 with any batch order, planning, limit, output-budget, cancellation,
+or checkpoint change.
 
 To remove runtime, first remove any CLI runtime composition and restore exact
 no-model submission behavior. Then delete `packages/agent-runtime`, its root npm
@@ -69,18 +70,20 @@ core, TUI, and CLI remain independently buildable.
 
 Add a tool only after decision 0014 proves a distinct capability, current
 necessity, one canonical name, and independent removal. Update its descriptor,
-handler, focused tests, `tools/manual-policy.json`, operator-manual inventory,
-and evidence together. Never retain the previous name as an alias during a
-rename. Translate provider-specific vocabulary outside the model-facing
-registry.
+planner or handler, focused tests, `tools/manual-policy.json`, operator-manual
+inventory, and evidence together. Never retain the previous name as an alias
+during a rename. Translate provider-specific vocabulary outside the
+model-facing registry.
 
-Change a schema, risk class, limit, handler contract, or built-in tool only with
-core structured-value tests, schema/registry tests, runtime loop/checkpoint tests,
-Node adapter success/failure/security tests, reducer approval tests, TUI privacy
-tests, and decision 0008. Preserve exact `/approve` and `/deny`, one pending call,
-read-only automatic execution, root containment, symlink denial, incremental
-directory bounds, post-invocation checkpoints, content-free failures, and only
-descriptor-declared approval summaries in UI. Reintroduce process execution only
+Change a schema, risk class, limit, planner/handler contract, or built-in tool
+only with core structured-value tests, schema/registry tests, runtime
+loop/checkpoint tests, Node adapter success/failure/security tests, reducer
+approval tests, TUI privacy tests, and decision 0008. Preserve exact `/approve`
+and `/deny`, one pending call, read-only automatic execution, pure complete-batch
+preflight, just-in-time effect planning, root containment, symlink denial,
+incremental directory bounds, post-invocation checkpoints, content-free
+failures, and only owned bounded projections or effect previews in UI.
+Reintroduce process execution only
 after the private decision-0016 broker passes its complete matching-platform
 adversarial matrix and a later decision accepts the model-facing schema,
 adapter, approval, privacy, checkpoint, and removal contract. The private
@@ -89,7 +92,9 @@ broker alone grants no production authority.
 Approval-summary changes must test directional, zero-width, control, surrogate,
 private-use, and line-separator input. Preserve two independent defenses: the
 tool engine emits an escaped printable representation, and the CLI rejects raw
-unsafe scalars before any TUI component receives the summary.
+unsafe scalars before any TUI component receives the summary. Mutation effect
+preview changes additionally require exact and excerpted content, digest,
+omitted-count, strict-UTF-8, stale-identity, and cancellation regressions.
 
 To remove one tool, stop advertising its descriptor, then delete its handler,
 focused tests, policy record, manual entry, and unused private helpers. Update
@@ -418,7 +423,9 @@ tests, decision, documentation, and verifier expectations together; retain
 ## Update or remove the workspace trust boundary
 
 Decision 0042, `workspace-boundary.ts`, `workspace-ignore.ts`,
-`workspace-read-policy.ts`, the CLI composition root, built-in tool registration,
+`workspace-read-policy.ts`, `workspace-path.ts`,
+`workspace-mutation-plans.ts`, `workspace-mutation-preview.ts`, the CLI
+composition root, built-in tool registration,
 `platform-workspace-roots.ts`, its bounded protocol and native backends, exact
 footer projection, focused regressions, manuals, and policy registries form one
 contract. Resolve protected roots, the startup working directory, and the
@@ -460,8 +467,11 @@ Process containment remains a separate contract. Changing the workspace root
 does not prove that approved Node code is filesystem- or network-sandboxed. Any
 such isolation requires its own Windows and Linux decision and adversarial
 proof. The read-privacy tranche is current behavior; stale-safe effect plans
-remain future behavior until their own code, tests, documentation, and rollback
-land.
+for `create_file` and `replace_text` are also current behavior. They reject
+changes between planning and final revalidation. The final handle-relative
+Windows/Linux commit boundary remains future behavior; until it lands, do not
+claim that repeated pathname checks close the smaller external race after final
+revalidation.
 
 To remove the current root boundary, first remove every filesystem and process
 capability that consumes it or replace it with a stronger accepted authority.

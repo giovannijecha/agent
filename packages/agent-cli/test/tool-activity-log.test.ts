@@ -66,6 +66,31 @@ test("preserves denied and cancelled terminal truth", () => {
   assert.equal(cancelled.snapshots().at(0)?.state, "cancelled");
 });
 
+test("renders a failed mutation plan without opening an approval", () => {
+  const log = new ToolActivityLog();
+  assert.ok(log.beginTurn(7).ok);
+  assert.ok(
+    log.request(
+      7,
+      "stale-call",
+      "replace_text",
+      "write",
+      "",
+      false,
+    ).ok,
+  );
+  assert.deepEqual(log.snapshots(), [
+    {
+      name: "replace_text",
+      preview: "",
+      risk: "write",
+      state: "queued",
+    },
+  ]);
+  assert.ok(log.start(7, "stale-call").ok);
+  assert.ok(log.finish(7, "stale-call", "failed").ok);
+});
+
 test("rejects stale identities, contradictory transitions, and unsafe previews", () => {
   const log = new ToolActivityLog();
   assert.ok(log.beginTurn(7).ok);

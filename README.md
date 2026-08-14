@@ -106,8 +106,12 @@ terminal-native selection path, while Ctrl+C remains the agent interrupt.
 ## Safety boundaries
 
 - One model response may select one bounded ordered tool-call batch.
-- Read tools may run automatically; every write or execute call needs its own
-  exact approval.
+- The complete batch is validated before observation; calls are then planned
+  just in time and invoked sequentially.
+- Read tools may run automatically; every successfully planned write or execute
+  call needs its own exact approval.
+- `create_file` and `replace_text` show one bounded concrete effect preview and
+  reject changed target state before mutation instead of reusing stale approval.
 - `read_file`, `list_directory`, and `search_text` share one immutable built-in
   plus `.agentignore` disclosure policy; denied targets never enter tool output.
 - `run_process` accepts only the registered `node` token, literal arguments,
@@ -115,6 +119,9 @@ terminal-native selection path, while Ctrl+C remains the agent interrupt.
   PATH lookup, stdin, inherited environment, or model-selected limit.
 - Model turns, tools, approvals, mutations, process execution, and terminal
   output remain serialized.
+- Portable Node pathname revalidation does not close the final external
+  namespace race; the owned Windows/Linux handle-relative commit boundary
+  remains an explicit next security tranche.
 - Secrets, raw tool arguments, call identifiers, and failure causes do not enter
   the contextual UI.
 

@@ -1,11 +1,8 @@
 import {
   type Dirent,
   lstat,
-  open,
   opendir,
   readFile,
-  realpath,
-  writeFile,
 } from "node:fs/promises";
 import path from "node:path";
 
@@ -37,18 +34,23 @@ import {
 
 import type { ProcessRunner } from "./process-runner.js";
 import { PROCESS_RUNNER_LIMITS } from "./process-runner.js";
+import { BUILTIN_TOOL_LIMITS } from "./builtin-tool-limits.js";
 import { WorkspaceBoundary } from "./workspace-boundary.js";
+import {
+  insideWorkspace as inside,
+  lexicalWorkspacePath as lexicalPath,
+  mapWorkspaceIoError as mapIoError,
+  relativeFromWorkspaceRoot as relativeFromRoot,
+  resolveExistingWorkspacePath,
+  workspacePolicyPath as policyPath,
+} from "./workspace-path.js";
 import { WorkspaceReadPolicy } from "./workspace-read-policy.js";
+import {
+  createFilePlanner,
+  replaceTextPlanner,
+} from "./workspace-mutation-plans.js";
 
-export const BUILTIN_TOOL_LIMITS = Object.freeze({
-  directoryEntries: 512,
-  fileCodeUnits: 262_144,
-  searchFiles: 2_048,
-  searchDirectories: 512,
-  searchEntries: 4_096,
-  searchMatches: 256,
-  searchTotalCodeUnits: 4_194_304,
-});
+export { BUILTIN_TOOL_LIMITS } from "./builtin-tool-limits.js";
 
 export type BuiltinToolsErrorKind =
   | "invalidPlatform"
@@ -72,58 +74,6 @@ function toolSuccess(
   output: unknown,
 ): Result<ToolHandlerOutcome, ToolHandlerError> {
   return ok(ToolHandlerOutcome.success(output));
-}
-
-function mapIoError(cause: unknown): ToolHandlerError {
-  try {
-    if (cause !== null && typeof cause === "object") {
-      const code = (cause as Readonly<{ code?: unknown }>).code;
-      if (code === "ENOENT" || code === "ENOTDIR") {
-        return Object.freeze({ kind: "notFound" as const });
-      }
-      if (code === "EACCES" || code === "EPERM") {
-        return Object.freeze({ kind: "permission" as const });
-      }
-      if (code === "EEXIST") {
-        return Object.freeze({ kind: "conflict" as const });
-      }
-    }
-  } catch (_cause: unknown) {
-    return Object.freeze({ kind: "io" as const });
-  }
-  return Object.freeze({ kind: "io" as const });
-}
-
-function inside(root: string, target: string): boolean {
-  const relative = path.relative(root, target);
-  return (
-    relative === "" ||
-    (!path.isAbsolute(relative) &&
-      relative !== ".." &&
-      !relative.startsWith(".." + path.sep))
-  );
-}
-
-function lexicalPath(root: string, relative: string): string | undefined {
-  if (
-    relative.length === 0 ||
-    relative.includes("\u0000") ||
-    /\p{Cc}/u.test(relative) ||
-    path.isAbsolute(relative)
-  ) {
-    return undefined;
-  }
-  const target = path.resolve(root, relative);
-  return inside(root, target) ? target : undefined;
-}
-
-function relativeFromRoot(root: string, target: string): string {
-  const relative = path.relative(root, target);
-  return relative.length === 0 ? "." : relative;
-}
-
-function policyPath(root: string, target: string): string {
-  return relativeFromRoot(root, target).split(path.sep).join("/");
 }
 
 function permittedReadPath(
@@ -161,59 +111,13 @@ function permittedDiscoveredPath(
   return denied.ok && !denied.value;
 }
 
-async function rejectSymlinkTraversal(
-  root: string,
-  target: string,
-): Promise<Result<void, ToolHandlerError>> {
-  const relative = path.relative(root, target);
-  let current = root;
-  try {
-    for (const component of relative.split(path.sep)) {
-      if (component.length === 0) {
-        continue;
-      }
-      current = path.join(current, component);
-      if ((await lstat(current)).isSymbolicLink()) {
-        return toolFailure("permission");
-      }
-    }
-    return ok(undefined);
-  } catch (cause: unknown) {
-    return err(mapIoError(cause));
-  }
-}
-
 async function existingPath(
   root: string,
   relative: string,
   kind: "directory" | "file",
 ): Promise<Result<string, ToolHandlerError>> {
-  const lexical = lexicalPath(root, relative);
-  if (lexical === undefined) {
-    return toolFailure("permission");
-  }
-  try {
-    const noSymlinks = await rejectSymlinkTraversal(root, lexical);
-    if (!noSymlinks.ok) {
-      return noSymlinks;
-    }
-    const status = await lstat(lexical);
-    if (status.isSymbolicLink()) {
-      return toolFailure("permission");
-    }
-    if (
-      (kind === "file" && !status.isFile()) ||
-      (kind === "directory" && !status.isDirectory())
-    ) {
-      return toolFailure("unsupported");
-    }
-    const canonical = await realpath(lexical);
-    return inside(root, canonical)
-      ? ok(canonical)
-      : toolFailure("permission");
-  } catch (cause: unknown) {
-    return err(mapIoError(cause));
-  }
+  const resolved = await resolveExistingWorkspacePath(root, relative, kind);
+  return resolved.ok ? ok(resolved.value.canonical) : resolved;
 }
 
 async function existingReadPath(
@@ -228,31 +132,6 @@ async function existingReadPath(
   }
   const permitted = permittedResolvedReadPath(root, policy, resolved.value);
   return permitted.ok ? resolved : permitted;
-}
-
-async function creationPath(
-  root: string,
-  relative: string,
-): Promise<Result<string, ToolHandlerError>> {
-  const lexical = lexicalPath(root, relative);
-  if (lexical === undefined) {
-    return toolFailure("permission");
-  }
-  try {
-    const noSymlinks = await rejectSymlinkTraversal(
-      root,
-      path.dirname(lexical),
-    );
-    if (!noSymlinks.ok) {
-      return noSymlinks;
-    }
-    const canonicalParent = await realpath(path.dirname(lexical));
-    return inside(root, canonicalParent)
-      ? ok(path.join(canonicalParent, path.basename(lexical)))
-      : toolFailure("permission");
-  } catch (cause: unknown) {
-    return err(mapIoError(cause));
-  }
 }
 
 function text(input: StructuredObject, name: string): string {
@@ -313,72 +192,6 @@ async function readDirectoryBounded(
     }
   }
   return operation;
-}
-
-async function writeFileHandleComplete(
-  handle: Awaited<ReturnType<typeof open>>,
-  content: string,
-): Promise<Result<void, ToolHandlerError>> {
-  const bytes = encodeUtf8(content);
-  let offset = 0;
-  while (offset < bytes.length) {
-    const written = await handle.write(
-      bytes,
-      offset,
-      bytes.length - offset,
-      offset,
-    );
-    if (
-      !Number.isSafeInteger(written.bytesWritten) ||
-      written.bytesWritten < 1 ||
-      written.bytesWritten > bytes.length - offset
-    ) {
-      return toolFailure("io");
-    }
-    offset += written.bytesWritten;
-  }
-  await handle.truncate(bytes.length);
-  return ok(undefined);
-}
-
-function encodeUtf8(content: string): Uint8Array {
-  const bytes = new Uint8Array(content.length * 3);
-  let offset = 0;
-  for (const character of content) {
-    let point = character.codePointAt(0) ?? 0xfffd;
-    if (point >= 0xd800 && point <= 0xdfff) {
-      point = 0xfffd;
-    }
-    if (point <= 0x7f) {
-      bytes.set([point], offset);
-      offset += 1;
-    } else if (point <= 0x7ff) {
-      bytes.set([0xc0 | (point >> 6), 0x80 | (point & 0x3f)], offset);
-      offset += 2;
-    } else if (point <= 0xffff) {
-      bytes.set(
-        [
-          0xe0 | (point >> 12),
-          0x80 | ((point >> 6) & 0x3f),
-          0x80 | (point & 0x3f),
-        ],
-        offset,
-      );
-      offset += 3;
-    } else {
-      bytes.set(
-        [
-          0xf0 | (point >> 18),
-          0x80 | ((point >> 12) & 0x3f),
-          0x80 | ((point >> 6) & 0x3f),
-          0x80 | (point & 0x3f),
-        ],
-        offset,
-      );
-      offset += 4;
-    }
-  }
-  return bytes.slice(0, offset);
 }
 
 function readFileHandler(root: string, policy: WorkspaceReadPolicy): ToolHandler {
@@ -681,83 +494,6 @@ function searchTextHandler(
   };
 }
 
-function createFileHandler(root: string): ToolHandler {
-  return async (input, cancellation) => {
-    if (cancellation.requested) {
-      return toolFailure("cancelled");
-    }
-    const content = text(input, "content");
-    const resolved = await creationPath(root, text(input, "path"));
-    if (!resolved.ok) {
-      return resolved;
-    }
-    try {
-      await writeFile(resolved.value, content, {
-        encoding: "utf8",
-        flag: "wx",
-      });
-      return toolSuccess({ created: true });
-    } catch (cause: unknown) {
-      return err(mapIoError(cause));
-    }
-  };
-}
-
-function replaceTextHandler(root: string): ToolHandler {
-  return async (input, cancellation) => {
-    const oldText = text(input, "oldText");
-    const newText = text(input, "newText");
-    const resolved = await existingPath(root, text(input, "path"), "file");
-    if (!resolved.ok) {
-      return resolved;
-    }
-    let handle: Awaited<ReturnType<typeof open>> | undefined;
-    let operation: Result<ToolHandlerOutcome, ToolHandlerError>;
-    try {
-      handle = await open(resolved.value, "r+");
-      const status = await handle.stat();
-      if (status.size > BUILTIN_TOOL_LIMITS.fileCodeUnits) {
-        operation = toolFailure("limit");
-      } else {
-        const content = await handle.readFile({ encoding: "utf8" });
-        const first = content.indexOf(oldText);
-        const second =
-          first < 0 ? -1 : content.indexOf(oldText, first + oldText.length);
-        if (first < 0 || second >= 0) {
-          operation = toolFailure("conflict");
-        } else {
-          const replacement =
-            content.slice(0, first) +
-            newText +
-            content.slice(first + oldText.length);
-          if (replacement.length > BUILTIN_TOOL_LIMITS.fileCodeUnits) {
-            operation = toolFailure("limit");
-          } else if (cancellation.requested) {
-            operation = toolFailure("cancelled");
-          } else {
-            const written = await writeFileHandleComplete(handle, replacement);
-            operation = written.ok
-              ? toolSuccess({ replacements: 1 })
-              : written;
-          }
-        }
-      }
-    } catch (cause: unknown) {
-      operation = err(mapIoError(cause));
-    }
-    if (handle !== undefined) {
-      try {
-        await handle.close();
-      } catch (cause: unknown) {
-        if (operation.ok) {
-          operation = err(mapIoError(cause));
-        }
-      }
-    }
-    return operation;
-  };
-}
-
 function stringSchema(
   minimum: number,
   maximum: number,
@@ -885,13 +621,19 @@ function registrations(
     description: "Workspace-relative path.",
     name: "path",
     required: true,
-    schema: stringSchema(1, 4_096),
+    schema: stringSchema(1, 4_096, {
+      maximumUtf8Bytes: BUILTIN_TOOL_LIMITS.pathUtf8Bytes,
+      rejectNul: true,
+    }),
   } as const;
   const contentField = {
     description: "Complete UTF-8 text content.",
     name: "content",
     required: true,
-    schema: stringSchema(0, BUILTIN_TOOL_LIMITS.fileCodeUnits),
+    schema: stringSchema(0, BUILTIN_TOOL_LIMITS.fileCodeUnits, {
+      maximumUtf8Bytes: BUILTIN_TOOL_LIMITS.fileUtf8Bytes,
+      rejectNul: true,
+    }),
   } as const;
   return Object.freeze([
     Object.freeze({
@@ -940,7 +682,7 @@ function registrations(
           Object.freeze({ mode: "size" as const, name: "content" }),
         ]),
       ),
-      handler: createFileHandler(root),
+      planner: createFilePlanner(root),
     }),
     Object.freeze({
       descriptor: descriptor(
@@ -953,13 +695,19 @@ function registrations(
             description: "Exact text that must occur once.",
             name: "oldText",
             required: true,
-            schema: stringSchema(1, BUILTIN_TOOL_LIMITS.fileCodeUnits),
+            schema: stringSchema(1, BUILTIN_TOOL_LIMITS.fileCodeUnits, {
+              maximumUtf8Bytes: BUILTIN_TOOL_LIMITS.fileUtf8Bytes,
+              rejectNul: true,
+            }),
           },
           {
             description: "Replacement text.",
             name: "newText",
             required: true,
-            schema: stringSchema(0, BUILTIN_TOOL_LIMITS.fileCodeUnits),
+            schema: stringSchema(0, BUILTIN_TOOL_LIMITS.fileCodeUnits, {
+              maximumUtf8Bytes: BUILTIN_TOOL_LIMITS.fileUtf8Bytes,
+              rejectNul: true,
+            }),
           },
         ]),
         Object.freeze([
@@ -968,7 +716,7 @@ function registrations(
           Object.freeze({ mode: "size" as const, name: "newText" }),
         ]),
       ),
-      handler: replaceTextHandler(root),
+      planner: replaceTextPlanner(root),
     }),
     Object.freeze({
       descriptor: descriptor(

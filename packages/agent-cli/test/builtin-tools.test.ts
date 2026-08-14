@@ -5,6 +5,7 @@ import {
   mkdtemp,
   readFile,
   realpath,
+  rename,
   rm,
   symlink,
   writeFile,
@@ -20,7 +21,13 @@ import {
   StructuredObject,
   structuredValueFromUnknown,
 } from "@agent/core";
-import type { ToolCancellation, ToolEngine, ToolExecution } from "@agent/tools";
+import type {
+  PlannedToolCall,
+  PreparedToolCall,
+  ToolCancellation,
+  ToolEngine,
+  ToolExecution,
+} from "@agent/tools";
 
 import { createBuiltinToolEngine } from "../dist/builtin-tools.js";
 import {
@@ -29,6 +36,7 @@ import {
   type ProcessRunner,
 } from "../dist/process-runner.js";
 import { WorkspaceBoundary } from "../dist/workspace-boundary.js";
+import { WORKSPACE_MUTATION_PREVIEW_CODE_UNITS } from "../dist/workspace-mutation-preview.js";
 import { WorkspaceReadPolicy } from "../dist/workspace-read-policy.js";
 
 const cancellation: ToolCancellation = Object.freeze({
@@ -277,9 +285,28 @@ async function execute(
   assert.ok(value.ok && value.value instanceof StructuredObject);
   const prepared = tools.prepare("call-" + name, name, value.value);
   assert.ok(prepared.ok);
-  const result = await tools.execute(prepared.value, cancellation);
+  const planned = await tools.plan(prepared.value, cancellation);
+  assert.ok(planned.ok);
+  const result = await tools.execute(planned.value, cancellation);
   assert.ok(result.ok);
   return result.value;
+}
+
+async function preparePlan(
+  tools: ToolEngine,
+  name: string,
+  input: unknown,
+): Promise<Readonly<{
+  planned: PlannedToolCall;
+  prepared: PreparedToolCall;
+}>> {
+  const value = structuredValueFromUnknown(input);
+  assert.ok(value.ok && value.value instanceof StructuredObject);
+  const prepared = tools.prepare("call-plan-" + name, name, value.value);
+  assert.ok(prepared.ok);
+  const planned = await tools.plan(prepared.value, cancellation);
+  assert.ok(planned.ok);
+  return Object.freeze({ planned: planned.value, prepared: prepared.value });
 }
 
 function output(execution: ToolExecution): StructuredObject {
@@ -295,6 +322,22 @@ function objectList(
   assert.ok(value instanceof StructuredList);
   assert.ok(value.values.every((item) => item instanceof StructuredObject));
   return value.values as readonly StructuredObject[];
+}
+
+async function pathMissing(target: string): Promise<boolean> {
+  try {
+    await lstat(target);
+    return false;
+  } catch (cause: unknown) {
+    if (
+      cause !== null &&
+      typeof cause === "object" &&
+      (cause as Readonly<{ code?: unknown }>).code === "ENOENT"
+    ) {
+      return true;
+    }
+    throw cause;
+  }
 }
 
 async function withWorkspace(
@@ -348,6 +391,305 @@ test("creates, reads, replaces, lists, and searches bounded workspace text", asy
       query: "owned",
     });
     assert.equal(searched.result.status, "success");
+  });
+});
+
+test("plans concrete bounded creation and replacement effects", async () => {
+  await withWorkspace(async (workspace) => {
+    await writeFile(
+      path.join(workspace, "notes.txt"),
+      "alpha\nbeta\ngamma\n",
+      { encoding: "utf8", flag: "wx" },
+    );
+    const tools = await engine(workspace);
+
+    const creation = await preparePlan(tools, "create_file", {
+      content: "first\nsecond\n",
+      path: path.join("docs", "new.txt"),
+    });
+    assert.equal(creation.planned.approvalRequired, false);
+    assert.equal(creation.planned.approvalPreview, "");
+    const failedCreation = await tools.execute(
+      creation.planned,
+      cancellation,
+    );
+    assert.ok(failedCreation.ok);
+    assert.equal(failedCreation.value.result.status, "failure");
+    assert.equal(output(failedCreation.value).get("error"), "notFound");
+
+    await mkdir(path.join(workspace, "docs"));
+    const availableCreation = await preparePlan(tools, "create_file", {
+      content: "first\nsecond\n",
+      path: path.join("docs", "new.txt"),
+    });
+    assert.equal(availableCreation.planned.approvalRequired, true);
+    assert.equal(
+      availableCreation.planned.approvalPreview.includes(
+        'operation="create_file"',
+      ),
+      true,
+    );
+    assert.equal(
+      availableCreation.planned.approvalPreview.includes(
+        'path="docs/new.txt"',
+      ),
+      true,
+    );
+    assert.equal(
+      availableCreation.planned.approvalPreview.includes(
+        'observed="absent"',
+      ),
+      true,
+    );
+    assert.equal(
+      availableCreation.planned.approvalPreview.includes(
+        'content="first\\\\u{000a}second\\\\u{000a}"',
+      ),
+      true,
+    );
+
+    const replacement = await preparePlan(tools, "replace_text", {
+      newText: "owned\nvalue",
+      oldText: "beta",
+      path: "notes.txt",
+    });
+    assert.equal(replacement.planned.approvalRequired, true);
+    assert.equal(
+      replacement.planned.approvalPreview.includes(
+        'operation="replace_text"',
+      ),
+      true,
+    );
+    assert.equal(replacement.planned.approvalPreview.includes("line=2"), true);
+    assert.equal(
+      replacement.planned.approvalPreview.includes('remove="beta"'),
+      true,
+    );
+    assert.equal(
+      replacement.planned.approvalPreview.includes(
+        'insert="owned\\\\u{000a}value"',
+      ),
+      true,
+    );
+    assert.equal(
+      /observedDigest="[0-9a-f]{64}"/u.test(
+        replacement.planned.approvalPreview,
+      ),
+      true,
+    );
+    assert.equal(
+      /resultingDigest="[0-9a-f]{64}"/u.test(
+        replacement.planned.approvalPreview,
+      ),
+      true,
+    );
+  });
+});
+
+test("rejects stale content, target creation, and parent replacement", async () => {
+  await withWorkspace(async (workspace, outside) => {
+    await mkdir(path.join(workspace, "parent"));
+    await writeFile(path.join(workspace, "replace.txt"), "before", {
+      encoding: "utf8",
+      flag: "wx",
+    });
+    const tools = await engine(workspace);
+
+    const replacement = await preparePlan(tools, "replace_text", {
+      newText: "after",
+      oldText: "before",
+      path: "replace.txt",
+    });
+    await writeFile(path.join(workspace, "replace.txt"), "external", {
+      encoding: "utf8",
+      flag: "w",
+    });
+    const staleReplacement = await tools.execute(
+      replacement.planned,
+      cancellation,
+    );
+    assert.ok(staleReplacement.ok);
+    assert.equal(staleReplacement.value.result.status, "failure");
+    assert.equal(output(staleReplacement.value).get("error"), "conflict");
+    assert.equal(
+      await readFile(path.join(workspace, "replace.txt"), {
+        encoding: "utf8",
+      }),
+      "external",
+    );
+
+    await writeFile(path.join(workspace, "identity.txt"), "same", {
+      encoding: "utf8",
+      flag: "wx",
+    });
+    const identitySwap = await preparePlan(tools, "replace_text", {
+      newText: "changed",
+      oldText: "same",
+      path: "identity.txt",
+    });
+    await rename(
+      path.join(workspace, "identity.txt"),
+      path.join(workspace, "original-identity.txt"),
+    );
+    await writeFile(path.join(workspace, "identity.txt"), "same", {
+      encoding: "utf8",
+      flag: "wx",
+    });
+    const staleIdentity = await tools.execute(
+      identitySwap.planned,
+      cancellation,
+    );
+    assert.ok(staleIdentity.ok);
+    assert.equal(output(staleIdentity.value).get("error"), "conflict");
+    assert.equal(
+      await readFile(path.join(workspace, "identity.txt"), {
+        encoding: "utf8",
+      }),
+      "same",
+    );
+    assert.equal(
+      await readFile(path.join(workspace, "original-identity.txt"), {
+        encoding: "utf8",
+      }),
+      "same",
+    );
+
+    const appeared = await preparePlan(tools, "create_file", {
+      content: "approved",
+      path: path.join("parent", "appeared.txt"),
+    });
+    await writeFile(
+      path.join(workspace, "parent", "appeared.txt"),
+      "external",
+      { encoding: "utf8", flag: "wx" },
+    );
+    const staleAbsence = await tools.execute(appeared.planned, cancellation);
+    assert.ok(staleAbsence.ok);
+    assert.equal(output(staleAbsence.value).get("error"), "conflict");
+    assert.equal(
+      await readFile(path.join(workspace, "parent", "appeared.txt"), {
+        encoding: "utf8",
+      }),
+      "external",
+    );
+
+    const parentSwap = await preparePlan(tools, "create_file", {
+      content: "must stay contained",
+      path: path.join("parent", "new.txt"),
+    });
+    await rename(
+      path.join(workspace, "parent"),
+      path.join(workspace, "moved-parent"),
+    );
+    await symlink(outside, path.join(workspace, "parent"), "junction");
+    const staleParent = await tools.execute(parentSwap.planned, cancellation);
+    assert.ok(staleParent.ok);
+    assert.equal(staleParent.value.result.status, "failure");
+    assert.equal(output(staleParent.value).get("error"), "conflict");
+    assert.equal(await pathMissing(path.join(outside, "new.txt")), true);
+    assert.equal(
+      await pathMissing(path.join(workspace, "moved-parent", "new.txt")),
+      true,
+    );
+  });
+});
+
+test("bounds mutation previews and skips approval when no effect can be planned", async () => {
+  await withWorkspace(async (workspace) => {
+    await writeFile(path.join(workspace, "duplicate.txt"), "x x", {
+      encoding: "utf8",
+      flag: "wx",
+    });
+    const tools = await engine(workspace);
+    const large = await preparePlan(tools, "create_file", {
+      content: "line\n".repeat(40_000),
+      path: "large.txt",
+    });
+    assert.equal(large.planned.approvalRequired, true);
+    assert.ok(
+      large.planned.approvalPreview.length <=
+        WORKSPACE_MUTATION_PREVIEW_CODE_UNITS,
+    );
+    assert.equal(
+      large.planned.approvalPreview.includes("omittedCodeUnits="),
+      true,
+    );
+    assert.equal(
+      /digest="[0-9a-f]{64}"/u.test(large.planned.approvalPreview),
+      true,
+    );
+
+    const ambiguous = await preparePlan(tools, "replace_text", {
+      newText: "y",
+      oldText: "x",
+      path: "duplicate.txt",
+    });
+    assert.equal(ambiguous.planned.approvalRequired, false);
+    assert.equal(ambiguous.planned.approvalPreview, "");
+    const failed = await tools.execute(ambiguous.planned, cancellation);
+    assert.ok(failed.ok);
+    assert.equal(output(failed.value).get("error"), "conflict");
+    assert.equal(
+      await readFile(path.join(workspace, "duplicate.txt"), {
+        encoding: "utf8",
+      }),
+      "x x",
+    );
+  });
+});
+
+test("rejects unsafe mutation text and non-UTF-8 observed files before approval", async () => {
+  await withWorkspace(async (workspace) => {
+    await writeFile(
+      path.join(workspace, "invalid.txt"),
+      new Uint8Array([0xff, 0xfe]),
+    );
+    await writeFile(
+      path.join(workspace, "oversized.txt"),
+      "x".repeat(1_048_577),
+      { encoding: "utf8", flag: "wx" },
+    );
+    const tools = await engine(workspace);
+
+    for (const input of [
+      { content: "nul\u0000content", path: "nul.txt" },
+      { content: "lone \ud800 surrogate", path: "surrogate.txt" },
+      { content: "safe", path: "nul\u0000path.txt" },
+    ]) {
+      const structured = structuredValueFromUnknown(input);
+      assert.ok(structured.ok && structured.value instanceof StructuredObject);
+      const prepared = tools.prepare(
+        "call-unsafe",
+        "create_file",
+        structured.value,
+      );
+      assert.equal(prepared.ok, false);
+    }
+
+    const invalidUtf8 = await preparePlan(tools, "replace_text", {
+      newText: "new",
+      oldText: "old",
+      path: "invalid.txt",
+    });
+    assert.equal(invalidUtf8.planned.approvalRequired, false);
+    assert.equal(invalidUtf8.planned.approvalPreview, "");
+    const failed = await tools.execute(invalidUtf8.planned, cancellation);
+    assert.ok(failed.ok);
+    assert.equal(output(failed.value).get("error"), "unsupported");
+    const retained = await readFile(path.join(workspace, "invalid.txt"));
+    assert.equal(retained.length, 2);
+    assert.equal(retained.at(0), 0xff);
+    assert.equal(retained.at(1), 0xfe);
+
+    const oversized = await preparePlan(tools, "replace_text", {
+      newText: "y",
+      oldText: "x",
+      path: "oversized.txt",
+    });
+    assert.equal(oversized.planned.approvalRequired, false);
+    const limited = await tools.execute(oversized.planned, cancellation);
+    assert.ok(limited.ok);
+    assert.equal(output(limited.value).get("error"), "limit");
   });
 });
 

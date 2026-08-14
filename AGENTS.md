@@ -216,9 +216,18 @@ agent.”
   interchangeable backends, never additional agents; do not add sub-agents,
   delegation, swarms, or concurrent agent conversations.
 - One model response may select one bounded ordered tool-call batch. Validate the
-  complete batch before effects, execute calls sequentially in provider order,
-  require a separate exact approval for every write or execute call, and commit
-  one complete exchange. A batch is one agent decision, never a group of agents.
+  complete batch before planner or handler effects, plan each call just in time,
+  execute calls sequentially in provider order, require a separate exact
+  approval for every successfully planned write or execute call, and commit one
+  complete exchange. A failed plan requests no approval and settles as a
+  structured failure. A batch is one agent decision, never a group of agents.
+- `create_file` and `replace_text` use CLI-owned mutation effect plans. Bind an
+  approved effect to canonical paths, object identity, observed absence or
+  complete content, and SHA-256 state digests; show exact bounded content or
+  bounded excerpts with an omitted count; reject stale state before mutation.
+  Current portable Node revalidation is not a handle-relative atomic namespace
+  commit. Do not claim that final race closed until owned Windows and Linux
+  handle-relative backends and their adversarial proof replace it.
 - Future controller-internal concurrency may overlap only bounded independent
   mechanics over immutable snapshots during a read-only phase. It cannot enter
   the tool engine or overlap a mutation, and its results return to the sole

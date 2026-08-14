@@ -238,21 +238,87 @@ export type ToolHandler = (
   cancellation: ToolCancellation,
 ) => Promise<Result<ToolHandlerOutcome, ToolHandlerError>>;
 
+export type ToolEffectPlanErrorKind = "invalidHandler" | "invalidPreview";
+export type ToolEffectPlanError = Readonly<{
+  kind: ToolEffectPlanErrorKind;
+}>;
+
+const TOOL_EFFECT_PLAN_TOKEN = Symbol("owned tool effect plan");
+const UNSAFE_APPROVAL_PREVIEW = /[\p{C}\p{Zl}\p{Zp}]/u;
+
+/** One bounded concrete effect and its exact post-approval invocation. */
+export class ToolEffectPlan {
+  readonly #approvalPreview: string;
+  readonly #handler: ToolHandler;
+
+  private constructor(
+    token: symbol,
+    approvalPreview: string,
+    handler: ToolHandler,
+  ) {
+    if (token !== TOOL_EFFECT_PLAN_TOKEN) {
+      throw new TypeError("invalid tool effect plan construction");
+    }
+    this.#approvalPreview = approvalPreview;
+    this.#handler = handler;
+    Object.freeze(this);
+  }
+
+  static create(
+    approvalPreview: string,
+    handler: ToolHandler,
+  ): Result<ToolEffectPlan, ToolEffectPlanError> {
+    if (
+      typeof approvalPreview !== "string" ||
+      approvalPreview.length === 0 ||
+      approvalPreview.length > TOOL_ENGINE_LIMITS.approvalPreviewCodeUnits ||
+      UNSAFE_APPROVAL_PREVIEW.test(approvalPreview)
+    ) {
+      return err(Object.freeze({ kind: "invalidPreview" as const }));
+    }
+    if (typeof handler !== "function") {
+      return err(Object.freeze({ kind: "invalidHandler" as const }));
+    }
+    return ok(
+      new ToolEffectPlan(TOOL_EFFECT_PLAN_TOKEN, approvalPreview, handler),
+    );
+  }
+
+  get approvalPreview(): string {
+    return this.#approvalPreview;
+  }
+
+  invoke(
+    input: StructuredObject,
+    cancellation: ToolCancellation,
+  ): Promise<Result<ToolHandlerOutcome, ToolHandlerError>> {
+    return this.#handler(input, cancellation);
+  }
+}
+
+export type ToolPlanner = (
+  input: StructuredObject,
+  cancellation: ToolCancellation,
+) => Promise<Result<ToolEffectPlan, ToolHandlerError>>;
+
 export type ToolRegistration = Readonly<{
   descriptor: ToolDescriptor;
-  handler: ToolHandler;
+  handler?: ToolHandler;
+  planner?: ToolPlanner;
 }>;
 
 export type ToolRegistryErrorKind =
   | "duplicateName"
   | "invalidDescriptor"
   | "invalidHandler"
+  | "invalidPlanner"
   | "tooManyTools";
 export type ToolRegistryError = Readonly<{ kind: ToolRegistryErrorKind }>;
 
 type OwnedRegistration = Readonly<{
   descriptor: ToolDescriptor;
-  handler: ToolHandler;
+  handler: ToolHandler | undefined;
+  planner: ToolPlanner | undefined;
 }>;
 
 export class ToolRegistry {
@@ -282,8 +348,10 @@ export class ToolRegistry {
       for (const registration of registrations) {
         let descriptor: unknown;
         let handler: unknown;
+        let planner: unknown;
         descriptor = registration.descriptor;
         handler = registration.handler;
+        planner = registration.planner;
         if (
           descriptor === null ||
           typeof descriptor !== "object" ||
@@ -291,11 +359,21 @@ export class ToolRegistry {
         ) {
           return err(Object.freeze({ kind: "invalidDescriptor" as const }));
         }
-        if (typeof handler !== "function") {
+        if (
+          (handler !== undefined && typeof handler !== "function") ||
+          (handler === undefined && planner === undefined)
+        ) {
           return err(Object.freeze({ kind: "invalidHandler" as const }));
         }
+        if (
+          (planner !== undefined && typeof planner !== "function") ||
+          (planner !== undefined && handler !== undefined) ||
+          (planner !== undefined && descriptor.risk === "read")
+        ) {
+          return err(Object.freeze({ kind: "invalidPlanner" as const }));
+        }
         const ownedDescriptor = descriptor as ToolDescriptor;
-        const ownedHandler = handler as ToolHandler;
+        const ownedHandler = handler as ToolHandler | undefined;
         if (names.has(ownedDescriptor.name)) {
           return err(Object.freeze({ kind: "duplicateName" as const }));
         }
@@ -304,6 +382,7 @@ export class ToolRegistry {
           Object.freeze({
             descriptor: ownedDescriptor,
             handler: ownedHandler,
+            planner: planner as ToolPlanner | undefined,
           }),
         );
       }
@@ -331,24 +410,20 @@ export type ToolPrepareErrorKind =
 export type ToolPrepareError = Readonly<{ kind: ToolPrepareErrorKind }>;
 
 export interface PreparedToolCall {
-  readonly approvalPreview: string;
   readonly call: ToolCall;
   readonly descriptor: ToolDescriptor;
 }
 
 class OwnedPreparedToolCall implements PreparedToolCall {
-  readonly #approvalPreview: string;
   readonly #call: ToolCall;
   readonly #registration: OwnedRegistration;
 
   constructor(
     call: ToolCall,
     registration: OwnedRegistration,
-    approvalPreview: string,
   ) {
     this.#call = call;
     this.#registration = registration;
-    this.#approvalPreview = approvalPreview;
     Object.freeze(this);
   }
 
@@ -356,18 +431,82 @@ class OwnedPreparedToolCall implements PreparedToolCall {
     return this.#call;
   }
 
+  get descriptor(): ToolDescriptor {
+    return this.#registration.descriptor;
+  }
+
+  get registration(): OwnedRegistration {
+    return this.#registration;
+  }
+}
+
+export interface PlannedToolCall {
+  readonly approvalPreview: string;
+  readonly approvalRequired: boolean;
+  readonly call: ToolCall;
+  readonly descriptor: ToolDescriptor;
+}
+
+class OwnedPlannedToolCall implements PlannedToolCall {
+  readonly #approvalPreview: string;
+  readonly #approvalRequired: boolean;
+  readonly #contractFailure: boolean;
+  readonly #error: ToolHandlerError | undefined;
+  readonly #handler: ToolHandler | undefined;
+  readonly #prepared: OwnedPreparedToolCall;
+
+  constructor(
+    prepared: OwnedPreparedToolCall,
+    approvalPreview: string,
+    approvalRequired: boolean,
+    handler: ToolHandler | undefined,
+    error: ToolHandlerError | undefined,
+    contractFailure: boolean,
+  ) {
+    this.#prepared = prepared;
+    this.#approvalPreview = approvalPreview;
+    this.#approvalRequired = approvalRequired;
+    this.#handler = handler;
+    this.#error = error;
+    this.#contractFailure = contractFailure;
+    Object.freeze(this);
+  }
+
   get approvalPreview(): string {
     return this.#approvalPreview;
   }
 
+  get approvalRequired(): boolean {
+    return this.#approvalRequired;
+  }
+
+  get call(): ToolCall {
+    return this.#prepared.call;
+  }
+
+  get contractFailure(): boolean {
+    return this.#contractFailure;
+  }
+
   get descriptor(): ToolDescriptor {
-    return this.#registration.descriptor;
+    return this.#prepared.descriptor;
+  }
+
+  get prepared(): OwnedPreparedToolCall {
+    return this.#prepared;
   }
 
   run(
     cancellation: ToolCancellation,
   ): Promise<Result<ToolHandlerOutcome, ToolHandlerError>> {
-    return this.#registration.handler(this.#call.input, cancellation);
+    if (this.#error !== undefined) {
+      return Promise.resolve(err(this.#error));
+    }
+    const handler = this.#handler;
+    if (handler === undefined) {
+      return Promise.reject(new Error("owned planned call invariant"));
+    }
+    return handler(this.call.input, cancellation);
   }
 }
 
@@ -386,6 +525,7 @@ export type ToolEngineErrorKind =
   | "invalidHandlerResult"
   | "invalidLimit"
   | "invalidOutput"
+  | "invalidPlannedCall"
   | "invalidPreparedCall"
   | "unexpectedHandler";
 export type ToolEngineError = Readonly<{ kind: ToolEngineErrorKind }>;
@@ -534,6 +674,33 @@ function failedHandlerContract(
   );
 }
 
+function planningContractFailure(
+  prepared: OwnedPreparedToolCall,
+): OwnedPlannedToolCall {
+  return new OwnedPlannedToolCall(
+    prepared,
+    "",
+    false,
+    undefined,
+    undefined,
+    true,
+  );
+}
+
+function plannedFailure(
+  prepared: OwnedPreparedToolCall,
+  kind: ToolHandlerErrorKind,
+): OwnedPlannedToolCall {
+  return new OwnedPlannedToolCall(
+    prepared,
+    "",
+    false,
+    undefined,
+    Object.freeze({ kind }),
+    false,
+  );
+}
+
 /** Closed registry, schema validator, and hostile handler boundary. */
 export class ToolEngine {
   readonly #registry: ToolRegistry;
@@ -582,25 +749,100 @@ export class ToolEngine {
       if (!call.ok) {
         return err(Object.freeze({ kind: "invalidCall" as const }));
       }
-      const preview = approvalPreview(registration.descriptor, snapshot.value);
-      return preview === undefined
-        ? err(Object.freeze({ kind: "invalidInput" as const }))
-        : ok(new OwnedPreparedToolCall(call.value, registration, preview));
+      return ok(new OwnedPreparedToolCall(call.value, registration));
     } catch (_cause: unknown) {
       return err(Object.freeze({ kind: "invalidCall" as const }));
     }
   }
 
-  deny(
+  /** Prepares one just-in-time immutable invocation after batch validation. */
+  async plan(
     prepared: PreparedToolCall,
-  ): Result<ToolExecution, ToolEngineError> {
+    cancellation: ToolCancellation,
+  ): Promise<Result<PlannedToolCall, ToolEngineError>> {
+    let owned: OwnedPreparedToolCall;
     try {
       if (!(prepared instanceof OwnedPreparedToolCall)) {
         return err(Object.freeze({ kind: "invalidPreparedCall" as const }));
       }
-      return execution(prepared, "failure", failureOutput("denied"));
+      owned = prepared;
     } catch (_cause: unknown) {
       return err(Object.freeze({ kind: "invalidPreparedCall" as const }));
+    }
+    const registration = owned.registration;
+    const planner = registration.planner;
+    if (planner === undefined) {
+      const handler = registration.handler;
+      const preview = approvalPreview(
+        registration.descriptor,
+        owned.call.input,
+      );
+      return preview === undefined || handler === undefined
+        ? ok(planningContractFailure(owned))
+        : ok(
+            new OwnedPlannedToolCall(
+              owned,
+              preview,
+              registration.descriptor.risk !== "read",
+              handler,
+              undefined,
+              false,
+            ),
+          );
+    }
+    let foreign: unknown;
+    try {
+      foreign = await planner(owned.call.input, cancellation);
+    } catch (_cause: unknown) {
+      return ok(planningContractFailure(owned));
+    }
+    const result = readResult(foreign);
+    if (result === undefined) {
+      return ok(planningContractFailure(owned));
+    }
+    if (!result.ok) {
+      const kind = handlerErrorKind(result.error);
+      return ok(
+        kind === undefined
+          ? planningContractFailure(owned)
+          : plannedFailure(owned, kind),
+      );
+    }
+    try {
+      if (!(result.value instanceof ToolEffectPlan)) {
+        return ok(planningContractFailure(owned));
+      }
+      const effectPlan = result.value;
+      const preview = effectPlan.approvalPreview;
+      return ok(
+        new OwnedPlannedToolCall(
+          owned,
+          preview,
+          true,
+          (input, signal) => effectPlan.invoke(input, signal),
+          undefined,
+          false,
+        ),
+      );
+    } catch (_cause: unknown) {
+      return ok(planningContractFailure(owned));
+    }
+  }
+
+  deny(
+    planned: PlannedToolCall,
+  ): Result<ToolExecution, ToolEngineError> {
+    try {
+      if (!(planned instanceof OwnedPlannedToolCall)) {
+        return err(Object.freeze({ kind: "invalidPlannedCall" as const }));
+      }
+      return execution(
+        planned.prepared,
+        "failure",
+        failureOutput("denied"),
+      );
+    } catch (_cause: unknown) {
+      return err(Object.freeze({ kind: "invalidPlannedCall" as const }));
     }
   }
 
@@ -624,14 +866,14 @@ export class ToolEngine {
   }
 
   async execute(
-    prepared: PreparedToolCall,
+    planned: PlannedToolCall,
     cancellation: ToolCancellation,
     outputCodeUnits: number = TOOL_ENGINE_LIMITS.outputCodeUnits,
   ): Promise<Result<ToolExecution, ToolEngineError>> {
-    let owned: OwnedPreparedToolCall;
+    let owned: OwnedPlannedToolCall;
     try {
-      if (!(prepared instanceof OwnedPreparedToolCall)) {
-        return err(Object.freeze({ kind: "invalidPreparedCall" as const }));
+      if (!(planned instanceof OwnedPlannedToolCall)) {
+        return err(Object.freeze({ kind: "invalidPlannedCall" as const }));
       }
       if (
         typeof outputCodeUnits !== "number" ||
@@ -641,27 +883,30 @@ export class ToolEngine {
       ) {
         return err(Object.freeze({ kind: "invalidLimit" as const }));
       }
-      owned = prepared;
+      owned = planned;
     } catch (_cause: unknown) {
-      return err(Object.freeze({ kind: "invalidPreparedCall" as const }));
+      return err(Object.freeze({ kind: "invalidPlannedCall" as const }));
+    }
+    if (owned.contractFailure) {
+      return failedHandlerContract(owned.prepared, outputCodeUnits);
     }
     let foreign: unknown;
     try {
       foreign = await owned.run(cancellation);
     } catch (_cause: unknown) {
-      return failedHandlerContract(owned, outputCodeUnits);
+      return failedHandlerContract(owned.prepared, outputCodeUnits);
     }
     const result = readResult(foreign);
     if (result === undefined) {
-      return failedHandlerContract(owned, outputCodeUnits);
+      return failedHandlerContract(owned.prepared, outputCodeUnits);
     }
     if (result.ok) {
       const outcome = readHandlerOutcome(result.value);
       if (outcome === undefined) {
-        return failedHandlerContract(owned, outputCodeUnits);
+        return failedHandlerContract(owned.prepared, outputCodeUnits);
       }
       const executed = execution(
-        owned,
+        owned.prepared,
         outcome.status,
         outcome.output,
         false,
@@ -669,13 +914,13 @@ export class ToolEngine {
       );
       return executed.ok
         ? executed
-        : failedHandlerContract(owned, outputCodeUnits);
+        : failedHandlerContract(owned.prepared, outputCodeUnits);
     }
     const kind = handlerErrorKind(result.error);
     return kind === undefined
-      ? failedHandlerContract(owned, outputCodeUnits)
+      ? failedHandlerContract(owned.prepared, outputCodeUnits)
       : execution(
-          owned,
+          owned.prepared,
           "failure",
           failureOutput(kind),
           false,

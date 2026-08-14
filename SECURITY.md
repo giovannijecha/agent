@@ -46,6 +46,16 @@ recheck resolved targets, and reject ambiguous Windows DOS short-name aliases.
 This is a disclosure boundary, not content-based secret detection, write
 protection, or a sandbox for approved processes.
 
+Write calls are schema-validated with the complete batch before observation,
+then planned just in time. `create_file` binds approval to target absence,
+canonical parent identity, complete proposed content, and its SHA-256 digest.
+`replace_text` binds approval to canonical file identity, strict UTF-8 complete
+content, one exact match, and observed/result digests. Invocation rejects stale
+path, identity, absence, or content state before mutation. These portable Node
+checks do not make pathname revalidation atomic against a same-user external
+actor; decision 0042 retains a required owned Windows/Linux handle-relative
+commit boundary for that final race.
+
 Model and tool text cannot provide styling metadata or terminal escapes. Generic
 components and frames validate one closed semantic tone per printable row; only
 the owned renderer emits fixed ANSI and resets it during row output and cleanup.

@@ -101,10 +101,11 @@ filesystem, network, process, environment, or clock I/O.
 
 Owns the provider-neutral tool contract: bounded recursive schemas, immutable
 descriptors, read/write/execute risk classes, closed registries, exact input
-validation, opaque prepared calls, hostile handler-result containment, and
-structured success/failure results. It has no platform I/O and depends only on
-core. Policy decides whether a prepared call may run; handlers receive only the
-validated input and cooperative cancellation capability.
+validation, opaque prepared and planned calls, bounded concrete effect plans,
+hostile planner/handler-result containment, and structured success/failure
+results. It has no platform I/O and depends only on core. Platform planners and
+handlers receive only validated input and cooperative cancellation. Only an
+owned planned call may be denied or executed.
 
 ### `@agent/runtime`
 
@@ -113,8 +114,11 @@ prospective turns, stream validation, cleanup outcomes, and atomic conversation
 commits and sequential model/tool steps. It permits one active turn, one bounded
 ordered tool-call batch per model step, one pending approval, and one
 outstanding runtime read. It validates every call before effects, assigns
-bounded per-call output capacity, executes handlers sequentially, and
-checkpoints only a complete call/result exchange.
+bounded per-call output capacity, plans each call just in time after the prior
+call settles, executes handlers sequentially, and checkpoints only a complete
+call/result exchange. A failed effect plan records a non-approved failed
+attempt; a successful write or execute plan exposes one exact approval before
+its invocation.
 Before any tool attempt, user input and partial assistant chunks are prospective.
 After every selected call has a truthful result, one complete ordered exchange
 is checkpointed before the next model step because external-effect truth cannot
@@ -489,8 +493,12 @@ one prepared response, and the CLI synchronously resolves its runtime commit
 before publishing the bounded transcript pair. Failure or cancellation removes
 prospective state after the last truthful tool checkpoint. Tool names, risk, and
 state remain visible in one non-wrapping contextual TUI row. A separate bounded
-approval summary exposes only descriptor-selected target and size fields; raw
-content, call identifiers, and tool outputs never appear.
+approval summary exposes either the descriptor projection for a direct handler
+or the concrete effect preview produced by a mutation plan. Mutation previews
+show the canonical target, observed state, SHA-256 state digests, and exact
+content when it fits; larger content uses bounded prefix/suffix excerpts and an
+explicit omitted-code-unit count. Call identifiers, tool outputs, causes, and
+unbounded content never appear.
 
 Active Ctrl+C requests cancellation and keeps the shell open; idle Ctrl+C exits.
 Ctrl+D, terminal EOF, and `/exit` exit in every phase. Shutdown closes the

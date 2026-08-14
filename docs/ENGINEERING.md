@@ -401,10 +401,12 @@ than expanding the runtime registry. Product descriptor construction stays in
 the registered CLI module; the generic tool engine owns mechanics only.
 
 Tool descriptors and schemas are immutable provider-neutral data. Read tools may
-run automatically; every write or execute tool requires one exact pending-call
-decision from `/approve` or `/deny`. One model response may select a bounded
-ordered batch, but complete preflight precedes effects and handlers run
-sequentially in provider order. Filesystem tools use no ambient network access.
+run automatically. A write or execute call with a successfully planned effect
+requires one exact pending-call decision from `/approve` or `/deny`; a failed
+plan has no effect and must not request approval. One model response may select
+a bounded ordered batch. Pure complete-batch preflight precedes observation,
+then each call is planned just in time and invoked sequentially in provider
+order. Filesystem tools use no ambient network access.
 Decision 0036 admits only `run_process`, the registered `node` token, and the
 owned native whole-tree containment broker; no other process capability may be
 advertised.
@@ -463,9 +465,11 @@ still runs with the launching user's general operating-system authority.
 
 Checkpoint the structured call and result before the next model step. Later
 cancellation or failure must not erase the recorded truth of an attempted side
-effect. Render only descriptor-declared bounded approval fields; never render,
-log, or retain raw arguments, file content, outputs, call identifiers, or causes
-in notices or errors. Update decision 0008 whenever schemas, risk,
+effect. Render only descriptor-declared bounded projections or an owned bounded
+effect preview. A mutation preview may show exact content when it fits, or
+bounded excerpts plus SHA-256 digests and an explicit omitted count. Never put
+raw arguments, file content, outputs, call identifiers, or causes in notices,
+errors, transcripts, or logs. Update decision 0008 whenever schemas, risk,
 approval, checkpoint, containment, or Node-tool safety changes. Update decision
 0014, the manual registry, necessity record, focused tests, and removal guidance
 whenever the advertised surface changes.

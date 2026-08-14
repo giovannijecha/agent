@@ -26,10 +26,12 @@ import {
   ObjectSchema,
   StringSchema,
   ToolDescriptor,
+  ToolEffectPlan,
   ToolEngine,
   type ToolHandler,
   ToolHandlerOutcome,
   ToolRegistry,
+  type ToolPlanner,
 } from "@agent/tools";
 
 class ScriptedStream<E> implements ModelStream<E> {
@@ -250,6 +252,37 @@ function toolEngine(
       descriptor: descriptor.value,
       handler,
     },
+  ]);
+  assert.ok(registry.ok);
+  const engine = ToolEngine.create(registry.value);
+  assert.ok(engine.ok);
+  return engine.value;
+}
+
+function plannedToolEngine(planner: ToolPlanner): ToolEngine {
+  const path = StringSchema.create(1, 256);
+  assert.ok(path.ok);
+  const input = ObjectSchema.create([
+    {
+      description: "Relative workspace path.",
+      name: "path",
+      required: true,
+      schema: path.value,
+    },
+  ]);
+  assert.ok(input.ok);
+  const descriptor = ToolDescriptor.create(
+    "read_file",
+    "Prepare one bounded workspace mutation.",
+    "write",
+    input.value,
+    Object.freeze([
+      Object.freeze({ mode: "exact" as const, name: "path" }),
+    ]),
+  );
+  assert.ok(descriptor.ok);
+  const registry = ToolRegistry.create([
+    { descriptor: descriptor.value, planner },
   ]);
   assert.ok(registry.ok);
   const engine = ToolEngine.create(registry.value);
@@ -1351,6 +1384,41 @@ test("rejects an invalid batch before any tool handler can run", async () => {
   assert.equal(runtime.conversation.length, 0);
 });
 
+test("rejects an invalid batch before any effect planner can observe state", async () => {
+  let plannerCalls = 0;
+  const stream = new ScriptedStream<string>([
+    ok(
+      Object.freeze({
+        calls: Object.freeze([
+          Object.freeze({
+            callId: "call-valid",
+            input: toolInput("index.html"),
+            name: "read_file",
+          }),
+          Object.freeze({
+            callId: "call-invalid",
+            input: toolInput("script.js"),
+            name: "missing_tool",
+          }),
+        ]),
+        kind: "toolCalls" as const,
+      }),
+    ),
+  ]);
+  const runtime = new AgentRuntime(
+    new FixedModel(ok(stream)),
+    plannedToolEngine(async () => {
+      plannerCalls += 1;
+      return err(Object.freeze({ kind: "conflict" as const }));
+    }),
+  );
+  assert.ok(runtime.startTurn("change both files").ok);
+  const terminal = await next(runtime);
+  assert.equal(terminal.kind, "turnFinished");
+  assert.equal(plannerCalls, 0);
+  assert.equal(runtime.conversation.length, 0);
+});
+
 test("requires exact approval for writes and checkpoints denial", async () => {
   const first = new ScriptedStream<string>([
     ok(toolCallEvent("call-write")),
@@ -1445,6 +1513,132 @@ test("scopes approval to one call at a time within a write batch", async () => {
   assert.equal((await next(runtime)).kind, "toolStarted");
   assert.equal((await next(runtime)).kind, "toolFinished");
   assert.deepEqual(observed, ["one.txt", "two.txt"]);
+  assert.equal((await next(runtime)).kind, "assistantDelta");
+});
+
+test("plans each mutation just in time after complete batch validation", async () => {
+  const plannedPaths: string[] = [];
+  const invokedPaths: string[] = [];
+  const stream = new ScriptedStream<string>([
+    ok(
+      toolBatchEvent([
+        { callId: "call-one", path: "one.txt" },
+        { callId: "call-two", path: "two.txt" },
+      ]),
+    ),
+  ]);
+  const runtime = new AgentRuntime(
+    new FixedModel(ok(stream)),
+    plannedToolEngine(async (input) => {
+      const path = input.get("path");
+      assert.equal(typeof path, "string");
+      plannedPaths.push(path as string);
+      const effect = ToolEffectPlan.create(
+        'operation="replace_text" path="' + String(path) + '"',
+        async () => {
+          invokedPaths.push(path as string);
+          return ok(ToolHandlerOutcome.success({ changed: true }));
+        },
+      );
+      assert.ok(effect.ok);
+      return ok(effect.value);
+    }),
+  );
+  const started = runtime.startTurn("change both files");
+  assert.ok(started.ok);
+
+  const first = await next(runtime);
+  assert.equal(first.kind, "toolRequested");
+  assert.deepEqual(plannedPaths, ["one.txt"]);
+  assert.deepEqual(invokedPaths, []);
+  assert.ok(
+    runtime.resolveToolApproval(started.value.turnId, "call-one", true).ok,
+  );
+  assert.equal((await next(runtime)).kind, "toolStarted");
+  assert.equal((await next(runtime)).kind, "toolFinished");
+  assert.deepEqual(invokedPaths, ["one.txt"]);
+
+  const second = await next(runtime);
+  assert.equal(second.kind, "toolRequested");
+  assert.deepEqual(plannedPaths, ["one.txt", "two.txt"]);
+  assert.deepEqual(invokedPaths, ["one.txt"]);
+  assert.ok(runtime.requestCancel(started.value.turnId).ok);
+  assert.equal((await next(runtime)).kind, "turnFinished");
+});
+
+test("cancellation during effect planning wins before an approval is exposed", async () => {
+  const plannerStarted = new Deferred<void>();
+  const releasePlanner = new Deferred<void>();
+  let effectCalls = 0;
+  const runtime = new AgentRuntime(
+    new FixedModel(
+      ok(
+        new ScriptedStream<string>([
+          ok(toolCallEvent("call-planning")),
+        ]),
+      ),
+    ),
+    plannedToolEngine(async (_input, cancellation) => {
+      plannerStarted.resolve(undefined);
+      await releasePlanner.promise;
+      assert.equal(cancellation.requested, true);
+      const effect = ToolEffectPlan.create(
+        'operation="replace_text" path="planned.txt"',
+        async () => {
+          effectCalls += 1;
+          return ok(ToolHandlerOutcome.success({ changed: true }));
+        },
+      );
+      assert.ok(effect.ok);
+      return ok(effect.value);
+    }),
+  );
+  const started = runtime.startTurn("change");
+  assert.ok(started.ok);
+  const pending = runtime.nextEvent();
+  await plannerStarted.promise;
+  assert.deepEqual(runtime.requestCancel(started.value.turnId), ok(true));
+  releasePlanner.resolve(undefined);
+
+  const terminal = await pending;
+  assert.ok(terminal.ok);
+  assert.equal(terminal.value.kind, "turnFinished");
+  if (terminal.value.kind === "turnFinished") {
+    assert.equal(terminal.value.outcome.kind, "cancelled");
+    assert.equal(terminal.value.checkpointed, false);
+  }
+  assert.equal(effectCalls, 0);
+  assert.equal(runtime.conversation.length, 0);
+});
+
+test("reports an effect-planning conflict without requesting approval", async () => {
+  const first = new ScriptedStream<string>([
+    ok(toolCallEvent("call-stale")),
+  ]);
+  const second = new ScriptedStream<string>([
+    ok(Object.freeze({ kind: "delta" as const, text: "replanned" })),
+    ok(Object.freeze({ kind: "done" as const })),
+  ]);
+  const runtime = new AgentRuntime(
+    new SequenceModel([first, second]),
+    plannedToolEngine(async () =>
+      err(Object.freeze({ kind: "conflict" as const })),
+    ),
+  );
+  assert.ok(runtime.startTurn("change").ok);
+
+  const requested = await next(runtime);
+  assert.equal(requested.kind, "toolRequested");
+  if (requested.kind === "toolRequested") {
+    assert.equal(requested.approvalRequired, false);
+    assert.equal(requested.approvalPreview, "");
+  }
+  assert.equal((await next(runtime)).kind, "toolStarted");
+  const finished = await next(runtime);
+  assert.equal(finished.kind, "toolFinished");
+  if (finished.kind === "toolFinished") {
+    assert.equal(finished.status, "failure");
+  }
   assert.equal((await next(runtime)).kind, "assistantDelta");
 });
 

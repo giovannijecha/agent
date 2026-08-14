@@ -16,9 +16,18 @@ written to disk, or sent over a network.
 The five filesystem tools share the one canonical workspace selected at
 startup, and `run_process` starts in one selected directory beneath it.
 Filesystem handlers do not use ambient network access. Read operations are
-automatic; each write or execute operation requires its own explicit approval.
-The terminal UI avoids placing raw prompts, file contents, tool outputs,
-credentials, and foreign error causes in notices or logs.
+automatic; each successfully planned write or execute operation requires its
+own explicit approval. The terminal UI avoids placing raw prompts, file
+contents, tool outputs, credentials, and foreign error causes in notices or
+logs.
+
+`create_file` and `replace_text` approval is intentionally concrete. Its local
+activity surface may display the canonical target, SHA-256 state digests, and
+exact proposed or removed/inserted text when that text fits the 2,048-code-unit
+preview. Larger text is limited to bounded prefix and suffix excerpts with an
+explicit omitted count. This approval content is neither transcript nor log and
+is released when the tool activity settles. Planning failures show no preview
+and request no approval.
 
 Before credentials or terminal ownership, `agent` fixes one immutable read
 policy for the session. Built-in rules deny `.agentignore`, `.git`, `.env` and
