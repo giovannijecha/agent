@@ -631,12 +631,12 @@ export class ApplicationController
           !/^[a-z][a-z0-9_]{0,63}$/u.test(name) ||
           (risk !== "read" && risk !== "write" && risk !== "execute") ||
           typeof approvalRequired !== "boolean" ||
-          approvalRequired !== (risk !== "read") ||
           typeof approvalPreview !== "string" ||
           approvalPreview.length >
             TOOL_ENGINE_LIMITS.approvalPreviewCodeUnits ||
           /[\p{C}\p{Zl}\p{Zp}]/u.test(approvalPreview) ||
-          (approvalRequired && approvalPreview.length === 0)
+          approvalRequired !==
+            (risk !== "read" && approvalPreview.length > 0)
         ) {
           return err(new ApplicationError("invalidRuntimeEvent"));
         }

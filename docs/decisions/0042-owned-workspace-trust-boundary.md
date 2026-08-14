@@ -35,7 +35,7 @@ is designed.
 
 Adopt one CLI-owned workspace trust boundary. It is the sole authority source
 for workspace display, filesystem path resolution, process working-directory
-resolution, read privacy, and future mutation effect plans.
+resolution, read privacy, and mutation effect plans.
 
 The boundary is implemented in independent delivery tranches:
 
@@ -50,9 +50,12 @@ The boundary is implemented in independent delivery tranches:
    process-tree containment, and any later filesystem or network sandbox.
 
 Acceptance of this decision does not claim that incomplete tranches already
-exist. Tranche 1 is complete. The current change implements tranche 2 only.
-Each later tranche requires its own focused behavior, regression tests,
-documentation, rollback, and reviewable commit.
+exist. Tranches 1 and 2 are complete. The current change delivers the first
+part of tranche 3: concrete stale-safe plans and just-in-time approval binding.
+Closing the smaller race between the final in-process revalidation and the
+operating-system mutation requires the separately reviewable handle-relative
+commit boundary described below. Each remaining part requires its own focused
+behavior, regression tests, documentation, rollback, and reviewable commit.
 
 ## Threat model
 
@@ -103,9 +106,9 @@ The accepted value is immutable and exposes only its canonical absolute root.
 That same string is shown in the footer and passed to every built-in tool.
 Handlers do not recanonicalize or replace the root. They continue to validate
 each model-selected relative path, reject symbolic-link traversal, and verify
-the selected target around reads. Root identity changes and stronger
-handle-relative path operations remain part of the later stale-safe effect-plan
-work.
+the selected target around reads. Mutation planning and invocation reuse that
+same shared path module. Root-handle identity and handle-relative commit
+operations remain the final part of the effect-plan tranche.
 
 Workspace resolution occurs before reading a provider credential. A rejected
 root therefore cannot cause a key prompt, provider connection, runtime
@@ -204,25 +207,56 @@ unbounded work. No denied path or content enters tool results, provider
 requests, transcript, activity, notices, errors, logs, fixtures, or
 documentation.
 
-This tranche does not alter `create_file`, `replace_text`, or `run_process`.
-Writes still require exact approval, and approved Node code remains capable of
-reading outside this policy because process containment is not a filesystem or
-network sandbox. The effect-plan and machine-isolation tranches remain
-separate.
+The read-privacy policy does not broaden or override `create_file`,
+`replace_text`, or `run_process`. Writes use the separate effect-plan contract
+below, and approved Node code remains capable of reading outside this policy
+because process containment is not a filesystem or network sandbox. Effect
+planning and machine isolation remain separate.
 
 ## Effect-plan tranche
 
-The future mutation tranche will separate preparation from invocation. A
-bounded immutable effect plan will include the canonical relative target, the
-observed target identity or absence, a bounded content digest, and a bounded
-concrete preview. `replace_text` will show its exact delimited change;
-`create_file` will show a bounded new-file preview. Approval will name that plan,
-not merely the original input sizes.
+Pure tool preparation still validates every call in the complete ordered batch
+before any planner observes the filesystem. After that preflight succeeds, the
+runtime plans only the next call. A later call is not planned until every prior
+call has settled. This keeps observations fresh, preserves sequential effects,
+and prevents an invalid suffix from triggering planner I/O.
 
-Invocation must revalidate the observed file, directory, symbolic-link state,
-and content before any mutation. Replacement, rename, or content drift after
-preparation returns `conflict` without applying the write. Multi-file atomic
-patches remain outside this decision.
+One optional non-read planner replaces the registration's direct handler. The
+generic Node-free tool engine owns the hostile planner boundary and accepts only
+an owned immutable `ToolEffectPlan`. A successful plan carries one bounded safe
+preview and one exact invocation closure. A normal planning failure becomes a
+content-free failed tool result without approval and without a mutation. A
+thrown or malformed planner is a contract failure and blocks the remaining
+batch exactly like a malformed handler. `execute` accepts only an owned planned
+call; prepared model input cannot bypass planning.
+
+`create_file` records the canonical relative target, target absence, parent
+directory identity, complete bounded proposed content, its SHA-256 digest, and
+a bounded new-file preview. `replace_text` records the canonical relative
+target, file identity, complete bounded original content, original and result
+SHA-256 digests, the unique exact occurrence, and a delimited remove/insert
+preview. Short text is shown completely. Longer text uses explicit prefix,
+suffix, and omitted-code-unit fields; omission is never presented as complete
+content. Paths, input text, and previews must be Unicode-scalar UTF-8, and
+unsafe terminal scalars remain escaped by the shared structured projection.
+
+The one pending approval names the immutable planned call, not the original
+input sizes. Denial discards that plan. Invocation opens and checks the observed
+object again, compares file or parent identity, rechecks path and symbolic-link
+state, and compares the complete original file content before writing through
+the opened file handle. A created target, removed or replaced parent, renamed
+or replaced file, symbolic-link swap, or content drift observed before mutation
+returns `conflict` without applying the approved effect. A plan failure requests
+no approval because no mutation handler exists to authorize.
+
+The current Node platform boundary cannot express a portable create relative to
+an already opened directory handle. It also cannot make comparison and write
+one indivisible filesystem transaction against a same-user actor. Therefore
+this delivery does not claim to close a replacement that wins after the final
+revalidation inside invocation. The remaining tranche must add one owned
+Windows/Linux handle-relative commit boundary, retain the same plans and
+approval identity, fail closed when unsupported, and add adversarial tests for
+that exact window. Multi-file atomic patches remain outside this decision.
 
 ## Process containment and machine isolation
 
@@ -254,8 +288,10 @@ must fail closed rather than being presented as active.
   rechecked by the same policy before observation.
 - No new model-facing tool, provider, dependency, package, or TUI primitive is
   introduced.
-- The full trust-boundary milestone remains incomplete until stale-safe effect
-  plans are delivered.
+- Write approvals now name concrete immutable effects and reject state that
+  became stale before mutation.
+- The full trust-boundary milestone remains incomplete until the owned
+  handle-relative commit boundary closes the documented intra-invocation race.
 - TUI density is an independent visual contract and is not changed by this
   security boundary.
 
@@ -280,6 +316,13 @@ must fail closed rather than being presented as active.
 - Implement all tranches in one change: root selection, privacy parsing,
   approval semantics, and filesystem race resistance have independent failure
   and rollback contracts.
+- Plan calls while validating the batch: an invalid later call could otherwise
+  cause filesystem observation, and later plans would become stale while prior
+  approvals wait.
+- Continue approving only field sizes: the operator would authorize model
+  intent rather than the concrete observed effect.
+- Claim that repeated path checks are an atomic sandbox: they reject stale
+  approvals but cannot replace a platform handle-relative commit primitive.
 - Add an XML, path-policy, glob, or sandbox package: all admitted behavior
   remains owned and zero-dependency.
 
@@ -305,9 +348,18 @@ boundaries and platforms. Built-in tool tests prove pre-observation denial,
 resolved-path policy rechecks, Windows DOS-alias denial, filtered listings,
 pruned search, unchanged enumeration bounds, and absence of denied path and
 content in outputs. Process-level startup tests prove malformed policy rejection
-before credentials and terminal ownership. Later effect-plan changes add their
-own adversarial matrix before being described as current behavior. The
-canonical Windows and Linux gate must pass for every tranche.
+before credentials and terminal ownership.
+
+The current effect-plan delivery proves that complete batch validation precedes
+all planner calls, plans are just in time and sequential, approvals carry the
+concrete preview, planning conflicts skip approval, and planner failures remain
+contained. Built-in mutation tests cover exact and truncated previews, digests,
+ambiguous replacement, invalid scalar input, strict-UTF-8 rejection, target
+appearance, content drift, file-identity replacement, parent replacement, and
+symbolic-link swaps without an applied write. Runtime tests prove cancellation
+during planning cannot expose a late approval. The remaining native commit
+delivery must add concurrent swaps inside the final invocation window on both
+platforms. The canonical Windows and Linux gate must pass for every tranche.
 
 ## Update, rollback, and removal
 
@@ -329,6 +381,16 @@ with another accepted environment-independent source for both protected roots.
 Removal deletes its native sources, protocol decoder, Node launch adapter,
 tests, generated-artifact registrations, and current-behavior documentation as
 one change. Falling back to environment-derived roots is forbidden.
+
+Changing planner order, plan identity, preview bounds, digest algorithm,
+revalidation points, or planning-failure behavior requires updating this
+decision, tool-engine tests, runtime batch tests, built-in mutation tests,
+approval reducer tests, architecture, manual, and maintenance guidance in the
+same review. Removing the current effect-plan delivery restores direct mutation
+handlers only if every automatic mutation capability is removed at the same
+time; approval may not silently return to size-only intent. The later native
+commit boundary must remain independently removable behind the same plan
+contract.
 
 Rollback of tranche 1 removes the boundary module and its tests, restores the
 prior raw-working-directory composition, removes current-behavior claims, and

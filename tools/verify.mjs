@@ -664,6 +664,7 @@ function verifyDeclarations() {
       "types/node-runtime/index.d.ts",
       [
         "node:child_process",
+        "node:crypto",
         "node:fs/promises",
         "node:https",
         "node:os",

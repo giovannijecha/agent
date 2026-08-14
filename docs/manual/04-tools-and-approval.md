@@ -8,11 +8,13 @@ contained process execution.
 
 ## Operator workflow
 
-When a model runtime is available, tools registered as `read` run automatically;
-tools registered as `write` or `execute` pause before execution. Inspect the
-exact approval summary, then enter `/approve` or `/deny`. The decision applies
-to that one pending call only and is never cached. The current exact names and
-risk classes are in the verified inventory below.
+When a model runtime is available, tools registered as `read` run automatically.
+A `write` or `execute` call pauses only after it has a valid concrete invocation.
+Inspect the exact approval summary, then enter `/approve` or `/deny`. The
+decision applies to that one pending call only and is never cached. If effect
+planning fails, the call reports failure without approval because there is no
+effect to authorize. The current exact names and risk classes are in the
+verified inventory below.
 
 Every tool uses the same activity document. Its explicit states are `approval`,
 `queued`, `running`, `cancelling`, `succeeded`, `failed`, `denied`, and
@@ -58,7 +60,27 @@ before opening them; resolved traversal targets are rechecked before
 observation. Hidden entries still consume the raw enumeration bounds. The
 policy does not inspect content and does not restrict `create_file`,
 `replace_text`, or approved `run_process` code.
-`create_file` refuses overwrite; `replace_text` requires exactly one match.
+
+`create_file` and `replace_text` use the same three-state mutation lifecycle:
+pure schema preparation, just-in-time effect planning, then exact approval and
+invocation. A creation plan proves that the canonical target is absent and
+binds the effect to the parent identity, proposed complete content, and its
+SHA-256 digest. A replacement plan opens the canonical regular file, requires
+strict UTF-8 and exactly one match, then binds the effect to the file identity,
+complete observed content, resulting content, and both SHA-256 digests. The
+approval surface is limited to 2,048 code units. It shows exact proposed or
+removed/inserted content when it fits; otherwise it shows bounded prefix and
+suffix excerpts plus an explicit omitted-code-unit count. Invocation rejects a
+changed identity, parent, target absence, canonical path, or complete content as
+`conflict` before mutation. No stale plan is silently refreshed or broadened.
+
+The current Node implementation revalidates immediately before `wx` creation or
+same-handle replacement, but Node exposes no portable handle-relative creation
+primitive. A hostile external process can still race a pathname in the smaller
+interval after final revalidation. Decision 0042 therefore keeps the final
+Windows/Linux handle-relative commit boundary as required future work; the
+current contract must not be described as an atomic namespace sandbox.
+
 `run_process` accepts only the registered `node` program token, enforced before
 approval by an owned exact-literal schema, an ordered list of literal arguments,
 and one existing workspace-relative directory. It does
@@ -83,8 +105,10 @@ confined to the displayed workspace.
 
 One model response may select up to 32 ordered tool calls, subject to the
 remaining per-turn, argument, output, and conversation limits. The complete
-batch is validated before any handler starts. Handlers then run sequentially in
-provider order. Every write or execute call pauses for its own decision; one
+batch is validated without filesystem observation before planning or invocation.
+Calls are then planned just in time and invoked sequentially in provider order,
+so a later mutation observes the settled result of every earlier call. Every
+successfully planned write or execute call pauses for its own decision; one
 approval never covers another call. A batch is one decision by the same agent,
 not delegation or multi-agent orchestration.
 
@@ -113,9 +137,10 @@ reordered or concealed.
 ## Failure behavior
 
 Tool errors expose only stable categories such as not found, permission,
-conflict, limit, cancellation, unsupported, and I/O. Arguments, file contents,
-call identifiers, results, and thrown causes do not enter notices or activity.
-Once a
+conflict, limit, cancellation, unsupported, and I/O. Outside the exact bounded
+approval effect preview, arguments and file contents do not enter notices,
+activity, transcripts, or logs. Call identifiers, results, and thrown causes do
+not enter those presentation paths. Once a
 handler was invoked, even a malformed handler result becomes a generic
 checkpointed failure so an external mutation cannot be silently repeated.
 Normal process exit returns the bounded exit code, stdout, and stderr as
@@ -142,16 +167,23 @@ semantic alias ban defined by decision 0014.
 
 ## Maintenance and removal
 
-Changing a descriptor, risk class, limit, approval preview, or checkpoint rule
-requires schema, handler, runtime, reducer, privacy, cancellation, and cleanup
-tests. Add, rename, or remove one tool together with its descriptor, handler,
-focused tests, policy record, and this inventory. A rename removes the old name;
+Changing a descriptor, risk class, planner, limit, approval preview, or
+checkpoint rule requires schema, planner/handler, runtime, reducer, privacy,
+cancellation, stale-state, and cleanup tests. Add, rename, or remove one tool
+together with its descriptor, planner or handler, focused tests, policy record,
+and this inventory. A rename removes the old name;
 it never retains an alias. Remove an advertised descriptor before deleting its
 implementation, and keep the remaining registry buildable. Changing the
 read-policy inventory, grammar, bounds, platform case behavior, loader, or
 enforcement requires decision 0042, privacy/security prose, grammar and loader
 tests, startup regression, and all three read-tool regressions in the same
-change. Never add negation or a handler-specific bypass. Changing the
+change. Changing mutation planning, observation, identity checks, previews, or
+invocation requires decision 0042 plus absent-target, identity-swap,
+content-swap, parent-swap, malformed-Unicode, strict-UTF-8, cancellation, and
+bounded-preview regressions. Remove planner registration first, then remove the
+mutation-plan, preview, and shared path modules only after the affected write
+tools have been removed or replaced. Never roll back to size-only approval or a
+stale approved invocation. Never add negation or a handler-specific bypass. Changing the
 process registry, protocol, limits, output contract, executable resolution, or
 containment backend also requires the complete Windows and Linux proof and
 decision 0036 to change in the same review. Remove `run_process` advertisement
@@ -164,6 +196,10 @@ function defined by decision 0022.
 
 - Tool contracts and engine: `packages/agent-tools/src/index.ts`
 - Built-in filesystem adapters: `packages/agent-cli/src/builtin-tools.ts`
+- Shared built-in limits: `packages/agent-cli/src/builtin-tool-limits.ts`
+- Shared workspace path resolution: `packages/agent-cli/src/workspace-path.ts`
+- Mutation effect plans: `packages/agent-cli/src/workspace-mutation-plans.ts`
+- Bounded mutation previews: `packages/agent-cli/src/workspace-mutation-preview.ts`
 - Canonical workspace boundary: `packages/agent-cli/src/workspace-boundary.ts`
 - Workspace-ignore grammar: `packages/agent-cli/src/workspace-ignore.ts`
 - Workspace read policy: `packages/agent-cli/src/workspace-read-policy.ts`

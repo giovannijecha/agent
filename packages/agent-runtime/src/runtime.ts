@@ -11,6 +11,7 @@ import {
 } from "@agent/core";
 import {
   type PreparedToolCall,
+  type PlannedToolCall,
   TOOL_ENGINE_LIMITS,
   ToolEngine,
   type ToolExecution,
@@ -75,7 +76,7 @@ type ToolDecision = "approved" | "denied";
 
 type PendingTool = {
   readonly approvalRequired: boolean;
-  readonly prepared: PreparedToolCall;
+  readonly planned: PlannedToolCall;
   readonly whenDecided: Promise<ToolDecision>;
   decide: ((decision: ToolDecision) => void) | undefined;
   decision: ToolDecision | undefined;
@@ -88,7 +89,7 @@ type ActiveToolBatch = {
   readonly outputBudgets: readonly number[];
   readonly prepared: readonly PreparedToolCall[];
   index: number;
-  pending: PendingTool;
+  pending: PendingTool | undefined;
 };
 
 function countCodePoints(text: string): number {
@@ -257,14 +258,14 @@ function failed<E>(failure: TurnFailure<E>): TurnOutcome<E> {
 }
 
 function createPendingTool(
-  prepared: PreparedToolCall,
-  approvalRequired: boolean,
+  planned: PlannedToolCall,
   phase: PendingTool["phase"] = "requested",
 ): PendingTool {
   let decide: ((decision: ToolDecision) => void) | undefined;
   const whenDecided = new Promise<ToolDecision>((resolve) => {
     decide = resolve;
   });
+  const approvalRequired = planned.approvalRequired;
   const decision = approvalRequired ? undefined : "approved";
   if (decision !== undefined) {
     decide?.(decision);
@@ -275,7 +276,7 @@ function createPendingTool(
     decide,
     decision,
     phase,
-    prepared,
+    planned,
     whenDecided,
   };
 }
@@ -408,7 +409,7 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
     if (
       pending === undefined ||
       !pending.approvalRequired ||
-      pending.prepared.call.callId !== callId ||
+      pending.planned.call.callId !== callId ||
       pending.decision !== undefined ||
       pending.phase !== "requested"
     ) {
@@ -837,17 +838,27 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
         failed(Object.freeze({ kind: "invalidToolCall" })),
       );
     }
-    const approvalRequired = first.descriptor.risk !== "read";
+    const planned = await tools.plan(first, state.cancellation.signal);
+    if (state.cancellation.requested) {
+      return this.#finish(state, Object.freeze({ kind: "cancelled" }));
+    }
+    if (!planned.ok) {
+      return this.#finish(
+        state,
+        failed(Object.freeze({ kind: "toolEngine" })),
+      );
+    }
+    const pending = createPendingTool(planned.value);
     const batch: ActiveToolBatch = {
       assistant,
       executions: [],
       index: 0,
       outputBudgets,
-      pending: createPendingTool(first, approvalRequired),
+      pending,
       prepared,
     };
     state.toolBatch = batch;
-    return ok(this.#toolRequestedEvent(state, batch.pending));
+    return ok(this.#toolRequestedEvent(state, pending));
   }
 
   #toolRequestedEvent(
@@ -856,11 +867,11 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
   ): Extract<RuntimeEvent<E>, { kind: "toolRequested" }> {
     return Object.freeze({
       approvalRequired: pending.approvalRequired,
-      approvalPreview: pending.prepared.approvalPreview,
-      callId: pending.prepared.call.callId,
+      approvalPreview: pending.planned.approvalPreview,
+      callId: pending.planned.call.callId,
       kind: "toolRequested" as const,
-      name: pending.prepared.call.name,
-      risk: pending.prepared.descriptor.risk,
+      name: pending.planned.call.name,
+      risk: pending.planned.descriptor.risk,
       turnId: state.turnId,
     });
   }
@@ -869,17 +880,38 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
     state: TurnState<E>,
     batch: ActiveToolBatch,
   ): Promise<Result<RuntimeEvent<E>, RuntimeSourceError>> {
-    const pending = batch.pending;
-    if (pending.phase === "unannounced") {
-      pending.phase = "requested";
-      return ok(this.#toolRequestedEvent(state, pending));
-    }
     const tools = this.#tools;
     if (tools === undefined) {
       return this.#finish(
         state,
         failed(Object.freeze({ kind: "toolUnavailable" })),
       );
+    }
+    let pending = batch.pending;
+    if (pending === undefined) {
+      const prepared = batch.prepared.at(batch.index);
+      if (prepared === undefined) {
+        return this.#finish(
+          state,
+          failed(Object.freeze({ kind: "toolEngine" })),
+        );
+      }
+      const planned = await tools.plan(prepared, state.cancellation.signal);
+      if (state.cancellation.requested) {
+        return this.#cancelToolBatch(state, batch);
+      }
+      if (!planned.ok) {
+        return this.#finish(
+          state,
+          failed(Object.freeze({ kind: "toolEngine" })),
+        );
+      }
+      pending = createPendingTool(planned.value, "unannounced");
+      batch.pending = pending;
+    }
+    if (pending.phase === "unannounced") {
+      pending.phase = "requested";
+      return ok(this.#toolRequestedEvent(state, pending));
     }
     if (pending.phase === "requested") {
       const decision =
@@ -894,7 +926,7 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
         return this.#cancelToolBatch(state, batch);
       }
       if (decision === "denied") {
-        const denied = tools.deny(pending.prepared);
+        const denied = tools.deny(pending.planned);
         return denied.ok
           ? this.#settleToolExecution(state, batch, denied.value)
           : this.#finish(
@@ -905,10 +937,10 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
       pending.phase = "started";
       return ok(
         Object.freeze({
-          callId: pending.prepared.call.callId,
+          callId: pending.planned.call.callId,
           kind: "toolStarted" as const,
-          name: pending.prepared.call.name,
-          risk: pending.prepared.descriptor.risk,
+          name: pending.planned.call.name,
+          risk: pending.planned.descriptor.risk,
           turnId: state.turnId,
         }),
       );
@@ -922,7 +954,7 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
       );
     }
     const executed = await tools.execute(
-      pending.prepared,
+      pending.planned,
       state.cancellation.signal,
       outputCodeUnits,
     );
@@ -941,6 +973,13 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
     executed: ToolExecution,
   ): Result<RuntimeEvent<E>, RuntimeSourceError> {
     const pending = batch.pending;
+    if (pending === undefined) {
+      return this.#terminalEvent(
+        state,
+        failed(Object.freeze({ kind: "toolEngine" })),
+        Object.freeze([...state.cleanup]),
+      );
+    }
     batch.executions.push(executed);
     const terminalFailure = executed.contractFailure;
     let batchInvariantFailure = false;
@@ -953,11 +992,7 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
       const next = batch.prepared.at(nextIndex);
       if (next !== undefined) {
         batch.index = nextIndex;
-        batch.pending = createPendingTool(
-          next,
-          next.descriptor.risk !== "read",
-          "unannounced",
-        );
+        batch.pending = undefined;
       }
     }
     if (
@@ -983,10 +1018,10 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
     }
     return ok(
       Object.freeze({
-        callId: pending.prepared.call.callId,
+        callId: pending.planned.call.callId,
         kind: "toolFinished" as const,
-        name: pending.prepared.call.name,
-        risk: pending.prepared.descriptor.risk,
+        name: pending.planned.call.name,
+        risk: pending.planned.descriptor.risk,
         status: executed.result.status,
         turnId: state.turnId,
       }),

@@ -112,6 +112,7 @@
   "allowedNodeImports": {
     "product": [
       "node:child_process",
+      "node:crypto",
       "node:fs/promises",
       "node:https",
       "node:path",

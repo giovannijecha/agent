@@ -122,8 +122,7 @@ export class ToolActivityLog {
       !validRisk(risk) ||
       !validPreview(preview) ||
       typeof approvalRequired !== "boolean" ||
-      approvalRequired !== (risk !== "read") ||
-      (approvalRequired && preview.length === 0)
+      approvalRequired !== (risk !== "read" && preview.length > 0)
     ) {
       return err(new ToolActivityError("invalidActivity"));
     }
