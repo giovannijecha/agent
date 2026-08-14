@@ -57,13 +57,16 @@ ownership, hygiene, or generated-artifact verification.
 
 Reviewed negative results are registered independently under decision 0049 in
 `evaluations/failures/registry.json`. The pure failure-registry parser owns
-bounded fatal UTF-8 decoding, JSON parsing, and exact canonical byte
+bounded fatal UTF-8 decoding, JSON parsing, canonical reconstruction, and exact
+canonical byte
 representation so rejected source never enters a diagnostic. Before parsing,
 the repository source boundary admits only one canonical-root-relative bounded
 regular file. Every directory from the explicit repository root through its
-parent must be non-linked and retain one identity; the complete chain and the
-path-to-descriptor snapshot retains one identity, size, modification time, and
-change time before and after the fixed-size read. Its validator binds closed
+parent must be non-linked and retain one identity. The final component is opened
+without following links and without blocking where the platform exposes those
+flags; the complete chain and path-to-descriptor snapshot retain one identity,
+size, modification time, and change time before and after the fixed-size read.
+Its validator binds closed
 evidence to current task identifiers and tracked resolution paths without
 reading ignored runs. The canonical verifier retains that one bounded snapshot
 for registry parsing and exposes only its path, not a second value, to

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {
+  constants,
   lstatSync,
   mkdirSync,
   mkdtempSync,
@@ -10,12 +11,14 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import process from "node:process";
 import test from "node:test";
 
 import {
   hasStableRegularSourceState,
   isIgnoredRepositorySourceDirectory,
   readBoundedRegularSourceFile,
+  repositorySourceOpenFlags,
   RepositorySourceBoundaryError,
 } from "../lib/repository-source-boundary.mjs";
 
@@ -24,6 +27,28 @@ function expectInvalidFile(error) {
     error.code === "invalidFile" &&
     error.message === "repository source invalidFile";
 }
+
+test("opens raced source nodes without following or blocking", () => {
+  assert.equal(
+    repositorySourceOpenFlags({
+      O_NONBLOCK: 0b100,
+      O_NOFOLLOW: 0b010,
+      O_RDONLY: 0b001,
+    }),
+    0b111,
+  );
+  assert.equal(
+    repositorySourceOpenFlags({ O_RDONLY: 0b001 }),
+    0b001,
+  );
+  if (process.platform === "linux") {
+    assert.equal(typeof constants.O_NONBLOCK, "number");
+    assert.equal(typeof constants.O_NOFOLLOW, "number");
+    const flags = repositorySourceOpenFlags(constants);
+    assert.equal(flags & constants.O_NONBLOCK, constants.O_NONBLOCK);
+    assert.equal(flags & constants.O_NOFOLLOW, constants.O_NOFOLLOW);
+  }
+});
 
 test("excludes only exact repository-root metadata, dependencies, and local state", () => {
   for (const path of [".git", "node_modules", "state"]) {

@@ -1,11 +1,20 @@
 import {
   closeSync,
+  constants,
   fstatSync,
   lstatSync,
   openSync,
   readSync,
 } from "node:fs";
 import path from "node:path";
+
+export function repositorySourceOpenFlags(fileSystemConstants) {
+  return fileSystemConstants.O_RDONLY |
+    (fileSystemConstants.O_NOFOLLOW ?? 0) |
+    (fileSystemConstants.O_NONBLOCK ?? 0);
+}
+
+const REGULAR_SOURCE_OPEN_FLAGS = repositorySourceOpenFlags(constants);
 
 const IGNORED_ROOT_DIRECTORIES = Object.freeze([
   ".git",
@@ -142,7 +151,7 @@ export function readBoundedRegularSourceFile(
   try {
     const observedPath = observeRepositoryPath(repositoryRoot, relativeFile);
     const observed = observeRegularFile(observedPath.file, maximumBytes);
-    descriptor = openSync(observedPath.file, "r");
+    descriptor = openSync(observedPath.file, REGULAR_SOURCE_OPEN_FLAGS);
     const opened = fstatSync(descriptor, { bigint: true });
     if (
       !opened.isFile() ||

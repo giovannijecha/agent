@@ -76,10 +76,13 @@ content, and a first observation cannot automatically alter the tool surface or
 product behavior. The repository source boundary receives the canonical root
 separately from the repository-relative registry path. It rejects a linked or
 identity-changing parent chain and a linked, non-regular, empty, oversized, or
-identity-changing registry before its first descriptor read, then requires the
-file identity, size, modification time, and change time to remain stable through
-completion. The registry parser then requires exact two-space JSON, LF endings,
-one final LF, and unique keys by byte-equivalent canonical serialization. The
+identity-changing registry before its first descriptor read. It opens the final
+component without following links and without blocking where supported, then
+requires the file identity, size, modification time, and change time to remain
+stable through completion. The registry parser then requires exact two-space
+JSON, LF endings, one final LF, and unique keys by byte-equivalent canonical
+serialization; decoding, parsing, and reconstruction failures use the same
+content-free result. The
 task-corpus map retains only the registry inventory path, so parsing reuses that
 sole bounded snapshot instead of reopening the pathname. Ordinary evaluator
 commands collect the exact registry directory entry as inventory metadata without
