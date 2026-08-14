@@ -93,6 +93,13 @@ events, cannot approve or reorder work, retains read identities only as bounded
 memory-only digests, and emits no content or identifier. The exact flag requires
 TTY input and output and is rejected before credentials when redirected.
 
+The versioned failure registry is validated offline against the maintained task
+catalog and tracked repository inventory. It admits only closed content-free
+evidence and fixture-relative paths that pass the corpus safety bounds. It never
+reads ignored runs, executes candidate code, captures model output, or grants
+product authority. Unknown fields, task identifiers, resolution targets, or
+unsafe paths fail the canonical gate.
+
 ## Disclosure
 
 Keep a report private until a fix, regression test, affected-version statement,

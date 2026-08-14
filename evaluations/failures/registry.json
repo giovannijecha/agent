@@ -1,0 +1,24 @@
+{
+  "entries": [
+    {
+      "category": "planning",
+      "evidence": {
+        "artifact": "different",
+        "changed": [],
+        "missing": [],
+        "outcome": "partial",
+        "primaryConstraint": "model",
+        "unexpected": [
+          "src/sum-range.js"
+        ]
+      },
+      "id": "typescript-inclusive-range-extra-source",
+      "occurrences": 1,
+      "priority": "p2",
+      "resolution": null,
+      "status": "observing",
+      "taskId": "typescript-inclusive-range"
+    }
+  ],
+  "schemaVersion": 1
+}

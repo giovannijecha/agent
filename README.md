@@ -24,6 +24,7 @@ maintainer-controlled workspace without third-party runtime packages.
 - Verifies source, ownership, build, tests, and CLI behavior offline.
 - Provides a small owned corpus for reproducible, content-free task evaluation.
 - Can emit one opt-in content-free interaction receipt after an evaluation run.
+- Retains bounded recurring evaluation failures in a versioned closed registry.
 
 The current direct provider is OpenCode Go. It is optional: without an API key,
 `agent` starts providerless and does not send content anywhere. Credentials and
@@ -199,6 +200,12 @@ correction, risk, and constraint fields remain operator judgments.
 Runs stay under ignored `state/evaluations/`. Exact equality is a reproducible
 artifact signal, not a universal quality score. See the
 [evaluation guide](evaluations/README.md) for the bounded workflow.
+
+Reviewed negative results may enter the versioned failure registry using only
+closed task, category, priority, frequency, grade, and lifecycle fields. The
+registry stores no run identifier, prompt, response, transcript, candidate
+content, provider identity, or free-form diagnosis. One occurrence remains an
+observation and does not by itself admit a new tool or product change.
 
 ## Documentation
 

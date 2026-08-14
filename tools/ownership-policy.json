@@ -64,6 +64,7 @@
     "docs/decisions/0046-owned-handle-relative-mutation-commit.md",
     "docs/decisions/0047-owned-reproducible-task-evaluation.md",
     "docs/decisions/0048-owned-content-free-evaluation-receipt.md",
+    "docs/decisions/0049-owned-evaluation-failure-registry.md",
     "evaluations/README.md"
   ],
   "workspaces": [

@@ -28,6 +28,11 @@ grader, and tests are original repository artifacts. They are not copied or
 adapted benchmark material, and no external task corpus or candidate solution
 is admitted into product source.
 
+The evaluation failure registry, its taxonomy, validation rules, and first
+content-free evidence entry are original repository artifacts derived only from
+the maintained owned task corpus. The registry retains no candidate source,
+transcript, provider output, external benchmark result, or personal content.
+
 ## Forbidden inputs
 
 - npm registry, Git, URL, file, development, peer, optional, or bundled packages;

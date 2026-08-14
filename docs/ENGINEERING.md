@@ -197,6 +197,14 @@ is exact-option, memory-only, content-free, bounded, transition-passive, and
 independently removable. Do not infer semantic fields from its mechanical
 counters or add general telemetry behind it.
 
+Retain durable negative evidence only through the decision 0049 failure
+registry. Bind each entry to one maintained task and store only closed
+taxonomy, priority, lifecycle, frequency, record classifications, and grader
+path sets. Keep first occurrences observational, require tracked evidence for
+resolution, and never infer frequency from ignored runs. Do not add a tool or
+change product behavior from one isolated observation. Registry validation is
+part of the canonical gate, not the evaluator CLI or product runtime.
+
 ## Terminal input policy
 
 Treat terminal input as untrusted bytes. Decode bounded fragments before editing,

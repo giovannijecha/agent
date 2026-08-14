@@ -159,6 +159,16 @@ test("rejects unregistered, unsafe, malformed, and identical corpus states", () 
     expectCode("invalidCorpus"),
   );
 
+  const missingRegistry = canonicalContext();
+  missingRegistry.files.delete("failures/registry.json");
+  missingRegistry.ownedPaths = missingRegistry.ownedPaths.filter(
+    (ownedPath) => ownedPath !== "failures/registry.json",
+  );
+  assert.throws(
+    () => validateEvaluationSuite(policy, missingRegistry),
+    expectCode("invalidCorpus"),
+  );
+
   const unsafe = canonicalContext();
   const unsafePath = "tasks/c-count-positive/input/.env";
   unsafe.files.set(unsafePath, Buffer.from("secret material\n"));

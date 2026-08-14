@@ -54,3 +54,19 @@ If the receipt itself fails, preserve the product result, record no guessed
 mechanical values, and diagnose the fixed content-free error separately. The
 option requires TTY input and output; it cannot be redirected or combined with
 another launch option.
+
+## Failure evidence
+
+Reviewed negative results may be retained in `failures/registry.json`. The
+registry is versioned evidence, not ignored run state or a second evaluator. An
+entry binds one maintained task to a closed category, priority, lifecycle,
+positive occurrence count, record classifications, and content-free grade path
+sets. It contains no run identifier, metric sample, prompt, response,
+transcript, candidate content, provider identity, timestamp, or free-form note.
+
+Add one occurrence only after reviewing another run that exhibits the same
+failure. Keep a first occurrence `observing`; promote it to `actionable` only
+when frequency or impact justifies a correction. A `resolved` entry must point
+to tracked decision or regression evidence. The canonical verifier validates
+the registry against the current task catalog and tracked source inventory; the
+evaluator commands do not parse it or inspect ignored runs.
