@@ -58,10 +58,12 @@ ownership, hygiene, or generated-artifact verification.
 Reviewed negative results are registered independently under decision 0049 in
 `evaluations/failures/registry.json`. The pure failure-registry parser owns
 bounded fatal UTF-8 decoding and JSON parsing so rejected source never enters a
-diagnostic. Its validator binds
-closed evidence to current task identifiers and tracked resolution paths without
-reading ignored runs. The evaluator loader reserves the registry directory,
-file, and complete byte allowance without parsing its contents. One occurrence
+diagnostic. Before parsing, the repository source boundary admits only one
+bounded regular file whose path and opened-descriptor identities agree before
+and after the fixed-size read. Its validator binds closed evidence to current
+task identifiers and tracked resolution paths without reading ignored runs. The
+evaluator loader reserves the registry directory, file, and complete byte
+allowance without parsing its contents. One occurrence
 remains observational and never admits a new model-facing tool or product
 change on its own.
 

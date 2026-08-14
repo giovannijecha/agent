@@ -14,6 +14,7 @@ import { analyzeModule } from "./lib/module-specifiers.mjs";
 import { validateBrandPolicy } from "./lib/brand-policy.mjs";
 import { validateCiPolicy } from "./lib/ci-policy.mjs";
 import {
+  EVALUATION_FAILURE_LIMITS,
   parseEvaluationFailureRegistry,
   validateEvaluationFailureRegistry,
 } from "./lib/evaluation-failure-registry.mjs";
@@ -23,6 +24,7 @@ import { validateProviderPolicy } from "./lib/provider-policy.mjs";
 import { validatePublicationPolicy } from "./lib/publication-policy.mjs";
 import {
   isIgnoredRepositorySourceDirectory,
+  readBoundedRegularSourceFile,
 } from "./lib/repository-source-boundary.mjs";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -295,8 +297,11 @@ function verifyBrandPolicy() {
 function verifyEvaluationPolicy() {
   const root = "evaluations/";
   const failureRegistryPath = "evaluations/failures/registry.json";
-  const failureRegistrySource = readFileSync(absolute(failureRegistryPath));
   const ownedPaths = listFiles("evaluations");
+  const failureRegistrySource = readBoundedRegularSourceFile(
+    absolute(failureRegistryPath),
+    EVALUATION_FAILURE_LIMITS.registryBytes,
+  );
   const relativePaths = ownedPaths.map((file) => file.slice(root.length));
   validateEvaluationSuite(evaluationPolicy, {
     files: new Map(
