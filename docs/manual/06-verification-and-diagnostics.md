@@ -73,7 +73,9 @@ The adjacent failure-registry validator binds durable negative evidence to the
 current task catalog. It accepts only closed category, priority, lifecycle,
 frequency, record, and grade fields. It reads no ignored run or candidate
 content, and a first observation cannot automatically alter the tool surface or
-product behavior.
+product behavior. The repository source boundary rejects a linked, non-regular,
+empty, oversized, or identity-changing registry before its first content read;
+filesystem and parser failures remain fixed and content-free.
 
 ## Failure behavior
 
