@@ -9,15 +9,14 @@ import {
   parseEvaluationFailureRegistry,
   validateEvaluationFailureRegistry,
 } from "../lib/evaluation-failure-registry.mjs";
+import { loadEvaluationSuite } from "../lib/evaluation-suite.mjs";
 import { projectRoot } from "../lib/project.mjs";
 
 const registryBytes = readFileSync(
   path.join(projectRoot, "evaluations/failures/registry.json"),
 );
 const registry = JSON.parse(registryBytes.toString("utf8"));
-const evaluationPolicy = JSON.parse(
-  readFileSync(path.join(projectRoot, "tools/evaluation-policy.json"), "utf8"),
-);
+const evaluationSuite = loadEvaluationSuite(projectRoot);
 const decisionPath =
   "docs/decisions/0049-owned-evaluation-failure-registry.md";
 
@@ -25,7 +24,10 @@ function context(overrides = {}) {
   return {
     repositoryPaths: [decisionPath],
     sourceBytes: registryBytes.length,
-    taskIds: evaluationPolicy.tasks.map((task) => task.id),
+    taskExpectedPaths: evaluationSuite.tasks.map((task) => ({
+      paths: task.expected.map((entry) => entry.path),
+      taskId: task.id,
+    })),
     ...overrides,
   };
 }
@@ -217,6 +219,22 @@ test("rejects unsafe, colliding, overlapping, or unordered evidence paths", () =
   );
 });
 
+test("binds grade path classifications to the current expected snapshot", () => {
+  for (const [gradeSet, pathValue] of [
+    ["changed", "src/not-expected.ts"],
+    ["missing", "src/not-expected.ts"],
+    ["unexpected", "src/sum-range.ts"],
+  ]) {
+    const stale = clone();
+    stale.entries.at(0).evidence[gradeSet] = [pathValue];
+    assert.throws(
+      () => validateEvaluationFailureRegistry(stale, context()),
+      expectCode("invalidEvidence"),
+      gradeSet,
+    );
+  }
+});
+
 test("binds lifecycle state to tracked resolution evidence", () => {
   const firstActionable = clone();
   firstActionable.entries.at(0).status = "actionable";
@@ -283,9 +301,21 @@ test("rejects oversized source and malformed context without leaking content", (
     expectCode("invalidContext"),
   );
 
-  const malformedTask = context({ taskIds: ["unknown/task"] });
+  const malformedTask = context({
+    taskExpectedPaths: [{ paths: ["src/file.ts"], taskId: "unknown/task" }],
+  });
   assert.throws(
     () => validateEvaluationFailureRegistry(registry, malformedTask),
+    expectCode("invalidContext"),
+  );
+
+  const malformedExpectedPaths = context({
+    taskExpectedPaths: [
+      { paths: ["z.ts", "a.ts"], taskId: "typescript-inclusive-range" },
+    ],
+  });
+  assert.throws(
+    () => validateEvaluationFailureRegistry(registry, malformedExpectedPaths),
     expectCode("invalidContext"),
   );
 });

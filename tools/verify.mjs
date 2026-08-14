@@ -304,7 +304,7 @@ function verifyEvaluationPolicy() {
     EVALUATION_FAILURE_LIMITS.registryBytes,
   );
   const relativePaths = ownedPaths.map((file) => file.slice(root.length));
-  validateEvaluationSuite(evaluationPolicy, {
+  const evaluationSuite = validateEvaluationSuite(evaluationPolicy, {
     files: new Map(
       ownedPaths
         .filter((file) => file !== failureRegistryPath)
@@ -320,7 +320,10 @@ function verifyEvaluationPolicy() {
     {
       repositoryPaths: listFiles("."),
       sourceBytes: failureRegistrySource.length,
-      taskIds: evaluationPolicy.tasks.map((task) => task.id),
+      taskExpectedPaths: evaluationSuite.tasks.map((task) => ({
+        paths: task.expected.map((entry) => entry.path),
+        taskId: task.id,
+      })),
     },
   );
   evaluationOwnedPaths = new Set(ownedPaths);

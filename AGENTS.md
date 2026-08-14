@@ -269,8 +269,9 @@ agent.”
   callback until the required subsequent error event settles the write.
   Keep the versioned evaluation failure registry from decision 0049 separate
   from ignored run state. It admits only closed content-free evidence bound to
-  maintained tasks, explicit occurrence counts, one category and priority, and
-  optional tracked resolution proof. The canonical verifier validates it
+  maintained tasks and their current expected-path inventories, explicit
+  occurrence counts, one category and priority, and optional tracked resolution
+  proof. The canonical verifier validates it
   without reading ignored runs or inferring recurrence. Its sole source read is
   rooted at the explicit canonical repository directory; every directory to the
   registry parent is non-linked and identity-stable before and after the bounded

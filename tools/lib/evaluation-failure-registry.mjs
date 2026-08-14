@@ -1,11 +1,13 @@
 export const EVALUATION_FAILURE_LIMITS = Object.freeze({
   entries: 64,
+  expectedPathsPerTask: 32,
   idCodeUnits: 64,
   occurrences: 10_000,
   pathBytes: 256,
   pathSegments: 16,
   pathsPerGradeSet: 32,
   registryBytes: 32_768,
+  tasks: 16,
 });
 
 const ARTIFACTS = Object.freeze([
@@ -204,7 +206,7 @@ function validatePathSet(value) {
   return paths;
 }
 
-function validateEvidence(value) {
+function validateEvidence(value, expectedPaths) {
   exactKeys(
     value,
     [
@@ -228,7 +230,13 @@ function validateEvidence(value) {
   const missing = validatePathSet(value.missing);
   const unexpected = validatePathSet(value.unexpected);
   const allPaths = [...changed, ...missing, ...unexpected];
-  if (new Set(allPaths.map((entry) => entry.toLowerCase())).size !== allPaths.length) {
+  if (
+    new Set(allPaths.map((entry) => entry.toLowerCase())).size !==
+      allPaths.length ||
+    changed.some((entry) => !expectedPaths.has(entry)) ||
+    missing.some((entry) => !expectedPaths.has(entry)) ||
+    unexpected.some((entry) => expectedPaths.has(entry))
+  ) {
     fail("invalidEvidence");
   }
   const exact = allPaths.length === 0;
@@ -257,7 +265,47 @@ function validateResolution(entry, repositoryPaths) {
   }
 }
 
-function validateEntry(value, taskIds, repositoryPaths) {
+function validateTaskExpectedPaths(value) {
+  if (
+    !Array.isArray(value) ||
+    value.length === 0 ||
+    value.length > EVALUATION_FAILURE_LIMITS.tasks
+  ) {
+    fail("invalidContext");
+  }
+  const inventories = value.map((entry) => {
+    exactKeys(entry, ["paths", "taskId"], "invalidContext");
+    if (
+      typeof entry.taskId !== "string" ||
+      !TASK_ID.test(entry.taskId) ||
+      WINDOWS_DEVICE_NAME.test(entry.taskId) ||
+      !Array.isArray(entry.paths) ||
+      entry.paths.length === 0 ||
+      entry.paths.length > EVALUATION_FAILURE_LIMITS.expectedPathsPerTask
+    ) {
+      fail("invalidContext");
+    }
+    const paths = entry.paths.map((pathValue) =>
+      safeRelativePath(pathValue, "invalidContext"),
+    );
+    if (
+      JSON.stringify(paths) !== JSON.stringify(sorted(paths)) ||
+      new Set(paths.map((pathValue) => pathValue.toLowerCase())).size !==
+        paths.length
+    ) {
+      fail("invalidContext");
+    }
+    return [entry.taskId, new Set(paths)];
+  });
+  if (
+    new Set(inventories.map((entry) => entry.at(0))).size !== inventories.length
+  ) {
+    fail("invalidContext");
+  }
+  return new Map(inventories);
+}
+
+function validateEntry(value, taskExpectedPaths, repositoryPaths) {
   exactKeys(
     value,
     [
@@ -279,7 +327,7 @@ function validateEntry(value, taskIds, repositoryPaths) {
     WINDOWS_DEVICE_NAME.test(value.id) ||
     typeof value.taskId !== "string" ||
     !TASK_ID.test(value.taskId) ||
-    !taskIds.has(value.taskId) ||
+    !taskExpectedPaths.has(value.taskId) ||
     !CATEGORIES.includes(value.category) ||
     !PRIORITIES.includes(value.priority) ||
     !STATUSES.includes(value.status) ||
@@ -289,7 +337,7 @@ function validateEntry(value, taskIds, repositoryPaths) {
   ) {
     fail("invalidEntry");
   }
-  validateEvidence(value.evidence);
+  validateEvidence(value.evidence, taskExpectedPaths.get(value.taskId));
   if (value.occurrences === 1 && value.status !== "observing") {
     fail("invalidLifecycle");
   }
@@ -301,7 +349,7 @@ function validateEntry(value, taskIds, repositoryPaths) {
 export function validateEvaluationFailureRegistry(registry, context) {
   exactKeys(
     context,
-    ["repositoryPaths", "sourceBytes", "taskIds"],
+    ["repositoryPaths", "sourceBytes", "taskExpectedPaths"],
     "invalidContext",
   );
   if (
@@ -309,25 +357,18 @@ export function validateEvaluationFailureRegistry(registry, context) {
     !Number.isSafeInteger(context.sourceBytes) ||
     context.sourceBytes < 1 ||
     context.sourceBytes > EVALUATION_FAILURE_LIMITS.registryBytes ||
-    !Array.isArray(context.taskIds)
+    !Array.isArray(context.taskExpectedPaths)
   ) {
     fail("invalidContext");
   }
   const repositoryPaths = new Set(context.repositoryPaths);
-  const taskIds = new Set(context.taskIds);
   if (
     repositoryPaths.size !== context.repositoryPaths.length ||
-    taskIds.size !== context.taskIds.length ||
-    [...repositoryPaths].some((ownedPath) => typeof ownedPath !== "string") ||
-    [...taskIds].some(
-      (taskId) =>
-        typeof taskId !== "string" ||
-        !TASK_ID.test(taskId) ||
-        WINDOWS_DEVICE_NAME.test(taskId),
-    )
+    [...repositoryPaths].some((ownedPath) => typeof ownedPath !== "string")
   ) {
     fail("invalidContext");
   }
+  const taskExpectedPaths = validateTaskExpectedPaths(context.taskExpectedPaths);
   exactKeys(registry, ["entries", "schemaVersion"], "invalidRegistry");
   if (
     registry.schemaVersion !== 1 ||
@@ -337,7 +378,7 @@ export function validateEvaluationFailureRegistry(registry, context) {
     fail("invalidRegistry");
   }
   const identifiers = registry.entries.map((entry) =>
-    validateEntry(entry, taskIds, repositoryPaths),
+    validateEntry(entry, taskExpectedPaths, repositoryPaths),
   );
   if (
     new Set(identifiers).size !== identifiers.length ||

@@ -200,7 +200,9 @@ counters or add general telemetry behind it.
 Retain durable negative evidence only through the decision 0049 failure
 registry. Bind each entry to one maintained task and store only closed
 taxonomy, priority, lifecycle, frequency, record classifications, and grader
-path sets. Keep first occurrences observational, require tracked evidence for
+path sets. Derive expected-path membership from the validated task snapshot;
+do not maintain a parallel path inventory. Keep first occurrences observational,
+require tracked evidence for
 resolution, and never infer frequency from ignored runs. Do not add a tool or
 change product behavior from one isolated observation. Registry validation is
 part of the canonical gate, not the evaluator CLI or product runtime.

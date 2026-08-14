@@ -203,6 +203,7 @@ artifact signal, not a universal quality score. See the
 
 Reviewed negative results may enter the versioned failure registry using only
 closed task, category, priority, frequency, grade, and lifecycle fields. The
+canonical gate binds grade paths to each task's current expected snapshot. The
 registry stores no run identifier, prompt, response, transcript, candidate
 content, provider identity, or free-form diagnosis. One occurrence remains an
 observation and does not by itself admit a new tool or product change.

@@ -67,8 +67,9 @@ without following links and without blocking where the platform exposes those
 flags; the complete chain and path-to-descriptor snapshot retain one identity,
 size, modification time, and change time before and after the fixed-size read.
 Its validator binds closed
-evidence to current task identifiers and tracked resolution paths without
-reading ignored runs. The canonical verifier retains that one bounded snapshot
+evidence to current task identifiers, their already validated expected-path
+inventories, and tracked resolution paths without reading ignored runs. The
+canonical verifier retains that one bounded snapshot
 for registry parsing and exposes only its path, not a second value, to
 task-corpus validation. The evaluator loader records the exact
 registry entry directly in its owned-path inventory without opening, following,
@@ -679,8 +680,10 @@ Add or increment an entry only after operator review of the same reproducible
 failure against a maintained task. Keep category, priority, lifecycle, count,
 record classifications, and grader path sets closed and content-free. Do not
 store run identifiers, metrics, candidate content, prompts, responses,
-transcripts, provider identity, timestamps, or notes. Review affected entries
-whenever their task corpus changes. Promote `observing` to `actionable` only
+transcripts, provider identity, timestamps, or notes. `changed` and `missing`
+must remain members of the task's current expected snapshot; `unexpected` must
+remain outside it. Review affected entries whenever their task corpus changes.
+Promote `observing` to `actionable` only
 when frequency or impact justifies work; `resolved` requires an existing tracked
 decision or regression path.
 
