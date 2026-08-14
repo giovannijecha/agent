@@ -157,6 +157,41 @@ test("accepts the canonical bounded corpus", () => {
   );
 });
 
+test("keeps failure registry contents outside evaluator task operations", (t) => {
+  const root = temporaryRepository(t);
+  const registry = path.join(root, "evaluations/failures/registry.json");
+  const taskId = "c-count-positive";
+  const runId = "inventory-only";
+  writeFileSync(registry, Buffer.alloc(EVALUATION_LIMITS.fileBytes + 1, 65));
+
+  assert.deepEqual(
+    listEvaluationTasks(root).map((task) => task.id),
+    policy.tasks.map((task) => task.id),
+  );
+  const prepared = prepareEvaluationRun(root, taskId, runId);
+  rmSync(prepared.workspace, { recursive: true });
+  cpSync(
+    path.join(root, "evaluations/tasks", taskId, "expected"),
+    prepared.workspace,
+    { recursive: true },
+  );
+  assert.equal(gradeEvaluationRun(root, taskId, runId).exact, true);
+  writeRecord(root, taskId, runId);
+  assert.deepEqual(validateEvaluationRecord(root, taskId, runId), {
+    artifact: "exact",
+    outcome: "success",
+    valid: true,
+  });
+
+  rmSync(registry);
+  mkdirSync(registry);
+  writeFileSync(path.join(registry, "unreadable.txt"), "ignored metadata\n");
+  assert.deepEqual(
+    listEvaluationTasks(root).map((task) => task.id),
+    policy.tasks.map((task) => task.id),
+  );
+});
+
 test("rejects manifest key drift, duplicate tasks, and noncanonical order", () => {
   const withUnknown = clone(policy);
   withUnknown.extra = true;
