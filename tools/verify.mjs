@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 import { analyzeModule } from "./lib/module-specifiers.mjs";
 import { validateBrandPolicy } from "./lib/brand-policy.mjs";
 import { validateCiPolicy } from "./lib/ci-policy.mjs";
+import { validateEvaluationSuite } from "./lib/evaluation-suite.mjs";
 import { validateManualPolicy } from "./lib/manual-policy.mjs";
 import { validateProviderPolicy } from "./lib/provider-policy.mjs";
 import { validatePublicationPolicy } from "./lib/publication-policy.mjs";
@@ -33,6 +34,7 @@ const manualPolicy = readJson("tools/manual-policy.json");
 const providerPolicy = readJson("tools/provider-policy.json");
 const publicationPolicy = readJson("tools/publication-policy.json");
 const toolchain = readJson("tools/toolchain.json");
+let evaluationOwnedPaths = new Set();
 const workspaceByName = new Map(
   policy.workspaces.map((workspace) => [workspace.name, workspace]),
 );
@@ -282,6 +284,22 @@ function verifyBrandPolicy() {
   });
 }
 
+function verifyEvaluationPolicy() {
+  const root = "evaluations/";
+  const ownedPaths = listFiles("evaluations");
+  const relativePaths = ownedPaths.map((file) => file.slice(root.length));
+  validateEvaluationSuite(readJson("tools/evaluation-policy.json"), {
+    files: new Map(
+      ownedPaths.map((file, index) => [
+        relativePaths.at(index),
+        readFileSync(absolute(file)),
+      ]),
+    ),
+    ownedPaths: relativePaths,
+  });
+  evaluationOwnedPaths = new Set(ownedPaths);
+}
+
 function verifyManual() {
   const ownedPaths = listFiles(".");
   const manualPaths = ownedPaths.filter(
@@ -392,7 +410,11 @@ function verifyManifests() {
   );
 
   const manifests = listFiles(".")
-    .filter((file) => path.basename(file) === "package.json")
+    .filter(
+      (file) =>
+        path.basename(file) === "package.json" &&
+        !evaluationOwnedPaths.has(file),
+    )
     .sort();
   const expectedManifests = [
     "package.json",
@@ -562,6 +584,9 @@ function verifyRepositoryLayout() {
       continue;
     }
     if (file === ciPolicy.workflowPath) {
+      continue;
+    }
+    if (evaluationOwnedPaths.has(file)) {
       continue;
     }
     if (/^docs\/(?:decisions\/)?[A-Za-z0-9-]+\.md$/u.test(file)) {
@@ -1014,6 +1039,7 @@ verifyToolchain();
 verifyDocuments();
 verifyCiPolicy();
 verifyBrandPolicy();
+verifyEvaluationPolicy();
 verifyManual();
 verifyProviderPolicy();
 verifyPublicationPolicy();
@@ -1029,5 +1055,5 @@ verifyImports();
 verifyNodeModules();
 
 process.stdout.write(
-  "Ownership verification passed: toolchain, CI, brand, manual, publication, manifests, lockfile, source, imports, and workspace links.\n",
+  "Ownership verification passed: toolchain, CI, brand, evaluation, manual, publication, manifests, lockfile, source, imports, and workspace links.\n",
 );

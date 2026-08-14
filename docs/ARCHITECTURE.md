@@ -534,6 +534,15 @@ cleaned. Linux verification alone prepares a disposable delegated cgroup with
 elevated CI setup; broker and tests remain unprivileged. The Windows and Linux
 jobs are separate mandatory evidence rather than cross-compiled substitutes.
 
+`evaluations/` and `tools/lib/evaluation-suite.mjs` form one maintainer-only
+offline evaluation boundary. A pure validator binds the manifest to the exact
+brief, input, and expected-file inventory. The operational entry point prepares
+only an input tree under ignored state, grades regular-file equality without
+execution, and validates one closed content-free record. It has no dependency
+on product packages and adds no provider, runtime, controller, tool descriptor,
+prompt, transcript, or terminal path. The canonical verifier validates this
+inventory and its regressions but never creates a run.
+
 ## Implemented and planned boundaries
 
 New packages are created only with their first real implementation:
@@ -637,6 +646,10 @@ process access remain unavailable unless the CLI composes an explicit capability
   source, build driver, conformance harness, Linux cgroup bootstrap, toolchain
   registrations, and Linux CI job only when no proof or platform work consumes
   them. File tools, runtime text chat, and TUI remain independently buildable.
+- Remove task evaluation by deleting local ignored runs, then its corpus,
+  manifest, evaluator entry point and library, tests, verifier hook, decision
+  0047, and documentation registrations. Product packages and the model-facing
+  tool surface remain unchanged.
 
 The exact registry and derived-artifact procedure is defined in
 `docs/MAINTENANCE.md`.

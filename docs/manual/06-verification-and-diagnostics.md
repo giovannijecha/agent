@@ -34,6 +34,18 @@ its coarse category (`application`, `arbiter`, `frame`, `runtime`, `source`,
 `terminal`, or cleanup), then run the focused package tests through the release
 gate rather than adding ad hoc logging.
 
+For reproducible product-use evidence, list the owned offline tasks:
+
+```powershell
+node tools/evaluate.mjs list
+```
+
+Prepare, grade, and validate one run only through the exact workflow in
+`evaluations/README.md`. Start the ordinary `agent` command from the emitted
+workspace yourself. The verifier validates the corpus and evaluator tests but
+does not create a run, start `agent`, contact a provider, or execute candidate
+files.
+
 ## Guarantees and limits
 
 The gate validates exact toolchain versions, the native compiler floor, the
@@ -50,6 +62,12 @@ unsafe SVG content, and identity drift before build or publication. Unsafe SVG
 includes scripts, event-handler attributes, animation and foreign content,
 references, embedded or imported resources, active styling URLs, DTDs,
 entities, and XML processing stylesheets.
+
+The evaluation validator binds the manifest to the complete registered corpus,
+enforces strict text, path and size bounds, rejects linked, secret-shaped,
+unregistered, or identical snapshots, and keeps run records content-free.
+Exact grading proves file-tree equality only; a different artifact requires
+operator review and is never inferred to be semantically equivalent.
 
 ## Failure behavior
 
@@ -68,6 +86,12 @@ their operational wiring in `tools/verify.mjs`. Remove a policy only after all
 product and documentation surfaces it protects have been removed or replaced.
 Before removing CI, remove its required GitHub status check so `main` remains
 repairable.
+
+Changing one evaluation task changes the evidence contract. Update its manifest
+entry, brief, both snapshots, focused tests, decision 0047, and maintenance
+guidance together. To remove evaluation, delete retained ignored runs first,
+then remove the corpus, policy, evaluator, tests, verifier hook, decision, and
+documentation registrations; product packages remain unchanged.
 
 ## Evidence
 
@@ -93,6 +117,12 @@ repairable.
 - Canonical brand manifest: `assets/brand/manifest.json`
 - Brand validator: `tools/lib/brand-policy.mjs`
 - Brand validator tests: `tools/test/brand-policy.test.mjs`
+- Evaluation guide: `evaluations/README.md`
+- Evaluation registry: `tools/evaluation-policy.json`
+- Evaluation entry point: `tools/evaluate.mjs`
+- Evaluation validator and lifecycle: `tools/lib/evaluation-suite.mjs`
+- Evaluation validator tests: `tools/test/evaluation-suite.test.mjs`
+- Evaluation decision: `docs/decisions/0047-owned-reproducible-task-evaluation.md`
 - Manual validator: `tools/lib/manual-policy.mjs`
 - Manual validator tests: `tools/test/manual-policy.test.mjs`
 - Publication registry: `tools/publication-policy.json`

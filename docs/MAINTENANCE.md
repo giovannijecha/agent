@@ -44,6 +44,13 @@ toolchain, the canonical local command, and zero imported actions or secrets.
 The workflow and local release gate are one contract, not separate verification
 implementations.
 
+Task evaluation is registered independently in
+`tools/evaluation-policy.json`. The manifest orders the exact bounded task set;
+`tools/lib/evaluation-suite.mjs` validates its complete corpus inventory and
+owns preparation, content-free grading, and closed record validation. It is
+offline maintainer tooling and never expands the product workspace graph or
+model-facing tool surface.
+
 ## Update or remove the streaming runtime
 
 Update model-stream events, limits, cancellation, or cleanup only with focused
@@ -608,6 +615,31 @@ To remove CI, first remove the required `verify` check from the GitHub ruleset s
 the default branch is not deadlocked. Then remove the workflow, CI registry,
 validator, tests, decision 0012, and manual references. Keep the local release
 gate unchanged and passing throughout removal.
+
+## Update or remove task evaluation
+
+Add or change one task only by updating its single manifest entry, `TASK.md`,
+input snapshot, expected snapshot, evaluator regression coverage, and any
+affected evaluation guidance together. Keep identifiers ordered and unique,
+fixtures strict UTF-8 with LF endings, trees within the registered file and byte
+bounds, and input distinct from expected. Corpus history is part of result
+interpretation; do not compare records across a changed task revision as if the
+task were identical.
+
+Use `node tools/evaluate.mjs list` to inspect the catalog and `prepare`, `grade`,
+and `validate-record` only as documented in `evaluations/README.md`. Preparation
+must remain create-only and expose no expected files. The evaluator must never
+run candidate code, inject a prompt, capture terminal output, contact a
+provider, or add free-form record fields. Delete unwanted local runs manually
+only after resolving their exact ignored `state/evaluations/` path; the tool
+deliberately has no reset or delete command.
+
+To remove evaluation, first delete any retained ignored runs. Then remove
+`evaluations/`, `tools/evaluation-policy.json`, `tools/evaluate.mjs`,
+`tools/lib/evaluation-suite.mjs`, its focused test and verifier hook, decision
+0047, and all ownership, manual, architecture, engineering, security, privacy,
+README, and AGENTS registrations. No product package, provider, or model-facing
+tool needs replacement.
 
 ## Change a package
 

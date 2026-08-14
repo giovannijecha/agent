@@ -78,6 +78,15 @@ filesystem or network sandbox; approved code retains the launching user's
 operating-system authority. Reports about provider traffic should identify the
 exact CLI transport, wire decoder, or configuration boundary involved.
 
+The maintainer-only task evaluator is a separate offline tooling boundary. It
+accepts only the registered strict-text corpus and regular-file run trees,
+rejects linked or secret-shaped corpus paths, and never executes candidate code
+or treats a result as trusted product source. Run identifiers determine one
+bounded ignored state path; preparation refuses reuse and checks each existing
+state-directory component before writing. Evaluation workspaces still contain
+untrusted candidate text and must not be executed outside the normal product
+approval and process contracts.
+
 ## Disclosure
 
 Keep a report private until a fix, regression test, affected-version statement,

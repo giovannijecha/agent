@@ -154,6 +154,9 @@ touches workspace links and after TypeScript emits JavaScript. It enforces:
 - registered manual chapters, fixed section order, local links, and evidence
   paths, plus exact source-bound tool names and risk classes, unique capability
   identifiers, and unique necessity records;
+- the exact bounded evaluation manifest and corpus inventory, strict fixture
+  text and paths, distinct input and expected snapshots, and evaluator
+  regressions without creating or executing a run;
 - canonical public name, namespace, maintainer, governance posture, exact
   Apache-2.0 terms, and absence of false or automatic authorship claims;
 - strict project-reference builds and owned declaration boundaries;
@@ -166,6 +169,22 @@ Remote verification must call the same PowerShell entry point as local work.
 The workflow may use GitHub-hosted execution and network access only to fetch the
 public event revision and provision the already approved toolchain. Workspace
 installation, builds, tests, and smoke verification remain offline.
+
+## Task evaluation policy
+
+Evaluation tasks are owned review evidence, not tests, training data, product
+tools, or a provider benchmark claim. Register every task once, keep its brief
+and both snapshots small and independently authored, and change the manifest,
+fixtures, focused tests, decision 0047, and maintenance guidance together.
+Never execute a candidate workspace from the evaluator or infer semantic
+equivalence from a different file tree. Only the operator may mark a reviewed
+alternative as accepted.
+
+Prepared runs live outside version control. Record only the closed outcome,
+artifact, primary-constraint, and bounded count fields; do not add notes,
+prompts, responses, transcripts, file contents, credentials, personal
+identifiers, or ambient telemetry. Keep evaluation I/O separate from product
+packages so the complete framework remains removable without a runtime change.
 
 ## Terminal input policy
 

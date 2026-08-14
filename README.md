@@ -22,6 +22,7 @@ maintainer-controlled workspace without third-party runtime packages.
 - Filters automatic reads through an owned deny-only workspace privacy policy.
 - Contains the admitted `node` process token through an owned native broker.
 - Verifies source, ownership, build, tests, and CLI behavior offline.
+- Provides a small owned corpus for reproducible, content-free task evaluation.
 
 The current direct provider is OpenCode Go. It is optional: without an API key,
 `agent` starts providerless and does not send content anywhere. Credentials and
@@ -146,8 +147,9 @@ the sole controller for deterministic reduction.
 | `packages/agent-tui` | Generic input, layout, Markdown, frames, and renderer |
 | `packages/agent-cli` | Commands, chat, tools, terminal, Node I/O, and composition |
 | `packages/agent-cli/native` | Private platform roots, mutation commit, clipboard, and process containment |
+| `evaluations` | Original reproducible task briefs, input snapshots, and expected snapshots |
 | `types` | Minimal owned Node declarations |
-| `tools` | Build, ownership, test, policy, and smoke verification |
+| `tools` | Build, ownership, evaluation, test, policy, and smoke verification |
 | `docs` | Operator manual, architecture, decisions, and provenance |
 
 Dependencies point inward: tools depend on core; runtime depends on core and
@@ -175,6 +177,21 @@ bash tools/verify.sh
 
 The owned GitHub workflow runs the same gate on pull requests and `main` without
 imported actions or repository secrets.
+
+## Task evaluation
+
+The repository includes five small original coding tasks spanning C,
+documentation, JavaScript, TypeScript, and browser code. The offline evaluator
+prepares an isolated input workspace and grades its regular-file tree without
+executing candidate code or contacting a provider:
+
+```powershell
+node tools/evaluate.mjs list
+```
+
+Runs stay under ignored `state/evaluations/`. Exact equality is a reproducible
+artifact signal, not a universal quality score. See the
+[evaluation guide](evaluations/README.md) for the bounded workflow.
 
 ## Documentation
 
