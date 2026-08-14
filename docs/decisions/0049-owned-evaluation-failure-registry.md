@@ -99,20 +99,24 @@ The repository source boundary accepts one explicit canonical repository root
 and one bounded repository-relative path. It rejects a missing, linked,
 non-regular, identity-changing, empty, or oversized registry and rejects any
 linked or identity-changing directory from that root through the registry's
-parent. It checks the complete directory chain before opening, rechecks it and
-the path-to-descriptor identity before the first descriptor read, reads through
-that descriptor into one fixed `registryBytes + 1` buffer, and rechecks the
-chain, identity, size, modification time, and non-user-resettable change time
+parent. It checks the complete directory chain before opening, then opens the
+final component without following links and without blocking on special files.
+It rechecks the chain and path-to-descriptor identity before the first
+descriptor read, reads through that descriptor into one fixed
+`registryBytes + 1` buffer, and rechecks the chain, identity, size, modification
+time, and non-user-resettable change time
 before returning. A same-length in-place rewrite cannot be accepted by restoring
 the prior modification time. The failure-registry module then owns bounded fatal
-UTF-8 decoding and JSON parsing for those bytes. It serializes the parsed value
-with the one owned two-space JSON representation and final LF, re-encodes that
+UTF-8 decoding, JSON parsing, and canonical reconstruction for those bytes. It
+serializes the parsed value with the one owned two-space JSON representation and
+final LF, re-encodes that
 representation, and requires exact source-byte equality before structural
 validation. This rejects a BOM, CRLF, a missing final newline, trailing
 whitespace, noncanonical indentation or scalar spelling, and repeated keys.
-Invalid UTF-8, syntactically invalid JSON, and noncanonical representations map
-to the same fixed registry error; filesystem and parser diagnostics are never
-exposed. Validation returns only immutable closed classifications and counts.
+Invalid UTF-8, syntactically invalid JSON, reconstruction depth failures, and
+noncanonical representations map to the same fixed registry error; filesystem
+and parser diagnostics are never exposed. Validation returns only immutable
+closed classifications and counts.
 It emits no registered path or entry content in an error.
 
 Ordinary `list`, `prepare`, `grade`, and `validate-record` commands check the

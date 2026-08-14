@@ -101,16 +101,17 @@ export function parseEvaluationFailureRegistry(source) {
   ) {
     fail("invalidRegistry");
   }
+  let canonical;
   let registry;
   try {
     const text = new TextDecoder("utf-8", { fatal: true }).decode(source);
     registry = JSON.parse(text);
+    canonical = new TextEncoder().encode(
+      JSON.stringify(registry, null, 2) + "\n",
+    );
   } catch {
     fail("invalidRegistry");
   }
-  const canonical = new TextEncoder().encode(
-    JSON.stringify(registry, null, 2) + "\n",
-  );
   if (
     source.byteLength !== canonical.byteLength ||
     canonical.some((byte, index) => byte !== source.at(index))

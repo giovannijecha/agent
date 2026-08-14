@@ -274,8 +274,11 @@ agent.”
   without reading ignored runs or inferring recurrence. Its sole source read is
   rooted at the explicit canonical repository directory; every directory to the
   registry parent is non-linked and identity-stable before and after the bounded
-  descriptor read. The regular-file path and descriptor retain one identity,
-  size, modification time, and change time through opening and completion. One
+  descriptor read. The final component is opened without following links and,
+  where the platform exposes the flag, without blocking on a raced special file.
+  The regular-file path and descriptor retain one identity, size, modification
+  time, and change time through opening and completion. Fatal decoding, parsing,
+  and canonical reconstruction failures remain content-free. One
   observed failure remains `observing`; it does not justify a new tool, prompt
   change, or runtime change by itself.
 

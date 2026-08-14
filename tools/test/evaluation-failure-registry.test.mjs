@@ -78,6 +78,18 @@ test("rejects every noncanonical registry source representation", () => {
   }
 });
 
+test("translates canonical reconstruction depth failures", () => {
+  const depth = 5_000;
+  const source = Buffer.from("[".repeat(depth) + "]".repeat(depth), "utf8");
+
+  assert.ok(source.byteLength <= EVALUATION_FAILURE_LIMITS.registryBytes);
+  assert.doesNotThrow(() => JSON.parse(source.toString("utf8")));
+  assert.throws(
+    () => parseEvaluationFailureRegistry(source),
+    expectCode("invalidRegistry"),
+  );
+});
+
 test("accepts the canonical content-free failure registry", () => {
   assert.deepEqual(validateEvaluationFailureRegistry(registry, context()), {
     actionable: 0,
