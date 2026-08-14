@@ -69,12 +69,22 @@ tables, and completion stay transparent; green, ochre, and red backgrounds are
 reserved for tool activity, approval, success, and failure. One shared rhythm
 separates every lower-shell region. User turns retain one quiet padding row
 above and below their text, activity surfaces follow their content height, and
-the focused composer retains one vertical padding row on each side. The footer keeps workspace and provider
+the focused composer retains one vertical padding row on each side. Exact
+bounded mutation or execution previews appear only while approval is pending;
+later activity states stay compact with tool identity, written state, and risk.
+Opaque full-width rows are repainted from their semantic surface before content,
+so pasted symbols cannot leave holes in the right edge. The footer keeps workspace and provider
 facts quiet while a soft active-work pulse aligns with the composer's right
 edge. Command feedback appears as one transparent contextual notice below any
 tool activity; it is replaced by newer feedback, disappears after five seconds,
 and closes immediately when editing resumes. `/providers` uses one compact muted
 line, while invalid commands use one short warning.
+
+If a turn fails after a completed tool checkpoint, the completed tool truth is
+retained and the transcript plus notice expose one closed content-free failure
+code such as `model/read` or `tool/limit`. Provider causes and tool payloads are
+never rendered, and a successful tool is not relabeled as failed because model
+continuation stopped later.
 
 The exact command surface is:
 
@@ -118,7 +128,10 @@ terminal-native selection path, while Ctrl+C remains the agent interrupt.
   broker. Changed identity, absence, path, or content fails as a conflict.
 - `read_file`, `list_directory`, and `search_text` share one immutable built-in
   plus `.agentignore` disclosure policy; denied targets never enter tool output.
-- `run_process` accepts only the registered `node` token, literal arguments,
+- `read_file` optionally returns an exact bounded logical-line range with
+  explicit start, returned-line, total-line, and continuation metadata. A
+  path-only request still returns the complete bounded file.
+- `run_process` accepts only the CLI-registered `node` token, literal arguments,
   and one workspace-relative directory. It accepts no shell, executable path,
   PATH lookup, stdin, inherited environment, or model-selected limit.
 - Model turns, tools, approvals, mutations, process execution, and terminal

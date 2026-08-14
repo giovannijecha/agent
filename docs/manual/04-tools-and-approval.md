@@ -26,7 +26,10 @@ Every state uses the same borderless semantic surface. A restrained dark green,
 ochre, or red background reinforces success, active or approval, and negative
 terminal state; the written state remains explicit. The tool name is neutral
 italic text. Approval uses the same component and retains `/approve` and
-`/deny` before optional safe detail when space is limited.
+`/deny` before optional safe detail when space is limited. The exact bounded
+effect preview is visible only while approval is pending. Queued, running,
+cancelling, and terminal states keep only the risk beneath the identity/state
+head, while the bounded lifecycle log retains the preview internally.
 
 ## Guarantees and limits
 
@@ -54,6 +57,14 @@ and rejects DOS short-name components such as `~1` as ambiguous.
 
 `read_file` returns `permission` for a denied lexical target before observing
 the filesystem and rechecks the resolved target under the same policy.
+It accepts optional `startLine` and `lineCount` integers to return an exact
+logical-line region. The start is one-based and the count is capped at 512. A
+path-only call returns the complete bounded file. Every success returns exact
+unnumbered `text` with original line terminators plus actual `startLine`,
+returned `lineCount`, complete `totalLines`, and `hasMore`. A start beyond EOF
+returns an empty successful selection at `totalLines + 1`. The handler still
+observes and verifies one complete bounded file before projection, so this
+reduces provider context without adding random-access filesystem authority.
 `list_directory` rejects a denied target and omits denied children.
 `search_text` rejects a denied root and prunes denied directories and files
 before opening them; resolved traversal targets are rechecked before
@@ -141,6 +152,26 @@ aliases. The verified inventory records why each current tool is necessary:
 | `run_process` | `run-one-contained-process` | `execute` | Runs one terminating structured process inside owned whole-tree containment without shell, PATH, stdin, or inherited user-environment authority. |
 | `search_text` | `search-bounded-text` | `read` | Locates exact text with bounded traversal instead of many model-directed reads. |
 
+This table is the exact currently advertised surface. Decision
+[0050](../decisions/0050-owned-minimal-coding-capability-surface.md) defines a
+staged convergence target without advertising dormant tools: `read_file`,
+`list_directory`, and `search_text` become more efficient within their existing
+read authority; `apply_patch` will replace the two current text-write tools;
+`manage_path` will own directory creation, moves, and removal; and one execute
+tool will remain. Each replacement is complete only when the old overlapping
+name is absent.
+
+Decision [0051](../decisions/0051-owned-bounded-file-line-projection.md)
+completes the first `read_file` efficiency phase inside its existing canonical
+name and authority. It adds no seventh tool and no alternate reader.
+
+The execute tool currently resolves only `node` through one CLI-owned closed
+registry. Unknown tokens fail before approval. Additional registered programs
+need a closed argument policy and maintained evidence that they remove a real
+coding constraint. An unrestricted shell is not currently available. A future
+sandboxed `shell` may replace `run_process` only after a separate Windows and
+Linux isolation proof; both execute names will never be advertised together.
+
 A new tool must prove a distinct capability, current necessity, focused tests,
 and independent removal before it is advertised. Decision 0014 forbids
 convenience aliases and speculative tools; semantic overlap is a review
@@ -214,8 +245,12 @@ function defined by decision 0022.
 ## Evidence
 
 - Tool contracts and engine: `packages/agent-tools/src/index.ts`
+- Tool convergence decision: `docs/decisions/0050-owned-minimal-coding-capability-surface.md`
+- Bounded file projection decision: `docs/decisions/0051-owned-bounded-file-line-projection.md`
 - Built-in filesystem adapters: `packages/agent-cli/src/builtin-tools.ts`
 - Shared built-in limits: `packages/agent-cli/src/builtin-tool-limits.ts`
+- Pure file line projection: `packages/agent-cli/src/workspace-file-read.ts`
+- Closed process program registry: `packages/agent-cli/src/process-program-registry.ts`
 - Shared workspace path resolution: `packages/agent-cli/src/workspace-path.ts`
 - Mutation effect plans: `packages/agent-cli/src/workspace-mutation-plans.ts`
 - Bounded mutation previews: `packages/agent-cli/src/workspace-mutation-preview.ts`

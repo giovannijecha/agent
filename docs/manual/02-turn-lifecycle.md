@@ -32,6 +32,17 @@ turn. Runtime cleanup errors remain independently observable and cannot replace
 the primary failure. Without an injected runtime, submission is discarded
 immediately and no turn begins.
 
+If failure occurs after a completed tool checkpoint, completed tool activity
+remains in conversation and only newer prospective model text is discarded. A
+bounded transcript marker and the latest ephemeral notice expose the same
+closed code: `model/...` identifies model continuation, `tool/...` identifies
+tool-call, availability, limit, or engine settlement, and `runtime/failure` is
+the content-free residual. A prior green tool result remains successful; the
+later classified failure does not rewrite it. Provider causes, tool payloads,
+paths, content, and call identifiers are never displayed or retained for this
+diagnosis. Check the code before retrying because an external effect may already
+have completed.
+
 ## Maintenance and removal
 
 Change turn ordering only with runtime, reducer, arbiter, cancellation,
@@ -46,3 +57,5 @@ The full rollback order is in [the maintenance runbook](../MAINTENANCE.md).
 - Runtime event protocol: `packages/agent-runtime/src/events.ts`
 - Single-writer reducer: `packages/agent-cli/src/application.ts`
 - Display-only chat state: `packages/agent-cli/src/chat-state.ts`
+- Failure presentation: `packages/agent-cli/src/turn-failure-presentation.ts`
+- Classification decision: `docs/decisions/0052-owned-checkpointed-turn-failure-classification.md`

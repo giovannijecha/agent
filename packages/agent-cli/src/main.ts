@@ -39,6 +39,7 @@ import { NodeProcessRunner } from "./node-process-runner.js";
 import { NodeTimerClock } from "./node-timer-clock.js";
 import { NoticeScheduler } from "./notice-scheduler.js";
 import { writeProcessText } from "./process-output.js";
+import { ProcessProgramRegistry } from "./process-program-registry.js";
 import { resolveOpenCodeGoConfiguration } from "./provider-configuration.js";
 import { run } from "./run.js";
 import { MotionScheduler } from "./motion-scheduler.js";
@@ -238,11 +239,17 @@ if (!configuration.ok) {
     ? OpenCodeGoModel.create(transport.value, AGENT_INSTRUCTIONS)
     : transport;
   const processRunner = NodeProcessRunner.create(platform, arch);
+  const processPrograms = ProcessProgramRegistry.create(execPath);
   const mutationCommitter = PlatformWorkspaceMutationCommitter.create(
     platform,
     arch,
   );
-  if (!model.ok || !processRunner.ok || !mutationCommitter.ok) {
+  if (
+    !model.ok ||
+    !processRunner.ok ||
+    !processPrograms.ok ||
+    !mutationCommitter.ok
+  ) {
     stderr.write("agent could not initialize the configured provider\n", () =>
       exit(1),
     );
@@ -252,7 +259,7 @@ if (!configuration.ok) {
       workspaceReadPolicy,
       {
         mutationCommitter: mutationCommitter.value,
-        nodeExecutable: execPath,
+        processPrograms: processPrograms.value,
         processRunner: processRunner.value,
       },
       evaluation,

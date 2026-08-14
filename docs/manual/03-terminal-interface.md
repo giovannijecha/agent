@@ -113,7 +113,11 @@ bounded borderless region, and `Spacer` owns vertical rhythm.
 Untrusted text is normalized and
 sanitized before the frame performs a final control-character check. Rendering
 is serialized, differential, and commits its snapshot only after a complete
-successful write.
+successful write. When a changed row is one homogeneous opaque full-width
+surface, the renderer first paints its exact logical width with surface-colored
+ASCII spaces and then writes the structured content from column zero. This keeps
+the physical right edge rectangular without changing the shared cell-width
+rules or the displayed text.
 
 Cell measurement is shared by the editor, composer, transcript, Markdown,
 tables, surfaces, clipping, caret, and renderer. Printable ASCII, interface
@@ -257,7 +261,10 @@ actions use neutral plain or emphasized foregrounds for contrast against every
 semantic background. The surface has one horizontal padding cell and no vertical
 padding, so the current header plus detail occupies two rows. If only one row
 fits, the header retains tool identity and written state before optional detail.
-Approval uses the same component. The exact `/approve`
+Only approval displays the exact bounded effect preview. Queued, running,
+cancelling, and terminal snapshots keep the second row compact with the risk;
+the lifecycle log still retains its bounded preview. Approval uses the same
+component. The exact `/approve`
 and `/deny` commands receive retention
 priority over optional safe detail in a short viewport. No activity rail,
 border, private panel, or empty activity document is rendered.

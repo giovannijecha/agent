@@ -53,7 +53,10 @@ function createActivityRows(
   if (!header.ok) return header;
 
   const components: Component[] = [header.value];
-  const detail = [activity.risk, activity.preview]
+  const detail = [
+    activity.risk,
+    ...(activity.state === "approval" ? [activity.preview] : []),
+  ]
     .filter((part) => part.length > 0)
     .join("  ");
   if (detail.length > 0) {

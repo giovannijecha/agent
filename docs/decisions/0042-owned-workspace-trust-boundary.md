@@ -207,6 +207,11 @@ unbounded work. No denied path or content enters tool results, provider
 requests, transcript, activity, notices, errors, logs, fixtures, or
 documentation.
 
+Decision 0051 adds optional exact logical-line projection only after these same
+`read_file` checks and the existing bounded complete-file observation. It does
+not alter disclosure policy, readable targets, source bounds, or canonical
+read identity.
+
 The read-privacy policy does not broaden or override `create_file`,
 `replace_text`, or `run_process`. Writes use the separate effect-plan contract
 below, and approved Node code remains capable of reading outside this policy

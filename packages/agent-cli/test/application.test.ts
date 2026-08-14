@@ -501,7 +501,7 @@ test("replaces contextual activity for each call in one tool batch", () => {
   assert.equal(application.transcriptText().includes("list_directory"), false);
 });
 
-test("checkpoints tool truth while releasing contextual activity after failure", () => {
+test("classifies model continuation failure after checkpointed tool success", () => {
   const application = new ApplicationController(true);
   assert.ok(application.turnAccepted(started(8, "inspect")).ok);
   assert.ok(
@@ -555,7 +555,11 @@ test("checkpoints tool truth while releasing contextual activity after failure",
       cleanup: Object.freeze([]),
       kind: "turnFinished" as const,
       outcome: Object.freeze({
-        failure: Object.freeze({ kind: "toolEngine" as const }),
+        failure: Object.freeze({
+          error: "private provider failure",
+          kind: "model" as const,
+          operation: "read" as const,
+        }),
         kind: "failed" as const,
       }),
       turnId: 8,
@@ -566,8 +570,18 @@ test("checkpoints tool truth while releasing contextual activity after failure",
   assert.deepEqual(application.activities, []);
   assert.equal(application.transcriptText().includes("Checking."), true);
   assert.equal(
-    application.transcriptText().includes("[turn failed after tool activity]"),
+    application.transcriptText().includes(
+      "[turn failed (model/read) after completed tool activity]",
+    ),
     true,
+  );
+  assert.equal(
+    application.notice.join("\n").includes("model/read"),
+    true,
+  );
+  assert.equal(
+    application.notice.join("\n").includes("private provider failure"),
+    false,
   );
   assert.equal(
     application.notice.join("\n").includes("remains in conversation"),

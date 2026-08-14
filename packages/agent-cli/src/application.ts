@@ -3,7 +3,6 @@ import type {
   RuntimeEvent,
   StartedTurn,
   StartTurnError,
-  TurnFailure,
 } from "@agent/runtime";
 import { TOOL_ENGINE_LIMITS } from "@agent/tools";
 import {
@@ -40,6 +39,7 @@ import {
   type PointerProjection,
   TerminalInteraction,
 } from "./terminal-interaction.js";
+import { projectTurnFailure } from "./turn-failure-presentation.js";
 
 export type { PointerProjection } from "./terminal-interaction.js";
 
@@ -109,50 +109,6 @@ function validNotice(lines: readonly string[]): boolean {
     (line) =>
       typeof line === "string" && line.length <= MAX_NOTICE_CODE_UNITS,
   );
-}
-
-function turnFailureCode<E>(failure: TurnFailure<E>): string {
-  const kind = failure.kind;
-  if (kind === "model") {
-    return "model/" + failure.operation;
-  }
-  if (kind === "invalidModelResult") {
-    return "model/" + failure.operation + "/invalid-result";
-  }
-  if (kind === "unexpected") {
-    return "model/" + failure.operation + "/unexpected";
-  }
-  if (kind === "invalidModelStream") {
-    return "model/open/invalid-stream";
-  }
-  if (kind === "invalidModelEvent") {
-    return "model/read/invalid-event";
-  }
-  if (kind === "invalidToolCall") {
-    return "tool/invalid-call";
-  }
-  if (kind === "toolEngine") {
-    return "tool/engine";
-  }
-  if (kind === "toolLimit") {
-    return "tool/limit";
-  }
-  if (kind === "toolUnavailable") {
-    return "tool/unavailable";
-  }
-  if (kind === "emptyDelta") {
-    return "model/empty-delta";
-  }
-  if (kind === "emptyResponse") {
-    return "model/empty-response";
-  }
-  if (kind === "eventLimit") {
-    return "model/event-limit";
-  }
-  if (kind === "responseTooLong") {
-    return "model/response-limit";
-  }
-  return "runtime/failure";
 }
 
 /** Sole mutable reducer for CLI editing, chat display, phase, and notices. */
@@ -792,12 +748,19 @@ export class ApplicationController
       ) {
         return err(new ApplicationError("invalidRuntimeEvent"));
       }
+      const settlementPresentation =
+        outcomeKind === "failed"
+          ? projectTurnFailure(outcome.failure, checkpointed)
+          : Object.freeze({
+              checkpointedMarker: "[turn cancelled after tool activity]",
+              notice: checkpointed
+                ? "Turn cancelled; completed tool activity remains in conversation."
+                : "Turn cancelled; no conversation changes were committed.",
+            });
       const resolved = checkpointed
         ? this.#chat.finishCheckpointed(
             turnId,
-            outcomeKind === "cancelled"
-              ? "[turn cancelled after tool activity]"
-              : "[turn failed after tool activity]",
+            settlementPresentation.checkpointedMarker,
           )
         : this.#chat.discard(turnId);
       if (!resolved.ok) {
@@ -813,16 +776,7 @@ export class ApplicationController
       if (!finishedActivities.ok) {
         return err(new ApplicationError("activityInvariant"));
       }
-      const outcomeLine =
-        outcomeKind === "cancelled"
-          ? checkpointed
-            ? "Turn cancelled; completed tool activity remains in conversation."
-            : "Turn cancelled; no conversation changes were committed."
-          : checkpointed
-            ? "The turn failed; completed tool activity remains in conversation."
-            : "The model turn failed (" +
-              turnFailureCode(outcome.failure) +
-              "); no conversation changes were committed.";
+      const outcomeLine = settlementPresentation.notice;
       this.#setNotice(
         cleanupPresent
           ? [outcomeLine, "The model stream also failed during cleanup."]

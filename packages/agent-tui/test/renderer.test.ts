@@ -404,6 +404,25 @@ test("renders closed semantic lifecycle backgrounds", async () => {
   }
 });
 
+test("prepaints homogeneous full-width opaque rows before their content", async () => {
+  const output = new MemoryOutput();
+  const renderer = new Renderer(output);
+  const row = RichRow.fromText("tool   ", "plain", { surface: "success" });
+  assert.ok(row.ok);
+  const rendered = Frame.create([row.value], { row: 0, column: 0 });
+  assert.ok(rendered.ok);
+
+  await renderer.render(rendered.value, viewport(7, 1));
+
+  assert.equal(
+    output.text.includes(
+      "\u001B[48;2;22;55;34m       \u001B[0m\u001B[1;1H" +
+        "\u001B[48;2;22;55;34mtool   \u001B[0m",
+    ),
+    true,
+  );
+});
+
 test("composes neutral emphasis with semantic lifecycle backgrounds", async () => {
   const output = new MemoryOutput();
   const renderer = new Renderer(output);

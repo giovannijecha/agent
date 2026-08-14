@@ -104,7 +104,11 @@ agent.”
   written state, safe detail, and approval actions use neutral high-contrast
   foregrounds. Activity surfaces use one cell of horizontal padding and zero
   vertical padding. When height is constrained, their head retains tool identity
-  and written state before optional detail. Written state remains explicit, and
+  and written state before optional detail. Exact bounded effect previews appear
+  only while approval is pending; queued, running, cancelling, and terminal
+  snapshots retain only the risk beneath the head. The activity log may retain
+  its bounded preview as lifecycle state, but settled presentation never replays
+  it. Written state remains explicit, and
   no tool or approval path adds a private rail, border, or panel. The contextual activity surface shows only the latest snapshot while a
   turn is active: the next tool replaces it, turn settlement removes it, and
   tool activity never enters the transcript. An empty session renders no welcome
@@ -117,6 +121,10 @@ agent.”
   CLI-owned scheduler expires the exact current generation after 5,000
   milliseconds through the serialized event arbiter. Notice timers contain no
   notice text and never mutate application or renderer state directly. The
+  renderer prepaints every changed homogeneous opaque full-width row with ASCII
+  spaces under its authoritative surface before writing structured content.
+  This keeps semantic surfaces physically rectangular without adding a private
+  width exception or changing retained text. The
   composer is one prompt-free, borderless, stage-wide subtle `Surface` around the
   generic `InputArea`, with one cell of horizontal and vertical padding. It
   grows from one through six content rows using the same bounded
@@ -202,6 +210,12 @@ agent.”
   directories and files before opening them. Every resolved read target passes
   the same policy again; Windows DOS short-name aliases fail closed. Writes and
   approved processes are outside this disclosure policy.
+  `read_file` retains one canonical read capability and may project exact
+  logical lines through optional one-based `startLine` and bounded `lineCount`
+  fields. A path-only call preserves complete text. Every success reports exact
+  unnumbered text plus `startLine`, `lineCount`, `totalLines`, and `hasMore`.
+  Projection follows the same complete bounded observation and policy checks;
+  it reduces provider context but is not random-access filesystem authority.
 - `run_process` is the only admitted execute tool. It accepts the registered
   `node` token, literal arguments, and one workspace-relative directory; it
   never accepts a shell, executable path, PATH lookup, stdin, inherited or
@@ -238,6 +252,12 @@ agent.”
   controller for deterministic reduction.
 - Model turns, tool handlers, writes, process execution, approvals, and terminal
   output remain serialized. Current runtime remains sequential.
+- A failed turn after a completed tool checkpoint retains that tool truth and
+  publishes only the CLI-owned closed failure classification. The transcript
+  marker and ephemeral notice distinguish `model/...`, `tool/...`, and the
+  residual `runtime/failure` without exposing provider causes, tool payloads,
+  paths, content, or call identifiers. Do not describe a later model
+  continuation failure as a failed tool or retry a completed effect implicitly.
 - Core and TUI never depend on each other. Dependencies point inward, public
   surfaces go through `src/index.ts`, and deep cross-package imports are banned.
 - Keep modules cohesive, documented, independently testable, replaceable, and
@@ -247,10 +267,21 @@ agent.”
 - Keep the model-facing harness lean: every tool needs one canonical name, a
   distinct capability, current necessity, focused tests, and independent
   removal. Tool aliases and speculative conveniences are forbidden.
+- Tool convergence follows decision 0050. The permanent harness targets three
+  bounded read capabilities, one text-patch capability, one namespace
+  capability, and one execute capability. Migrate one authority domain at a
+  time; never retain overlapping old and new names after a replacement change.
+  The current advertised inventory remains authoritative until each migration
+  phase is complete. A future sandboxed `shell` may replace `run_process` only
+  after a separate Windows and Linux isolation proof; the two execute tools may
+  never coexist.
 - Keep process execution inside the admitted decision 0036 contract: one
-  registered program token, exact per-call approval, fixed limits, isolated
-  operating-system bootstrap, bounded output, and complete descendant
-  cancellation and cleanup on Windows and Linux.
+  CLI-owned closed program registry, exact per-call approval, fixed limits,
+  isolated operating-system bootstrap, bounded output, and complete descendant
+  cancellation and cleanup on Windows and Linux. The current registry contains
+  only `node`; new entries need exact executable resolution, a closed argument
+  policy, current evaluation evidence, and decisions 0036 and 0050 updated in
+  the same change.
 - Owned task evaluation is maintainer tooling, not product runtime. Keep its
   versioned corpus, manifest, offline evaluator, closed metric records, and
   validator under decision 0047. Preparation exposes only an input snapshot;

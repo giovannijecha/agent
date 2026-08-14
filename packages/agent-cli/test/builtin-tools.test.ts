@@ -29,7 +29,10 @@ import type {
   ToolExecution,
 } from "@agent/tools";
 
-import { createBuiltinToolEngine } from "../dist/builtin-tools.js";
+import {
+  BUILTIN_TOOL_LIMITS,
+  createBuiltinToolEngine,
+} from "../dist/builtin-tools.js";
 import { EvaluationReceiptRecorder } from "../dist/evaluation-receipt.js";
 import { PlatformWorkspaceMutationCommitter } from "../dist/platform-workspace-mutation.js";
 import {
@@ -37,6 +40,7 @@ import {
   type ProcessRunRequest,
   type ProcessRunner,
 } from "../dist/process-runner.js";
+import { ProcessProgramRegistry } from "../dist/process-program-registry.js";
 import { WorkspaceBoundary } from "../dist/workspace-boundary.js";
 import { WORKSPACE_MUTATION_PREVIEW_CODE_UNITS } from "../dist/workspace-mutation-preview.js";
 import { WorkspaceReadPolicy } from "../dist/workspace-read-policy.js";
@@ -65,10 +69,12 @@ const workspaceProtection = Object.freeze({
 
 function toolPlatform(runner: ProcessRunner = processRunner) {
   const committer = PlatformWorkspaceMutationCommitter.create(platform, arch);
+  const programs = ProcessProgramRegistry.create(execPath);
   assert.ok(committer.ok);
+  assert.ok(programs.ok);
   return Object.freeze({
     mutationCommitter: committer.value,
-    nodeExecutable: execPath,
+    processPrograms: programs.value,
     processRunner: runner,
   });
 }
@@ -273,7 +279,7 @@ test("distinguishes invalid roots, read policies, and platform adapters", async 
   assert.deepEqual(
     createBuiltinToolEngine(boundary.value, policy.value, {
       mutationCommitter: toolPlatform().mutationCommitter,
-      nodeExecutable: "relative",
+      processPrograms: Object.freeze({}) as never,
       processRunner,
     }),
     { ok: false, error: { kind: "invalidPlatform" } },
@@ -281,7 +287,7 @@ test("distinguishes invalid roots, read policies, and platform adapters", async 
   assert.deepEqual(
     createBuiltinToolEngine(boundary.value, policy.value, {
       mutationCommitter: Object.freeze({}) as never,
-      nodeExecutable: execPath,
+      processPrograms: toolPlatform().processPrograms,
       processRunner,
     }),
     { ok: false, error: { kind: "invalidPlatform" } },
@@ -383,6 +389,10 @@ test("creates, reads, replaces, lists, and searches bounded workspace text", asy
     assert.equal(created.result.status, "success");
 
     const read = await execute(tools, "read_file", { path: "notes.txt" });
+    assert.equal(output(read).get("startLine"), 1);
+    assert.equal(output(read).get("lineCount"), 2);
+    assert.equal(output(read).get("totalLines"), 2);
+    assert.equal(output(read).get("hasMore"), false);
     assert.equal(output(read).get("text"), "α € 😀\nbeta\n");
 
     const replaced = await execute(tools, "replace_text", {
@@ -406,6 +416,79 @@ test("creates, reads, replaces, lists, and searches bounded workspace text", asy
   });
 });
 
+test("projects bounded read_file lines through one unchanged read capability", async () => {
+  await withWorkspace(async (workspace) => {
+    await writeFile(
+      path.join(workspace, "lines.txt"),
+      "alpha\r\nbeta\ngamma\ndelta",
+      { encoding: "utf8", flag: "wx" },
+    );
+    const tools = await engine(workspace);
+    const readDescriptor = tools.descriptors.find(
+      (tool) => tool.name === "read_file",
+    );
+    assert.ok(readDescriptor !== undefined);
+    assert.deepEqual(
+      readDescriptor.input.fields.map((field) => [
+        field.name,
+        field.required,
+        field.schema.kind,
+      ]),
+      [
+        ["path", true, "string"],
+        ["startLine", false, "integer"],
+        ["lineCount", false, "integer"],
+      ],
+    );
+
+    const selected = await execute(tools, "read_file", {
+      lineCount: 2,
+      path: "lines.txt",
+      startLine: 2,
+    });
+    assert.equal(selected.result.status, "success");
+    assert.equal(output(selected).get("text"), "beta\ngamma\n");
+    assert.equal(output(selected).get("startLine"), 2);
+    assert.equal(output(selected).get("lineCount"), 2);
+    assert.equal(output(selected).get("totalLines"), 4);
+    assert.equal(output(selected).get("hasMore"), true);
+
+    const beyond = await execute(tools, "read_file", {
+      lineCount: 1,
+      path: "lines.txt",
+      startLine: 99,
+    });
+    assert.equal(beyond.result.status, "success");
+    assert.equal(output(beyond).get("text"), "");
+    assert.equal(output(beyond).get("startLine"), 5);
+    assert.equal(output(beyond).get("lineCount"), 0);
+    assert.equal(output(beyond).get("totalLines"), 4);
+    assert.equal(output(beyond).get("hasMore"), false);
+
+    for (const input of [
+      { path: "lines.txt", startLine: 0 },
+      {
+        lineCount: BUILTIN_TOOL_LIMITS.fileRangeLines + 1,
+        path: "lines.txt",
+      },
+      { path: "lines.txt", startLine: 1.5 },
+    ]) {
+      const structured = structuredValueFromUnknown(input);
+      assert.ok(structured.ok);
+      assert.ok(structured.value instanceof StructuredObject);
+      const prepared = tools.prepare(
+        "invalid-read-file",
+        "read_file",
+        structured.value,
+      );
+      assert.deepEqual(prepared, {
+        error: { kind: "invalidInput" },
+        ok: false,
+      });
+    }
+  });
+});
+
 test("observes canonical successful read identities only when opted in", async () => {
   await withWorkspace(async (workspace) => {
     await writeFile(path.join(workspace, "notes.txt"), "alpha\n", {
@@ -421,7 +504,13 @@ test("observes canonical successful read identities only when opted in", async (
       "success",
     );
     assert.equal(
-      (await execute(tools, "read_file", { path: "./notes.txt" })).result.status,
+      (
+        await execute(tools, "read_file", {
+          lineCount: 1,
+          path: "./notes.txt",
+          startLine: 1,
+        })
+      ).result.status,
       "success",
     );
     assert.equal(

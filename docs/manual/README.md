@@ -21,7 +21,10 @@ Use this manual to run, understand, and maintain the behavior that exists today.
 - Credentials and sessions are not persisted. Subscription OAuth remains
   blocked without an eligible independent-client identity.
 - Process execution is limited to the documented `run_process` contract: the
-  registered `node` token, exact approval, fixed bounds, and native containment.
+  CLI-registered `node` token, exact approval, fixed bounds, and native containment.
+- `read_file` keeps one canonical name and can return either the complete
+  bounded file or an exact bounded logical-line projection with continuation
+  metadata.
 - Every tool has one canonical name and one independently removable purpose.
 
 ## Documentation contract
