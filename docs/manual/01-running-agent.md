@@ -40,6 +40,13 @@ version. Unknown or combined arguments fail; credentials are never accepted on
 the command line. Interactive startup asks for a missing OpenCode Go key with
 terminal echo disabled. Press Enter to start providerless or Ctrl+C to cancel.
 
+Use the exact `agent --evaluation-receipt` form only for one maintained
+interactive task evaluation. It requires TTY input and output, runs the same
+agent with unchanged tools and approvals, and prints one content-free JSON line
+after terminal restoration. The line contains only elapsed milliseconds and
+accepted turn, tool-call, approval, and repeated-read counts; it is not written
+to the workspace. Combined or duplicated options fail closed.
+
 The required toolchain is Node.js `>=22.19.0`, npm `11.16.0`, and TypeScript
 `5.9.3` available on `PATH` but installed outside this workspace. This manual
 is the command reference. In an interactive terminal, use `/exit` to close.
@@ -91,5 +98,7 @@ composition is verified.
 - Workspace decision: `docs/decisions/0042-owned-workspace-trust-boundary.md`
 - Hidden credential prompt: `packages/agent-cli/src/hidden-credential-prompt.ts`
 - Exact argument parser: `packages/agent-cli/src/launch-command.ts`
+- Evaluation receipt: `packages/agent-cli/src/evaluation-receipt.ts`
+- Evaluation receipt decision: `docs/decisions/0048-owned-content-free-evaluation-receipt.md`
 - Application lifecycle: `packages/agent-cli/src/run.ts`
 - Toolchain contract: `tools/toolchain.json`

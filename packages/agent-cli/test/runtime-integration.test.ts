@@ -25,6 +25,7 @@ import {
 } from "@agent/tui";
 
 import { run } from "../dist/run.js";
+import { EvaluationReceiptRecorder } from "../dist/evaluation-receipt.js";
 import type {
   MotionController,
   MotionEvent,
@@ -217,6 +218,7 @@ class ControlledRuntime implements RuntimeSession<string> {
   startCalls = 0;
   stopCalls = 0;
   stopFailure: string | undefined;
+  allowApproval = false;
 
   startTurn(input: string): Result<StartedTurn, StartTurnError> {
     if (this.#activeTurnId !== undefined) {
@@ -244,7 +246,9 @@ class ControlledRuntime implements RuntimeSession<string> {
   }
 
   resolveToolApproval(): Result<void, RuntimeCommandError> {
-    return err(Object.freeze({ kind: "notAwaitingApproval" as const }));
+    return this.allowApproval
+      ? ok(undefined)
+      : err(Object.freeze({ kind: "notAwaitingApproval" as const }));
   }
 
   commitTurn(turnId: number): Result<CommitTurnResult, RuntimeCommandError> {
@@ -602,6 +606,97 @@ test("streams one runtime turn into chat and exits only on later idle Ctrl+C", a
   assert.equal(runtime.stopCalls, 1);
   assert.equal(host.writes.join("").includes("question"), true);
   assert.equal(host.writes.join("").includes("answer"), true);
+});
+
+test("observes accepted turns, tool requests, and affirmative approvals", async () => {
+  const host = new ControlledHost();
+  const runtime = new ControlledRuntime();
+  runtime.allowApproval = true;
+  const evaluation = new EvaluationReceiptRecorder();
+  assert.ok(evaluation.start(100).ok);
+  const running = run(
+    host,
+    runtime,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    evaluation,
+  );
+  await host.started.promise;
+  await host.waitForWrites(1);
+
+  host.emit(input("task\r"));
+  await runtime.waitForReads(1);
+  runtime.emit(
+    Object.freeze({
+      approvalPreview: 'path="result.txt"',
+      approvalRequired: true,
+      callId: "write-1",
+      kind: "toolRequested" as const,
+      name: "create_file",
+      risk: "write" as const,
+      turnId: 1,
+    }),
+  );
+  await host.waitForWrites(3);
+  host.emit(input("/approve\r"));
+  await host.waitForWrites(4);
+  runtime.emit(
+    Object.freeze({
+      callId: "write-1",
+      kind: "toolStarted" as const,
+      name: "create_file",
+      risk: "write" as const,
+      turnId: 1,
+    }),
+  );
+  await runtime.waitForReads(3);
+  runtime.emit(
+    Object.freeze({
+      callId: "write-1",
+      kind: "toolFinished" as const,
+      name: "create_file",
+      risk: "write" as const,
+      status: "success" as const,
+      turnId: 1,
+    }),
+  );
+  await runtime.waitForReads(4);
+  runtime.emit(delta(1, "done"));
+  await runtime.waitForReads(5);
+  runtime.emit(
+    Object.freeze({
+      assistant: Object.freeze({ content: "done" }),
+      checkpointed: true,
+      cleanup: Object.freeze([]),
+      kind: "turnPrepared" as const,
+      turnId: 1,
+    }) as unknown as RuntimeEvent<string>,
+  );
+  await host.waitForWrites(8);
+  host.emit(input("/exit\r"));
+  const result = await running;
+
+  assert.ok(
+    result.ok,
+    result.ok
+      ? ""
+      : result.error.primary?.kind === "application"
+        ? result.error.primary.error.kind
+        : JSON.stringify(result.error),
+  );
+  const receipt = evaluation.finish(250);
+  assert.ok(receipt.ok);
+  assert.deepEqual(receipt.value, {
+    approvals: 1,
+    elapsedMilliseconds: 150,
+    repeatedReads: 0,
+    schemaVersion: 1,
+    toolCalls: 1,
+    turns: 1,
+  });
 });
 
 test("routes cosmetic ticks through the serialized application loop", async () => {

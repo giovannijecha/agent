@@ -49,7 +49,11 @@ Task evaluation is registered independently in
 `tools/lib/evaluation-suite.mjs` validates its complete corpus inventory and
 owns preparation, content-free grading, and closed record validation. It is
 offline maintainer tooling and never expands the product workspace graph or
-model-facing tool surface.
+model-facing tool surface. The decision 0048 receipt is registered separately
+as an exact CLI option and source path. It can supply five mechanical record
+values but never reads or writes evaluator state. Repository source traversal
+excludes the exact ignored root `state/`, so prepared runs cannot alter package,
+ownership, hygiene, or generated-artifact verification.
 
 ## Update or remove the streaming runtime
 
@@ -640,12 +644,23 @@ provider, or add free-form record fields. Delete unwanted local runs manually
 only after resolving their exact ignored `state/evaluations/` path; the tool
 deliberately has no reset or delete command.
 
+For mechanical interaction counts, run the product once as
+`agent --evaluation-receipt` from the prepared workspace. Preserve the exact
+TTY-only activation form, content-free JSON schema, monotonic clock interval,
+counter definitions, memory-only read digests, bounds, and post-cleanup output.
+Copy only its five observed values into `record.json`; classify outcome,
+artifact, manual corrections, risky actions, and primary constraint through
+operator review. Changing any receipt contract requires decision 0048, focused
+recorder, launch, tool, and runtime tests, plus privacy and manual updates.
+
 To remove evaluation, first delete any retained ignored runs. Then remove
 `evaluations/`, `tools/evaluation-policy.json`, `tools/evaluate.mjs`,
 `tools/lib/evaluation-suite.mjs`, its focused test and verifier hook, decision
 0047, and all ownership, manual, architecture, engineering, security, privacy,
-README, and AGENTS registrations. No product package, provider, or model-facing
-tool needs replacement.
+README, and AGENTS registrations. The receipt can remain as independent generic
+interaction evidence. To remove it too, delete its exact launch form, recorder,
+read and reducer observation hooks, tests, decision 0048, and registrations. No
+provider or model-facing tool needs replacement.
 
 ## Change a package
 

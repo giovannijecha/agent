@@ -35,6 +35,7 @@ import type { MotionController } from "./motion-scheduler.js";
 import { isMotionActive } from "./motion-policy.js";
 import type { NoticeController } from "./notice-scheduler.js";
 import type { ClipboardPort } from "./platform-clipboard.js";
+import type { EvaluationReceiptRecorder } from "./evaluation-receipt.js";
 
 export const PLAIN_STATUS =
   "agent\ninteractive terminal requires TTY input and output\n";
@@ -225,6 +226,7 @@ function applyEffect<E, RE>(
   application: ApplicationController,
   arbiter: EventArbiter<E, RE>,
   runtime: RuntimeSession<RE> | undefined,
+  evaluation: EvaluationReceiptRecorder | undefined,
 ): EffectOutcome<E> {
   if (effect.kind === "exit") {
     return Object.freeze({ exit: true, failure: undefined, redraw: false });
@@ -251,6 +253,7 @@ function applyEffect<E, RE>(
           redraw: false,
         });
       }
+      evaluation?.acceptedTurn();
       const armed = arbiter.armRuntime();
       return armed.ok
         ? Object.freeze({ exit: false, failure: undefined, redraw: true })
@@ -345,6 +348,9 @@ function applyEffect<E, RE>(
         effect.callId,
         effect.approved,
       );
+      if (resolved.ok && effect.approved) {
+        evaluation?.approvedTool();
+      }
       return resolved.ok
         ? Object.freeze({ exit: false, failure: undefined, redraw: true })
         : Object.freeze({
@@ -447,10 +453,17 @@ function applyApplicationUpdate<E, RE>(
   application: ApplicationController,
   arbiter: EventArbiter<E, RE>,
   runtime: RuntimeSession<RE> | undefined,
+  evaluation: EvaluationReceiptRecorder | undefined,
 ): EffectOutcome<E> {
   let redraw = update.redraw;
   for (const effect of update.effects) {
-    const outcome = applyEffect(effect, application, arbiter, runtime);
+    const outcome = applyEffect(
+      effect,
+      application,
+      arbiter,
+      runtime,
+      evaluation,
+    );
     redraw = redraw || outcome.redraw;
     if (outcome.failure !== undefined || outcome.exit) {
       return Object.freeze({
@@ -565,6 +578,7 @@ export async function run<E, RE = never>(
   motion?: MotionController,
   notices?: NoticeController,
   clipboard?: ClipboardPort,
+  evaluation?: EvaluationReceiptRecorder,
 ): Promise<Result<void, RunError<E, RE>>> {
   if (!host.interactive) {
     let primary: RunFailure<E> | undefined;
@@ -715,6 +729,7 @@ export async function run<E, RE = never>(
               application,
               arbiter,
               runtime,
+              evaluation,
             );
             redraw = outcome.redraw;
             if (outcome.failure !== undefined) {
@@ -741,11 +756,15 @@ export async function run<E, RE = never>(
             });
             break;
           }
+          if (event.result.value.kind === "toolRequested") {
+            evaluation?.requestedTool();
+          }
           const outcome = applyApplicationUpdate(
             applied.value,
             application,
             arbiter,
             runtime,
+            evaluation,
           );
           redraw = outcome.redraw;
           if (outcome.failure !== undefined) {

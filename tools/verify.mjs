@@ -17,6 +17,9 @@ import { validateEvaluationSuite } from "./lib/evaluation-suite.mjs";
 import { validateManualPolicy } from "./lib/manual-policy.mjs";
 import { validateProviderPolicy } from "./lib/provider-policy.mjs";
 import { validatePublicationPolicy } from "./lib/publication-policy.mjs";
+import {
+  isIgnoredRepositorySourceDirectory,
+} from "./lib/repository-source-boundary.mjs";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const arguments_ = process.argv.slice(2);
@@ -115,7 +118,7 @@ function listFiles(relativeDirectory, includeGenerated = false) {
       fail("symlink is forbidden in owned source: " + relativeEntry);
     }
     if (entry.isDirectory()) {
-      if (relativeEntry === ".git" || relativeEntry === "node_modules") {
+      if (isIgnoredRepositorySourceDirectory(relativeEntry)) {
         continue;
       }
       if (generatedDirectories.has(relativeEntry)) {

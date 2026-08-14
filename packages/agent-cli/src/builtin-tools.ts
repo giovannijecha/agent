@@ -35,6 +35,10 @@ import {
 import type { ProcessRunner } from "./process-runner.js";
 import { PROCESS_RUNNER_LIMITS } from "./process-runner.js";
 import { BUILTIN_TOOL_LIMITS } from "./builtin-tool-limits.js";
+import type {
+  EvaluationReadName,
+  EvaluationReceiptRecorder,
+} from "./evaluation-receipt.js";
 import type { WorkspaceMutationCommitter } from "./workspace-mutation-committer.js";
 import { WorkspaceBoundary } from "./workspace-boundary.js";
 import {
@@ -196,7 +200,20 @@ async function readDirectoryBounded(
   return operation;
 }
 
-function readFileHandler(root: string, policy: WorkspaceReadPolicy): ToolHandler {
+function observeRead(
+  observer: EvaluationReceiptRecorder | undefined,
+  name: EvaluationReadName,
+  target: string,
+  query?: string,
+): void {
+  observer?.observeRead(name, target, query);
+}
+
+function readFileHandler(
+  root: string,
+  policy: WorkspaceReadPolicy,
+  observer?: EvaluationReceiptRecorder,
+): ToolHandler {
   return async (input, cancellation) => {
     if (cancellation.requested) {
       return toolFailure("cancelled");
@@ -210,6 +227,11 @@ function readFileHandler(root: string, policy: WorkspaceReadPolicy): ToolHandler
     if (!resolved.ok) {
       return resolved;
     }
+    observeRead(
+      observer,
+      "read_file",
+      relativeFromRoot(root, resolved.value),
+    );
     try {
       const status = await lstat(resolved.value);
       if (status.size > BUILTIN_TOOL_LIMITS.fileCodeUnits) {
@@ -241,6 +263,7 @@ function readFileHandler(root: string, policy: WorkspaceReadPolicy): ToolHandler
 function listDirectoryHandler(
   root: string,
   policy: WorkspaceReadPolicy,
+  observer?: EvaluationReceiptRecorder,
 ): ToolHandler {
   return async (input, cancellation) => {
     const relative = text(input, "path");
@@ -257,6 +280,11 @@ function listDirectoryHandler(
     if (!resolved.ok) {
       return resolved;
     }
+    observeRead(
+      observer,
+      "list_directory",
+      relativeFromRoot(root, resolved.value),
+    );
     const read = await readDirectoryBounded(
       resolved.value,
       BUILTIN_TOOL_LIMITS.directoryEntries,
@@ -340,6 +368,7 @@ function collectMatches(
 function searchTextHandler(
   root: string,
   policy: WorkspaceReadPolicy,
+  observer?: EvaluationReceiptRecorder,
 ): ToolHandler {
   return async (input, cancellation) => {
     const query = text(input, "query");
@@ -357,6 +386,12 @@ function searchTextHandler(
     if (!resolved.ok) {
       return resolved;
     }
+    observeRead(
+      observer,
+      "search_text",
+      relativeFromRoot(root, resolved.value),
+      query,
+    );
     const directories = [resolved.value];
     const files: string[] = [];
     try {
@@ -618,6 +653,7 @@ function registrations(
   root: string,
   policy: WorkspaceReadPolicy,
   platform: BuiltinToolsPlatform,
+  observer?: EvaluationReceiptRecorder,
 ) {
   const pathField = {
     description: "Workspace-relative path.",
@@ -645,7 +681,7 @@ function registrations(
         "read",
         objectSchema([pathField]),
       ),
-      handler: readFileHandler(root, policy),
+      handler: readFileHandler(root, policy, observer),
     }),
     Object.freeze({
       descriptor: descriptor(
@@ -654,7 +690,7 @@ function registrations(
         "read",
         objectSchema([pathField]),
       ),
-      handler: listDirectoryHandler(root, policy),
+      handler: listDirectoryHandler(root, policy, observer),
     }),
     Object.freeze({
       descriptor: descriptor(
@@ -671,7 +707,7 @@ function registrations(
           },
         ]),
       ),
-      handler: searchTextHandler(root, policy),
+      handler: searchTextHandler(root, policy, observer),
     }),
     Object.freeze({
       descriptor: descriptor(
@@ -772,6 +808,7 @@ export function createBuiltinToolEngine(
   boundary: unknown,
   readPolicy: unknown,
   platform: BuiltinToolsPlatform,
+  observer?: EvaluationReceiptRecorder,
 ): Result<ToolEngine, BuiltinToolsError> {
   const acceptedRoot = WorkspaceBoundary.rootOf(boundary);
   if (!acceptedRoot.ok) {
@@ -799,7 +836,7 @@ export function createBuiltinToolEngine(
   }
   try {
     const registry = ToolRegistry.create(
-      registrations(root, acceptedPolicy.value, platform),
+      registrations(root, acceptedPolicy.value, platform, observer),
     );
     if (!registry.ok) {
       return err(Object.freeze({ kind: "invariant" as const }));

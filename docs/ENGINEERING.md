@@ -190,8 +190,12 @@ deriving filesystem state on every platform.
 Prepared runs live outside version control. Record only the closed outcome,
 artifact, primary-constraint, and bounded count fields; do not add notes,
 prompts, responses, transcripts, file contents, credentials, personal
-identifiers, or ambient telemetry. Keep evaluation I/O separate from product
-packages so the complete framework remains removable without a runtime change.
+identifiers, or ambient telemetry. Keep corpus and evaluator I/O separate from
+product packages so the offline framework remains removable without a runtime
+change. The decision 0048 CLI receipt is the only admitted product observer: it
+is exact-option, memory-only, content-free, bounded, transition-passive, and
+independently removable. Do not infer semantic fields from its mechanical
+counters or add general telemetry behind it.
 
 ## Terminal input policy
 
