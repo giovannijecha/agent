@@ -94,6 +94,12 @@ test("reserves complete corpus-tree capacity for the failure registry", () => {
   assert.equal(Object.isFrozen(EVALUATION_CORPUS_TREE_LIMITS), true);
 });
 
+test("treats the failure registry as inventory-only corpus evidence", () => {
+  const corpus = canonicalContext();
+  assert.equal(corpus.files.delete("failures/registry.json"), true);
+  assert.doesNotThrow(() => validateEvaluationSuite(policy, corpus));
+});
+
 function temporaryRepository(t) {
   const root = mkdtempSync(path.join(tmpdir(), "agent-evaluation-"));
   mkdirSync(path.join(root, "tools"), { recursive: true });

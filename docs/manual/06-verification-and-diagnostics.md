@@ -76,8 +76,10 @@ content, and a first observation cannot automatically alter the tool surface or
 product behavior. The repository source boundary rejects a linked, non-regular,
 empty, oversized, or identity-changing registry before its first content read;
 the registry parser then requires exact two-space JSON, LF endings, one final
-LF, and unique keys by byte-equivalent canonical serialization. Filesystem,
-syntax, encoding, and representation failures remain fixed and content-free.
+LF, and unique keys by byte-equivalent canonical serialization. The task-corpus
+map retains only the registry inventory path, so parsing reuses that sole
+bounded snapshot instead of reopening the pathname. Filesystem, syntax,
+encoding, and representation failures remain fixed and content-free.
 
 ## Failure behavior
 
