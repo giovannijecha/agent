@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import {
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   rmSync,
   symlinkSync,
+  utimesSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -11,6 +13,7 @@ import path from "node:path";
 import test from "node:test";
 
 import {
+  hasStableRegularSourceState,
   isIgnoredRepositorySourceDirectory,
   readBoundedRegularSourceFile,
   RepositorySourceBoundaryError,
@@ -94,5 +97,30 @@ test("rejects a regular source below a linked repository directory", () => {
   } finally {
     rmSync(root, { force: true, recursive: true });
     rmSync(external, { force: true, recursive: true });
+  }
+});
+
+test("distinguishes an in-place rewrite after mtime restoration", async () => {
+  const root = mkdtempSync(path.join(tmpdir(), "agent-source-state-"));
+  try {
+    const file = path.join(root, "registry.json");
+    const restoredTime = new Date("2024-01-02T03:04:05.000Z");
+    writeFileSync(file, Uint8Array.of(1, 2, 3, 4));
+    utimesSync(file, restoredTime, restoredTime);
+    const opened = lstatSync(file, { bigint: true });
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    writeFileSync(file, Uint8Array.of(4, 3, 2, 1));
+    utimesSync(file, restoredTime, restoredTime);
+    const completed = lstatSync(file, { bigint: true });
+
+    assert.equal(opened.dev, completed.dev);
+    assert.equal(opened.ino, completed.ino);
+    assert.equal(opened.size, completed.size);
+    assert.equal(opened.mtimeNs, completed.mtimeNs);
+    assert.notEqual(opened.ctimeNs, completed.ctimeNs);
+    assert.equal(hasStableRegularSourceState(opened, completed), false);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
   }
 });

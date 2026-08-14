@@ -29,6 +29,13 @@ function sameIdentity(left, right) {
   return left.dev === right.dev && left.ino === right.ino;
 }
 
+export function hasStableRegularSourceState(left, right) {
+  return sameIdentity(left, right) &&
+    left.size === right.size &&
+    left.mtimeNs === right.mtimeNs &&
+    left.ctimeNs === right.ctimeNs;
+}
+
 function observeDirectory(directory) {
   const observed = lstatSync(directory, {
     bigint: true,
@@ -112,10 +119,8 @@ function verifyDirectoryChain(directories) {
 function verifyOpenedFile(file, expected, opened, maximumBytes) {
   const current = observeRegularFile(file, maximumBytes);
   if (
-    !sameIdentity(expected, current) ||
-    !sameIdentity(opened, current) ||
-    current.size !== expected.size ||
-    current.size !== opened.size
+    !hasStableRegularSourceState(expected, current) ||
+    !hasStableRegularSourceState(opened, current)
   ) {
     fail("invalidFile");
   }
@@ -141,8 +146,7 @@ export function readBoundedRegularSourceFile(
     const opened = fstatSync(descriptor, { bigint: true });
     if (
       !opened.isFile() ||
-      !sameIdentity(observed, opened) ||
-      opened.size !== observed.size
+      !hasStableRegularSourceState(observed, opened)
     ) {
       fail("invalidFile");
     }
@@ -172,10 +176,8 @@ export function readBoundedRegularSourceFile(
       offset < 1 ||
       offset > maximumBytes ||
       !completed.isFile() ||
-      !sameIdentity(opened, completed) ||
-      completed.size !== opened.size ||
-      completed.size !== BigInt(offset) ||
-      completed.mtimeNs !== opened.mtimeNs
+      !hasStableRegularSourceState(opened, completed) ||
+      completed.size !== BigInt(offset)
     ) {
       fail("invalidFile");
     }
