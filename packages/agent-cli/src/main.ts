@@ -38,6 +38,7 @@ import { resolvePlatformWorkspaceRoots } from "./platform-workspace-roots.js";
 import { NodeProcessRunner } from "./node-process-runner.js";
 import { NodeTimerClock } from "./node-timer-clock.js";
 import { NoticeScheduler } from "./notice-scheduler.js";
+import { writeProcessText } from "./process-output.js";
 import { resolveOpenCodeGoConfiguration } from "./provider-configuration.js";
 import { run } from "./run.js";
 import { MotionScheduler } from "./motion-scheduler.js";
@@ -56,27 +57,8 @@ async function writeAndExit(
   text: string,
   code: number,
 ): Promise<never> {
-  await writeText(output, text);
+  await writeProcessText(output, text);
   exit(code);
-}
-
-async function writeText(
-  output: WritableStream,
-  text: string,
-): Promise<boolean> {
-  let written = true;
-  await new Promise<void>((resolve) => {
-    try {
-      output.write(text, (cause?: unknown) => {
-        written = cause === undefined;
-        resolve();
-      });
-    } catch (_cause: unknown) {
-      written = false;
-      resolve();
-    }
-  });
-  return written;
 }
 
 function monotonicMilliseconds(): number {
@@ -111,7 +93,7 @@ async function finishEvaluation(
   } catch (_cause: unknown) {
     return "complete";
   }
-  return (await writeText(stdout, text)) ? undefined : "write";
+  return (await writeProcessText(stdout, text)).ok ? undefined : "write";
 }
 
 function evaluationDiagnostic(

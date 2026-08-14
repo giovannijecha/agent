@@ -98,7 +98,10 @@ risky actions, and primary constraint yourself; the receipt deliberately cannot
 classify them. Late runtime events rejected by the active application turn do
 not enter its counts. If both the product run and receipt settlement fail, the
 product failure is reported first and the fixed receipt diagnostic remains
-secondary. The receipt is independently removable under decision 0048.
+secondary. Post-cleanup output also consumes Node's error event after an
+errored write callback, so a closed output stream cannot escape as an unhandled
+exception or hide that ordering. The receipt is independently removable under
+decision 0048.
 
 ## Evidence
 
@@ -133,6 +136,7 @@ secondary. The receipt is independently removable under decision 0048.
 - Evaluation validator tests: `tools/test/evaluation-suite.test.mjs`
 - Evaluation decision: `docs/decisions/0047-owned-reproducible-task-evaluation.md`
 - Evaluation receipt: `packages/agent-cli/src/evaluation-receipt.ts`
+- Composition-root output settlement: `packages/agent-cli/src/process-output.ts`
 - Evaluation receipt decision: `docs/decisions/0048-owned-content-free-evaluation-receipt.md`
 - Manual validator: `tools/lib/manual-policy.mjs`
 - Manual validator tests: `tools/test/manual-policy.test.mjs`
