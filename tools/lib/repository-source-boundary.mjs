@@ -5,6 +5,7 @@ import {
   openSync,
   readSync,
 } from "node:fs";
+import path from "node:path";
 
 const IGNORED_ROOT_DIRECTORIES = Object.freeze([
   ".git",
@@ -28,11 +29,105 @@ function sameIdentity(left, right) {
   return left.dev === right.dev && left.ino === right.ino;
 }
 
-/** Reads one regular repository source through a bounded stable descriptor. */
-export function readBoundedRegularSourceFile(file, maximumBytes) {
+function observeDirectory(directory) {
+  const observed = lstatSync(directory, {
+    bigint: true,
+    throwIfNoEntry: false,
+  });
   if (
-    typeof file !== "string" ||
-    file.length === 0 ||
+    observed === undefined ||
+    !observed.isDirectory() ||
+    observed.isSymbolicLink()
+  ) {
+    fail("invalidFile");
+  }
+  return observed;
+}
+
+function observeRegularFile(file, maximumBytes) {
+  const observed = lstatSync(file, {
+    bigint: true,
+    throwIfNoEntry: false,
+  });
+  if (
+    observed === undefined ||
+    !observed.isFile() ||
+    observed.isSymbolicLink() ||
+    observed.size < 1n ||
+    observed.size > BigInt(maximumBytes)
+  ) {
+    fail("invalidFile");
+  }
+  return observed;
+}
+
+function observeRepositoryPath(repositoryRoot, relativeFile) {
+  if (
+    typeof repositoryRoot !== "string" ||
+    repositoryRoot.length === 0 ||
+    !path.isAbsolute(repositoryRoot) ||
+    path.resolve(repositoryRoot) !== repositoryRoot ||
+    typeof relativeFile !== "string" ||
+    relativeFile.length === 0 ||
+    relativeFile.includes("\\")
+  ) {
+    fail("invalidFile");
+  }
+  const segments = relativeFile.split("/");
+  if (
+    segments.some((segment) =>
+      segment.length === 0 || segment === "." || segment === ".."
+    )
+  ) {
+    fail("invalidFile");
+  }
+  const directories = [];
+  let current = repositoryRoot;
+  directories.push(Object.freeze({
+    path: current,
+    state: observeDirectory(current),
+  }));
+  for (const segment of segments.slice(0, -1)) {
+    current = path.join(current, segment);
+    directories.push(Object.freeze({
+      path: current,
+      state: observeDirectory(current),
+    }));
+  }
+  return Object.freeze({
+    directories: Object.freeze(directories),
+    file: path.join(current, segments.at(-1)),
+  });
+}
+
+function verifyDirectoryChain(directories) {
+  for (const directory of directories) {
+    const current = observeDirectory(directory.path);
+    if (!sameIdentity(directory.state, current)) {
+      fail("invalidFile");
+    }
+  }
+}
+
+function verifyOpenedFile(file, expected, opened, maximumBytes) {
+  const current = observeRegularFile(file, maximumBytes);
+  if (
+    !sameIdentity(expected, current) ||
+    !sameIdentity(opened, current) ||
+    current.size !== expected.size ||
+    current.size !== opened.size
+  ) {
+    fail("invalidFile");
+  }
+}
+
+/** Reads one repository-relative regular source through a bounded descriptor. */
+export function readBoundedRegularSourceFile(
+  repositoryRoot,
+  relativeFile,
+  maximumBytes,
+) {
+  if (
     !Number.isSafeInteger(maximumBytes) ||
     maximumBytes < 1
   ) {
@@ -40,20 +135,9 @@ export function readBoundedRegularSourceFile(file, maximumBytes) {
   }
   let descriptor;
   try {
-    const observed = lstatSync(file, {
-      bigint: true,
-      throwIfNoEntry: false,
-    });
-    if (
-      observed === undefined ||
-      !observed.isFile() ||
-      observed.isSymbolicLink() ||
-      observed.size < 1n ||
-      observed.size > BigInt(maximumBytes)
-    ) {
-      fail("invalidFile");
-    }
-    descriptor = openSync(file, "r");
+    const observedPath = observeRepositoryPath(repositoryRoot, relativeFile);
+    const observed = observeRegularFile(observedPath.file, maximumBytes);
+    descriptor = openSync(observedPath.file, "r");
     const opened = fstatSync(descriptor, { bigint: true });
     if (
       !opened.isFile() ||
@@ -62,6 +146,9 @@ export function readBoundedRegularSourceFile(file, maximumBytes) {
     ) {
       fail("invalidFile");
     }
+    verifyDirectoryChain(observedPath.directories);
+    verifyOpenedFile(observedPath.file, observed, opened, maximumBytes);
+    verifyDirectoryChain(observedPath.directories);
     const bounded = new Uint8Array(maximumBytes + 1);
     let offset = 0;
     while (offset < bounded.length) {
@@ -78,6 +165,9 @@ export function readBoundedRegularSourceFile(file, maximumBytes) {
       offset += count;
     }
     const completed = fstatSync(descriptor, { bigint: true });
+    verifyDirectoryChain(observedPath.directories);
+    verifyOpenedFile(observedPath.file, observed, completed, maximumBytes);
+    verifyDirectoryChain(observedPath.directories);
     if (
       offset < 1 ||
       offset > maximumBytes ||

@@ -271,9 +271,11 @@ agent.”
   from ignored run state. It admits only closed content-free evidence bound to
   maintained tasks, explicit occurrence counts, one category and priority, and
   optional tracked resolution proof. The canonical verifier validates it
-  without reading ignored runs or inferring recurrence. One observed failure
-  remains `observing`; it does not justify a new tool, prompt change, or runtime
-  change by itself.
+  without reading ignored runs or inferring recurrence. Its sole source read is
+  rooted at the explicit canonical repository directory; every directory to the
+  registry parent is non-linked and identity-stable before and after the bounded
+  descriptor read. One observed failure remains `observing`; it does not justify
+  a new tool, prompt change, or runtime change by itself.
 
 ## Change discipline
 
