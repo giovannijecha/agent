@@ -112,13 +112,15 @@ It emits no registered path or entry content in an error.
 
 Ordinary `list`, `prepare`, `grade`, and `validate-record` commands check the
 exact combined `evaluations/` inventory but do not parse failure entries or walk
-the repository for resolution evidence. The canonical verifier likewise gives
-the task-suite validator only that inventory path, not a second registry value;
-parsing and validation reuse the one source-boundary snapshot. Corpus traversal
-reserves one registry file, one containing directory, and the registry's exact
-32,768-byte allowance in addition to the task-corpus maxima. Registry validity
-is a repository gate, not a precondition for operating on one already
-registered task.
+the repository for resolution evidence. Their shared traversal records the exact
+registry directory entry in the inventory before node-kind or content handling;
+it does not open, follow, descend through, or retain that entry. The canonical
+verifier likewise gives the task-suite validator only that inventory path, not a
+second registry value; parsing and validation reuse the one source-boundary
+snapshot. Corpus traversal reserves one logical registry file, one containing
+directory, and the registry's exact 32,768-byte allowance in addition to the
+task-corpus maxima. Registry validity is a repository gate, not a precondition
+for operating on one already registered task.
 
 The registry stores fixture-relative paths already eligible for the public
 owned corpus. It never stores paths outside a task, file contents, diffs,
@@ -141,7 +143,11 @@ CRLF, missing final LF, trailing whitespace, minification, and repeated keys
 collapse to the fixed content-free error without echoing rejected source.
 Inventory tests prove that the evaluation corpus and failure registry jointly
 own every file under `evaluations/`, reject unregistered additions, and leave
-the registry value absent from the task-corpus map.
+the registry value absent from the task-corpus map. One filesystem regression
+replaces the registry contents with a source larger than the evaluator's normal
+per-file limit and proves that `list`, `prepare`, `grade`, and `validate-record`
+still operate through inventory evidence alone. It then substitutes a directory
+at the same exact path and proves the loader neither descends into nor reads it.
 
 The canonical Windows and Linux gates validate the registry without creating a
 run, reading ignored state, launching `agent`, contacting a provider, executing

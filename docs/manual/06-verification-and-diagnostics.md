@@ -78,8 +78,11 @@ empty, oversized, or identity-changing registry before its first content read;
 the registry parser then requires exact two-space JSON, LF endings, one final
 LF, and unique keys by byte-equivalent canonical serialization. The task-corpus
 map retains only the registry inventory path, so parsing reuses that sole
-bounded snapshot instead of reopening the pathname. Filesystem, syntax,
-encoding, and representation failures remain fixed and content-free.
+bounded snapshot instead of reopening the pathname. Ordinary evaluator commands
+collect the exact registry directory entry as inventory metadata without
+opening, following, descending through, or retaining it; registry validity is
+therefore not a prerequisite for task operations. Filesystem, syntax, encoding,
+and representation failures remain fixed and content-free.
 
 ## Failure behavior
 

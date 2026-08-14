@@ -87,6 +87,7 @@ const METRIC_KEYS = Object.freeze([
   "turns",
 ]);
 const TASK_SECTIONS = Object.freeze(["Goal", "Constraints", "Completion"]);
+const FAILURE_REGISTRY_INVENTORY_PATH = "failures/registry.json";
 const TASK_ID = /^[a-z][a-z0-9-]{0,47}$/u;
 const RUN_ID = /^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$/u;
 const SAFE_PATH = /^[A-Za-z0-9._/-]+$/u;
@@ -275,14 +276,33 @@ function readDirectoryEntries(directory, maximumEntries, code) {
   return entries.sort((left, right) => left.name.localeCompare(right.name, "en"));
 }
 
-function readTree(directory, rootPrefix, code, limits) {
+function readTree(
+  directory,
+  rootPrefix,
+  code,
+  limits,
+  inventoryOnlyPaths = [],
+) {
   const rootState = lstatSync(directory, { throwIfNoEntry: false });
   if (rootState === undefined || !rootState.isDirectory() || rootState.isSymbolicLink()) {
     fail(code);
   }
   const files = new Map();
+  const ownedPaths = [];
+  const seenPaths = new Set();
+  const inventoryOnly = new Set(inventoryOnlyPaths);
   let directoryCount = 0;
+  let fileCount = 0;
   let totalBytes = 0;
+
+  function registerOwnedPath(ownedPath) {
+    if (fileCount >= limits.files || seenPaths.has(ownedPath)) {
+      fail(code);
+    }
+    fileCount += 1;
+    seenPaths.add(ownedPath);
+    ownedPaths.push(ownedPath);
+  }
 
   function visit(current, relative) {
     directoryCount += 1;
@@ -308,15 +328,17 @@ function readTree(directory, rootPrefix, code, limits) {
         code,
       );
       const absolute = path.join(current, entry.name);
+      if (inventoryOnly.has(ownedPath)) {
+        registerOwnedPath(ownedPath);
+        continue;
+      }
       if (entry.isSymbolicLink()) {
         fail(code);
       }
       if (entry.isDirectory()) {
         visit(absolute, childRelative);
       } else if (entry.isFile()) {
-        if (files.size >= limits.files || files.has(ownedPath)) {
-          fail(code);
-        }
+        registerOwnedPath(ownedPath);
         const bytes = readRegularFile(absolute, limits.fileBytes, code);
         totalBytes += bytes.length;
         if (totalBytes > limits.totalBytes) {
@@ -330,7 +352,10 @@ function readTree(directory, rootPrefix, code, limits) {
   }
 
   visit(directory, "");
-  return files;
+  return Object.freeze({
+    files,
+    ownedPaths: Object.freeze(sorted(ownedPaths)),
+  });
 }
 
 function snapshot(prefix, files, options) {
@@ -474,7 +499,7 @@ export function validateEvaluationSuite(policy, context) {
     if (JSON.stringify(ids) !== JSON.stringify(sorted(ids))) {
       fail("invalidPolicy");
     }
-    const expectedPaths = ["README.md", "failures/registry.json"];
+    const expectedPaths = ["README.md", FAILURE_REGISTRY_INVENTORY_PATH];
     const readmeBytes = context.files.get("README.md");
     if (readmeBytes === undefined) {
       fail("invalidCorpus");
@@ -515,16 +540,14 @@ export function loadEvaluationSuite(repositoryRoot) {
     } catch {
       fail("invalidPolicy");
     }
-    const files = readTree(
+    const corpus = readTree(
       path.join(root, "evaluations"),
       "",
       "invalidCorpus",
       EVALUATION_CORPUS_TREE_LIMITS,
+      [FAILURE_REGISTRY_INVENTORY_PATH],
     );
-    return validateEvaluationSuite(policy, {
-      files,
-      ownedPaths: sorted([...files.keys()]),
-    });
+    return validateEvaluationSuite(policy, corpus);
   });
 }
 
@@ -669,7 +692,7 @@ export function prepareEvaluationRun(repositoryRoot, taskId, runId) {
 }
 
 function workspaceSnapshot(directory) {
-  const files = readTree(
+  const { files } = readTree(
     directory,
     "",
     "unsafeRun",
