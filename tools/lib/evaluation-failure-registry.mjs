@@ -89,6 +89,23 @@ function fail(code) {
   throw new EvaluationFailureRegistryError(code);
 }
 
+/** Parses one bounded registry source without exposing rejected content. */
+export function parseEvaluationFailureRegistry(source) {
+  if (
+    !(source instanceof Uint8Array) ||
+    source.byteLength < 1 ||
+    source.byteLength > EVALUATION_FAILURE_LIMITS.registryBytes
+  ) {
+    fail("invalidRegistry");
+  }
+  try {
+    const text = new TextDecoder("utf-8", { fatal: true }).decode(source);
+    return JSON.parse(text);
+  } catch {
+    fail("invalidRegistry");
+  }
+}
+
 function isRecord(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
