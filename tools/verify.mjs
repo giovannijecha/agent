@@ -305,10 +305,12 @@ function verifyEvaluationPolicy() {
   const relativePaths = ownedPaths.map((file) => file.slice(root.length));
   validateEvaluationSuite(evaluationPolicy, {
     files: new Map(
-      ownedPaths.map((file, index) => [
-        relativePaths.at(index),
-        readFileSync(absolute(file)),
-      ]),
+      ownedPaths
+        .filter((file) => file !== failureRegistryPath)
+        .map((file) => [
+          file.slice(root.length),
+          readFileSync(absolute(file)),
+        ]),
     ),
     ownedPaths: relativePaths,
   });

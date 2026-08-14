@@ -62,9 +62,11 @@ representation so rejected source never enters a diagnostic. Before parsing,
 the repository source boundary admits only one bounded regular file whose path
 and opened-descriptor identities agree before and after the fixed-size read. Its
 validator binds closed evidence to current task identifiers and tracked
-resolution paths without reading ignored runs. The evaluator loader reserves
-the registry directory, file, and complete byte
-allowance without parsing its contents. One occurrence
+resolution paths without reading ignored runs. The canonical verifier retains
+that one bounded snapshot for registry parsing and exposes only its path—not a
+second value—to task-corpus validation. The evaluator loader reserves the
+registry directory, file, and complete byte allowance without parsing its
+contents. One occurrence
 remains observational and never admits a new model-facing tool or product
 change on its own.
 

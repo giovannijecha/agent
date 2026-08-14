@@ -31,9 +31,11 @@ framework and remains outside product packages. One independent
 `tools/lib/evaluation-failure-registry.mjs` module validates the registry. The
 existing evaluation-suite loader admits only the exact registry inventory path
 without reading its contents. The canonical verifier invokes the independent
-validator with the registered task identifiers and complete tracked source
-inventory needed to check resolution evidence. No new CLI command, model-facing
-tool, provider call, runtime observer, or candidate execution path is added.
+validator with the one bounded registry snapshot, registered task identifiers,
+and complete tracked source inventory needed to check resolution evidence. It
+omits the registry value from the task-corpus map while retaining its path in
+the inventory. No new CLI command, model-facing tool, provider call, runtime
+observer, or candidate execution path is added.
 
 Schema version 1 contains one canonically ordered `entries` array. Every entry
 has exactly:
@@ -110,11 +112,13 @@ It emits no registered path or entry content in an error.
 
 Ordinary `list`, `prepare`, `grade`, and `validate-record` commands check the
 exact combined `evaluations/` inventory but do not parse failure entries or walk
-the repository for resolution evidence. Their corpus traversal reserves one
-registry file, one containing directory, and the registry's exact 32,768-byte
-allowance in addition to the task-corpus maxima. Registry validity is a
-repository gate, not a precondition for operating on one already registered
-task.
+the repository for resolution evidence. The canonical verifier likewise gives
+the task-suite validator only that inventory path, not a second registry value;
+parsing and validation reuse the one source-boundary snapshot. Corpus traversal
+reserves one registry file, one containing directory, and the registry's exact
+32,768-byte allowance in addition to the task-corpus maxima. Registry validity
+is a repository gate, not a precondition for operating on one already
+registered task.
 
 The registry stores fixture-relative paths already eligible for the public
 owned corpus. It never stores paths outside a task, file contents, diffs,
@@ -136,7 +140,8 @@ regressions prove that malformed JSON, invalid UTF-8, BOM-prefixed source,
 CRLF, missing final LF, trailing whitespace, minification, and repeated keys
 collapse to the fixed content-free error without echoing rejected source.
 Inventory tests prove that the evaluation corpus and failure registry jointly
-own every file under `evaluations/` and reject unregistered additions.
+own every file under `evaluations/`, reject unregistered additions, and leave
+the registry value absent from the task-corpus map.
 
 The canonical Windows and Linux gates validate the registry without creating a
 run, reading ignored state, launching `agent`, contacting a provider, executing
