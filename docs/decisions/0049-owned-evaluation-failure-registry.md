@@ -32,7 +32,8 @@ framework and remains outside product packages. One independent
 existing evaluation-suite loader admits only the exact registry inventory path
 without reading its contents. The canonical verifier invokes the independent
 validator with the one bounded registry snapshot, registered task identifiers,
-and complete tracked source inventory needed to check resolution evidence. It
+their validated expected-path inventories, and complete tracked source inventory
+needed to check resolution evidence. It
 omits the registry value from the task-corpus map while retaining its path in
 the inventory. No new CLI command, model-facing tool, provider call, runtime
 observer, or candidate execution path is added.
@@ -58,6 +59,13 @@ consistency follows decision 0047: success requires `none`; a non-success
 outcome requires a concrete constraint; exact artifacts require empty grade
 sets; and non-exact artifacts require at least one changed, missing, or
 unexpected path.
+
+Every `changed` or `missing` path must exist in the current expected snapshot of
+the entry's task. Every `unexpected` path must be absent from that snapshot.
+The canonical verifier derives this inventory from the already validated,
+immutable evaluation suite; the registry neither reloads task files nor owns a
+parallel snapshot model. A task corpus change therefore invalidates stale or
+impossible grade evidence at the same gate that validates the registry.
 
 `observing` means evidence exists but frequency or impact does not yet justify
 a correction. An entry with exactly one occurrence must remain `observing`.
@@ -86,14 +94,17 @@ newline, canonical indentation, and at most 32,768 bytes. It admits at most 64
 entries, including an empty array after complete rollback. Entry identifiers
 use at most 64 lowercase ASCII letters, digits, or hyphens. Occurrences are
 positive safe integers capped at 10,000. Every grade set has at most 32 paths;
-paths reuse the evaluation snapshot limits of 16 segments and 256 UTF-8 bytes,
+the verifier context admits at most 16 tasks and 32 non-empty expected paths per
+task. All paths reuse the evaluation snapshot limits of 16 segments and 256
+UTF-8 bytes,
 reject traversal, absolute paths, backslashes, secret-shaped segments, Windows
 device names, duplicates, case-folding collisions, and overlaps between grade
 sets.
 
 Unknown keys, unknown classifications, noncanonical entry ordering, duplicate
 identifiers, unknown task identifiers, malformed paths, inconsistent evidence,
-invalid lifecycle transitions, a missing resolution target, or an unregistered
+grade paths inconsistent with the task's current expected snapshot, invalid
+lifecycle transitions, a missing resolution target, or an unregistered
 file below `evaluations/` fails the canonical gate with one content-free error.
 The repository source boundary accepts one explicit canonical repository root
 and one bounded repository-relative path. It rejects a missing, linked,
@@ -139,7 +150,8 @@ machine details.
 
 ## Verification
 
-Focused pure tests cover the canonical first entry, exact keys, task binding,
+Focused pure tests cover the canonical first entry, exact keys, task and
+expected-path binding,
 closed taxonomy and priority, positive frequency bounds, canonical ordering,
 duplicate identifiers, evidence consistency, path bounds and collisions,
 lifecycle rules, and existing resolution targets. Boundary tests prove that one

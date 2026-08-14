@@ -70,8 +70,10 @@ Exact grading proves file-tree equality only; a different artifact requires
 operator review and is never inferred to be semantically equivalent.
 
 The adjacent failure-registry validator binds durable negative evidence to the
-current task catalog. It accepts only closed category, priority, lifecycle,
-frequency, record, and grade fields. It reads no ignored run or candidate
+current task catalog and each task's validated expected-path inventory. It
+accepts only closed category, priority, lifecycle, frequency, record, and grade
+fields, and rejects impossible or stale grade-path classifications. It reads no
+ignored run or candidate
 content, and a first observation cannot automatically alter the tool surface or
 product behavior. The repository source boundary receives the canonical root
 separately from the repository-relative registry path. It rejects a linked or
