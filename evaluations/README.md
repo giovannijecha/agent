@@ -10,7 +10,8 @@ List the registered tasks:
 node tools/evaluate.mjs list
 ```
 
-Prepare one new run using a lowercase run identifier:
+Prepare one new run using a lowercase run identifier that is not a Windows
+reserved device name:
 
 ```powershell
 node tools/evaluate.mjs prepare javascript-collapse-whitespace run-01
@@ -34,5 +35,7 @@ node tools/evaluate.mjs validate-record javascript-collapse-whitespace run-01
 Runs live under ignored `state/evaluations/`. The evaluator has no reset or
 delete command, never executes candidate code, never contacts a provider, and
 does not retain prompts, transcripts, file contents, credentials, free-form
-notes, or personal identifiers. A non-exact tree is a review signal; only the
-operator may classify it as an accepted alternative.
+notes, or personal identifiers. Snapshot path limits apply after the canonical
+task prefix is removed. An empty candidate workspace is graded as a non-exact
+tree with every expected path missing. A non-exact tree is a review signal;
+only the operator may classify it as an accepted alternative.

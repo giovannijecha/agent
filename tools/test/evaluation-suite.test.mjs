@@ -20,6 +20,7 @@ import {
   EvaluationSuiteError,
   gradeEvaluationRun,
   listEvaluationTasks,
+  loadEvaluationSuite,
   prepareEvaluationRun,
   validateEvaluationRecord,
   validateEvaluationSuite,
@@ -249,6 +250,13 @@ test("enforces task, snapshot, and path bounds", () => {
 });
 
 test("rejects nonportable and case-colliding fixture paths", () => {
+  const deviceTask = clone(policy);
+  deviceTask.tasks.at(0).id = "con";
+  assert.throws(
+    () => validateEvaluationSuite(deviceTask, canonicalContext()),
+    expectCode("invalidPolicy"),
+  );
+
   for (const relative of ["NUL.txt", "id_rsa", "source."]) {
     const context = canonicalContext();
     const ownedPath = "tasks/c-count-positive/input/" + relative;
@@ -268,6 +276,30 @@ test("rejects nonportable and case-colliding fixture paths", () => {
     () => validateEvaluationSuite(policy, collision),
     expectCode("invalidCorpus"),
   );
+});
+
+test("loads snapshot-relative paths at the exact portable boundary", (t) => {
+  const root = temporaryRepository(t);
+  const relative = [
+    ...Array.from({ length: 15 }, (_value, index) => "d" + String(index)),
+    "f.c",
+  ].join("/");
+  for (const snapshotName of ["input", "expected"]) {
+    const target = path.join(
+      root,
+      "evaluations/tasks/c-count-positive",
+      snapshotName,
+      ...relative.split("/"),
+    );
+    mkdirSync(path.dirname(target), { recursive: true });
+    writeFileSync(target, "bounded\n");
+  }
+  const suite = loadEvaluationSuite(root);
+  const task = suite.tasks.find((candidate) =>
+    candidate.id === "c-count-positive"
+  );
+  assert.equal(task?.input.some((entry) => entry.path === relative), true);
+  assert.equal(task?.expected.some((entry) => entry.path === relative), true);
 });
 
 test("prepares only the input snapshot and refuses reuse", (t) => {
@@ -295,6 +327,20 @@ test("prepares only the input snapshot and refuses reuse", (t) => {
   assert.throws(
     () => prepareEvaluationRun(root, "javascript-collapse-whitespace", "run-01"),
     expectCode("runExists"),
+  );
+});
+
+test("rejects Windows device names as portable run identifiers", (t) => {
+  const root = temporaryRepository(t);
+  for (const runId of ["con", "nul", "com1", "lpt1"]) {
+    assert.throws(
+      () => prepareEvaluationRun(root, "c-count-positive", runId),
+      expectCode("invalidRun"),
+    );
+  }
+  assert.equal(
+    prepareEvaluationRun(root, "c-count-positive", "con-run").workspace,
+    path.join(root, "state/evaluations/c-count-positive/con-run/workspace"),
   );
 });
 
@@ -351,6 +397,33 @@ test("grades changed, missing, unexpected, and exact workspace trees", (t) => {
     { recursive: true },
   );
   assert.equal(gradeEvaluationRun(root, taskId, "exact").exact, true);
+});
+
+test("grades an empty candidate workspace as an ordinary failed artifact", (t) => {
+  const root = temporaryRepository(t);
+  const taskId = "c-count-positive";
+  const runId = "empty";
+  const prepared = prepareEvaluationRun(root, taskId, runId);
+  rmSync(prepared.workspace, { recursive: true });
+  mkdirSync(prepared.workspace);
+  assert.deepEqual(gradeEvaluationRun(root, taskId, runId), {
+    changed: [],
+    exact: false,
+    missing: ["main.c"],
+    runId,
+    taskId,
+    unexpected: [],
+  });
+  writeRecord(root, taskId, runId, {
+    artifact: "different",
+    outcome: "failure",
+    primaryConstraint: "model",
+  });
+  assert.deepEqual(validateEvaluationRecord(root, taskId, runId), {
+    artifact: "different",
+    outcome: "failure",
+    valid: true,
+  });
 });
 
 test("binds closed completed records to the current grade", (t) => {

@@ -41,7 +41,8 @@ files, secret-shaped paths, unregistered files, and identical input/expected
 snapshots fail verification.
 Paths that collide under ASCII case folding or use Windows reserved device
 names also fail, so one registered tree materializes consistently on both
-supported platforms.
+supported platforms. Task and run identifiers reject the same reserved device
+names before any state path is derived.
 
 ## Run lifecycle
 
@@ -61,6 +62,9 @@ Task and run identifiers determine every state path. Preparation refuses an
 existing final or staging run, builds in one owned sibling staging directory,
 and renames it only after all writes succeed. Failure removes only that exact
 validated staging directory. The framework has no reset or delete command.
+An empty candidate workspace remains a valid observable result: grading marks
+every expected path missing instead of treating the run as structurally unsafe.
+Canonical input and expected snapshots remain non-empty.
 
 The operator starts the normal `agent` executable from the prepared workspace,
 submits the registered brief, and retains responsibility for approvals. The
@@ -92,9 +96,13 @@ Completed records require all metrics and a non-pending classification.
 Schema version 1 admits at most 16 tasks, 32 files per snapshot, 65,536 bytes
 per file, 262,144 bytes per snapshot, a 4,096-byte task brief, 16 path segments,
 256 path bytes, and 512 directories per candidate tree. The complete corpus
-has limits derived from those per-task bounds. Run identifiers contain at most
-48 lowercase ASCII letters, digits, or hyphens. Counts are capped at 10,000 and
-elapsed time at 86,400,000 milliseconds.
+has limits derived from those per-task bounds. Snapshot path limits apply to
+the path relative to `input/`, `expected/`, or the candidate workspace; corpus
+traversal admits only the fixed `tasks/<task-id>/<snapshot>/` prefix overhead
+before the exact relative bound is reapplied. Run identifiers contain at most
+48 lowercase ASCII letters, digits, or hyphens and cannot equal a Windows
+reserved device name. Counts are capped at 10,000 and elapsed time at
+86,400,000 milliseconds.
 
 Unknown manifest or record fields, duplicate tasks, invalid ordering, malformed
 text, control characters outside tab and LF, traversal, absolute paths,
@@ -110,8 +118,9 @@ Pure policy tests cover the canonical corpus, schema and key drift, task
 ordering, duplicate identifiers, path and text rejection, snapshot bounds,
 identical snapshots, metric bounds, and record consistency. Filesystem tests
 cover staged preparation, existing-run rejection, exact grading, changed,
-missing, and unexpected files, and content-free diagnostics. The canonical gate
-validates the registered suite and runs those tests on Windows and Linux.
+missing, unexpected, and empty candidate trees, portable run identifiers, exact
+snapshot-relative path boundaries, and content-free diagnostics. The canonical
+gate validates the registered suite and runs those tests on Windows and Linux.
 
 ## Consequences
 

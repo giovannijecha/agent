@@ -180,6 +180,13 @@ Never execute a candidate workspace from the evaluator or infer semantic
 equivalence from a different file tree. Only the operator may mark a reviewed
 alternative as accepted.
 
+Apply file-count, byte, segment, and path-byte limits to each snapshot-relative
+tree. Corpus traversal may add only the fixed registered task prefix before the
+same relative path is revalidated. Keep canonical input and expected snapshots
+non-empty, but grade an empty candidate workspace as an ordinary non-exact
+result. Reject Windows reserved device names in task and run identifiers before
+deriving filesystem state on every platform.
+
 Prepared runs live outside version control. Record only the closed outcome,
 artifact, primary-constraint, and bounded count fields; do not add notes,
 prompts, responses, transcripts, file contents, credentials, personal

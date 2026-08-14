@@ -24,12 +24,19 @@ export const EVALUATION_LIMITS = Object.freeze({
   treeDirectories: 512,
 });
 
+const TASK_ID_MAX_CODE_UNITS = 48;
+const CORPUS_PREFIX_PATH_BYTES = 6 + TASK_ID_MAX_CODE_UNITS + 10;
+const CORPUS_PREFIX_PATH_SEGMENTS = 3;
+
 const CORPUS_TREE_LIMITS = Object.freeze({
   directories: 2 + EVALUATION_LIMITS.count *
     (1 + 2 * EVALUATION_LIMITS.treeDirectories),
   fileBytes: EVALUATION_LIMITS.fileBytes,
   files: 1 + EVALUATION_LIMITS.count *
     (1 + 2 * EVALUATION_LIMITS.filesPerSnapshot),
+  pathBytes: EVALUATION_LIMITS.pathBytes + CORPUS_PREFIX_PATH_BYTES,
+  pathSegments: EVALUATION_LIMITS.pathSegments +
+    CORPUS_PREFIX_PATH_SEGMENTS,
   totalBytes: EVALUATION_LIMITS.taskBytes + EVALUATION_LIMITS.count *
     (EVALUATION_LIMITS.taskBytes + 2 * EVALUATION_LIMITS.snapshotBytes),
 });
@@ -37,6 +44,8 @@ const SNAPSHOT_TREE_LIMITS = Object.freeze({
   directories: EVALUATION_LIMITS.treeDirectories,
   fileBytes: EVALUATION_LIMITS.fileBytes,
   files: EVALUATION_LIMITS.filesPerSnapshot,
+  pathBytes: EVALUATION_LIMITS.pathBytes,
+  pathSegments: EVALUATION_LIMITS.pathSegments,
   totalBytes: EVALUATION_LIMITS.snapshotBytes,
 });
 
@@ -78,6 +87,8 @@ const TASK_SECTIONS = Object.freeze(["Goal", "Constraints", "Completion"]);
 const TASK_ID = /^[a-z][a-z0-9-]{0,47}$/u;
 const RUN_ID = /^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$/u;
 const SAFE_PATH = /^[A-Za-z0-9._/-]+$/u;
+const WINDOWS_DEVICE_NAME =
+  /^(?:aux|con|nul|prn|com[1-9]|lpt[1-9])(?:\.|$)/u;
 const UNSAFE_TEXT = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u;
 const SECRET_EXTENSIONS = Object.freeze([
   ".jks",
@@ -199,7 +210,7 @@ function readRegularFile(file, maximumBytes, code) {
   return bytes;
 }
 
-function safeRelativePath(value, code) {
+function safeRelativePath(value, maximumBytes, maximumSegments, code) {
   if (
     typeof value !== "string" ||
     value.length === 0 ||
@@ -208,7 +219,7 @@ function safeRelativePath(value, code) {
     value.startsWith("/") ||
     value.endsWith("/") ||
     /^[A-Za-z]:/u.test(value) ||
-    new TextEncoder().encode(value).length > EVALUATION_LIMITS.pathBytes
+    new TextEncoder().encode(value).length > maximumBytes
   ) {
     fail(code);
   }
@@ -216,7 +227,7 @@ function safeRelativePath(value, code) {
   const segments = value.split("/");
   if (
     normalized !== value ||
-    segments.length > EVALUATION_LIMITS.pathSegments ||
+    segments.length > maximumSegments ||
     segments.some(
       (segment) => segment.length === 0 || segment === "." || segment === "..",
     )
@@ -231,7 +242,7 @@ function safeRelativePath(value, code) {
         SECRET_SEGMENTS.includes(segment) ||
         SECRET_NAMES.includes(segment) ||
         segment.startsWith(".env.") ||
-        /^(?:aux|con|nul|prn|com[1-9]|lpt[1-9])(?:\.|$)/u.test(segment) ||
+        WINDOWS_DEVICE_NAME.test(segment) ||
         segment.endsWith("."),
     ) ||
     SECRET_EXTENSIONS.some((extension) => finalName.endsWith(extension))
@@ -287,7 +298,12 @@ function readTree(directory, rootPrefix, code, limits) {
       const ownedPath = rootPrefix.length === 0
         ? childRelative
         : rootPrefix + "/" + childRelative;
-      safeRelativePath(ownedPath, code);
+      safeRelativePath(
+        ownedPath,
+        limits.pathBytes,
+        limits.pathSegments,
+        code,
+      );
       const absolute = path.join(current, entry.name);
       if (entry.isSymbolicLink()) {
         fail(code);
@@ -314,7 +330,8 @@ function readTree(directory, rootPrefix, code, limits) {
   return files;
 }
 
-function snapshot(prefix, files, code) {
+function snapshot(prefix, files, options) {
+  const { allowEmpty, code } = options;
   const marker = prefix + "/";
   const entries = [];
   let totalBytes = 0;
@@ -323,7 +340,12 @@ function snapshot(prefix, files, code) {
       continue;
     }
     const relative = ownedPath.slice(marker.length);
-    safeRelativePath(relative, code);
+    safeRelativePath(
+      relative,
+      EVALUATION_LIMITS.pathBytes,
+      EVALUATION_LIMITS.pathSegments,
+      code,
+    );
     const text = strictText(bytes, EVALUATION_LIMITS.fileBytes, code);
     totalBytes += bytes.length;
     entries.push(Object.freeze({
@@ -335,7 +357,7 @@ function snapshot(prefix, files, code) {
   entries.sort((left, right) => left.path.localeCompare(right.path, "en"));
   unique(entries.map((entry) => entry.path.toLowerCase()), code);
   if (
-    entries.length === 0 ||
+    (!allowEmpty && entries.length === 0) ||
     entries.length > EVALUATION_LIMITS.filesPerSnapshot ||
     totalBytes > EVALUATION_LIMITS.snapshotBytes
   ) {
@@ -382,6 +404,7 @@ function validateTask(value, files) {
   if (
     typeof value.id !== "string" ||
     !TASK_ID.test(value.id) ||
+    WINDOWS_DEVICE_NAME.test(value.id) ||
     !CATEGORIES.includes(value.category) ||
     !PROJECT_KINDS.includes(value.projectKind) ||
     typeof value.title !== "string" ||
@@ -404,8 +427,14 @@ function validateTask(value, files) {
     "invalidCorpus",
   );
   taskBrief(brief, value.title);
-  const input = snapshot(base + "/input", files, "invalidCorpus");
-  const expected = snapshot(base + "/expected", files, "invalidCorpus");
+  const input = snapshot(base + "/input", files, {
+    allowEmpty: false,
+    code: "invalidCorpus",
+  });
+  const expected = snapshot(base + "/expected", files, {
+    allowEmpty: false,
+    code: "invalidCorpus",
+  });
   if (sameSnapshot(input, expected)) {
     fail("invalidCorpus");
   }
@@ -511,7 +540,8 @@ function validRunId(runId) {
   if (
     typeof runId !== "string" ||
     runId.length > EVALUATION_LIMITS.runIdCodeUnits ||
-    !RUN_ID.test(runId)
+    !RUN_ID.test(runId) ||
+    WINDOWS_DEVICE_NAME.test(runId)
   ) {
     fail("invalidRun");
   }
@@ -642,9 +672,13 @@ function workspaceSnapshot(directory) {
     "unsafeRun",
     SNAPSHOT_TREE_LIMITS,
   );
-  return snapshot("workspace", new Map(
-    [...files].map(([ownedPath, bytes]) => ["workspace/" + ownedPath, bytes]),
-  ), "unsafeRun");
+  return snapshot(
+    "workspace",
+    new Map(
+      [...files].map(([ownedPath, bytes]) => ["workspace/" + ownedPath, bytes]),
+    ),
+    { allowEmpty: true, code: "unsafeRun" },
+  );
 }
 
 function compareSnapshots(taskId, runId, expected, actual) {
