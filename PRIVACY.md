@@ -108,6 +108,20 @@ Local session persistence is disabled. If implemented, it must be opt-in,
 versioned, bounded, inspectable, removable, and documented before release. It
 must not silently upload or synchronize session data.
 
+## Local task evaluation
+
+The optional evaluation tool creates runs only under ignored
+`state/evaluations/`. A prepared workspace contains the registered input files
+and a content-free record template; it contains no expected snapshot, provider
+credential, prompt capture, transcript, or personal identifier. The evaluator
+does not start `agent`, contact a provider, or execute candidate workspace code.
+
+Grading reads only the selected run workspace and reports bounded relative path
+names classified as changed, missing, or unexpected. Completed records admit
+only closed classifications and bounded integer counts. The operator must not
+place secrets or personal content in task paths or record fields. Removing the
+run directory removes all evaluation state owned by the framework.
+
 ## Removal
 
 Closing the current process releases its in-memory conversation, display state,

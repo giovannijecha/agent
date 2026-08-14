@@ -1,0 +1,8 @@
+{
+  "name": "documentation-command-sample",
+  "private": true,
+  "scripts": {
+    "check": "node --test"
+  },
+  "type": "module"
+}

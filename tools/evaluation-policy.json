@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "tasks": [
+    {
+      "category": "bug-fix",
+      "id": "c-count-positive",
+      "projectKind": "c",
+      "title": "Keep positive-count reads in bounds"
+    },
+    {
+      "category": "documentation",
+      "id": "documentation-check-command",
+      "projectKind": "documentation",
+      "title": "Align the documented verification command"
+    },
+    {
+      "category": "bug-fix",
+      "id": "javascript-collapse-whitespace",
+      "projectKind": "javascript",
+      "title": "Collapse repeated slug whitespace"
+    },
+    {
+      "category": "bug-fix",
+      "id": "typescript-inclusive-range",
+      "projectKind": "typescript",
+      "title": "Include the range endpoint"
+    },
+    {
+      "category": "refactor",
+      "id": "web-extract-script",
+      "projectKind": "web",
+      "title": "Extract the inline browser script"
+    }
+  ]
+}

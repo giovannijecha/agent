@@ -23,6 +23,11 @@ metadata are derived toolchain artifacts from owned inputs. They are not foreign
 source and are never edited manually. Client behavior, serialization, streaming,
 errors, retries, policy, prompts, and UI remain our implementations.
 
+The task-evaluation briefs, input workspaces, expected workspaces, manifest,
+grader, and tests are original repository artifacts. They are not copied or
+adapted benchmark material, and no external task corpus or candidate solution
+is admitted into product source.
+
 ## Forbidden inputs
 
 - npm registry, Git, URL, file, development, peer, optional, or bundled packages;

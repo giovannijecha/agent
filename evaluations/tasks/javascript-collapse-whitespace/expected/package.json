@@ -1,0 +1,8 @@
+{
+  "name": "javascript-slug-sample",
+  "private": true,
+  "scripts": {
+    "test": "node --test"
+  },
+  "type": "module"
+}

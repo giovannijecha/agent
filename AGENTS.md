@@ -251,6 +251,12 @@ agent.”
   registered program token, exact per-call approval, fixed limits, isolated
   operating-system bootstrap, bounded output, and complete descendant
   cancellation and cleanup on Windows and Linux.
+- Owned task evaluation is maintainer tooling, not product runtime. Keep its
+  versioned corpus, manifest, offline evaluator, closed metric records, and
+  validator under decision 0047. Preparation exposes only an input snapshot;
+  grading compares regular-file trees without executing candidate code; the
+  canonical verifier validates the corpus but never creates a run, launches
+  `agent`, contacts a provider, captures a transcript, or reads credentials.
 
 ## Change discipline
 

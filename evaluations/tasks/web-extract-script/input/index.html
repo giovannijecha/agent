@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Counter</title>
+  </head>
+  <body>
+    <button id="counter" type="button">0</button>
+    <script>
+      const button = document.querySelector("#counter");
+      button.addEventListener("click", () => {
+        button.textContent = String(Number(button.textContent) + 1);
+      });
+    </script>
+  </body>
+</html>
