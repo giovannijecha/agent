@@ -600,6 +600,68 @@ test("renders successful tools on one borderless semantic surface", () => {
   assert.equal(name?.surface, "success");
 });
 
+test("keeps completed mutation activity compact after exact approval", () => {
+  const application = new ApplicationController(true);
+  assert.ok(application.turnAccepted(started(23, "change styles")).ok);
+  const preview =
+    'operation="replace_text" path="index.html" remove="' +
+    "x".repeat(512) +
+    '" insert="' +
+    "y".repeat(512) +
+    '"';
+  requestTool(application, {
+    approval: true,
+    callId: "private-large-write",
+    name: "replace_text",
+    preview,
+    risk: "write",
+    turnId: 23,
+  });
+  application.feed("/approve\r");
+  assert.ok(
+    application.applyRuntime({
+      callId: "private-large-write",
+      kind: "toolStarted",
+      name: "replace_text",
+      risk: "write",
+      turnId: 23,
+    }).ok,
+  );
+  assert.ok(
+    application.applyRuntime({
+      callId: "private-large-write",
+      kind: "toolFinished",
+      name: "replace_text",
+      risk: "write",
+      status: "success",
+      turnId: 23,
+    }).ok,
+  );
+
+  const rendered = frame(application, 72, 18);
+  assert.ok(rendered.ok);
+  const activityRows = rendered.value.rows.filter((row) =>
+    row.spans.some((span) => span.surface === "success"),
+  );
+  const activityText = activityRows.map((row) => row.text).join("\n");
+
+  assert.equal(activityRows.length, 2);
+  assert.equal(activityText.includes("replace_text"), true);
+  assert.equal(activityText.includes("succeeded"), true);
+  assert.equal(activityText.includes("write"), true);
+  assert.equal(activityText.includes("operation="), false);
+  assert.equal(activityText.includes("x".repeat(32)), false);
+  assert.equal(
+    activityRows.every(
+      (row) =>
+        row.spans
+          .filter((span) => span.surface === "success")
+          .reduce((width, span) => width + span.text.length, 0) === 70,
+    ),
+    true,
+  );
+});
+
 test("renders approval through the same borderless semantic surface", () => {
   const application = new ApplicationController(true);
   assert.ok(application.turnAccepted(started(3, "change")).ok);

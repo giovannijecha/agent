@@ -55,6 +55,13 @@ pure Node.js feasibility proof and the kernel-backed Windows and Linux exit
 criteria. Admission then requires that complete platform proof plus its own
 distinctness, necessity, and removal evidence.
 
+Decision 0036 later admits that proven execute capability. Decision 0050 keeps
+this lean-harness principle while defining a staged six-domain convergence
+target. During migration the exact manual-policy inventory remains
+authoritative; every completed authority-domain replacement removes its old
+overlapping descriptor in the same change. A future sandboxed `shell` can only
+replace the sole execute capability, never join it as an alias.
+
 ## Consequences
 
 The model sees fewer competing choices, tool selection stays explainable, and

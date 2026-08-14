@@ -28,6 +28,7 @@ import { ClipboardPayload } from "./clipboard.js";
 import type { TextOutput } from "./output.js";
 import { RichRow } from "./rich-row.js";
 import { ok, type Result } from "./result.js";
+import type { SurfaceTone } from "./text-style.js";
 import type { Viewport } from "./viewport.js";
 
 function rowsEqual(
@@ -63,6 +64,22 @@ function fitRenderedRow(row: RichRow, columns: number): RichRow {
     throw new RangeError("validated renderer geometry invariant failed");
   }
   return fitted.value;
+}
+
+function homogeneousOpaqueSurface(
+  row: RichRow,
+  columns: number,
+): SurfaceTone | undefined {
+  if (row.cellWidth !== columns || row.spans.length === 0) {
+    return undefined;
+  }
+  const surface = row.spans.at(0)?.surface;
+  if (surface === undefined || surface === "none") {
+    return undefined;
+  }
+  return row.spans.every((span) => span.surface === surface)
+    ? surface
+    : undefined;
 }
 
 /** Serialized differential renderer for one alternate-screen terminal session. */
@@ -178,6 +195,14 @@ export class Renderer<E> {
       buffer += moveTo(row, 0) + CLEAR_ROW;
       if (nextLine !== undefined) {
         containsTerminalString ||= rowContainsHyperlink(nextLine);
+        const surface = homogeneousOpaqueSurface(nextLine, viewport.columns);
+        if (surface !== undefined) {
+          buffer +=
+            beginStyle("plain", "none", "normal", surface) +
+            " ".repeat(viewport.columns) +
+            STYLE_RESET +
+            moveTo(row, 0);
+        }
         buffer += renderRow(nextLine);
       }
     }

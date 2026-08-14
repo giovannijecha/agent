@@ -417,7 +417,10 @@ and italic, retain the written state, and do not add per-tool components,
 panels, rails, icons, colors, aliases, or state paths. Visible activity is
 derived from one bounded log: only the latest tool occupies the contextual slot
 while its turn is active. The next tool replaces it, turn settlement removes
-it, and no activity enters the scrollable conversation. Do not add a second
+it, and no activity enters the scrollable conversation. Project the exact
+bounded effect preview only for `approval`; every other state keeps its second
+row to the risk value. Retain the preview in the bounded lifecycle log rather
+than deleting state or creating a terminal-summary model. Do not add a second
 archive or lifecycle model. Activity
 is limited to the current or most recently settled turn and is scrubbed during
 cleanup. Reuse one CLI-owned one-row rhythm through the generic `Spacer` before
@@ -425,6 +428,12 @@ each non-empty activity or completion region, before the composer, and before
 the footer. Give every instance zero minimum height so constrained viewports
 discard rhythm before required interaction or activity content. Do not add
 component-private margins.
+When differential rendering redraws a homogeneous nontransparent row whose
+logical width equals the viewport, prepaint exactly that width with ASCII spaces
+under the row's authoritative surface, return to column zero, and then emit its
+structured spans. Do this only inside the renderer and only for rows already
+selected for redraw. Do not compensate in component text, add Unicode-specific
+width exceptions, or alter frame equality.
 Keep the empty session empty and keep
 operator guidance in the manual; do not recreate welcome suggestions or an
 embedded help document.
@@ -450,6 +459,14 @@ order. Filesystem tools use no ambient network access.
 Decision 0036 admits only `run_process`, the registered `node` token, and the
 owned native whole-tree containment broker; no other process capability may be
 advertised.
+Construct the exact current token mapping through the CLI-owned
+`ProcessProgramRegistry`. Descriptor validation and handler execution must use
+that same registry authority; do not duplicate an executable mapping in a
+handler, adapter, provider, or prompt. A new entry needs one closed token,
+executable resolution, argument policy, platform policy, approval evidence,
+focused tests, maintained evaluation evidence, and decisions 0036 and 0050 in
+the same review. Reject unknown programs before approval. Do not reinterpret a
+rejected request as shell text.
 Keep the broker control-input error listener active from spawn through its
 first failure or close. Treat a synchronous or asynchronous launch/cancel write
 failure as one content-free adapter failure, preserving any earlier typed
@@ -492,6 +509,14 @@ policy after canonical resolution and at later identity checks. On Windows,
 reject DOS short-name components such as `~1` before observation because the
 runtime may preserve the alias spelling. Never copy this logic into schemas,
 runtime, TUI, or individual private matchers.
+
+Keep `read_file` line selection in the pure CLI-owned projection module. A
+path-only request must remain compatible with complete-text reads. Preserve
+source line terminators exactly, never add numbers or synthetic newlines, and
+return the closed metadata tuple `startLine`, `lineCount`, `totalLines`, and
+`hasMore`. Apply projection only after the shared policy, bounded read,
+cancellation, and post-read path checks. Different ranges remain observations
+of the same canonical read identity for evaluation receipts.
 New-file creation refuses overwrite;
 replacement requires exactly one old-text occurrence. Enumerate directories
 incrementally and bound directory entries, searched directories, aggregate
@@ -521,7 +546,11 @@ effect. Render only descriptor-declared bounded projections or an owned bounded
 effect preview. A mutation preview may show exact content when it fits, or
 bounded excerpts plus SHA-256 digests and an explicit omitted count. Never put
 raw arguments, file content, outputs, call identifiers, or causes in notices,
-errors, transcripts, or logs. Update decision 0008 whenever schemas, risk,
+errors, transcripts, or logs. Project a checkpointed terminal failure only
+through the pure CLI-owned classifier from decision 0052. Keep the closed
+`model/...`, `tool/...`, or `runtime/failure` code identical in the transcript
+marker and notice, and never reinterpret a successful tool as failed because a
+later model step stopped. Update decision 0008 whenever schemas, risk,
 approval, checkpoint, containment, or Node-tool safety changes. Update decision
 0014, the manual registry, necessity record, focused tests, and removal guidance
 whenever the advertised surface changes.

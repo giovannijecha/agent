@@ -13,6 +13,13 @@ Decision 0043 removes the surface's vertical padding and anchors constrained
 activity at its head so tool identity and written state survive before optional
 detail. The semantic background and lifecycle contract below remain current.
 
+The 2026-08-14 lifecycle-density refinement reserves the complete bounded
+effect preview for the `approval` state. Queued, running, cancelling, and
+terminal snapshots retain only the risk class below the authoritative identity
+and written state. An approval remains the sole point where the operator must
+inspect and authorize the exact effect; replaying that potentially large
+preview after the decision adds no authority and can displace the conversation.
+
 ## Context
 
 The contextual activity slot already keeps only the latest tool call while its
@@ -45,6 +52,13 @@ Approval uses the same surface and hierarchy. Its first row contains the tool
 name and `approval required`; its second row contains bounded risk and preview
 detail plus the exact `/approve` and `/deny` actions. It gains no dedicated
 panel, border, rail, icon, component, or state path.
+
+Every non-approval snapshot keeps the same two-row hierarchy but projects only
+its validated risk class as optional detail. It never replays mutation content,
+digests, process arguments, or approval excerpts after approval or terminal
+settlement. This is a presentation projection only: the lifecycle log retains
+the immutable preview while the call is current so approval identity and
+runtime invariants remain unchanged.
 
 The existing lifecycle and retention contract does not change: the latest
 activity replaces its predecessor, turn settlement removes it, and no tool

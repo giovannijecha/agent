@@ -28,6 +28,12 @@ is an ordered list of literal strings. `workingDirectory` is a
 workspace-relative existing directory resolved through the same canonical,
 no-symlink boundary as the file tools.
 
+Decision 0050 centralizes that exact current mapping in one CLI-owned
+`ProcessProgramRegistry`. The descriptor's literal token and the handler's
+absolute executable resolution consume the same authority. This structural
+change admits no additional token or argument form. Any future registry entry
+changes this decision and decision 0050 together.
+
 The model cannot provide a command string, shell, executable path, PATH,
 environment variable, standard-input content, containment option, timeout, or
 resource limit. Linux targets receive an empty environment. Windows targets
@@ -114,6 +120,8 @@ environment fields. The existing native Windows and Linux containment suite
 continues to prove descendant cleanup, process storms, controller loss,
 detached descendants, cancellation races, and unrelated-process isolation.
 The canonical Windows and Linux verifier remains the release gate.
+Focused registry tests reject relative or NUL-bearing executable mappings and
+resolve only the exact lowercase `node` token.
 
 ## Update, rollback, and removal
 
@@ -125,7 +133,8 @@ change together.
 
 To remove process execution, first remove `run_process` from the CLI registry
 and provider-visible tool descriptors. Then remove its handler and Node broker
-adapter, remove the admitted manual inventory entry, and finally remove the native
+adapter, remove the program registry and admitted manual inventory entry, and
+finally remove the native
 product build only if no proof or future platform work still uses it. Core,
 runtime, provider transport, file tools, TUI, and terminal lifecycle remain
 independently usable. Rollback is the same sequence and must leave the tool

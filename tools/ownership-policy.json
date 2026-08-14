@@ -65,6 +65,9 @@
     "docs/decisions/0047-owned-reproducible-task-evaluation.md",
     "docs/decisions/0048-owned-content-free-evaluation-receipt.md",
     "docs/decisions/0049-owned-evaluation-failure-registry.md",
+    "docs/decisions/0050-owned-minimal-coding-capability-surface.md",
+    "docs/decisions/0051-owned-bounded-file-line-projection.md",
+    "docs/decisions/0052-owned-checkpointed-turn-failure-classification.md",
     "evaluations/README.md"
   ],
   "workspaces": [

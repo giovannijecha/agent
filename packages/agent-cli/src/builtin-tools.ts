@@ -14,6 +14,7 @@ import {
   StructuredObject,
 } from "@agent/core";
 import {
+  IntegerSchema,
   ListSchema,
   LiteralStringSchema,
   ObjectSchema,
@@ -34,6 +35,10 @@ import {
 
 import type { ProcessRunner } from "./process-runner.js";
 import { PROCESS_RUNNER_LIMITS } from "./process-runner.js";
+import {
+  PROCESS_PROGRAM_TOKENS,
+  ProcessProgramRegistry,
+} from "./process-program-registry.js";
 import { BUILTIN_TOOL_LIMITS } from "./builtin-tool-limits.js";
 import type {
   EvaluationReadName,
@@ -50,6 +55,7 @@ import {
   workspacePolicyPath as policyPath,
 } from "./workspace-path.js";
 import { WorkspaceReadPolicy } from "./workspace-read-policy.js";
+import { projectWorkspaceFileRead } from "./workspace-file-read.js";
 import {
   createFilePlanner,
   replaceTextPlanner,
@@ -66,7 +72,7 @@ export type BuiltinToolsError = Readonly<{ kind: BuiltinToolsErrorKind }>;
 
 export type BuiltinToolsPlatform = Readonly<{
   mutationCommitter: WorkspaceMutationCommitter;
-  nodeExecutable: string;
+  processPrograms: ProcessProgramRegistry;
   processRunner: ProcessRunner;
 }>;
 
@@ -157,6 +163,20 @@ function textList(input: StructuredObject, name: string): readonly string[] {
     throw new Error("validated tool input invariant");
   }
   return Object.freeze(value.values.map((item) => item as string));
+}
+
+function optionalInteger(
+  input: StructuredObject,
+  name: string,
+): number | undefined {
+  const value = input.get(name);
+  if (
+    value !== undefined &&
+    (typeof value !== "number" || !Number.isSafeInteger(value))
+  ) {
+    throw new Error("validated tool input invariant");
+  }
+  return value;
 }
 
 async function readDirectoryBounded(
@@ -253,7 +273,14 @@ function readFileHandler(
       ) {
         return checked.ok ? toolFailure("permission") : checked;
       }
-      return toolSuccess({ text: content });
+      const projection = projectWorkspaceFileRead(
+        content,
+        optionalInteger(input, "startLine"),
+        optionalInteger(input, "lineCount"),
+      );
+      return projection.ok
+        ? toolSuccess(projection.value)
+        : toolFailure("limit");
     } catch (cause: unknown) {
       return err(mapIoError(cause));
     }
@@ -554,6 +581,14 @@ function objectSchema(
   return schema.value;
 }
 
+function integerSchema(minimum: number, maximum: number): IntegerSchema {
+  const schema = IntegerSchema.create(minimum, maximum);
+  if (!schema.ok) {
+    throw new Error("owned integer schema invariant");
+  }
+  return schema.value;
+}
+
 function listSchema(
   item: StringSchema,
   minimum: number,
@@ -603,7 +638,8 @@ function runProcessHandler(
       return toolFailure("cancelled");
     }
     const program = text(input, "program");
-    if (program !== "node") {
+    const registration = platform.processPrograms.resolve(program);
+    if (registration === undefined) {
       return toolFailure("unsupported");
     }
     const workingDirectory = await existingPath(
@@ -617,7 +653,7 @@ function runProcessHandler(
     const result = await platform.processRunner.run(
       Object.freeze({
         arguments: textList(input, "arguments"),
-        executable: platform.nodeExecutable,
+        executable: registration.executable,
         processLimit: PROCESS_RUNNER_LIMITS.processCount,
         stderrBytes: PROCESS_RUNNER_LIMITS.stderrBytes,
         stdoutBytes: PROCESS_RUNNER_LIMITS.stdoutBytes,
@@ -677,9 +713,23 @@ function registrations(
     Object.freeze({
       descriptor: descriptor(
         "read_file",
-        "Read one permitted bounded UTF-8 workspace file.",
+        "Read one permitted bounded UTF-8 workspace file with optional exact logical-line projection.",
         "read",
-        objectSchema([pathField]),
+        objectSchema([
+          pathField,
+          {
+            description: "Optional one-based first logical line. Defaults to 1.",
+            name: "startLine",
+            required: false,
+            schema: integerSchema(1, BUILTIN_TOOL_LIMITS.fileLineNumber),
+          },
+          {
+            description: "Optional maximum logical lines to return. Omit for every remaining line.",
+            name: "lineCount",
+            required: false,
+            schema: integerSchema(1, BUILTIN_TOOL_LIMITS.fileRangeLines),
+          },
+        ]),
       ),
       handler: readFileHandler(root, policy, observer),
     }),
@@ -766,7 +816,7 @@ function registrations(
             description: "Registered program token. The initial value is node.",
             name: "program",
             required: true,
-            schema: literalStringSchema("node"),
+            schema: literalStringSchema(PROCESS_PROGRAM_TOKENS.node),
           },
           {
             description: "Ordered program arguments without shell parsing.",
@@ -825,9 +875,7 @@ export function createBuiltinToolEngine(
     platform.mutationCommitter === null ||
     typeof platform.mutationCommitter !== "object" ||
     typeof platform.mutationCommitter.commit !== "function" ||
-    typeof platform.nodeExecutable !== "string" ||
-    !path.isAbsolute(platform.nodeExecutable) ||
-    platform.nodeExecutable.includes("\u0000") ||
+    !(platform.processPrograms instanceof ProcessProgramRegistry) ||
     platform.processRunner === null ||
     typeof platform.processRunner !== "object" ||
     typeof platform.processRunner.run !== "function"

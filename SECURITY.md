@@ -46,6 +46,10 @@ recheck resolved targets, and reject ambiguous Windows DOS short-name aliases.
 This is a disclosure boundary, not content-based secret detection, write
 protection, or a sandbox for approved processes.
 
+Optional `read_file` line selection is applied only after that same bounded
+complete-file observation and its post-read checks. It changes returned
+context, not readable paths, source-size limits, or filesystem authority.
+
 Write calls are schema-validated with the complete batch before observation,
 then planned just in time. `create_file` binds approval to target absence,
 canonical parent identity, complete proposed content, and its SHA-256 digest.
@@ -73,7 +77,8 @@ restores terminal state before TUI startup. It enables no provider OAuth login,
 arbitrary network
 transport, persistent credential or session store, or redirect policy. The
 single `run_process` capability admits only an exactly approved bounded `node`
-invocation through owned descendant-tree containment. That containment is not a
+invocation resolved by the CLI-owned closed program registry and launched
+through owned descendant-tree containment. That containment is not a
 filesystem or network sandbox; approved code retains the launching user's
 operating-system authority. Reports about provider traffic should identify the
 exact CLI transport, wire decoder, or configuration boundary involved.

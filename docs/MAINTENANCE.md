@@ -93,6 +93,14 @@ that only state newer than the last checkpoint may be discarded. Update
 decision 0029 with any batch order, planning, limit, output-budget, cancellation,
 or checkpoint change.
 
+Checkpointed failure-presentation changes follow decision 0052. Update the
+closed pure classifier, reducer regressions, turn-lifecycle manual,
+architecture, and engineering guidance together. A new runtime failure variant
+must receive one content-free code before publication. Never add provider
+causes, tool payloads, paths, content, call identifiers, retry state, or a
+second diagnostic log. Roll back the classifier and classified marker together
+without changing checkpoint retention.
+
 To remove runtime, first remove any CLI runtime composition and restore exact
 no-model submission behavior. Then delete `packages/agent-runtime`, its root npm
 and TypeScript registrations, its ownership and provider-policy entries, its
@@ -205,7 +213,11 @@ decision 0043. Keep user and composer vertical padding at one, activity
 vertical padding at zero, and external rhythm at one optional row unless all
 three wide, medium, and short geometry matrices change together. On clipping,
 retain the activity head with tool identity and written state before optional
-detail. Do not duplicate these values in presenters or generic TUI components.
+detail. Show the exact bounded effect preview only during `approval`; queued,
+running, cancelling, and terminal projections show only risk beneath the head.
+Keep the preview in the bounded activity log so this remains a presentation
+rule, not a second lifecycle. Do not duplicate these values in presenters or
+generic TUI components.
 A contextual notice remains one latest transparent region below activity and
 above completion or the composer. Preserve the independent muted-information
 and attention-warning levels, one-cell content alignment, replacement semantics,
@@ -224,6 +236,11 @@ identity, and explicit written state. Approval adds no private panel or rail.
 Its view projection must continue to derive only the latest activity from the
 same bounded log while a turn is active; a new tool replaces it, turn settlement
 removes it, and the transcript never archives it.
+For any changed homogeneous opaque row that occupies the full viewport, keep the
+renderer-owned ASCII surface prepaint before structured content. Test both the
+exact emitted sequence and unchanged-row differential behavior. Do not repair
+right-edge holes with component padding, preview truncation, or private width
+tables.
 Do not introduce a second archive or lifecycle model. The empty session must
 remain free of welcome, suggestion, and embedded help content. To remove the
 visual grammar without removing the framework, replace the CLI document
@@ -789,15 +806,40 @@ on Linux, not manual edits or committed binaries.
 5. Roll back by restoring the previous pins, declarations, lock metadata, and
    generated output from the last known-good project snapshot.
 
+## Update or remove bounded file line projection
+
+`read_file`, `packages/agent-cli/src/workspace-file-read.ts`, the optional
+integer schema fields, shared line limits, decision 0051, focused tests, and
+manual evidence form one contract. Change line semantics, metadata, or bounds
+only together. Preserve the path-only complete-text behavior and the existing
+workspace boundary and disclosure checks.
+
+To roll back projection, remove `startLine`, `lineCount`, the four metadata
+fields, the projection module, decision 0051, and their tests and documentation
+in one change. Restore the exact `{ path } -> { text }` result. To remove
+`read_file`, first remove its descriptor and handler following decisions 0014
+and 0050; do not leave a private range reader or compatibility alias.
+
 ## Update or remove structured process execution
 
 `run_process` is the only admitted execute tool. Keep its model-facing schema,
 exact approval projection, runner port, Node adapter, protocol codec, and native
 broker as separate replaceable layers. The public token registry currently maps
-only `node` to the current absolute Node executable. Never add a shell, command
+only `node` to the current absolute Node executable. Keep that mapping in
+`packages/agent-cli/src/process-program-registry.ts`; both descriptor and
+handler consume its exact token, and focused tests reject relative, NUL-bearing,
+case-variant, and unknown registrations. Never add a shell, command
 string, executable path, PATH lookup, stdin, inherited environment, or
 model-selected resource limit. Every invocation retains one exact, single-use
 approval.
+
+Decision 0050 owns the staged convergence target for all model-facing tools.
+Replace one authority domain at a time and finish each replacement without an
+alias. A new process entry requires current evaluation evidence plus its exact
+resolver, argument grammar, platform behavior, approval, failure, rollback, and
+removal contract. A future sandboxed `shell` is a replacement for the sole
+execute slot, not an additional tool, and requires a separate adversarial
+Windows and Linux proof before advertisement.
 
 Keep the common frame decoder and entry point independent from the two platform
 backends. A protocol change replaces version 1 everywhere; never retain a
@@ -843,7 +885,9 @@ Node adapter, protocol codec, and focused TypeScript tests. Delete
 `packages/agent-cli/native/process-broker`, `tools/build-native.mjs`,
 `tools/lib/native-process-broker.mjs`, the native tests, Linux bootstrap,
 verifier and cleaner rules, compiler registry, decisions 0015, 0016, and 0036,
-and the Linux CI job only when no proof or platform work consumes them. File
+the program registry, decision 0050 only if no other tool-convergence contract
+consumes it, and the Linux CI job only when no proof or platform work consumes
+them. File
 tools, runtime text chat, TUI, and terminal lifecycle remain usable throughout.
 
 ## Update or remove brand and motion contracts

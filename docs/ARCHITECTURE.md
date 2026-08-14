@@ -164,7 +164,12 @@ One cell-width module feeds structured rows, wrapping, Markdown, tables,
 surfaces, editors, carets, clipping, and rendering. Printable ASCII, the closed
 structural glyph set, and the exact precomposed Latin prose ranges and
 punctuation in decision 0044 occupy one cell. Every other non-ASCII scalar keeps
-the conservative two-cell fallback. The profile performs no normalization,
+the conservative two-cell fallback. When a changed structured row is both
+homogeneous, opaque, and exactly full-width, differential rendering first paints
+its complete logical extent with ASCII spaces under the authoritative surface,
+returns to the row origin, and then writes its content. This renderer-owned
+operation preserves a physical rectangle without changing measurement, retained
+text, or the shared width authority. The profile performs no normalization,
 locale lookup, terminal probing, or grapheme clustering, and no consumer may
 carry a private exception.
 Plain text and Markdown share one normalization, word-aware span-preserving
@@ -237,6 +242,14 @@ entries retain the existing work bounds. The policy is injected into the
 existing tool registry and creates no tool, package, provider, or alternate path
 resolver.
 
+Decision 0051 keeps `read_file` as that one read capability while adding a pure
+CLI-owned logical-line projection after the accepted bounded observation. The
+optional one-based start and bounded count never alter path resolution or
+policy. Results retain exact source terminators and report actual start,
+returned lines, total lines, and whether more lines remain. The complete file
+is still observed once within its existing bound; projection reduces provider
+context and does not claim random-access filesystem reading.
+
 Protected home and temporary roots come from one separate CLI-owned native
 resolver. Linux uses the effective-user account database and `/tmp`; Windows
 uses the current-user Profile and Local AppData Known Folders. The Node adapter
@@ -279,6 +292,17 @@ background or persistent service. This is descendant lifecycle containment,
 not a machine sandbox: approved Node code still has the launching user's
 filesystem and network authority outside its selected initial directory.
 
+Decision 0050 makes the CLI-owned program registry the single authority that
+maps the current exact `node` token to the absolute current Node executable.
+The `run_process` descriptor and handler consume that same registry; this first
+phase does not add a program or widen argument authority. The decision also
+defines the staged six-domain convergence target for the complete tool harness:
+three bounded read capabilities, text patching, namespace management, and one
+execute capability. The exact current inventory remains authoritative during
+migration. An actual sandboxed command-language tool may replace the execute
+domain only after a separate cross-platform isolation proof; it cannot coexist
+with `run_process` as an overlapping alias.
+
 ## Lean tool harness
 
 The model-facing tool surface is an exact capability registry, not an open-ended
@@ -293,6 +317,9 @@ possibility is insufficient. Removing one tool must leave the remaining
 registry, text-only runtime path, CLI, and TUI buildable without unrelated
 rewrites. The exact current inventory is owned by `tools/manual-policy.json` and
 verified against CLI descriptors and the operator manual under decision 0014.
+Decision 0050 owns the convergence target and requires each authority-domain
+replacement to end with one canonical descriptor and independently removable
+implementation.
 Product descriptor construction is confined to the registered CLI module; the
 generic tools workspace owns validation mechanics, not advertised product tools.
 
@@ -395,7 +422,11 @@ activity never enters the scrollable conversation. Every state, including
 approval, uses the same generic borderless `Surface`; the CLI selects one of the
 closed success, attention, or failure backgrounds. Tool identity, written state,
 safe detail, and approval actions use neutral plain or emphasized foregrounds,
-and written state remains explicit. Tools cannot choose surfaces, colors, panels, or private presentation
+and written state remains explicit. The exact bounded effect preview is projected
+only for `approval`; queued, running, cancelling, and terminal states project
+only their risk below the shared head. The bounded log still retains the preview
+as lifecycle state, so presentation does not create a second activity model.
+Tools cannot choose surfaces, colors, panels, or private presentation
 paths. The generic TUI owns stacking, clipping, padding, caret translation, and
 hostile-component containment but knows no tool vocabulary.
 Decision 0022 defines update and removal of this surface independently from the
@@ -511,6 +542,13 @@ show the canonical target, observed state, SHA-256 state digests, and exact
 content when it fits; larger content uses bounded prefix/suffix excerpts and an
 explicit omitted-code-unit count. Call identifiers, tool outputs, causes, and
 unbounded content never appear.
+
+A terminal failure after a truthful tool checkpoint is projected through one
+pure CLI-owned classifier. Its fixed `model/...`, `tool/...`, or residual
+`runtime/failure` code appears in the bounded incomplete-turn marker and latest
+ephemeral notice. The code identifies the stage that stopped while the prior
+tool lifecycle state remains authoritative; no provider error, tool payload,
+path, content, or call identifier crosses into presentation.
 
 Active Ctrl+C requests cancellation and keeps the shell open; idle Ctrl+C exits.
 Ctrl+D, terminal EOF, and `/exit` exit in every phase. Shutdown closes the
