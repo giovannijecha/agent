@@ -201,7 +201,7 @@ async function readObservedFile(
       if (!bytes.ok) {
         result = bytes;
       } else {
-        const decoded = decodeUtf8Text(bytes.value);
+        const decoded = decodeUtf8Text(bytes.value, true);
         const checked = await resolveExistingWorkspacePath(
           root,
           relative,

@@ -70,6 +70,11 @@ UTF-8 without NUL. Trailing bytes, unknown fields, malformed text, invalid
 relative components, oversized frames, and extra arguments are rejected
 without output or mutation.
 
+Mutation planning decodes observed replacement sources through that same
+strict scalar UTF-8-without-NUL profile. Unsupported source text therefore
+fails before an approval exists rather than producing an effect that the
+committer must deterministically reject.
+
 The response is one fixed content-free status frame. Success distinguishes
 creation and replacement. Failures collapse to `conflict`, `permission`,
 `unsupported`, `limit`, or `io`; native paths, content, handles, and operating-

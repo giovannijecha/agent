@@ -66,13 +66,15 @@ pure schema preparation, just-in-time effect planning, then exact approval and
 invocation. A creation plan proves that the canonical target is absent and
 binds the effect to the parent identity, proposed complete content, and its
 SHA-256 digest. A replacement plan opens the canonical regular file, requires
-strict UTF-8 and exactly one match, then binds the effect to the file identity,
-complete observed content, resulting content, and both SHA-256 digests. The
-approval surface is limited to 2,048 code units. It shows exact proposed or
-removed/inserted content when it fits; otherwise it shows bounded prefix and
-suffix excerpts plus an explicit omitted-code-unit count. Invocation rejects a
-changed identity, parent, target absence, canonical path, or complete content as
-`conflict` before mutation. No stale plan is silently refreshed or broadened.
+strict scalar UTF-8 without NUL and exactly one match, then binds the effect to
+the file identity, complete observed content, resulting content, and both
+SHA-256 digests. Unsupported source text fails during planning without
+approval. The approval surface is limited to 2,048 code units. It shows exact
+proposed or removed/inserted content when it fits; otherwise it shows bounded
+prefix and suffix excerpts plus an explicit omitted-code-unit count. Invocation
+rejects a changed identity, parent, target absence, canonical path, or complete
+content as `conflict` before mutation. No stale plan is silently refreshed or
+broadened.
 
 After approval, both tools invoke the one decision 0046 native committer. It
 receives the immutable accepted root, normalized relative target, approved
