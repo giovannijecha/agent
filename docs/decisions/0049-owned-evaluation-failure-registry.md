@@ -95,11 +95,15 @@ Unknown keys, unknown classifications, noncanonical entry ordering, duplicate
 identifiers, unknown task identifiers, malformed paths, inconsistent evidence,
 invalid lifecycle transitions, a missing resolution target, or an unregistered
 file below `evaluations/` fails the canonical gate with one content-free error.
-The repository source boundary rejects a missing, linked, non-regular,
-identity-changing, empty, or oversized registry before accepting source bytes.
-It compares the observed path and opened descriptor identities, reads through
-that descriptor into one fixed `registryBytes + 1` buffer, and rechecks identity
-and size before returning. The failure-registry module then owns bounded fatal
+The repository source boundary accepts one explicit canonical repository root
+and one bounded repository-relative path. It rejects a missing, linked,
+non-regular, identity-changing, empty, or oversized registry and rejects any
+linked or identity-changing directory from that root through the registry's
+parent. It checks the complete directory chain before opening, rechecks it and
+the path-to-descriptor identity before the first descriptor read, reads through
+that descriptor into one fixed `registryBytes + 1` buffer, and rechecks the
+chain, identity, size, and modification state before returning. The
+failure-registry module then owns bounded fatal
 UTF-8 decoding and JSON parsing for those bytes. It serializes the parsed value
 with the one owned two-space JSON representation and final LF, re-encodes that
 representation, and requires exact source-byte equality before structural
@@ -137,7 +141,8 @@ lifecycle rules, and existing resolution targets. Boundary tests prove that one
 occurrence cannot leave `observing` and that corpus-tree capacity includes the
 registry directory, file, and complete byte allowance. Source-boundary
 regressions cover regular files, exact size bounds, empty and oversized files,
-directories, and linked directories before the verifier read. Parser
+directories, linked final entries, and a regular external file below a linked
+repository parent before the verifier read. Parser
 regressions prove that malformed JSON, invalid UTF-8, BOM-prefixed source,
 CRLF, missing final LF, trailing whitespace, minification, and repeated keys
 collapse to the fixed content-free error without echoing rejected source.

@@ -59,8 +59,10 @@ Reviewed negative results are registered independently under decision 0049 in
 `evaluations/failures/registry.json`. The pure failure-registry parser owns
 bounded fatal UTF-8 decoding, JSON parsing, and exact canonical byte
 representation so rejected source never enters a diagnostic. Before parsing,
-the repository source boundary admits only one bounded regular file whose path
-and opened-descriptor identities agree before and after the fixed-size read. Its
+the repository source boundary admits only one canonical-root-relative bounded
+regular file. Every directory from the explicit repository root through its
+parent must be non-linked and retain one identity; the complete chain and the
+path-to-descriptor identity agree before and after the fixed-size read. Its
 validator binds closed evidence to current task identifiers and tracked
 resolution paths without reading ignored runs. The canonical verifier retains
 that one bounded snapshot for registry parsing and exposes only its path, not a

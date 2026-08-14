@@ -299,7 +299,8 @@ function verifyEvaluationPolicy() {
   const failureRegistryPath = "evaluations/failures/registry.json";
   const ownedPaths = listFiles("evaluations");
   const failureRegistrySource = readBoundedRegularSourceFile(
-    absolute(failureRegistryPath),
+    projectRoot,
+    failureRegistryPath,
     EVALUATION_FAILURE_LIMITS.registryBytes,
   );
   const relativePaths = ownedPaths.map((file) => file.slice(root.length));

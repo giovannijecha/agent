@@ -73,9 +73,11 @@ The adjacent failure-registry validator binds durable negative evidence to the
 current task catalog. It accepts only closed category, priority, lifecycle,
 frequency, record, and grade fields. It reads no ignored run or candidate
 content, and a first observation cannot automatically alter the tool surface or
-product behavior. The repository source boundary rejects a linked, non-regular,
-empty, oversized, or identity-changing registry before its first content read;
-the registry parser then requires exact two-space JSON, LF endings, one final
+product behavior. The repository source boundary receives the canonical root
+separately from the repository-relative registry path. It rejects a linked or
+identity-changing parent chain and a linked, non-regular, empty, oversized, or
+identity-changing registry before its first descriptor read; the registry
+parser then requires exact two-space JSON, LF endings, one final
 LF, and unique keys by byte-equivalent canonical serialization. The task-corpus
 map retains only the registry inventory path, so parsing reuses that sole
 bounded snapshot instead of reopening the pathname. Ordinary evaluator commands
