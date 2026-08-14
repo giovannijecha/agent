@@ -631,6 +631,18 @@ test("observes accepted turns, tool requests, and affirmative approvals", async 
   await runtime.waitForReads(1);
   runtime.emit(
     Object.freeze({
+      approvalPreview: 'path="stale.txt"',
+      approvalRequired: true,
+      callId: "stale-write",
+      kind: "toolRequested" as const,
+      name: "create_file",
+      risk: "write" as const,
+      turnId: 99,
+    }),
+  );
+  await runtime.waitForReads(2);
+  runtime.emit(
+    Object.freeze({
       approvalPreview: 'path="result.txt"',
       approvalRequired: true,
       callId: "write-1",
@@ -652,7 +664,7 @@ test("observes accepted turns, tool requests, and affirmative approvals", async 
       turnId: 1,
     }),
   );
-  await runtime.waitForReads(3);
+  await runtime.waitForReads(4);
   runtime.emit(
     Object.freeze({
       callId: "write-1",
@@ -663,9 +675,9 @@ test("observes accepted turns, tool requests, and affirmative approvals", async 
       turnId: 1,
     }),
   );
-  await runtime.waitForReads(4);
-  runtime.emit(delta(1, "done"));
   await runtime.waitForReads(5);
+  runtime.emit(delta(1, "done"));
+  await runtime.waitForReads(6);
   runtime.emit(
     Object.freeze({
       assistant: Object.freeze({ content: "done" }),

@@ -548,8 +548,11 @@ removable product observer, not part of the evaluator. The composition root
 constructs it only for exact interactive `--evaluation-receipt` launches. The
 serialized CLI and successful canonical read boundaries feed it content-free
 facts; after ordinary terminal cleanup it returns one bounded immutable receipt
-to the composition root. It has no evaluator, filesystem, network, TUI, runtime,
-or model-facing tool port and never changes an application transition.
+to the composition root. Stale application events are excluded before recorder
+observation, and the composition root classifies the product result before
+ordering any receipt settlement diagnostic. It has no evaluator, filesystem,
+network, TUI, runtime, or model-facing tool port and never changes an
+application transition.
 
 ## Implemented and planned boundaries
 

@@ -95,7 +95,10 @@ documentation registrations. During a maintained run, start the product with
 `agent --evaluation-receipt` and copy its five mechanical values into the
 adjacent record after grading. Complete outcome, artifact, manual corrections,
 risky actions, and primary constraint yourself; the receipt deliberately cannot
-classify them. The receipt is independently removable under decision 0048.
+classify them. Late runtime events rejected by the active application turn do
+not enter its counts. If both the product run and receipt settlement fail, the
+product failure is reported first and the fixed receipt diagnostic remains
+secondary. The receipt is independently removable under decision 0048.
 
 ## Evidence
 

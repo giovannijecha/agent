@@ -25,6 +25,9 @@ import { readHiddenOpenCodeGoCredential } from "./hidden-credential-prompt.js";
 import {
   EvaluationReceiptRecorder,
   formatEvaluationReceipt,
+  planEvaluationExit,
+  type EvaluationExitDiagnostic,
+  type EvaluationReceiptSettlementFailure,
 } from "./evaluation-receipt.js";
 import { parseLaunchCommand } from "./launch-command.js";
 import { NodeTerminalHost } from "./node-terminal-host.js";
@@ -94,22 +97,54 @@ async function startEvaluation(
 
 async function finishEvaluation(
   recorder: EvaluationReceiptRecorder | undefined,
-): Promise<void> {
+): Promise<EvaluationReceiptSettlementFailure | undefined> {
   if (recorder === undefined) {
-    return;
+    return undefined;
   }
   const finished = recorder.finish(monotonicMilliseconds());
-  const receipt = finished.ok
-    ? finished.value
-    : await writeAndExit(
-        stderr,
-        "agent could not complete evaluation receipt\n",
-        1,
-      );
-  const written = await writeText(stdout, formatEvaluationReceipt(receipt));
-  if (!written) {
-    await writeAndExit(stderr, "agent could not write evaluation receipt\n", 1);
+  if (!finished.ok) {
+    return "complete";
   }
+  let text: string;
+  try {
+    text = formatEvaluationReceipt(finished.value);
+  } catch (_cause: unknown) {
+    return "complete";
+  }
+  return (await writeText(stdout, text)) ? undefined : "write";
+}
+
+function evaluationDiagnostic(
+  diagnostic: EvaluationExitDiagnostic,
+  productFailure: string | undefined,
+): string {
+  if (diagnostic === "product") {
+    return "agent stopped after a " + (productFailure ?? "cleanup") + " failure\n";
+  }
+  return diagnostic === "receiptComplete"
+    ? "agent could not complete evaluation receipt\n"
+    : "agent could not write evaluation receipt\n";
+}
+
+async function settleEvaluationRun(
+  productFailure: string | undefined,
+  recorder: EvaluationReceiptRecorder | undefined,
+): Promise<void> {
+  const receiptFailure = await finishEvaluation(recorder);
+  const diagnostics = planEvaluationExit(
+    productFailure !== undefined,
+    receiptFailure,
+  );
+  if (diagnostics.length === 0) {
+    return;
+  }
+  await writeAndExit(
+    stderr,
+    diagnostics
+      .map((diagnostic) => evaluationDiagnostic(diagnostic, productFailure))
+      .join(""),
+    1,
+  );
 }
 
 const launch = parseLaunchCommand(argv.slice(2));
@@ -209,11 +244,10 @@ if (!configuration.ok) {
     clipboard,
     evaluation,
   );
-  await finishEvaluation(evaluation);
-  if (!result.ok) {
-    const label = result.error.primary?.kind ?? "cleanup";
-    stderr.write("agent stopped after a " + label + " failure\n", () => exit(1));
-  }
+  await settleEvaluationRun(
+    result.ok ? undefined : result.error.primary?.kind ?? "cleanup",
+    evaluation,
+  );
 } else {
   const transport = NodeOpenCodeGoTransport.create(
     configuration.value.credential,
@@ -257,13 +291,10 @@ if (!configuration.ok) {
         clipboard,
         evaluation,
       );
-      await finishEvaluation(evaluation);
-      if (!result.ok) {
-        const label = result.error.primary?.kind ?? "cleanup";
-        stderr.write("agent stopped after a " + label + " failure\n", () =>
-          exit(1),
-        );
-      }
+      await settleEvaluationRun(
+        result.ok ? undefined : result.error.primary?.kind ?? "cleanup",
+        evaluation,
+      );
     }
   }
 }

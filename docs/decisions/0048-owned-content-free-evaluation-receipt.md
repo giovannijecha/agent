@@ -80,8 +80,10 @@ when either standard input or standard output is not a TTY. Receipt formatting
 or output failure returns nonzero after ordinary cleanup and emits one fixed
 content-free diagnostic. A product run failure still completes cleanup and may
 emit the counts observed before failure; it never changes the product failure
-classification. Receipt observation cannot approve, deny, cancel, start, stop,
-retry, or reorder any operation.
+classification. If product and receipt settlement both fail, the product
+failure is the primary diagnostic and the fixed receipt failure is reported
+after it. Receipt observation cannot approve, deny, cancel, start, stop, retry,
+or reorder any operation.
 
 The recorder is memory-only, has no network or filesystem port, creates no
 global state, and is constructed once at the CLI composition root. The offline
@@ -96,9 +98,10 @@ shape. Launch parser tests cover the one exact option and reject combined,
 duplicated, or unknown arguments. Built-in tool tests prove canonical successful
 read observation without exposing paths. Runtime integration tests prove that
 accepted turns, accepted tool requests, and successfully resolved affirmative
-approvals increment their counters. A focused non-TTY invocation proves the
-option fails before startup. Ordinary CLI smoke output remains unchanged because
-it does not opt in.
+approvals increment their counters while stale tool requests do not. Completion
+policy tests prove that receipt completion and output failures remain secondary
+to product failures. A focused non-TTY invocation proves the option fails before
+startup. Ordinary CLI smoke output remains unchanged because it does not opt in.
 
 The full Windows and Linux gates remain authoritative. They contact no provider,
 create no evaluation run, and execute no candidate workspace.

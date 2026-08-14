@@ -262,7 +262,9 @@ agent.”
   accepted-tool-call, affirmative-approval, and repeated-read counts after
   terminal cleanup. It writes no evaluation state, captures no content, changes
   no authority, and leaves semantic outcome, correction, and risk classification
-  to the operator.
+  to the operator. Stale runtime events never increment its counters. Receipt
+  settlement is classified only after the product run, and any receipt failure
+  remains secondary to an underlying product failure.
 
 ## Change discipline
 
