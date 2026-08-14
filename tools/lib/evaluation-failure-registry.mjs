@@ -258,6 +258,9 @@ function validateEntry(value, taskIds, repositoryPaths) {
     fail("invalidEntry");
   }
   validateEvidence(value.evidence);
+  if (value.occurrences === 1 && value.status !== "observing") {
+    fail("invalidLifecycle");
+  }
   validateResolution(value, repositoryPaths);
   return value.id;
 }

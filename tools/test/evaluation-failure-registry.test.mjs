@@ -168,6 +168,21 @@ test("rejects unsafe, colliding, overlapping, or unordered evidence paths", () =
 });
 
 test("binds lifecycle state to tracked resolution evidence", () => {
+  const firstActionable = clone();
+  firstActionable.entries.at(0).status = "actionable";
+  assert.throws(
+    () => validateEvaluationFailureRegistry(firstActionable, context()),
+    expectCode("invalidLifecycle"),
+  );
+
+  const firstResolved = clone();
+  firstResolved.entries.at(0).status = "resolved";
+  firstResolved.entries.at(0).resolution = decisionPath;
+  assert.throws(
+    () => validateEvaluationFailureRegistry(firstResolved, context()),
+    expectCode("invalidLifecycle"),
+  );
+
   const prematureResolution = clone();
   prematureResolution.entries.at(0).resolution = decisionPath;
   assert.throws(
@@ -176,6 +191,7 @@ test("binds lifecycle state to tracked resolution evidence", () => {
   );
 
   const missingResolution = clone();
+  missingResolution.entries.at(0).occurrences = 2;
   missingResolution.entries.at(0).status = "resolved";
   missingResolution.entries.at(0).resolution =
     "tools/test/missing-regression.test.mjs";
@@ -185,6 +201,7 @@ test("binds lifecycle state to tracked resolution evidence", () => {
   );
 
   const resolved = clone();
+  resolved.entries.at(0).occurrences = 2;
   resolved.entries.at(0).status = "resolved";
   resolved.entries.at(0).resolution = decisionPath;
   assert.deepEqual(validateEvaluationFailureRegistry(resolved, context()), {

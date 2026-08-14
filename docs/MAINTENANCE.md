@@ -58,8 +58,10 @@ ownership, hygiene, or generated-artifact verification.
 Reviewed negative results are registered independently under decision 0049 in
 `evaluations/failures/registry.json`. The pure failure-registry validator binds
 closed evidence to current task identifiers and tracked resolution paths without
-reading ignored runs. One occurrence remains observational and never admits a
-new model-facing tool or product change on its own.
+reading ignored runs. The evaluator loader reserves the registry directory,
+file, and complete byte allowance without parsing its contents. One occurrence
+remains observational and never admits a new model-facing tool or product
+change on its own.
 
 ## Update or remove the streaming runtime
 
