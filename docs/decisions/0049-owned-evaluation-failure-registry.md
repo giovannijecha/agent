@@ -58,9 +58,10 @@ sets; and non-exact artifacts require at least one changed, missing, or
 unexpected path.
 
 `observing` means evidence exists but frequency or impact does not yet justify
-a correction. `actionable` means the maintainer has accepted work on the
-existing contract. Both require a null resolution. `resolved` requires one
-existing tracked evidence path under `docs/decisions/`, `packages/`, or
+a correction. An entry with exactly one occurrence must remain `observing`.
+`actionable` means the maintainer has accepted work on the existing contract.
+Both require a null resolution. `resolved` requires at least two occurrences
+and one existing tracked evidence path under `docs/decisions/`, `packages/`, or
 `tools/test/`; the path identifies the decision or regression proof that closed
 the failure. Resolution never deletes the historical entry.
 
@@ -97,8 +98,11 @@ no registered path or entry content in an error.
 
 Ordinary `list`, `prepare`, `grade`, and `validate-record` commands check the
 exact combined `evaluations/` inventory but do not parse failure entries or walk
-the repository for resolution evidence. Registry validity is a repository gate,
-not a precondition for operating on one already registered task.
+the repository for resolution evidence. Their corpus traversal reserves one
+registry file, one containing directory, and the registry's exact 32,768-byte
+allowance in addition to the task-corpus maxima. Registry validity is a
+repository gate, not a precondition for operating on one already registered
+task.
 
 The registry stores fixture-relative paths already eligible for the public
 owned corpus. It never stores paths outside a task, file contents, diffs,
@@ -111,8 +115,10 @@ machine details.
 Focused pure tests cover the canonical first entry, exact keys, task binding,
 closed taxonomy and priority, positive frequency bounds, canonical ordering,
 duplicate identifiers, evidence consistency, path bounds and collisions,
-lifecycle rules, and existing resolution targets. Inventory tests prove that
-the evaluation corpus and failure registry jointly own every file under
+lifecycle rules, and existing resolution targets. Boundary tests prove that one
+occurrence cannot leave `observing` and that corpus-tree capacity includes the
+registry directory, file, and complete byte allowance. Inventory tests prove
+that the evaluation corpus and failure registry jointly own every file under
 `evaluations/` and reject unregistered additions.
 
 The canonical Windows and Linux gates validate the registry without creating a

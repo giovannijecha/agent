@@ -9,6 +9,8 @@ import {
 } from "node:fs";
 import path from "node:path";
 
+import { EVALUATION_FAILURE_LIMITS } from "./evaluation-failure-registry.mjs";
+
 export const EVALUATION_LIMITS = Object.freeze({
   count: 16,
   elapsedMilliseconds: 86_400_000,
@@ -28,17 +30,18 @@ const TASK_ID_MAX_CODE_UNITS = 48;
 const CORPUS_PREFIX_PATH_BYTES = 6 + TASK_ID_MAX_CODE_UNITS + 10;
 const CORPUS_PREFIX_PATH_SEGMENTS = 3;
 
-const CORPUS_TREE_LIMITS = Object.freeze({
-  directories: 2 + EVALUATION_LIMITS.count *
+export const EVALUATION_CORPUS_TREE_LIMITS = Object.freeze({
+  directories: 3 + EVALUATION_LIMITS.count *
     (1 + 2 * EVALUATION_LIMITS.treeDirectories),
   fileBytes: EVALUATION_LIMITS.fileBytes,
-  files: 1 + EVALUATION_LIMITS.count *
+  files: 2 + EVALUATION_LIMITS.count *
     (1 + 2 * EVALUATION_LIMITS.filesPerSnapshot),
   pathBytes: EVALUATION_LIMITS.pathBytes + CORPUS_PREFIX_PATH_BYTES,
   pathSegments: EVALUATION_LIMITS.pathSegments +
     CORPUS_PREFIX_PATH_SEGMENTS,
-  totalBytes: EVALUATION_LIMITS.taskBytes + EVALUATION_LIMITS.count *
-    (EVALUATION_LIMITS.taskBytes + 2 * EVALUATION_LIMITS.snapshotBytes),
+  totalBytes: EVALUATION_LIMITS.taskBytes +
+    EVALUATION_FAILURE_LIMITS.registryBytes + EVALUATION_LIMITS.count *
+      (EVALUATION_LIMITS.taskBytes + 2 * EVALUATION_LIMITS.snapshotBytes),
 });
 const SNAPSHOT_TREE_LIMITS = Object.freeze({
   directories: EVALUATION_LIMITS.treeDirectories,
@@ -516,7 +519,7 @@ export function loadEvaluationSuite(repositoryRoot) {
       path.join(root, "evaluations"),
       "",
       "invalidCorpus",
-      CORPUS_TREE_LIMITS,
+      EVALUATION_CORPUS_TREE_LIMITS,
     );
     return validateEvaluationSuite(policy, {
       files,

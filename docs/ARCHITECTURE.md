@@ -568,8 +568,10 @@ evidence boundary. The registry binds reviewed negative results to maintained
 task identifiers using closed category, priority, lifecycle, occurrence, record,
 and grade fields. The canonical verifier supplies the task catalog and tracked
 source inventory; the validator never reads ignored runs, candidate content, or
-provider output. Evaluator commands admit the exact inventory path but do not
-parse it, so failure evidence cannot affect preparation or grading.
+provider output. Evaluator commands admit the exact inventory path and reuse
+only the registry's immutable byte bound to reserve complete corpus-tree
+capacity. They do not parse its contents, so failure evidence cannot affect
+preparation or grading.
 
 ## Implemented and planned boundaries
 

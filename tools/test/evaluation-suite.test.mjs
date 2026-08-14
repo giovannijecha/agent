@@ -16,6 +16,10 @@ import process from "node:process";
 import test from "node:test";
 
 import {
+  EVALUATION_FAILURE_LIMITS,
+} from "../lib/evaluation-failure-registry.mjs";
+import {
+  EVALUATION_CORPUS_TREE_LIMITS,
   EVALUATION_LIMITS,
   EvaluationSuiteError,
   gradeEvaluationRun,
@@ -69,6 +73,26 @@ function expectCode(code) {
     error.code === code &&
     error.message === "evaluation " + code;
 }
+
+test("reserves complete corpus-tree capacity for the failure registry", () => {
+  assert.equal(
+    EVALUATION_CORPUS_TREE_LIMITS.directories,
+    3 + EVALUATION_LIMITS.count *
+      (1 + 2 * EVALUATION_LIMITS.treeDirectories),
+  );
+  assert.equal(
+    EVALUATION_CORPUS_TREE_LIMITS.files,
+    2 + EVALUATION_LIMITS.count *
+      (1 + 2 * EVALUATION_LIMITS.filesPerSnapshot),
+  );
+  assert.equal(
+    EVALUATION_CORPUS_TREE_LIMITS.totalBytes,
+    EVALUATION_LIMITS.taskBytes +
+      EVALUATION_FAILURE_LIMITS.registryBytes + EVALUATION_LIMITS.count *
+        (EVALUATION_LIMITS.taskBytes + 2 * EVALUATION_LIMITS.snapshotBytes),
+  );
+  assert.equal(Object.isFrozen(EVALUATION_CORPUS_TREE_LIMITS), true);
+});
 
 function temporaryRepository(t) {
   const root = mkdtempSync(path.join(tmpdir(), "agent-evaluation-"));

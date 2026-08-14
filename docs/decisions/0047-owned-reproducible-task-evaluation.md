@@ -101,13 +101,14 @@ Completed records require all metrics and a non-pending classification.
 Schema version 1 admits at most 16 tasks, 32 files per snapshot, 65,536 bytes
 per file, 262,144 bytes per snapshot, a 4,096-byte task brief, 16 path segments,
 256 path bytes, and 512 directories per candidate tree. The complete corpus
-has limits derived from those per-task bounds. Snapshot path limits apply to
-the path relative to `input/`, `expected/`, or the candidate workspace; corpus
-traversal admits only the fixed `tasks/<task-id>/<snapshot>/` prefix overhead
-before the exact relative bound is reapplied. Run identifiers contain at most
-48 lowercase ASCII letters, digits, or hyphens and cannot equal a Windows
-reserved device name. Counts are capped at 10,000 and elapsed time at
-86,400,000 milliseconds.
+has limits derived from those per-task bounds plus one failure-registry file,
+one containing directory, and the registry's 32,768-byte allowance from
+decision 0049. Snapshot path limits apply to the path relative to `input/`,
+`expected/`, or the candidate workspace; corpus traversal admits only the fixed
+`tasks/<task-id>/<snapshot>/` prefix overhead before the exact relative bound is
+reapplied. Run identifiers contain at most 48 lowercase ASCII letters, digits,
+or hyphens and cannot equal a Windows reserved device name. Counts are capped
+at 10,000 and elapsed time at 86,400,000 milliseconds.
 
 Unknown manifest or record fields, duplicate tasks, invalid ordering, malformed
 text, control characters outside tab and LF, traversal, absolute paths,

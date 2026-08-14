@@ -65,8 +65,9 @@ sets. It contains no run identifier, metric sample, prompt, response,
 transcript, candidate content, provider identity, timestamp, or free-form note.
 
 Add one occurrence only after reviewing another run that exhibits the same
-failure. Keep a first occurrence `observing`; promote it to `actionable` only
-when frequency or impact justifies a correction. A `resolved` entry must point
-to tracked decision or regression evidence. The canonical verifier validates
-the registry against the current task catalog and tracked source inventory; the
-evaluator commands do not parse it or inspect ignored runs.
+failure. The validator requires a first occurrence to remain `observing`;
+promote it to `actionable` only when frequency or impact justifies a correction.
+A `resolved` entry must point to tracked decision or regression evidence. The
+canonical verifier validates the registry against the current task catalog and
+tracked source inventory. Evaluator commands reserve the registry directory,
+file, and complete byte allowance but do not parse it or inspect ignored runs.
