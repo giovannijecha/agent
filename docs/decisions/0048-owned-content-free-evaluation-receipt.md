@@ -85,6 +85,16 @@ failure is the primary diagnostic and the fixed receipt failure is reported
 after it. Receipt observation cannot approve, deny, cancel, start, stop, retry,
 or reorder any operation.
 
+Post-cleanup composition-root writes reuse one CLI-owned Node stream settlement
+path. It installs a temporary `error` listener before `write`. A successful
+write callback removes that listener and settles success. When the callback
+receives an error, the listener remains installed until Node emits the required
+subsequent `error` event; the event then settles failure and removes the
+listener. Registration, synchronous write, and listener-removal failures also
+settle as one content-free write failure. This ordering follows the exact Node
+22.19 writable-stream contract and prevents receipt instrumentation from
+leaving an unhandled stream error that could mask the product result.
+
 The recorder is memory-only, has no network or filesystem port, creates no
 global state, and is constructed once at the CLI composition root. The offline
 evaluator does not import product packages and the canonical verifier does not
@@ -100,8 +110,11 @@ read observation without exposing paths. Runtime integration tests prove that
 accepted turns, accepted tool requests, and successfully resolved affirmative
 approvals increment their counters while stale tool requests do not. Completion
 policy tests prove that receipt completion and output failures remain secondary
-to product failures. A focused non-TTY invocation proves the option fails before
-startup. Ordinary CLI smoke output remains unchanged because it does not opt in.
+to product failures. Node stream settlement tests cover successful callback
+cleanup, callback-error-before-event ordering, event-first failure, and
+synchronous write failure. A focused non-TTY invocation proves the option fails
+before startup. Ordinary CLI smoke output remains unchanged because it does not
+opt in.
 
 The full Windows and Linux gates remain authoritative. They contact no provider,
 create no evaluation run, and execute no candidate workspace.
@@ -129,6 +142,8 @@ change. Evaluation record schema changes remain governed separately by decision
 To disable the feature, remove the launch option and composition-root wiring;
 ordinary `agent` remains unchanged. To remove it completely, also delete the
 recorder and its tests, read-observation hooks, this decision, and every
-documentation and policy registration. The offline corpus, evaluator, record
-schema, tool descriptors, runtime protocol, application controller, and TUI need
-no replacement.
+documentation and policy registration. Retain the generic composition-root
+stream settlement path while any ordinary help, version, startup, or failure
+output still uses it; remove that path only after replacing all such writes.
+The offline corpus, evaluator, record schema, tool descriptors, runtime
+protocol, application controller, and TUI need no replacement.

@@ -554,6 +554,14 @@ ordering any receipt settlement diagnostic. It has no evaluator, filesystem,
 network, TUI, runtime, or model-facing tool port and never changes an
 application transition.
 
+`packages/agent-cli/src/process-output.ts` owns the composition root's one
+content-free Node process-stream write result behind a narrow output port. It
+installs one temporary error listener before writing, removes it after a
+successful callback, and retains it across an errored callback until Node's
+subsequent error event settles failure. The receipt path therefore cannot leave
+an unhandled post-cleanup stream event or replace a previously classified
+product failure with raw stream content.
+
 ## Implemented and planned boundaries
 
 New packages are created only with their first real implementation:

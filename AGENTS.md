@@ -264,7 +264,9 @@ agent.”
   no authority, and leaves semantic outcome, correction, and risk classification
   to the operator. Stale runtime events never increment its counters. Receipt
   settlement is classified only after the product run, and any receipt failure
-  remains secondary to an underlying product failure.
+  remains secondary to an underlying product failure. Composition-root process
+  output retains one temporary error listener across an errored Node write
+  callback until the required subsequent error event settles the write.
 
 ## Change discipline
 
