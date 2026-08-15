@@ -26,6 +26,17 @@ function safeString(value: string): string {
   return typeof encoded === "string" ? encoded : "\"\"";
 }
 
+/** Measures one string through the exact owned structured projection. */
+export function structuredStringProjectionCodeUnits(
+  value: string,
+): number | undefined {
+  try {
+    return typeof value === "string" ? safeString(value).length : undefined;
+  } catch (_cause: unknown) {
+    return undefined;
+  }
+}
+
 function exactValue(value: StructuredValue): string {
   if (value === null) {
     return "null";

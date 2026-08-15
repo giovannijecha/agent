@@ -5,7 +5,28 @@ import {
   applyTextPatch,
   createTextPatch,
   TEXT_PATCH_LIMITS,
+  validateTextPatchPath,
 } from "../dist/workspace-text-patch.js";
+
+test("bounds mutation paths by raw and exact projection size", () => {
+  for (const path of [
+    "p".repeat(TEXT_PATCH_LIMITS.pathCodeUnits),
+    "\\".repeat(TEXT_PATCH_LIMITS.pathCodeUnits),
+  ]) {
+    assert.equal(validateTextPatchPath(path).ok, true);
+  }
+
+  for (const path of [
+    "p".repeat(TEXT_PATCH_LIMITS.pathCodeUnits + 1),
+    "\u2028".repeat(112),
+  ]) {
+    const result = validateTextPatchPath(path);
+    assert.equal(result.ok, false);
+    if (!result.ok) {
+      assert.equal(result.error.kind, "limit");
+    }
+  }
+});
 
 test("creates complete text including an empty file", () => {
   const created = createTextPatch([

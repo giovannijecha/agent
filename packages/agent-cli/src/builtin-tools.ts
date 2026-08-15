@@ -701,6 +701,17 @@ function registrations(
       rejectNul: true,
     }),
   } as const;
+  const patchPathField = {
+    description: "Workspace-relative mutation target path.",
+    name: "path",
+    required: true,
+    schema: stringSchema(1, TEXT_PATCH_LIMITS.pathCodeUnits, {
+      maximumProjectionCodeUnits:
+        TEXT_PATCH_LIMITS.pathProjectionCodeUnits,
+      maximumUtf8Bytes: BUILTIN_TOOL_LIMITS.pathUtf8Bytes,
+      rejectNul: true,
+    }),
+  } as const;
   const patchTextSchema = stringSchema(
     0,
     BUILTIN_TOOL_LIMITS.fileCodeUnits,
@@ -765,7 +776,7 @@ function registrations(
         "Create or update one bounded UTF-8 workspace file through ordered exact-text hunks.",
         "write",
         objectSchema([
-          pathField,
+          patchPathField,
           {
             description: "Ordered exact-text hunks applied to one observed source snapshot.",
             name: "hunks",

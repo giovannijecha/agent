@@ -74,14 +74,18 @@ policy does not inspect content and does not restrict `apply_patch` or approved
 
 `apply_patch` uses one three-state mutation lifecycle: pure schema preparation,
 just-in-time effect planning, then exact approval and invocation. It accepts one
-path and from 1 through 32 ordered `{ oldText, newText }` hunks. For an absent
-target, exactly one hunk with empty `oldText` provides the complete new-file
-content. For an existing target, every non-empty `oldText` must occur exactly
-once in the same complete source snapshot; hunks must be strictly ordered,
-non-overlapping, and must change content. Empty `newText` deletes its anchor;
-retaining source around an anchor expresses insertion. Aggregate hunk text is
-limited to 524,288 code units and 2,097,152 UTF-8 bytes, and the resulting file
-retains the existing complete-file bounds. Planning binds target absence or
+path of at most 447 code units whose exact structured projection is at most 896
+code units, plus from 1 through 32 ordered `{ oldText, newText }` hunks. The
+complete batch checks both mutation-path bounds and the aggregate hunk bounds
+before any planner observes the workspace. The read tools retain their separate
+path limits. For an absent target, exactly one hunk with empty `oldText`
+provides the complete new-file content. For an existing target, every non-empty
+`oldText` must occur exactly once in the same complete source snapshot; hunks
+must be strictly ordered, non-overlapping, and must change content. Empty
+`newText` deletes its anchor; retaining source around an anchor expresses
+insertion. Aggregate hunk text is limited to 524,288 code units and 2,097,152
+UTF-8 bytes, and the resulting file retains the existing complete-file bounds.
+Planning binds target absence or
 canonical file identity, complete observed and resulting content, parent state,
 and SHA-256 digests. Unsupported source text, ambiguous anchors, overlap,
 reordering, no-op hunks, and limit failures settle before approval. The approval
@@ -89,9 +93,11 @@ surface is limited to 2,048 code units. It shows exact ordered remove/insert
 sections when they fit; otherwise it shows bounded prefix and suffix excerpts
 plus an explicit omitted-code-unit count. When even zero retained text would be
 too large, every ordered hunk remains visible through exact remove and insert
-lengths with matching omitted counts. Invocation rejects a changed identity,
-parent, target absence, canonical path, or complete content as `conflict`
-before mutation. No stale plan is silently refreshed or broadened.
+lengths with matching omitted counts. The mutation-path projection reservation
+keeps that complete 32-hunk compact form within the same approval bound even at
+the maximum admitted path. Invocation rejects a changed identity, parent,
+target absence, canonical path, or complete content as `conflict` before
+mutation. No stale plan is silently refreshed or broadened.
 
 After approval, the tool invokes the one decision 0046 native committer. It
 receives the immutable accepted root, normalized relative target, approved

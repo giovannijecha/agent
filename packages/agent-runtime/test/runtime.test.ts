@@ -291,8 +291,10 @@ function plannedToolEngine(planner: ToolPlanner): ToolEngine {
   return engine.value;
 }
 
-function aggregatePatchToolEngine(planner: ToolPlanner): ToolEngine {
-  const path = StringSchema.create(1, 256);
+function boundedPatchToolEngine(planner: ToolPlanner): ToolEngine {
+  const path = StringSchema.create(1, 256, {
+    maximumProjectionCodeUnits: 32,
+  });
   const text = StringSchema.create(0, 16);
   assert.ok(path.ok);
   assert.ok(text.ok);
@@ -1516,7 +1518,49 @@ test("rejects a later aggregate-invalid patch before any planner effect", async 
   ]);
   const runtime = new AgentRuntime(
     new FixedModel(ok(stream)),
-    aggregatePatchToolEngine(async () => {
+    boundedPatchToolEngine(async () => {
+      plannerCalls += 1;
+      return err(Object.freeze({ kind: "conflict" as const }));
+    }),
+  );
+  assert.ok(runtime.startTurn("change both files").ok);
+  const terminal = await next(runtime);
+  assert.equal(terminal.kind, "turnFinished");
+  if (terminal.kind === "turnFinished") {
+    assert.equal(terminal.outcome.kind, "failed");
+    if (terminal.outcome.kind === "failed") {
+      assert.equal(terminal.outcome.failure.kind, "invalidToolCall");
+    }
+    assert.equal(terminal.checkpointed, false);
+  }
+  assert.equal(plannerCalls, 0);
+  assert.equal(runtime.conversation.length, 0);
+});
+
+test("rejects a later projection-invalid patch before any planner effect", async () => {
+  let plannerCalls = 0;
+  const stream = new ScriptedStream<string>([
+    ok(
+      Object.freeze({
+        calls: Object.freeze([
+          Object.freeze({
+            callId: "call-valid",
+            input: patchToolInput("first.txt", "one", "two"),
+            name: "apply_patch",
+          }),
+          Object.freeze({
+            callId: "call-oversized-path",
+            input: patchToolInput("\\".repeat(16), "three", "four"),
+            name: "apply_patch",
+          }),
+        ]),
+        kind: "toolCalls" as const,
+      }),
+    ),
+  ]);
+  const runtime = new AgentRuntime(
+    new FixedModel(ok(stream)),
+    boundedPatchToolEngine(async () => {
       plannerCalls += 1;
       return err(Object.freeze({ kind: "conflict" as const }));
     }),

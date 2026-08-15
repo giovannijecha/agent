@@ -25,9 +25,12 @@ logs.
 display the canonical target, SHA-256 state digests, hunk and line counts, and
 exact removed/inserted text when the patch fits the 2,048-code-unit preview.
 Larger patches are limited to bounded prefix and suffix excerpts with an
-explicit omitted count. This approval content is neither transcript nor log and
-is released when the tool activity settles. Planning failures show no preview
-and request no approval.
+explicit omitted count. Its mutation-specific path is bounded to 447 code units
+and 896 exact structured-projection code units so the full target and the closed
+32-hunk compact form always fit the preview; read-tool path limits are
+independent. This approval content is neither transcript nor log and is released
+when the tool activity settles. Planning failures show no preview and request
+no approval.
 
 Approved mutation content crosses only the private package-local native commit
 broker in one bounded binary frame with an empty environment. Its response is a

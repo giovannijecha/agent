@@ -1,4 +1,5 @@
 import { err, ok, scalarUtf8ByteLength, type Result } from "@agent/core";
+import { structuredStringProjectionCodeUnits } from "@agent/tools";
 
 import { BUILTIN_TOOL_LIMITS } from "./builtin-tool-limits.js";
 
@@ -6,6 +7,8 @@ export const TEXT_PATCH_LIMITS = Object.freeze({
   aggregateCodeUnits: 524_288,
   aggregateUtf8Bytes: 2_097_152,
   hunks: 32,
+  pathCodeUnits: 447,
+  pathProjectionCodeUnits: 896,
 });
 
 export type TextPatchHunk = Readonly<{
@@ -48,6 +51,19 @@ function lineBreaks(content: string): number {
 
 function lineCount(content: string): number {
   return content.length === 0 ? 0 : lineBreaks(content) + 1;
+}
+
+/** Validates one path against the exact approval-projection reservation. */
+export function validateTextPatchPath(
+  path: string,
+): Result<void, TextPatchError> {
+  const projected = structuredStringProjectionCodeUnits(path);
+  return path.length >= 1 &&
+    path.length <= TEXT_PATCH_LIMITS.pathCodeUnits &&
+    projected !== undefined &&
+    projected <= TEXT_PATCH_LIMITS.pathProjectionCodeUnits
+    ? ok(undefined)
+    : err(failure("limit"));
 }
 
 /** Validates the complete hunk batch without observing a target snapshot. */

@@ -12,6 +12,7 @@ import {
   LiteralStringSchema,
   ObjectSchema,
   StringSchema,
+  TOOL_SCHEMA_LIMITS,
   validateSchema,
 } from "@agent/tools";
 
@@ -139,6 +140,28 @@ test("enforces exact UTF-8 string limits without accepting unsafe scalars", () =
       assert.equal(result.error.kind, "outOfRange");
     }
   }
+});
+
+test("enforces exact structured string projection limits", () => {
+  const text = StringSchema.create(0, 447, {
+    maximumProjectionCodeUnits: 896,
+  });
+  assert.ok(text.ok);
+
+  assert.equal(validateSchema(text.value, "p".repeat(447)).ok, true);
+  assert.equal(validateSchema(text.value, "\\".repeat(447)).ok, true);
+  assert.equal(validateSchema(text.value, "\u2028".repeat(112)).ok, false);
+  assert.equal(
+    StringSchema.create(0, 447, {
+      maximumProjectionCodeUnits:
+        TOOL_SCHEMA_LIMITS.projectionCodeUnits + 1,
+    }).ok,
+    false,
+  );
+  assert.equal(
+    StringSchema.create(0, 1, { unexpected: true } as never).ok,
+    false,
+  );
 });
 
 test("enforces declarative aggregate text limits across list items", () => {

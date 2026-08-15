@@ -830,9 +830,14 @@ and 0050; do not leave a private range reader or compatibility alias.
 planner, bounded preview, internal create-or-replace commit adaptation, decision
 0053, focused tests, manual inventory, and policy entries form one contract.
 Change hunk ordering, uniqueness, overlap, creation form, aggregate bounds,
-result bounds, preview fields, approval, or stale-state behavior only together.
-Keep patch resolution pure over one complete immutable source snapshot and cross
-the decision 0046 native committer exactly once after approval.
+mutation-path or structured-projection bounds, result bounds, preview fields,
+approval, or stale-state behavior only together. The `apply_patch` path retains
+its 447-code-unit and 896-projected-code-unit reservation independently of the
+read-tool path fields. Recalculate and test the complete 32-hunk compact
+preview against the maximum admitted path whenever either reservation or the
+preview grammar changes. Keep complete-batch validation before observation,
+keep patch resolution pure over one complete immutable source snapshot, and
+cross the decision 0046 native committer exactly once after approval.
 
 To roll back the convergence, restore both previous descriptors and their
 planners before removing `apply_patch`, then switch the advertised registry in

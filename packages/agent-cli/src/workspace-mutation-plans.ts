@@ -24,6 +24,7 @@ import { patchMutationPreview } from "./workspace-mutation-preview.js";
 import {
   applyTextPatch,
   createTextPatch,
+  validateTextPatchPath,
   type TextPatchApplication,
   type TextPatchError,
   type TextPatchHunk,
@@ -327,6 +328,10 @@ export function applyPatchPlanner(
     }
     const relative = text(input, "path");
     const hunks = patchHunks(input);
+    const admittedPath = validateTextPatchPath(relative);
+    if (!admittedPath.ok) {
+      return patchFailure(admittedPath.error);
+    }
     const observed = await readObservedFile(root, relative);
     if (!observed.ok && observed.error.kind !== "notFound") {
       return observed;
@@ -340,6 +345,10 @@ export function applyPatchPlanner(
       const snapshot = await observeCreate(root, relative, applied.value);
       if (!snapshot.ok) {
         return snapshot;
+      }
+      const canonicalPath = validateTextPatchPath(snapshot.value.relative);
+      if (!canonicalPath.ok) {
+        return patchFailure(canonicalPath.error);
       }
       const preview = patchMutationPreview({
         addedLines: applied.value.addedLines,
@@ -369,6 +378,10 @@ export function applyPatchPlanner(
       replacement: applied.value.replacement,
       replacementDigest: digest(applied.value.replacement),
     });
+    const canonicalPath = validateTextPatchPath(snapshot.relative);
+    if (!canonicalPath.ok) {
+      return patchFailure(canonicalPath.error);
+    }
     const preview = patchMutationPreview({
       addedLines: applied.value.addedLines,
       effect: "update",
