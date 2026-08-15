@@ -146,7 +146,7 @@ unrelated changes. Shared engine primitives remain only when another admitted
 tool uses them.
 
 To remove tools, stop descriptor advertisement and restore the runtime text-only
-path. In that same change, replace manual-policy schema 4 with a schema that
+path. In that same change, replace manual-policy schema 5 with a schema that
 removes the advertised tool inventory. Remove decisions 0008, 0014, 0015, 0016,
 and 0036 only after their admitted surfaces and proof infrastructure are gone,
 together with their ownership, required-path, and manual-evidence entries.

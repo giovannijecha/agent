@@ -238,6 +238,22 @@ test("rejects mutation convergence documentation drift", () => {
   );
 });
 
+test("rejects stale manual removal schema guidance", () => {
+  const context = currentContext();
+  const maintainedGuidance = context.files["docs/MAINTENANCE.md"];
+  context.files["docs/MAINTENANCE.md"] = context.files[
+    "docs/MAINTENANCE.md"
+  ].replace("manual-policy schema 5", "manual-policy schema 4");
+  assert.notEqual(context.files["docs/MAINTENANCE.md"], maintainedGuidance);
+  assert.throws(
+    () => validateManualPolicy(currentPolicy, context),
+    {
+      message: "manual removal schema guidance is stale",
+      name: "ManualPolicyError",
+    },
+  );
+});
+
 test("rejects an unregistered chapter or broken local link", () => {
   const extraContext = currentContext();
   extraContext.manualPaths.push("docs/manual/07-unregistered.md");
