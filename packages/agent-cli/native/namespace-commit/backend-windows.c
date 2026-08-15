@@ -13,6 +13,7 @@
 #define AGENT_FILE_NON_DIRECTORY_FILE 0x00000040u
 #define AGENT_FILE_SYNCHRONOUS_IO_NONALERT 0x00000020u
 #define AGENT_FILE_OPEN_REPARSE_POINT 0x00200000u
+#define AGENT_FILE_RENAME_INFORMATION_CLASS ((FILE_INFORMATION_CLASS)10)
 
 #ifndef NT_SUCCESS
 #define NT_SUCCESS(status) (((NTSTATUS)(status)) >= 0)
@@ -603,7 +604,7 @@ static enum agent_namespace_status agent_move(
     &status_block,
     rename,
     (ULONG)rename_size,
-    FileRenameInformation
+    AGENT_FILE_RENAME_INFORMATION_CLASS
   );
   free(rename);
   const bool closed = CloseHandle(target) != 0;

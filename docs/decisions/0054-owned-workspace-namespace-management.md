@@ -102,8 +102,11 @@ On Linux, the broker anchors the workspace and relevant parents with guarded
 workspace and relevant parents with handle-relative `NtCreateFile`, revalidates
 volume and file identities, and uses native handle-relative create, rename, or
 disposition information classes without following links or permitting
-replacement. If an admitted primitive or guarantee is unavailable, the
-operation fails closed; there is no pathname fallback.
+replacement. The private Windows backend pins the documented
+`FileRenameInformation` class value `10` as one explicitly typed owned constant;
+it does not depend on that optional enumerator spelling being exposed by the
+installed user-mode SDK header. If an admitted primitive or guarantee is
+unavailable, the operation fails closed; there is no pathname fallback.
 
 The guarantee is one stale-checked handle-relative namespace commit. It is not
 multi-object atomicity, recursive deletion, rollback, crash recovery, storage
@@ -123,11 +126,12 @@ failed planning, and one committer invocation per authorized effect.
 Native Windows and Linux fixtures cover successful creation, file and directory
 movement, file and empty-directory removal, no replacement, non-empty removal,
 linked targets and parents, stale parent and object identities, destination
-races, and complete process cleanup. Runtime tests prove complete-batch
-rejection before observation and provider-order sequential execution with one
-exact decision for every namespace request. Canonical inventory, manual,
-privacy, security, ownership, build, source-hygiene, and CLI smoke gates include
-the new authority.
+races, and complete process cleanup. The registered Windows native build is the
+compile-time regression gate for the owned information-class declaration across
+supported SDK headers. Runtime tests prove complete-batch rejection before
+observation and provider-order sequential execution with one exact decision for
+every namespace request. Canonical inventory, manual, privacy, security,
+ownership, build, source-hygiene, and CLI smoke gates include the new authority.
 
 ## Update, rollback, and removal
 
