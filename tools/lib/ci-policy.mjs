@@ -1,7 +1,8 @@
 const EXPECTED_POLICY = Object.freeze({
-  schemaVersion: 3,
+  schemaVersion: 4,
   workflowPath: ".github/workflows/verify.yml",
   workflowName: "verify",
+  checkoutTarget: "event-revision",
   jobs: Object.freeze([
     Object.freeze({
       id: "verify-windows",
@@ -136,7 +137,7 @@ function windowsJob(policy, toolchain) {
     "              \"--no-tags\",",
     "              \"--depth=1\",",
     "              \"origin\",",
-    "              $env:AGENT_REF",
+    "              $env:AGENT_REVISION",
     "          )",
     "          Invoke-Checked -Program \"git\" -Arguments @(\"checkout\", \"--detach\", \"FETCH_HEAD\")",
     "          $actualRevision = (& git rev-parse HEAD).Trim()",
@@ -197,7 +198,7 @@ function linuxJob(policy, toolchain) {
     "          fi",
     "          git init .",
     "          git remote add origin \"https://github.com/${AGENT_REPOSITORY}.git\"",
-    "          git -c protocol.version=2 fetch --no-tags --depth=1 origin \"$AGENT_REF\"",
+    "          git -c protocol.version=2 fetch --no-tags --depth=1 origin \"$AGENT_REVISION\"",
     "          git checkout --detach FETCH_HEAD",
     "          actual_revision=\"$(git rev-parse HEAD)\"",
     "          if [[ \"$actual_revision\" != \"$AGENT_REVISION\" ]]; then",

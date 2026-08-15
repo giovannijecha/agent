@@ -41,6 +41,9 @@ Continuous verification is registered in `tools/ci-policy.json`. Its validator
 binds the only workflow to the protected branch, read-only permissions, bounded
 Windows 2025 and Ubuntu 24.04 jobs, the registered TypeScript and native C
 toolchain, the canonical local command, and zero imported actions or secrets.
+Each job validates the workflow ref as event context but fetches the immutable
+event revision directly, so a rerun cannot silently follow a regenerated
+pull-request merge ref.
 The workflow and local release gate are one contract, not separate verification
 implementations.
 
