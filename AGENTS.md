@@ -239,6 +239,12 @@ agent.”
   approved effect to one canonical path, object identity, observed absence or
   complete content, ordered exact-text hunks, and SHA-256 state digests; show
   exact bounded patch content or bounded excerpts with an omitted count.
+  Its target path admits at most 447 code units and 896 code units in the exact
+  structured string projection; read-tool path limits remain independent. The
+  complete ordered batch validates both that path projection and aggregate
+  hunk bounds before any planner or handler observation. The compact 32-hunk
+  fallback plus the maximum admitted exact path must fit the 2,048-code-unit
+  approval preview bound.
   Preview remove and insert fields are independently escaped, retain explicit
   per-field lengths, and never derive boundaries from retained text. Reject
   ambiguous anchors, overlapping or reordered hunks, no-op hunks, and stale

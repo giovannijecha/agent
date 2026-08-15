@@ -52,5 +52,6 @@ export {
 } from "./schema.js";
 export {
   renderStructuredProjection,
+  structuredStringProjectionCodeUnits,
   type StructuredProjectionField,
 } from "./projection.js";

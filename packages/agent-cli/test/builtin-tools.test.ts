@@ -47,6 +47,7 @@ import {
   WORKSPACE_MUTATION_PREVIEW_CODE_UNITS,
 } from "../dist/workspace-mutation-preview.js";
 import { WorkspaceReadPolicy } from "../dist/workspace-read-policy.js";
+import { TEXT_PATCH_LIMITS } from "../dist/workspace-text-patch.js";
 
 const cancellation: ToolCancellation = Object.freeze({
   requested: false,
@@ -935,7 +936,7 @@ test("fits the maximum admitted hunk batch in the bounded approval preview", () 
     effect: "update",
     hunks,
     observedDigest: "a".repeat(64),
-    path: Array.from({ length: 13 }, () => "p".repeat(39)).join("/"),
+    path: "\\".repeat(TEXT_PATCH_LIMITS.pathCodeUnits),
     removedLines: 32,
     resultingDigest: "b".repeat(64),
   });
@@ -977,6 +978,12 @@ test("rejects unsafe mutation text and unsupported observed files before approva
       patchInput("nul.txt", "", "nul\u0000content"),
       patchInput("surrogate.txt", "", "lone \ud800 surrogate"),
       patchInput("nul\u0000path.txt", "", "safe"),
+      patchInput(
+        "p".repeat(TEXT_PATCH_LIMITS.pathCodeUnits + 1),
+        "",
+        "safe",
+      ),
+      patchInput("\u2028".repeat(112), "", "safe"),
     ]) {
       const structured = structuredValueFromUnknown(input);
       assert.ok(structured.ok && structured.value instanceof StructuredObject);
