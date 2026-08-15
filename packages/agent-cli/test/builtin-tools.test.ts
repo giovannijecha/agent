@@ -943,6 +943,30 @@ test("rejects unsafe mutation text and unsupported observed files before approva
   });
 });
 
+test("rejects aggregate patch limits before target observation", async () => {
+  await withWorkspace(async (workspace) => {
+    const tools = await engine(workspace);
+    const oversized = await preparePlan(tools, "apply_patch", {
+      hunks: [
+        {
+          newText: "b",
+          oldText: "a".repeat(BUILTIN_TOOL_LIMITS.fileCodeUnits),
+        },
+        {
+          newText: "d",
+          oldText: "c".repeat(BUILTIN_TOOL_LIMITS.fileCodeUnits),
+        },
+      ],
+      path: ".",
+    });
+
+    assert.equal(oversized.planned.approvalRequired, false);
+    const rejected = await tools.execute(oversized.planned, cancellation);
+    assert.ok(rejected.ok);
+    assert.equal(output(rejected.value).get("error"), "limit");
+  });
+});
+
 test("enforces the disclosure policy before reads and prunes discovery", async () => {
   await withWorkspace(async (workspace) => {
     await mkdir(path.join(workspace, "private"));

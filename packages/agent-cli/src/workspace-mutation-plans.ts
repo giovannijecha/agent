@@ -24,6 +24,7 @@ import { patchMutationPreview } from "./workspace-mutation-preview.js";
 import {
   applyTextPatch,
   createTextPatch,
+  validateTextPatchHunks,
   type TextPatchApplication,
   type TextPatchError,
   type TextPatchHunk,
@@ -327,6 +328,10 @@ export function applyPatchPlanner(
     }
     const relative = text(input, "path");
     const hunks = patchHunks(input);
+    const validated = validateTextPatchHunks(hunks);
+    if (!validated.ok) {
+      return patchFailure(validated.error);
+    }
     const observed = await readObservedFile(root, relative);
     if (!observed.ok && observed.error.kind !== "notFound") {
       return observed;
