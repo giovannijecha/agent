@@ -87,9 +87,11 @@ and SHA-256 digests. Unsupported source text, ambiguous anchors, overlap,
 reordering, no-op hunks, and limit failures settle before approval. The approval
 surface is limited to 2,048 code units. It shows exact ordered remove/insert
 sections when they fit; otherwise it shows bounded prefix and suffix excerpts
-plus an explicit omitted-code-unit count. Invocation rejects a changed identity,
-parent, target absence, canonical path, or complete content as `conflict` before
-mutation. No stale plan is silently refreshed or broadened.
+plus an explicit omitted-code-unit count. When even zero retained text would be
+too large, every ordered hunk remains visible through exact remove and insert
+lengths with matching omitted counts. Invocation rejects a changed identity,
+parent, target absence, canonical path, or complete content as `conflict`
+before mutation. No stale plan is silently refreshed or broadened.
 
 After approval, the tool invokes the one decision 0046 native committer. It
 receives the immutable accepted root, normalized relative target, approved

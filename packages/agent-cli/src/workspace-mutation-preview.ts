@@ -8,7 +8,7 @@ import type { TextPatchHunk } from "./workspace-text-patch.js";
 
 export const WORKSPACE_MUTATION_PREVIEW_CODE_UNITS = 2_048;
 
-const EXCERPT_BUDGETS = Object.freeze([768, 512, 256, 128, 64, 0]);
+const EXCERPT_BUDGETS = Object.freeze([768, 512, 256, 128, 64]);
 const EXACT_PATCH_FIELDS = Object.freeze([
   "removeCodeUnits",
   "removeText",
@@ -24,6 +24,12 @@ const EXCERPT_PATCH_FIELDS = Object.freeze([
   "insertPrefix",
   "insertOmitted",
   "insertSuffix",
+]);
+const OMITTED_PATCH_FIELDS = Object.freeze([
+  "removeCodeUnits",
+  "removeOmitted",
+  "insertCodeUnits",
+  "insertOmitted",
 ]);
 
 type TextExcerpt = Readonly<{
@@ -157,6 +163,26 @@ function excerptPatchHunks(
   return Object.freeze({ hunks: Object.freeze(projected), omitted });
 }
 
+function omittedPatchHunks(
+  hunks: readonly TextPatchHunk[],
+): readonly (readonly number[])[] {
+  const projected: (readonly number[])[] = [];
+  for (let index = 0; index < hunks.length; index += 1) {
+    const hunk = hunks.at(index);
+    if (hunk !== undefined) {
+      projected.push(
+        Object.freeze([
+          hunk.oldText.length,
+          hunk.oldText.length,
+          hunk.newText.length,
+          hunk.newText.length,
+        ]),
+      );
+    }
+  }
+  return Object.freeze(projected);
+}
+
 function renderPreview(
   value: unknown,
   fields: readonly Readonly<{ mode: "exact" | "size"; name: string }>[],
@@ -179,13 +205,14 @@ export function patchMutationPreview(
     mutation.effect === "create"
       ? Object.freeze({ observed: "absent" })
       : Object.freeze({ observedDigest: mutation.observedDigest });
+  const changedCodeUnits = patchCodeUnits(mutation.hunks);
   const base = {
     addedLines: mutation.addedLines,
     effect: mutation.effect,
     hunks: mutation.hunks.length,
     ...observedState,
     operation: "apply_patch",
-    patchCodeUnits: patchCodeUnits(mutation.hunks),
+    patchCodeUnits: changedCodeUnits,
     path: mutation.path,
     removedLines: mutation.removedLines,
     resultingDigest: mutation.resultingDigest,
@@ -238,5 +265,18 @@ export function patchMutationPreview(
       return preview;
     }
   }
-  return undefined;
+  return renderPreview(
+    {
+      ...base,
+      patchFields: OMITTED_PATCH_FIELDS,
+      patchHunks: omittedPatchHunks(mutation.hunks),
+      patchOmitted: changedCodeUnits,
+    },
+    Object.freeze([
+      ...commonFields,
+      { mode: "exact" as const, name: "patchFields" },
+      { mode: "exact" as const, name: "patchHunks" },
+      { mode: "exact" as const, name: "patchOmitted" },
+    ]),
+  );
 }

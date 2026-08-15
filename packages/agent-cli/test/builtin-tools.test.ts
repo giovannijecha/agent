@@ -42,7 +42,10 @@ import {
 } from "../dist/process-runner.js";
 import { ProcessProgramRegistry } from "../dist/process-program-registry.js";
 import { WorkspaceBoundary } from "../dist/workspace-boundary.js";
-import { WORKSPACE_MUTATION_PREVIEW_CODE_UNITS } from "../dist/workspace-mutation-preview.js";
+import {
+  patchMutationPreview,
+  WORKSPACE_MUTATION_PREVIEW_CODE_UNITS,
+} from "../dist/workspace-mutation-preview.js";
 import { WorkspaceReadPolicy } from "../dist/workspace-read-policy.js";
 
 const cancellation: ToolCancellation = Object.freeze({
@@ -916,6 +919,41 @@ test("bounds mutation previews and skips approval when no effect can be planned"
       "x x",
     );
   });
+});
+
+test("fits the maximum admitted hunk batch in the bounded approval preview", () => {
+  const hunks = Object.freeze(
+    Array.from({ length: 32 }, (_value, index) =>
+      Object.freeze({
+        newText: String(index).padStart(2, "0") + "y".repeat(8_178),
+        oldText: String(index).padStart(2, "0") + "x".repeat(8_178),
+      }),
+    ),
+  );
+  const preview = patchMutationPreview({
+    addedLines: 32,
+    effect: "update",
+    hunks,
+    observedDigest: "a".repeat(64),
+    path: Array.from({ length: 13 }, () => "p".repeat(39)).join("/"),
+    removedLines: 32,
+    resultingDigest: "b".repeat(64),
+  });
+
+  assert.ok(preview !== undefined);
+  assert.ok(preview.length <= WORKSPACE_MUTATION_PREVIEW_CODE_UNITS);
+  assert.equal(
+    preview.includes(
+      'patchFields=["removeCodeUnits","removeOmitted",' +
+        '"insertCodeUnits","insertOmitted"]',
+    ),
+    true,
+  );
+  assert.equal(
+    preview.includes("patchHunks=[[8180,8180,8180,8180]"),
+    true,
+  );
+  assert.equal(preview.includes("patchOmitted=523520"), true);
 });
 
 test("rejects unsafe mutation text and unsupported observed files before approval", async () => {
