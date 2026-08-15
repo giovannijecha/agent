@@ -1030,10 +1030,10 @@ test("rejects unsafe mutation text and unsupported observed files before approva
   });
 });
 
-test("rejects aggregate patch limits before target observation", async () => {
+test("rejects aggregate patch limits during structural preparation", async () => {
   await withWorkspace(async (workspace) => {
     const tools = await engine(workspace);
-    const oversized = await preparePlan(tools, "apply_patch", {
+    const input = structuredValueFromUnknown({
       hunks: [
         {
           newText: "b",
@@ -1046,11 +1046,17 @@ test("rejects aggregate patch limits before target observation", async () => {
       ],
       path: ".",
     });
+    assert.ok(input.ok && input.value instanceof StructuredObject);
+    const oversized = tools.prepare(
+      "call-aggregate-limit",
+      "apply_patch",
+      input.value,
+    );
 
-    assert.equal(oversized.planned.approvalRequired, false);
-    const rejected = await tools.execute(oversized.planned, cancellation);
-    assert.ok(rejected.ok);
-    assert.equal(output(rejected.value).get("error"), "limit");
+    assert.equal(oversized.ok, false);
+    if (!oversized.ok) {
+      assert.equal(oversized.error.kind, "invalidInput");
+    }
   });
 });
 

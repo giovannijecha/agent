@@ -42,6 +42,7 @@ export {
   validateSchema,
   type ObjectSchemaField,
   type ObjectSchemaProjection,
+  type ListSchemaOptions,
   type SchemaError,
   type SchemaErrorKind,
   type SchemaValidationError,

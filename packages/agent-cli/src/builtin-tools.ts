@@ -16,6 +16,7 @@ import {
 import {
   IntegerSchema,
   ListSchema,
+  type ListSchemaOptions,
   LiteralStringSchema,
   ObjectSchema,
   type ObjectSchemaField,
@@ -592,8 +593,9 @@ function listSchema(
   item: ToolSchema,
   minimum: number,
   maximum: number,
+  options: ListSchemaOptions = Object.freeze({}),
 ): ListSchema {
-  const schema = ListSchema.create(item, minimum, maximum);
+  const schema = ListSchema.create(item, minimum, maximum, options);
   if (!schema.ok) {
     throw new Error("owned list schema invariant");
   }
@@ -785,6 +787,10 @@ function registrations(
               ]),
               1,
               TEXT_PATCH_LIMITS.hunks,
+              Object.freeze({
+                maximumTextCodeUnits: TEXT_PATCH_LIMITS.aggregateCodeUnits,
+                maximumTextUtf8Bytes: TEXT_PATCH_LIMITS.aggregateUtf8Bytes,
+              }),
             ),
           },
         ]),

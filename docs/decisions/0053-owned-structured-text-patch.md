@@ -56,10 +56,15 @@ committer exactly once.
 ## Bounds, preview, and failures
 
 The complete structured input remains within the core structured-value bound.
-The planner additionally admits at most 524,288 aggregate hunk code units and
-2,097,152 aggregate hunk UTF-8 bytes. The observed and resulting file retain
-the existing 262,144-code-unit and 1,048,576-byte bounds. NUL and invalid
-Unicode scalar text fail schema validation or strict source decoding.
+The descriptor's owned hunk-list schema admits at most 524,288 aggregate hunk
+code units and 2,097,152 aggregate hunk UTF-8 bytes during the runtime's pure
+complete-batch preflight. A later oversized patch therefore rejects the whole
+batch before any earlier call can reach planner observation, approval, or
+invocation. The patch engine repeats the same aggregate check at its internal
+boundary as defense, not as a second admission authority. The observed and
+resulting file retain the existing 262,144-code-unit and 1,048,576-byte bounds.
+NUL and invalid Unicode scalar text fail schema validation or strict source
+decoding.
 
 Approval shows one bounded concrete patch preview containing the canonical
 path, create or update effect, observed state or digest, resulting digest,
@@ -106,16 +111,20 @@ content and identity, target appearance, parent replacement, unsupported
 source text, read-policy independence, the maximum admitted hunk batch with a
 long path, and one committer call per approved effect.
 
+Runtime tests also prove that a schema-valid first call followed by an
+individually valid but aggregate-oversized `apply_patch` call invalidates the
+complete batch before any planner, approval, handler, or mutation effect.
+
 Provider, runtime, activity, manual-policy, and canonical inventory tests use
 only `apply_patch`. Both platform gates retain the complete native create and
 replace regression suite because those are the two internal commit primitives.
 
 ## Update, rollback, and removal
 
-Change the structured hunk grammar, limits, preview, planner, descriptor,
-manual, security text, or tests together. A grammar extension must preserve
-one path, one observed snapshot, one approval, and one native commit; otherwise
-it requires a new decision.
+Change the structured hunk grammar, declarative schema limits, defensive patch
+limits, preview, planner, descriptor, manual, security text, or tests together.
+A grammar extension must preserve one path, one observed snapshot, one
+approval, and one native commit; otherwise it requires a new decision.
 
 Rollback is atomic: restore both previous descriptors and their planners before
 removing `apply_patch`. Never advertise either old tool beside `apply_patch`.
