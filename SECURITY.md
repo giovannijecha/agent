@@ -82,11 +82,16 @@ filesystem/network sandbox.
 `manage_path` separately binds one exact authorization to one closed
 create-directory, move, or remove effect. Planning records canonical source and
 destination paths, object kind and identity, parent identities, and destination
-absence. Invocation rechecks that state before one handle-relative native
-namespace commit. Overwrite, merge, recursive or nonempty-directory removal,
-implicit parent creation, self-descendant move, and stale state fail closed.
-This is one object-bound namespace commit, not a filesystem transaction,
-rollback, durability guarantee, or sandbox.
+absence. A supported invocation rechecks that state before one handle-relative
+native namespace commit. Overwrite, merge, recursive or nonempty-directory
+removal, implicit parent creation, self-descendant move, and stale state fail closed.
+Windows implements all three operations through its object-bound native
+protocol. Linux implements only verified-parent directory creation; move and
+remove return `unsupported` before namespace observation because `renameat2`
+and `unlinkat` cannot condition source selection on the approved identity. No
+check-then-mutate or rollback fallback is admitted. Every successful result is
+one object-bound namespace commit, not a filesystem transaction, rollback,
+durability guarantee, or sandbox.
 
 Model and tool text cannot provide styling metadata or terminal escapes. Generic
 components and frames validate one closed semantic tone per printable row; only

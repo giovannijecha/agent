@@ -3,10 +3,16 @@
 - Status: accepted
 - Date: 2026-08-15
 - Permission amended by: decision 0055
+- Linux capability amended by: decision 0058
 
 Decision 0055 allows an exact namespace plan through either current-session
 `Allow` or a contextual `Ask` decision. Planning identities, stale-state checks,
 and the one native namespace commit remain unchanged.
+
+Decision 0058 keeps Linux `create_directory` but fails `move` and `remove`
+closed before observation because Linux provides no admitted primitive that
+atomically conditions those namespace mutations on the approved source
+identity. Windows retains all three operations.
 
 ## Context
 
@@ -45,7 +51,7 @@ All paths are canonical workspace-relative paths under the immutable startup
 root. The root itself is never a target. The tool accepts no recursive flag,
 overwrite flag, glob, shell fragment, executable, absolute path, environment,
 or model-selected limit. Each successfully planned request receives its own
-exact runtime authorization and invokes exactly one namespace commit.
+exact runtime authorization and invokes exactly one namespace committer.
 
 `create_directory` creates one absent directory whose complete parent already
 exists as a directory. It does not create parents implicitly.
@@ -71,7 +77,7 @@ parent identity. Movement binds the canonical source and destination, source
 kind and identity, source-parent identity, destination-parent identity, and
 destination absence. Removal binds the canonical target, target kind and
 identity, and parent identity. Directory emptiness is checked during planning
-and again by the platform primitive at commit.
+and again by the supporting platform primitive at commit.
 
 Pending `Ask` uses one bounded concrete namespace preview. It names the operation,
 canonical source or target, destination when present, observed object kind, and
@@ -96,9 +102,11 @@ identities. It receives an empty environment, has hard operation and post-kill
 cleanup deadlines, emits one bounded binary response, and admits no PATH lookup,
 shell, stdin, or ambient authority. Late events are inert.
 
-On Linux, the broker anchors the workspace and relevant parents with guarded
-`openat2` resolution, revalidates identities, and uses handle-relative
-`mkdirat`, no-replace `renameat2`, or `unlinkat`. On Windows, it anchors the
+On Linux, the broker supports only directory creation: it anchors the workspace
+and parent with guarded `openat2` resolution, revalidates the parent identity,
+and uses handle-relative `mkdirat`. Linux move and remove return `unsupported`
+before namespace observation because `renameat2` and `unlinkat` cannot bind an
+expected source identity to the mutation. On Windows, the broker anchors the
 workspace and relevant parents with handle-relative `NtCreateFile`, revalidates
 volume and file identities, and uses native handle-relative create, rename, or
 disposition information classes without following links or permitting
@@ -108,10 +116,10 @@ it does not depend on that optional enumerator spelling being exposed by the
 installed user-mode SDK header. If an admitted primitive or guarantee is
 unavailable, the operation fails closed; there is no pathname fallback.
 
-The guarantee is one stale-checked handle-relative namespace commit. It is not
-multi-object atomicity, recursive deletion, rollback, crash recovery, storage
-durability, a filesystem sandbox, or permission to mutate outside the canonical
-workspace.
+Every successful result guarantees one stale-checked handle-relative namespace
+commit. It is not multi-object atomicity, recursive deletion, rollback, crash
+recovery, storage durability, a filesystem sandbox, or permission to mutate
+outside the canonical workspace.
 
 ## Verification
 
@@ -123,15 +131,17 @@ appearance, regular-file and empty-directory removal, non-empty-directory
 rejection, move self-descendance, permission previews, no permission prompt after
 failed planning, and one committer invocation per authorized effect.
 
-Native Windows and Linux fixtures cover successful creation, file and directory
-movement, file and empty-directory removal, no replacement, non-empty removal,
-linked targets and parents, stale parent and object identities, destination
-races, and complete process cleanup. The registered Windows native build is the
-compile-time regression gate for the owned information-class declaration across
-supported SDK headers. Runtime tests prove complete-batch rejection before
-observation and provider-order sequential execution with one exact decision for
-every namespace request. Canonical inventory, manual, privacy, security,
-ownership, build, source-hygiene, and CLI smoke gates include the new authority.
+Native Windows fixtures cover successful creation, file and directory movement,
+file and empty-directory removal, no replacement, non-empty removal, linked
+targets and parents, stale parent and object identities, destination races, and
+complete process cleanup. Linux fixtures cover successful directory creation
+and prove that move and remove return `unsupported` without changing either
+namespace. The registered Windows native build is the compile-time regression
+gate for the owned information-class declaration across supported SDK headers.
+Runtime tests prove complete-batch rejection before observation and
+provider-order sequential execution with one exact decision for every namespace
+request. Canonical inventory, manual, privacy, security, ownership, build,
+source-hygiene, and CLI smoke gates include the new authority.
 
 ## Update, rollback, and removal
 

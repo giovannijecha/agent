@@ -147,8 +147,11 @@ approved effect plan.
 
 Decision 0054 completes namespace-mutation convergence. The final registry adds
 one `manage_path` descriptor for create-directory, move, and nonrecursive
-file-or-empty-directory removal through a separate approved native object-bound
-namespace commit.
+file-or-empty-directory removal through a separate approved native committer;
+every supported successful effect is one object-bound namespace commit.
+Decision 0058 makes platform capability explicit: Windows supports all three
+operations, while Linux retains verified-parent directory creation and fails
+move or remove closed before namespace observation.
 
 ## Update, rollback, and removal
 

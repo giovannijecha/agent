@@ -140,9 +140,13 @@ terminal-native selection path, while Ctrl+C remains the agent interrupt.
   hunks, or changed identity, absence, path, or content fail as conflicts.
 - `manage_path` creates one directory, moves one file or directory to an absent
   destination, or removes one file or empty directory. Every effect has one
-  exact authorization and one owned handle-relative namespace commit; overwrite,
-  merge, recursive removal, nonempty-directory removal, and self-descendant
-  moves fail closed.
+  exact authorization and one owned namespace-committer invocation; every
+  successful effect is one handle-relative namespace commit. Overwrite, merge,
+  recursive removal, nonempty-directory removal, and self-descendant moves fail
+  closed. Windows supports all three operations. Linux supports directory
+  creation and returns `unsupported` for move or remove before observing or
+  changing the namespace because its admitted APIs cannot bind the approved
+  source identity atomically to those mutations.
 - `read_file`, `list_directory`, and `search_text` share one immutable built-in
   plus `.agentignore` disclosure policy; denied targets never enter tool output.
 - `read_file` optionally returns an exact bounded logical-line range with

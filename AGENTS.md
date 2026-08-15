@@ -294,7 +294,12 @@ agent.”
   identity, parent identities, and destination absence; reject overwrite,
   merge, recursive or nonempty-directory removal, self-descendant moves, and
   stale state. Unsupported platform or filesystem namespace primitives fail
-  closed. Describe the guarantee as one object-bound namespace commit, not a
+  closed. Windows supports all three operations through its object-bound native
+  protocol. Linux supports only `create_directory`; `move` and `remove` return
+  `unsupported` before namespace observation because the admitted Linux APIs
+  cannot condition either mutation on the approved source identity. Do not add
+  a check-close-name mutation sequence, cooperative lock, or rollback fallback.
+  Describe every successful result as one object-bound namespace commit, not a
   filesystem transaction, durability guarantee, rollback, or sandbox.
 - Future controller-internal concurrency may overlap only bounded independent
   mechanics over immutable snapshots during a read-only phase. It cannot enter

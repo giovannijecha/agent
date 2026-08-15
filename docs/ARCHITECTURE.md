@@ -283,12 +283,15 @@ port. The pure namespace layer produces one immutable create-directory, move,
 or remove effect bound to canonical paths, object kinds and identities, parent
 identities, and destination absence. The CLI adapter launches the exact
 package-local C17 broker with no arguments or environment and accepts one fixed
-content-free settlement. Linux uses guarded handle-relative traversal with
-`mkdirat`, no-replace `renameat2`, and `unlinkat`; Windows uses handle-relative
-`NtCreateFile`, native rename information, and disposition information. The
-planner exposes no overwrite, merge, recursive removal, implicit parent
-creation, self-descendant move, or portable pathname fallback. Missing
-namespace primitives and stale state fail closed.
+content-free settlement. Linux uses guarded handle-relative traversal and
+verified-parent `mkdirat` for directory creation. It returns `unsupported` for
+move and remove before opening the workspace root because its admitted rename
+and unlink APIs cannot bind an expected source identity to the namespace
+mutation. Windows uses handle-relative `NtCreateFile`, native rename
+information, and disposition information for all three operations. The planner
+exposes no overwrite, merge, recursive removal, implicit parent creation,
+self-descendant move, or portable pathname fallback. Missing namespace
+primitives and stale state fail closed.
 
 CLI also owns the exact OpenCode Go HTTPS adapter and startup configuration. It
 admits only `opencode.ai:443`, never follows an application-selected origin,
@@ -758,8 +761,8 @@ process access remain unavailable unless the CLI composes an explicit capability
   remain buildable throughout.
 - Remove namespace management by first removing `manage_path` advertisement,
   manual inventory, and policy entry, then deleting its planner, preview,
-  committer, protocol, native broker, tests, and decision 0054. Never retain a
-  namespace alias or pathname fallback. Read tools, `apply_patch`,
+  committer, protocol, native broker, tests, and decisions 0054 and 0058. Never
+  retain a namespace alias or pathname fallback. Read tools, `apply_patch`,
   `run_process`, runtime text chat, and TUI remain independently buildable.
 - Remove process execution by first removing `run_process` advertisement, then
   its handler, runner port, Node adapter, and protocol codec. Remove the native
