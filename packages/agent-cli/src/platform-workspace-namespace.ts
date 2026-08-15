@@ -19,6 +19,7 @@ import type {
   WorkspaceNamespaceCommit,
   WorkspaceNamespaceCommitResult,
   WorkspaceNamespaceCommitter,
+  WorkspaceNamespaceOperation,
 } from "./workspace-namespace-committer.js";
 
 const EMPTY_ARGUMENTS = Object.freeze([]);
@@ -87,13 +88,16 @@ export class PlatformWorkspaceNamespaceCommitter
 implements WorkspaceNamespaceCommitter {
   readonly #boundary: PlatformWorkspaceNamespaceBoundary;
   readonly #executable: string;
+  readonly #platform: "linux" | "win32";
 
   private constructor(
     executable: string,
     boundary: PlatformWorkspaceNamespaceBoundary,
+    platform: "linux" | "win32",
   ) {
     this.#executable = executable;
     this.#boundary = boundary;
+    this.#platform = platform;
     Object.freeze(this);
   }
 
@@ -113,8 +117,15 @@ implements WorkspaceNamespaceCommitter {
       new PlatformWorkspaceNamespaceCommitter(
         brokerPath(platform, architecture),
         boundary,
+        platform,
       ),
     );
+  }
+
+  supportsOperation(operation: WorkspaceNamespaceOperation): boolean {
+    return operation === "create_directory" ||
+      (this.#platform === "win32" &&
+        (operation === "move" || operation === "remove"));
   }
 
   commit(

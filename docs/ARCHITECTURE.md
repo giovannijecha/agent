@@ -278,16 +278,18 @@ a write lease while comparing and replacing one opened object. The planner no
 longer contains a portable write path. Missing exclusion or publication
 support fails closed, and late process events cannot create a second result.
 
-Approved `manage_path` plans cross a separate `WorkspaceNamespaceCommitter`
-port. The pure namespace layer produces one immutable create-directory, move,
+`manage_path` planning first asks its separate `WorkspaceNamespaceCommitter`
+port whether the validated operation is supported. A negative capability
+settles without path-specific planning, namespace observation, preview, or
+authorization. A supported plan produces one immutable create-directory, move,
 or remove effect bound to canonical paths, object kinds and identities, parent
-identities, and destination absence. The CLI adapter launches the exact
-package-local C17 broker with no arguments or environment and accepts one fixed
-content-free settlement. Linux uses guarded handle-relative traversal and
-verified-parent `mkdirat` for directory creation. It returns `unsupported` for
-move and remove before opening the workspace root because its admitted rename
-and unlink APIs cannot bind an expected source identity to the namespace
-mutation. Windows uses handle-relative `NtCreateFile`, native rename
+identities, and destination absence, then crosses the same port exactly once.
+The CLI adapter launches the exact package-local C17 broker with no arguments
+or environment and accepts one fixed content-free settlement. Linux exposes
+only directory creation, uses guarded handle-relative traversal and
+verified-parent `mkdirat`, and retains a native `unsupported` guard for move and
+remove. Its admitted rename and unlink APIs cannot bind an expected source
+identity to the namespace mutation. Windows uses handle-relative `NtCreateFile`, native rename
 information, and disposition information for all three operations. The planner
 exposes no overwrite, merge, recursive removal, implicit parent creation,
 self-descendant move, or portable pathname fallback. Missing namespace

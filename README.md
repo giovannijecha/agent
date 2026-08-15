@@ -144,9 +144,10 @@ terminal-native selection path, while Ctrl+C remains the agent interrupt.
   successful effect is one handle-relative namespace commit. Overwrite, merge,
   recursive removal, nonempty-directory removal, and self-descendant moves fail
   closed. Windows supports all three operations. Linux supports directory
-  creation and returns `unsupported` for move or remove before observing or
-  changing the namespace because its admitted APIs cannot bind the approved
-  source identity atomically to those mutations.
+  creation; its planner returns `unsupported` for move or remove before
+  path-specific planning, namespace observation, or authorization, and its
+  native broker retains the same final guard. The admitted Linux APIs cannot
+  bind the approved source identity atomically to those mutations.
 - `read_file`, `list_directory`, and `search_text` share one immutable built-in
   plus `.agentignore` disclosure policy; denied targets never enter tool output.
 - `read_file` optionally returns an exact bounded logical-line range with

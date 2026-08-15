@@ -13,6 +13,7 @@ import {
 import type {
   WorkspaceNamespaceCommit,
   WorkspaceNamespaceCommitter,
+  WorkspaceNamespaceOperation,
 } from "./workspace-namespace-committer.js";
 import {
   namespaceMutationPreview,
@@ -43,6 +44,23 @@ function failure(
 
 function samePath(left: string, right: string): boolean {
   return path.relative(left, right) === "";
+}
+
+function requireCapability(
+  committer: WorkspaceNamespaceCommitter,
+  operation: WorkspaceNamespaceOperation,
+): Result<void, ToolHandlerError> {
+  let supported: unknown;
+  try {
+    supported = committer.supportsOperation(operation);
+  } catch (_cause: unknown) {
+    return failure("io");
+  }
+  return typeof supported !== "boolean"
+    ? failure("io")
+    : supported
+      ? ok(undefined)
+      : failure("unsupported");
 }
 
 function text(input: StructuredObject, name: string): string {
@@ -328,6 +346,10 @@ export function managePathPlanner(
       return failure("cancelled");
     }
     const selected = request(input);
+    const capability = requireCapability(committer, selected.operation);
+    if (!capability.ok) {
+      return capability;
+    }
     if (
       !admittedPath(selected.path) ||
       (selected.operation === "move" && !admittedPath(selected.destination))
