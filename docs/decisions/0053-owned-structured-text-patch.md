@@ -63,10 +63,14 @@ Unicode scalar text fail schema validation or strict source decoding.
 
 Approval shows one bounded concrete patch preview containing the canonical
 path, create or update effect, observed state or digest, resulting digest,
-hunk count, aggregate changed-line counts, and exact hunk text when it fits.
-Larger hunk text uses deterministic prefix and suffix excerpts with an exact
-omitted-code-unit count. Terminal activity may summarize this preview under
-the shared lifecycle surface, but settlement never replays it.
+hunk count, aggregate changed-line counts, and one ordered structured hunk
+list. The preview declares its tuple fields once; every remove and insert text
+is escaped as an independent structured value and carries its complete
+code-unit length, so retained text can never imitate a field or hunk boundary.
+Exact text is shown when the list fits. Larger fields use deterministic prefix
+and suffix excerpts with an exact per-field omitted-code-unit count. Terminal
+activity may summarize this preview under the shared lifecycle surface, but
+settlement never replays it.
 
 Invalid structure, an absent target without the creation form, a present target
 with an empty anchor, ambiguous or overlapping anchors, oversized input or

@@ -238,7 +238,9 @@ agent.”
 - `apply_patch` uses one CLI-owned structured text-patch effect plan. Bind an
   approved effect to one canonical path, object identity, observed absence or
   complete content, ordered exact-text hunks, and SHA-256 state digests; show
-  exact bounded patch content or bounded excerpts with an omitted count; reject
+  exact bounded patch content or bounded excerpts with an omitted count.
+  Preview remove and insert fields are independently escaped, retain explicit
+  per-field lengths, and never derive boundaries from retained text. Reject
   ambiguous anchors, overlapping or reordered hunks, no-op hunks, and stale
   state before mutation.
   Invocation crosses the owned decision 0046 mutation committer exactly once;

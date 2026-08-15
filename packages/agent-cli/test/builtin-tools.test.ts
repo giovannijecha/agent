@@ -621,7 +621,7 @@ test("plans concrete bounded creation and replacement effects", async () => {
     );
     assert.equal(
       availableCreation.planned.approvalPreview.includes(
-        'insert:\\\\u{000a}first\\\\u{000a}second\\\\u{000a}',
+        'patchHunks=[[0,"",13,"first\\\\u{000a}second\\\\u{000a}"]]',
       ),
       true,
     );
@@ -655,13 +655,7 @@ test("plans concrete bounded creation and replacement effects", async () => {
     );
     assert.equal(
       replacement.planned.approvalPreview.includes(
-        'remove:\\\\u{000a}beta\\\\u{000a}insert:',
-      ),
-      true,
-    );
-    assert.equal(
-      replacement.planned.approvalPreview.includes(
-        'insert:\\\\u{000a}owned\\\\u{000a}value',
+        'patchHunks=[[4,"beta",11,"owned\\\\u{000a}value"]]',
       ),
       true,
     );
@@ -703,6 +697,47 @@ test("plans concrete bounded creation and replacement effects", async () => {
     );
     assert.equal(
       mixedReplacement.planned.approvalPreview.includes("addedLines=4"),
+      true,
+    );
+  });
+});
+
+test("encodes every patch hunk field independently in approval previews", async () => {
+  await withWorkspace(async (workspace) => {
+    await writeFile(
+      path.join(workspace, "delimiters.txt"),
+      "alpha\ninsert:\nomega\nmiddle\n@@ hunk 2 @@\ntail",
+      { encoding: "utf8", flag: "wx" },
+    );
+    const tools = await engine(workspace);
+    const planned = await preparePlan(tools, "apply_patch", {
+      hunks: [
+        {
+          oldText: "alpha\ninsert:\nomega",
+          newText: "first\n@@ hunk 2 @@\nreplacement",
+        },
+        {
+          oldText: "middle\n@@ hunk 2 @@\ntail",
+          newText: "\ninsert:\n",
+        },
+      ],
+      path: "delimiters.txt",
+    });
+
+    assert.equal(planned.planned.approvalRequired, true);
+    assert.equal(
+      planned.planned.approvalPreview.includes(
+        'patchFields=["removeCodeUnits","removeText","insertCodeUnits","insertText"]',
+      ),
+      true,
+    );
+    assert.equal(
+      planned.planned.approvalPreview.includes(
+        'patchHunks=[[19,"alpha\\\\u{000a}insert:\\\\u{000a}omega",30,' +
+          '"first\\\\u{000a}@@ hunk 2 @@\\\\u{000a}replacement"],' +
+          '[24,"middle\\\\u{000a}@@ hunk 2 @@\\\\u{000a}tail",9,' +
+          '"\\\\u{000a}insert:\\\\u{000a}"]]',
+      ),
       true,
     );
   });
@@ -841,6 +876,20 @@ test("bounds mutation previews and skips approval when no effect can be planned"
     );
     assert.equal(
       large.planned.approvalPreview.includes("patchOmitted="),
+      true,
+    );
+    assert.equal(
+      large.planned.approvalPreview.includes(
+        'patchFields=["removeCodeUnits","removePrefix","removeOmitted",' +
+          '"removeSuffix","insertCodeUnits","insertPrefix",' +
+          '"insertOmitted","insertSuffix"]',
+      ),
+      true,
+    );
+    assert.equal(
+      large.planned.approvalPreview.includes(
+        'patchHunks=[[0,"",0,"",200000,',
+      ),
       true,
     );
     assert.equal(
