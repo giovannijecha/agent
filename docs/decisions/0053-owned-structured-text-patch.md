@@ -68,7 +68,10 @@ list. The preview declares its tuple fields once; every remove and insert text
 is escaped as an independent structured value and carries its complete
 code-unit length, so retained text can never imitate a field or hunk boundary.
 Exact text is shown when the list fits. Larger fields use deterministic prefix
-and suffix excerpts with an exact per-field omitted-code-unit count. Terminal
+and suffix excerpts with an exact per-field omitted-code-unit count. If no text
+excerpt fits, the final closed projection retains every ordered hunk as its
+exact remove and insert code-unit lengths plus matching omitted counts. It
+never drops, merges, or reorders a hunk to fit the preview bound. Terminal
 activity may summarize this preview under the shared lifecycle surface, but
 settlement never replays it.
 
@@ -100,8 +103,8 @@ missing and repeated anchors, reorder, overlap, no-op updates, aggregate bounds,
 and result bounds. Tool tests cover the one public descriptor, schema rejection,
 bounded approval previews, exact output, no approval on failed planning, stale
 content and identity, target appearance, parent replacement, unsupported
-source text, read-policy independence, and one committer call per approved
-effect.
+source text, read-policy independence, the maximum admitted hunk batch with a
+long path, and one committer call per approved effect.
 
 Provider, runtime, activity, manual-policy, and canonical inventory tests use
 only `apply_patch`. Both platform gates retain the complete native create and
