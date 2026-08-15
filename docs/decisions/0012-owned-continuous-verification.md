@@ -24,10 +24,13 @@ runs for pull requests targeting `main`, pushes to `main`, and explicit manual
 dispatches. It grants only `contents: read`, uses one `windows-latest` job named
 `verify`, cancels superseded runs, and has a fixed timeout.
 
-The workflow contains no `uses:` step. Its first owned PowerShell step validates
-the event repository, revision, and ref; fetches that exact public ref with Git;
-verifies the resulting commit; and removes the remote. Its second step provisions
-only the npm and TypeScript versions already approved in `tools/toolchain.json`.
+The workflow contains no `uses:` step. Its first owned checkout step validates
+the event repository, immutable revision, and ref. The ref admits only the
+expected protected-branch or pull-request context; it is never the fetch target.
+The step fetches the exact immutable event revision by commit identity, verifies
+the resulting commit, and removes the remote. This prevents a rerun from racing
+a regenerated pull-request merge ref. The next step provisions only the npm and
+TypeScript versions already approved in `tools/toolchain.json`.
 The final step invokes the unchanged canonical release gate, whose installation
 and verification remain offline.
 
@@ -56,9 +59,10 @@ cannot independently authorize modifications to its own definition.
 
 ## Update, rollback, and removal
 
-Update the workflow, CI policy, validator, tests, toolchain registry, operator
-manual, and this decision together. Validate locally before pushing, then prove
-the changed workflow on a pull request before changing its required check.
+Update the workflow, CI policy, validator, tests, affected toolchain facts,
+operator manual, and this decision together. Validate locally before pushing,
+then prove the changed workflow on a pull request before changing its required
+check.
 
 To roll back a broken revision, restore the last verified workflow and policy on
 a repair branch and merge it through the existing protected path. To remove

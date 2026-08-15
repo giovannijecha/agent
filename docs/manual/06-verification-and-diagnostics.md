@@ -21,8 +21,10 @@ bash tools/verify.sh
 
 Pull requests and pushes to `main` run owned `verify-windows` and `verify-linux`
 GitHub jobs. Each checks out the exact event revision without importing a
-checkout action, provisions the registered external npm and TypeScript
-toolchain, verifies external Clang, and invokes the same command above. Linux
+checkout action. The workflow ref is validated only as event context; the
+immutable event commit identity is the fetch target, including on reruns.
+Each job provisions the registered external npm and TypeScript toolchain,
+verifies external Clang, and invokes the same command above. Linux
 uses an owned CI-only bootstrap to delegate a disposable cgroup, including its
 common-parent migration permission, and temporarily open Ubuntu's AppArmor gate
 for unprivileged user namespaces; the broker and tests remain unprivileged, and

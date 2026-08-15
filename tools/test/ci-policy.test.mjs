@@ -24,6 +24,30 @@ test("accepts the canonical owned continuous-verification workflow", () => {
   assert.doesNotThrow(() => validateCiPolicy(policy, currentContext()));
 });
 
+test("fetches the immutable event revision instead of the mutable workflow ref", () => {
+  assert.equal(policy.checkoutTarget, "event-revision");
+  const workflow = currentContext().workflowText;
+  assert.match(workflow, /"origin",\n\s+\$env:AGENT_REVISION\n/u);
+  assert.match(
+    workflow,
+    /git -c protocol\.version=2 fetch --no-tags --depth=1 origin "\$AGENT_REVISION"/u,
+  );
+  assert.doesNotMatch(workflow, /"origin",\n\s+\$env:AGENT_REF\n/u);
+  assert.doesNotMatch(
+    workflow,
+    /git -c protocol\.version=2 fetch --no-tags --depth=1 origin "\$AGENT_REF"/u,
+  );
+});
+
+test("rejects mutable checkout authority in the CI registry", () => {
+  const changed = structuredClone(policy);
+  changed.checkoutTarget = "workflow-ref";
+  assert.throws(
+    () => validateCiPolicy(changed, currentContext()),
+    CiPolicyError,
+  );
+});
+
 test("rejects imported actions and secret consumption", () => {
   const imported = currentContext();
   imported.workflowText = imported.workflowText.replace(

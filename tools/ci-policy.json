@@ -1,7 +1,8 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "workflowPath": ".github/workflows/verify.yml",
   "workflowName": "verify",
+  "checkoutTarget": "event-revision",
   "jobs": [
     {
       "id": "verify-windows",
