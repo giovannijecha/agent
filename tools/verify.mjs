@@ -342,6 +342,7 @@ function verifyManual() {
   );
   const inputs = [
     "README.md",
+    "PRIVACY.md",
     "docs/MAINTENANCE.md",
     ...productSources,
     ...manualPaths,

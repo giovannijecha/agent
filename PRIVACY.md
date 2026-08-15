@@ -13,7 +13,7 @@ written to disk, or sent over a network.
 
 ## Local tools
 
-The five filesystem tools share the one canonical workspace selected at
+The four filesystem tools share the one canonical workspace selected at
 startup, and `run_process` starts in one selected directory beneath it.
 Filesystem handlers do not use ambient network access. Read operations are
 automatic; each successfully planned write or execute operation requires its

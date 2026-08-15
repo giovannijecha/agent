@@ -196,6 +196,33 @@ function verifyDescriptorConstruction(context) {
   }
 }
 
+function normalizedProse(value) {
+  return value.replace(/\s+/gu, " ").trim();
+}
+
+function verifyMutationConvergence(tools, context) {
+  const filesystemTools = tools.filter((tool) => tool.risk !== "execute");
+  const privacy = normalizedProse(fileText(context, "PRIVACY.md"));
+  const maintenance = normalizedProse(
+    fileText(context, "docs/MAINTENANCE.md"),
+  );
+  if (
+    filesystemTools.length !== 4 ||
+    !privacy.includes(
+      "The four filesystem tools share the one canonical workspace selected at startup",
+    ) ||
+    !maintenance.includes(
+      "restore both previous descriptors and their planners before removing `apply_patch`",
+    ) ||
+    !maintenance.includes(
+      "Never advertise either old tool beside `apply_patch`",
+    ) ||
+    !maintenance.includes("To remove all mutation authority instead")
+  ) {
+    fail("manual mutation convergence contract is incomplete");
+  }
+}
+
 function verifyChapter(chapter, index, context) {
   exactKeys(chapter, ["path", "title"], "manual chapter");
   const expectedPrefix = String(index).padStart(2, "0");
@@ -322,6 +349,7 @@ export function validateManualPolicy(policy, context) {
     extractToolContracts(fileText(context, TOOL_SOURCE)),
     "manual tool source inventory",
   );
+  verifyMutationConvergence(tools, context);
 
   if (!Array.isArray(policy.requiredPaths) || policy.requiredPaths.length === 0) {
     fail("manual evidence paths must be a non-empty array");
