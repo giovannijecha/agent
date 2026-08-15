@@ -87,11 +87,12 @@ native namespace commit. Overwrite, merge, recursive or nonempty-directory
 removal, implicit parent creation, self-descendant move, and stale state fail closed.
 Windows implements all three operations through its object-bound native
 protocol. Linux implements only verified-parent directory creation; move and
-remove return `unsupported` before namespace observation because `renameat2`
-and `unlinkat` cannot condition source selection on the approved identity. No
-check-then-mutate or rollback fallback is admitted. Every successful result is
-one object-bound namespace commit, not a filesystem transaction, rollback,
-durability guarantee, or sandbox.
+remove are rejected by the planner before path-specific planning, namespace
+observation, or authorization, while the native broker retains the same final
+guard. `renameat2` and `unlinkat` cannot condition source selection on the
+approved identity. No check-then-mutate or rollback fallback is admitted. Every
+successful result is one object-bound namespace commit, not a filesystem
+transaction, rollback, durability guarantee, or sandbox.
 
 Model and tool text cannot provide styling metadata or terminal escapes. Generic
 components and frames validate one closed semantic tone per printable row; only

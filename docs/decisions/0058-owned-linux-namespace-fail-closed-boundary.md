@@ -45,10 +45,14 @@ model-facing `manage_path` grammar and six-tool inventory remain unchanged;
 platform capability is operation-specific, and unsupported effects retain the
 existing content-free tool failure.
 
-An authorization decision does not override platform capability. Planning
-remains deterministic and platform-independent, while the native committer is
-the final authority and may reject an otherwise valid approved effect without
-mutation.
+The immutable namespace committer exposes one closed operation-capability query
+to the planner. After schema validation identifies the requested operation, the
+planner checks that capability before path-specific planning, filesystem
+observation, preview construction, or authorization. Linux `move` and `remove`
+therefore settle as `unsupported` without revealing whether a supplied path
+exists or would otherwise be valid. Planning remains deterministic over the
+injected capability, while the native committer retains the same rejection as
+the final authority. An authorization decision cannot override either guard.
 
 ## Security and failure contract
 
@@ -71,6 +75,11 @@ remove requests return `unsupported` while source, destination, file content,
 and directory contents remain unchanged. The same tests retain successful
 Linux directory creation and successful Windows create, move, file removal,
 and empty-directory removal.
+
+Planner regressions construct the Linux capability on every test platform,
+remove the accepted workspace before planning, and prove that move and remove
+still settle as `unsupported` with no preview or authorization. This makes any
+filesystem observation or deferred native invocation fail the regression.
 
 The canonical Windows and Linux gates remain mandatory. Windows proves the
 complete three-operation object-bound implementation; Linux proves the

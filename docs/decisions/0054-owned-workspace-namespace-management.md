@@ -102,14 +102,16 @@ identities. It receives an empty environment, has hard operation and post-kill
 cleanup deadlines, emits one bounded binary response, and admits no PATH lookup,
 shell, stdin, or ambient authority. Late events are inert.
 
-On Linux, the broker supports only directory creation: it anchors the workspace
-and parent with guarded `openat2` resolution, revalidates the parent identity,
-and uses handle-relative `mkdirat`. Linux move and remove return `unsupported`
-before namespace observation because `renameat2` and `unlinkat` cannot bind an
-expected source identity to the mutation. On Windows, the broker anchors the
-workspace and relevant parents with handle-relative `NtCreateFile`, revalidates
-volume and file identities, and uses native handle-relative create, rename, or
-disposition information classes without following links or permitting
+On Linux, the committer exposes only directory creation to the planner, which
+rejects move and remove before path-specific planning, namespace observation,
+or authorization. The broker retains the same final rejection; for directory
+creation it anchors the workspace and parent with guarded `openat2` resolution,
+revalidates the parent identity, and uses handle-relative `mkdirat`. `renameat2`
+and `unlinkat` cannot bind an expected source identity to the mutation. On
+Windows, the broker anchors the workspace and relevant parents with
+handle-relative `NtCreateFile`, revalidates volume and file identities, and uses
+native handle-relative create, rename, or disposition information classes
+without following links or permitting
 replacement. The private Windows backend pins the documented
 `FileRenameInformation` class value `10` as one explicitly typed owned constant;
 it does not depend on that optional enumerator spelling being exposed by the

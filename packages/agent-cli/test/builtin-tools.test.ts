@@ -320,6 +320,17 @@ test("distinguishes invalid roots, read policies, and platform adapters", async 
   assert.deepEqual(
     createBuiltinToolEngine(boundary.value, policy.value, {
       mutationCommitter: toolPlatform().mutationCommitter,
+      namespaceCommitter: Object.freeze({
+        commit: toolPlatform().namespaceCommitter.commit,
+      }) as never,
+      processPrograms: toolPlatform().processPrograms,
+      processRunner,
+    }),
+    { ok: false, error: { kind: "invalidPlatform" } },
+  );
+  assert.deepEqual(
+    createBuiltinToolEngine(boundary.value, policy.value, {
+      mutationCommitter: toolPlatform().mutationCommitter,
       namespaceCommitter: Object.freeze({}) as never,
       processPrograms: toolPlatform().processPrograms,
       processRunner,
@@ -505,18 +516,11 @@ test("creates directories and applies the platform namespace boundary", async ()
         path: "source.txt",
       },
     });
-    assert.equal(movement.planned.approvalRequired, true);
-    for (const field of [
-      'operation="move"',
-      'objectKind="file"',
-      'path="source.txt"',
-      'destination="archive/source.txt"',
-    ]) {
-      assert.equal(movement.planned.approvalPreview.includes(field), true);
-    }
-    const moved = await tools.execute(movement.planned, cancellation);
-    assert.ok(moved.ok);
-    if (platform !== "win32") {
+    if (platform === "linux") {
+      assert.equal(movement.planned.approvalRequired, false);
+      assert.equal(movement.planned.approvalPreview, "");
+      const moved = await tools.execute(movement.planned, cancellation);
+      assert.ok(moved.ok);
       assert.equal(moved.value.result.status, "failure");
       assert.equal(output(moved.value).get("error"), "unsupported");
       assert.equal(
@@ -533,7 +537,8 @@ test("creates directories and applies the platform namespace boundary", async ()
       const fileRemoval = await preparePlan(tools, "manage_path", {
         request: { operation: "remove", path: "source.txt" },
       });
-      assert.equal(fileRemoval.planned.approvalRequired, true);
+      assert.equal(fileRemoval.planned.approvalRequired, false);
+      assert.equal(fileRemoval.planned.approvalPreview, "");
       const removedFile = await tools.execute(
         fileRemoval.planned,
         cancellation,
@@ -541,17 +546,12 @@ test("creates directories and applies the platform namespace boundary", async ()
       assert.ok(removedFile.ok);
       assert.equal(removedFile.value.result.status, "failure");
       assert.equal(output(removedFile.value).get("error"), "unsupported");
-      assert.equal(
-        await readFile(path.join(workspace, "source.txt"), {
-          encoding: "utf8",
-        }),
-        "owned",
-      );
 
       const directoryRemoval = await preparePlan(tools, "manage_path", {
         request: { operation: "remove", path: "archive" },
       });
-      assert.equal(directoryRemoval.planned.approvalRequired, true);
+      assert.equal(directoryRemoval.planned.approvalRequired, false);
+      assert.equal(directoryRemoval.planned.approvalPreview, "");
       const removedDirectory = await tools.execute(
         directoryRemoval.planned,
         cancellation,
@@ -565,6 +565,17 @@ test("creates directories and applies the platform namespace boundary", async ()
       assert.equal(await pathMissing(path.join(workspace, "archive")), false);
       return;
     }
+    assert.equal(movement.planned.approvalRequired, true);
+    for (const field of [
+      'operation="move"',
+      'objectKind="file"',
+      'path="source.txt"',
+      'destination="archive/source.txt"',
+    ]) {
+      assert.equal(movement.planned.approvalPreview.includes(field), true);
+    }
+    const moved = await tools.execute(movement.planned, cancellation);
+    assert.ok(moved.ok);
     assert.equal(moved.value.result.status, "success");
     assert.equal(output(moved.value).get("effect"), "moved");
     assert.equal(await pathMissing(path.join(workspace, "source.txt")), true);
@@ -607,6 +618,54 @@ test("creates directories and applies the platform namespace boundary", async ()
     assert.ok(removedDirectory.ok);
     assert.equal(output(removedDirectory.value).get("effect"), "removed");
     assert.equal(await pathMissing(path.join(workspace, "archive")), true);
+  });
+});
+
+test("rejects unsupported namespace operations before observation and approval", async () => {
+  await withWorkspace(async (workspace) => {
+    const boundary = await WorkspaceBoundary.create(
+      workspace,
+      workspaceProtection,
+    );
+    assert.ok(boundary.ok);
+    const policy = await WorkspaceReadPolicy.load(boundary.value, platform);
+    assert.ok(policy.ok);
+    const linuxCommitter = PlatformWorkspaceNamespaceCommitter.create(
+      "linux",
+      "x64",
+    );
+    assert.ok(linuxCommitter.ok);
+    const current = toolPlatform();
+    const created = createBuiltinToolEngine(boundary.value, policy.value, {
+      mutationCommitter: current.mutationCommitter,
+      namespaceCommitter: linuxCommitter.value,
+      processPrograms: current.processPrograms,
+      processRunner: current.processRunner,
+    });
+    assert.ok(created.ok);
+
+    await rm(workspace, { force: true, recursive: true });
+    for (const request of [
+      {
+        destination: "missing/destination.txt",
+        operation: "move",
+        path: "missing/source.txt",
+      },
+      { operation: "remove", path: "missing/source.txt" },
+    ]) {
+      const rejected = await preparePlan(created.value, "manage_path", {
+        request,
+      });
+      assert.equal(rejected.planned.approvalRequired, false);
+      assert.equal(rejected.planned.approvalPreview, "");
+      const settled = await created.value.execute(
+        rejected.planned,
+        cancellation,
+      );
+      assert.ok(settled.ok);
+      assert.equal(settled.value.result.status, "failure");
+      assert.equal(output(settled.value).get("error"), "unsupported");
+    }
   });
 });
 
@@ -657,6 +716,22 @@ test("rejects invalid namespace plans before approval and stale effects at commi
         path: "source.txt",
       },
     });
+    if (platform === "linux") {
+      assert.equal(stale.planned.approvalRequired, false);
+      assert.equal(stale.planned.approvalPreview, "");
+      const unsupported = await tools.execute(stale.planned, cancellation);
+      assert.ok(unsupported.ok);
+      assert.equal(unsupported.value.result.status, "failure");
+      assert.equal(output(unsupported.value).get("error"), "unsupported");
+      assert.equal(
+        await readFile(path.join(workspace, "source.txt"), {
+          encoding: "utf8",
+        }),
+        "original",
+      );
+      assert.equal(await pathMissing(path.join(workspace, "moved.txt")), true);
+      return;
+    }
     assert.equal(stale.planned.approvalRequired, true);
     await rename(
       path.join(workspace, "source.txt"),
@@ -669,10 +744,7 @@ test("rejects invalid namespace plans before approval and stale effects at commi
     const staleSettlement = await tools.execute(stale.planned, cancellation);
     assert.ok(staleSettlement.ok);
     assert.equal(staleSettlement.value.result.status, "failure");
-    assert.equal(
-      output(staleSettlement.value).get("error"),
-      platform === "win32" ? "conflict" : "unsupported",
-    );
+    assert.equal(output(staleSettlement.value).get("error"), "conflict");
     assert.equal(
       await readFile(path.join(workspace, "source.txt"), { encoding: "utf8" }),
       "replacement",

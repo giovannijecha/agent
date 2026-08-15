@@ -37,8 +37,11 @@ export type WorkspaceNamespaceCommitResult =
   | "moved"
   | "removed";
 
+export type WorkspaceNamespaceOperation = WorkspaceNamespaceCommit["kind"];
+
 /** One removable platform boundary for an approved namespace effect. */
 export interface WorkspaceNamespaceCommitter {
+  supportsOperation(operation: WorkspaceNamespaceOperation): boolean;
   commit(
     request: WorkspaceNamespaceCommit,
     cancellation: ToolCancellation,

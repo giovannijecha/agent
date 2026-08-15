@@ -969,6 +969,7 @@ export function createBuiltinToolEngine(
     typeof platform.mutationCommitter.commit !== "function" ||
     platform.namespaceCommitter === null ||
     typeof platform.namespaceCommitter !== "object" ||
+    typeof platform.namespaceCommitter.supportsOperation !== "function" ||
     typeof platform.namespaceCommitter.commit !== "function" ||
     !(platform.processPrograms instanceof ProcessProgramRegistry) ||
     platform.processRunner === null ||

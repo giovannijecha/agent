@@ -45,6 +45,19 @@ function currentCommitter(): PlatformWorkspaceNamespaceCommitter {
   return created.value;
 }
 
+test("exposes the exact platform namespace capability", () => {
+  const linux = PlatformWorkspaceNamespaceCommitter.create("linux", "x64");
+  const windows = PlatformWorkspaceNamespaceCommitter.create("win32", "x64");
+  assert.ok(linux.ok);
+  assert.ok(windows.ok);
+  assert.equal(linux.value.supportsOperation("create_directory"), true);
+  assert.equal(linux.value.supportsOperation("move"), false);
+  assert.equal(linux.value.supportsOperation("remove"), false);
+  assert.equal(windows.value.supportsOperation("create_directory"), true);
+  assert.equal(windows.value.supportsOperation("move"), true);
+  assert.equal(windows.value.supportsOperation("remove"), true);
+});
+
 test("commits only object-bound namespace effects through the native boundary", async () => {
   await withWorkspace(async (workspace) => {
     const source = path.join(workspace, "source");

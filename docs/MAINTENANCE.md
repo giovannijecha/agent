@@ -906,10 +906,12 @@ protocol, native primitive, platform capability, or failure mapping only
 together. Keep complete-batch validation before observation, plan each call
 just in time, bind one exact permission to one effect, and cross the namespace
 committer exactly once. Windows retains create, move, and remove. Linux retains
-only verified-parent directory creation and must return `unsupported` for move
-or remove before namespace observation. Never restore the removed Linux
-check-close-name mutation sequence or add recursive removal, overwrite or merge,
-implicit parent creation, cross-volume movement, cooperative locking,
+only verified-parent directory creation. Keep its closed operation capability
+on the committer port, require the planner to reject move or remove before
+path-specific planning, namespace observation, preview, or permission, and
+retain the same native rejection as a final guard. Never restore the removed
+Linux check-close-name mutation sequence or add recursive removal, overwrite or
+merge, implicit parent creation, cross-volume movement, cooperative locking,
 mutation-then-rollback, or pathname fallback as hidden options.
 
 To remove namespace mutation, remove `manage_path` advertisement and manual

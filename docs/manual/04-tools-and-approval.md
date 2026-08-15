@@ -141,10 +141,13 @@ directory. It never creates parents implicitly, overwrites, merges, removes
 recursively, removes a non-empty directory, crosses volumes, or moves a
 directory beneath itself.
 
-Planning binds canonical paths, source kind and identity, relevant parent
-identities, and destination absence before one exact authorization. Each effect
-crosses the separate decision 0054 native namespace committer exactly once; a
-supported invocation rechecks the approved state before mutation. Linux uses
+The planner first queries the namespace committer's closed operation capability.
+An unsupported operation returns a content-free failure before path-specific
+planning, namespace observation, preview, or authorization. Supported planning
+binds canonical paths, source kind and identity, relevant parent identities,
+and destination absence before one exact authorization. Each effect crosses the
+separate decision 0054 native namespace committer exactly once; a supported
+invocation rechecks the approved state before mutation. Linux uses
 guarded handle-relative traversal and
 verified-parent `mkdirat` for `create_directory`. It returns `unsupported` for
 `move` and `remove` before opening or observing the workspace namespace because
@@ -295,8 +298,9 @@ protocol, platform capability, or commit primitives requires decisions 0054
 and 0058 plus create, move, empty-directory, non-empty-directory, overwrite,
 self-descendant, stale-state, native-protocol, cancellation, and
 forced-termination regressions on Windows and Linux. Linux regressions must
-prove that move and remove remain mutation-free `unsupported` results until a
-new object-bound protocol is accepted. Remove `manage_path` advertisement first,
+prove that move and remove produce no observation, preview, authorization, or
+mutation and remain `unsupported` until a new object-bound protocol is
+accepted. Remove `manage_path` advertisement first,
 then remove its planner, preview, committer, protocol, and native sources. Never
 retain an unadvertised namespace alias or portable pathname fallback. Changing the
 process registry, protocol, limits, output contract, executable resolution, or
