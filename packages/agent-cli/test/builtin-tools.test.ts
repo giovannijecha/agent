@@ -472,7 +472,7 @@ test("creates, reads, replaces, lists, and searches bounded workspace text", asy
   });
 });
 
-test("creates, moves, and removes workspace namespace entries", async () => {
+test("creates directories and applies the platform namespace boundary", async () => {
   await withWorkspace(async (workspace) => {
     const tools = await engine(workspace);
     const creation = await preparePlan(tools, "manage_path", {
@@ -516,6 +516,55 @@ test("creates, moves, and removes workspace namespace entries", async () => {
     }
     const moved = await tools.execute(movement.planned, cancellation);
     assert.ok(moved.ok);
+    if (platform !== "win32") {
+      assert.equal(moved.value.result.status, "failure");
+      assert.equal(output(moved.value).get("error"), "unsupported");
+      assert.equal(
+        await readFile(path.join(workspace, "source.txt"), {
+          encoding: "utf8",
+        }),
+        "owned",
+      );
+      assert.equal(
+        await pathMissing(path.join(workspace, "archive", "source.txt")),
+        true,
+      );
+
+      const fileRemoval = await preparePlan(tools, "manage_path", {
+        request: { operation: "remove", path: "source.txt" },
+      });
+      assert.equal(fileRemoval.planned.approvalRequired, true);
+      const removedFile = await tools.execute(
+        fileRemoval.planned,
+        cancellation,
+      );
+      assert.ok(removedFile.ok);
+      assert.equal(removedFile.value.result.status, "failure");
+      assert.equal(output(removedFile.value).get("error"), "unsupported");
+      assert.equal(
+        await readFile(path.join(workspace, "source.txt"), {
+          encoding: "utf8",
+        }),
+        "owned",
+      );
+
+      const directoryRemoval = await preparePlan(tools, "manage_path", {
+        request: { operation: "remove", path: "archive" },
+      });
+      assert.equal(directoryRemoval.planned.approvalRequired, true);
+      const removedDirectory = await tools.execute(
+        directoryRemoval.planned,
+        cancellation,
+      );
+      assert.ok(removedDirectory.ok);
+      assert.equal(removedDirectory.value.result.status, "failure");
+      assert.equal(
+        output(removedDirectory.value).get("error"),
+        "unsupported",
+      );
+      assert.equal(await pathMissing(path.join(workspace, "archive")), false);
+      return;
+    }
     assert.equal(moved.value.result.status, "success");
     assert.equal(output(moved.value).get("effect"), "moved");
     assert.equal(await pathMissing(path.join(workspace, "source.txt")), true);
@@ -620,7 +669,10 @@ test("rejects invalid namespace plans before approval and stale effects at commi
     const staleSettlement = await tools.execute(stale.planned, cancellation);
     assert.ok(staleSettlement.ok);
     assert.equal(staleSettlement.value.result.status, "failure");
-    assert.equal(output(staleSettlement.value).get("error"), "conflict");
+    assert.equal(
+      output(staleSettlement.value).get("error"),
+      platform === "win32" ? "conflict" : "unsupported",
+    );
     assert.equal(
       await readFile(path.join(workspace, "source.txt"), { encoding: "utf8" }),
       "replacement",
