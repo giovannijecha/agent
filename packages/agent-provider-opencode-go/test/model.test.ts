@@ -34,7 +34,9 @@ import {
   ObjectSchema,
   LiteralStringSchema,
   StringSchema,
+  TOOL_ENGINE_LIMITS,
   ToolDescriptor,
+  UnionSchema,
 } from "@agent/tools";
 
 class Cancellation implements CancellationSignal {
@@ -215,6 +217,71 @@ function literalDescriptor(): ToolDescriptor {
   return tool.value;
 }
 
+function unionDescriptor(): ToolDescriptor {
+  const create = LiteralStringSchema.create("create_directory");
+  const remove = LiteralStringSchema.create("remove");
+  const path = StringSchema.create(1, 4_096);
+  assert.ok(create.ok && remove.ok && path.ok);
+  const createRequest = ObjectSchema.create([
+    {
+      description: "Namespace operation.",
+      name: "operation",
+      required: true,
+      schema: create.value,
+    },
+    {
+      description: "Workspace-relative path.",
+      name: "path",
+      required: true,
+      schema: path.value,
+    },
+  ]);
+  const removeRequest = ObjectSchema.create([
+    {
+      description: "Namespace operation.",
+      name: "operation",
+      required: true,
+      schema: remove.value,
+    },
+    {
+      description: "Workspace-relative path.",
+      name: "path",
+      required: true,
+      schema: path.value,
+    },
+  ]);
+  assert.ok(createRequest.ok && removeRequest.ok);
+  const request = UnionSchema.create([
+    createRequest.value,
+    removeRequest.value,
+  ]);
+  assert.ok(request.ok);
+  const approvalFields = Object.freeze([
+    Object.freeze({ mode: "exact" as const, name: "request" }),
+  ]);
+  const input = ObjectSchema.create([
+    {
+      description: "Exact namespace request.",
+      name: "request",
+      required: true,
+      schema: request.value,
+    },
+  ], {
+    fields: approvalFields,
+    maximumCodeUnits: TOOL_ENGINE_LIMITS.approvalPreviewCodeUnits,
+  });
+  assert.ok(input.ok);
+  const tool = ToolDescriptor.create(
+    "manage_path",
+    "Manage one workspace namespace entry.",
+    "write",
+    input.value,
+    approvalFields,
+  );
+  assert.ok(tool.ok);
+  return tool.value;
+}
+
 function model(
   stream: OpenCodeGoTransportStream,
 ): Readonly<{ model: OpenCodeGoModel; transport: FakeTransport }> {
@@ -352,6 +419,56 @@ test("encodes exact string literals as closed JSON Schema constants", async () =
       type: "string",
     },
   );
+});
+
+test("encodes closed discriminated unions as JSON Schema oneOf", async () => {
+  const transportStream = new FakeStream([
+    ok(frame(completion({ content: "done" }))),
+    ok(frame(completion({}, "stop"))),
+  ]);
+  const fixture = model(transportStream);
+  const stream = await open(
+    fixture.model,
+    new Cancellation(),
+    [unionDescriptor()],
+  );
+
+  assert.equal((await read(stream)).kind, "delta");
+  const body = fixture.transport.request?.body;
+  assert.ok(body !== undefined);
+  const parsed = JSON.parse(body) as {
+    tools: Array<{
+      function: {
+        parameters: {
+          properties: {
+            request: {
+              description: string;
+              oneOf: Array<{
+                additionalProperties: boolean;
+                properties: {
+                  operation: { const: string };
+                };
+                required: string[];
+                type: string;
+              }>;
+            };
+          };
+        };
+      };
+    }>;
+  };
+  const encoded = parsed.tools.at(0)?.function.parameters.properties.request;
+  assert.equal(encoded?.description, "Exact namespace request.");
+  assert.deepEqual(
+    encoded?.oneOf.map((variant) => variant.properties.operation.const),
+    ["create_directory", "remove"],
+  );
+  assert.deepEqual(
+    encoded?.oneOf.map((variant) => variant.additionalProperties),
+    [false, false],
+  );
+  assert.deepEqual(encoded?.oneOf.at(0)?.required, ["operation", "path"]);
+  assert.equal(encoded?.oneOf.at(0)?.type, "object");
 });
 
 test("encodes one complete ordered tool exchange for the next model turn", async () => {

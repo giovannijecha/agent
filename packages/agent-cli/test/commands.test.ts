@@ -9,39 +9,37 @@ import {
 
 test("exposes the exact owned commands", () => {
   assert.deepEqual(executeSubmission("/exit"), { kind: "exit" });
-  assert.deepEqual(executeSubmission("/approve"), { kind: "approve" });
-  assert.deepEqual(executeSubmission("/deny"), { kind: "deny" });
+  assert.deepEqual(executeSubmission("/permissions"), {
+    kind: "permissions",
+  });
+  assert.equal(executeSubmission("/approve").kind, "notice");
+  assert.equal(executeSubmission("/deny").kind, "notice");
   assert.deepEqual(executeSubmission("   "), { kind: "none" });
 });
 
 test("uses one canonical catalog for exact dispatch and completion", () => {
   assert.deepEqual(
     COMMANDS.map((definition) => definition.command),
-    ["/providers", "/approve", "/deny", "/exit"],
+    ["/providers", "/permissions", "/exit"],
   );
   assert.equal(executeSubmission("/providers").kind, "notice");
-  assert.equal(executeSubmission("/approve").kind, "approve");
-  assert.equal(executeSubmission("/deny").kind, "deny");
+  assert.equal(executeSubmission("/permissions").kind, "permissions");
   assert.equal(executeSubmission("/exit").kind, "exit");
   assert.deepEqual(
     commandCompletions("/").map((definition) => definition.command),
-    ["/providers", "/approve", "/deny", "/exit"],
+    ["/providers", "/permissions", "/exit"],
   );
   assert.deepEqual(
     commandCompletions("/p").map((definition) => definition.command),
-    ["/providers"],
-  );
-  assert.deepEqual(
-    commandCompletions("/a").map((definition) => definition.command),
-    ["/approve"],
+    ["/providers", "/permissions"],
   );
 });
 
 test("hides exact commands and rejects case, whitespace, and aliases", () => {
-  assert.deepEqual(commandCompletions("/approve"), []);
+  assert.deepEqual(commandCompletions("/permissions"), []);
   assert.deepEqual(commandCompletions("/APP"), []);
-  assert.deepEqual(commandCompletions(" /a"), []);
-  assert.deepEqual(commandCompletions("/a "), []);
+  assert.deepEqual(commandCompletions(" /p"), []);
+  assert.deepEqual(commandCompletions("/p "), []);
   assert.deepEqual(commandCompletions("/help"), []);
   assert.deepEqual(commandCompletions("/quit"), []);
 });

@@ -97,6 +97,19 @@ function cellFor(
   throw new Error("logical text position was not visible in the planned frame");
 }
 
+function composerCellAt(
+  rendered: ChatRender,
+  draft: string,
+  offset: number,
+): Cell {
+  const caret = rendered.frame.caret;
+  assert.ok(caret !== undefined);
+  return Object.freeze({
+    column: caret.column - draft.length + offset,
+    row: caret.row,
+  });
+}
+
 function pointer(
   application: ApplicationController,
   rendered: ChatRender,
@@ -304,12 +317,7 @@ test("routes composer double click, replacement, and resize through LineEditor",
   const application = new ApplicationController(false);
   application.feed("alpha beta");
   const rendered = render(application);
-  const verticalPadding = rendered.composer.viewportRows >= 3 ? 1 : 0;
-  const horizontalPadding = rendered.stage.columns >= 3 ? 1 : 0;
-  const beta = Object.freeze({
-    column: rendered.stage.left + horizontalPadding + 6,
-    row: rendered.composer.startRow + verticalPadding,
-  });
+  const beta = composerCellAt(rendered, "alpha beta", 6);
 
   pointer(application, rendered, beta, "press", 100);
   pointer(application, rendered, beta, "release", 110);
@@ -340,12 +348,7 @@ test("reduces coalesced composer pointer and editor events in decoder order", ()
   const clicked = new ApplicationController(false);
   clicked.feed("alpha beta");
   let rendered = render(clicked);
-  const verticalPadding = rendered.composer.viewportRows >= 3 ? 1 : 0;
-  const horizontalPadding = rendered.stage.columns >= 3 ? 1 : 0;
-  const betaStart = Object.freeze({
-    column: rendered.stage.left + horizontalPadding + 6,
-    row: rendered.composer.startRow + verticalPadding,
-  });
+  const betaStart = composerCellAt(rendered, "alpha beta", 6);
 
   clicked.feed(
     pointerSequence(betaStart, "press") + "owned",
@@ -357,14 +360,8 @@ test("reduces coalesced composer pointer and editor events in decoder order", ()
   const replaced = new ApplicationController(false);
   replaced.feed("alpha beta gamma");
   rendered = render(replaced);
-  const replacedBetaStart = Object.freeze({
-    column: rendered.stage.left + horizontalPadding + 6,
-    row: rendered.composer.startRow + verticalPadding,
-  });
-  const betaEnd = Object.freeze({
-    column: rendered.stage.left + horizontalPadding + 9,
-    row: rendered.composer.startRow + verticalPadding,
-  });
+  const replacedBetaStart = composerCellAt(rendered, "alpha beta gamma", 6);
+  const betaEnd = composerCellAt(rendered, "alpha beta gamma", 9);
   replaced.feed(
     pointerSequence(replacedBetaStart, "press") +
       pointerSequence(betaEnd, "move") +
@@ -388,12 +385,7 @@ test("dismisses the current notice only for composer pointer interaction", () =>
   pointer(application, rendered, transcriptCell, "release", 110);
   assert.deepEqual(application.notice, ["Copied!"]);
 
-  const verticalPadding = rendered.composer.viewportRows >= 3 ? 1 : 0;
-  const horizontalPadding = rendered.stage.columns >= 3 ? 1 : 0;
-  const composerCell = Object.freeze({
-    column: rendered.stage.left + horizontalPadding + 2,
-    row: rendered.composer.startRow + verticalPadding,
-  });
+  const composerCell = composerCellAt(rendered, "alpha beta", 2);
   rendered = render(application);
   const update = application.feed(
     pointerSequence(composerCell, "press"),
@@ -429,16 +421,8 @@ test("extends transcript and composer double clicks by complete words", () => {
   const composer = new ApplicationController(false);
   composer.feed("alpha beta gamma");
   const composerRender = render(composer);
-  const verticalPadding = composerRender.composer.viewportRows >= 3 ? 1 : 0;
-  const horizontalPadding = composerRender.stage.columns >= 3 ? 1 : 0;
-  const composerBeta = Object.freeze({
-    column: composerRender.stage.left + horizontalPadding + 6,
-    row: composerRender.composer.startRow + verticalPadding,
-  });
-  const composerGamma = Object.freeze({
-    column: composerRender.stage.left + horizontalPadding + 11,
-    row: composerRender.composer.startRow + verticalPadding,
-  });
+  const composerBeta = composerCellAt(composerRender, "alpha beta gamma", 6);
+  const composerGamma = composerCellAt(composerRender, "alpha beta gamma", 11);
 
   pointer(composer, composerRender, composerBeta, "press", 100);
   pointer(composer, composerRender, composerBeta, "release", 110);

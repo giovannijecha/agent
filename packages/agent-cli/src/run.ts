@@ -46,7 +46,7 @@ export type RunFailure<E> =
   | Readonly<{ kind: "frame"; error: ComponentError }>
   | Readonly<{
       kind: "runtime";
-      operation: "acknowledge" | "approval" | "cancel" | "commit" | "event";
+      operation: "acknowledge" | "cancel" | "commit" | "event" | "permission";
       error: RuntimeCommandError | RuntimeSourceError;
     }>
   | Readonly<{
@@ -65,7 +65,7 @@ export type RunFailure<E> =
         | "motion"
         | "notice"
         | "runtimeAcknowledge"
-        | "runtimeApproval"
+        | "runtimePermission"
         | "runtimeCancel"
         | "runtimeCommit"
         | "runtimeStart"
@@ -331,24 +331,24 @@ function applyEffect<E, RE>(
     }
   }
 
-  if (effect.kind === "resolveToolApproval") {
+  if (effect.kind === "resolveToolPermission") {
     if (runtime === undefined) {
       return Object.freeze({
         exit: false,
         failure: Object.freeze({
           kind: "unexpected" as const,
-          operation: "runtimeApproval" as const,
+          operation: "runtimePermission" as const,
         }),
         redraw: false,
       });
     }
     try {
-      const resolved = runtime.resolveToolApproval(
+      const resolved = runtime.resolveToolPermission(
         effect.turnId,
         effect.callId,
-        effect.approved,
+        effect.allowed,
       );
-      if (resolved.ok && effect.approved) {
+      if (resolved.ok && effect.operatorApproved) {
         evaluation?.approvedTool();
       }
       return resolved.ok
@@ -357,7 +357,7 @@ function applyEffect<E, RE>(
             exit: false,
             failure: Object.freeze({
               kind: "runtime" as const,
-              operation: "approval" as const,
+              operation: "permission" as const,
               error: resolved.error,
             }),
             redraw: false,
@@ -367,7 +367,7 @@ function applyEffect<E, RE>(
         exit: false,
         failure: Object.freeze({
           kind: "unexpected" as const,
-          operation: "runtimeApproval" as const,
+          operation: "runtimePermission" as const,
         }),
         redraw: false,
       });

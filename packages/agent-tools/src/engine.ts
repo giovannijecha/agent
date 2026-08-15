@@ -246,6 +246,19 @@ export type ToolEffectPlanError = Readonly<{
 const TOOL_EFFECT_PLAN_TOKEN = Symbol("owned tool effect plan");
 const UNSAFE_APPROVAL_PREVIEW = /[\p{C}\p{Zl}\p{Zp}]/u;
 
+/** Admits only owned LF row separators among otherwise display-unsafe text. */
+export function isSafeApprovalPreview(preview: string): boolean {
+  if (typeof preview !== "string") {
+    return false;
+  }
+  for (const line of preview.split("\n")) {
+    if (UNSAFE_APPROVAL_PREVIEW.test(line)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 /** One bounded concrete effect and its exact post-approval invocation. */
 export class ToolEffectPlan {
   readonly #approvalPreview: string;
@@ -272,7 +285,7 @@ export class ToolEffectPlan {
       typeof approvalPreview !== "string" ||
       approvalPreview.length === 0 ||
       approvalPreview.length > TOOL_ENGINE_LIMITS.approvalPreviewCodeUnits ||
-      UNSAFE_APPROVAL_PREVIEW.test(approvalPreview)
+      !isSafeApprovalPreview(approvalPreview)
     ) {
       return err(Object.freeze({ kind: "invalidPreview" as const }));
     }

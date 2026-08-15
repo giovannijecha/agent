@@ -25,6 +25,10 @@ export {
   HorizontalInset,
   type HorizontalInsetOptions,
 } from "./horizontal-inset.js";
+export {
+  HorizontalRules,
+  type HorizontalRulesOptions,
+} from "./horizontal-rules.js";
 export { InlineText } from "./inline-text.js";
 export {
   InputArea,

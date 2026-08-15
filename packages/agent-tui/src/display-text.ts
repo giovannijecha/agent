@@ -10,8 +10,10 @@ import { paintSurfaceRows } from "./surface.js";
 import {
   isSurfaceTone,
   isTextMark,
+  isTextSlant,
   type SurfaceTone,
   type TextMark,
+  type TextSlant,
 } from "./text-style.js";
 import {
   normalizeTextInteraction,
@@ -27,6 +29,7 @@ export type DisplayRun = Readonly<{
   hyperlink?: string;
   mark?: TextMark;
   position?: TextPosition;
+  slant?: TextSlant;
   text: string;
   tone: Tone;
 }>;
@@ -56,6 +59,7 @@ type DisplayCell = Readonly<{
   hyperlink: string | undefined;
   mark: TextMark;
   position: TextPosition | undefined;
+  slant: TextSlant;
   text: string;
   tone: Tone;
   width: number;
@@ -272,6 +276,7 @@ export function layoutDisplayLines(
         length: number;
         mark: TextMark;
         position: TextPosition | undefined;
+        slant: TextSlant;
         tone: Tone;
       }> = [];
       for (const cell of rowCells) {
@@ -286,6 +291,7 @@ export function layoutDisplayLines(
         if (
           previous?.tone === cell.tone &&
           previous.mark === cell.mark &&
+          previous.slant === cell.slant &&
           previous.hyperlink === cell.hyperlink &&
           contiguousPosition
         ) {
@@ -298,6 +304,7 @@ export function layoutDisplayLines(
             length: 1,
             mark: cell.mark,
             position: cell.position,
+            slant: cell.slant,
             tone: cell.tone,
           });
         }
@@ -311,6 +318,7 @@ export function layoutDisplayLines(
         }
         const span = TextSpan.create(group.chunks.join(""), group.tone, {
           mark: group.mark,
+          slant: group.slant,
         }, {
           hyperlink: group.hyperlink,
           position: group.position,
@@ -339,12 +347,21 @@ export function layoutDisplayLines(
       text: string,
       tone: Tone,
       cellWidth: number,
+      slant: TextSlant = "normal",
       mark: TextMark = "none",
       hyperlink: string | undefined = undefined,
       position: TextPosition | undefined = undefined,
     ): void => {
       cells.push(
-        Object.freeze({ hyperlink, mark, position, text, tone, width: cellWidth }),
+        Object.freeze({
+          hyperlink,
+          mark,
+          position,
+          slant,
+          text,
+          tone,
+          width: cellWidth,
+        }),
       );
       width += cellWidth;
     };
@@ -410,6 +427,7 @@ export function layoutDisplayLines(
       character: string,
       tone: Tone,
       wrap: DisplayWrap,
+      slant: TextSlant = "normal",
       mark: TextMark = "none",
       hyperlink: string | undefined = undefined,
       position: TextPosition | undefined = undefined,
@@ -464,7 +482,15 @@ export function layoutDisplayLines(
       if (complete || failure !== undefined) {
         return;
       }
-      appendCell(printable, tone, cellWidth, mark, hyperlink, position);
+      appendCell(
+        printable,
+        tone,
+        cellWidth,
+        slant,
+        mark,
+        hyperlink,
+        position,
+      );
     };
 
     const compileContinuation = (
@@ -485,6 +511,7 @@ export function layoutDisplayLines(
                   hyperlink: undefined,
                   mark: "none" as const,
                   position: undefined,
+                  slant: candidate.slant ?? "normal",
                   text: " ",
                   tone: candidate.tone,
                   width: 1,
@@ -507,6 +534,7 @@ export function layoutDisplayLines(
                 hyperlink: undefined,
                 mark: "none" as const,
                 position: undefined,
+                slant: candidate.slant ?? "normal",
                 text: printable,
                 tone: candidate.tone,
                 width: cellWidth,
@@ -560,6 +588,7 @@ export function layoutDisplayLines(
           typeof candidate.text !== "string" ||
           !isTone(candidate.tone) ||
           !isTextMark(candidate.mark ?? "none") ||
+          !isTextSlant(candidate.slant ?? "normal") ||
           normalizeTextInteraction({
             hyperlink: candidate.hyperlink,
             position: candidate.position,
@@ -610,6 +639,7 @@ export function layoutDisplayLines(
                 " ",
                 candidate.tone,
                 line.wrap,
+                candidate.slant,
                 candidate.mark,
                 candidate.hyperlink,
                 characterPosition,
@@ -620,6 +650,7 @@ export function layoutDisplayLines(
               character,
               candidate.tone,
               line.wrap,
+              candidate.slant,
               candidate.mark,
               candidate.hyperlink,
               characterPosition,

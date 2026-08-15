@@ -13,6 +13,7 @@ import {
   ObjectSchema,
   StringSchema,
   TOOL_SCHEMA_LIMITS,
+  UnionSchema,
   validateSchema,
 } from "@agent/tools";
 
@@ -98,6 +99,84 @@ test("accepts only the exact owned string literal", () => {
   }
   assert.equal(LiteralStringSchema.create("").ok, false);
   assert.equal(LiteralStringSchema.create("node\u0000").ok, false);
+});
+
+test("validates exactly one bounded union variant", () => {
+  const text = StringSchema.create(1, 64);
+  const create = LiteralStringSchema.create("create_directory");
+  const remove = LiteralStringSchema.create("remove");
+  assert.ok(text.ok && create.ok && remove.ok);
+  const createRequest = ObjectSchema.create([
+    {
+      description: "Exact operation.",
+      name: "operation",
+      required: true,
+      schema: create.value,
+    },
+    {
+      description: "Relative workspace path.",
+      name: "path",
+      required: true,
+      schema: text.value,
+    },
+  ]);
+  const removeRequest = ObjectSchema.create([
+    {
+      description: "Exact operation.",
+      name: "operation",
+      required: true,
+      schema: remove.value,
+    },
+    {
+      description: "Relative workspace path.",
+      name: "path",
+      required: true,
+      schema: text.value,
+    },
+  ]);
+  assert.ok(createRequest.ok && removeRequest.ok);
+  const schema = UnionSchema.create([
+    createRequest.value,
+    removeRequest.value,
+  ]);
+  assert.ok(schema.ok);
+
+  assert.equal(
+    validateSchema(
+      schema.value,
+      value({ operation: "remove", path: "old.txt" }),
+    ).ok,
+    true,
+  );
+  assert.equal(
+    validateSchema(
+      schema.value,
+      value({ operation: "move", path: "old.txt" }),
+    ).ok,
+    false,
+  );
+  assert.equal(
+    validateSchema(
+      schema.value,
+      value({ operation: "remove", path: "old.txt", recursive: true }),
+    ).ok,
+    false,
+  );
+
+  const ambiguous = UnionSchema.create([
+    createRequest.value,
+    createRequest.value,
+  ]);
+  assert.ok(ambiguous.ok);
+  assert.equal(
+    validateSchema(
+      ambiguous.value,
+      value({ operation: "create_directory", path: "src" }),
+    ).ok,
+    false,
+  );
+  assert.equal(UnionSchema.create([]).ok, false);
+  assert.equal(UnionSchema.create([createRequest.value]).ok, false);
 });
 
 test("rejects malformed schema bounds and duplicate fields", () => {

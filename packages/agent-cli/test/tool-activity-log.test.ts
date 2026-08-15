@@ -17,7 +17,8 @@ function request(
     callId,
     approvalRequired ? "apply_patch" : "read_file",
     approvalRequired ? "write" : "read",
-    approvalRequired ? 'path="src/index.ts" oldText=<3 code units>' : "",
+    approvalRequired ? "Path: src/index.ts\n- old\n+ new" : "",
+    approvalRequired,
     approvalRequired,
   );
 }
@@ -29,9 +30,9 @@ test("models one exact approved activity lifecycle without exposing identity", (
   assert.deepEqual(log.snapshots(), [
     {
       name: "apply_patch",
-      preview: 'path="src/index.ts" oldText=<3 code units>',
+      preview: "Path: src/index.ts\n- old\n+ new",
       risk: "write",
-      state: "approval",
+      state: "permission",
     },
   ]);
 
@@ -77,6 +78,7 @@ test("renders a failed mutation plan without opening an approval", () => {
       "write",
       "",
       false,
+      false,
     ).ok,
   );
   assert.deepEqual(log.snapshots(), [
@@ -106,6 +108,38 @@ test("rejects stale identities, contradictory transitions, and unsafe previews",
       "apply_patch",
       "write",
       'path="docs/\u202Egnp.exe"',
+      true,
+      true,
+    ).ok,
+    false,
+  );
+});
+
+test("admits formatter-owned LF rows and rejects other preview controls", () => {
+  const multiline = new ToolActivityLog();
+  assert.ok(multiline.beginTurn(7).ok);
+  assert.ok(
+    multiline.request(
+      7,
+      "multiline-call",
+      "apply_patch",
+      "write",
+      "Path: file.txt\n- old\n+ new",
+      true,
+      true,
+    ).ok,
+  );
+
+  const carriage = new ToolActivityLog();
+  assert.ok(carriage.beginTurn(7).ok);
+  assert.equal(
+    carriage.request(
+      7,
+      "carriage-call",
+      "apply_patch",
+      "write",
+      "Path: file.txt\r- old",
+      true,
       true,
     ).ok,
     false,

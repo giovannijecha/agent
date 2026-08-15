@@ -10,6 +10,7 @@ import {
 } from "@agent/tui";
 
 import type { TranscriptEntry } from "./chat-state.js";
+import { CONVERSATION_DENSITY } from "./conversation-density.js";
 
 const COMPOSER_MAXIMUM_ROWS = 6;
 const DOUBLE_CLICK_MILLISECONDS = 500;
@@ -192,8 +193,16 @@ export class TerminalInteraction {
     }
 
     const composer = projection.composer;
-    const verticalPadding = composer.viewportRows >= 3 ? 1 : 0;
-    const horizontalPadding = projection.stageColumns >= 3 ? 1 : 0;
+    const verticalPadding =
+      composer.viewportRows >=
+      CONVERSATION_DENSITY.composerRuleRows * 2 + 1
+        ? CONVERSATION_DENSITY.composerRuleRows
+        : CONVERSATION_DENSITY.flushRows;
+    const horizontalPadding =
+      projection.stageColumns >=
+      CONVERSATION_DENSITY.contentInsetCells * 2 + 1
+        ? CONVERSATION_DENSITY.contentInsetCells
+        : CONVERSATION_DENSITY.flushCells;
     const composerRow = event.row - composer.startRow - verticalPadding;
     const composerColumn =
       event.column - projection.stageLeft - horizontalPadding;

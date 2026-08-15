@@ -71,7 +71,7 @@ and cross-terminal verification before changing that behavior.
 
 ## Rejected alternatives
 
-- Add extra spaces in user-message and composer surfaces: this would hide one
+- Add extra spaces in user-message and composer regions: this would hide one
   symptom while leaving caret, wrapping, Markdown, tables, and clipping wrong.
 - Treat every non-ASCII scalar as one cell: CJK and emoji could overflow the
   assigned viewport and invalidate renderer geometry.

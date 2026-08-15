@@ -4,6 +4,7 @@ import {
   err,
   MarkdownBlock,
   type Result,
+  SideRail,
   Surface,
   TextSelection,
 } from "@agent/tui";
@@ -17,20 +18,27 @@ function createEntryComponent(
   selection: TextSelection | undefined,
 ): Result<Component, ComponentError> {
   const markdown = MarkdownBlock.create(entry.content, "head", {
+    baseTone: entry.role === "user" ? "highContrast" : "plain",
     document: entry.document,
     selection,
   });
   if (!markdown.ok) return markdown;
 
-  return Surface.create(markdown.value, {
+  const surface = Surface.create(markdown.value, {
     extent: "viewport",
-    horizontalPadding: 1,
-    slant: entry.role === "user" ? "italic" : "inherit",
-    surface: entry.role === "user" ? "subtle" : "none",
-    verticalPadding:
+    horizontalPadding:
       entry.role === "user"
-        ? CONVERSATION_DENSITY.userVerticalPadding
-        : 0,
+        ? CONVERSATION_DENSITY.flushCells
+        : CONVERSATION_DENSITY.contentInsetCells,
+    slant: entry.role === "user" ? "italic" : "inherit",
+    surface: "none",
+    verticalPadding: CONVERSATION_DENSITY.flushRows,
+  });
+  if (!surface.ok || entry.role !== "user") return surface;
+
+  return SideRail.create(surface.value, {
+    horizontalPadding: CONVERSATION_DENSITY.flushCells,
+    railTone: "muted",
   });
 }
 
@@ -49,7 +57,7 @@ function createTurnComponent(
     components.push(component.value);
 
     if (position < entries.length - 1) {
-      const gap = createSpacer();
+      const gap = createSpacer(CONVERSATION_DENSITY.rhythmRows);
       if (!gap.ok) return gap;
       components.push(gap.value);
     }
@@ -79,7 +87,7 @@ export function createConversationDocument(
     position += turnEntries.length;
 
     if (position < entries.length) {
-      const gap = createSpacer();
+      const gap = createSpacer(CONVERSATION_DENSITY.rhythmRows);
       if (!gap.ok) return gap;
       components.push(gap.value);
     }

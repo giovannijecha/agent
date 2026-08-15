@@ -246,8 +246,24 @@ test("renders only fixed semantic tones and resets each styled span", async () =
 
   await renderer.render(
     tonedFrame(
-      ["agent", "ready", "approve", "success", "failure", "emphasis"],
-      ["accent", "muted", "attention", "success", "failure", "emphasis"],
+      [
+        "agent",
+        "ready",
+        "approve",
+        "success",
+        "failure",
+        "contrast",
+        "emphasis",
+      ],
+      [
+        "accent",
+        "muted",
+        "attention",
+        "success",
+        "failure",
+        "highContrast",
+        "emphasis",
+      ],
       4,
       7,
     ),
@@ -272,6 +288,10 @@ test("renders only fixed semantic tones and resets each styled span", async () =
   );
   assert.equal(
     output.text.includes("\u001B[1;38;2;232;112;112mfailure\u001B[0m"),
+    true,
+  );
+  assert.equal(
+    output.text.includes("\u001B[38;2;235;239;244mcontrast\u001B[0m"),
     true,
   );
   assert.equal(output.text.includes("\u001B[1memphasis\u001B[0m"), true);
@@ -421,6 +441,63 @@ test("prepaints homogeneous full-width opaque rows before their content", async 
     ),
     true,
   );
+});
+
+test("prepaints inset lifecycle runs across mixed foreground styles", async () => {
+  const output = new MemoryOutput();
+  const renderer = new Renderer(output);
+  const definitions = [
+    ["succeeded", "success", "22;55;34"],
+    ["approval required", "attention", "62;50;19"],
+    ["failed", "failure", "62;24;27"],
+  ] as const;
+  const rows = definitions.map(([label, surface]) => {
+    const left = TextSpan.create(" ", "plain");
+    const identity = TextSpan.create("tool", "plain", {
+      slant: "italic",
+      surface,
+    });
+    const gap = TextSpan.create(" ", "plain", { surface });
+    const state = TextSpan.create(label, "emphasis", { surface });
+    const right = TextSpan.create(" ", "plain");
+    assert.ok(left.ok);
+    assert.ok(identity.ok);
+    assert.ok(gap.ok);
+    assert.ok(state.ok);
+    assert.ok(right.ok);
+    const row = RichRow.create([
+      left.value,
+      identity.value,
+      gap.value,
+      state.value,
+      right.value,
+    ]);
+    assert.ok(row.ok);
+    return row.value;
+  });
+  const rendered = Frame.create(rows, { row: 0, column: 0 });
+  assert.ok(rendered.ok);
+
+  await renderer.render(rendered.value, viewport(32, 3));
+
+  for (const [index, definition] of definitions.entries()) {
+    const [label, _surface, color] = definition;
+    const runWidth = "tool ".length + label.length;
+    assert.equal(
+      output.text.includes(
+        "\u001B[" +
+          String(index + 1) +
+          ";2H\u001B[48;2;" +
+          color +
+          "m" +
+          " ".repeat(runWidth) +
+          "\u001B[0m\u001B[" +
+          String(index + 1) +
+          ";1H",
+      ),
+      true,
+    );
+  }
 });
 
 test("composes neutral emphasis with semantic lifecycle backgrounds", async () => {

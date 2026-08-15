@@ -17,7 +17,7 @@ export type SideRailOptions = Readonly<{
   railTone: Tone;
 }>;
 
-/** Adds one open vertical guide without changing the child's row count. */
+/** Adds one solid vertical guide without changing the child's row count. */
 export class SideRail implements Component {
   readonly #component: Component;
   readonly #horizontalPadding: 0 | 1;
@@ -95,7 +95,7 @@ export class SideRail implements Component {
       return child;
     }
     const prefix = TextSpan.create(
-      "\u2502" + " ".repeat(this.#horizontalPadding),
+      "\u258c" + " ".repeat(this.#horizontalPadding),
       this.#railTone,
     );
     if (!prefix.ok) {

@@ -1,33 +1,31 @@
 import {
   type Component,
   ComponentError,
+  err,
   type Result,
   SplitLine,
   Surface,
-  type SurfaceTone,
   TextBlock,
-  type Tone,
 } from "@agent/tui";
 
 import type {
   ToolActivitySnapshot,
-  ToolActivityState,
 } from "./tool-activity-log.js";
+import {
+  projectToolActivityPresentation,
+  type ToolActivityTruth,
+} from "./tool-activity-presentation.js";
 import { CONVERSATION_DENSITY } from "./conversation-density.js";
 import { createSpan, createStack } from "./view-components.js";
 
-type ActivityTone = Extract<Tone, SurfaceTone>;
-
-function stateTone(state: ToolActivityState): ActivityTone {
-  if (state === "succeeded") return "success";
-  if (state === "failed" || state === "denied" || state === "cancelled") {
-    return "failure";
-  }
-  return "attention";
-}
-
-function stateLabel(state: ToolActivityState): string {
-  return state === "approval" ? "approval required" : state;
+function truthTone(
+  truth: ToolActivityTruth,
+): "attention" | "failure" | "success" {
+  return truth === "positive"
+    ? "success"
+    : truth === "negative"
+      ? "failure"
+      : "attention";
 }
 
 /** Selects the latest tool only while its model turn remains active. */
@@ -41,54 +39,51 @@ export function projectCurrentActivity(
 function createActivityRows(
   activity: ToolActivitySnapshot,
 ): Result<Component, ComponentError> {
-  const semanticTone = stateTone(activity.state);
-  const name = createSpan(activity.name, "emphasis", { slant: "italic" });
-  const state = createSpan(stateLabel(activity.state), "emphasis");
-  if (!name.ok) return name;
+  const projected = projectToolActivityPresentation(activity);
+  if (!projected.ok) {
+    return err(new ComponentError("invalidComponent", undefined));
+  }
+  const presentation = projected.value;
+  const semanticTone = truthTone(presentation.truth);
+  const marker = createSpan(presentation.marker + " ", semanticTone);
+  const action = createSpan(presentation.action, "emphasis");
+  const detail = presentation.detail.length === 0
+    ? undefined
+    : createSpan("  " + presentation.detail, "plain");
+  const state = createSpan(presentation.stateLabel, semanticTone);
+  if (!marker.ok) return marker;
+  if (!action.ok) return action;
+  if (detail !== undefined && !detail.ok) return detail;
   if (!state.ok) return state;
-  const header = SplitLine.create([name.value], [state.value], {
-    gap: 2,
-    priority: "left",
-  });
+  const left = [marker.value, action.value];
+  if (detail !== undefined) left.push(detail.value);
+  const header = SplitLine.create(
+    left,
+    [state.value],
+    {
+      gap: 2,
+      priority: "right",
+    },
+  );
   if (!header.ok) return header;
 
   const components: Component[] = [header.value];
-  const detail = [
-    activity.risk,
-    ...(activity.state === "approval" ? [activity.preview] : []),
-  ]
-    .filter((part) => part.length > 0)
-    .join("  ");
-  if (detail.length > 0) {
-    if (activity.state === "approval") {
-      const summary = createSpan(detail, "plain");
-      const actions = createSpan("/approve  /deny", "emphasis");
-      if (!summary.ok) return summary;
-      if (!actions.ok) return actions;
-      const decision = SplitLine.create([summary.value], [actions.value], {
-        gap: 2,
-        priority: "right",
-      });
-      if (!decision.ok) return decision;
-      components.push(decision.value);
-    } else {
-      const text = TextBlock.create(detail, "head", "plain");
-      if (!text.ok) return text;
-      components.push(text.value);
-    }
-  } else if (activity.state === "approval") {
-    const actions = TextBlock.create("/approve  /deny", "head", "emphasis");
-    if (!actions.ok) return actions;
-    components.push(actions.value);
+  if (
+    presentation.state === "permission" &&
+    presentation.preview.length > 0
+  ) {
+    const preview = TextBlock.create(presentation.preview, "head", "plain");
+    if (!preview.ok) return preview;
+    components.push(preview.value);
   }
   const stack = createStack(components);
   if (!stack.ok) return stack;
   return Surface.create(stack.value, {
     extent: "viewport",
-    horizontalPadding: 1,
+    horizontalPadding: CONVERSATION_DENSITY.contentInsetCells,
     slant: "inherit",
-    surface: semanticTone,
-    verticalPadding: CONVERSATION_DENSITY.activityVerticalPadding,
+    surface: "none",
+    verticalPadding: CONVERSATION_DENSITY.flushRows,
   });
 }
 

@@ -3,6 +3,7 @@ import {
   type Component,
   ComponentError,
   type Frame,
+  HorizontalRules,
   InputArea,
   ok,
   type Result,
@@ -31,6 +32,7 @@ import {
 } from "./conversation-stage.js";
 import { createConversationDocument } from "./conversation-view.js";
 import { isMotionActive } from "./motion-policy.js";
+import { createPermissionsDocument } from "./permissions-view.js";
 import { createSpacer, createSpan } from "./view-components.js";
 
 const DOCUMENT_SLOT = 0;
@@ -99,10 +101,10 @@ function createNotice(
   if (!text.ok) return text;
   return Surface.create(text.value, {
     extent: "viewport",
-    horizontalPadding: 1,
+    horizontalPadding: CONVERSATION_DENSITY.contentInsetCells,
     slant: "inherit",
     surface: "none",
-    verticalPadding: 0,
+    verticalPadding: CONVERSATION_DENSITY.flushRows,
   });
 }
 
@@ -127,14 +129,11 @@ function createComposer(
         }),
   });
   if (!input.ok) return input;
-  const surface = Surface.create(input.value, {
-    extent: "viewport",
-    horizontalPadding: 1,
-    slant: "inherit",
-    surface: "subtle",
-    verticalPadding: CONVERSATION_DENSITY.composerVerticalPadding,
+  return HorizontalRules.create(input.value, {
+    horizontalPadding: CONVERSATION_DENSITY.contentInsetCells,
+    ruleRows: CONVERSATION_DENSITY.composerRuleRows,
+    tone: "accent",
   });
-  return surface;
 }
 
 /** Maps CLI state onto one planned generic conversation shell and safe frame. */
@@ -181,7 +180,15 @@ export function createChatRender(
   if (!conversationRhythm.ok) return conversationRhythm;
 
   const commandCompletion = application.projectCommandCompletion();
-  const completion = createCommandCompletionDocument(commandCompletion);
+  const permissionMenu = application.projectPermissionMenu();
+  const toolDecision = application.projectToolDecision();
+  const permissions = createPermissionsDocument(permissionMenu, toolDecision);
+  if (!permissions.ok) return permissions;
+  const contextualSelection =
+    permissionMenu !== undefined || toolDecision !== undefined;
+  const completion = contextualSelection
+    ? permissions
+    : createCommandCompletionDocument(commandCompletion);
   if (!completion.ok) return completion;
   const completionColumn = createConversationStage(completion.value);
   if (!completionColumn.ok) return completionColumn;
@@ -248,7 +255,7 @@ export function createChatRender(
       flex: 0,
       minimumRows: 0,
       preferredRows:
-        commandCompletion === undefined
+        commandCompletion === undefined && !contextualSelection
           ? 0
           : CONVERSATION_DENSITY.rhythmRows,
       priority: CONVERSATION_RHYTHM_PRIORITY,
@@ -256,9 +263,10 @@ export function createChatRender(
     Object.freeze({
       component: completionColumn.value,
       flex: 0,
-      minimumRows: commandCompletion === undefined ? 0 : 1,
+      minimumRows:
+        commandCompletion === undefined && !contextualSelection ? 0 : 1,
       preferredRows:
-        commandCompletion === undefined
+        commandCompletion === undefined && !contextualSelection
           ? 0
           : completionHeight.value.preferredRows,
       priority: 6,

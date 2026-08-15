@@ -90,7 +90,7 @@ prepared-turn acknowledgement, cancellation-before-commit ordering, and
 terminal-receipt acknowledgement across shutdown races. They must also prove
 non-retention of candidate conversations. Runtime tool-loop changes must preserve
 complete pure batch preflight, unique ordered call identities, just-in-time
-planning, sequential invocation, exact per-call approval identity, planner and
+planning, sequential invocation, exact per-call permission identity, planner and
 handler cancellation, complete structured exchange checkpoints, and the rule
 that only state newer than the last checkpoint may be discarded. Update
 decision 0029 with any batch order, planning, limit, output-budget, cancellation,
@@ -122,24 +122,25 @@ model-facing registry.
 Change a schema, risk class, limit, planner/handler contract, or built-in tool
 only with core structured-value tests, schema/registry tests, runtime
 loop/checkpoint tests, Node adapter success/failure/security tests, reducer
-approval tests, TUI privacy tests, and decision 0008. Preserve exact `/approve`
-and `/deny`, one pending call, read-only automatic execution, pure complete-batch
+permission tests, TUI privacy tests, and decisions 0008 and 0055. Preserve the
+exact `/permissions` catalog entry, closed six-tool session policy, one pending
+decision, pure complete-batch
 preflight, just-in-time effect planning, root containment, symlink denial,
 incremental directory bounds, post-invocation checkpoints, content-free
 failures, and only owned bounded projections or effect previews in UI.
 Reintroduce process execution only
 after the private decision-0016 broker passes its complete matching-platform
 adversarial matrix and a later decision accepts the model-facing schema,
-adapter, approval, privacy, checkpoint, and removal contract. The private
+adapter, permission, privacy, checkpoint, and removal contract. The private
 broker alone grants no production authority.
 
 Approval-summary changes must test directional, zero-width, control, surrogate,
 private-use, and line-separator input. Preserve two independent defenses: the
 tool engine emits an escaped printable representation, and the CLI rejects raw
 unsafe scalars before any TUI component receives the summary. Mutation effect
-preview changes additionally require exact and excerpted content, digest,
-omitted-count, mixed CRLF/CR/LF line metadata, strict-UTF-8, stale-identity, and
-cancellation regressions.
+preview changes additionally require exact and excerpted `- ` and `+ ` rows,
+omitted counts, control escaping, LF-only structural separation, empty creation,
+mixed CRLF/CR/LF input, strict UTF-8, stale identity, and cancellation regressions.
 
 To remove one tool, stop advertising its descriptor, then delete its handler,
 focused tests, policy record, manual entry, and unused private helpers. Update
@@ -149,16 +150,34 @@ unrelated changes. Shared engine primitives remain only when another admitted
 tool uses them.
 
 To remove tools, stop descriptor advertisement and restore the runtime text-only
-path. In that same change, replace manual-policy schema 5 with a schema that
+   path. In that same change, replace manual-policy schema 9 with a schema that
 removes the advertised tool inventory. Remove decisions 0008, 0014, 0015, 0016,
 and 0036 only after their admitted surfaces and proof infrastructure are gone,
 together with their ownership, required-path, and manual-evidence entries.
-Remove CLI approval commands, tool activity, built-in Node handlers, imports,
-declarations, and allowlist entries. Then remove the runtime dependency on
+Remove the CLI permission command, policy, contextual selectors, tool activity,
+built-in Node handlers, imports, declarations, and allowlist entries. Then remove the runtime dependency on
 `@agent/tools` and delete its workspace from npm, TypeScript, provider-policy,
 and lock registries. Remove core structured tool entries only if no remaining
 adapter consumes them. Build core, TUI, runtime, and the providerless CLI after
 each stage.
+
+## Update or remove session tool permissions
+
+Treat `packages/agent-cli/src/tool-permissions.ts`, `/permissions`, application
+selection state, the exact runtime decision method, contextual presentation,
+tests, manual-policy schema 9, and decision 0055 as one authority contract.
+Preserve the exact six names and risks, read `Allow` defaults, write/execute
+`Ask` defaults, memory-only lifetime, unknown-name and risk-drift rejection,
+non-wrapping mode changes, one exact turn-and-call runtime decision, structured
+denial without handler invocation, and absence of `/approve` and `/deny`.
+
+Changing a default or adding persistence is a security-policy change and needs
+a new accepted decision, privacy and security updates, runtime/reducer/UI
+regressions, and explicit migration and removal guidance. To remove the session
+editor while keeping tools, replace it with another reviewed exact decision
+path first; never fall back to implicit allowance. Then remove the command,
+policy state, contextual selection presenter, input routing, decision 0055, and
+their tests and evidence together.
 
 ## Update or remove the vertical TUI framework
 
@@ -175,7 +194,7 @@ terminal-safety boundary. Product concepts remain in CLI.
 
 To remove the framework, first replace `chat-view` with direct validated frame
 composition. Then delete component, fragment, display-text, input-line, input-area,
-inline-text, panel, surface, text-style, split-line, horizontal-inset, side-rail,
+inline-text, panel, surface, horizontal-rules, text-style, split-line, horizontal-inset, side-rail,
 component-stack, rich-row, text-block,
 vertical-layout, and limit exports together
 with their focused tests and decisions 0006, 0019, and 0021. If only semantic
@@ -188,7 +207,7 @@ references, and decision 0020. Remove synchronized
 output by deleting both markers and recovery state together. Decoder, editor,
 runtime, and core must stay green.
 
-Conversation-shell changes require panel, surface, text-style, split-line,
+Conversation-shell changes require panel, surface, horizontal-rules, text-style, split-line,
 three-column-line, horizontal-inset, side-rail, spacer, footer, composer,
 transcript-role, activity, notice, empty-state, tiny-viewport, semantic-state,
 and manual regressions under decisions 0026, 0027, 0028, 0039, 0040, 0041, and
@@ -197,30 +216,45 @@ dominant, omit absent contextual blocks, and render only status facts already
 held by the composition root or application reducer. Preserve the footer's
 left/physical-center/right anchors and right-center-left narrow-width retention.
 Keep stable context at left and center; reserve the right edge for the active-work
-pulse, place its final cell on the composer's final surface cell, and render no
+pulse, place its final cell on the composer's final frame cell, and render no
 lifecycle or navigation words there. Do not recreate a static
-header or lifecycle notice. Keep the draft and ordinary
-conversation foreground neutral. Keep one neutral subtle background on user
-turns and the composer, and keep other non-operational regions transparent. Use
-italic slant for user turn grouping and the transparent content-fit surface
-path for registered structured Markdown. Keep
+header or lifecycle notice. Keep the draft and ordinary assistant conversation
+foreground neutral. Compose each user turn from one transparent generic
+`Surface` and the generic `SideRail`: one muted solid half-block rail cell owns
+the shared content inset and spans exactly the visible rows, with zero internal
+horizontal or vertical padding. Its following cell must align with assistant
+prose and composer text, caret, and pointer geometry. Use italic slant and the closed `highContrast` base tone for user prose;
+registered Markdown roles retain their semantic tones. Keep the composer transparent between its accent rules and
+keep other non-operational regions transparent. Use the transparent content-fit
+surface path for registered structured Markdown. Keep
 complete one- and two-row fences compact with zero horizontal padding, larger
 fences and tables at one cell, and exact `---` on the shared responsive muted
 separator path. Reserve restrained steel blue for parser-recognized inline code
 and language labels and lighter blues for fenced syntax only,
-and reserve green, yellow, and red for authoritative success, active, and
-negative state. Complete recognized fences may use only the five closed syntax
+and reserve green, yellow, and red foregrounds for authoritative tool marks and
+written success, active, and negative state. Complete recognized fences may use only the five closed syntax
 roles; unknown or unlabeled fences remain plain.
 Conversation-density changes go through the one frozen CLI-owned record and
-decision 0043. Keep user and composer vertical padding at one, activity
-vertical padding at zero, and external rhythm at one optional row unless all
-three wide, medium, and short geometry matrices change together. On clipping,
-retain the activity head with tool identity and written state before optional
-detail. Show the exact bounded effect preview only during `approval`; queued,
-running, cancelling, and terminal projections show only risk beneath the head.
-Keep the preview in the bounded activity log so this remains a presentation
-rule, not a second lifecycle. Do not duplicate these values in presenters or
-generic TUI components.
+decision 0043. Keep the shared content inset at one, flush offsets at zero,
+composer top and bottom rule rows at one, and external rhythm at one optional
+row. Keep the user
+`Surface` padding at zero and its generic rail exactly as tall as visible
+content unless all three wide, medium, and short geometry matrices change
+together. On clipping, retain the activity status mark and display action on the
+left and the written state on the right before optional useful subject or preview
+detail. Keep the exact six display labels in the pure CLI presentation
+table and prove their name/risk alignment with the permission catalog; never use
+them for dispatch. Non-permission projections occupy exactly the compact main
+line. Pending permission may add the separately wrapped exact bounded human-readable
+effect preview before its contextual action list. Keep the preview in the bounded
+activity log so this remains a presentation rule, not a second lifecycle. Do
+not duplicate these values in generic TUI components.
+Changing activity labels, marks, truth foregrounds, transparency, safe subjects,
+or detail order requires decisions 0056 and 0057, the pure projection table, catalog-alignment tests, wide and
+short rendering tests, manual evidence, and privacy review in the same change.
+Removing the compact projection removes its table and decision together and
+restores one reviewed generic presentation; it never creates a transcript or
+per-tool fallback.
 A contextual notice remains one latest transparent region below activity and
 above completion or the composer. Preserve the independent muted-information
 and attention-warning levels, one-cell content alignment, replacement semantics,
@@ -233,17 +267,20 @@ work through that successful frame without resetting the visible phase. An
 input fragment or stale event that produces no redraw must leave pending motion
 intact.
 A future tool or integration must reuse the generic activity document rather
-than add its own card. Every state uses the same borderless semantic `Surface`
-with a closed success, attention, or failure background, neutral italic tool
-identity, and explicit written state. Approval adds no private panel or rail.
+than add its own card. Every state uses the same borderless transparent `Surface`
+with a closed success, attention, or failure foreground on its mark and explicit
+written state. Canonical name and risk remain validation inputs rather than
+repeated visible text. Approval adds no private panel or rail.
 Its view projection must continue to derive only the latest activity from the
 same bounded log while a turn is active; a new tool replaces it, turn settlement
 removes it, and the transcript never archives it.
-For any changed homogeneous opaque row that occupies the full viewport, keep the
-renderer-owned ASCII surface prepaint before structured content. Test both the
-exact emitted sequence and unchanged-row differential behavior. Do not repair
-right-edge holes with component padding, preview truncation, or private width
-tables.
+For every changed row, keep the renderer-owned ASCII prepaint for each maximal
+contiguous non-transparent surface run before structured content. Preserve the
+run's exact measured start and width, including after a shared inset, while
+keeping transparent gaps and differently surfaced runs separate. Test the exact
+emitted sequence, mixed-style runs, and unchanged-row differential behavior. Do
+not repair right-edge holes with component padding, preview truncation, or
+private width tables.
 Do not introduce a second archive or lifecycle model. The empty session must
 remain free of welcome, suggestion, and embedded help content. To remove the
 visual grammar without removing the framework, replace the CLI document
@@ -315,7 +352,9 @@ Markdown syntax, delimiter completion, precedence, roles, structured surfaces,
 lexical aliases, separator behavior, compact-fence density, fallback, or bounds
 change only through decisions 0023, 0030, 0031, and 0032 with parser, internal highlighter, component, shared-layout, surface painter,
 renderer, transcript, streaming, privacy, manual, and policy regressions. Keep
-the grammar closed and line-oriented. Markdown and `TextBlock` must continue to
+the grammar closed and line-oriented. Keep same-line inline precedence at code,
+strong, then italic emphasis; preserve parser-selected slant through the shared
+display-run, interaction, wrapping, and structured-row path. Markdown and `TextBlock` must continue to
 share normalization, wrapping, anchoring, and padding; do not introduce an AST,
 extension hook, rendered HTML path, active link, image protocol, dynamic
 language registry, or alternate renderer.
@@ -352,8 +391,12 @@ exports and tests, decisions 0023, 0030, 0031, and 0032, and their policy and ma
 evidence. First remove table recognition and its derived header rule,
 structured-region identities, the
 shared row-paint integration and the five syntax tones if unused; the generic
-`Surface` remains for user turns and other callers. If no remaining
-component uses the `emphasis` tone, remove only that renderer mapping in the same change. Decision
+`Surface` and `SideRail` remain for user turns and other callers. If no remaining
+component uses the `emphasis` tone, remove only that renderer mapping in the same
+change. Removing only italic Markdown emphasis deletes its delimiter branch and
+display-run slant propagation; the generic `TextSpan` slant remains for user
+prose and tool identity. If no remaining component uses `highContrast`, remove its renderer
+mapping and role registration in the same change. Decision
 0027's lifecycle success and failure tones remain independent. The remaining components, structured
 rows, scrolling, tool activity, input, runtime, and providers stay buildable.
 
@@ -371,7 +414,7 @@ then remove the unused surface roles and renderer mappings. To remove the
 surface, first remove its single CLI slot, both rhythm slots, and lifecycle log,
 then remove the generic component stack only if it has no other consumer.
 The runtime tool protocol,
-approval commands, tool engine, structured rows, scroll view, and renderer must
+permission policy, tool engine, structured rows, scroll view, and renderer must
 remain buildable.
 
 ## Update or remove the CLI application loop
@@ -830,12 +873,14 @@ and 0050; do not leave a private range reader or compatibility alias.
 planner, bounded preview, internal create-or-replace commit adaptation, decision
 0053, focused tests, manual inventory, and policy entries form one contract.
 Change hunk ordering, uniqueness, overlap, creation form, aggregate bounds,
-mutation-path or structured-projection bounds, result bounds, preview fields,
-approval, or stale-state behavior only together. The `apply_patch` path retains
+mutation-path or structured-projection bounds, result bounds, preview grammar or
+formatter, approval, or stale-state behavior only together under decisions 0053
+and 0057. The `apply_patch` path retains
 its 447-code-unit and 896-projected-code-unit reservation independently of the
 read-tool path fields. Recalculate and test the complete 32-hunk compact
 preview against the maximum admitted path whenever either reservation or the
-preview grammar changes. Keep complete-batch validation before observation,
+preview grammar changes. Keep internal digests and identity out of the displayed
+diff while retaining them in the exact immutable plan. Keep complete-batch validation before observation,
 keep patch resolution pure over one complete immutable source snapshot, and
 cross the decision 0046 native committer exactly once after approval.
 
@@ -849,10 +894,31 @@ manual inventory before removing the decision 0046 committer and both native
 backends. Do not retain an unadvertised compatibility alias or dormant write
 authority.
 
+## Update or remove workspace namespace management
+
+`manage_path`, `packages/agent-cli/src/workspace-namespace-plans.ts`,
+`workspace-namespace-preview.ts`, `workspace-namespace-committer.ts`,
+`platform-workspace-namespace-protocol.ts`,
+`platform-workspace-namespace.ts`, the native namespace broker, decision 0054,
+focused tests, manual inventory, and policy entries form one contract. Change
+the union grammar, path bounds, identity snapshot, preview, approval, protocol,
+native primitive, or failure mapping only together. Keep complete-batch
+validation before observation, plan each call just in time, bind one exact
+approval to one effect, and cross the namespace committer exactly once. Never
+add recursive removal, overwrite or merge, implicit parent creation,
+cross-volume movement, or pathname fallback as hidden options.
+
+To remove namespace mutation, remove `manage_path` advertisement and manual
+inventory before deleting its planner, preview, committer, protocol, native
+sources, focused tests, decision, and policy entries. To replace it, switch the
+single namespace domain atomically and leave no alias or dormant authority.
+`apply_patch`, read capabilities, and `run_process` remain independently
+buildable.
+
 ## Update or remove structured process execution
 
 `run_process` is the only admitted execute tool. Keep its model-facing schema,
-exact approval projection, runner port, Node adapter, protocol codec, and native
+exact permission projection, runner port, Node adapter, protocol codec, and native
 broker as separate replaceable layers. The public token registry currently maps
 only `node` to the current absolute Node executable. Keep that mapping in
 `packages/agent-cli/src/process-program-registry.ts`; both descriptor and
@@ -862,13 +928,14 @@ string, executable path, PATH lookup, stdin, inherited environment, or
 model-selected resource limit. Every invocation retains one exact, single-use
 approval.
 
-Decision 0050 owns the staged convergence target for all model-facing tools.
-Replace one authority domain at a time and finish each replacement without an
-alias. A new process entry requires current evaluation evidence plus its exact
-resolver, argument grammar, platform behavior, approval, failure, rollback, and
-removal contract. A future sandboxed `shell` is a replacement for the sole
-execute slot, not an additional tool, and requires a separate adversarial
-Windows and Linux proof before advertisement.
+Decision 0050 now records the exact six-tool surface. Preserve one canonical
+name for each of the three read domains, text patching, namespace management,
+and execution. Replace one authority domain atomically and leave no alias. A
+new process entry requires current evaluation evidence plus its exact resolver,
+argument grammar, platform behavior, approval, failure, rollback, and removal
+contract. A future sandboxed `shell` is a replacement for the sole execute
+slot, not an additional tool, and requires a separate adversarial Windows and
+Linux proof before advertisement.
 
 Keep the common frame decoder and entry point independent from the two platform
 backends. A protocol change replaces version 1 everywhere; never retain a

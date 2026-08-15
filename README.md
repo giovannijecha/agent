@@ -17,7 +17,7 @@ maintainer-controlled workspace without third-party runtime packages.
 
 - Streams one model turn into a conversation-first terminal interface.
 - Runs bounded local coding tools through explicit schemas and risk classes.
-- Requires a separate approval for every write or process execution.
+- Applies one session-scoped `Allow`, `Ask`, or `Deny` policy to every tool.
 - Executes ordered tool-call batches sequentially and checkpoints their truth.
 - Filters automatic reads through an owned deny-only workspace privacy policy.
 - Contains the admitted `node` process token through an owned native broker.
@@ -63,19 +63,24 @@ for the controlled environment-variable path.
 
 ## Terminal interface
 
-The transcript stays dominant. User turns and the composer use one quiet neutral
-surface so role and input remain immediately visible. Assistant prose, code,
-tables, and completion stay transparent; green, ochre, and red backgrounds are
-reserved for tool activity, approval, success, and failure. One shared rhythm
-separates every lower-shell region. User turns retain one quiet padding row
-above and below their text, activity surfaces follow their content height, and
-the focused composer retains one vertical padding row on each side. Exact
-bounded mutation or execution previews appear only while approval is pending;
-later activity states stay compact with tool identity, written state, and risk.
-Opaque full-width rows are repainted from their semantic surface before content,
-so pasted symbols cannot leave holes in the right edge. The footer keeps workspace and provider
-facts quiet while a soft active-work pulse aligns with the composer's right
-edge. Command feedback appears as one transparent contextual notice below any
+The transcript stays dominant. User turns compose one transparent stage-wide
+surface with one muted exact-height left rail and italic text. The rail itself
+owns the shared content inset, so user text, assistant prose, and composer text
+and caret begin on one canonical column. The composer keeps its content
+transparent between two full-width light-blue rules. Code, tables, and completion stay
+transparent. Tool activity is transparent too: its marker and written state use
+restrained success, attention, or failure foregrounds. One shared rhythm separates every lower-shell
+region. A user rail follows only the visible content rows without synthetic
+padding, activity surfaces follow their content height, and the focused
+composer retains one rule row on each side when the viewport permits. Exact
+bounded mutation or execution previews appear only while permission is pending;
+every other activity state stays on one compact line with a status mark, readable
+action, optional useful subject, and right-aligned written state. Patch permission
+shows the path and bounded human-readable removed and inserted rows instead of
+internal digests or tuple metadata. Opaque structured rows are repainted from their
+semantic surface before content. The footer keeps workspace and provider
+facts quiet while a soft active-work pulse aligns with the composer frame's
+right edge. Command feedback appears as one transparent contextual notice below any
 tool activity; it is replaced by newer feedback, disappears after five seconds,
 and closes immediately when editing resumes. `/providers` uses one compact muted
 line, while invalid commands use one short warning.
@@ -91,15 +96,19 @@ The exact command surface is:
 | Command | Action |
 | --- | --- |
 | `/providers` | Show integration availability |
-| `/approve` | Allow the pending write or execute call |
-| `/deny` | Reject the pending write or execute call |
+| `/permissions` | Set current-session tool permissions |
 | `/exit` | Close `agent` |
+
+The permission editor covers the exact six built-in tools and stays in memory
+only. Reads start as `Allow`; writes and execution start as `Ask`. A pending
+`Ask` offers `Allow once`, `Allow for session`, and `Deny` through a contextual
+selection list rather than another slash command.
 
 Typing a command prefix opens compact completion above the composer. Up and
 Down select, Tab inserts without submitting, and Enter dispatches through the
 same exact command path. The menu has no passive help row.
 
-Editing, multiline paste, transcript navigation, approval behavior, colors,
+Editing, multiline paste, transcript navigation, permission behavior, colors,
 motion, and failure handling are documented in the
 [terminal-interface manual](docs/manual/03-terminal-interface.md).
 
@@ -121,14 +130,19 @@ terminal-native selection path, while Ctrl+C remains the agent interrupt.
 - One model response may select one bounded ordered tool-call batch.
 - The complete batch is validated before observation; calls are then planned
   just in time and invoked sequentially.
-- Read tools may run automatically; every successfully planned write or execute
-  call needs its own exact approval.
+- Read tools default to `Allow`; writes and execution default to `Ask`. Every
+  successfully planned request receives one exact runtime permission decision.
 - `apply_patch` creates or updates one file through ordered exact-text hunks,
   reserves its bounded target path inside one concrete effect preview, and
   commits the approved state through one owned handle-relative Windows/Linux
   broker. Invalid path projections or aggregate hunk batches fail complete
   preflight before observation; ambiguous anchors, overlap, reordering, no-op
   hunks, or changed identity, absence, path, or content fail as conflicts.
+- `manage_path` creates one directory, moves one file or directory to an absent
+  destination, or removes one file or empty directory. Every effect has one
+  exact authorization and one owned handle-relative namespace commit; overwrite,
+  merge, recursive removal, nonempty-directory removal, and self-descendant
+  moves fail closed.
 - `read_file`, `list_directory`, and `search_text` share one immutable built-in
   plus `.agentignore` disclosure policy; denied targets never enter tool output.
 - `read_file` optionally returns an exact bounded logical-line range with
@@ -137,11 +151,11 @@ terminal-native selection path, while Ctrl+C remains the agent interrupt.
 - `run_process` accepts only the CLI-registered `node` token, literal arguments,
   and one workspace-relative directory. It accepts no shell, executable path,
   PATH lookup, stdin, inherited environment, or model-selected limit.
-- Model turns, tools, approvals, mutations, process execution, and terminal
+- Model turns, tools, permissions, mutations, process execution, and terminal
   output remain serialized.
-- Mutation commit has no portable pathname-write fallback. Unsupported native
-  exclusion or publication primitives fail closed rather than weakening an
-  approved effect.
+- Content and namespace mutation commits have no portable pathname fallback.
+  Unsupported native exclusion, publication, or namespace primitives fail
+  closed rather than weakening an approved effect.
 - Secrets, raw tool arguments, call identifiers, and failure causes do not enter
   the contextual UI.
 
@@ -164,7 +178,7 @@ the sole controller for deterministic reduction.
 | `packages/agent-provider-opencode-go` | Node-free OpenCode Go wire adapter |
 | `packages/agent-tui` | Generic input, layout, Markdown, frames, and renderer |
 | `packages/agent-cli` | Commands, chat, tools, terminal, Node I/O, and composition |
-| `packages/agent-cli/native` | Private platform roots, mutation commit, clipboard, and process containment |
+| `packages/agent-cli/native` | Private platform roots, content and namespace mutation commits, clipboard, and process containment |
 | `evaluations` | Original reproducible task briefs, input snapshots, and expected snapshots |
 | `types` | Minimal owned Node declarations |
 | `tools` | Build, ownership, evaluation, test, policy, and smoke verification |

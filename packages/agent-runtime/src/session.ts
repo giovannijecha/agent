@@ -16,11 +16,11 @@ export interface RuntimeSession<E> {
   startTurn(input: string): Result<StartedTurn, StartTurnError>;
   /** Requests cancellation for the exact active turn idempotently. */
   requestCancel(turnId: number): Result<boolean, RuntimeCommandError>;
-  /** Resolves the exact pending tool request without caching approval. */
-  resolveToolApproval(
+  /** Resolves the exact pending tool request without retaining session policy. */
+  resolveToolPermission(
     turnId: number,
     callId: string,
-    approved: boolean,
+    allowed: boolean,
   ): Result<void, RuntimeCommandError>;
   /** Commits a prepared pair, or discards it when cancellation won ordering. */
   commitTurn(turnId: number): Result<CommitTurnResult, RuntimeCommandError>;

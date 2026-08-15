@@ -3,6 +3,10 @@
 - Status: accepted
 - Date: 2026-08-07
 - Input lifecycle amended by: decision 0045
+- Command catalog amended by: decision 0055
+
+Decision 0055 replaces the historical approval commands described below with
+the exact `/permissions` session editor and contextual pending-call decisions.
 
 ## Context
 
@@ -34,9 +38,8 @@ CLI workspaces.
 
 `@agent/cli` owns:
 
-- the exact `/help`, `/providers`, and `/exit` terminal commands; decision 0008
-  later adds contextual `/approve` and `/deny` application commands. Decision
-  0028 later removes the duplicated `/help` surface;
+- the exact terminal command catalog, now `/providers`, `/permissions`, and
+  `/exit` under decisions 0028 and 0055;
 - application notices and frame composition;
 - a FIFO terminal-event host over narrow `stdin` and `stdout` capabilities;
 - raw-mode, listener, resize, EOF, and shutdown lifecycle;

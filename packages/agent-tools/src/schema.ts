@@ -24,6 +24,7 @@ export const TOOL_SCHEMA_LIMITS = Object.freeze({
   projectionCodeUnits: 262_144,
   stringCodeUnits: 262_144,
   stringUtf8Bytes: 1_048_576,
+  unionVariants: 8,
 });
 
 export type SchemaErrorKind =
@@ -235,7 +236,8 @@ export type ToolSchema =
   | ListSchema
   | LiteralStringSchema
   | ObjectSchema
-  | StringSchema;
+  | StringSchema
+  | UnionSchema;
 
 export type ListSchemaOptions = Readonly<{
   maximumTextCodeUnits?: number;
@@ -472,6 +474,47 @@ export class ObjectSchema {
   }
 }
 
+export class UnionSchema {
+  readonly kind = "union" as const;
+  readonly #variants: readonly ToolSchema[];
+
+  private constructor(variants: readonly ToolSchema[]) {
+    this.#variants = Object.freeze([...variants]);
+    Object.freeze(this);
+  }
+
+  static create(
+    variants: readonly ToolSchema[],
+  ): Result<UnionSchema, SchemaError> {
+    try {
+      if (
+        !Array.isArray(variants) ||
+        variants.length < 2 ||
+        variants.length > TOOL_SCHEMA_LIMITS.unionVariants
+      ) {
+        return err(schemaError("invalidBounds"));
+      }
+      const owned: ToolSchema[] = [];
+      for (const variant of variants) {
+        if (!isOwnedSchema(variant)) {
+          return err(schemaError("invalidBounds"));
+        }
+        if (schemaDepth(variant) >= TOOL_SCHEMA_LIMITS.depth) {
+          return err(schemaError("tooDeep"));
+        }
+        owned.push(variant);
+      }
+      return ok(new UnionSchema(owned));
+    } catch (_cause: unknown) {
+      return err(schemaError("invalidBounds"));
+    }
+  }
+
+  get variants(): readonly ToolSchema[] {
+    return this.#variants;
+  }
+}
+
 function isOwnedSchema(value: unknown): value is ToolSchema {
   if (value === null || typeof value !== "object") {
     return false;
@@ -483,7 +526,8 @@ function isOwnedSchema(value: unknown): value is ToolSchema {
       value instanceof ListSchema ||
       value instanceof LiteralStringSchema ||
       value instanceof ObjectSchema ||
-      value instanceof StringSchema
+      value instanceof StringSchema ||
+      value instanceof UnionSchema
     );
   } catch (_cause: unknown) {
     return false;
@@ -498,6 +542,13 @@ function schemaDepth(schema: ToolSchema): number {
     let maximum = 0;
     for (const field of schema.fields) {
       maximum = Math.max(maximum, schemaDepth(field.schema));
+    }
+    return 1 + maximum;
+  }
+  if (schema instanceof UnionSchema) {
+    let maximum = 0;
+    for (const variant of schema.variants) {
+      maximum = Math.max(maximum, schemaDepth(variant));
     }
     return 1 + maximum;
   }
@@ -626,6 +677,17 @@ function validateOwnedSchema(
       schema.maximumTextCodeUnits,
       schema.maximumTextUtf8Bytes,
     )
+      ? ok(undefined)
+      : err(validationError("outOfRange"));
+  }
+  if (schema instanceof UnionSchema) {
+    let matches = 0;
+    for (const variant of schema.variants) {
+      if (validateOwnedSchema(variant, value).ok) {
+        matches += 1;
+      }
+    }
+    return matches === 1
       ? ok(undefined)
       : err(validationError("outOfRange"));
   }

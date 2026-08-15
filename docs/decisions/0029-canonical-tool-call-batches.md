@@ -3,6 +3,12 @@
 - Status: accepted
 - Date: 2026-08-10
 - Amended: 2026-08-13 by decision 0042 for just-in-time effect planning
+- Amended: 2026-08-15 by decision 0055 for one decision on every tool request
+
+Decision 0055 makes the runtime wait for one exact turn-and-call decision for
+reads, writes, and execution alike. The CLI resolves it from session policy or
+contextual operator input; batch validation, order, planning, and checkpoints
+remain unchanged.
 
 ## Context
 

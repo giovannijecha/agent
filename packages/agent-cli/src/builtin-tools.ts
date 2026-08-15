@@ -33,6 +33,7 @@ import {
   ToolRegistry,
   type ToolRisk,
   type ToolSchema,
+  UnionSchema,
 } from "@agent/tools";
 
 import type { ProcessRunner } from "./process-runner.js";
@@ -47,6 +48,7 @@ import type {
   EvaluationReceiptRecorder,
 } from "./evaluation-receipt.js";
 import type { WorkspaceMutationCommitter } from "./workspace-mutation-committer.js";
+import type { WorkspaceNamespaceCommitter } from "./workspace-namespace-committer.js";
 import { WorkspaceBoundary } from "./workspace-boundary.js";
 import {
   insideWorkspace as inside,
@@ -59,6 +61,8 @@ import {
 import { WorkspaceReadPolicy } from "./workspace-read-policy.js";
 import { projectWorkspaceFileRead } from "./workspace-file-read.js";
 import { applyPatchPlanner } from "./workspace-mutation-plans.js";
+import { managePathPlanner } from "./workspace-namespace-plans.js";
+import { WORKSPACE_NAMESPACE_LIMITS } from "./workspace-namespace-preview.js";
 import { TEXT_PATCH_LIMITS } from "./workspace-text-patch.js";
 
 export { BUILTIN_TOOL_LIMITS } from "./builtin-tool-limits.js";
@@ -72,6 +76,7 @@ export type BuiltinToolsError = Readonly<{ kind: BuiltinToolsErrorKind }>;
 
 export type BuiltinToolsPlatform = Readonly<{
   mutationCommitter: WorkspaceMutationCommitter;
+  namespaceCommitter: WorkspaceNamespaceCommitter;
   processPrograms: ProcessProgramRegistry;
   processRunner: ProcessRunner;
 }>;
@@ -610,6 +615,14 @@ function literalStringSchema(value: string): LiteralStringSchema {
   return schema.value;
 }
 
+function unionSchema(variants: readonly ToolSchema[]): UnionSchema {
+  const schema = UnionSchema.create(variants);
+  if (!schema.ok) {
+    throw new Error("owned union schema invariant");
+  }
+  return schema.value;
+}
+
 function descriptor(
   name: string,
   description: string,
@@ -681,6 +694,11 @@ const RUN_PROCESS_APPROVAL_FIELDS: readonly ToolApprovalField[] =
     Object.freeze({ mode: "exact" as const, name: "workingDirectory" }),
   ]);
 
+const MANAGE_PATH_APPROVAL_FIELDS: readonly ToolApprovalField[] =
+  Object.freeze([
+    Object.freeze({ mode: "exact" as const, name: "request" }),
+  ]);
+
 const PROCESS_TEXT_SCHEMA_OPTIONS: StringSchemaOptions = Object.freeze({
   maximumUtf8Bytes: PROCESS_RUNNER_LIMITS.textUtf8Bytes,
   rejectNul: true,
@@ -720,6 +738,20 @@ function registrations(
       rejectNul: true,
     },
   );
+  const namespacePathSchema = stringSchema(
+    1,
+    WORKSPACE_NAMESPACE_LIMITS.pathCodeUnits,
+    {
+      maximumUtf8Bytes: WORKSPACE_NAMESPACE_LIMITS.pathUtf8Bytes,
+      rejectNul: true,
+    },
+  );
+  const namespacePathField = {
+    description: "Workspace-relative namespace path.",
+    name: "path",
+    required: true,
+    schema: namespacePathSchema,
+  } as const;
   return Object.freeze([
     Object.freeze({
       descriptor: descriptor(
@@ -814,6 +846,60 @@ function registrations(
     }),
     Object.freeze({
       descriptor: descriptor(
+        "manage_path",
+        "Create one directory, move one file or directory, or remove one file or empty directory within the workspace.",
+        "write",
+        objectSchema([
+          {
+            description: "One exact non-recursive namespace operation.",
+            name: "request",
+            required: true,
+            schema: unionSchema([
+              objectSchema([
+                {
+                  description: "Create exactly one absent directory.",
+                  name: "operation",
+                  required: true,
+                  schema: literalStringSchema("create_directory"),
+                },
+                namespacePathField,
+              ]),
+              objectSchema([
+                {
+                  description: "Move one existing file or directory without replacement.",
+                  name: "operation",
+                  required: true,
+                  schema: literalStringSchema("move"),
+                },
+                namespacePathField,
+                {
+                  description: "Absent workspace-relative destination path.",
+                  name: "destination",
+                  required: true,
+                  schema: namespacePathSchema,
+                },
+              ]),
+              objectSchema([
+                {
+                  description: "Remove one regular file or empty directory.",
+                  name: "operation",
+                  required: true,
+                  schema: literalStringSchema("remove"),
+                },
+                namespacePathField,
+              ]),
+            ]),
+          },
+        ], {
+          fields: MANAGE_PATH_APPROVAL_FIELDS,
+          maximumCodeUnits: TOOL_ENGINE_LIMITS.approvalPreviewCodeUnits,
+        }),
+        MANAGE_PATH_APPROVAL_FIELDS,
+      ),
+      planner: managePathPlanner(root, platform.namespaceCommitter),
+    }),
+    Object.freeze({
+      descriptor: descriptor(
         "run_process",
         "Run one approved terminating program with bounded arguments in a workspace directory. Persistent services are unsupported.",
         "execute",
@@ -881,6 +967,9 @@ export function createBuiltinToolEngine(
     platform.mutationCommitter === null ||
     typeof platform.mutationCommitter !== "object" ||
     typeof platform.mutationCommitter.commit !== "function" ||
+    platform.namespaceCommitter === null ||
+    typeof platform.namespaceCommitter !== "object" ||
+    typeof platform.namespaceCommitter.commit !== "function" ||
     !(platform.processPrograms instanceof ProcessProgramRegistry) ||
     platform.processRunner === null ||
     typeof platform.processRunner !== "object" ||

@@ -3,6 +3,11 @@
 - Status: accepted
 - Date: 2026-08-07
 - Event sources extended by: decisions 0038 and 0041
+- Command and permission lifecycle amended by: decision 0055
+
+Decision 0055 replaces the historical approval commands below with the exact
+`/permissions` session editor and contextual pending-call decisions while
+retaining this decision's single-writer application loop.
 
 ## Context
 
@@ -52,10 +57,9 @@ state changes. Until that effect resolves, runtime retains the terminal cleanup
 receipt; shutdown consumes it if the buffered event never reaches the reducer.
 
 Without an injected runtime, ordinary submitted text is discarded immediately.
-It never reaches core, transcript, errors, output, or persistence. Commands remain
-exact: `/help`, `/providers`, `/approve`, `/deny`, and `/exit`; the two approval
-commands are contextual extensions from decision 0008, and `/quit` remains
-unknown. Decision 0028 later removes the duplicated `/help` surface.
+It never reaches core, transcript, errors, output, or persistence. Commands
+remain exact. Decisions 0028 and 0055 reduce the current catalog to
+`/providers`, `/permissions`, and `/exit`; `/help` and `/quit` remain unknown.
 
 ## Controls and ordering
 

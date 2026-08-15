@@ -218,7 +218,7 @@ class ControlledRuntime implements RuntimeSession<string> {
   startCalls = 0;
   stopCalls = 0;
   stopFailure: string | undefined;
-  allowApproval = false;
+  allowPermission = false;
 
   startTurn(input: string): Result<StartedTurn, StartTurnError> {
     if (this.#activeTurnId !== undefined) {
@@ -245,10 +245,10 @@ class ControlledRuntime implements RuntimeSession<string> {
     return ok(this.cancelCalls === 1);
   }
 
-  resolveToolApproval(): Result<void, RuntimeCommandError> {
-    return this.allowApproval
+  resolveToolPermission(): Result<void, RuntimeCommandError> {
+    return this.allowPermission
       ? ok(undefined)
-      : err(Object.freeze({ kind: "notAwaitingApproval" as const }));
+      : err(Object.freeze({ kind: "notAwaitingPermission" as const }));
   }
 
   commitTurn(turnId: number): Result<CommitTurnResult, RuntimeCommandError> {
@@ -608,10 +608,10 @@ test("streams one runtime turn into chat and exits only on later idle Ctrl+C", a
   assert.equal(host.writes.join("").includes("answer"), true);
 });
 
-test("observes accepted turns, tool requests, and affirmative approvals", async () => {
+test("observes accepted turns, tool requests, and affirmative contextual permissions", async () => {
   const host = new ControlledHost();
   const runtime = new ControlledRuntime();
-  runtime.allowApproval = true;
+  runtime.allowPermission = true;
   const evaluation = new EvaluationReceiptRecorder();
   assert.ok(evaluation.start(100).ok);
   const running = run(
@@ -631,7 +631,7 @@ test("observes accepted turns, tool requests, and affirmative approvals", async 
   await runtime.waitForReads(1);
   runtime.emit(
     Object.freeze({
-      approvalPreview: 'path="stale.txt"',
+      approvalPreview: "Path: stale.txt\n+ stale",
       approvalRequired: true,
       callId: "stale-write",
       kind: "toolRequested" as const,
@@ -643,7 +643,7 @@ test("observes accepted turns, tool requests, and affirmative approvals", async 
   await runtime.waitForReads(2);
   runtime.emit(
     Object.freeze({
-      approvalPreview: 'path="result.txt"',
+      approvalPreview: "Path: result.txt\n+ result",
       approvalRequired: true,
       callId: "write-1",
       kind: "toolRequested" as const,
@@ -653,7 +653,7 @@ test("observes accepted turns, tool requests, and affirmative approvals", async 
     }),
   );
   await host.waitForWrites(3);
-  host.emit(input("/approve\r"));
+  host.emit(input("\r"));
   await host.waitForWrites(4);
   runtime.emit(
     Object.freeze({

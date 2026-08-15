@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-10
+- Last amended: 2026-08-15
 - Amended by: decisions 0030, 0031, 0032, 0040, and 0045
 
 Decision 0040 makes fenced code and strict table regions transparent while
@@ -54,16 +55,19 @@ The exact accepted syntax is:
   three backticks;
 - same-line inline code delimited by exactly one backtick that is not part of a
   longer backtick run; and
+- same-line italic emphasis delimited by exactly one asterisk that is not part
+  of a longer asterisk run;
 - same-line strong text delimited by exactly two asterisks that are not part of
   a longer asterisk run; and
 - strict pipe tables under decision 0030: at least two non-empty header cells,
   a same-count delimiter row, and zero or more same-count non-empty body rows.
 
-No construct nests. Inline code is recognized before strong text, and its
-contents remain literal. A delimiter is syntax only when its closing delimiter
-exists on the same line. A fence is syntax only when a later exact closing
-fence exists. Longer delimiter runs, incomplete syntax, and unsupported syntax
-remain visible literally. The
+No construct nests. Inline code is recognized before strong text, strong text
+before italic emphasis, and recognized contents remain literal to later inline
+forms. A delimiter is syntax only when its closing delimiter exists on the same
+line. A fence is syntax only when a later exact closing fence exists. Longer
+delimiter runs, incomplete syntax, and unsupported syntax remain visible
+literally. The
 subset does not interpret links, images, rendered HTML, escaped pipes, task
 lists, raw ANSI, or extension directives. Decision 0031 later permits only its
 bounded internal lexical highlighting for complete recognized fences; there is
@@ -83,6 +87,8 @@ Decision 0030 extends Markdown-derived content to the existing `accent` role
 without adding a tone. The complete current mapping is:
 
 - headings, strong text, and table headers use `emphasis`;
+- italic emphasis retains the surrounding prose tone and selects only the
+  closed `italic` slant;
 - inline code and fenced language labels use `accent`;
 - list markers, quote rails, and table separators use `muted`;
 - prose, quoted content, and table bodies use `plain`;
@@ -90,9 +96,10 @@ without adding a tone. The complete current mapping is:
 - recognized complete fences may use only the five syntax roles registered by
   decision 0031.
 
-The parser selects these roles from syntax. Model, provider, tool, and user text
-cannot supply a tone, color, escape sequence, or renderer instruction. The
-restrained hierarchy is syntax-derived. Assistant prose remains unboxed;
+The parser selects these roles and the italic-emphasis slant from syntax. Model,
+provider, tool, and user text cannot supply style metadata, color, escape
+sequences, or renderer instructions. The restrained hierarchy is
+syntax-derived. Assistant prose remains unboxed;
 fenced code and strict tables use the generic dark `inset` surface under
 decisions 0030 and 0031. A strict table has one muted header rule across its
 measured row extent inside that surface, without an outer border or full grid.
@@ -111,8 +118,9 @@ access, callbacks, or dynamic dispatch.
 
 Each logical line is bounded by the existing structured-row span limit. If
 recognized inline syntax would exceed that limit, the complete sanitized line
-falls back to one plain span instead of failing the terminal session or
-partially applying style. Oversized or invalid structural inputs return the
+falls back to one span using the caller-owned prose tone and no parser-selected
+slant instead of failing the terminal session or partially applying style.
+Oversized or invalid structural inputs return the
 existing content-free `ComponentError`; rejected personal content and parser
 causes are never retained. Final `RichRow`, `Fragment`, and `Frame` validation
 remain independent defenses.
@@ -133,10 +141,10 @@ incomplete syntax, precedence, non-nesting, span-limit fallback, input bounds,
 line ending and control normalization, lone surrogates, tabs, wide scalars,
 word and literal-cell wrapping, structural continuation prefixes, long-token
 fallback, head and tail anchoring, tiny viewports, immutable rows, fixed
-tone mapping, strict-table header-rule extent, ANSI reset, differential redraw,
-streaming completion, and CLI
-transcript and cross-message isolation. The canonical verifier remains the
-Windows and Linux release gate.
+tone-and-slant mapping, strict-table header-rule extent, ANSI reset,
+differential redraw, streaming completion, visible selection without inline
+delimiters, and CLI transcript and cross-message isolation. The canonical
+verifier remains the Windows and Linux release gate.
 
 ## Update, rollback, and removal
 
@@ -150,6 +158,9 @@ To remove Markdown, first replace the transcript `MarkdownBlock` with the plain
 `TextBlock`, then delete the Markdown parser, component, exports, and focused
 tests. Remove this decision and its manual and policy registrations in the same
 change. If no other component uses `emphasis`, remove that tone with renderer
-and structured-row tests. Decision 0027's lifecycle tones remain independent.
+and structured-row tests. If italic emphasis alone is removed, delete its exact
+delimiter branch and display-run slant propagation while retaining the generic
+closed `TextSpan` slant used by user prose and tool identity. Decision 0027's
+lifecycle tones remain independent.
 Structured rows, scroll, tool activity, input, runtime, providers, and core
 remain independently buildable.

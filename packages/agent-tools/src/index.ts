@@ -2,6 +2,7 @@
 
 export {
   TOOL_ENGINE_LIMITS,
+  isSafeApprovalPreview,
   ToolDescriptor,
   ToolEffectPlan,
   ToolEngine,
@@ -38,6 +39,7 @@ export {
   LiteralStringSchema,
   ObjectSchema,
   StringSchema,
+  UnionSchema,
   TOOL_SCHEMA_LIMITS,
   validateSchema,
   type ObjectSchemaField,

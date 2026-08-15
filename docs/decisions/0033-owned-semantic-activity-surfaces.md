@@ -3,20 +3,36 @@
 - Status: accepted
 - Date: 2026-08-11
 - Density amended by: decision 0043
+- Permission presentation amended by: decision 0055
+- Compact line amended by: decision 0056
+- Surface truth amended by: decision 0057
+
+Decision 0055 removes slash-command actions from the activity surface. Pending
+permission retains the shared semantic surface for identity, state, risk, and
+preview, followed by one transparent contextual `SelectionList`.
+Decision 0056 places status mark, display action, canonical name, and risk on
+one left side and the written state on the right. Non-permission snapshots now
+occupy exactly that line; pending permission alone may append the preview.
+Decision 0057 supersedes that visible field and surface treatment: every activity
+surface is transparent, semantic truth moves to the mark and written-state
+foreground, and canonical name and risk remain validation inputs without
+repeating in the visible head. An optional useful safe subject may follow the
+action, and patch permission uses a human-readable diff.
 
 Decision 0034 refines foreground contrast without changing these semantic
-backgrounds: tool identity, written state, safe detail, and approval actions use
-neutral plain or emphasized foregrounds so they remain legible on every closed
-activity surface.
+backgrounds: tool identity, written state, safe detail, and permission actions
+use neutral plain or emphasized foregrounds so they remain legible on every
+closed activity surface.
 
 Decision 0043 removes the surface's vertical padding and anchors constrained
-activity at its head so tool identity and written state survive before optional
-detail. The semantic background and lifecycle contract below remain current.
+activity at its head so display action and written state survive before optional
+detail. The lifecycle contract below remains current; its background treatment
+is historical under decision 0057.
 
-The 2026-08-14 lifecycle-density refinement reserves the complete bounded
-effect preview for the `approval` state. Queued, running, cancelling, and
-terminal snapshots retain only the risk class below the authoritative identity
-and written state. An approval remains the sole point where the operator must
+The 2026-08-14 lifecycle-density refinement, as amended by decisions 0055 and
+0056, reserves the complete bounded effect preview for the `permission` state.
+Queued, running, cancelling, and terminal snapshots retain no second row.
+Pending `Ask` remains the sole point where the operator must
 inspect and authorize the exact effect; replaying that potentially large
 preview after the decision adds no authority and can displace the conversation.
 
@@ -28,7 +44,7 @@ used an open side rail, while approval used a complete bordered panel. Human
 review showed that both treatments belong to the earlier shell grammar and add
 visual weight beside the newer borderless transcript surfaces.
 
-Tool execution and approval are one lifecycle. Their presentation should make
+Tool execution and permission are one lifecycle. Their presentation should make
 state immediately visible without creating tool-specific components, relying
 on color alone, or adding another activity retention path.
 
@@ -37,27 +53,31 @@ on color alone, or adding another activity retention path.
 Every contextual tool state uses one generic borderless `Surface`. The closed
 surface vocabulary adds `success`, `attention`, and `failure` backgrounds. The
 renderer maps them to restrained dark green, ochre, and red terminal colors.
-These values are generic semantic surfaces: they contain no tool, approval, or
+These values are generic semantic surfaces: they contain no tool, permission, or
 provider knowledge.
 
 The CLI owns one activity presenter for all registered tools. It maps
 `succeeded` to the success surface; `failed`, `denied`, and `cancelled` to the
-failure surface; and approval, queued, running, and cancelling states to the
+failure surface; and permission, queued, running, and cancelling states to the
 attention surface. The tool name is neutral italic text, the authoritative
 state remains written explicitly. As refined by decision 0034, bounded risk and
 preview detail use neutral foregrounds that preserve contrast on every semantic
 background. Color reinforces lifecycle truth but never replaces the state label.
 
-Approval uses the same surface and hierarchy. Its first row contains the tool
-name and `approval required`; its second row contains bounded risk and preview
-detail plus the exact `/approve` and `/deny` actions. It gains no dedicated
-panel, border, rail, icon, component, or state path.
+Pending permission uses the same surface and hierarchy. Its compact main line
+contains the display identity, canonical name, risk, and written `permission`
+state; the exact effect preview follows through the shared text path. The
+separate transparent contextual list contains `Allow once`, `Allow for session`,
+and `Deny`. The main line and required
+decision actions therefore survive constrained-height clipping before preview
+detail. Permission gains no dedicated panel, border, rail, icon, component, or
+state path. Other lifecycle snapshots remain compact at exactly one line.
 
-Every non-approval snapshot keeps the same two-row hierarchy but projects only
-its validated risk class as optional detail. It never replays mutation content,
-digests, process arguments, or approval excerpts after approval or terminal
-settlement. This is a presentation projection only: the lifecycle log retains
-the immutable preview while the call is current so approval identity and
+Every non-permission snapshot keeps the same one-line hierarchy with validated
+risk as optional detail. It never replays mutation content, digests, process
+arguments, or permission excerpts after authorization or terminal settlement.
+This is a presentation projection only: the lifecycle log retains
+the immutable preview while the call is current so permission identity and
 runtime invariants remain unchanged.
 
 The existing lifecycle and retention contract does not change: the latest
@@ -80,16 +100,17 @@ cannot select terminal bytes or arbitrary colors. All visible text continues
 through the structured row, fragment, frame, and renderer validation path.
 
 The presenter remains content-free on failure. Narrow viewports prioritize the
-tool name and approval state before optional detail. The written state and
-actions preserve meaning in terminals that do not distinguish the background
-colors.
+status mark, display action, and written state before optional detail. The
+written state and actions preserve meaning in terminals that do not distinguish
+the background colors.
 
 ## Verification
 
 Focused TUI tests prove the three new closed surfaces, style composition,
 viewport painting, rejection of unknown surfaces, and exact renderer-owned SGR
-bytes. CLI view tests prove one presenter, italic tool identity, semantic
-background selection, explicit state text, approval actions, narrow clipping,
+bytes. CLI view tests prove one presenter, neutral italic tool identity,
+semantic background selection, explicit state text, approval action retention,
+separately wrapped exact previews, compact non-permission states, narrow clipping,
 absence of activity rails and borders, collapsible leading rhythm, direct
 following adjacency, latest-only replacement, transcript exclusion, and
 turn-settlement removal. The canonical Windows and Linux verifier remains the
@@ -98,7 +119,7 @@ release gate.
 ## Update, rollback, and removal
 
 Changing state-to-surface mapping, color bytes, typography, detail order,
-adjacent rhythm, or approval actions requires this decision, TUI and CLI tests,
+adjacent rhythm, or permission actions requires this decision, TUI and CLI tests,
 architecture, manual, maintenance guidance, and policy evidence to change
 together.
 

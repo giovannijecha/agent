@@ -1,18 +1,20 @@
 # 0006: Owned vertical TUI component framework
 
-The 2026-08-14 opaque-row refinement makes full-width semantic surfaces
-physically rectangular even when terminal glyph metrics are narrower than the
-owned conservative cell-width authority. Before writing the structured content
-of a changed, homogeneous, non-transparent full-width row, the differential
-renderer paints its exact logical width with ASCII spaces under the row's
-authoritative surface and returns to the row origin. Content then renders
-normally through the same spans. Mixed and transparent rows are unchanged.
+The 2026-08-15 opaque-run refinement makes inset and full-width semantic
+surfaces physically rectangular even when terminal glyph metrics are narrower
+than the owned conservative cell-width authority. Before writing the structured
+content of a changed row, the differential renderer paints every maximal
+contiguous non-transparent surface run across its exact logical cell extent
+with ASCII spaces under that run's authoritative surface and then returns to
+the row origin. Content renders normally through the same spans. A run may
+begin after the shared stage inset; transparent gaps and differently surfaced
+runs remain separate. The earlier full-width homogeneous case is one run.
 
 This renderer-owned stabilization adds no component-specific width exception:
 layout, wrapping, selection, and caret geometry continue to use the one cell
-authority. The preliminary ASCII fill affects only background coverage, remains
-inside synchronized output, and is emitted only for a row the differential
-renderer was already required to redraw.
+authority. Each preliminary ASCII fill affects only its exact background
+coverage, remains inside synchronized output, and is emitted only for a row the
+differential renderer was already required to redraw.
 
 - Status: accepted
 - Date: 2026-08-07

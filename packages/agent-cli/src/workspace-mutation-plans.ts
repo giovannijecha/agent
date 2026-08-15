@@ -351,12 +351,9 @@ export function applyPatchPlanner(
         return patchFailure(canonicalPath.error);
       }
       const preview = patchMutationPreview({
-        addedLines: applied.value.addedLines,
         effect: "create",
         hunks,
         path: snapshot.value.relative,
-        removedLines: applied.value.removedLines,
-        resultingDigest: snapshot.value.digest,
       });
       if (preview === undefined) {
         return toolFailure("limit");
@@ -383,13 +380,9 @@ export function applyPatchPlanner(
       return patchFailure(canonicalPath.error);
     }
     const preview = patchMutationPreview({
-      addedLines: applied.value.addedLines,
       effect: "update",
       hunks,
-      observedDigest: snapshot.digest,
       path: snapshot.relative,
-      removedLines: applied.value.removedLines,
-      resultingDigest: snapshot.replacementDigest,
     });
     if (preview === undefined) {
       return toolFailure("limit");

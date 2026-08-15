@@ -35,15 +35,18 @@ import {
 } from "../dist/builtin-tools.js";
 import { EvaluationReceiptRecorder } from "../dist/evaluation-receipt.js";
 import { PlatformWorkspaceMutationCommitter } from "../dist/platform-workspace-mutation.js";
+import { PlatformWorkspaceNamespaceCommitter } from "../dist/platform-workspace-namespace.js";
 import {
   PROCESS_RUNNER_LIMITS,
   type ProcessRunRequest,
   type ProcessRunner,
 } from "../dist/process-runner.js";
 import { ProcessProgramRegistry } from "../dist/process-program-registry.js";
+import { TOOL_PERMISSION_DEFINITIONS } from "../dist/tool-permissions.js";
 import { WorkspaceBoundary } from "../dist/workspace-boundary.js";
 import {
   patchMutationPreview,
+  projectPatchMutationPreview,
   WORKSPACE_MUTATION_PREVIEW_CODE_UNITS,
 } from "../dist/workspace-mutation-preview.js";
 import { WorkspaceReadPolicy } from "../dist/workspace-read-policy.js";
@@ -73,11 +76,17 @@ const workspaceProtection = Object.freeze({
 
 function toolPlatform(runner: ProcessRunner = processRunner) {
   const committer = PlatformWorkspaceMutationCommitter.create(platform, arch);
+  const namespaceCommitter = PlatformWorkspaceNamespaceCommitter.create(
+    platform,
+    arch,
+  );
   const programs = ProcessProgramRegistry.create(execPath);
   assert.ok(committer.ok);
+  assert.ok(namespaceCommitter.ok);
   assert.ok(programs.ok);
   return Object.freeze({
     mutationCommitter: committer.value,
+    namespaceCommitter: namespaceCommitter.value,
     processPrograms: programs.value,
     processRunner: runner,
   });
@@ -118,13 +127,10 @@ async function engine(
       descriptor.name,
       descriptor.risk,
     ]),
-    [
-      ["read_file", "read"],
-      ["list_directory", "read"],
-      ["search_text", "read"],
-      ["apply_patch", "write"],
-      ["run_process", "execute"],
-    ],
+    TOOL_PERMISSION_DEFINITIONS.map((definition) => [
+      definition.name,
+      definition.risk,
+    ]),
   );
   return created.value;
 }
@@ -296,6 +302,7 @@ test("distinguishes invalid roots, read policies, and platform adapters", async 
   assert.deepEqual(
     createBuiltinToolEngine(boundary.value, policy.value, {
       mutationCommitter: toolPlatform().mutationCommitter,
+      namespaceCommitter: toolPlatform().namespaceCommitter,
       processPrograms: Object.freeze({}) as never,
       processRunner,
     }),
@@ -304,6 +311,16 @@ test("distinguishes invalid roots, read policies, and platform adapters", async 
   assert.deepEqual(
     createBuiltinToolEngine(boundary.value, policy.value, {
       mutationCommitter: Object.freeze({}) as never,
+      namespaceCommitter: toolPlatform().namespaceCommitter,
+      processPrograms: toolPlatform().processPrograms,
+      processRunner,
+    }),
+    { ok: false, error: { kind: "invalidPlatform" } },
+  );
+  assert.deepEqual(
+    createBuiltinToolEngine(boundary.value, policy.value, {
+      mutationCommitter: toolPlatform().mutationCommitter,
+      namespaceCommitter: Object.freeze({}) as never,
       processPrograms: toolPlatform().processPrograms,
       processRunner,
     }),
@@ -452,6 +469,169 @@ test("creates, reads, replaces, lists, and searches bounded workspace text", asy
       query: "owned",
     });
     assert.equal(searched.result.status, "success");
+  });
+});
+
+test("creates, moves, and removes workspace namespace entries", async () => {
+  await withWorkspace(async (workspace) => {
+    const tools = await engine(workspace);
+    const creation = await preparePlan(tools, "manage_path", {
+      request: { operation: "create_directory", path: "archive" },
+    });
+    assert.equal(creation.planned.approvalRequired, true);
+    assert.equal(
+      creation.planned.approvalPreview.includes(
+        'operation="create_directory"',
+      ),
+      true,
+    );
+    assert.equal(
+      creation.planned.approvalPreview.includes('path="archive"'),
+      true,
+    );
+    const created = await tools.execute(creation.planned, cancellation);
+    assert.ok(created.ok);
+    assert.equal(created.value.result.status, "success");
+    assert.equal(output(created.value).get("effect"), "directory_created");
+
+    await writeFile(path.join(workspace, "source.txt"), "owned", {
+      encoding: "utf8",
+      flag: "wx",
+    });
+    const movement = await preparePlan(tools, "manage_path", {
+      request: {
+        destination: "archive/source.txt",
+        operation: "move",
+        path: "source.txt",
+      },
+    });
+    assert.equal(movement.planned.approvalRequired, true);
+    for (const field of [
+      'operation="move"',
+      'objectKind="file"',
+      'path="source.txt"',
+      'destination="archive/source.txt"',
+    ]) {
+      assert.equal(movement.planned.approvalPreview.includes(field), true);
+    }
+    const moved = await tools.execute(movement.planned, cancellation);
+    assert.ok(moved.ok);
+    assert.equal(moved.value.result.status, "success");
+    assert.equal(output(moved.value).get("effect"), "moved");
+    assert.equal(await pathMissing(path.join(workspace, "source.txt")), true);
+    assert.equal(
+      await readFile(path.join(workspace, "archive", "source.txt"), {
+        encoding: "utf8",
+      }),
+      "owned",
+    );
+
+    const fileRemoval = await preparePlan(tools, "manage_path", {
+      request: { operation: "remove", path: "archive/source.txt" },
+    });
+    assert.equal(fileRemoval.planned.approvalRequired, true);
+    assert.equal(
+      fileRemoval.planned.approvalPreview.includes('objectKind="file"'),
+      true,
+    );
+    const removedFile = await tools.execute(
+      fileRemoval.planned,
+      cancellation,
+    );
+    assert.ok(removedFile.ok);
+    assert.equal(output(removedFile.value).get("effect"), "removed");
+
+    const directoryRemoval = await preparePlan(tools, "manage_path", {
+      request: { operation: "remove", path: "archive" },
+    });
+    assert.equal(directoryRemoval.planned.approvalRequired, true);
+    assert.equal(
+      directoryRemoval.planned.approvalPreview.includes(
+        'objectKind="directory"',
+      ),
+      true,
+    );
+    const removedDirectory = await tools.execute(
+      directoryRemoval.planned,
+      cancellation,
+    );
+    assert.ok(removedDirectory.ok);
+    assert.equal(output(removedDirectory.value).get("effect"), "removed");
+    assert.equal(await pathMissing(path.join(workspace, "archive")), true);
+  });
+});
+
+test("rejects invalid namespace plans before approval and stale effects at commit", async () => {
+  await withWorkspace(async (workspace) => {
+    await mkdir(path.join(workspace, "nonempty"));
+    await writeFile(path.join(workspace, "nonempty", "child.txt"), "child", {
+      encoding: "utf8",
+      flag: "wx",
+    });
+    await mkdir(path.join(workspace, "tree"));
+    await writeFile(path.join(workspace, "source.txt"), "original", {
+      encoding: "utf8",
+      flag: "wx",
+    });
+    await writeFile(path.join(workspace, "occupied.txt"), "occupied", {
+      encoding: "utf8",
+      flag: "wx",
+    });
+    const tools = await engine(workspace);
+
+    for (const request of [
+      { operation: "create_directory", path: "missing/child" },
+      {
+        destination: "occupied.txt",
+        operation: "move",
+        path: "source.txt",
+      },
+      { operation: "remove", path: "nonempty" },
+      {
+        destination: "tree/descendant",
+        operation: "move",
+        path: "tree",
+      },
+    ]) {
+      const rejected = await preparePlan(tools, "manage_path", { request });
+      assert.equal(rejected.planned.approvalRequired, false);
+      assert.equal(rejected.planned.approvalPreview, "");
+      const settled = await tools.execute(rejected.planned, cancellation);
+      assert.ok(settled.ok);
+      assert.equal(settled.value.result.status, "failure");
+    }
+
+    const stale = await preparePlan(tools, "manage_path", {
+      request: {
+        destination: "moved.txt",
+        operation: "move",
+        path: "source.txt",
+      },
+    });
+    assert.equal(stale.planned.approvalRequired, true);
+    await rename(
+      path.join(workspace, "source.txt"),
+      path.join(workspace, "preserved.txt"),
+    );
+    await writeFile(path.join(workspace, "source.txt"), "replacement", {
+      encoding: "utf8",
+      flag: "wx",
+    });
+    const staleSettlement = await tools.execute(stale.planned, cancellation);
+    assert.ok(staleSettlement.ok);
+    assert.equal(staleSettlement.value.result.status, "failure");
+    assert.equal(output(staleSettlement.value).get("error"), "conflict");
+    assert.equal(
+      await readFile(path.join(workspace, "source.txt"), { encoding: "utf8" }),
+      "replacement",
+    );
+    assert.equal(
+      await readFile(path.join(workspace, "preserved.txt"), {
+        encoding: "utf8",
+      }),
+      "original",
+    );
+    assert.equal(await pathMissing(path.join(workspace, "moved.txt")), true);
   });
 });
 
@@ -606,28 +786,20 @@ test("plans concrete bounded creation and replacement effects", async () => {
     );
     assert.equal(availableCreation.planned.approvalRequired, true);
     assert.equal(
-      availableCreation.planned.approvalPreview.includes(
-        'operation="apply_patch"',
+      availableCreation.planned.approvalPreview.startsWith(
+        "Path: docs/new.txt\n",
       ),
       true,
     );
     assert.equal(
-      availableCreation.planned.approvalPreview.includes(
-        'path="docs/new.txt"',
-      ),
+      availableCreation.planned.approvalPreview.includes("+ first\n+ second"),
       true,
     );
     assert.equal(
-      availableCreation.planned.approvalPreview.includes(
-        'observed="absent"',
+      /observed|Digest|patchFields|patchHunks/u.test(
+        availableCreation.planned.approvalPreview,
       ),
-      true,
-    );
-    assert.equal(
-      availableCreation.planned.approvalPreview.includes(
-        'patchHunks=[[0,"",13,"first\\\\u{000a}second\\\\u{000a}"]]',
-      ),
-      true,
+      false,
     );
 
     const mixedCreation = await preparePlan(
@@ -641,7 +813,9 @@ test("plans concrete bounded creation and replacement effects", async () => {
     );
     assert.equal(mixedCreation.planned.approvalRequired, true);
     assert.equal(
-      mixedCreation.planned.approvalPreview.includes("addedLines=4"),
+      mixedCreation.planned.approvalPreview.includes(
+        "+ one\n+ two\n+ three\n+ four",
+      ),
       true,
     );
 
@@ -652,28 +826,20 @@ test("plans concrete bounded creation and replacement effects", async () => {
     );
     assert.equal(replacement.planned.approvalRequired, true);
     assert.equal(
-      replacement.planned.approvalPreview.includes(
-        'operation="apply_patch"',
-      ),
+      replacement.planned.approvalPreview.startsWith("Path: notes.txt\n"),
       true,
     );
     assert.equal(
       replacement.planned.approvalPreview.includes(
-        'patchHunks=[[4,"beta",11,"owned\\\\u{000a}value"]]',
+        "- beta\n+ owned\n+ value",
       ),
       true,
     );
     assert.equal(
-      /observedDigest="[0-9a-f]{64}"/u.test(
+      /Digest|effect=|operation=|removedLines|addedLines/u.test(
         replacement.planned.approvalPreview,
       ),
-      true,
-    );
-    assert.equal(
-      /resultingDigest="[0-9a-f]{64}"/u.test(
-        replacement.planned.approvalPreview,
-      ),
-      true,
+      false,
     );
 
     await writeFile(
@@ -692,21 +858,21 @@ test("plans concrete bounded creation and replacement effects", async () => {
     );
     assert.equal(mixedReplacement.planned.approvalRequired, true);
     assert.equal(
-      mixedReplacement.planned.approvalPreview.includes('effect="update"'),
+      mixedReplacement.planned.approvalPreview.includes(
+        "- remove-a\n- remove-b\n- remove-c\n- remove-d",
+      ),
       true,
     );
     assert.equal(
-      mixedReplacement.planned.approvalPreview.includes("removedLines=4"),
-      true,
-    );
-    assert.equal(
-      mixedReplacement.planned.approvalPreview.includes("addedLines=4"),
+      mixedReplacement.planned.approvalPreview.includes(
+        "+ insert-a\n+ insert-b\n+ insert-c\n+ insert-d",
+      ),
       true,
     );
   });
 });
 
-test("encodes every patch hunk field independently in approval previews", async () => {
+test("renders every patch hunk as independently prefixed human diff rows", async () => {
   await withWorkspace(async (workspace) => {
     await writeFile(
       path.join(workspace, "delimiters.txt"),
@@ -729,20 +895,24 @@ test("encodes every patch hunk field independently in approval previews", async 
     });
 
     assert.equal(planned.planned.approvalRequired, true);
+    const rows = planned.planned.approvalPreview.split("\n");
+    assert.equal(rows.at(0), "Path: delimiters.txt");
     assert.equal(
-      planned.planned.approvalPreview.includes(
-        'patchFields=["removeCodeUnits","removeText","insertCodeUnits","insertText"]',
+      rows.slice(1).every((row) =>
+        row.startsWith("- ") || row.startsWith("+ ")
       ),
       true,
     );
-    assert.equal(
-      planned.planned.approvalPreview.includes(
-        'patchHunks=[[19,"alpha\\\\u{000a}insert:\\\\u{000a}omega",30,' +
-          '"first\\\\u{000a}@@ hunk 2 @@\\\\u{000a}replacement"],' +
-          '[24,"middle\\\\u{000a}@@ hunk 2 @@\\\\u{000a}tail",9,' +
-          '"\\\\u{000a}insert:\\\\u{000a}"]]',
-      ),
-      true,
+    assert.equal(rows.includes("- insert:"), true);
+    assert.equal(rows.includes("+ insert:"), true);
+    assert.equal(rows.includes("- @@ hunk 2 @@"), true);
+    assert.equal(rows.includes("+ @@ hunk 2 @@"), true);
+    assert.deepEqual(
+      projectPatchMutationPreview(planned.planned.approvalPreview),
+      {
+        diff: rows.slice(1).join("\n"),
+        path: "delimiters.txt",
+      },
     );
   });
 });
@@ -879,28 +1049,18 @@ test("bounds mutation previews and skips approval when no effect can be planned"
         WORKSPACE_MUTATION_PREVIEW_CODE_UNITS,
     );
     assert.equal(
-      large.planned.approvalPreview.includes("patchOmitted="),
+      large.planned.approvalPreview.startsWith("Path: large.txt\n"),
       true,
     );
     assert.equal(
-      large.planned.approvalPreview.includes(
-        'patchFields=["removeCodeUnits","removePrefix","removeOmitted",' +
-          '"removeSuffix","insertCodeUnits","insertPrefix",' +
-          '"insertOmitted","insertSuffix"]',
-      ),
+      large.planned.approvalPreview.includes("code units omitted"),
       true,
     );
     assert.equal(
-      large.planned.approvalPreview.includes(
-        'patchHunks=[[0,"",0,"",200000,',
-      ),
-      true,
-    );
-    assert.equal(
-      /resultingDigest="[0-9a-f]{64}"/u.test(
+      /patchFields|patchHunks|Digest|addedLines/u.test(
         large.planned.approvalPreview,
       ),
-      true,
+      false,
     );
 
     const ambiguous = await preparePlan(
@@ -932,29 +1092,47 @@ test("fits the maximum admitted hunk batch in the bounded approval preview", () 
     ),
   );
   const preview = patchMutationPreview({
-    addedLines: 32,
     effect: "update",
     hunks,
-    observedDigest: "a".repeat(64),
     path: "\\".repeat(TEXT_PATCH_LIMITS.pathCodeUnits),
-    removedLines: 32,
-    resultingDigest: "b".repeat(64),
   });
 
   assert.ok(preview !== undefined);
   assert.ok(preview.length <= WORKSPACE_MUTATION_PREVIEW_CODE_UNITS);
+  assert.equal(preview.startsWith("Path: " + "\\".repeat(32)), true);
+  assert.equal(preview.includes("- [8180 omitted]"), true);
+  assert.equal(preview.includes("+ [8180 omitted]"), true);
+  assert.equal(preview.split("\n").length, 65);
+});
+
+test("renders empty creation and escapes non-line diff controls", () => {
+  const empty = patchMutationPreview({
+    effect: "create",
+    hunks: Object.freeze([Object.freeze({ newText: "", oldText: "" })]),
+    path: "empty.txt",
+  });
+  assert.equal(empty, "Path: empty.txt\n+ [empty file]");
+
+  const escaped = patchMutationPreview({
+    effect: "update",
+    hunks: Object.freeze([
+      Object.freeze({
+        newText: "after\t\\value\u202E",
+        oldText: "before\t\\value",
+      }),
+    ]),
+    path: "controls.txt",
+  });
   assert.equal(
-    preview.includes(
-      'patchFields=["removeCodeUnits","removeOmitted",' +
-        '"insertCodeUnits","insertOmitted"]',
-    ),
-    true,
+    escaped,
+    "Path: controls.txt\n- before\\t\\\\value\n" +
+      "+ after\\t\\\\value\\u{202e}",
   );
+  assert.equal(projectPatchMutationPreview("technical binding"), undefined);
   assert.equal(
-    preview.includes("patchHunks=[[8180,8180,8180,8180]"),
-    true,
+    projectPatchMutationPreview("Path: file.txt\nnot a diff row"),
+    undefined,
   );
-  assert.equal(preview.includes("patchOmitted=523520"), true);
 });
 
 test("rejects unsafe mutation text and unsupported observed files before approval", async () => {

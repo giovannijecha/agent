@@ -34,6 +34,7 @@ import { NodeTerminalHost } from "./node-terminal-host.js";
 import { NodeOpenCodeGoTransport } from "./node-opencode-go-transport.js";
 import { PlatformClipboard } from "./platform-clipboard.js";
 import { PlatformWorkspaceMutationCommitter } from "./platform-workspace-mutation.js";
+import { PlatformWorkspaceNamespaceCommitter } from "./platform-workspace-namespace.js";
 import { resolvePlatformWorkspaceRoots } from "./platform-workspace-roots.js";
 import { NodeProcessRunner } from "./node-process-runner.js";
 import { NodeTimerClock } from "./node-timer-clock.js";
@@ -244,11 +245,16 @@ if (!configuration.ok) {
     platform,
     arch,
   );
+  const namespaceCommitter = PlatformWorkspaceNamespaceCommitter.create(
+    platform,
+    arch,
+  );
   if (
     !model.ok ||
     !processRunner.ok ||
     !processPrograms.ok ||
-    !mutationCommitter.ok
+    !mutationCommitter.ok ||
+    !namespaceCommitter.ok
   ) {
     stderr.write("agent could not initialize the configured provider\n", () =>
       exit(1),
@@ -259,6 +265,7 @@ if (!configuration.ok) {
       workspaceReadPolicy,
       {
         mutationCommitter: mutationCommitter.value,
+        namespaceCommitter: namespaceCommitter.value,
         processPrograms: processPrograms.value,
         processRunner: processRunner.value,
       },

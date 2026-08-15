@@ -33,6 +33,8 @@ function toneParameters(tone: Tone): readonly string[] {
       return Object.freeze(["1"]);
     case "failure":
       return Object.freeze(["1", "38", "2", "232", "112", "112"]);
+    case "highContrast":
+      return Object.freeze(["38", "2", "235", "239", "244"]);
     case "muted":
       return Object.freeze(["38", "2", "112", "124", "137"]);
     case "plain":

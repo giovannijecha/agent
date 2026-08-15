@@ -112,13 +112,13 @@ owned planned call may be denied or executed.
 Owns the pull-based streaming-model port, cooperative cancellation, bounded
 prospective turns, stream validation, cleanup outcomes, and atomic conversation
 commits and sequential model/tool steps. It permits one active turn, one bounded
-ordered tool-call batch per model step, one pending approval, and one
+ordered tool-call batch per model step, one pending permission decision, and one
 outstanding runtime read. It validates every call before effects, assigns
 bounded per-call output capacity, plans each call just in time after the prior
 call settles, executes handlers sequentially, and checkpoints only a complete
-call/result exchange. A failed effect plan records a non-approved failed
-attempt; a successful write or execute plan exposes one exact approval before
-its invocation.
+call/result exchange. A failed effect plan records a failed attempt without an
+operator prompt; every valid request waits for one exact CLI decision before
+denial or invocation.
 Before any tool attempt, user input and partial assistant chunks are prospective.
 After every selected call has a truthful result, one complete ordered exchange
 is checkpointed before the next model step because external-effect truth cannot
@@ -145,12 +145,12 @@ decoding, bounded editing,
 one-row and multiline projected input components, validated
 viewports and atomic frames, owned cell measurement, immutable fragments,
 bounded text and input components, bounded generic component stacks, normalized
-structured rows with twelve closed semantic span tones, one independent closed
+structured rows with closed semantic span tones, one independent closed
 selection mark, validated logical text interaction, and six closed surface
 roles, one bounded line-oriented Markdown subset with an exact semantic
 separator, one bounded internal lexical highlighter, one generic bordered
-panel, one generic split line,
-dynamically centered horizontal insets, one generic open side rail, one bounded
+panel, one generic paired horizontal-rule frame, one generic split line,
+dynamically centered horizontal insets, one generic solid side rail, one bounded
 generic selection list over one-row components,
 deterministic vertical allocation, ANSI commands, and serialized asynchronous
 differential rendering. One immutable layout plan
@@ -164,12 +164,14 @@ One cell-width module feeds structured rows, wrapping, Markdown, tables,
 surfaces, editors, carets, clipping, and rendering. Printable ASCII, the closed
 structural glyph set, and the exact precomposed Latin prose ranges and
 punctuation in decision 0044 occupy one cell. Every other non-ASCII scalar keeps
-the conservative two-cell fallback. When a changed structured row is both
-homogeneous, opaque, and exactly full-width, differential rendering first paints
-its complete logical extent with ASCII spaces under the authoritative surface,
-returns to the row origin, and then writes its content. This renderer-owned
-operation preserves a physical rectangle without changing measurement, retained
-text, or the shared width authority. The profile performs no normalization,
+the conservative two-cell fallback. For every changed structured row,
+differential rendering first paints each maximal contiguous non-transparent
+surface run across its exact logical cell extent with ASCII spaces under that
+run's authoritative surface, returns to the row origin, and then writes its
+content. Runs may begin after a shared inset; transparent gaps and differently
+surfaced runs remain separate. This renderer-owned operation preserves physical
+rectangles without changing measurement, retained text, or the shared width
+authority. The profile performs no normalization,
 locale lookup, terminal probing, or grapheme clustering, and no consumer may
 carry a private exception.
 Plain text and Markdown share one normalization, word-aware span-preserving
@@ -211,11 +213,14 @@ path, the responsive conversation shell and truthful status footer,
 application-owned transcript navigation and pointer selection, stable display
 document identities, monotonic input timestamps, and fair two-source event
 arbitration.
-One frozen CLI-owned conversation-density record supplies closed padding and
-rhythm values to the existing presenters: user turns and the focused composer
-retain one cell above and below their content, activity surfaces have zero
-vertical padding, and external lower-shell rhythm remains one optional row. Activity
-stack clipping retains its identity/state head before optional detail.
+One frozen CLI-owned conversation-density record supplies the closed content
+inset, flush offsets, composer-rule rows, and rhythm rows to the existing
+presenters and composer pointer projection. The focused composer retains one
+full-width rule row above and below its transparent content, activity surfaces
+have zero vertical padding, and external lower-shell rhythm remains one
+optional row. The user `SideRail` itself consumes the shared content inset and
+follows exact visible rows outside a transparent zero-padding `Surface`.
+Activity stack clipping retains its identity/state head before optional detail.
 It is the only product package
 allowed to import approved `node:` APIs. It uses only
 named stdin, stdout, stderr, and exit capabilities rather than a broad process
@@ -273,6 +278,18 @@ a write lease while comparing and replacing one opened object. The planner no
 longer contains a portable write path. Missing exclusion or publication
 support fails closed, and late process events cannot create a second result.
 
+Approved `manage_path` plans cross a separate `WorkspaceNamespaceCommitter`
+port. The pure namespace layer produces one immutable create-directory, move,
+or remove effect bound to canonical paths, object kinds and identities, parent
+identities, and destination absence. The CLI adapter launches the exact
+package-local C17 broker with no arguments or environment and accepts one fixed
+content-free settlement. Linux uses guarded handle-relative traversal with
+`mkdirat`, no-replace `renameat2`, and `unlinkat`; Windows uses handle-relative
+`NtCreateFile`, native rename information, and disposition information. The
+planner exposes no overwrite, merge, recursive removal, implicit parent
+creation, self-descendant move, or portable pathname fallback. Missing
+namespace primitives and stale state fail closed.
+
 CLI also owns the exact OpenCode Go HTTPS adapter and startup configuration. It
 admits only `opencode.ai:443`, never follows an application-selected origin,
 keeps the API key in memory, and exposes only bytes and response metadata to the
@@ -296,14 +313,14 @@ filesystem and network authority outside its selected initial directory.
 
 Decision 0050 makes the CLI-owned program registry the single authority that
 maps the current exact `node` token to the absolute current Node executable.
-The `run_process` descriptor and handler consume that same registry; this first
-phase does not add a program or widen argument authority. The decision also
-defines the staged six-domain convergence target for the complete tool harness:
-three bounded read capabilities, text patching, namespace management, and one
-execute capability. The exact current inventory remains authoritative during
-migration. An actual sandboxed command-language tool may replace the execute
-domain only after a separate cross-platform isolation proof; it cannot coexist
-with `run_process` as an overlapping alias.
+The `run_process` descriptor and handler consume that same registry. It also
+records the exact complete six-tool inventory: `read_file`, `list_directory`,
+`search_text`, `apply_patch`, `manage_path`, and `run_process`. Each of the
+three bounded read domains, text patching, namespace management, and execution
+has one canonical descriptor and independently removable implementation. An
+actual sandboxed command-language tool may replace the execute domain only
+after a separate cross-platform isolation proof; it cannot coexist with
+`run_process` as an overlapping alias.
 
 ## Lean tool harness
 
@@ -319,9 +336,9 @@ possibility is insufficient. Removing one tool must leave the remaining
 registry, text-only runtime path, CLI, and TUI buildable without unrelated
 rewrites. The exact current inventory is owned by `tools/manual-policy.json` and
 verified against CLI descriptors and the operator manual under decision 0014.
-Decision 0050 owns the convergence target and requires each authority-domain
-replacement to end with one canonical descriptor and independently removable
-implementation.
+Decision 0050 owns that complete inventory and requires any future
+authority-domain replacement to end with one canonical descriptor and
+independently removable implementation.
 Product descriptor construction is confined to the registered CLI module; the
 generic tools workspace owns validation mechanics, not advertised product tools.
 
@@ -417,17 +434,27 @@ duplicated as footer telemetry. Editor Home and End remain independent.
 Tool activity is application state, not terminal state. The CLI reducer maps
 validated runtime transitions into one bounded log and one generic component
 stack. It retains only the current or most recently settled turn and exposes
-only tool name, risk, descriptor-declared safe scope, and explicit state. One
+only tool name, risk, an admitted safe subject, bounded permission preview, and explicit state. One
 pure projection keeps only the latest activity in the contextual slot while its
 turn is active. A new tool replaces it, and turn settlement removes it. Tool
 activity never enters the scrollable conversation. Every state, including
-approval, uses the same generic borderless `Surface`; the CLI selects one of the
-closed success, attention, or failure backgrounds. Tool identity, written state,
-safe detail, and approval actions use neutral plain or emphasized foregrounds,
-and written state remains explicit. The exact bounded effect preview is projected
-only for `approval`; queued, running, cancelling, and terminal states project
-only their risk below the shared head. The bounded log still retains the preview
-as lifecycle state, so presentation does not create a second activity model.
+pending permission, uses the same generic borderless transparent `Surface`.
+The status mark and written state select one of the closed success, attention,
+or failure foregrounds; action, safe subject, preview, and permission actions
+remain neutral, and written state remains explicit. One pure closed six-entry projection maps
+the exact tool name and risk to a display-only action label. A generic
+right-priority `SplitLine` retains the status mark and action on the left and the
+written state on the right before an optional useful safe subject. Canonical tool
+name and risk validate the projection but do not repeat in the visible head.
+Non-permission states occupy exactly that line. Pending permission may append the
+exact bounded human-readable effect preview, followed by a transparent generic
+selection list.
+Queued, running, cancelling, and terminal states never project that preview. The
+bounded log still retains the preview as lifecycle state, so presentation does
+not create a second activity model.
+Decisions 0056 and 0057 own the exact display table, status marks, split priority,
+transparent truth treatment, one-line ordinary projection, useful subject, and
+permission-only expansion independently from the lifecycle and permission engines.
 Tools cannot choose surfaces, colors, panels, or private presentation
 paths. The generic TUI owns stacking, clipping, padding, caret translation, and
 hostile-component containment but knows no tool vocabulary.
@@ -437,7 +464,7 @@ tool engine, runtime protocol, structured rows, scroll view, and renderer.
 The responsive conversation shell follows decisions 0026, 0027, 0028, 0039,
 0040, 0041, 0043, and 0045. In vertical order the CLI composes a flexible document,
 contextual activity, one latest ephemeral notice, completion, one bounded
-stage-wide neutral composer, and a compact status line. The document remains
+stage-wide composer, and a compact status line. The document remains
 dominant; absent contextual state consumes no rows.
 The composer projects the existing bounded editor through generic `InputArea`
 and therefore creates no second editor or submission path. It has no prompt
@@ -450,13 +477,15 @@ use the editor's single whitespace-delimited word rule; the CLI never
 reinterprets terminal encodings or duplicates draft mutation. The generic area
 also projects the editor's closed selection mark; pointer
 positioning and double-click word selection call that same editor rather than
-mutate a CLI copy. The generic surface owns the composer padding, subtle neutral
-background, and caret translation without adding a border. The
+mutate a CLI copy. The generic `HorizontalRules` frame owns one cell of
+horizontal content padding, one full-width light-blue `accent` rule above and
+below the transparent content row, and caret translation. It collapses both
+optional rule rows before content when fewer than three rows are assigned. The
 footer renders stable context only: the working-folder label at the left edge
 and configured provider/model at the physical center. Its right edge is reserved
 for one constant-width three-cell pulse while autonomous work advances through
 `generating`, `runningTool`, or `cancelling`; it is empty while idle or awaiting
-approval. The pulse ends at the composer's final surface cell. Lifecycle and
+approval. The pulse ends at the composer's final frame cell. Lifecycle and
 navigation words are not duplicated there. A generic
 three-column line keeps those anchors independent and retains right, then center,
 then left when width is scarce. Low-priority footer chrome collapses before required
@@ -476,9 +505,15 @@ The event arbiter serializes expiry after terminal and runtime work but before
 cosmetic motion, and a stale token cannot clear newer feedback. The generic
 timer port is shared substrate, while motion and notice scheduling retain
 independent lifecycle state.
-User entries use one stage-wide generic subtle surface. Assistant prose
-remains unboxed; fenced code and strict pipe tables use the generic content-fit
-transparent surface painter after visible rows are selected. Complete fences with at
+User entries compose one stage-wide transparent `Surface` with the generic
+`SideRail`. One muted solid half-block rail cell owns the shared one-cell inset
+and spans exactly the visible rows; the following cell is the canonical content
+column shared by assistant prose and composer text, caret, and pointer geometry.
+Internal padding stays at zero. Base user prose uses the
+closed `highContrast` tone and italic slant. Registered Markdown roles replace
+that base tone for their exact spans; assistant base prose remains `plain` and
+unboxed. Fenced code
+and strict pipe tables use the generic content-fit transparent surface painter after visible rows are selected. Complete fences with at
 most two visible logical rows select zero horizontal padding through the same
 surface group; larger fences and tables select one cell. Strict table rows pad
 every column to the maximum visible cell width computed across that table, so
@@ -487,32 +522,36 @@ one muted header rule from the same measured total row extent and emits it
 inside that surface; it does not emit an outer border or a complete cell grid.
 No `you`, `agent`, or static
 header label is injected. Surface, slant, and foreground tone remain
-independent closed style dimensions. The neutral subtle surface distinguishes
-user input and the composer; semantic green, ochre, and red backgrounds are
-reserved for authoritative tool lifecycle state. One blank row separates adjacent transcript entries. The empty state contributes no
+independent closed style dimensions. The muted solid user rail distinguishes user
+input; the composer stays transparent between two full-width light-blue
+accent rules. Semantic success, attention, and failure foregrounds are reserved
+for authoritative tool marks and written lifecycle state. One blank row separates adjacent transcript entries. The empty state contributes no
 welcome or reference content. Semantic state is shared across interactive
-surfaces: green is successful, yellow is active or approval-sensitive, and red
+surfaces: green is successful, yellow is active or permission-sensitive, and red
 is failed, denied, or cancelled. The TUI primitives
 remain agent-agnostic.
 
 Conversation display uses the closed Markdown subset in decision 0023. The TUI
 recognizes headings, one-level lists and quotes, matched fenced code, inline
-code, strong text, strict pipe tables, and an exact `---` horizontal separator,
-then compiles them into the same bounded spans. Inline code and fenced language
-labels use the restrained steel-blue reference accent; table headers use
-emphasis; structural separators and the single table header rule remain muted.
+code, single-asterisk italic emphasis, strong text, strict pipe tables, and an
+exact `---` horizontal separator, then compiles them into the same bounded
+spans. Inline code and fenced language labels use the restrained steel-blue
+reference accent; italic emphasis retains the surrounding foreground tone and
+selects the closed italic slant; table headers use emphasis; structural
+separators and the single table header rule remain muted.
 Recognized complete fences may
 use the five closed syntax roles under decision 0031; lighter blues remain
 code-only. Under decision 0032 the exact horizontal separator expands to the
 available component width only in shared display layout; unsupported variants
-remain literal. Unknown or unlabeled fences remain plain. Missing delimiters,
-longer delimiter runs, malformed tables, and unsupported syntax remain literal.
+remain literal. Unknown or unlabeled fences remain plain. Inline precedence is
+code, strong, then italic emphasis. Missing delimiters, longer delimiter runs,
+malformed tables, and unsupported syntax remain literal.
 Markdown never receives tool
 activity, status, provider data, or application lifecycle state.
 Every structured role entry is a separate parser document; syntax cannot cross
 from user to assistant content or between turns.
 
-The current shell implements `/providers`, `/approve`, `/deny`, and `/exit`
+The current shell implements `/providers`, `/permissions`, and `/exit`
 through one immutable CLI-owned catalog shared by exact dispatch and completion.
 Only a non-empty, whitespace-free, non-exact case-sensitive prefix activates
 completion. While visible, Up and Down change its bounded non-wrapping selection
@@ -529,20 +568,26 @@ region, the composer, and the footer. Every instance has zero minimum height and
 required content. The
 composer remains the sole required row on a one-row viewport.
 Operator guidance lives in the maintained manual rather than a duplicated
-interactive help surface. Approval commands are contextual and authorize only the exact pending
-write or execute call. Without an
+interactive help surface. The application owns one memory-only exact-tool
+permission table: reads default to `Allow`, writes and execution to `Ask`, and
+`/permissions` changes only the current session. Every runtime request waits for
+one turn-and-call decision. Pending `Ask` requests use the contextual
+`SelectionList` actions `Allow once`, `Allow for session`, and `Deny`; no slash
+command resolves a pending call. Without an
 injected runtime, ordinary submitted content is discarded after a generic notice
 and never becomes transcript or conversation state. With a runtime, only one
 turn is active: streamed text is prospective display state, completion publishes
 one prepared response, and the CLI synchronously resolves its runtime commit
 before publishing the bounded transcript pair. Failure or cancellation removes
 prospective state after the last truthful tool checkpoint. Tool names, risk, and
-state remain visible in one non-wrapping contextual TUI row. A separate bounded
-approval summary exposes either the descriptor projection for a direct handler
-or the concrete effect preview produced by a mutation plan. Mutation previews
-show the canonical target, observed state, SHA-256 state digests, and exact
-content when it fits; larger content uses bounded prefix/suffix excerpts and an
-explicit omitted-code-unit count. Call identifiers, tool outputs, causes, and
+state remain visible in one contextual TUI region. A separate bounded
+permission preview exposes either the descriptor projection for a direct handler
+or the concrete effect preview produced by a mutation plan. Patch previews show
+the canonical target and human-readable removed and inserted rows when they fit;
+larger content uses bounded prefix/suffix excerpts and an explicit omitted-code-unit
+count. Observed identity, SHA-256 digests, and complete replacement content remain
+bound inside the effect plan and native commit rather than becoming UI metadata.
+Call identifiers, tool outputs, causes, and
 unbounded content never appear.
 
 A terminal failure after a truthful tool checkpoint is projected through one
@@ -674,7 +719,7 @@ process access remain unavailable unless the CLI composes an explicit capability
   the current visual grammar, replace its CLI document builders with one plain
   transcript and input row, remove semantic activity and three-zone footer
   composition, then delete unused surface, text-style, spacer, panel,
-  split-line, three-column-line, horizontal-inset, and side-rail modules with
+  horizontal-rules, split-line, three-column-line, horizontal-inset, and side-rail modules with
   decisions 0028 and 0033.
 - Remove Markdown by replacing the transcript component with `TextBlock`, then
   deleting its parser, component, internal syntax highlighter, exports, tests,
@@ -698,19 +743,24 @@ process access remain unavailable unless the CLI composes an explicit capability
 - Add or remove a provider at the adapter, registries, and CLI edge; core changes
   only if its owned model contract deliberately changes.
 - Remove one built-in tool by first stopping its descriptor advertisement, then
-  deleting its handler, focused tests, policy and manual entries, and unused
-  private helpers. Update decision 0008 if its execution contract or registry
-  reference changes. The remaining registry and text-only path stay buildable
-  under decision 0014.
+  deleting its handler, focused tests, permission and activity-presentation
+  entries, manual record, and unused private helpers. Update decision 0008 if
+  its execution contract or registry reference changes. The remaining registry
+  and text-only path stay buildable under decision 0014.
 - Remove built-in tools by first stopping descriptor advertisement, restoring
-  text-only runtime steps, and deleting CLI approval/status composition. Remove
+  text-only runtime steps, and deleting CLI permission/activity composition. Remove
   the runtime tool dependency, then the tools workspace and structured tool
   entries only when no consumer remains. In the same removal change, replace
-  manual-policy schema 4 so it removes the advertised inventory; unregister
+  manual-policy schema 9 so it removes the advertised inventory; unregister
   decisions 0008, 0014, 0015, 0016, and 0036 only when their admitted surfaces
   and proof infrastructure are gone; and remove their ownership, required-path,
   and manual-evidence registrations. Core text chat and the providerless CLI
   remain buildable throughout.
+- Remove namespace management by first removing `manage_path` advertisement,
+  manual inventory, and policy entry, then deleting its planner, preview,
+  committer, protocol, native broker, tests, and decision 0054. Never retain a
+  namespace alias or pathname fallback. Read tools, `apply_patch`,
+  `run_process`, runtime text chat, and TUI remain independently buildable.
 - Remove process execution by first removing `run_process` advertisement, then
   its handler, runner port, Node adapter, and protocol codec. Remove the native
   source, build driver, conformance harness, Linux cgroup bootstrap, toolchain

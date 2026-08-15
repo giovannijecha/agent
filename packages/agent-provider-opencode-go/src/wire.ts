@@ -20,6 +20,7 @@ import {
   ListSchema,
   LiteralStringSchema,
   StringSchema,
+  UnionSchema,
   type ObjectSchemaField,
   type ToolDescriptor,
   type ToolSchema,
@@ -88,6 +89,13 @@ function schemaValue(schema: ToolSchema): unknown {
       maxItems: schema.maximum,
       minItems: schema.minimum,
       type: "array",
+    });
+  }
+  if (schema instanceof UnionSchema) {
+    return Object.freeze({
+      oneOf: Object.freeze(
+        schema.variants.map((variant) => schemaValue(variant)),
+      ),
     });
   }
   const required = schema.fields

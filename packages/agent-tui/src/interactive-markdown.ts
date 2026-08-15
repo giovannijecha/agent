@@ -4,6 +4,7 @@ import {
   type DisplayRun,
 } from "./display-text.js";
 import { markdownDisplayLines } from "./markdown-parser.js";
+import type { Tone } from "./tone.js";
 import {
   isHttpsTarget,
   TextSelection,
@@ -20,6 +21,7 @@ function displayRun(
     hyperlink?: string | undefined;
     mark?: DisplayRun["mark"] | undefined;
     position?: DisplayRun["position"] | undefined;
+    slant?: DisplayRun["slant"] | undefined;
   }> = Object.freeze({}),
 ): DisplayRun {
   return Object.freeze({
@@ -32,6 +34,9 @@ function displayRun(
     ...(options.position === undefined
       ? Object.freeze({})
       : Object.freeze({ position: options.position })),
+    ...(options.slant === undefined
+      ? Object.freeze({})
+      : Object.freeze({ slant: options.slant })),
     text,
     tone,
   });
@@ -47,7 +52,9 @@ function normalizeTabs(
     let chunk = "";
     const flush = (): void => {
       if (chunk.length > 0) {
-        normalized.push(displayRun(chunk, candidate.tone));
+        normalized.push(
+          displayRun(chunk, candidate.tone, { slant: candidate.slant }),
+        );
         chunk = "";
       }
     };
@@ -55,7 +62,11 @@ function normalizeTabs(
       if (character === "\t") {
         flush();
         const spaces = TAB_CELLS - (column % TAB_CELLS);
-        normalized.push(displayRun(" ".repeat(spaces), candidate.tone));
+        normalized.push(
+          displayRun(" ".repeat(spaces), candidate.tone, {
+            slant: candidate.slant,
+          }),
+        );
         column += spaces;
       } else {
         chunk += character;
@@ -170,6 +181,7 @@ function referencedRuns(
             hyperlink: segment.hyperlink,
             mark: chunkSelected ? "selected" : "none",
             position: Object.freeze({ document, offset: chunkOffset }),
+            slant: candidate.slant,
           }),
         );
         chunk = "";
@@ -218,10 +230,11 @@ export function* interactiveMarkdownLines(
   text: string,
   document: number,
   selection: TextSelection | undefined,
+  baseTone: Tone = "plain",
 ): Generator<DisplayLine> {
   let offset = 0;
   let first = true;
-  for (const candidate of markdownDisplayLines(text)) {
+  for (const candidate of markdownDisplayLines(text, baseTone)) {
     const line = normalizedLine(candidate);
     if (!first) {
       offset += 1;

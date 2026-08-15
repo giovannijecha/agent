@@ -4,7 +4,10 @@ import type {
   StartedTurn,
   StartTurnError,
 } from "@agent/runtime";
-import { TOOL_ENGINE_LIMITS } from "@agent/tools";
+import {
+  isSafeApprovalPreview,
+  TOOL_ENGINE_LIMITS,
+} from "@agent/tools";
 import {
   err,
   ok,
@@ -30,11 +33,18 @@ import {
   SessionController,
   type CommandCompletionProjection,
   type SessionAction,
+  type SessionInputContext,
 } from "./session.js";
 import {
   ToolActivityLog,
   type ToolActivitySnapshot,
 } from "./tool-activity-log.js";
+import {
+  type PermissionMenuProjection,
+  TOOL_DECISION_ACTIONS,
+  type ToolDecisionProjection,
+  ToolPermissionPolicy,
+} from "./tool-permissions.js";
 import {
   type PointerProjection,
   TerminalInteraction,
@@ -47,7 +57,7 @@ const MAX_NOTICE_LINES = 16;
 const MAX_NOTICE_CODE_UNITS = 1_024;
 
 export type ApplicationPhase =
-  | "awaitingApproval"
+  | "awaitingPermission"
   | "cancelling"
   | "generating"
   | "idle"
@@ -61,10 +71,11 @@ export type ApplicationEffect =
   | Readonly<{ kind: "commitTurn"; turnId: number }>
   | Readonly<{ kind: "exit" }>
   | Readonly<{
-      kind: "resolveToolApproval";
+      kind: "resolveToolPermission";
       turnId: number;
       callId: string;
-      approved: boolean;
+      allowed: boolean;
+      operatorApproved: boolean;
     }>
   | Readonly<{ kind: "startTurn"; text: string }>;
 
@@ -118,6 +129,7 @@ export class ApplicationController
   readonly #activityLog = new ToolActivityLog();
   readonly #chat = new ChatState();
   readonly #provider: ProviderPresentation | undefined;
+  readonly #permissions = new ToolPermissionPolicy();
   readonly #session: SessionController;
   readonly #terminalInteraction = new TerminalInteraction();
   readonly #workspace: string | undefined;
@@ -126,6 +138,8 @@ export class ApplicationController
   #noticePlacement: NoticePlacement = "context";
   #noticeToken: NoticeToken | undefined = undefined;
   #phase: ApplicationPhase = "idle";
+  #permissionSelectionIndex = 0;
+  #permissionsVisible = false;
   #transcriptGeometry:
     | Readonly<{ contentRows: number; viewportRows: number }>
     | undefined;
@@ -135,16 +149,16 @@ export class ApplicationController
   #preparedCheckpointed = false;
   #tool:
     | {
-        readonly approvalRequired: boolean;
         readonly callId: string;
         readonly name: string;
         readonly preview: string;
         readonly risk: "execute" | "read" | "write";
         readonly turnId: number;
-        decision: "approved" | "denied" | undefined;
+        decision: "allowed" | "denied" | undefined;
         status: "requested" | "started";
       }
     | undefined;
+  #toolDecisionIndex = 0;
 
   constructor(
     runtimeAvailable: boolean,
@@ -240,7 +254,28 @@ export class ApplicationController
   }
 
   projectCommandCompletion(): CommandCompletionProjection | undefined {
-    return this.#session.projectCommandCompletion();
+    return this.#inputContext() === "composer"
+      ? this.#session.projectCommandCompletion()
+      : undefined;
+  }
+
+  projectPermissionMenu(): PermissionMenuProjection | undefined {
+    if (!this.#permissionsVisible || this.#phase === "awaitingPermission") {
+      return undefined;
+    }
+    return Object.freeze({
+      items: this.#permissions.snapshots(),
+      selectedIndex: this.#permissionSelectionIndex,
+    });
+  }
+
+  projectToolDecision(): ToolDecisionProjection | undefined {
+    return this.#phase === "awaitingPermission"
+      ? Object.freeze({
+          actions: TOOL_DECISION_ACTIONS,
+          selectedIndex: this.#toolDecisionIndex,
+        })
+      : undefined;
   }
 
   /** Reduces one terminal input chunk in exact decoder order. */
@@ -269,6 +304,7 @@ export class ApplicationController
         redraw = redraw || applied.redraw;
         appendEffects(applied.effects);
       },
+      context: () => this.#inputContext(),
       editorRedrawn: () => {
         if (this.#notice.length > 0) {
           this.#setNotice([]);
@@ -355,6 +391,9 @@ export class ApplicationController
     this.#noticePlacement = "context";
     this.#noticeToken = undefined;
     this.#phase = "idle";
+    this.#permissionSelectionIndex = 0;
+    this.#permissions.reset();
+    this.#permissionsVisible = false;
     this.#transcriptGeometry = undefined;
     this.#transcriptScroll = ScrollState.followEnd();
     this.#terminalInteraction.reset();
@@ -362,6 +401,7 @@ export class ApplicationController
     this.#preparedCleanup = false;
     this.#preparedCheckpointed = false;
     this.#tool = undefined;
+    this.#toolDecisionIndex = 0;
   }
 
   /** Reduces one decoded action so capability feedback can preserve ordering. */
@@ -403,6 +443,105 @@ export class ApplicationController
       this.#setNotice(action.lines, action.level);
       return update(true);
     }
+    if (action.kind === "openPermissions") {
+      if (this.#phase === "awaitingPermission") {
+        return update(false);
+      }
+      this.#permissionsVisible = true;
+      this.#setNotice([]);
+      return update(true);
+    }
+    if (action.kind === "closePermissions") {
+      if (!this.#permissionsVisible) {
+        return update(false);
+      }
+      this.#permissionsVisible = false;
+      return update(true);
+    }
+    if (action.kind === "moveContextSelection") {
+      if (this.#phase === "awaitingPermission") {
+        const next = action.direction === "previous"
+          ? Math.max(0, this.#toolDecisionIndex - 1)
+          : Math.min(
+              TOOL_DECISION_ACTIONS.length - 1,
+              this.#toolDecisionIndex + 1,
+            );
+        if (next === this.#toolDecisionIndex) {
+          return update(false);
+        }
+        this.#toolDecisionIndex = next;
+        return update(true);
+      }
+      if (!this.#permissionsVisible) {
+        return update(false);
+      }
+      const next = action.direction === "previous"
+        ? Math.max(0, this.#permissionSelectionIndex - 1)
+        : Math.min(
+            this.#permissions.length - 1,
+            this.#permissionSelectionIndex + 1,
+          );
+      if (next === this.#permissionSelectionIndex) {
+        return update(false);
+      }
+      this.#permissionSelectionIndex = next;
+      return update(true);
+    }
+    if (action.kind === "changePermission") {
+      if (!this.#permissionsVisible || this.#phase === "awaitingPermission") {
+        return update(false);
+      }
+      const changed = this.#permissions.changeAt(
+        this.#permissionSelectionIndex,
+        action.direction,
+      );
+      if (!changed.ok) {
+        this.#setNotice(["Session permissions could not be updated."]);
+        return update(true);
+      }
+      return update(true);
+    }
+    if (action.kind === "activateContextSelection") {
+      const tool = this.#tool;
+      const selected = TOOL_DECISION_ACTIONS.at(this.#toolDecisionIndex);
+      if (
+        this.#phase !== "awaitingPermission" ||
+        tool === undefined ||
+        tool.decision !== undefined ||
+        selected === undefined
+      ) {
+        return update(false);
+      }
+      if (selected === "allowSession") {
+        const changed = this.#permissions.set(tool.name, tool.risk, "allow");
+        if (!changed.ok) {
+          this.#setNotice(["Session permissions could not be updated."]);
+          return update(true);
+        }
+      }
+      const allowed = selected !== "deny";
+      const recorded = this.#activityLog.decide(
+        tool.turnId,
+        tool.callId,
+        allowed,
+      );
+      if (!recorded.ok) {
+        this.#setNotice(["Application activity state could not be updated."]);
+        return update(true);
+      }
+      tool.decision = allowed ? "allowed" : "denied";
+      this.#phase = "runningTool";
+      this.#setNotice([]);
+      return update(true, [
+        Object.freeze({
+          allowed,
+          callId: tool.callId,
+          kind: "resolveToolPermission" as const,
+          operatorApproved: allowed,
+          turnId: tool.turnId,
+        }),
+      ]);
+    }
     if (action.kind === "navigateTranscript") {
       const geometry = this.#transcriptGeometry;
       if (geometry === undefined) {
@@ -418,38 +557,6 @@ export class ApplicationController
               ? -pageRows
               : pageRows;
       return this.#moveTranscript(delta);
-    }
-    if (action.kind === "approve" || action.kind === "deny") {
-      const tool = this.#tool;
-      if (
-        tool === undefined ||
-        !tool.approvalRequired ||
-        tool.decision !== undefined
-      ) {
-        this.#setNotice(["No tool approval is pending."]);
-        return update(true);
-      }
-      const approved = action.kind === "approve";
-      const recorded = this.#activityLog.decide(
-        tool.turnId,
-        tool.callId,
-        approved,
-      );
-      if (!recorded.ok) {
-        this.#setNotice(["Application activity state could not be updated."]);
-        return update(true);
-      }
-      tool.decision = approved ? "approved" : "denied";
-      this.#phase = "runningTool";
-      this.#setNotice([]);
-      return update(true, [
-        Object.freeze({
-          approved,
-          callId: tool.callId,
-          kind: "resolveToolApproval" as const,
-          turnId: tool.turnId,
-        }),
-      ]);
     }
     if (action.kind === "submit") {
       if (this.#chat.activeTurnId !== undefined) {
@@ -576,7 +683,7 @@ export class ApplicationController
         const callId = event.callId;
         const name = event.name;
         const risk = event.risk;
-        const approvalRequired = event.approvalRequired;
+        const effectApprovalRequired = event.approvalRequired;
         const approvalPreview = event.approvalPreview;
         if (
           this.#tool !== undefined ||
@@ -586,40 +693,68 @@ export class ApplicationController
           typeof name !== "string" ||
           !/^[a-z][a-z0-9_]{0,63}$/u.test(name) ||
           (risk !== "read" && risk !== "write" && risk !== "execute") ||
-          typeof approvalRequired !== "boolean" ||
+          typeof effectApprovalRequired !== "boolean" ||
           typeof approvalPreview !== "string" ||
           approvalPreview.length >
             TOOL_ENGINE_LIMITS.approvalPreviewCodeUnits ||
-          /[\p{C}\p{Zl}\p{Zp}]/u.test(approvalPreview) ||
-          approvalRequired !==
+          !isSafeApprovalPreview(approvalPreview) ||
+          effectApprovalRequired !==
             (risk !== "read" && approvalPreview.length > 0)
         ) {
           return err(new ApplicationError("invalidRuntimeEvent"));
         }
+        const configured = this.#permissions.modeFor(name, risk);
+        if (!configured.ok) {
+          return err(new ApplicationError("invalidRuntimeEvent"));
+        }
+        const validInvocation = risk === "read" || effectApprovalRequired;
+        const mode = validInvocation ? configured.value : "allow";
+        const decisionRequired = mode !== "allow";
         const recorded = this.#activityLog.request(
           turnId,
           callId,
           name,
           risk,
           approvalPreview,
-          approvalRequired,
+          effectApprovalRequired,
+          decisionRequired,
         );
         if (!recorded.ok) {
           return err(new ApplicationError("activityInvariant"));
         }
+        if (mode === "deny") {
+          const denied = this.#activityLog.decide(turnId, callId, false);
+          if (!denied.ok) {
+            return err(new ApplicationError("activityInvariant"));
+          }
+        }
         this.#tool = {
-          approvalRequired,
           callId,
-          decision: approvalRequired ? undefined : "approved",
+          decision:
+            mode === "ask" ? undefined : mode === "deny" ? "denied" : "allowed",
           name,
           preview: approvalPreview,
           risk,
           status: "requested",
           turnId,
         };
-        this.#phase = approvalRequired ? "awaitingApproval" : "runningTool";
+        this.#permissionsVisible = false;
+        this.#toolDecisionIndex = 0;
+        this.#phase = mode === "ask" ? "awaitingPermission" : "runningTool";
         this.#setNotice([]);
-        return ok(update(true));
+        return ok(
+          mode === "ask"
+            ? update(true)
+            : update(true, [
+                Object.freeze({
+                  allowed: mode === "allow",
+                  callId,
+                  kind: "resolveToolPermission" as const,
+                  operatorApproved: false,
+                  turnId,
+                }),
+              ]),
+        );
       }
       if (eventKind === "toolStarted") {
         const tool = this.#tool;
@@ -632,7 +767,7 @@ export class ApplicationController
           tool.name !== event.name ||
           tool.risk !== event.risk ||
           tool.status !== "requested" ||
-          tool.decision !== "approved"
+          tool.decision !== "allowed"
         ) {
           return err(new ApplicationError("invalidRuntimeEvent"));
         }
@@ -661,7 +796,7 @@ export class ApplicationController
           (event.status !== "success" && event.status !== "failure") ||
           (tool.decision === "denied"
             ? tool.status !== "requested" || event.status !== "failure"
-            : tool.decision !== "approved" || tool.status !== "started")
+            : tool.decision !== "allowed" || tool.status !== "started")
         ) {
           return err(new ApplicationError("invalidRuntimeEvent"));
         }
@@ -864,6 +999,13 @@ export class ApplicationController
     } catch (_cause: unknown) {
       return err(new ApplicationError("invalidRuntimeEvent"));
     }
+  }
+
+  #inputContext(): SessionInputContext {
+    if (this.#phase === "awaitingPermission") {
+      return "toolDecision";
+    }
+    return this.#permissionsVisible ? "permissions" : "composer";
   }
 
   #setNotice(

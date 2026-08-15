@@ -73,12 +73,8 @@ test("selects slash completions without navigating the transcript", () => {
         description: "show integration availability",
       },
       {
-        command: "/approve",
-        description: "allow the pending tool call",
-      },
-      {
-        command: "/deny",
-        description: "reject the pending tool call",
+        command: "/permissions",
+        description: "set session tool permissions",
       },
       { command: "/exit", description: "close agent" },
     ],
@@ -93,7 +89,7 @@ test("bounds completion selection and completes with Tab without executing", () 
   const bounded = session.feed("\u001B[A[B[B[B[B");
 
   assert.equal(bounded.redraw, true);
-  assert.equal(session.projectCommandCompletion()?.selectedIndex, 3);
+  assert.equal(session.projectCommandCompletion()?.selectedIndex, 2);
   const completed = session.feed("\t");
   assert.deepEqual(completed, { actions: [], redraw: true });
   assert.equal(session.projectEditor(20).text, "/exit");
@@ -110,7 +106,7 @@ test("dispatches the selected slash completion with Enter", () => {
   const submitted = session.feed("\r");
 
   assert.deepEqual(submitted, {
-    actions: [{ kind: "approve" }],
+    actions: [{ kind: "openPermissions" }],
     redraw: true,
   });
   assert.equal(session.draftLength, 0);
@@ -129,6 +125,10 @@ test("recomputes completion after editing and keeps unsupported Tab explicit", (
       {
         command: "/providers",
         description: "show integration availability",
+      },
+      {
+        command: "/permissions",
+        description: "set session tool permissions",
       },
     ],
     selectedIndex: 0,

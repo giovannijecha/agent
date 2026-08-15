@@ -65,6 +65,97 @@ test("compiles the complete owned block and inline subset into semantic spans", 
   ]);
 });
 
+test("applies a caller-owned base tone without overriding Markdown roles", () => {
+  const created = MarkdownBlock.create(
+    "ordinary **strong** and `code`",
+    "head",
+    { baseTone: "highContrast", document: 1 },
+  );
+  assert.ok(created.ok);
+  if (!created.ok) {
+    return;
+  }
+
+  assert.deepEqual(spans(created.value), [
+    [
+      { text: "ordinary ", tone: "highContrast" },
+      { text: "strong", tone: "emphasis" },
+      { text: " and ", tone: "highContrast" },
+      { text: "code", tone: "accent" },
+    ],
+  ]);
+});
+
+test("renders exact single-asterisk emphasis as italic visible text", () => {
+  const selection = TextSelection.create(
+    { document: 2, offset: 7 },
+    { document: 2, offset: 12 },
+  );
+  assert.ok(selection !== undefined);
+  const created = MarkdownBlock.create(
+    "before *Fine.* after **strong** and `code`",
+    "head",
+    { document: 2, selection },
+  );
+  assert.ok(created.ok);
+  if (!created.ok) {
+    return;
+  }
+
+  const rendered = created.value.render(viewport(80, 1));
+  assert.ok(rendered.ok);
+  assert.equal(
+    rendered.value.rows.at(0)?.text,
+    "before Fine. after strong and code",
+  );
+  assert.deepEqual(
+    rendered.value.rows.at(0)?.spans.map((span) => ({
+      slant: span.slant,
+      text: span.text,
+      tone: span.tone,
+    })),
+    [
+      { slant: "normal", text: "before ", tone: "plain" },
+      { slant: "italic", text: "Fine.", tone: "plain" },
+      { slant: "normal", text: " after ", tone: "plain" },
+      { slant: "normal", text: "strong", tone: "emphasis" },
+      { slant: "normal", text: " and ", tone: "plain" },
+      { slant: "normal", text: "code", tone: "accent" },
+    ],
+  );
+  assert.equal(
+    rendered.value.rows.at(0)?.spans.find((span) => span.text === "Fine.")
+      ?.mark,
+    "selected",
+  );
+  assert.equal(
+    created.value.selectionText(),
+    "before Fine. after strong and code",
+  );
+});
+
+test("keeps later inline markers literal inside italic emphasis", () => {
+  const rendered = block("*outer **inner** and `code` tail*").render(
+    viewport(80, 1),
+  );
+
+  assert.ok(rendered.ok);
+  assert.deepEqual(
+    rendered.value.rows.at(0)?.spans.map((span) => ({
+      slant: span.slant,
+      text: span.text,
+      tone: span.tone,
+    })),
+    [
+      {
+        slant: "italic",
+        text: "outer **inner** and `code` tail",
+        tone: "plain",
+      },
+    ],
+  );
+});
+
 test("assigns stable pre-wrap offsets, closed selection, and visible HTTPS links", () => {
   const selection = TextSelection.create(
     { document: 9, offset: 6 },
@@ -153,6 +244,7 @@ test("keeps unsupported, incomplete, nested, and escaped syntax literal", () => 
     block(
       "[label](https://example.invalid)\n" +
         "<b>html</b>\n" +
+        "*open\n" +
         "**open\n" +
         "`open\n" +
         "```ts\n" +
@@ -167,6 +259,7 @@ test("keeps unsupported, incomplete, nested, and escaped syntax literal", () => 
   assert.deepEqual(rendered, [
     [{ text: "[label](https://example.invalid)", tone: "plain" }],
     [{ text: "<b>html</b>", tone: "plain" }],
+    [{ text: "*open", tone: "plain" }],
     [{ text: "**open", tone: "plain" }],
     [{ text: "`open", tone: "plain" }],
     [{ text: "```ts", tone: "plain" }],
@@ -232,6 +325,25 @@ test("wraps prose at word boundaries while preserving semantic spans", () => {
   );
   assert.equal(Object.isFrozen(rendered.value.rows.at(0)), true);
   assert.equal(Object.isFrozen(rendered.value.rows.at(0)?.spans), true);
+});
+
+test("preserves italic emphasis through shared word wrapping", () => {
+  const rendered = block("plain *italiclong*").render(viewport(8, 2));
+
+  assert.ok(rendered.ok);
+  assert.deepEqual(
+    rendered.value.rows.map((row) =>
+      row.spans.map((span) => ({
+        slant: span.slant,
+        text: span.text,
+        tone: span.tone,
+      })),
+    ),
+    [
+      [{ slant: "normal", text: "plain", tone: "plain" }],
+      [{ slant: "italic", text: "italiclo", tone: "plain" }],
+    ],
+  );
 });
 
 test("uses hanging structural prefixes on wrapped Markdown prose", () => {
@@ -737,7 +849,7 @@ test("replaces a wide scalar that cannot fit while retaining its tone", () => {
 });
 
 test("falls back to one plain literal line when inline roles exceed the span bound", () => {
-  const source = "**x**y".repeat(TUI_LIMITS.rowSpans);
+  const source = "*x*y**z**w".repeat(TUI_LIMITS.rowSpans);
   const rendered = block(source).render(
     viewport(TUI_LIMITS.componentColumns, 1),
   );
@@ -747,6 +859,10 @@ test("falls back to one plain literal line when inline roles exceed the span bou
   assert.deepEqual(
     rendered.value.rows.at(0)?.spans.map((span) => span.tone),
     ["plain"],
+  );
+  assert.deepEqual(
+    rendered.value.rows.at(0)?.spans.map((span) => span.slant),
+    ["normal"],
   );
 });
 

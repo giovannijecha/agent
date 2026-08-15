@@ -18,8 +18,8 @@ composer. Left and Right move one code point. Ctrl+Left and Ctrl+Right move one
 whitespace-delimited word. Backspace and Delete remove one code point;
 Ctrl+Backspace, Ctrl+W, and Ctrl+Delete remove one word. Home and End move to the
 draft boundaries. Enter submits. `/providers` shows integration availability,
-`/approve` and `/deny` resolve one pending write-tool request, and `/exit`
-closes the application.
+`/permissions` edits the current session tool policy, and `/exit` closes the
+application.
 
 A bracketed paste is inserted as one atomic draft edit. Line feeds and tabs
 remain draft content, control-looking bytes inside the paste are not interpreted
@@ -70,7 +70,7 @@ launch a browser. Markdown link labels, hidden targets, non-HTTPS schemes, and
 credentials are not admitted as hyperlink destinations.
 
 Type `/` or a non-exact command prefix to open completion above the composer.
-The list contains only the four exact commands. While it is visible, Up and Down
+The list contains only the three exact commands. While it is visible, Up and Down
 move the selection without wrapping and do not move the transcript. Tab copies
 the selected command into the composer and moves the caret to its end; it does
 not execute anything. Enter runs the highlighted exact command immediately
@@ -85,6 +85,14 @@ feedback. `/providers` shows display name, model, and authentication in one
 muted line; an unknown command shows one short warning. The current notice
 disappears after five seconds or immediately when editor interaction resumes.
 It never enters transcript history.
+
+`/permissions` opens one transparent six-row session editor above the composer.
+Up and Down select a tool without wrapping, Left and Right change its exact
+`Deny`, `Ask`, or `Allow` mode without wrapping, and Enter closes the editor.
+Editing composer text also closes it before that same edit is applied. A pending
+tool decision takes precedence and shows exactly `Allow once`, `Allow for
+session`, and `Deny`; Up and Down select, and Enter resolves the exact pending
+call. Neither selector enters the transcript.
 
 Use Up and Down to move the transcript by one row. Use Page Up and Page Down to
 move by the visible transcript height minus one row, so adjacent pages retain
@@ -104,20 +112,22 @@ bounded and Unicode-code-point aware. Its word operations use one rule: spaces,
 tabs, and line feeds delimit words. The composer grows from one through six
 content rows and retains the caret-visible window after reaching its cap. The vertical framework allocates one
   dominant document, contextual activity, one latest ephemeral notice, a
-stage-wide padded composer, and compact footer without product logic
-entering the generic TUI package. `Panel` decorates one decision boundary,
+stage-wide ruled composer, and compact footer without product logic entering
+the generic TUI package. `Panel` decorates one decision boundary,
 `SplitLine` composes two independently retained text groups, `ThreeColumnLine`
 anchors left, physical-center, and right groups, `HorizontalInset` centers a
-bounded child, `SideRail` adds an open guide, `Surface` paints one
+bounded child, `HorizontalRules` frames transparent content between paired
+rules, `SideRail` adds a solid one-cell guide, `Surface` paints one
 bounded borderless region, and `Spacer` owns vertical rhythm.
 Untrusted text is normalized and
 sanitized before the frame performs a final control-character check. Rendering
 is serialized, differential, and commits its snapshot only after a complete
-successful write. When a changed row is one homogeneous opaque full-width
-surface, the renderer first paints its exact logical width with surface-colored
-ASCII spaces and then writes the structured content from column zero. This keeps
-the physical right edge rectangular without changing the shared cell-width
-rules or the displayed text.
+successful write. For every changed row, the renderer first paints each maximal
+contiguous non-transparent surface run across its exact logical cell extent
+with surface-colored ASCII spaces and then writes the structured content from
+column zero. Inset runs are covered without painting transparent gaps or
+combining different surfaces. This keeps physical edges rectangular without
+changing the shared cell-width rules or the displayed text.
 
 Cell measurement is shared by the editor, composer, transcript, Markdown,
 tables, surfaces, clipping, caret, and renderer. Printable ASCII, interface
@@ -142,26 +152,33 @@ space permits.
 Transcript, activity, notice, completion, and composer use that projection;
 resizing recomputes it without changing transcript, draft, or model state and
 clears only geometry-dependent selection. The footer uses the
-same projection so the pulse ends exactly with the composer surface. User requests occupy one
-stage-wide neutral subtle surface with one cell
-of horizontal and vertical padding and italic default-foreground text. A
-one-line request therefore paints three rows; multiline content adds only its
-visible content rows between the shared top and bottom padding. Assistant responses
-remain unboxed when they are ordinary prose. Fenced code and strict pipe tables
+same projection so the pulse ends exactly with the composer frame. User requests
+compose one stage-wide transparent generic `Surface` with zero internal padding
+and italic `highContrast` base prose. Registered Markdown roles retain their
+semantic tones on their exact spans. The generic `SideRail` prefixes every
+visible content row with one muted solid half-block rail cell. That cell itself
+owns the shared inset, so its following text aligns with assistant prose and
+composer text and caret. A
+one-line request therefore paints one railed row; multiline content adds one rail
+per visible row without synthetic top or bottom rows. Assistant responses keep
+`plain` base prose and remain unboxed when they are ordinary prose. Fenced code and strict pipe tables
 use one content-fit transparent technical region. Complete fences with one or two
 visible logical rows use zero horizontal padding; larger fences and tables use
 one cell. Roles
 remain structured internally, but the transcript does not repeat `you` or
-`agent` labels. User and structured-content surfaces have no border; user
-surfaces fill the conversation stage while structured content stays content-fit.
+`agent` labels. User and structured-content surfaces have no border or
+background. The user rail drops before content on a viewport too narrow to fit
+both, while structured content stays content-fit.
 One blank row separates adjacent turns.
-The composer is one neutral, borderless, stage-wide subtle `Surface` around generic
-prompt-free `InputArea`; it owns no second editor or submission path. One cell
-of horizontal and vertical padding separates the draft from the surface edge.
-The area wraps the draft, grows from one through six rows, and follows the
-caret. The draft stays plain and one optional rhythm row separates the composer
-from the footer. The composer survives first, followed by
-approval-sensitive state and document content; the footer collapses before
+The composer is one stage-wide generic `HorizontalRules` frame around the
+prompt-free `InputArea`; it owns no second editor or submission path. Its
+content stays transparent with one cell of horizontal padding, and one
+full-width light-blue `accent` rule sits above and below the draft. Both rule
+rows collapse before content when fewer than three rows are available. The area
+wraps the draft, grows from one through six rows, and follows the caret. The
+draft stays plain and one optional rhythm row separates the composer from the
+footer. The composer survives first, followed by
+permission-sensitive state and document content; the footer collapses before
 required interaction.
 
 During an interactive session the renderer requests bracketed-paste mode, DEC
@@ -175,16 +192,18 @@ before restoring visibility and the previous screen.
 The visual language is deliberately small. Ordinary conversation, tool names,
 scope, and the draft remain neutral. Dim text marks passive structure, bold
 default text marks document emphasis, green marks successful tool completion,
-yellow marks active or approval-sensitive state, and red marks
+yellow marks active or permission-sensitive state, and red marks
 failure, denial, or cancellation. Restrained steel blue marks parser-recognized
 inline code and fenced language labels, never model-selected state. Recognized
 code may use lighter code-only blues, sand, sage, and quiet-green syntax roles for scan
-hierarchy; these roles never represent lifecycle truth. The neutral subtle
-background distinguishes user input and the composer; green, ochre, and red
-backgrounds are reserved for authoritative tool lifecycle state. The compact footer shows the working folder
+hierarchy; these roles never represent lifecycle truth. The muted user rail
+distinguishes user input; the composer remains transparent between
+its two light-blue accent rules. Tool activity remains transparent; restrained
+green, ochre, and red foregrounds on its mark and written state express
+authoritative lifecycle truth. The compact footer shows the working folder
 at the left edge and provider/model at the physical center. Its right edge shows
 only a constant-width active-work pulse whose final cell coincides with the
-composer surface's final cell, and otherwise remains empty. Lifecycle
+composer frame's final cell, and otherwise remains empty. Lifecycle
 and navigation words stay on their owning interaction surfaces. On narrow
 terminals it retains the right group first, the center group second, and the
 working folder last. The footer displays only authoritative composition-root or
@@ -198,10 +217,10 @@ returned.
 
 While autonomous work is generating, running a tool, or cancelling, the footer
 shows one constant-width three-cell pulse as its only right-edge content. Idle
-and approval waiting leave that edge empty. Six deterministic phases move one
+and permission waiting leave that edge empty. Six deterministic phases move one
 ochre head through a neutral leading and trailing step at eight frames per
 second in interactive terminals. Terminal input, runtime
-events, approvals, cancellation, and shutdown take priority over motion. Slow
+events, permissions, cancellation, and shutdown take priority over motion. Slow
 output cannot accumulate ticks because the scheduler re-arms only after a
 successful frame. Only an event that actually redraws rebases pending motion;
 retained input fragments do not stop it, and notice expiry discards a cached
@@ -211,23 +230,26 @@ static.
 Conversation text accepts one original bounded Markdown subset: headings with
 one through six `#` markers, one-level `- ` or numbered list items, one-level
 `> ` quotes, matched triple-backtick code fences, same-line backtick code,
-same-line `**strong**` text, and an exact `---` horizontal separator. It also
-accepts a strict pipe table: one header with
+same-line `*italic*` emphasis, same-line `**strong**` text, and an exact `---`
+horizontal separator. It also accepts a strict pipe table: one header with
 at least two non-empty cells, a same-width delimiter row made from optional
 colons and at least three hyphens per cell, then same-width non-empty body rows.
 The compiler measures every retained header and body cell before painting and
 pads each column to one shared visible width. One quiet divider of that exact
 width separates the emphasized header from the body inside the same transparent
 content-fit region. Tables do not draw an outer box or a full grid.
-Headings, strong text, and table headers use bold default text. Inline code and
-fenced language labels use the parser-owned restrained steel-blue accent. List
-markers, quote rails, table separators, and the responsive horizontal separator
-are dim. Shorter, longer, or spaced horizontal-rule variants remain literal. A complete recognized code fence may
+Headings, strong text, and table headers use bold default text. Single-asterisk
+emphasis retains the surrounding foreground and uses the closed italic slant.
+Inline code and fenced language labels use the parser-owned restrained
+steel-blue accent. List markers, quote rails, table separators, and the
+responsive horizontal separator are dim. Shorter, longer, or spaced
+horizontal-rule variants remain literal. A complete recognized code fence may
 highlight keywords, names, strings, literals, and comments through the bounded
 owned line scanner. The registered profiles cover HTML/XML/SVG, JavaScript and
 TypeScript, JSON, CSS/SCSS, and common shell dialects; empty or unknown labels
-remain plain. Inline delimiters
-must be exact and cannot be part of a longer run. Missing closing delimiters,
+remain plain. Inline code is recognized before strong text, and strong text
+before italic emphasis. Inline delimiters must be exact and cannot be part of a
+longer run. Missing closing delimiters,
 longer delimiter runs, malformed tables, and every unsupported construct stay
 visible literally. Markdown link syntax, images, rendered HTML, escaped pipes,
 task lists, and extensions are not interpreted. Exact visible HTTPS text may
@@ -250,23 +272,24 @@ language-specific hyphenation or URL rewriting.
 
 Tool activity uses one generic document builder for every registered tool. At
 most the latest activity remains beside the composer while its turn is active.
-Approval, execution, and terminal outcome update that one surface. The next
+Permission, execution, and terminal outcome update that one surface. The next
 tool replaces it, and turn settlement removes it. Tool activity never enters
 the scrollable conversation. The view derives from the same bounded log.
-Every state uses one borderless semantic surface. Its restrained dark green,
-ochre, or red background reinforces success, active or approval, and negative
-terminal state; the written state remains explicit. The canonical tool name is
-neutral italic text. Tool identity, written state, safe scope, and approval
-actions use neutral plain or emphasized foregrounds for contrast against every
-semantic background. The surface has one horizontal padding cell and no vertical
-padding, so the current header plus detail occupies two rows. If only one row
-fits, the header retains tool identity and written state before optional detail.
-Only approval displays the exact bounded effect preview. Queued, running,
-cancelling, and terminal snapshots keep the second row compact with the risk;
-the lifecycle log still retains its bounded preview. Approval uses the same
-component. The exact `/approve`
-and `/deny` commands receive retention
-priority over optional safe detail in a short viewport. No activity rail,
+Every state uses one borderless transparent surface. Its status mark and written
+state use restrained green, ochre, or red foregrounds for success, active or
+permission, and negative terminal truth. A display-only action label identifies the operation as
+`Read`, `List`, `Search`, `Write`, `Manage`, or `Run`; it is never a command or
+tool alias. One compact split line places the status mark, action, and optional
+useful safe subject on the left and the written state on the right. Canonical
+tool name and risk validate the closed projection but do not repeat in the
+visible head. The surface has one horizontal padding cell and no vertical
+padding. Non-permission states occupy exactly that line. Pending patch permission
+may append the exact bounded human-readable `- ` and `+ ` diff rows, followed by
+the separate transparent contextual decision list. In a short viewport, display
+action, written state, and decision actions survive before subject or preview
+detail. Queued, running,
+cancelling, and terminal
+snapshots never replay the preview; the lifecycle log still retains it. No activity rail,
 border, private panel, or empty activity document is rendered.
 Call identifiers, raw arguments, output, provider data, credentials, and
 failure causes are never displayed.
@@ -319,16 +342,18 @@ governs the conversation-first shell, generic panel, split-line,
 horizontal-inset, and side-rail primitives, responsive priorities, truthful
 footer, visual review, rollback, and removal.
 Decision [0027](../decisions/0027-owned-semantic-state-chrome.md) governs the
-header-free shell, neutral composer, semantic state colors, transcript spacing,
-tests, rollback, and removal.
+header-free shell, quiet composer treatment, semantic state colors, transcript
+spacing, tests, rollback, and removal.
 Decision [0028](../decisions/0028-owned-conversation-visual-grammar.md) governs
 the empty state, role markers, ephemeral latest-tool activity,
-composer surface, cursor lifecycle, reusable rhythm
+composer frame, cursor lifecycle, reusable rhythm
 primitives, tests,
 rollback, and removal.
 Decision [0033](../decisions/0033-owned-semantic-activity-surfaces.md) governs
-the shared borderless activity surface, semantic backgrounds, italic tool
-identity, approval hierarchy, tests, rollback, and removal.
+the shared borderless activity lifecycle and permission hierarchy. Decision
+[0057](../decisions/0057-owned-transparent-human-tool-activity.md) governs its
+transparent truth treatment, non-redundant head, human patch diff, tests,
+rollback, and removal.
 Decision [0034](../decisions/0034-owned-slash-command-completion.md) governs
 the canonical command catalog, contextual keys, Tab-without-submit behavior,
 generic selection list, contrast refinement, tests, rollback, and removal.
@@ -343,20 +368,24 @@ Decision [0038](../decisions/0038-owned-deterministic-tui-motion.md) records
 deterministic phase ownership, scheduler bounds, terminal-event priority,
 the generating pulse, static Phase 0, tests, rollback, and removal.
 Decision [0039](../decisions/0039-owned-responsive-conversation-stage.md)
-governs the shared fluid stage, stage-wide user regions, tests, rollback, and
+governs the shared fluid stage, stage-wide user projection, tests, rollback, and
 removal. Decision [0040](../decisions/0040-owned-quiet-conversation-rhythm.md)
-governs neutral input surfaces, transparent technical regions, compact completion, uniform
+governs quiet input treatment, transparent technical regions, compact completion, uniform
 lower-shell rhythm, physical pulse alignment, tests, rollback, and removal.
 Decision [0043](../decisions/0043-owned-conversation-density.md) governs the
-frozen CLI density record, breathing user surfaces, compact activity surfaces,
-identity-first clipping, focused composer padding, reference viewport matrix,
+frozen CLI density record, exact-height user rails, compact activity surfaces,
+action/state-first clipping, focused composer rule rows, reference viewport matrix,
 tests, rollback, and removal.
+Decision [0056](../decisions/0056-owned-compact-tool-activity-line.md) governs
+the exact display labels, status marks, one-line hierarchy, responsive retention,
+preview expansion, tests, rollback, and removal.
 
 ## Evidence
 
 - Input protocol: `packages/agent-tui/src/input-decoder.ts`
 - Bounded editor: `packages/agent-tui/src/line-editor.ts`
 - Generic multiline input: `packages/agent-tui/src/input-area.ts`
+- Generic horizontal rules: `packages/agent-tui/src/horizontal-rules.ts`
 - Generic layout: `packages/agent-tui/src/vertical-layout.ts`
 - Generic component stack: `packages/agent-tui/src/component-stack.ts`
 - Generic panel: `packages/agent-tui/src/panel.ts`
@@ -401,6 +430,8 @@ tests, rollback, and removal.
 - Terminal palette and code highlighting: `docs/decisions/0031-owned-terminal-palette-and-code-highlighting.md`
 - Transcript visual refinement: `docs/decisions/0032-owned-transcript-visual-refinement.md`
 - Semantic activity surfaces: `docs/decisions/0033-owned-semantic-activity-surfaces.md`
+- Compact tool activity line: `docs/decisions/0056-owned-compact-tool-activity-line.md`
+- Transparent human tool activity: `docs/decisions/0057-owned-transparent-human-tool-activity.md`
 - Slash-command completion: `docs/decisions/0034-owned-slash-command-completion.md`
 - Quiet conversation rhythm: `docs/decisions/0040-owned-quiet-conversation-rhythm.md`
 - Conversation density: `docs/decisions/0043-owned-conversation-density.md`
@@ -421,6 +452,7 @@ tests, rollback, and removal.
 - Product density policy: `packages/agent-cli/src/conversation-density.ts`
 - Conversation document composition: `packages/agent-cli/src/conversation-view.ts`
 - Activity document composition: `packages/agent-cli/src/activity-view.ts`
+- Pure activity projection: `packages/agent-cli/src/tool-activity-presentation.ts`
 - Command completion composition: `packages/agent-cli/src/command-completion-view.ts`
 - Tool-activity lifecycle: `packages/agent-cli/src/tool-activity-log.ts`
 - Slash-command classifier: `packages/agent-cli/src/commands.ts`

@@ -86,8 +86,8 @@ class PullRuntime implements RuntimeSession<string> {
     return err(Object.freeze({ kind: "idle" as const }));
   }
 
-  resolveToolApproval(): Result<void, RuntimeCommandError> {
-    return err(Object.freeze({ kind: "notAwaitingApproval" as const }));
+  resolveToolPermission(): Result<void, RuntimeCommandError> {
+    return err(Object.freeze({ kind: "notAwaitingPermission" as const }));
   }
 
   commitTurn(): Result<CommitTurnResult, RuntimeCommandError> {
