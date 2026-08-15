@@ -141,6 +141,55 @@ test("enforces exact UTF-8 string limits without accepting unsafe scalars", () =
   }
 });
 
+test("enforces declarative aggregate text limits across list items", () => {
+  const text = StringSchema.create(0, 16, {
+    maximumUtf8Bytes: 32,
+    rejectNul: true,
+  });
+  assert.ok(text.ok);
+  const item = ObjectSchema.create([
+    {
+      description: "Exact source anchor.",
+      name: "oldText",
+      required: true,
+      schema: text.value,
+    },
+    {
+      description: "Replacement text.",
+      name: "newText",
+      required: true,
+      schema: text.value,
+    },
+  ]);
+  assert.ok(item.ok);
+  const schema = ListSchema.create(item.value, 1, 4, {
+    maximumTextCodeUnits: 8,
+    maximumTextUtf8Bytes: 10,
+  });
+  assert.ok(schema.ok);
+
+  for (const [input, accepted] of [
+    [[{ newText: "two", oldText: "one" }], true],
+    [[{ newText: "four", oldText: "three" }], false],
+    [[{ newText: "漢漢", oldText: "漢漢" }], false],
+  ] as const) {
+    const structured = structuredValueFromUnknown(input);
+    assert.ok(structured.ok);
+    const validated = validateSchema(schema.value, structured.value);
+    assert.equal(validated.ok, accepted);
+    if (!accepted && !validated.ok) {
+      assert.equal(validated.error.kind, "outOfRange");
+    }
+  }
+
+  assert.equal(
+    ListSchema.create(item.value, 1, 4, {
+      unexpected: 1,
+    } as never).ok,
+    false,
+  );
+});
+
 test("rejects objects whose exact projection exceeds its aggregate limit", () => {
   const text = StringSchema.create(0, 64);
   assert.ok(text.ok);

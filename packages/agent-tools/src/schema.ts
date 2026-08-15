@@ -14,6 +14,8 @@ import {
 } from "./projection.js";
 
 export const TOOL_SCHEMA_LIMITS = Object.freeze({
+  aggregateTextCodeUnits: 1_048_576,
+  aggregateTextUtf8Bytes: 4_194_304,
   depth: 12,
   descriptionCodeUnits: 512,
   fields: 32,
@@ -209,16 +211,31 @@ export type ToolSchema =
   | ObjectSchema
   | StringSchema;
 
+export type ListSchemaOptions = Readonly<{
+  maximumTextCodeUnits?: number;
+  maximumTextUtf8Bytes?: number;
+}>;
+
 export class ListSchema {
   readonly kind = "list" as const;
   readonly #item: ToolSchema;
   readonly #maximum: number;
   readonly #minimum: number;
+  readonly #maximumTextCodeUnits: number | undefined;
+  readonly #maximumTextUtf8Bytes: number | undefined;
 
-  private constructor(item: ToolSchema, minimum: number, maximum: number) {
+  private constructor(
+    item: ToolSchema,
+    minimum: number,
+    maximum: number,
+    maximumTextCodeUnits: number | undefined,
+    maximumTextUtf8Bytes: number | undefined,
+  ) {
     this.#item = item;
     this.#minimum = minimum;
     this.#maximum = maximum;
+    this.#maximumTextCodeUnits = maximumTextCodeUnits;
+    this.#maximumTextUtf8Bytes = maximumTextUtf8Bytes;
     Object.freeze(this);
   }
 
@@ -226,22 +243,48 @@ export class ListSchema {
     item: ToolSchema,
     minimum: number = 0,
     maximum: number = TOOL_SCHEMA_LIMITS.listItems,
+    options: ListSchemaOptions = Object.freeze({}),
   ): Result<ListSchema, SchemaError> {
     try {
+      const keys = Object.keys(options).sort().join(",");
+      const maximumTextCodeUnits = options.maximumTextCodeUnits;
+      const maximumTextUtf8Bytes = options.maximumTextUtf8Bytes;
       if (
         !isOwnedSchema(item) ||
         !Number.isSafeInteger(minimum) ||
         !Number.isSafeInteger(maximum) ||
         minimum < 0 ||
         maximum < minimum ||
-        maximum > TOOL_SCHEMA_LIMITS.listItems
+        maximum > TOOL_SCHEMA_LIMITS.listItems ||
+        (keys !== "" &&
+          keys !== "maximumTextCodeUnits" &&
+          keys !== "maximumTextCodeUnits,maximumTextUtf8Bytes" &&
+          keys !== "maximumTextUtf8Bytes") ||
+        (maximumTextCodeUnits !== undefined &&
+          (!Number.isSafeInteger(maximumTextCodeUnits) ||
+            maximumTextCodeUnits < 0 ||
+            maximumTextCodeUnits >
+              TOOL_SCHEMA_LIMITS.aggregateTextCodeUnits)) ||
+        (maximumTextUtf8Bytes !== undefined &&
+          (!Number.isSafeInteger(maximumTextUtf8Bytes) ||
+            maximumTextUtf8Bytes < 0 ||
+            maximumTextUtf8Bytes >
+              TOOL_SCHEMA_LIMITS.aggregateTextUtf8Bytes))
       ) {
         return err(schemaError("invalidBounds"));
       }
       const depth = schemaDepth(item);
       return depth >= TOOL_SCHEMA_LIMITS.depth
         ? err(schemaError("tooDeep"))
-        : ok(new ListSchema(item, minimum, maximum));
+        : ok(
+            new ListSchema(
+              item,
+              minimum,
+              maximum,
+              maximumTextCodeUnits,
+              maximumTextUtf8Bytes,
+            ),
+          );
     } catch (_cause: unknown) {
       return err(schemaError("invalidBounds"));
     }
@@ -257,6 +300,14 @@ export class ListSchema {
 
   get minimum(): number {
     return this.#minimum;
+  }
+
+  get maximumTextCodeUnits(): number | undefined {
+    return this.#maximumTextCodeUnits;
+  }
+
+  get maximumTextUtf8Bytes(): number | undefined {
+    return this.#maximumTextUtf8Bytes;
   }
 }
 
@@ -427,6 +478,51 @@ function schemaDepth(schema: ToolSchema): number {
   return 1;
 }
 
+function withinAggregateTextBounds(
+  value: StructuredValue,
+  maximumCodeUnits: number | undefined,
+  maximumUtf8Bytes: number | undefined,
+): boolean {
+  let codeUnits = 0;
+  let utf8Bytes = 0;
+  function visit(current: StructuredValue): boolean {
+    if (typeof current === "string") {
+      codeUnits += current.length;
+      if (maximumCodeUnits !== undefined && codeUnits > maximumCodeUnits) {
+        return false;
+      }
+      if (maximumUtf8Bytes !== undefined) {
+        const bytes = scalarUtf8ByteLength(current, false);
+        if (bytes === undefined) {
+          return false;
+        }
+        utf8Bytes += bytes;
+        if (utf8Bytes > maximumUtf8Bytes) {
+          return false;
+        }
+      }
+      return true;
+    }
+    if (current instanceof StructuredList) {
+      for (const item of current.values) {
+        if (!visit(item)) {
+          return false;
+        }
+      }
+      return true;
+    }
+    if (current instanceof StructuredObject) {
+      for (const field of current.fields) {
+        if (!visit(field.value)) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+  return visit(value);
+}
+
 /** Validates an owned structured value against a closed tool schema. */
 function validateOwnedSchema(
   schema: ToolSchema,
@@ -490,7 +586,13 @@ function validateOwnedSchema(
         return valid;
       }
     }
-    return ok(undefined);
+    return withinAggregateTextBounds(
+      value,
+      schema.maximumTextCodeUnits,
+      schema.maximumTextUtf8Bytes,
+    )
+      ? ok(undefined)
+      : err(validationError("outOfRange"));
   }
   if (!(value instanceof StructuredObject)) {
     return err(validationError("invalidType"));

@@ -43,7 +43,8 @@ Runtime batch preflight proves, before effects:
 
 - the batch and remaining turn limits;
 - unique call identifiers;
-- availability and schema validity for every call;
+- availability and schema validity for every call, including owned declarative
+  aggregate constraints that the provider wire schema cannot express;
 - conversation capacity plus deterministic per-call output budgets that retain
   room for every generic failure result and the final assistant response; and
 - closure of the originating model stream, with any cleanup failure retained
@@ -112,7 +113,8 @@ arguments, exact request configuration, and one assistant batch plus ordered
 tool-result history messages.
 
 Runtime tests prove one-call compatibility, complete pure preflight before
-planning, just-in-time planner order, serial invocation, exact per-call
+planning, rejection of a later aggregate-invalid call before any earlier call
+can be planned, just-in-time planner order, serial invocation, exact per-call
 approvals, denial and ordinary planning/invocation failure continuation,
 cancellation before and during planning and invocation, content-free not-run
 results, contract-failure checkpoint truth, exact and invalid output budgets,

@@ -23,6 +23,7 @@ import {
   ToolResult,
 } from "@agent/core";
 import {
+  ListSchema,
   ObjectSchema,
   StringSchema,
   ToolDescriptor,
@@ -288,6 +289,79 @@ function plannedToolEngine(planner: ToolPlanner): ToolEngine {
   const engine = ToolEngine.create(registry.value);
   assert.ok(engine.ok);
   return engine.value;
+}
+
+function aggregatePatchToolEngine(planner: ToolPlanner): ToolEngine {
+  const path = StringSchema.create(1, 256);
+  const text = StringSchema.create(0, 16);
+  assert.ok(path.ok);
+  assert.ok(text.ok);
+  const hunk = ObjectSchema.create([
+    {
+      description: "Exact source anchor.",
+      name: "oldText",
+      required: true,
+      schema: text.value,
+    },
+    {
+      description: "Replacement text.",
+      name: "newText",
+      required: true,
+      schema: text.value,
+    },
+  ]);
+  assert.ok(hunk.ok);
+  const hunks = ListSchema.create(hunk.value, 1, 4, {
+    maximumTextCodeUnits: 8,
+    maximumTextUtf8Bytes: 32,
+  });
+  assert.ok(hunks.ok);
+  const input = ObjectSchema.create([
+    {
+      description: "Workspace-relative path.",
+      name: "path",
+      required: true,
+      schema: path.value,
+    },
+    {
+      description: "Ordered exact-text hunks.",
+      name: "hunks",
+      required: true,
+      schema: hunks.value,
+    },
+  ]);
+  assert.ok(input.ok);
+  const descriptor = ToolDescriptor.create(
+    "apply_patch",
+    "Apply one bounded structured text patch.",
+    "write",
+    input.value,
+    Object.freeze([
+      Object.freeze({ mode: "exact" as const, name: "path" }),
+      Object.freeze({ mode: "size" as const, name: "hunks" }),
+    ]),
+  );
+  assert.ok(descriptor.ok);
+  const registry = ToolRegistry.create([
+    { descriptor: descriptor.value, planner },
+  ]);
+  assert.ok(registry.ok);
+  const engine = ToolEngine.create(registry.value);
+  assert.ok(engine.ok);
+  return engine.value;
+}
+
+function patchToolInput(
+  path: string,
+  oldText: string,
+  newText: string,
+): StructuredObject {
+  const input = structuredValueFromUnknown({
+    hunks: [{ newText, oldText }],
+    path,
+  });
+  assert.ok(input.ok && input.value instanceof StructuredObject);
+  return input.value;
 }
 
 async function next<E>(runtime: AgentRuntime<E>) {
@@ -1415,6 +1489,48 @@ test("rejects an invalid batch before any effect planner can observe state", asy
   assert.ok(runtime.startTurn("change both files").ok);
   const terminal = await next(runtime);
   assert.equal(terminal.kind, "turnFinished");
+  assert.equal(plannerCalls, 0);
+  assert.equal(runtime.conversation.length, 0);
+});
+
+test("rejects a later aggregate-invalid patch before any planner effect", async () => {
+  let plannerCalls = 0;
+  const stream = new ScriptedStream<string>([
+    ok(
+      Object.freeze({
+        calls: Object.freeze([
+          Object.freeze({
+            callId: "call-valid",
+            input: patchToolInput("first.txt", "one", "two"),
+            name: "apply_patch",
+          }),
+          Object.freeze({
+            callId: "call-oversized",
+            input: patchToolInput("second.txt", "three", "four"),
+            name: "apply_patch",
+          }),
+        ]),
+        kind: "toolCalls" as const,
+      }),
+    ),
+  ]);
+  const runtime = new AgentRuntime(
+    new FixedModel(ok(stream)),
+    aggregatePatchToolEngine(async () => {
+      plannerCalls += 1;
+      return err(Object.freeze({ kind: "conflict" as const }));
+    }),
+  );
+  assert.ok(runtime.startTurn("change both files").ok);
+  const terminal = await next(runtime);
+  assert.equal(terminal.kind, "turnFinished");
+  if (terminal.kind === "turnFinished") {
+    assert.equal(terminal.outcome.kind, "failed");
+    if (terminal.outcome.kind === "failed") {
+      assert.equal(terminal.outcome.failure.kind, "invalidToolCall");
+    }
+    assert.equal(terminal.checkpointed, false);
+  }
   assert.equal(plannerCalls, 0);
   assert.equal(runtime.conversation.length, 0);
 });
