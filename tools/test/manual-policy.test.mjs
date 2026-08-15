@@ -42,6 +42,7 @@ function currentContext() {
   );
   const needed = [
     "README.md",
+    "PRIVACY.md",
     "docs/MAINTENANCE.md",
     ...productSources,
     ...manualPaths,
@@ -201,6 +202,39 @@ test("rejects an incomplete lean harness inventory", () => {
   assert.throws(
     () => validateManualPolicy(substringPolicy, currentContext()),
     ManualPolicyError,
+  );
+});
+
+test("rejects mutation convergence documentation drift", () => {
+  const countContext = currentContext();
+  countContext.files["PRIVACY.md"] = countContext.files["PRIVACY.md"].replace(
+    "The four filesystem tools",
+    "The five filesystem tools",
+  );
+  assert.throws(
+    () => validateManualPolicy(currentPolicy, countContext),
+    {
+      message: "manual mutation convergence contract is incomplete",
+      name: "ManualPolicyError",
+    },
+  );
+
+  const rollbackContext = currentContext();
+  const maintainedRollback = rollbackContext.files["docs/MAINTENANCE.md"];
+  rollbackContext.files["docs/MAINTENANCE.md"] = maintainedRollback.replace(
+    "planners before removing `apply_patch`",
+    "planners after removing `apply_patch`",
+  );
+  assert.notEqual(
+    rollbackContext.files["docs/MAINTENANCE.md"],
+    maintainedRollback,
+  );
+  assert.throws(
+    () => validateManualPolicy(currentPolicy, rollbackContext),
+    {
+      message: "manual mutation convergence contract is incomplete",
+      name: "ManualPolicyError",
+    },
   );
 });
 

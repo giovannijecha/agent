@@ -831,11 +831,15 @@ result bounds, preview fields, approval, or stale-state behavior only together.
 Keep patch resolution pure over one complete immutable source snapshot and cross
 the decision 0046 native committer exactly once after approval.
 
-To roll back the convergence, remove `apply_patch` before deleting its parser,
-planner, preview, tests, decision, documentation, and policy entries. Do not
-restore the retired public mutation names or retain an unadvertised alias. To
-remove all mutation authority, remove the decision 0046 committer and both
-native backends only after no advertised tool consumes them.
+To roll back the convergence, restore both previous descriptors and their
+planners before removing `apply_patch`, then switch the advertised registry in
+the same change. Never advertise either old tool beside `apply_patch`. After the
+previous mutation surface is verified, delete the structured patch parser,
+planner, preview, tests, decision, documentation, and policy entries. To remove
+all mutation authority instead, remove `apply_patch` from the registry and
+manual inventory before removing the decision 0046 committer and both native
+backends. Do not retain an unadvertised compatibility alias or dormant write
+authority.
 
 ## Update or remove structured process execution
 
