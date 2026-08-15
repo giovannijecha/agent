@@ -42,6 +42,9 @@ test("rejects ambiguous, reordered, overlapping, empty, and no-op anchors", () =
     applyTextPatch("x x", [
       Object.freeze({ oldText: "x", newText: "y" }),
     ]),
+    applyTextPatch("aaa", [
+      Object.freeze({ oldText: "aa", newText: "owned" }),
+    ]),
     applyTextPatch("early late", [
       Object.freeze({ oldText: "late", newText: "last" }),
       Object.freeze({ oldText: "early", newText: "first" }),

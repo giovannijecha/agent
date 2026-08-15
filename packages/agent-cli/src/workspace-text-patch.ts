@@ -149,7 +149,7 @@ export function applyTextPatch(
     const first = source.indexOf(hunk.oldText);
     const second = first < 0
       ? -1
-      : source.indexOf(hunk.oldText, first + hunk.oldText.length);
+      : source.indexOf(hunk.oldText, first + 1);
     if (first < cursor || second >= 0) {
       return err(failure("conflict"));
     }
