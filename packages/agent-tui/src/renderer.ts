@@ -25,6 +25,7 @@ import {
 } from "./ansi.js";
 import type { Frame } from "./frame.js";
 import { ClipboardPayload } from "./clipboard.js";
+import { textCellWidth } from "./cell-width.js";
 import type { TextOutput } from "./output.js";
 import { RichRow } from "./rich-row.js";
 import { ok, type Result } from "./result.js";
@@ -66,20 +67,78 @@ function fitRenderedRow(row: RichRow, columns: number): RichRow {
   return fitted.value;
 }
 
-function homogeneousOpaqueSurface(
-  row: RichRow,
-  columns: number,
-): SurfaceTone | undefined {
-  if (row.cellWidth !== columns || row.spans.length === 0) {
-    return undefined;
+type OpaqueSurfaceTone = Exclude<SurfaceTone, "none">;
+
+type OpaqueSurfaceRun = Readonly<{
+  column: number;
+  surface: OpaqueSurfaceTone;
+  width: number;
+}>;
+
+function opaqueSurfaceRuns(row: RichRow): readonly OpaqueSurfaceRun[] {
+  const runs: OpaqueSurfaceRun[] = [];
+  let active: OpaqueSurfaceRun | undefined;
+  let column = 0;
+
+  for (const span of row.spans) {
+    const width = textCellWidth(span.text);
+    if (width === 0) {
+      continue;
+    }
+    if (span.surface === "none") {
+      if (active !== undefined) {
+        runs.push(active);
+        active = undefined;
+      }
+    } else if (
+      active !== undefined &&
+      active.surface === span.surface &&
+      active.column + active.width === column
+    ) {
+      active = Object.freeze({
+        column: active.column,
+        surface: active.surface,
+        width: active.width + width,
+      });
+    } else {
+      if (active !== undefined) {
+        runs.push(active);
+      }
+      active = Object.freeze({
+        column,
+        surface: span.surface,
+        width,
+      });
+    }
+    column += width;
   }
-  const surface = row.spans.at(0)?.surface;
-  if (surface === undefined || surface === "none") {
-    return undefined;
+
+  if (active !== undefined) {
+    runs.push(active);
   }
-  return row.spans.every((span) => span.surface === surface)
-    ? surface
-    : undefined;
+  return Object.freeze(runs);
+}
+
+function prepaintOpaqueSurfaceRuns(row: RichRow, terminalRow: number): string {
+  const rendered: string[] = [];
+  const runs = opaqueSurfaceRuns(row);
+  let cursorColumn = 0;
+
+  for (const run of runs) {
+    if (run.column !== cursorColumn) {
+      rendered.push(moveTo(terminalRow, run.column));
+    }
+    rendered.push(
+      beginStyle("plain", "none", "normal", run.surface) +
+        " ".repeat(run.width) +
+        STYLE_RESET,
+    );
+    cursorColumn = run.column + run.width;
+  }
+  if (runs.length > 0) {
+    rendered.push(moveTo(terminalRow, 0));
+  }
+  return rendered.join("");
 }
 
 /** Serialized differential renderer for one alternate-screen terminal session. */
@@ -195,14 +254,7 @@ export class Renderer<E> {
       buffer += moveTo(row, 0) + CLEAR_ROW;
       if (nextLine !== undefined) {
         containsTerminalString ||= rowContainsHyperlink(nextLine);
-        const surface = homogeneousOpaqueSurface(nextLine, viewport.columns);
-        if (surface !== undefined) {
-          buffer +=
-            beginStyle("plain", "none", "normal", surface) +
-            " ".repeat(viewport.columns) +
-            STYLE_RESET +
-            moveTo(row, 0);
-        }
+        buffer += prepaintOpaqueSurfaceRuns(nextLine, row);
         buffer += renderRow(nextLine);
       }
     }

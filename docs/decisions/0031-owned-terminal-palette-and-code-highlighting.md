@@ -2,14 +2,20 @@
 
 - Status: accepted
 - Date: 2026-08-11
-- Updated: 2026-08-13
-- Amended by: decisions 0032 and 0040
+- Updated: 2026-08-15
+- Amended by: decisions 0032, 0040, and 0043
 
 Decision 0040 removes the structured-region background while retaining this
 decision's closed foreground roles, lexical roles, bounded language profiles,
 and renderer contracts. The 2026-08-13 visual refinement replaces the earlier
 indexed SGR values below with one fixed RGB mapping; the earlier values remain
 the historical baseline for the original decision.
+Decision 0043 later removes user-turn use of the `subtle` background and
+composes a transparent generic `Surface` with the generic muted `SideRail`.
+Its 2026-08-15 contrast amendment assigns user prose the generic
+`highContrast` foreground while assistant prose retains `plain`.
+Historical palette choices below remain evidence for the state accepted before
+that amendment.
 
 ## Context
 
@@ -30,7 +36,10 @@ The renderer keeps one closed semantic palette. `accent` becomes muted steel
 blue without bold weight. Decision 0032 later refines its mapping from
 `38;5;110` to the quieter `38;5;67`. Lifecycle truth remains unchanged:
 `attention` is bold yellow, `success` is bold green, and `failure` is bold red.
-`plain`, `muted`, and `emphasis` retain their existing meanings.
+`plain`, `muted`, and `emphasis` retain their existing meanings. The generic
+`highContrast` role is an explicit neutral foreground for host-selected prose
+that must remain brighter than terminal-default output without adding bold
+weight or lifecycle meaning.
 
 Five code-only foreground roles are added:
 
@@ -49,6 +58,7 @@ They never express lifecycle state, and untrusted text cannot name a role.
 The current renderer mapping is one closed 24-bit SGR palette:
 
 - `accent`: `102,155,210`;
+- `highContrast`: `235,239,244`;
 - `muted`: `112,124,137`;
 - bold `attention`: `230,191,95`;
 - bold `success`: `134,203,146`;
@@ -61,17 +71,19 @@ The current renderer mapping is one closed 24-bit SGR palette:
 
 The current closed surfaces are `subtle` at `31,38,47`, retained `inset` at
 `18,24,31`, `success` at `22,55,34`, `attention` at `62,50,19`, and `failure`
-at `62,24,27`. `plain`, bold `emphasis`, and italic slant retain their existing
-non-color semantics. The renderer emits these only through `38;2` and `48;2`
+at `62,24,27`. `plain`, bold `emphasis`, italic slant, and the unweighted
+`highContrast` foreground retain independent semantics. The renderer emits
+closed colors only through `38;2` and `48;2`
 SGR sequences; there is no theme registry, terminal probe, environment-driven
 palette, or model-selected value. A terminal without 24-bit color support may
 degrade the colors, but text, geometry, semantic state, and cleanup remain
 authoritative.
 
-The closed surface vocabulary adds `inset`. `subtle` keeps the existing user
-turn background. `inset` maps to dark anthracite (`48;5;235`) and is used by
-fenced code and strict tables. Foreground tone, slant, and surface remain
-independent validated dimensions.
+The closed surface vocabulary adds `inset`. At acceptance, `subtle` kept the
+existing user-turn background. `inset` maps to dark anthracite (`48;5;235`) and
+is used by fenced code and strict tables. Foreground tone, slant, and surface
+remain independent validated dimensions. Decision 0043 later makes the user
+surface transparent and moves its distinction to the independent muted rail.
 
 The Markdown compiler delegates fenced bodies to one internal, original,
 line-oriented lexical highlighter. It recognizes exactly these aliases:
@@ -118,7 +130,8 @@ padding still drops before content on viewports narrower than three cells.
 ## Verification
 
 Focused tests prove exact renderer sequences for every closed role and surface,
-the unchanged traffic-light mappings, the unchanged user `subtle` surface,
+including the neutral `highContrast` foreground,
+the unchanged traffic-light mappings, the then-current user `subtle` surface,
 plain fallback for empty and unknown languages, bounded span fallback, and
 representative markup with embedded style/script, script, JSON, CSS, and shell
 tokens. Tests also prove multiline comment state, source-byte preservation,
@@ -136,7 +149,10 @@ guidance to change together. A new language profile needs a concrete current
 display need and representative adversarial tests; it cannot arrive through a
 runtime registry.
 
-To roll back only 24-bit color, restore one reviewed fixed indexed mapping and
+To roll back only the user-prose contrast amendment, return its base prose tone
+to `plain` and remove `highContrast` from the closed tone guard, renderer,
+decision, documentation, and exact byte tests. To roll back only 24-bit color,
+restore one reviewed fixed indexed mapping and
 its exact renderer, decision, manual, and policy tests without changing semantic
 roles. To remove highlighting while keeping structured surfaces, replace highlighted
 fence rows with one `plain` run and delete the internal highlighter and its

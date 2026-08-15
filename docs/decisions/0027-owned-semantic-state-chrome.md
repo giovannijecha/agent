@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-10
-- Amended by: decisions 0028, 0031, 0033, 0038, and 0040
+- Amended by: decisions 0028, 0031, 0033, 0038, 0040, 0055, and 0057
 
 Decision 0028 later supersedes this decision's composer, conversation, and
 `/help` presentation details. Decision 0031 later changes the accent mapping
@@ -11,8 +11,11 @@ adds semantic activity backgrounds and removes the activity rail and approval
 panel without changing that truth. The single lifecycle location remains in
 force. Decisions 0038 and 0040 replace the footer's textual lifecycle label
 with the constant-width active-work pulse and leave the right edge empty while
-idle or awaiting approval. They also replace the original indexed palette with
-the current closed renderer mapping documented by decision 0031.
+idle or awaiting permission. Decision 0055 replaces approval commands with a
+separate contextual permission selector. They also replace the original indexed
+palette with the current closed renderer mapping documented by decision 0031.
+Decision 0057 retains traffic-light truth but moves activity truth from a broad
+background to the status mark and written-state foreground on a transparent row.
 
 ## Context
 
@@ -54,7 +57,7 @@ The CLI applies one traffic-light state mapping:
 
 - green: idle readiness and successful tool completion;
 - yellow: generation, running, cancellation in progress, queued work, and
-  approval required; and
+  pending permission; and
 - red: tool failure, denial, or cancellation.
 
 Tool name and authoritative tool state use the same semantic tone. Risk and safe

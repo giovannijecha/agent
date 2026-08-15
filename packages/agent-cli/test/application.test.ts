@@ -396,7 +396,7 @@ test("explicitly releases draft, status, and display-only personal content", () 
   assert.deepEqual(application.notice, []);
 });
 
-test("requires exact approval commands and exposes one bounded activity snapshot", () => {
+test("requires one contextual permission decision and exposes one bounded activity snapshot", () => {
   const application = new ApplicationController(true);
   assert.ok(application.turnAccepted(started(7, "change it")).ok);
   const requested = application.applyRuntime(
@@ -411,13 +411,13 @@ test("requires exact approval commands and exposes one bounded activity snapshot
     }),
   );
   assert.ok(requested.ok);
-  assert.equal(application.phase, "awaitingApproval");
+  assert.equal(application.phase, "awaitingPermission");
   assert.deepEqual(application.activities, [
     {
       name: "apply_patch",
       preview: 'path="src/index.ts" oldText=<3 code units>',
       risk: "write",
-      state: "approval",
+      state: "permission",
     },
   ]);
   assert.equal(
@@ -425,19 +425,20 @@ test("requires exact approval commands and exposes one bounded activity snapshot
     false,
   );
 
-  const approved = reduceInput(application, "/approve\r");
+  const approved = reduceInput(application, "\r");
   assert.deepEqual(approved.effects, [
     {
-      approved: true,
+      allowed: true,
       callId: "private-call-id",
-      kind: "resolveToolApproval",
+      kind: "resolveToolPermission",
+      operatorApproved: true,
       turnId: 7,
     },
   ]);
   assert.equal(application.activities.at(0)?.state, "queued");
   const repeated = reduceInput(application, "/approve\r");
   assert.deepEqual(repeated.effects, []);
-  assert.deepEqual(application.notice, ["No tool approval is pending."]);
+  assert.deepEqual(application.notice, ["Unknown command"]);
 });
 
 test("replaces contextual activity for each call in one tool batch", () => {
@@ -637,12 +638,197 @@ test("makes tool cancellation visible through authoritative lifecycle states", (
   assert.deepEqual(application.activities, []);
 });
 
-test("reports approval commands as contextual when no tool is pending", () => {
+test("removes legacy approval commands and opens the session permission editor", () => {
   const application = new ApplicationController(true);
   const denied = reduceInput(application, "/deny\r");
 
   assert.deepEqual(denied.effects, []);
-  assert.deepEqual(application.notice, ["No tool approval is pending."]);
+  assert.deepEqual(application.notice, ["Unknown command"]);
+  reduceInput(application, "/permissions\r");
+  assert.equal(application.projectPermissionMenu()?.items.length, 6);
+});
+
+test("edits read permissions in session and asks without an effect preview", () => {
+  const application = new ApplicationController(true);
+  reduceInput(application, "/permissions\r");
+  assert.deepEqual(application.projectPermissionMenu()?.items.at(0), {
+    mode: "allow",
+    name: "read_file",
+    risk: "read",
+  });
+
+  reduceInput(application, "\u001B[D");
+  assert.equal(application.projectPermissionMenu()?.items.at(0)?.mode, "ask");
+  reduceInput(application, "\r");
+  assert.equal(application.projectPermissionMenu(), undefined);
+
+  assert.ok(application.turnAccepted(started(41, "inspect")).ok);
+  const requested = application.applyRuntime(
+    Object.freeze({
+      approvalPreview: "",
+      approvalRequired: false,
+      callId: "read-ask",
+      kind: "toolRequested" as const,
+      name: "read_file",
+      risk: "read" as const,
+      turnId: 41,
+    }),
+  );
+  assert.ok(requested.ok);
+  assert.deepEqual(requested.value.effects, []);
+  assert.equal(application.phase, "awaitingPermission");
+  assert.equal(application.activities.at(0)?.state, "permission");
+  assert.deepEqual(application.projectToolDecision(), {
+    actions: ["allowOnce", "allowSession", "deny"],
+    selectedIndex: 0,
+  });
+});
+
+test("denies a configured read automatically and never marks it started", () => {
+  const application = new ApplicationController(true);
+  reduceInput(application, "/permissions\r\u001B[D\u001B[D\r");
+  assert.ok(application.turnAccepted(started(42, "inspect")).ok);
+
+  const requested = application.applyRuntime(
+    Object.freeze({
+      approvalPreview: "",
+      approvalRequired: false,
+      callId: "read-denied",
+      kind: "toolRequested" as const,
+      name: "read_file",
+      risk: "read" as const,
+      turnId: 42,
+    }),
+  );
+  assert.ok(requested.ok);
+  assert.deepEqual(requested.value.effects, [
+    {
+      allowed: false,
+      callId: "read-denied",
+      kind: "resolveToolPermission",
+      operatorApproved: false,
+      turnId: 42,
+    },
+  ]);
+  assert.equal(application.activities.at(0)?.state, "denied");
+  assert.equal(
+    application.applyRuntime(
+      Object.freeze({
+        callId: "read-denied",
+        kind: "toolStarted" as const,
+        name: "read_file",
+        risk: "read" as const,
+        turnId: 42,
+      }),
+    ).ok,
+    false,
+  );
+});
+
+test("allows one exact tool for the session without authorizing other tools", () => {
+  const application = new ApplicationController(true);
+  assert.ok(application.turnAccepted(started(43, "change twice")).ok);
+  assert.ok(
+    application.applyRuntime(
+      Object.freeze({
+        approvalPreview: 'path="one.txt"',
+        approvalRequired: true,
+        callId: "write-one",
+        kind: "toolRequested" as const,
+        name: "apply_patch",
+        risk: "write" as const,
+        turnId: 43,
+      }),
+    ).ok,
+  );
+
+  const allowed = reduceInput(application, "\u001B[B\r");
+  assert.deepEqual(allowed.effects, [
+    {
+      allowed: true,
+      callId: "write-one",
+      kind: "resolveToolPermission",
+      operatorApproved: true,
+      turnId: 43,
+    },
+  ]);
+  assert.ok(
+    application.applyRuntime(
+      Object.freeze({
+        callId: "write-one",
+        kind: "toolStarted" as const,
+        name: "apply_patch",
+        risk: "write" as const,
+        turnId: 43,
+      }),
+    ).ok,
+  );
+  assert.ok(
+    application.applyRuntime(
+      Object.freeze({
+        callId: "write-one",
+        kind: "toolFinished" as const,
+        name: "apply_patch",
+        risk: "write" as const,
+        status: "success" as const,
+        turnId: 43,
+      }),
+    ).ok,
+  );
+
+  const repeated = application.applyRuntime(
+    Object.freeze({
+      approvalPreview: 'path="two.txt"',
+      approvalRequired: true,
+      callId: "write-two",
+      kind: "toolRequested" as const,
+      name: "apply_patch",
+      risk: "write" as const,
+      turnId: 43,
+    }),
+  );
+  assert.ok(repeated.ok);
+  assert.equal(application.phase, "runningTool");
+  assert.deepEqual(repeated.value.effects, [
+    {
+      allowed: true,
+      callId: "write-two",
+      kind: "resolveToolPermission",
+      operatorApproved: false,
+      turnId: 43,
+    },
+  ]);
+
+  application.applySessionAction({ kind: "openPermissions" });
+  assert.equal(application.projectPermissionMenu()?.items.at(3)?.mode, "allow");
+  assert.equal(application.projectPermissionMenu()?.items.at(4)?.mode, "ask");
+});
+
+test("blocks legacy decision text and resets grants during cleanup", () => {
+  const application = new ApplicationController(true);
+  assert.ok(application.turnAccepted(started(44, "change")).ok);
+  assert.ok(
+    application.applyRuntime(
+      Object.freeze({
+        approvalPreview: 'path="one.txt"',
+        approvalRequired: true,
+        callId: "write-blocked",
+        kind: "toolRequested" as const,
+        name: "apply_patch",
+        risk: "write" as const,
+        turnId: 44,
+      }),
+    ).ok,
+  );
+  const legacy = reduceInput(application, "/approve\r");
+  assert.deepEqual(legacy.effects, []);
+  assert.equal(application.phase, "awaitingPermission");
+  assert.equal(application.activities.at(0)?.state, "permission");
+
+  application.clear();
+  reduceInput(application, "/permissions\r");
+  assert.equal(application.projectPermissionMenu()?.items.at(0)?.mode, "allow");
+  assert.equal(application.projectPermissionMenu()?.items.at(3)?.mode, "ask");
 });
 
 test("accepts a failed mutation plan without exposing an approval", () => {
@@ -663,6 +849,7 @@ test("accepts a failed mutation plan without exposing an approval", () => {
   );
   assert.equal(application.activities.at(0)?.state, "queued");
   assert.deepEqual(reduceInput(application, "/approve\r").effects, []);
+  assert.deepEqual(application.notice, ["Unknown command"]);
   assert.ok(
     application.applyRuntime(
       Object.freeze({
@@ -762,7 +949,7 @@ test("rejects tool events that bypass approval or contradict checkpoints", () =>
       }),
     ).ok,
   );
-  reduceInput(afterDenial, "/deny\r");
+  reduceInput(afterDenial, "\u001B[B\u001B[B\r");
   assert.equal(
     afterDenial.applyRuntime(
       Object.freeze({

@@ -307,6 +307,25 @@ test("plans one concrete effect only after pure call preparation", async () => {
   assert.equal(effectCalls, 1);
 });
 
+test("admits owned LF preview rows and rejects every other control separator", () => {
+  const handler: ToolHandler = async () => ok(ToolHandlerOutcome.success({}));
+  assert.equal(
+    ToolEffectPlan.create("Path: file.txt\n- old\n+ new", handler).ok,
+    true,
+  );
+  for (const preview of [
+    "Path: file.txt\r- old",
+    "Path: file.txt\u001B- old",
+    "Path: file.txt\u2028- old",
+    "Path: file.txt\u2029- old",
+  ]) {
+    assert.deepEqual(ToolEffectPlan.create(preview, handler), {
+      error: { kind: "invalidPreview" },
+      ok: false,
+    });
+  }
+});
+
 test("settles planning failures without approval or mutation", async () => {
   const text = StringSchema.create(1, 128);
   assert.ok(text.ok);

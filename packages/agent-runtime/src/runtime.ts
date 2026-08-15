@@ -72,10 +72,9 @@ type TurnState<E> = {
   toolSteps: number;
 };
 
-type ToolDecision = "approved" | "denied";
+type ToolDecision = "allowed" | "denied";
 
 type PendingTool = {
-  readonly approvalRequired: boolean;
   readonly planned: PlannedToolCall;
   readonly whenDecided: Promise<ToolDecision>;
   decide: ((decision: ToolDecision) => void) | undefined;
@@ -265,16 +264,9 @@ function createPendingTool(
   const whenDecided = new Promise<ToolDecision>((resolve) => {
     decide = resolve;
   });
-  const approvalRequired = planned.approvalRequired;
-  const decision = approvalRequired ? undefined : "approved";
-  if (decision !== undefined) {
-    decide?.(decision);
-    decide = undefined;
-  }
   return {
-    approvalRequired,
     decide,
-    decision,
+    decision: undefined,
     phase,
     planned,
     whenDecided,
@@ -389,11 +381,11 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
     return ok(state.cancellation.request());
   }
 
-  /** Resolves one exact pending approval without widening its scope. */
-  resolveToolApproval(
+  /** Resolves one exact pending permission without widening its scope. */
+  resolveToolPermission(
     turnId: number,
     callId: string,
-    approved: boolean,
+    allowed: boolean,
   ): Result<void, RuntimeCommandError> {
     if (this.#closed) {
       return err(commandError("closed"));
@@ -408,14 +400,13 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
     const pending = state.toolBatch?.pending;
     if (
       pending === undefined ||
-      !pending.approvalRequired ||
       pending.planned.call.callId !== callId ||
       pending.decision !== undefined ||
       pending.phase !== "requested"
     ) {
-      return err(commandError("notAwaitingApproval"));
+      return err(commandError("notAwaitingPermission"));
     }
-    const decision = approved ? "approved" : "denied";
+    const decision = allowed ? "allowed" : "denied";
     pending.decision = decision;
     const decide = pending.decide;
     pending.decide = undefined;
@@ -866,7 +857,7 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
     pending: PendingTool,
   ): Extract<RuntimeEvent<E>, { kind: "toolRequested" }> {
     return Object.freeze({
-      approvalRequired: pending.approvalRequired,
+      approvalRequired: pending.planned.approvalRequired,
       approvalPreview: pending.planned.approvalPreview,
       callId: pending.planned.call.callId,
       kind: "toolRequested" as const,

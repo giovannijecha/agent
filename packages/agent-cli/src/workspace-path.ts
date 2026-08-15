@@ -14,7 +14,11 @@ export type ExistingWorkspacePath = Readonly<{
   identity: WorkspaceObjectIdentity;
 }>;
 
-type WorkspacePathKind = "directory" | "file";
+export type WorkspacePathKind = "directory" | "file";
+
+export type ExistingWorkspaceEntry = ExistingWorkspacePath & Readonly<{
+  kind: WorkspacePathKind;
+}>;
 
 function toolFailure(
   kind: ToolHandlerError["kind"],
@@ -159,6 +163,38 @@ export async function resolveExistingWorkspacePath(
             identity: identity(status),
           }),
         )
+      : toolFailure("permission");
+  } catch (cause: unknown) {
+    return err(mapWorkspaceIoError(cause));
+  }
+}
+
+/** Resolves one non-linked regular file or directory beneath the workspace. */
+export async function resolveExistingWorkspaceEntry(
+  root: string,
+  relative: string,
+): Promise<Result<ExistingWorkspaceEntry, ToolHandlerError>> {
+  const lexical = lexicalWorkspacePath(root, relative);
+  if (lexical === undefined || path.relative(root, lexical) === "") {
+    return toolFailure("permission");
+  }
+  try {
+    const noSymlinks = await rejectSymlinkTraversal(root, lexical);
+    if (!noSymlinks.ok) {
+      return noSymlinks;
+    }
+    const status = await lstat(lexical, { bigint: true });
+    const kind = status.isFile()
+      ? "file" as const
+      : status.isDirectory()
+        ? "directory" as const
+        : undefined;
+    if (status.isSymbolicLink() || kind === undefined) {
+      return toolFailure(status.isSymbolicLink() ? "permission" : "unsupported");
+    }
+    const canonical = await realpath(lexical);
+    return insideWorkspace(root, canonical)
+      ? ok(Object.freeze({ canonical, identity: identity(status), kind }))
       : toolFailure("permission");
   } catch (cause: unknown) {
     return err(mapWorkspaceIoError(cause));

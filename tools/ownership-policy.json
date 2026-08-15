@@ -69,6 +69,10 @@
     "docs/decisions/0051-owned-bounded-file-line-projection.md",
     "docs/decisions/0052-owned-checkpointed-turn-failure-classification.md",
     "docs/decisions/0053-owned-structured-text-patch.md",
+    "docs/decisions/0054-owned-workspace-namespace-management.md",
+    "docs/decisions/0055-owned-session-tool-permissions.md",
+    "docs/decisions/0056-owned-compact-tool-activity-line.md",
+    "docs/decisions/0057-owned-transparent-human-tool-activity.md",
     "evaluations/README.md"
   ],
   "workspaces": [

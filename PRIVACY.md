@@ -13,30 +13,46 @@ written to disk, or sent over a network.
 
 ## Local tools
 
-The four filesystem tools share the one canonical workspace selected at
+The five filesystem tools share the one canonical workspace selected at
 startup, and `run_process` starts in one selected directory beneath it.
-Filesystem handlers do not use ambient network access. Read operations are
-automatic; each successfully planned write or execute operation requires its
-own explicit approval. The terminal UI avoids placing raw prompts, file
+Filesystem handlers do not use ambient network access. Read tools start as
+`Allow`; write and execute tools start as `Ask`. `/permissions` can set each
+exact tool to `Allow`, `Ask`, or `Deny` for the current process session only.
+The policy is never persisted or sent to a provider. The terminal UI avoids placing raw prompts, file
 contents, tool outputs, credentials, and foreign error causes in notices or
 logs.
 
-`apply_patch` approval is intentionally concrete. Its local activity surface may
-display the canonical target, SHA-256 state digests, hunk and line counts, and
-exact removed/inserted text when the patch fits the 2,048-code-unit preview.
-Larger patches are limited to bounded prefix and suffix excerpts with an
-explicit omitted count. Its mutation-specific path is bounded to 447 code units
-and 896 exact structured-projection code units so the full target and the closed
-32-hunk compact form always fit the preview; read-tool path limits are
-independent. This approval content is neither transcript nor log and is released
-when the tool activity settles. Planning failures show no preview and request
-no approval.
+The compact transparent activity line exposes only a closed display action, an
+optional admitted safe subject, and written lifecycle state. Canonical tool name
+and risk validate the projection but do not repeat as visible text. It does not
+add raw arguments, output, result counts, durations, call identifiers, or an
+activity history. The next tool replaces it and turn settlement removes it.
 
-Approved mutation content crosses only the private package-local native commit
-broker in one bounded binary frame with an empty environment. Its response is a
-fixed content-free status: paths, file content, handles, identities, and native
-causes never return through that boundary or enter notices and logs. The broker
-persists no request state and is launched once per approved mutation.
+An `apply_patch` permission preview is intentionally concrete. While `Ask` is
+pending, its local activity surface may display the canonical target and exact
+human-readable removed and inserted rows when the patch fits the 2,048-code-unit
+preview. Larger patches are limited to bounded prefix and suffix excerpts with
+an explicit omitted-code-unit count. State digests, object identity, complete
+observed and replacement content, aggregate counters, and tuple metadata remain
+inside the effect plan rather than becoming UI content. Its mutation-specific path is bounded to 447 code units
+and 896 exact structured-projection code units so the full target and the closed
+32-hunk compact omission form always fit the preview; read-tool path limits are
+independent. This permission content is neither transcript nor log and is released
+when the tool activity settles. Planning failures show no preview and request
+no permission prompt.
+
+The pending `manage_path` preview contains only the closed operation, bounded canonical
+source or target, destination when present, observed object kind, and exact
+stale-state identities required for commitment. It includes no file content or
+directory listing, authorizes only one exact planned effect, and is released when
+activity settles.
+
+Authorized content and namespace mutations cross only their separate private
+package-local native commit brokers. Each broker receives one bounded
+content-bearing or content-free protocol request and returns a fixed
+content-free status: paths, file content, handles, identities, and native causes
+never return through that boundary or enter notices and logs. A broker persists
+no request state and is launched once per authorized effect.
 
 Before credentials or terminal ownership, `agent` fixes one immutable read
 policy for the session. Built-in rules deny `.agentignore`, `.git`, `.env` and
@@ -78,6 +94,11 @@ Both paths are limited to 65,536 UTF-16 code units, contain no layout padding
 or hidden Markdown destination, retain no clipboard history, make no network
 request, and launch no foreign clipboard program. Clipboard content is external
 operating-system or terminal state after acceptance.
+
+Recognized inline-code, single-asterisk emphasis, and strong-text delimiters are
+display syntax and are omitted from copied visible logical text. Incomplete or
+unsupported delimiter runs remain visible and therefore remain copyable; neither
+case introduces hidden content or a hidden destination.
 
 Exact visible ASCII `https://` text may be emitted as an OSC 8 hyperlink whose
 destination is identical to the visible text. Markdown labels, hidden targets,

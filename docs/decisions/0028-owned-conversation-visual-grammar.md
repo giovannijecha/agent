@@ -2,18 +2,31 @@
 
 - Status: accepted
 - Date: 2026-08-10
-- Amended by: decisions 0030, 0031, 0033, 0035, 0038, 0039, 0040, 0043, and 0045
+- Amended by: decisions 0030, 0031, 0033, 0035, 0038, 0039, 0040, 0043, 0045,
+  0055, 0056, and 0057
 
 Decision 0033 later replaces the unboxed-activity and approval-panel
 distinction with one borderless semantic surface for every activity state.
-Decision 0040 later keeps user and composer surfaces neutral subtle, makes
-completion, code, and table regions transparent, and reserves green, ochre, and
-red backgrounds for authoritative tool lifecycle state.
-Decision 0043 later removes vertical padding from activity surfaces while
-retaining one vertical padding row around user text and focused composer text,
-plus the external rhythm.
+Decision 0055 moves permission actions into a separate transparent contextual
+selection list without changing the conversation-first shell.
+Decision 0056 compacts the latest activity into one status/action/state line,
+with an exact effect preview added only while permission is pending.
+Decision 0057 makes that activity line transparent, removes repeated canonical
+name and risk from the visible head, and replaces technical patch binding text
+with a bounded human-readable diff.
+Decision 0040 later keeps the then-current user and composer surfaces neutral
+subtle, makes completion, code, and table regions transparent, and reserves
+green, ochre, and red backgrounds for authoritative tool lifecycle state.
+That activity-background reservation is historical under decision 0057.
+Decision 0043 later removes vertical padding from activity surfaces, replaces
+the padded subtle user surface with a transparent generic `Surface` plus an
+exact-height generic muted `SideRail`, and retains the external rhythm. It also
+replaces the composer's subtle surface and vertical padding with a transparent
+generic frame carrying one full-width light-blue accent rule above and below
+the focused input when space permits.
 Decision 0045 adds an independent selection mark to conversation and composer
-text without changing their surface, slant, foreground, or spacing grammar.
+text without owning the surrounding surface, frame, slant, foreground, or
+spacing grammar.
 Decisions 0035, 0038, and 0039 replace the original `InputLine` panel, textual
 footer lifecycle, role-local width, and bordered geometry below with the
 stage-wide multiline composer, bounded pulse, and one responsive stage. Those
@@ -49,9 +62,12 @@ The grammar has five canonical regions:
 4. one factual three-zone footer immediately below it; and
 5. no permanent product header or decorative dashboard chrome.
 
-User turns use one content-fit borderless surface with a closed subtle-gray
-background, one cell of horizontal padding, italic text, and the existing
-Markdown foreground tones. Under decision 0030, assistant prose is unboxed and
+At acceptance, user turns used one content-fit borderless surface with a closed
+subtle-gray background, one cell of horizontal padding, italic text, and the
+existing Markdown foreground tones. Decision 0043 now composes one transparent
+stage-wide generic `Surface` with zero padding and an exact-height generic muted
+`SideRail`; italic content and Markdown foreground tones remain unchanged.
+Under decision 0030, assistant prose is unboxed and
 only fenced code and strict pipe tables use one content-fit dark `inset`
 surface under decision 0031.
 Neither role uses labels or a complete panel. Adjacent turns receive one blank
@@ -59,15 +75,14 @@ row. Markdown is still parsed independently at each message boundary.
 
 Ordinary tool activity is one compact structured status. Tool name and scope
 remain neutral or muted; only the authoritative state uses semantic color.
-Successful states are green, active or approval states yellow, and failed,
+Successful states are green, active or permission states yellow, and failed,
 denied, or cancelled states red. The same presenter serves every tool. The
 contextual region beside the composer contains at most the latest tool while
-its model turn remains active. Approval, execution, and terminal outcome update
+its model turn remains active. Permission, execution, and terminal outcome update
 that one surface in place. The next tool replaces it, and turn settlement
 removes it. Tool activity never enters the scrollable conversation document.
-An approval is the only activity that earns a complete panel because it is a
-decision boundary; its summary, bounded scope, and `/approve` and `/deny`
-actions live in one yellow-accented component.
+Under decisions 0033 and 0055, a pending permission uses the same borderless
+activity surface and a separate transparent contextual action list.
 
 The composer is one generic `Panel` around the existing `InputLine`. It has one
 muted complete rectangular border, one cell of horizontal padding, no prompt

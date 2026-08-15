@@ -24,6 +24,37 @@ function viewport(columns: number, rows: number): Viewport {
   return result.value;
 }
 
+function isComposerRule(row: RichRow | undefined): boolean {
+  return (
+    row !== undefined &&
+    row.spans.some(
+      (span) => span.tone === "accent" && span.text.includes("─"),
+    ) &&
+    row.spans.every((span) => span.surface === "none")
+  );
+}
+
+function isUserRail(row: RichRow | undefined): boolean {
+  return (
+    row !== undefined &&
+    row.spans.some(
+      (span) => span.text === "\u258c" && span.tone === "muted",
+    ) &&
+    row.spans.every((span) => span.surface === "none")
+  );
+}
+
+function isActivityRow(
+  row: RichRow,
+  action: string,
+  state: string,
+): boolean {
+  return (
+    (row.text.includes("\u2022 " + action) || row.text.includes("x " + action)) &&
+    row.text.trim().endsWith(state)
+  );
+}
+
 function frame(
   application: ApplicationController,
   columns: number,
@@ -60,7 +91,7 @@ test("projects a smooth fixed-width active-work pulse on the composer edge", () 
   assert.equal(rendered[0]?.text.endsWith("\u2022\u2022\u2022"), true);
   const composer = frames[0]?.rows.at(frames[0]?.caret?.row ?? -1);
   assert.equal(composer?.cellWidth, rendered[0]?.cellWidth);
-  assert.equal(composer?.spans.at(-1)?.surface, "subtle");
+  assert.equal(composer?.spans.at(-1)?.surface, "none");
   assert.equal(
     rendered[0]?.text.lastIndexOf("\u2022"),
     (composer?.cellWidth ?? 0) - 1,
@@ -119,10 +150,11 @@ function requestTool(
 
 test("owns one frozen conversation density policy", () => {
   assert.deepEqual(CONVERSATION_DENSITY, {
-    activityVerticalPadding: 0,
-    composerVerticalPadding: 1,
+    contentInsetCells: 1,
+    flushCells: 0,
+    flushRows: 0,
+    composerRuleRows: 1,
     rhythmRows: 1,
-    userVerticalPadding: 1,
   });
   assert.equal(Object.isFrozen(CONVERSATION_DENSITY), true);
 });
@@ -144,14 +176,15 @@ test("keeps an empty session visually empty", () => {
   assert.equal(text.includes("\u250c"), false);
   assert.equal(text.includes("\u2514"), false);
   const caretRow = rendered.value.frame.caret?.row ?? -1;
+  assert.equal(isComposerRule(rows.at(caretRow - 1)), true);
+  assert.equal(isComposerRule(rows.at(caretRow + 1)), true);
   assert.equal(
-    rows.slice(caretRow - 1, caretRow + 2)
-      .every((row) => row.spans.some((span) => span.surface === "subtle")),
+    rows.at(caretRow)?.spans.every((span) => span.surface === "none"),
     true,
   );
 });
 
-test("renders one neutral composer and the exact canonical workspace root", () => {
+test("renders one ruled composer and the exact canonical workspace root", () => {
   const canonicalWorkspaceRoot = "/owned/workspace";
   const application = new ApplicationController(true, {
     authentication: "memory-only API key",
@@ -168,17 +201,11 @@ test("renders one neutral composer and the exact canonical workspace root", () =
   assert.equal(rows.some((row) => row.text.includes("\u250c")), false);
   assert.equal(rows.some((row) => row.text.includes("\u2514")), false);
   assert.ok(composerIndex > 0);
-  assert.equal(
-    rows[composerIndex - 1]?.spans.some((span) => span.surface === "subtle"),
-    true,
-  );
-  assert.equal(
-    rows[composerIndex + 1]?.spans.some((span) => span.surface === "subtle"),
-    true,
-  );
+  assert.equal(isComposerRule(rows.at(composerIndex - 1)), true);
+  assert.equal(isComposerRule(rows.at(composerIndex + 1)), true);
   assert.equal(composer?.text.includes("\u203a"), false);
   assert.equal(
-    composer?.spans.some((span) => span.surface === "subtle"),
+    composer?.spans.every((span) => span.surface === "none"),
     true,
   );
   assert.equal(
@@ -237,12 +264,23 @@ test("grows the composer for wrapped and pasted lines without displacing the foo
   assert.equal(text.some((row) => row.includes("second line that")), true);
   assert.equal(text.some((row) => row.includes("wraps")), true);
   assert.equal(text.some((row) => row.includes("third line")), true);
-  assert.equal(
-    rows.filter((row) =>
-      row.spans.some((span) => span.surface === "subtle"),
-    ).length,
-    6,
-  );
+  const composerRuleIndexes = rows
+    .map((row, index) => (isComposerRule(row) ? index : -1))
+    .filter((index) => index >= 0);
+  assert.equal(composerRuleIndexes.length, 2);
+  const composerTop = composerRuleIndexes.at(0);
+  const composerBottom = composerRuleIndexes.at(1);
+  assert.equal(composerTop === undefined, false);
+  assert.equal(composerBottom === undefined, false);
+  if (composerTop !== undefined && composerBottom !== undefined) {
+    assert.equal(composerBottom - composerTop + 1, 6);
+    assert.equal(
+      rows
+        .slice(composerTop + 1, composerBottom)
+        .every((row) => row.spans.every((span) => span.surface === "none")),
+      true,
+    );
+  }
   assert.equal(rows.at(-1)?.text.includes(canonicalWorkspaceRoot), true);
   assert.equal(rendered.value.caret !== undefined, true);
 });
@@ -257,7 +295,7 @@ test("keeps a valid caret as the only one-cell priority", () => {
   assert.deepEqual(rendered.value.caret, { row: 0, column: 0 });
 });
 
-test("uses one subtle italic user region and one unboxed assistant turn", () => {
+test("uses one transparent railed italic user region and one unboxed assistant turn", () => {
   const application = new ApplicationController(true);
   assert.ok(application.turnAccepted(started(1, "question")).ok);
   assert.ok(
@@ -273,40 +311,35 @@ test("uses one subtle italic user region and one unboxed assistant turn", () => 
   const rows = rendered.value.rows;
   const user = rows.find((row) => row.text.includes("question"));
   const assistant = rows.find((row) => row.text.includes("answer"));
-  const userContent = user?.spans.filter((span) => span.text.trim().length > 0);
+  const userContent = user?.spans.filter((span) => span.text.includes("question"));
   const userIndex = user === undefined ? -1 : rows.indexOf(user);
-  assert.equal(user?.text.trim(), "question");
+  const userColumn = user?.text.indexOf("question") ?? -1;
+  const assistantColumn = assistant?.text.indexOf("answer") ?? -1;
+  const railColumn = user?.text.indexOf("\u258c") ?? -1;
+  assert.equal(userColumn, assistantColumn);
+  assert.equal(userColumn, rendered.value.caret?.column);
+  assert.equal(
+    userColumn - railColumn,
+    CONVERSATION_DENSITY.contentInsetCells,
+  );
+  assert.equal(user?.text.trimEnd().endsWith("question"), true);
+  assert.equal(isUserRail(user), true);
   assert.equal(
     userContent?.every((span) => span.slant === "italic"),
     true,
   );
   assert.equal(
-    user?.spans.some((span) => span.surface === "subtle"),
+    userContent?.every((span) => span.tone === "highContrast"),
+    true,
+  );
+  assert.equal(
+    user?.spans.every((span) => span.surface === "none"),
     true,
   );
   assert.equal(user?.text.includes("\u203a"), false);
-  assert.equal(rows[userIndex - 1]?.text.trim(), "");
-  assert.equal(
-    rows[userIndex - 1]?.spans.some((span) => span.surface === "subtle") ??
-      false,
-    true,
-  );
-  assert.equal(rows[userIndex + 1]?.text.trim(), "");
-  assert.equal(
-    rows[userIndex + 1]?.spans.some((span) => span.surface === "subtle") ??
-      false,
-    true,
-  );
-  assert.equal(
-    rows[userIndex - 2]?.spans.some((span) => span.surface === "subtle") ??
-      false,
-    false,
-  );
-  assert.equal(
-    rows[userIndex + 2]?.spans.some((span) => span.surface === "subtle") ??
-      false,
-    false,
-  );
+  assert.equal(rows.filter((row) => isUserRail(row)).length, 1);
+  assert.equal(isUserRail(rows[userIndex - 1]), false);
+  assert.equal(isUserRail(rows[userIndex + 1]), false);
   assert.equal(assistant?.text.trim(), "answer");
   assert.equal(
     assistant?.spans.find((span) => span.text.includes("answer"))?.tone,
@@ -320,7 +353,7 @@ test("uses one subtle italic user region and one unboxed assistant turn", () => 
   assert.equal(rows.some((row) => row.text.trim() === "agent"), false);
 });
 
-test("paints copied Latin prose completely in user and composer surfaces", () => {
+test("paints copied Latin prose completely in user and composer regions", () => {
   const content = "perch\u00e9 l\u2019agent";
   const application = new ApplicationController(true);
   assert.ok(application.turnAccepted(started(2, content)).ok);
@@ -338,10 +371,28 @@ test("paints copied Latin prose completely in user and composer surfaces", () =>
     true,
   );
   assert.equal(
-    contentRows.every((row) =>
-      row.spans.at(0)?.surface === "none" &&
-        row.spans.slice(1).every((span) => span.surface === "subtle"),
-    ),
+    contentRows.filter((row) => isUserRail(row)).length,
+    1,
+  );
+  const user = contentRows.find((row) => isUserRail(row));
+  const composerRow = contentRows.find((row) => !isUserRail(row));
+  assert.ok(user !== undefined);
+  assert.ok(composerRow !== undefined);
+  assert.equal(
+    user.spans
+      .filter((span) => span.text.includes(content))
+      .every((span) => span.slant === "italic"),
+    true,
+  );
+  assert.equal(
+    user.spans
+      .filter((span) => span.text.includes(content))
+      .every((span) => span.tone === "highContrast"),
+    true,
+  );
+  assert.equal(user.spans.every((span) => span.surface === "none"), true);
+  assert.equal(
+    composerRow.spans.every((span) => span.surface === "none"),
     true,
   );
   const composer = rendered.value.rows.at(rendered.value.caret?.row ?? -1);
@@ -352,7 +403,7 @@ test("paints copied Latin prose completely in user and composer surfaces", () =>
   );
 });
 
-test("frames multiline user turns with one shared padding row per side", () => {
+test("frames multiline user turns with one exact rail per content row", () => {
   const application = new ApplicationController(true);
   assert.ok(application.turnAccepted(started(4, "first line\nsecond line")).ok);
 
@@ -363,33 +414,38 @@ test("frames multiline user turns with one shared padding row per side", () => {
   const second = rows.findIndex((row) => row.text.includes("second line"));
   assert.ok(first >= 0);
   assert.equal(second, first + 1);
+  assert.equal(isUserRail(rows[first]), true);
+  assert.equal(isUserRail(rows[second]), true);
+  assert.equal(rows.filter((row) => isUserRail(row)).length, 2);
   assert.equal(
-    rows[first]?.spans.some((span) => span.surface === "subtle"),
+    rows[first]?.spans
+      .filter((span) => span.text.includes("first line"))
+      .every((span) => span.slant === "italic"),
     true,
   );
   assert.equal(
-    rows[second]?.spans.some((span) => span.surface === "subtle"),
-    true,
-  );
-  assert.equal(rows[first - 1]?.text.trim(), "");
-  assert.equal(
-    rows[first - 1]?.spans.some((span) => span.surface === "subtle"),
-    true,
-  );
-  assert.equal(rows[second + 1]?.text.trim(), "");
-  assert.equal(
-    rows[second + 1]?.spans.some((span) => span.surface === "subtle"),
+    rows[first]?.spans
+      .filter((span) => span.text.includes("first line"))
+      .every((span) => span.tone === "highContrast"),
     true,
   );
   assert.equal(
-    rows.filter((row) =>
-      row.spans.some((span) => span.surface === "subtle"),
-    ).length,
-    7,
+    rows[second]?.spans
+      .filter((span) => span.text.includes("second line"))
+      .every((span) => span.slant === "italic"),
+    true,
   );
+  assert.equal(
+    rows[second]?.spans
+      .filter((span) => span.text.includes("second line"))
+      .every((span) => span.tone === "highContrast"),
+    true,
+  );
+  assert.equal(isUserRail(rows[first - 1]), false);
+  assert.equal(isUserRail(rows[second + 1]), false);
 });
 
-test("applies compact surfaces and external rhythm at wide and medium sizes", () => {
+test("applies compact transparent activity and external rhythm at wide and medium sizes", () => {
   for (const [columns, rowCount] of [[72, 22], [48, 14]] as const) {
     const application = new ApplicationController(true);
     assert.ok(application.turnAccepted(started(5, "question")).ok);
@@ -405,14 +461,12 @@ test("applies compact surfaces and external rhythm at wide and medium sizes", ()
     const rendered = frame(application, columns, rowCount);
     assert.ok(rendered.ok);
     const rows = rendered.value.rows;
-    const subtleIndexes = rows
-      .map((row, index) =>
-        row.spans.some((span) => span.surface === "subtle") ? index : -1,
-      )
+    const userRailIndexes = rows
+      .map((row, index) => (isUserRail(row) ? index : -1))
       .filter((index) => index >= 0);
     const activityIndexes = rows
       .map((row, index) =>
-        row.spans.some((span) => span.surface === "attention") ? index : -1,
+        isActivityRow(row, "Read", "queued") ? index : -1,
       )
       .filter((index) => index >= 0);
     const userIndex = rows.findIndex((row) => row.text.includes("question"));
@@ -420,19 +474,19 @@ test("applies compact surfaces and external rhythm at wide and medium sizes", ()
     const firstActivity = activityIndexes.at(0);
     const lastActivity = activityIndexes.at(-1);
 
-    assert.equal(subtleIndexes.length, 6);
-    assert.equal(activityIndexes.length, 2);
+    assert.equal(userRailIndexes.length, 1);
+    assert.equal(activityIndexes.length, 1);
     assert.ok(userIndex >= 0);
     assert.ok(firstActivity !== undefined);
     assert.ok(lastActivity !== undefined);
-    assert.equal(subtleIndexes.includes(userIndex), true);
-    assert.deepEqual(
-      subtleIndexes.slice(0, 3),
-      [userIndex - 1, userIndex, userIndex + 1],
-    );
-    assert.deepEqual(
-      subtleIndexes.slice(-3),
-      [composerTop, composerTop + 1, composerTop + 2],
+    assert.deepEqual(userRailIndexes, [userIndex]);
+    assert.equal(isComposerRule(rows.at(composerTop)), true);
+    assert.equal(isComposerRule(rows.at(composerTop + 2)), true);
+    assert.equal(
+      rows.at(composerTop + 1)?.spans.every(
+        (span) => span.surface === "none",
+      ),
+      true,
     );
     assert.equal(rows[firstActivity - 1]?.text.trim(), "");
     assert.equal(
@@ -443,6 +497,10 @@ test("applies compact surfaces and external rhythm at wide and medium sizes", ()
     );
     assert.equal(rows[lastActivity + 1]?.text.trim(), "");
     assert.equal(composerTop, lastActivity + 2);
+    assert.equal(
+      rows[firstActivity]?.spans.every((span) => span.surface === "none"),
+      true,
+    );
   }
 });
 
@@ -462,29 +520,33 @@ test("keeps required compact content and the caret in a short viewport", () => {
   assert.ok(rendered.ok);
   const rows = rendered.value.frame.rows;
   const activityRows = rows.filter((row) =>
-    row.spans.some((span) => span.surface === "attention"),
+    isActivityRow(row, "Read", "queued")
   );
   const composerTop = (rendered.value.frame.caret?.row ?? 0) - 1;
-  const composerIndexes = rows
+  const composerRuleIndexes = rows
     .map((row, index) =>
-      index >= composerTop &&
-        row.spans.some((span) => span.surface === "subtle")
-        ? index
-        : -1,
+      index >= composerTop && isComposerRule(row) ? index : -1,
     )
     .filter((index) => index >= 0);
   assert.equal(rows.length, 8);
   assert.deepEqual(rendered.value.transcript, {
-    contentRows: 3,
+    contentRows: 1,
     startRow: 0,
     viewportRows: 2,
   });
   assert.equal(rows.some((row) => row.text.includes("question")), true);
   assert.deepEqual(rendered.value.frame.caret, { row: 5, column: 7 });
-  assert.deepEqual(composerIndexes, [4, 5, 6]);
+  assert.deepEqual(composerRuleIndexes, [4, 6]);
+  assert.equal(
+    rows.at(5)?.spans.every((span) => span.surface === "none"),
+    true,
+  );
   assert.equal(activityRows.length, 1);
-  assert.equal(activityRows.at(0)?.text.includes("read_file"), true);
+  assert.equal(activityRows.at(0)?.text.includes("\u2022 Read"), true);
+  assert.equal(activityRows.at(0)?.text.includes("read_file"), false);
+  assert.equal(activityRows.at(0)?.text.includes(" read "), false);
   assert.equal(activityRows.at(0)?.text.includes("queued"), true);
+  assert.equal(activityRows.at(0)?.text.trim().endsWith("queued"), true);
   assert.equal(
     activityRows.every((row) => row.text.trim().length > 0),
     true,
@@ -546,7 +608,7 @@ test("uses transparent structured regions and syntax roles for assistant output"
   );
 });
 
-test("renders successful tools on one borderless semantic surface", () => {
+test("renders successful tools on one transparent semantic line", () => {
   const application = new ApplicationController(true);
   assert.ok(application.turnAccepted(started(2, "inspect")).ok);
   requestTool(application, {
@@ -579,36 +641,80 @@ test("renders successful tools on one borderless semantic surface", () => {
   const rendered = frame(application, 64, 18);
   assert.ok(rendered.ok);
   const text = rendered.value.rows.map((row) => row.text).join("\n");
-  assert.equal(text.includes("list_directory"), true);
+  assert.equal(text.includes("list_directory"), false);
   assert.equal(text.includes("succeeded"), true);
   assert.equal(text.includes("private-read"), false);
   assert.equal(text.split("┌").length - 1, 0);
   const activityRows = rendered.value.rows.filter((row) =>
-    row.spans.some((span) => span.surface === "success"),
+    isActivityRow(row, "List", "succeeded")
   );
-  assert.equal(activityRows.length, 2);
+  assert.equal(activityRows.length, 1);
+  assert.equal(activityRows.at(0)?.text.includes("\u2022 List"), true);
+  assert.equal(activityRows.at(0)?.text.includes(" read"), false);
   assert.equal(activityRows.every((row) => !row.text.includes("│")), true);
   const state = rendered.value.rows
     .flatMap((row) => row.spans)
     .find((span) => span.text.includes("succeeded"));
-  const name = rendered.value.rows
-    .flatMap((row) => row.spans)
-    .find((span) => span.text.includes("list_directory"));
-  assert.equal(state?.tone, "emphasis");
-  assert.equal(name?.tone, "emphasis");
-  assert.equal(name?.slant, "italic");
-  assert.equal(name?.surface, "success");
+  const marker = activityRows.at(0)?.spans.find((span) =>
+    span.text.includes("\u2022")
+  );
+  assert.equal(state?.tone, "success");
+  assert.equal(marker?.tone, "success");
+  assert.equal(
+    activityRows.at(0)?.spans.every((span) => span.surface === "none"),
+    true,
+  );
 });
 
-test("keeps completed mutation activity compact after exact approval", () => {
+test("keeps running tools compact with transparent attention truth", () => {
+  const application = new ApplicationController(true);
+  assert.ok(application.turnAccepted(started(22, "verify")).ok);
+  requestTool(application, {
+    approval: false,
+    callId: "private-run",
+    name: "run_process",
+    risk: "execute",
+    turnId: 22,
+  });
+  assert.ok(
+    application.applyRuntime({
+      callId: "private-run",
+      kind: "toolStarted",
+      name: "run_process",
+      risk: "execute",
+      turnId: 22,
+    }).ok,
+  );
+
+  const rendered = frame(application, 64, 18);
+  assert.ok(rendered.ok);
+  const activityRows = rendered.value.rows.filter((row) =>
+    isActivityRow(row, "Run", "running")
+  );
+  const spans = activityRows.flatMap((row) => row.spans);
+
+  assert.equal(activityRows.length, 1);
+  assert.equal(activityRows.at(0)?.text.includes("\u2022 Run"), true);
+  assert.equal(activityRows.at(0)?.text.includes("run_process"), false);
+  assert.equal(activityRows.at(0)?.text.includes("running"), true);
+  assert.equal(activityRows.at(0)?.text.trim().endsWith("running"), true);
+  assert.equal(
+    spans.find((span) => span.text.includes("running"))?.tone,
+    "attention",
+  );
+  assert.equal(
+    spans.find((span) => span.text.includes("\u2022"))?.tone,
+    "attention",
+  );
+  assert.equal(spans.every((span) => span.surface === "none"), true);
+});
+
+test("keeps completed mutation activity compact after exact permission", () => {
   const application = new ApplicationController(true);
   assert.ok(application.turnAccepted(started(23, "change styles")).ok);
   const preview =
-    'operation="apply_patch" path="index.html" remove="' +
-    "x".repeat(512) +
-    '" insert="' +
-    "y".repeat(512) +
-    '"';
+    "Path: index.html\n- " + "x".repeat(512) +
+    "\n+ " + "y".repeat(512);
   requestTool(application, {
     approval: true,
     callId: "private-large-write",
@@ -617,7 +723,7 @@ test("keeps completed mutation activity compact after exact approval", () => {
     risk: "write",
     turnId: 23,
   });
-  application.feed("/approve\r");
+  application.feed("\r");
   assert.ok(
     application.applyRuntime({
       callId: "private-large-write",
@@ -641,35 +747,33 @@ test("keeps completed mutation activity compact after exact approval", () => {
   const rendered = frame(application, 72, 18);
   assert.ok(rendered.ok);
   const activityRows = rendered.value.rows.filter((row) =>
-    row.spans.some((span) => span.surface === "success"),
+    isActivityRow(row, "Write", "succeeded")
   );
   const activityText = activityRows.map((row) => row.text).join("\n");
 
-  assert.equal(activityRows.length, 2);
-  assert.equal(activityText.includes("apply_patch"), true);
+  assert.equal(activityRows.length, 1);
+  assert.equal(activityText.includes("\u2022 Write"), true);
+  assert.equal(activityText.includes("apply_patch"), false);
+  assert.equal(activityText.includes("index.html"), true);
   assert.equal(activityText.includes("succeeded"), true);
-  assert.equal(activityText.includes("write"), true);
-  assert.equal(activityText.includes("operation="), false);
+  assert.equal(activityText.includes(" write "), false);
   assert.equal(activityText.includes("x".repeat(32)), false);
   assert.equal(
-    activityRows.every(
-      (row) =>
-        row.spans
-          .filter((span) => span.surface === "success")
-          .reduce((width, span) => width + span.text.length, 0) === 70,
+    activityRows.every((row) =>
+      row.spans.every((span) => span.surface === "none")
     ),
     true,
   );
 });
 
-test("renders approval through the same borderless semantic surface", () => {
+test("renders a pending permission through the shared activity and contextual selection paths", () => {
   const application = new ApplicationController(true);
   assert.ok(application.turnAccepted(started(3, "change")).ok);
   requestTool(application, {
     approval: true,
     callId: "private-write",
     name: "apply_patch",
-    preview: 'path="src/index.ts" oldText=<5 code units>',
+    preview: "Path: src/index.ts\n- old\n+ new",
     risk: "write",
     turnId: 3,
   });
@@ -677,38 +781,149 @@ test("renders approval through the same borderless semantic surface", () => {
   const rendered = frame(application, 72, 22);
   assert.ok(rendered.ok);
   const text = rendered.value.rows.map((row) => row.text).join("\n");
-  assert.equal(text.includes("approval required"), true);
-  assert.equal(text.includes("/approve  /deny"), true);
-  assert.equal(text.includes("apply_patch"), true);
-  assert.equal(text.includes('path="src/index.ts"'), true);
+  assert.equal(text.includes("permission"), true);
+  assert.equal(text.includes("Allow once"), true);
+  assert.equal(text.includes("Allow for session"), true);
+  assert.equal(text.includes("Deny"), true);
+  assert.equal(text.includes("apply_patch"), false);
+  assert.equal(text.includes("src/index.ts"), true);
+  assert.equal(text.includes("- old"), true);
+  assert.equal(text.includes("+ new"), true);
   assert.equal(text.includes("private-write"), false);
   assert.equal(text.split("┌").length - 1, 0);
-  const activityRows = rendered.value.rows.filter((row) =>
-    row.spans.some((span) => span.surface === "attention"),
+  const activityRow = rendered.value.rows.find((row) =>
+    isActivityRow(row, "Write", "permission")
   );
-  assert.equal(activityRows.length, 2);
-  assert.equal(activityRows.every((row) => !row.text.includes("│")), true);
+  const removed = rendered.value.rows.find((row) =>
+    row.text.includes("- old")
+  );
+  const inserted = rendered.value.rows.find((row) =>
+    row.text.includes("+ new")
+  );
+  assert.ok(activityRow !== undefined);
+  assert.equal(activityRow.text.includes("src/index.ts"), true);
+  assert.equal(activityRow.text.includes("apply_patch"), false);
+  assert.equal(activityRow.text.includes(" write "), false);
+  assert.equal(activityRow.text.includes("Allow once"), false);
+  assert.equal(removed?.text.includes("Allow once"), false);
+  assert.equal(inserted?.text.includes("Allow once"), false);
+  assert.equal(
+    [activityRow, removed, inserted].every((row) =>
+      row?.spans.every((span) => span.surface === "none") === true
+    ),
+    true,
+  );
   const title = rendered.value.rows
     .flatMap((row) => row.spans)
-    .find((span) => span.text.includes("approval required"));
-  const name = rendered.value.rows
+    .find((span) => span.text.trim() === "permission");
+  const action = rendered.value.rows
     .flatMap((row) => row.spans)
-    .find((span) => span.text.includes("apply_patch"));
-  assert.equal(title?.tone, "emphasis");
-  assert.equal(title?.surface, "attention");
-  assert.equal(name?.slant, "italic");
-  assert.equal(name?.surface, "attention");
+    .find((span) => span.text.includes("Write"));
+  const detail = rendered.value.rows
+    .flatMap((row) => row.spans)
+    .find((span) => span.text.includes("src/index.ts"));
+  assert.equal(title?.tone, "attention");
+  assert.equal(title?.surface, "none");
+  assert.equal(action?.tone, "emphasis");
+  assert.equal(action?.surface, "none");
+  assert.equal(detail?.tone, "plain");
+  assert.equal(detail?.surface, "none");
   assert.equal(
     rendered.value.rows
       .flatMap((row) => row.spans)
-      .find((span) => span.text.includes("/approve"))?.tone,
+      .find((span) => span.text.includes("Allow once"))?.tone,
     "emphasis",
   );
   assert.equal(
     rendered.value.rows
       .flatMap((row) => row.spans)
-      .find((span) => span.text.includes('path="src/index.ts"'))?.tone,
+      .find((span) => span.text.includes("- old"))?.tone,
     "plain",
+  );
+});
+
+test("retains the compact action, state, and selected permission before preview", () => {
+  const application = new ApplicationController(true);
+  assert.ok(application.turnAccepted(started(31, "change")).ok);
+  requestTool(application, {
+    approval: true,
+    callId: "short-permission",
+    name: "apply_patch",
+    preview: "Path: src/index.ts\n- alpha beta gamma delta\n+ replacement",
+    risk: "write",
+    turnId: 31,
+  });
+
+  const rendered = frame(application, 24, 8);
+  assert.ok(rendered.ok);
+  const rows = rendered.value.rows;
+  const activityRows = rows.filter((row) =>
+    isActivityRow(row, "Write", "permission")
+  );
+
+  assert.equal(activityRows.length, 1);
+  assert.equal(activityRows.at(0)?.text.includes("\u2022 Write"), true);
+  assert.equal(activityRows.at(0)?.text.includes("permission"), true);
+  assert.equal(activityRows.at(0)?.text.includes("apply_patch"), false);
+  assert.equal(rows.some((row) => row.text.includes("Allow once")), true);
+  assert.equal(rows.some((row) => row.text.includes("Allow for session")), false);
+  assert.equal(rows.some((row) => row.text.includes("alpha beta")), false);
+  assert.equal(
+    activityRows.at(0)?.spans.every((span) => span.surface === "none"),
+    true,
+  );
+});
+
+test("wraps exact effect previews while retaining the contextual decision", () => {
+  const application = new ApplicationController(true);
+  assert.ok(
+    application.turnAccepted(started(32, "change several sections")).ok,
+  );
+  const preview =
+    "Path: src/long-example.ts\n- " +
+    "alpha beta gamma delta ".repeat(8) +
+    "\n+ replacement";
+  requestTool(application, {
+    approval: true,
+    callId: "private-wrapped-write",
+    name: "apply_patch",
+    preview,
+    risk: "write",
+    turnId: 32,
+  });
+
+  const rendered = frame(application, 48, 30);
+  assert.ok(rendered.ok);
+  const headerIndex = rendered.value.rows.findIndex((row) =>
+    isActivityRow(row, "Write", "permission")
+  );
+  const decisionIndex = rendered.value.rows.findIndex((row) =>
+    row.text.includes("Allow once")
+  );
+  const activityRows = rendered.value.rows
+    .slice(headerIndex, decisionIndex)
+    .filter((row) => row.text.trim().length > 0);
+  const activityText = activityRows.map((row) => row.text).join("\n");
+
+  assert.equal(activityRows.length > 2, true);
+  assert.equal(activityRows.at(0)?.text.includes("\u2022 Write"), true);
+  assert.equal(activityRows.at(0)?.text.includes("src/long-example.ts"), true);
+  assert.equal(activityRows.at(0)?.text.includes("permission"), true);
+  assert.equal(activityRows.at(0)?.text.includes("apply_patch"), false);
+  assert.equal(activityRows.at(1)?.text.includes("Allow once"), false);
+  assert.equal(activityRows.at(1)?.text.includes("- alpha"), true);
+  assert.equal(activityText.includes("alpha beta gamma"), true);
+  assert.equal(activityText.includes("+ replacement"), true);
+  assert.equal(activityText.includes("Allow once"), false);
+  assert.equal(
+    activityRows.every((row) =>
+      row.spans.every((span) => span.surface === "none")
+    ),
+    true,
+  );
+  assert.equal(
+    rendered.value.rows.some((row) => row.text.includes("Allow for session")),
+    true,
   );
 });
 
@@ -720,11 +935,10 @@ test("places compact phase-independent notices between activity and composer", (
   });
   assert.ok(application.turnAccepted(started(31, "change")).ok);
   requestTool(application, {
-    approval: true,
+    approval: false,
     callId: "notice-write",
-    name: "apply_patch",
-    preview: 'path="src/index.ts" oldText=<5 code units>',
-    risk: "write",
+    name: "read_file",
+    risk: "read",
     turnId: 31,
   });
 
@@ -736,7 +950,7 @@ test("places compact phase-independent notices between activity and composer", (
     row.text.includes("Unknown command"),
   );
   const lastActivityIndex = warningRows
-    .map((row) => row.spans.some((span) => span.surface === "attention"))
+    .map((row) => isActivityRow(row, "Read", "queued"))
     .lastIndexOf(true);
   const composerTop = (warning.value.caret?.row ?? 0) - 1;
   const warningSpan = warningRows.at(warningIndex)?.spans.find((span) =>
@@ -840,14 +1054,20 @@ test("renders failed tool truth only through failure state", () => {
 
   const rendered = frame(application, 56, 18);
   assert.ok(rendered.ok);
-  const spans = rendered.value.rows.flatMap((row) => row.spans);
+  const activityRows = rendered.value.rows.filter((row) =>
+    isActivityRow(row, "Read", "failed")
+  );
+  const spans = activityRows.flatMap((row) => row.spans);
   const state = spans.find((span) => span.text.includes("failed"));
-  assert.equal(state?.tone, "emphasis");
-  const name = spans.find((span) => span.text.includes("read_file"));
-  assert.equal(name?.tone, "emphasis");
-  assert.equal(name?.slant, "italic");
-  assert.equal(name?.surface, "failure");
-  assert.equal(state?.surface, "failure");
+  assert.equal(state?.tone, "failure");
+  const marker = spans.find((span) => span.text.includes("x "));
+  assert.equal(activityRows.length, 1);
+  assert.equal(activityRows.at(0)?.text.includes("x Read"), true);
+  assert.equal(activityRows.at(0)?.text.trim().endsWith("failed"), true);
+  assert.equal(activityRows.at(0)?.text.includes("read_file"), false);
+  assert.equal(marker?.tone, "failure");
+  assert.equal(state?.surface, "none");
+  assert.equal(spans.every((span) => span.surface === "none"), true);
 });
 
 test("renders bounded slash completion above the composer", () => {
@@ -858,11 +1078,11 @@ test("renders bounded slash completion above the composer", () => {
   assert.ok(rendered.ok);
   const rows = rendered.value.rows;
   const providers = rows.find((row) => row.text.includes("/providers"));
-  const approve = rows.find((row) => row.text.includes("/approve"));
+  const permissions = rows.find((row) => row.text.includes("/permissions"));
   const composerTop = rendered.value.caret?.row ?? -1;
   const providersIndex = rows.findIndex((row) => row === providers);
   assert.ok(providers !== undefined);
-  assert.ok(approve !== undefined);
+  assert.ok(permissions !== undefined);
   assert.equal(providersIndex < composerTop, true);
   assert.equal(
     providers.text.trim(),
@@ -879,7 +1099,7 @@ test("renders bounded slash completion above the composer", () => {
     true,
   );
   assert.equal(
-    approve.spans
+    permissions.spans
       .filter((span) => span.text.trim().length > 0)
       .every((span) => span.surface === "none"),
     true,
@@ -888,6 +1108,47 @@ test("renders bounded slash completion above the composer", () => {
     rows.some((row) => row.text.includes("navigate")),
     false,
   );
+});
+
+test("renders the transient six-tool session permission editor without a box", () => {
+  const application = new ApplicationController(false);
+  application.feed(
+    "/permissions\r\u001B[B\u001B[B\u001B[B\u001B[C",
+  );
+
+  const rendered = frame(application, 72, 18);
+  assert.ok(rendered.ok);
+  const rows = rendered.value.rows;
+  assert.equal(rows.some((row) => row.text.includes("Permissions")), true);
+  assert.equal(rows.some((row) => row.text.includes("current session")), true);
+  for (const name of [
+    "read_file",
+    "list_directory",
+    "search_text",
+    "apply_patch",
+    "manage_path",
+    "run_process",
+  ]) {
+    assert.equal(rows.some((row) => row.text.includes(name)), true);
+  }
+  const selected = rows.find((row) => row.text.includes("apply_patch"));
+  assert.equal(
+    selected?.spans.find((span) => span.text.includes("apply_patch"))?.tone,
+    "emphasis",
+  );
+  assert.equal(
+    selected?.spans.find((span) => span.text.includes("Allow"))?.tone,
+    "emphasis",
+  );
+  assert.equal(
+    rows
+      .flatMap((row) => row.spans)
+      .filter((span) => span.text.trim().length > 0)
+      .every((span) => span.surface === "none"),
+    true,
+  );
+  assert.equal(rows.some((row) => row.text.includes("/approve")), false);
+  assert.equal(rows.some((row) => row.text.includes("/deny")), false);
 });
 
 test("moves slash selection, hides exact completion, and coexists with activity", () => {
@@ -905,18 +1166,19 @@ test("moves slash selection, hides exact completion, and coexists with activity"
   const active = frame(application, 72, 18);
   assert.ok(active.ok);
   const rows = active.value.rows;
-  assert.equal(rows.some((row) => row.text.includes("read_file")), true);
+  assert.equal(rows.some((row) => row.text.includes("\u2022 Read")), true);
+  assert.equal(rows.some((row) => row.text.includes("read_file")), false);
   const activityIndexes = rows
     .map((row, index) =>
-      row.spans.some((span) => span.surface === "attention") ? index : -1,
+      isActivityRow(row, "Read", "queued") ? index : -1,
     )
     .filter((index) => index >= 0);
-  const approve = rows.find((row) => row.text.includes("/approve"));
-  const approveIndex = rows.findIndex((row) => row === approve);
+  const permissions = rows.find((row) => row.text.includes("/permissions"));
+  const permissionsIndex = rows.findIndex((row) => row === permissions);
   const firstCompletionIndex = rows.findIndex((row) =>
     row.text.includes("/providers"),
   );
-  assert.equal(activityIndexes.length, 2);
+  assert.equal(activityIndexes.length, 1);
   const firstActivityIndex = activityIndexes.at(0);
   const lastActivityIndex = activityIndexes.at(-1);
   assert.ok(firstActivityIndex !== undefined);
@@ -924,15 +1186,15 @@ test("moves slash selection, hides exact completion, and coexists with activity"
   assert.equal(rows[firstActivityIndex - 1]?.text.trim(), "");
   assert.equal(rows[lastActivityIndex + 1]?.text.trim(), "");
   assert.equal(firstCompletionIndex, lastActivityIndex + 2);
-  assert.equal(approveIndex, firstCompletionIndex + 1);
+  assert.equal(permissionsIndex, firstCompletionIndex + 1);
   assert.equal(
-    approve?.spans
+    permissions?.spans
       .filter((span) => span.text.trim().length > 0)
       .every((span) => span.surface === "none"),
     true,
   );
   assert.equal(
-    approve?.spans.find((span) => span.text === "/approve")?.tone,
+    permissions?.spans.find((span) => span.text === "/permissions")?.tone,
     "emphasis",
   );
   const lastCompletionIndex = rows.findIndex((row) =>
@@ -970,13 +1232,13 @@ test("separates activity from the composer with one stage rhythm row", () => {
   const rows = active.value.rows;
   const activityIndexes = rows
     .map((row, index) =>
-      row.spans.some((span) => span.surface === "attention") ? index : -1,
+      isActivityRow(row, "Read", "queued") ? index : -1,
     )
     .filter((index) => index >= 0);
   const composerTopIndex = rows.findIndex(
     (_row, index) => index === (active.value.caret?.row ?? 0) - 1,
   );
-  assert.equal(activityIndexes.length, 2);
+  assert.equal(activityIndexes.length, 1);
   const firstActivityIndex = activityIndexes.at(0);
   const lastActivityIndex = activityIndexes.at(-1);
   assert.ok(firstActivityIndex !== undefined);
@@ -1027,7 +1289,7 @@ test("replaces the contextual tool and clears it when the turn settles", () => {
     approval: true,
     callId: "second-write",
     name: "apply_patch",
-    preview: 'path="index.html" oldText=<5 code units>',
+    preview: "Path: index.html\n- old\n+ new",
     risk: "write",
     turnId: 7,
   });
@@ -1037,19 +1299,20 @@ test("replaces the contextual tool and clears it when the turn settles", () => {
     application.activeTurnId !== undefined,
   );
   assert.equal(pending?.name, "apply_patch");
-  assert.equal(pending?.state, "approval");
+  assert.equal(pending?.state, "permission");
 
   const rendered = frame(application, 72, 14);
   assert.ok(rendered.ok);
   const text = rendered.value.rows.map((row) => row.text).join("\n");
   assert.equal(text.includes("list_directory"), false);
-  assert.equal(text.includes("apply_patch"), true);
-  assert.equal(text.includes("approval required"), true);
+  assert.equal(text.includes("apply_patch"), false);
+  assert.equal(text.includes("index.html"), true);
+  assert.equal(text.includes("permission"), true);
   assert.equal(text.includes("\u203a"), false);
   assert.equal(rendered.value.rows.at(-1)?.text.includes("approval"), false);
   assert.equal(rendered.value.rows.at(-1)?.text.includes("\u2022"), false);
 
-  application.applySessionAction({ kind: "approve" });
+  application.applySessionAction({ kind: "activateContextSelection" });
   assert.ok(
     application.applyRuntime({
       callId: "second-write",
@@ -1080,7 +1343,8 @@ test("replaces the contextual tool and clears it when the turn settles", () => {
   assert.ok(afterTool.ok);
   const afterToolText = afterTool.value.rows.map((row) => row.text).join("\n");
   assert.equal(afterToolText.includes("list_directory"), false);
-  assert.equal(afterToolText.includes("apply_patch"), true);
+  assert.equal(afterToolText.includes("apply_patch"), false);
+  assert.equal(afterToolText.includes("index.html"), true);
   assert.equal(afterToolText.includes("succeeded"), true);
 
   assert.ok(
@@ -1117,6 +1381,7 @@ test("replaces the contextual tool and clears it when the turn settles", () => {
   const completedText = completed.value.rows.map((row) => row.text).join("\n");
   assert.equal(completedText.includes("list_directory"), false);
   assert.equal(completedText.includes("apply_patch"), false);
+  assert.equal(completedText.includes("index.html"), false);
 });
 
 test("sanitizes streamed terminal controls before the assistant document", () => {
@@ -1135,6 +1400,31 @@ test("sanitizes streamed terminal controls before the assistant document", () =>
   const text = rendered.value.rows.map((row) => row.text).join("\n");
   assert.equal(text.includes("\u001B"), false);
   assert.equal(text.includes("unsafe?partial"), true);
+});
+
+test("renders streamed single-asterisk assistant emphasis without delimiters", () => {
+  const application = new ApplicationController(true);
+  assert.ok(application.turnAccepted(started(33, "tell me a story")).ok);
+  assert.ok(
+    application.applyRuntime({
+      kind: "assistantDelta",
+      text: "*Fine.*",
+      turnId: 33,
+    }).ok,
+  );
+
+  const rendered = frame(application, 48, 14);
+  assert.ok(rendered.ok);
+  const assistant = rendered.value.rows.find((row) => row.text.trim() === "Fine.");
+  const emphasis = assistant?.spans.find((span) => span.text === "Fine.");
+
+  assert.ok(assistant !== undefined);
+  assert.equal(emphasis?.tone, "plain");
+  assert.equal(emphasis?.slant, "italic");
+  assert.equal(
+    rendered.value.rows.some((row) => row.text.includes("*Fine.*")),
+    false,
+  );
 });
 
 test("navigates the conversation document and resumes follow-end", () => {
@@ -1205,8 +1495,9 @@ test("keeps the composer ahead of every other region on one row", () => {
 
   assert.ok(rendered.ok);
   assert.equal(
-    rendered.value.rows.at(0)?.spans.some((span) => span.surface === "subtle"),
+    rendered.value.rows.at(0)?.spans.every((span) => span.surface === "none"),
     true,
   );
+  assert.equal(isComposerRule(rendered.value.rows.at(0)), false);
   assert.deepEqual(rendered.value.caret, { row: 0, column: 2 });
 });

@@ -74,22 +74,25 @@ agent.”
 - The TUI is conversation-first, not a permanent dashboard. Keep the transcript
   dominant, the composer fixed and recognizable, and every information block
   contextual to authoritative state. Future tools and integrations reuse the
-  generic panel, surface, split-line, three-column-line, horizontal-inset,
-  side-rail, spacer, activity, scroll, and layout paths; they do not add
+  generic panel, surface, horizontal-rule, split-line, three-column-line,
+  horizontal-inset, side-rail, spacer, activity, scroll, and layout paths; they do not add
   private cards, empty metrics, or parallel view models. User and assistant
   content remain structured role entries but render without redundant `you` or
-  `agent` labels. A user turn uses one stage-wide borderless subtle surface with
-  one cell of horizontal and vertical padding and italic content;
-  assistant prose remains unboxed, while fenced code and strict
+  `agent` labels. A user turn composes one stage-wide transparent `Surface` with
+  the generic `SideRail`: one muted solid half-block rail cell spans exactly the
+  visible content rows and itself owns the shared one-cell content inset; the
+  next cell is the canonical text column shared by assistant prose and composer
+  text, caret, and pointer projection. Internal horizontal and vertical padding
+  stay at zero. Base user prose remains italic and uses the
+  closed `highContrast` tone; registered Markdown semantic roles override that
+  base tone, while assistant base prose remains `plain` and unboxed. Fenced code and strict
   pipe tables use one content-fit transparent structured region. Complete fences with at
   most two visible logical rows use zero horizontal padding; larger fences and
   tables retain one cell. An exact Markdown `---` renders through the shared
   display path as one muted responsive separator, while unsupported variants
   remain literal. Surface, slant, and
-  foreground tone remain independent closed style dimensions. The neutral
-  subtle surface distinguishes user input without implying lifecycle state;
-  green, ochre, and red backgrounds are reserved for authoritative tool
-  lifecycle state. Strict tables
+  foreground tone remain independent closed style dimensions. The muted user
+  rail distinguishes user input without implying lifecycle state. Strict tables
   measure every header and body cell before display and pad each column to one
   shared visible width, so the technical surface stays rectangular. One muted
   rule spans that exact measured width between the header and body inside the
@@ -98,18 +101,29 @@ agent.”
   the owned highlighter; unknown or unlabeled fences remain plain. Model text
   never selects styling. The restrained steel-blue `accent` role is reserved
   for references and fence labels; lighter blues remain code-only syntax roles.
-  Every tool lifecycle state uses the same borderless semantic `Surface`:
-  restrained dark green for success, ochre for active or approval, and red for
-  negative terminal state. Tool identity is neutral italic text; identity,
-  written state, safe detail, and approval actions use neutral high-contrast
-  foregrounds. Activity surfaces use one cell of horizontal padding and zero
-  vertical padding. When height is constrained, their head retains tool identity
-  and written state before optional detail. Exact bounded effect previews appear
-  only while approval is pending; queued, running, cancelling, and terminal
-  snapshots retain only the risk beneath the head. The activity log may retain
-  its bounded preview as lifecycle state, but settled presentation never replays
-  it. Written state remains explicit, and
-  no tool or approval path adds a private rail, border, or panel. The contextual activity surface shows only the latest snapshot while a
+  Every tool lifecycle state uses the same borderless transparent `Surface`.
+  Restrained success, attention, or failure foregrounds appear only on the
+  status mark and written state; the action, optional safe subject, preview, and
+  permission actions remain neutral. Activity surfaces use one cell of horizontal
+  padding and zero vertical padding. Under decisions 0056 and 0057, every snapshot
+  starts with one compact `SplitLine`: the left side contains the registered bullet
+  or ASCII `x`, one of the exact display-only `Read`, `List`, `Search`, `Write`,
+  `Manage`, or `Run` labels, then an optional useful safe subject; the right side
+  contains the written state and owns retention priority. Canonical tool name and
+  risk remain closed presentation inputs but do not repeat in the visible head.
+  Unknown names or risk drift fail closed, and display labels never become tool
+  aliases. Non-permission states occupy exactly that line. Pending permission may
+  add the separately wrapped exact human-readable preview, followed
+  by one transparent generic `SelectionList` for the required actions. When width
+  or height is constrained, the display action, written state, and decision
+  actions survive before subject or preview detail. Exact bounded
+  `apply_patch` previews expose the canonical path and bounded `- ` and `+ ` diff
+  rows while internal digests and tuple metadata remain private plan state. Effect
+  previews appear only while permission is pending; queued, running,
+  cancelling, and terminal snapshots never replay them. The activity log may
+  retain its bounded preview as lifecycle state, but settled presentation never
+  replays it. Written state remains explicit, and
+  no tool or permission path adds a private rail, border, or panel. The contextual activity surface shows only the latest snapshot while a
   turn is active: the next tool replaces it, turn settlement removes it, and
   tool activity never enters the transcript. An empty session renders no welcome
   or embedded help; operator guidance stays in the maintained manual. The
@@ -121,13 +135,17 @@ agent.”
   CLI-owned scheduler expires the exact current generation after 5,000
   milliseconds through the serialized event arbiter. Notice timers contain no
   notice text and never mutate application or renderer state directly. The
-  renderer prepaints every changed homogeneous opaque full-width row with ASCII
-  spaces under its authoritative surface before writing structured content.
-  This keeps semantic surfaces physically rectangular without adding a private
-  width exception or changing retained text. The
-  composer is one prompt-free, borderless, stage-wide subtle `Surface` around the
-  generic `InputArea`, with one cell of horizontal and vertical padding. It
-  grows from one through six content rows using the same bounded
+  renderer prepaints every maximal contiguous non-transparent surface run in a
+  changed row with ASCII spaces across its exact logical cell extent before
+  writing structured content. Runs may begin after a shared inset; transparent
+  gaps and differently surfaced runs remain separate. This keeps semantic
+  surfaces physically rectangular without adding a private width exception or
+  changing retained text. The
+  composer is one prompt-free, stage-wide generic `HorizontalRules` frame around
+  the generic `InputArea`. Its transparent content row has one cell of horizontal
+  padding, and one full-width light-blue `accent` rule appears above and below it.
+  The rules collapse before required content on viewports shorter than three rows.
+  It grows from one through six content rows using the same bounded
   editor and submission path. Bracketed paste is one atomic editor event and
   never implies Enter; only a separately decoded Enter submits. The renderer
   owns paste-mode and steady-vertical-bar-caret lifecycle and restores both terminal
@@ -176,7 +194,7 @@ agent.”
   technical outer column per side when the terminal permits. Tiny viewports use
   all available columns. No shell region may carry a private width calculation
   or an arbitrary reading-width cap. The footer uses the same stage so its pulse
-  ends on the same cell as the composer surface.
+  ends on the same cell as the composer frame.
 - Visible motion is one constant-width active-work pulse. It ends at the
   composer's right edge, is the footer's only right-edge content, and
   appears only while autonomous progress advances
@@ -231,22 +249,33 @@ agent.”
   delegation, swarms, or concurrent agent conversations.
 - One model response may select one bounded ordered tool-call batch. Validate the
   complete batch before planner or handler effects, plan each call just in time,
-  execute calls sequentially in provider order, require a separate exact
-  approval for every successfully planned write or execute call, and commit one
-  complete exchange. A failed plan requests no approval and settles as a
+  execute calls sequentially in provider order, require one exact CLI
+  permission decision for every successfully planned call, and commit one
+  complete exchange. A failed plan requests no permission and settles as a
   structured failure. A batch is one agent decision, never a group of agents.
+- The CLI owns one session-only closed `Allow`, `Ask`, or `Deny` entry for each
+  exact advertised tool under decision 0055. Reads default to `Allow`; writes
+  and execution default to `Ask`. `/permissions` is the sole command for editing
+  this memory-only policy. Pending `Ask` requests use exactly `Allow once`,
+  `Allow for session`, and `Deny` through the contextual selection path;
+  `/approve` and `/deny` do not exist. Every runtime tool request waits for one
+  exact turn-and-call decision. A permission never widens schemas, paths,
+  programs, limits, disclosure policy, stale-state checks, or native committers.
 - `apply_patch` uses one CLI-owned structured text-patch effect plan. Bind an
-  approved effect to one canonical path, object identity, observed absence or
-  complete content, ordered exact-text hunks, and SHA-256 state digests; show
-  exact bounded patch content or bounded excerpts with an omitted count.
+  authorized effect to one canonical path, object identity, observed absence or
+  complete content, ordered exact-text hunks, and SHA-256 state digests; show the
+  canonical relative path and exact bounded human-readable `- ` and `+ ` patch
+  rows, or bounded excerpts with an omitted-code-unit count. Do not expose plan
+  digests, object identities, field registries, or tuple encodings in the UI.
   Its target path admits at most 447 code units and 896 code units in the exact
   structured string projection; read-tool path limits remain independent. The
   complete ordered batch validates both that path projection and aggregate
   hunk bounds before any planner or handler observation. The compact 32-hunk
   fallback plus the maximum admitted exact path must fit the 2,048-code-unit
   approval preview bound.
-  Preview remove and insert fields are independently escaped, retain explicit
-  per-field lengths, and never derive boundaries from retained text. Reject
+  Preview remove and insert fields retain independent line prefixes; backslashes,
+  tabs, and non-line control or format scalars are escaped. Only formatter-owned
+  LF separators are admitted by the preview boundary. Reject
   ambiguous anchors, overlapping or reordered hunks, no-op hunks, and stale
   state before mutation.
   Invocation crosses the owned decision 0046 mutation committer exactly once;
@@ -256,11 +285,22 @@ agent.”
   settlement. Unsupported platform or filesystem primitives fail closed.
   Describe the guarantee as one object-bound commit, not multi-file atomicity,
   crash-safe rollback, storage durability, or a filesystem sandbox.
+- `manage_path` is the only admitted namespace tool. It accepts one closed
+  `create_directory`, `move`, or `remove` request. It creates exactly one
+  directory, moves one file or directory to an absent destination, or removes
+  one file or empty directory. Every successfully planned operation requires
+  one exact authorization and crosses the separate decision 0054 native namespace
+  committer exactly once. Bind authorization to canonical paths, source kind and
+  identity, parent identities, and destination absence; reject overwrite,
+  merge, recursive or nonempty-directory removal, self-descendant moves, and
+  stale state. Unsupported platform or filesystem namespace primitives fail
+  closed. Describe the guarantee as one object-bound namespace commit, not a
+  filesystem transaction, durability guarantee, rollback, or sandbox.
 - Future controller-internal concurrency may overlap only bounded independent
   mechanics over immutable snapshots during a read-only phase. It cannot enter
   the tool engine or overlap a mutation, and its results return to the sole
   controller for deterministic reduction.
-- Model turns, tool handlers, writes, process execution, approvals, and terminal
+- Model turns, tool handlers, writes, process execution, permissions, and terminal
   output remain serialized. Current runtime remains sequential.
 - A failed turn after a completed tool checkpoint retains that tool truth and
   publishes only the CLI-owned closed failure classification. The transcript
@@ -281,12 +321,13 @@ agent.”
   bounded read capabilities, one text-patch capability, one namespace
   capability, and one execute capability. Migrate one authority domain at a
   time; never retain overlapping old and new names after a replacement change.
-  The current advertised inventory remains authoritative until each migration
-  phase is complete. A future sandboxed `shell` may replace `run_process` only
-  after a separate Windows and Linux isolation proof; the two execute tools may
-  never coexist.
+  The current advertised inventory is exactly `read_file`, `list_directory`,
+  `search_text`, `apply_patch`, `manage_path`, and `run_process`; the six-domain
+  convergence is complete. A future sandboxed `shell` may replace
+  `run_process` only after a separate Windows and Linux isolation proof; the
+  two execute tools may never coexist.
 - Keep process execution inside the admitted decision 0036 contract: one
-  CLI-owned closed program registry, exact per-call approval, fixed limits,
+  CLI-owned closed program registry, exact per-call permission, fixed limits,
   isolated operating-system bootstrap, bounded output, and complete descendant
   cancellation and cleanup on Windows and Linux. The current registry contains
   only `node`; new entries need exact executable resolution, a closed argument

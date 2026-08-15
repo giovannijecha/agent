@@ -8,5 +8,5 @@ test("limits visible motion to autonomous progress", () => {
   assert.equal(isMotionActive("runningTool"), true);
   assert.equal(isMotionActive("cancelling"), true);
   assert.equal(isMotionActive("idle"), false);
-  assert.equal(isMotionActive("awaitingApproval"), false);
+  assert.equal(isMotionActive("awaitingPermission"), false);
 });

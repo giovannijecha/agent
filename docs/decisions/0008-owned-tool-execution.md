@@ -6,6 +6,14 @@
   mutation effect planning
 - Amended: 2026-08-14 by decision 0046 for owned handle-relative mutation
   commit
+- Amended: 2026-08-15 by decision 0055 for session tool permissions
+- Amended: 2026-08-16 by decision 0057 for human patch approval presentation
+
+Decision 0055 replaces implicit read allowance and the typed `/approve` and
+`/deny` path with one exact-tool session policy and contextual decisions. The
+schema, planning, checkpoint, and handler boundaries in this decision remain.
+Decision 0057 replaces patch binding metadata in the permission UI with a
+bounded human-readable diff; the immutable plan and commit binding remain exact.
 
 ## Context
 
@@ -48,19 +56,17 @@ exact startup directory once into one immutable canonical boundary before
 credentials, providers, tools, or terminal ownership. Every path is resolved
 beneath that accepted root. Symlink traversal, absolute input paths, parent
 traversal, oversized input/output, unknown fields, and unsupported file kinds
-fail closed. Read-only calls run automatically.
-Write and execute calls with a valid planned invocation require the exact
-interactive `/approve` or `/deny` command for the single pending call. No
-approval is cached or broadened. A planning failure has no effect to approve and
-settles as a normal failed call. Direct handlers retain descriptor projections.
-Under decisions 0042, 0046, and 0053, `apply_patch` plans one concrete effect
+fail closed. Decision 0055 gives every valid request one exact CLI permission
+decision from its current per-tool session mode. A planning failure has no valid
+invocation to permit and settles as a normal failed call. Direct handlers retain
+descriptor projections.
+Under decisions 0042, 0046, 0053, and 0057, `apply_patch` plans one concrete effect
 just in time from observed filesystem state. Its bounded preview shows the
-canonical target, precondition, SHA-256 state digests, ordered hunks, and exact
-patch content when it fits or bounded prefix/suffix excerpts with an omitted
-count. Exact
-string fields escape Unicode control, format, surrogate, private-use,
-line-separator, and paragraph-separator scalars before display. The CLI
-independently rejects an unescaped unsafe scalar, so bidi or zero-width content
+canonical target and complete human-readable removed and inserted logical rows
+when they fit, or bounded prefix/suffix excerpts with an omitted-code-unit count.
+Backslashes, tabs, and non-line controls or formats are escaped. Only the owned
+formatter may introduce LF row separators; the CLI independently rejects every
+other unescaped unsafe scalar, so bidi or zero-width content
 cannot visually reorder or conceal the approved effect. Call identifiers,
 results, and unbounded content remain hidden.
 
@@ -77,10 +83,10 @@ pretend an executed operation did not happen. Partial assistant text after the
 last checkpoint remains prospective and is never committed.
 
 Runtime emits bounded requested, started, and finished tool events through its
-existing single event source. Approval is a synchronous runtime command; actual
+existing single event source. Permission is a synchronous runtime command; actual
 execution advances only through `nextEvent`. Cancellation is shared with the
 active tool handler, and runtime stop waits for handler settlement before
-releasing terminal state. Tool failures and denied approvals become structured,
+releasing terminal state. Tool failures and denied permissions become structured,
 content-free tool results so the model may respond. Once a handler has been
 invoked, a throw, malformed result, or oversized result becomes a generic
 structured failure that is checkpointed before the turn terminates. This avoids
@@ -90,8 +96,9 @@ The TUI gains no product-specific framework primitive. Decision 0022 replaces
 the initial transient status with one CLI-owned bounded activity log rendered
 through the generic component stack. It retains only the latest activity while
 the current turn is active and maps every tool through the same presentation
-path. Only tool name, risk, explicit state, and an owned bounded descriptor
-projection or effect preview are rendered. Outside that preview, raw arguments
+path. Only a display action, optional admitted safe subject, explicit state, and
+an owned bounded descriptor projection or effect preview are rendered. Canonical
+tool name and risk validate the projection without repeating visibly. Outside that preview, raw arguments
 and content fields are not rendered or logged. Call identifiers, outputs,
 provider data, credentials, and causes are never rendered or logged.
 
@@ -119,13 +126,13 @@ sandbox.
 
 ## Update, rollback, and removal
 
-Change schemas, limits, approval classes, planners, checkpoint rules, or built-in
+Change schemas, limits, risk classes, planners, checkpoint rules, or built-in
 tools only with core, engine, Node-adapter, runtime, reducer, privacy,
 cancellation, stale-state, and cleanup regressions. Provider adapters translate
 their wire protocol only into the public structured model/tool contract.
 
 To remove tools, first stop advertising descriptors and restore the text-only
-runtime path. Remove CLI approval commands, tool activity, Node handlers, and the
+runtime path. Remove CLI permission policy and selectors, tool activity, Node handlers, and the
 runtime tool dependency. Then remove structured tool entries if no consumer
 remains, delete `@agent/tools` from every registry, remove this decision, clean
 derived artifacts, and remove decisions 0014 and 0015. Replace manual-policy

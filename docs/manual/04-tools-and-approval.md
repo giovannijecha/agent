@@ -1,35 +1,46 @@
-# 04 - Tools and approval
+# 04 - Tools and permissions
 
 ## Purpose
 
 Use this chapter to understand the current registered workspace tools, their
-safety classes, and the exact approval boundary for filesystem mutations and
-contained process execution.
+safety classes, the session permission policy, and the exact authorization
+boundary for tool invocation.
 
 ## Operator workflow
 
-When a model runtime is available, tools registered as `read` run automatically.
-A `write` or `execute` call pauses only after it has a valid concrete invocation.
-Inspect the exact approval summary, then enter `/approve` or `/deny`. The
-decision applies to that one pending call only and is never cached. If effect
-planning fails, the call reports failure without approval because there is no
-effect to authorize. The current exact names and risk classes are in the
-verified inventory below.
+Run `/permissions` to inspect or change the six tool modes for the current
+process session. Up and Down select without wrapping, Left and Right move the
+selected mode through `Deny`, `Ask`, and `Allow`, and Enter closes the editor.
+The three read tools start as `Allow`; `apply_patch`, `manage_path`, and
+`run_process` start as `Ask`. The editor is transient, accepts no arguments or
+wildcards, and persists nothing.
 
-Every tool uses the same activity document. Its explicit states are `approval`,
+An `Allow` request proceeds without interruption, `Deny` returns a structured
+denial without invoking the handler, and `Ask` presents exactly `Allow once`,
+`Allow for session`, and `Deny`. Up and Down select the action and Enter applies
+it. `Allow for session` changes only that exact tool and also allows the current
+call; it does not cache the current path, preview, arguments, or result. Failed
+effect planning reports failure without asking because there is no valid effect
+to authorize. The current exact names and risk classes are in the verified
+inventory below.
+
+Every tool uses the same activity document. Its explicit states are `permission`,
 `queued`, `running`, `cancelling`, `succeeded`, `failed`, `denied`, and
 `cancelled`. The log keeps exactly one contextual activity beside the composer
-while its turn is active. Approval,
+while its turn is active. Permission,
 execution, and terminal outcome update that surface; the next tool replaces it,
 turn settlement removes it, and tool activity never enters the transcript.
-Every state uses the same borderless semantic surface. A restrained dark green,
-ochre, or red background reinforces success, active or approval, and negative
-terminal state; the written state remains explicit. The tool name is neutral
-italic text. Approval uses the same component and retains `/approve` and
-`/deny` before optional safe detail when space is limited. The exact bounded
-effect preview is visible only while approval is pending. Queued, running,
-cancelling, and terminal states keep only the risk beneath the identity/state
-head, while the bounded lifecycle log retains the preview internally.
+Every state uses the same borderless transparent surface. The status mark and
+written state use a restrained success, attention, or failure foreground while
+the readable display-only operation and optional useful safe subject remain
+neutral. Canonical tool name and risk still validate the closed projection but
+do not repeat in the visible head. The compact main line keeps its status mark
+and operation on the left and its written state on the right. A
+pending `Ask` uses a separate transparent contextual selection list after the
+activity surface, so slash-command text is never an authority path. The exact
+bounded human-readable effect preview is visible only while permission is pending. Queued,
+running, cancelling, and terminal states remain one line, while the bounded
+lifecycle log retains the preview internally.
 
 ## Guarantees and limits
 
@@ -42,7 +53,7 @@ Files are limited to 262,144 code units. Directory listing is limited to 512
 entries. Recursive exact-text search is limited to 512 directories, 4,096
 entries, 2,048 files, 256 matches, and 4,194,304 scanned code units.
 
-The automatic read tools share one immutable disclosure policy loaded before
+The read tools share one immutable disclosure policy loaded before
 credentials. Mandatory rules deny `.agentignore`, `.git`, `.env` and `.env.*`,
 common SSH and cloud credential directories, package and Git credential files,
 conventional private-key names, and `.key`, `.pem`, `.p12`, `.pfx`, `.jks`, and
@@ -69,11 +80,11 @@ reduces provider context without adding random-access filesystem authority.
 `search_text` rejects a denied root and prunes denied directories and files
 before opening them; resolved traversal targets are rechecked before
 observation. Hidden entries still consume the raw enumeration bounds. The
-policy does not inspect content and does not restrict `apply_patch` or approved
-`run_process` code.
+policy does not inspect content and does not restrict authorized `apply_patch`,
+`manage_path`, or `run_process` effects.
 
 `apply_patch` uses one three-state mutation lifecycle: pure schema preparation,
-just-in-time effect planning, then exact approval and invocation. It accepts one
+just-in-time effect planning, then exact authorization and invocation. It accepts one
 path of at most 447 code units whose exact structured projection is at most 896
 code units, plus from 1 through 32 ordered `{ oldText, newText }` hunks. The
 complete batch checks both mutation-path bounds and the aggregate hunk bounds
@@ -89,11 +100,17 @@ Planning binds target absence or
 canonical file identity, complete observed and resulting content, parent state,
 and SHA-256 digests. Unsupported source text, ambiguous anchors, overlap,
 reordering, no-op hunks, and limit failures settle before approval. The approval
-surface is limited to 2,048 code units. It shows exact ordered remove/insert
-sections when they fit; otherwise it shows bounded prefix and suffix excerpts
-plus an explicit omitted-code-unit count. When even zero retained text would be
-too large, every ordered hunk remains visible through exact remove and insert
-lengths with matching omitted counts. The mutation-path projection reservation
+surface is limited to 2,048 code units. Its first row supplies the canonical
+relative path as useful head detail; subsequent `- ` and `+ ` rows show removed
+and inserted logical text. Backslashes, tabs, and non-line control or format
+scalars are escaped. When complete changed text does not fit, deterministic
+prefix and suffix excerpts retain an explicit omitted-code-unit count. The
+compact fallback keeps one bracketed omitted count for each non-empty remove or
+insert field, so every ordered hunk remains represented; the number is the exact
+omitted code-unit count. Internal state digests, object identity, complete
+observed and replacement content, line counters, field registries, and tuple
+encodings remain bound to the effect plan and commit but are not UI content.
+The mutation-path projection reservation
 keeps that complete 32-hunk compact form within the same approval bound even at
 the maximum admitted path. Invocation rejects a changed identity, parent,
 target absence, canonical path, or complete content as `conflict` before
@@ -115,6 +132,25 @@ transaction, crash rollback, storage-durability guarantee, or filesystem
 sandbox. On Windows, directory enumeration may briefly see an exclusively held
 new name before its complete content is retained; ordinary opens cannot observe
 partial content, and termination before settlement removes it.
+
+`manage_path` accepts exactly one nested `request`: `create_directory` with one
+path, `move` with source and destination, or `remove` with one path. It creates
+one absent directory whose parent already exists, moves one regular file or
+directory to an absent destination, or removes one regular file or empty
+directory. It never creates parents implicitly, overwrites, merges, removes
+recursively, removes a non-empty directory, crosses volumes, or moves a
+directory beneath itself.
+
+Planning binds canonical paths, source kind and identity, relevant parent
+identities, and destination absence before one exact authorization. Invocation
+rechecks that state and crosses the separate decision 0054 native namespace
+committer exactly once. Linux uses guarded handle-relative traversal and native
+`mkdirat`, no-replace `renameat2`, or `unlinkat`; Windows anchors relevant
+parents with handle-relative `NtCreateFile` and native create, rename, or
+disposition information classes. Missing primitives or stale state fail closed
+without a pathname fallback. The guarantee is one stale-checked
+handle-relative namespace commit, not recursive authority, multi-object
+atomicity, rollback, durability, or a filesystem sandbox.
 
 `run_process` accepts only the registered `node` program token, enforced before
 approval by an owned exact-literal schema, an ordered list of literal arguments,
@@ -143,8 +179,9 @@ remaining per-turn, argument, output, and conversation limits. The complete
 batch is validated without filesystem observation before planning or invocation.
 Calls are then planned just in time and invoked sequentially in provider order,
 so a later mutation observes the settled result of every earlier call. Every
-successfully planned write or execute call pauses for its own decision; one
-approval never covers another call. A batch is one decision by the same agent,
+successfully planned call receives one exact runtime permission decision. An
+`Ask` pauses independently for that call; session `Allow` and `Deny` modes are
+looked up again by exact tool name for every request. A batch is one decision by the same agent,
 not delegation or multi-agent orchestration.
 
 Mutation preview line positions and added or removed line counts treat CRLF as
@@ -159,25 +196,26 @@ aliases. The verified inventory records why each current tool is necessary:
 |---|---|---|---|
 | `apply_patch` | `patch-one-text-file` | `write` | Creates or updates one file through ordered exact-text hunks without broad overwrite or shell authority. |
 | `list_directory` | `enumerate-one-directory` | `read` | Discovers one directory without reading file contents or recursing. |
+| `manage_path` | `manage-one-workspace-path` | `write` | Creates one directory, moves one file or directory, or removes one file or empty directory without shell or recursive authority. |
 | `read_file` | `read-one-file` | `read` | Inspects one known file without traversing unrelated workspace paths. |
 | `run_process` | `run-one-contained-process` | `execute` | Runs one terminating structured process inside owned whole-tree containment without shell, PATH, stdin, or inherited user-environment authority. |
 | `search_text` | `search-bounded-text` | `read` | Locates exact text with bounded traversal instead of many model-directed reads. |
 
 This table is the exact currently advertised surface. Decision
-[0050](../decisions/0050-owned-minimal-coding-capability-surface.md) defines a
-staged convergence target without advertising dormant tools: `read_file`,
-`list_directory`, and `search_text` become more efficient within their existing
-read authority; decision [0053](../decisions/0053-owned-structured-text-patch.md)
-completes the text-write convergence as `apply_patch`; `manage_path` will own
-directory creation, moves, and removal; and one execute tool will remain. Each
-replacement is complete only when the old overlapping name is absent.
-
-Decision [0051](../decisions/0051-owned-bounded-file-line-projection.md)
-completes the first `read_file` efficiency phase inside its existing canonical
-name and authority. It adds no seventh tool and no alternate reader.
+[0050](../decisions/0050-owned-minimal-coding-capability-surface.md) defines its
+six non-overlapping authority domains. Decision
+[0051](../decisions/0051-owned-bounded-file-line-projection.md) completes bounded
+`read_file` range projection, decision
+[0053](../decisions/0053-owned-structured-text-patch.md) converges text writes
+as `apply_patch`, and decision
+[0054](../decisions/0054-owned-workspace-namespace-management.md) converges
+namespace mutation as `manage_path`. No overlapping legacy name or alias
+remains. Decision
+[0055](../decisions/0055-owned-session-tool-permissions.md) owns the session
+permission modes and contextual decision path.
 
 The execute tool currently resolves only `node` through one CLI-owned closed
-registry. Unknown tokens fail before approval. Additional registered programs
+registry. Unknown tokens fail before permission. Additional registered programs
 need a closed argument policy and maintained evidence that they remove a real
 coding constraint. An unrestricted shell is not currently available. A future
 sandboxed `shell` may replace `run_process` only after a separate Windows and
@@ -188,16 +226,17 @@ and independent removal before it is advertised. Decision 0014 forbids
 convenience aliases and speculative tools; semantic overlap is a review
 judgment rather than a claim inferred from registry labels.
 
-Non-printing and directional Unicode in an exact approval field is shown as an
-explicit escaped code point. An unescaped unsafe scalar invalidates the runtime
-event before it reaches the terminal, so a target path cannot be visually
+Non-printing and directional Unicode in an exact permission-preview field is
+shown as an explicit escaped code point. Patch formatting alone may introduce LF
+as structural diff rows; every other unescaped unsafe scalar invalidates the
+runtime event before it reaches the terminal, so a target path cannot be visually
 reordered or concealed.
 
 ## Failure behavior
 
 Tool errors expose only stable categories such as not found, permission,
 conflict, limit, cancellation, unsupported, and I/O. Outside the exact bounded
-approval effect preview, arguments and file contents do not enter notices,
+permission effect preview, arguments and file contents do not enter notices,
 activity, transcripts, or logs. Call identifiers, results, and thrown causes do
 not enter those presentation paths. Once a
 handler was invoked, even a malformed handler result becomes a generic
@@ -226,11 +265,11 @@ semantic alias ban defined by decision 0014.
 
 ## Maintenance and removal
 
-Changing a descriptor, risk class, planner, limit, approval preview, or
+Changing a descriptor, risk class, planner, limit, permission preview, or
 checkpoint rule requires schema, planner/handler, runtime, reducer, privacy,
 cancellation, stale-state, and cleanup tests. Add, rename, or remove one tool
 together with its descriptor, planner or handler, focused tests, policy record,
-and this inventory. A rename removes the old name;
+compact activity-presentation entry, and this inventory. A rename removes the old name;
 it never retains an alias. Remove an advertised descriptor before deleting its
 implementation, and keep the remaining registry buildable. Changing the
 read-policy inventory, grammar, bounds, platform case behavior, loader, or
@@ -244,14 +283,21 @@ forced-termination regressions on Windows and Linux. Remove planner registration
 first, then remove the mutation-plan, preview, committer, protocol, and native
 sources only after the affected write tools have been removed or replaced.
 Never roll back to size-only approval, a stale approved invocation, or direct
-Node writes. Never add negation or a handler-specific bypass. Changing the
+Node writes. Never add negation or a handler-specific bypass.
+Changing namespace grammar, planning, identity checks, approval previews,
+protocol, or commit primitives requires decision 0054 plus create, move,
+empty-directory, non-empty-directory, overwrite, self-descendant, stale-state,
+native-protocol, cancellation, and forced-termination regressions on Windows
+and Linux. Remove `manage_path` advertisement first, then remove its planner,
+preview, committer, protocol, and native sources. Never retain an unadvertised
+namespace alias or portable pathname fallback. Changing the
 process registry, protocol, limits, output contract, executable resolution, or
 containment backend also requires the complete Windows and Linux proof and
 decision 0036 to change in the same review. Remove `run_process` advertisement
 before its handler or adapter, then remove the native product build only when
 no remaining proof or platform work consumes it. Tool-specific presenters are
 forbidden; activity changes go through the one log and one presentation
-function defined by decision 0022.
+function defined by decisions 0022, 0033, 0056, and 0057.
 
 ## Evidence
 
@@ -259,6 +305,10 @@ function defined by decision 0022.
 - Tool convergence decision: `docs/decisions/0050-owned-minimal-coding-capability-surface.md`
 - Bounded file projection decision: `docs/decisions/0051-owned-bounded-file-line-projection.md`
 - Structured text-patch decision: `docs/decisions/0053-owned-structured-text-patch.md`
+- Namespace management decision: `docs/decisions/0054-owned-workspace-namespace-management.md`
+- Session permission decision: `docs/decisions/0055-owned-session-tool-permissions.md`
+- Compact activity decision: `docs/decisions/0056-owned-compact-tool-activity-line.md`
+- Transparent human activity decision: `docs/decisions/0057-owned-transparent-human-tool-activity.md`
 - Built-in filesystem adapters: `packages/agent-cli/src/builtin-tools.ts`
 - Shared built-in limits: `packages/agent-cli/src/builtin-tool-limits.ts`
 - Pure file line projection: `packages/agent-cli/src/workspace-file-read.ts`
@@ -276,6 +326,18 @@ function defined by decision 0022.
 - Linux mutation backend: `packages/agent-cli/native/mutation-commit/backend-linux.c`
 - Windows mutation backend: `packages/agent-cli/native/mutation-commit/backend-windows.c`
 - Native mutation rejection proof: `tools/test/native-mutation-commit.test.mjs`
+- Pure namespace effect plans: `packages/agent-cli/src/workspace-namespace-plans.ts`
+- Bounded namespace previews: `packages/agent-cli/src/workspace-namespace-preview.ts`
+- Namespace commit port: `packages/agent-cli/src/workspace-namespace-committer.ts`
+- Native namespace adapter: `packages/agent-cli/src/platform-workspace-namespace.ts`
+- Native namespace protocol: `packages/agent-cli/src/platform-workspace-namespace-protocol.ts`
+- Native namespace entry point: `packages/agent-cli/native/namespace-commit/main.c`
+- Native namespace protocol: `packages/agent-cli/native/namespace-commit/protocol.c`
+- Native namespace contract: `packages/agent-cli/native/namespace-commit/namespace-commit.h`
+- Linux namespace backend: `packages/agent-cli/native/namespace-commit/backend-linux.c`
+- Windows namespace backend: `packages/agent-cli/native/namespace-commit/backend-windows.c`
+- Namespace protocol tests: `packages/agent-cli/test/platform-workspace-namespace-protocol.test.ts`
+- Namespace adapter tests: `packages/agent-cli/test/platform-workspace-namespace.test.ts`
 - Canonical workspace boundary: `packages/agent-cli/src/workspace-boundary.ts`
 - Workspace-ignore grammar: `packages/agent-cli/src/workspace-ignore.ts`
 - Workspace read policy: `packages/agent-cli/src/workspace-read-policy.ts`
@@ -286,8 +348,11 @@ function defined by decision 0022.
 - Process runner port: `packages/agent-cli/src/process-runner.ts`
 - Node process adapter: `packages/agent-cli/src/node-process-runner.ts`
 - Native broker protocol: `packages/agent-cli/src/process-broker-protocol.ts`
-- Approval reducer: `packages/agent-cli/src/application.ts`
+- Permission reducer: `packages/agent-cli/src/application.ts`
+- Session permission policy: `packages/agent-cli/src/tool-permissions.ts`
+- Permission presentation: `packages/agent-cli/src/permissions-view.ts`
 - Activity lifecycle: `packages/agent-cli/src/tool-activity-log.ts`
+- Pure activity projection: `packages/agent-cli/src/tool-activity-presentation.ts`
 - Activity presentation: `packages/agent-cli/src/activity-view.ts`
 - Accepted execution design: `docs/decisions/0008-owned-tool-execution.md`
 - Lean-harness decision: `docs/decisions/0014-lean-tool-harness.md`

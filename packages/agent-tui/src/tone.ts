@@ -4,6 +4,7 @@ export type Tone =
   | "attention"
   | "emphasis"
   | "failure"
+  | "highContrast"
   | "muted"
   | "plain"
   | "success"
@@ -19,6 +20,7 @@ export function isTone(value: unknown): value is Tone {
     value === "plain" ||
     value === "muted" ||
     value === "emphasis" ||
+    value === "highContrast" ||
     value === "accent" ||
     value === "attention" ||
     value === "success" ||

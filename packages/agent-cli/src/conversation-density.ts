@@ -1,7 +1,8 @@
-/** Closed product-owned row policy shared by conversation presenters. */
+/** Closed product-owned cell and row policy shared by conversation presenters. */
 export const CONVERSATION_DENSITY = Object.freeze({
-  activityVerticalPadding: 0 as const,
-  composerVerticalPadding: 1 as const,
+  contentInsetCells: 1 as const,
+  flushCells: 0 as const,
+  flushRows: 0 as const,
+  composerRuleRows: 1 as const,
   rhythmRows: 1 as const,
-  userVerticalPadding: 1 as const,
 });

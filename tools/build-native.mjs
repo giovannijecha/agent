@@ -18,6 +18,10 @@ const mutationCommitRoot = path.join(
   projectRoot,
   "packages/agent-cli/native/mutation-commit",
 );
+const namespaceCommitRoot = path.join(
+  projectRoot,
+  "packages/agent-cli/native/namespace-commit",
+);
 const workspaceRootsRoot = path.join(
   projectRoot,
   "packages/agent-cli/native/workspace-roots",
@@ -131,6 +135,16 @@ runCompiler([
   path.join(mutationCommitRoot, backend),
   "-o",
   path.join(outputDirectory, "agent-mutation-commit" + executableSuffix),
+]);
+
+runCompiler([
+  ...commonFlags,
+  ...platformFlags,
+  path.join(namespaceCommitRoot, "main.c"),
+  path.join(namespaceCommitRoot, "protocol.c"),
+  path.join(namespaceCommitRoot, backend),
+  "-o",
+  path.join(outputDirectory, "agent-namespace-commit" + executableSuffix),
 ]);
 
 runCompiler([

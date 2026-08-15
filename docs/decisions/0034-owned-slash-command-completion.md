@@ -2,7 +2,13 @@
 
 - Status: accepted
 - Date: 2026-08-11
-- Amended by: decision 0040
+- Amended by: decisions 0040, 0055, and 0057
+
+Decision 0055 changes the exact catalog to `/providers`, `/permissions`, and
+`/exit`. It removes `/approve` and `/deny`; pending tool decisions are
+contextual selections, not commands.
+Decision 0057 supersedes the activity-background refinement below: activity is
+transparent and only its mark and written state carry semantic truth foregrounds.
 
 Decision 0040 replaces split, background-filled rows and the passive keyboard
 hint with compact transparent inline rows. Catalog, selection, key, dispatch,
@@ -10,7 +16,7 @@ and bounded-window behavior below remain in force.
 
 ## Context
 
-The CLI owns four exact slash commands, but the empty composer gives no local
+The CLI owns three exact slash commands, but the empty composer gives no local
 discovery path. The maintained manual remains authoritative, while ordinary
 terminal use benefits from a small completion surface that cannot invent
 aliases, execute a partially selected command, or become a second dispatcher.
@@ -24,8 +30,8 @@ unchanged when no completion is active.
 
 The CLI exposes one immutable canonical command catalog containing the exact
 command text and one short description. Exact dispatch and completion both use
-that catalog. The catalog contains `/providers`, `/approve`, `/deny`, and
-`/exit`; it does not restore `/help`, add aliases, or accept command arguments.
+that catalog. The catalog contains `/providers`, `/permissions`, and `/exit`;
+it does not restore `/help`, add aliases, or accept command arguments.
 
 Completion is active only when the complete draft is a non-empty, case-sensitive
 prefix of at least one command, contains no whitespace, and is not already an
@@ -52,11 +58,11 @@ primitives: unselected rows use the technical inset surface and the selected
 row uses the subtle surface. The completion slot sits immediately above the
 composer and below contextual activity.
 
-The activity foreground contract is refined at the same review boundary:
-semantic backgrounds continue to encode success, attention, and failure, while
-tool identity, state, safe detail, and approval actions use neutral plain or
-emphasized foregrounds. Written state remains mandatory; color is never the
-only signal.
+The activity foreground contract at this historical boundary kept content
+neutral on semantic backgrounds. Decision 0057 now keeps the surface transparent,
+uses semantic foregrounds on the mark and written state, and leaves action, safe
+subject, preview, and permission actions neutral. Written state remains mandatory;
+color is never the only signal.
 
 ## Security and bounds
 

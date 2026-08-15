@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 5,
+  "schemaVersion": 9,
   "index": "docs/manual/README.md",
   "chapters": [
     {
@@ -20,7 +20,7 @@
     },
     {
       "path": "docs/manual/04-tools-and-approval.md",
-      "title": "04 - Tools and approval"
+      "title": "04 - Tools and permissions"
     },
     {
       "path": "docs/manual/05-providers-and-authentication.md",
@@ -36,9 +36,8 @@
     }
   ],
   "commands": [
-    "/approve",
-    "/deny",
     "/exit",
+    "/permissions",
     "/providers"
   ],
   "toolSurface": {
@@ -54,6 +53,12 @@
         "capability": "enumerate-one-directory",
         "risk": "read",
         "necessity": "Discovers one directory without reading file contents or recursing."
+      },
+      {
+        "name": "manage_path",
+        "capability": "manage-one-workspace-path",
+        "risk": "write",
+        "necessity": "Creates one directory, moves one file or directory, or removes one file or empty directory without shell or recursive authority."
       },
       {
         "name": "read_file",
@@ -129,6 +134,10 @@
     "docs/decisions/0051-owned-bounded-file-line-projection.md",
     "docs/decisions/0052-owned-checkpointed-turn-failure-classification.md",
     "docs/decisions/0053-owned-structured-text-patch.md",
+    "docs/decisions/0054-owned-workspace-namespace-management.md",
+    "docs/decisions/0055-owned-session-tool-permissions.md",
+    "docs/decisions/0056-owned-compact-tool-activity-line.md",
+    "docs/decisions/0057-owned-transparent-human-tool-activity.md",
     "evaluations/README.md",
     "evaluations/failures/registry.json",
     "assets/brand/README.md",
@@ -150,6 +159,7 @@
     "package.json",
     "packages/agent-cli/src/application.ts",
     "packages/agent-cli/src/activity-view.ts",
+    "packages/agent-cli/src/permissions-view.ts",
     "packages/agent-cli/src/builtin-tools.ts",
     "packages/agent-cli/src/workspace-file-read.ts",
     "packages/agent-cli/src/process-program-registry.ts",
@@ -171,6 +181,8 @@
     "packages/agent-cli/src/provider-configuration.ts",
     "packages/agent-cli/src/run.ts",
     "packages/agent-cli/src/tool-activity-log.ts",
+    "packages/agent-cli/src/tool-activity-presentation.ts",
+    "packages/agent-cli/src/tool-permissions.ts",
     "packages/agent-cli/src/builtin-tool-limits.ts",
     "packages/agent-cli/src/workspace-mutation-plans.ts",
     "packages/agent-cli/src/workspace-mutation-preview.ts",
@@ -178,6 +190,11 @@
     "packages/agent-cli/src/workspace-mutation-committer.ts",
     "packages/agent-cli/src/platform-workspace-mutation-protocol.ts",
     "packages/agent-cli/src/platform-workspace-mutation.ts",
+    "packages/agent-cli/src/workspace-namespace-plans.ts",
+    "packages/agent-cli/src/workspace-namespace-preview.ts",
+    "packages/agent-cli/src/workspace-namespace-committer.ts",
+    "packages/agent-cli/src/platform-workspace-namespace-protocol.ts",
+    "packages/agent-cli/src/platform-workspace-namespace.ts",
     "packages/agent-cli/src/workspace-path.ts",
     "packages/agent-cli/src/workspace-boundary.ts",
     "packages/agent-cli/src/workspace-ignore.ts",
@@ -194,6 +211,11 @@
     "packages/agent-cli/native/mutation-commit/main.c",
     "packages/agent-cli/native/mutation-commit/mutation-commit.h",
     "packages/agent-cli/native/mutation-commit/protocol.c",
+    "packages/agent-cli/native/namespace-commit/backend-linux.c",
+    "packages/agent-cli/native/namespace-commit/backend-windows.c",
+    "packages/agent-cli/native/namespace-commit/main.c",
+    "packages/agent-cli/native/namespace-commit/namespace-commit.h",
+    "packages/agent-cli/native/namespace-commit/protocol.c",
     "packages/agent-runtime/src/events.ts",
     "packages/agent-runtime/src/limits.ts",
     "packages/agent-runtime/src/runtime.ts",
@@ -246,6 +268,8 @@
     "tools/test/manual-policy.test.mjs",
     "tools/test/native-process-broker.test.mjs",
     "tools/test/native-mutation-commit.test.mjs",
+    "packages/agent-cli/test/platform-workspace-namespace-protocol.test.ts",
+    "packages/agent-cli/test/platform-workspace-namespace.test.ts",
     "tools/toolchain.json",
     "tools/verify.mjs",
     "tools/verify.sh",

@@ -1,36 +1,10 @@
-import {
-  StructuredObject,
-  structuredValueFromUnknown,
-} from "@agent/core";
-import { renderStructuredProjection } from "@agent/tools";
-
 import type { TextPatchHunk } from "./workspace-text-patch.js";
 
 export const WORKSPACE_MUTATION_PREVIEW_CODE_UNITS = 2_048;
 
-const EXCERPT_BUDGETS = Object.freeze([768, 512, 256, 128, 64]);
-const EXACT_PATCH_FIELDS = Object.freeze([
-  "removeCodeUnits",
-  "removeText",
-  "insertCodeUnits",
-  "insertText",
-]);
-const EXCERPT_PATCH_FIELDS = Object.freeze([
-  "removeCodeUnits",
-  "removePrefix",
-  "removeOmitted",
-  "removeSuffix",
-  "insertCodeUnits",
-  "insertPrefix",
-  "insertOmitted",
-  "insertSuffix",
-]);
-const OMITTED_PATCH_FIELDS = Object.freeze([
-  "removeCodeUnits",
-  "removeOmitted",
-  "insertCodeUnits",
-  "insertOmitted",
-]);
+const PATH_PREFIX = "Path: ";
+const EXCERPT_BUDGETS = Object.freeze([768, 512, 256, 128, 64, 0]);
+const UNSAFE_DISPLAY = /[\p{C}\p{Zl}\p{Zp}]/u;
 
 type TextExcerpt = Readonly<{
   omitted: number;
@@ -38,19 +12,15 @@ type TextExcerpt = Readonly<{
   suffix: string;
 }>;
 
-type PatchExcerpt = Readonly<{
-  hunks: readonly (readonly (number | string)[])[];
-  omitted: number;
-}>;
-
 type PatchMutationPreview = Readonly<{
-  addedLines: number;
   effect: "create" | "update";
   hunks: readonly TextPatchHunk[];
-  observedDigest?: string;
   path: string;
-  removedLines: number;
-  resultingDigest: string;
+}>;
+
+export type PatchMutationDisplay = Readonly<{
+  diff: string;
+  path: string;
 }>;
 
 function safePrefix(content: string, codeUnits: number): string {
@@ -90,193 +60,183 @@ function excerpt(content: string, budget: number): TextExcerpt {
   });
 }
 
-function patchCodeUnits(hunks: readonly TextPatchHunk[]): number {
-  let codeUnits = 0;
+function escapeDiffText(content: string): string {
+  const parts: string[] = [];
+  let index = 0;
+  while (index < content.length) {
+    const point = content.codePointAt(index);
+    if (point === undefined) {
+      break;
+    }
+    const scalar = String.fromCodePoint(point);
+    index += scalar.length;
+    if (scalar === "\r") {
+      if (content.charAt(index) === "\n") {
+        index += 1;
+      }
+      parts.push("\n");
+    } else if (scalar === "\n") {
+      parts.push("\n");
+    } else if (scalar === "\\") {
+      parts.push("\\\\");
+    } else if (scalar === "\t") {
+      parts.push("\\t");
+    } else if (UNSAFE_DISPLAY.test(scalar)) {
+      parts.push("\\u{" + point.toString(16) + "}");
+    } else {
+      parts.push(scalar);
+    }
+  }
+  return parts.join("");
+}
+
+function appendChangedRows(
+  rows: string[],
+  marker: "-" | "+",
+  content: string,
+  budget: number | undefined,
+  compactOmission: boolean,
+): void {
+  if (content.length === 0) {
+    return;
+  }
+  const retained = budget === undefined
+    ? Object.freeze({ omitted: 0, prefix: content, suffix: "" })
+    : excerpt(content, budget);
+  if (retained.prefix.length > 0) {
+    for (const line of escapeDiffText(retained.prefix).split("\n")) {
+      rows.push(marker + " " + line);
+    }
+  }
+  if (retained.omitted > 0) {
+    rows.push(
+      compactOmission
+        ? marker + " [" + String(retained.omitted) + " omitted]"
+        : marker + " ... " + String(retained.omitted) +
+          " code units omitted",
+    );
+  }
+  if (retained.suffix.length > 0) {
+    for (const line of escapeDiffText(retained.suffix).split("\n")) {
+      rows.push(marker + " " + line);
+    }
+  }
+}
+
+function nonEmptyFieldCount(hunks: readonly TextPatchHunk[]): number {
+  let count = 0;
   for (let index = 0; index < hunks.length; index += 1) {
     const hunk = hunks.at(index);
     if (hunk !== undefined) {
-      codeUnits += hunk.oldText.length + hunk.newText.length;
+      if (hunk.oldText.length > 0) count += 1;
+      if (hunk.newText.length > 0) count += 1;
     }
   }
-  return codeUnits;
+  return count;
 }
 
-function exactPatchHunks(
-  hunks: readonly TextPatchHunk[],
-): readonly (readonly (number | string)[])[] {
-  const projected: (readonly (number | string)[])[] = [];
-  for (let index = 0; index < hunks.length; index += 1) {
-    const hunk = hunks.at(index);
-    if (hunk !== undefined) {
-      projected.push(
-        Object.freeze([
-          hunk.oldText.length,
-          hunk.oldText,
-          hunk.newText.length,
-          hunk.newText,
-        ]),
-      );
-    }
-  }
-  return Object.freeze(projected);
-}
-
-function excerptPatchHunks(
-  hunks: readonly TextPatchHunk[],
-  budget: number,
-): PatchExcerpt {
-  const fieldCount = hunks.length * 2;
-  const sharedBudget = fieldCount === 0 ? 0 : Math.floor(budget / fieldCount);
-  const remainder = fieldCount === 0 ? 0 : budget % fieldCount;
-  const projected: (readonly (number | string)[])[] = [];
+function renderDiff(
+  mutation: PatchMutationPreview,
+  totalBudget: number | undefined,
+  compactOmission: boolean,
+): string {
+  const rows = [PATH_PREFIX + mutation.path];
+  const fields = nonEmptyFieldCount(mutation.hunks);
+  const sharedBudget = totalBudget === undefined || fields === 0
+    ? undefined
+    : Math.floor(totalBudget / fields);
+  const remainder = totalBudget === undefined || fields === 0
+    ? 0
+    : totalBudget % fields;
   let fieldIndex = 0;
-  let omitted = 0;
-  for (let index = 0; index < hunks.length; index += 1) {
-    const hunk = hunks.at(index);
+  for (let index = 0; index < mutation.hunks.length; index += 1) {
+    const hunk = mutation.hunks.at(index);
     if (hunk === undefined) {
       continue;
     }
-    const remove = excerpt(
+    const removeBudget = sharedBudget === undefined || hunk.oldText.length === 0
+      ? sharedBudget
+      : sharedBudget + (fieldIndex < remainder ? 1 : 0);
+    if (hunk.oldText.length > 0) fieldIndex += 1;
+    const insertBudget = sharedBudget === undefined || hunk.newText.length === 0
+      ? sharedBudget
+      : sharedBudget + (fieldIndex < remainder ? 1 : 0);
+    if (hunk.newText.length > 0) fieldIndex += 1;
+    appendChangedRows(
+      rows,
+      "-",
       hunk.oldText,
-      sharedBudget + (fieldIndex < remainder ? 1 : 0),
+      removeBudget,
+      compactOmission,
     );
-    fieldIndex += 1;
-    const insert = excerpt(
+    appendChangedRows(
+      rows,
+      "+",
       hunk.newText,
-      sharedBudget + (fieldIndex < remainder ? 1 : 0),
-    );
-    fieldIndex += 1;
-    omitted += remove.omitted + insert.omitted;
-    projected.push(
-      Object.freeze([
-        hunk.oldText.length,
-        remove.prefix,
-        remove.omitted,
-        remove.suffix,
-        hunk.newText.length,
-        insert.prefix,
-        insert.omitted,
-        insert.suffix,
-      ]),
+      insertBudget,
+      compactOmission,
     );
   }
-  return Object.freeze({ hunks: Object.freeze(projected), omitted });
-}
-
-function omittedPatchHunks(
-  hunks: readonly TextPatchHunk[],
-): readonly (readonly number[])[] {
-  const projected: (readonly number[])[] = [];
-  for (let index = 0; index < hunks.length; index += 1) {
-    const hunk = hunks.at(index);
-    if (hunk !== undefined) {
-      projected.push(
-        Object.freeze([
-          hunk.oldText.length,
-          hunk.oldText.length,
-          hunk.newText.length,
-          hunk.newText.length,
-        ]),
-      );
-    }
+  if (
+    mutation.effect === "create" &&
+    mutation.hunks.length === 1 &&
+    rows.length === 1
+  ) {
+    rows.push("+ [empty file]");
   }
-  return Object.freeze(projected);
+  return rows.join("\n");
 }
 
-function renderPreview(
-  value: unknown,
-  fields: readonly Readonly<{ mode: "exact" | "size"; name: string }>[],
-): string | undefined {
-  const structured = structuredValueFromUnknown(value);
-  return structured.ok && structured.value instanceof StructuredObject
-    ? renderStructuredProjection(
-        fields,
-        structured.value,
-        WORKSPACE_MUTATION_PREVIEW_CODE_UNITS,
-      )
-    : undefined;
+function validPath(path: string): boolean {
+  return path.length > 0 && !UNSAFE_DISPLAY.test(path);
 }
 
-/** Renders one bounded exact structured-patch approval preview. */
+/** Renders one bounded human-readable diff for exact patch permission. */
 export function patchMutationPreview(
   mutation: PatchMutationPreview,
 ): string | undefined {
-  const observedState =
-    mutation.effect === "create"
-      ? Object.freeze({ observed: "absent" })
-      : Object.freeze({ observedDigest: mutation.observedDigest });
-  const changedCodeUnits = patchCodeUnits(mutation.hunks);
-  const base = {
-    addedLines: mutation.addedLines,
-    effect: mutation.effect,
-    hunks: mutation.hunks.length,
-    ...observedState,
-    operation: "apply_patch",
-    patchCodeUnits: changedCodeUnits,
-    path: mutation.path,
-    removedLines: mutation.removedLines,
-    resultingDigest: mutation.resultingDigest,
-  };
-  const commonFields = [
-    { mode: "exact" as const, name: "operation" },
-    { mode: "exact" as const, name: "effect" },
-    { mode: "exact" as const, name: "path" },
-    mutation.effect === "create"
-      ? { mode: "exact" as const, name: "observed" }
-      : { mode: "exact" as const, name: "observedDigest" },
-    { mode: "exact" as const, name: "resultingDigest" },
-    { mode: "exact" as const, name: "hunks" },
-    { mode: "exact" as const, name: "removedLines" },
-    { mode: "exact" as const, name: "addedLines" },
-    { mode: "exact" as const, name: "patchCodeUnits" },
-  ];
-  const complete = renderPreview(
-    {
-      ...base,
-      patchFields: EXACT_PATCH_FIELDS,
-      patchHunks: exactPatchHunks(mutation.hunks),
-    },
-    Object.freeze([
-      ...commonFields,
-      { mode: "exact" as const, name: "patchFields" },
-      { mode: "exact" as const, name: "patchHunks" },
-    ]),
-  );
-  if (complete !== undefined) {
-    return complete;
+  if (!validPath(mutation.path) || mutation.hunks.length === 0) {
+    return undefined;
+  }
+  const exact = renderDiff(mutation, undefined, false);
+  if (exact.length <= WORKSPACE_MUTATION_PREVIEW_CODE_UNITS) {
+    return exact;
   }
   for (const budget of EXCERPT_BUDGETS) {
-    const bounded = excerptPatchHunks(mutation.hunks, budget);
-    const preview = renderPreview(
-      {
-        ...base,
-        patchFields: EXCERPT_PATCH_FIELDS,
-        patchHunks: bounded.hunks,
-        patchOmitted: bounded.omitted,
-      },
-      Object.freeze([
-        ...commonFields,
-        { mode: "exact" as const, name: "patchFields" },
-        { mode: "exact" as const, name: "patchHunks" },
-        { mode: "exact" as const, name: "patchOmitted" },
-      ]),
-    );
-    if (preview !== undefined) {
-      return preview;
+    const bounded = renderDiff(mutation, budget, false);
+    if (bounded.length <= WORKSPACE_MUTATION_PREVIEW_CODE_UNITS) {
+      return bounded;
     }
   }
-  return renderPreview(
-    {
-      ...base,
-      patchFields: OMITTED_PATCH_FIELDS,
-      patchHunks: omittedPatchHunks(mutation.hunks),
-      patchOmitted: changedCodeUnits,
-    },
-    Object.freeze([
-      ...commonFields,
-      { mode: "exact" as const, name: "patchFields" },
-      { mode: "exact" as const, name: "patchHunks" },
-      { mode: "exact" as const, name: "patchOmitted" },
-    ]),
-  );
+  const compact = renderDiff(mutation, 0, true);
+  return compact.length <= WORKSPACE_MUTATION_PREVIEW_CODE_UNITS
+    ? compact
+    : undefined;
+}
+
+/** Splits an owned patch preview into one safe subject and its diff body. */
+export function projectPatchMutationPreview(
+  preview: string,
+): PatchMutationDisplay | undefined {
+  const rows = preview.split("\n");
+  const head = rows.at(0);
+  if (
+    head === undefined ||
+    !head.startsWith(PATH_PREFIX) ||
+    rows.length < 2
+  ) {
+    return undefined;
+  }
+  const path = head.slice(PATH_PREFIX.length);
+  const body = rows.slice(1);
+  if (
+    !validPath(path) ||
+    body.some((row) => !row.startsWith("- ") && !row.startsWith("+ "))
+  ) {
+    return undefined;
+  }
+  return Object.freeze({
+    diff: body.join("\n"),
+    path,
+  });
 }

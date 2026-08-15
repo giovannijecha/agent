@@ -1,10 +1,9 @@
 import type { NoticeLevel } from "./notice.js";
 
 export type CommandResult =
-  | Readonly<{ kind: "approve" }>
-  | Readonly<{ kind: "deny" }>
   | Readonly<{ kind: "exit" }>
   | Readonly<{ kind: "none" }>
+  | Readonly<{ kind: "permissions" }>
   | Readonly<{
       kind: "notice";
       level: NoticeLevel;
@@ -18,7 +17,7 @@ export type ProviderPresentation = Readonly<{
   model: string;
 }>;
 
-export type CommandName = "/approve" | "/deny" | "/exit" | "/providers";
+export type CommandName = "/exit" | "/permissions" | "/providers";
 
 export type CommandDefinition = Readonly<{
   command: CommandName;
@@ -32,12 +31,8 @@ export const COMMANDS: readonly CommandDefinition[] = Object.freeze([
     description: "show integration availability",
   }),
   Object.freeze({
-    command: "/approve" as const,
-    description: "allow the pending tool call",
-  }),
-  Object.freeze({
-    command: "/deny" as const,
-    description: "reject the pending tool call",
+    command: "/permissions" as const,
+    description: "set session tool permissions",
   }),
   Object.freeze({ command: "/exit" as const, description: "close agent" }),
 ]);
@@ -100,11 +95,8 @@ export function executeSubmission(
     }
     return notice("info", "No provider configured");
   }
-  if (exact === "/approve") {
-    return Object.freeze({ kind: "approve" as const });
-  }
-  if (exact === "/deny") {
-    return Object.freeze({ kind: "deny" as const });
+  if (exact === "/permissions") {
+    return Object.freeze({ kind: "permissions" as const });
   }
   if (command.startsWith("/")) {
     return notice("warning", "Unknown command");

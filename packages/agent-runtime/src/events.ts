@@ -20,7 +20,7 @@ export type RuntimeCommandErrorKind =
   | "conversationTooLong"
   | "idle"
   | "notFinished"
-  | "notAwaitingApproval"
+  | "notAwaitingPermission"
   | "notPrepared"
   | "staleTurn";
 
@@ -30,7 +30,7 @@ export type RuntimeCommandError = Readonly<{ kind: RuntimeCommandErrorKind }>;
 export type RuntimeSourceErrorKind =
   | "awaitingAcknowledge"
   | "awaitingCommit"
-  | "awaitingApproval"
+  | "awaitingPermission"
   | "closed"
   | "concurrentRead"
   | "idle";

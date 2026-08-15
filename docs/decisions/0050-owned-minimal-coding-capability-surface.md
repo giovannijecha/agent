@@ -2,12 +2,17 @@
 
 - Status: accepted
 - Date: 2026-08-14
+- Permission amended by: decision 0055
+
+Decision 0055 changes authorization without changing this six-domain inventory:
+every exact tool has one session mode and every runtime request receives one
+turn-and-call decision.
 
 ## Context
 
 The first admitted tool harness deliberately exposed six narrow capabilities:
 three read tools, two mutation tools, and one process tool. That surface proved
-structured calls, exact approvals, bounded execution, workspace read privacy,
+structured calls, exact permissions, bounded execution, workspace read privacy,
 and handle-relative mutation commits. Maintained task evaluation now provides a
 repeatable way to distinguish model failures from missing capabilities.
 
@@ -41,15 +46,15 @@ domains:
 4. `apply_patch` owns creation and update of regular UTF-8 text through one
    exact, bounded, approval-bound patch plan. It does not remove paths.
 5. `manage_path` owns explicit directory creation, move, and removal namespace
-   operations. Each operation has one closed input shape and one exact approval.
+   operations. Each operation has one closed input shape and one exact authorization.
 6. One execute capability owns terminating external work. During the structured
    phase its canonical name remains `run_process`.
 
-This is a convergence target, not an immediate advertisement change. The
-current manual inventory remains authoritative until each replacement is fully
-implemented. A migration changes one authority domain at a time. An old and new
-tool may coexist only inside one atomic replacement change whose final verified
-registry exposes no overlapping aliases.
+This is now the exact permanent advertised inventory: `read_file`,
+`list_directory`, `search_text`, `apply_patch`, `manage_path`, and
+`run_process`. The three read domains, text-patch domain, namespace domain, and
+execute domain do not overlap. Any future replacement changes one authority
+domain atomically and leaves no old alias or dormant implementation.
 
 The execute domain uses one CLI-owned closed program registry. A registered
 entry owns one canonical token, exact executable resolution, supported
@@ -95,9 +100,9 @@ operator work or motivate a reviewed registry addition.
 ## Bounds, failures, and lifecycle
 
 Every target tool retains the existing tool-engine batch bound, sequential
-provider order, just-in-time planning, and separate exact approval for each
-write or execute effect. Consolidation cannot create a multi-file transaction,
-hidden task queue, persistent approval, background worker, or second agent.
+provider order, just-in-time planning, and one exact runtime decision for each
+request. Consolidation cannot create a multi-file transaction, hidden task
+queue, persisted permission, background worker, or second agent.
 
 Read improvements remain subject to the immutable workspace read policy and
 must reduce rather than bypass bounded traversal. Patch and namespace tools
@@ -140,6 +145,11 @@ replaces `create_file` and `replace_text` with one structured `apply_patch`
 descriptor while retaining the two internal native commit primitives behind one
 approved effect plan.
 
+Decision 0054 completes namespace-mutation convergence. The final registry adds
+one `manage_path` descriptor for create-directory, move, and nonrecursive
+file-or-empty-directory removal through a separate approved native object-bound
+namespace commit.
+
 ## Update, rollback, and removal
 
 Change the target inventory only when a capability has distinct necessity,
@@ -156,7 +166,9 @@ capability.
 To remove program registration while retaining process execution, first reduce
 the descriptor schema and approval projection to the remaining exact tokens,
 then remove the entry, resolver, policy, and focused tests. To remove process
-execution, follow decision 0036. To remove the convergence plan entirely,
-restore the current exact inventory as the permanent decision, remove the
-registry module if it no longer removes duplication, then delete this decision
-and its documentation and policy references.
+execution, follow decision 0036.
+
+To remove this inventory decision entirely, first record a new permanent
+inventory decision covering every remaining authority domain, update its exact
+manual and policy records, and only then delete this decision. Never infer a
+fallback inventory or keep an unadvertised registry or backend.

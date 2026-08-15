@@ -200,16 +200,16 @@ function normalizedProse(value) {
   return value.replace(/\s+/gu, " ").trim();
 }
 
-function verifyMutationConvergence(tools, context) {
+function verifyToolConvergence(tools, context) {
   const filesystemTools = tools.filter((tool) => tool.risk !== "execute");
   const privacy = normalizedProse(fileText(context, "PRIVACY.md"));
   const maintenance = normalizedProse(
     fileText(context, "docs/MAINTENANCE.md"),
   );
   if (
-    filesystemTools.length !== 4 ||
+    filesystemTools.length !== 5 ||
     !privacy.includes(
-      "The four filesystem tools share the one canonical workspace selected at startup",
+      "The five filesystem tools share the one canonical workspace selected at startup",
     ) ||
     !maintenance.includes(
       "restore both previous descriptors and their planners before removing `apply_patch`",
@@ -217,9 +217,12 @@ function verifyMutationConvergence(tools, context) {
     !maintenance.includes(
       "Never advertise either old tool beside `apply_patch`",
     ) ||
-    !maintenance.includes("To remove all mutation authority instead")
+    !maintenance.includes("To remove all mutation authority instead") ||
+    !maintenance.includes(
+      "remove `manage_path` advertisement and manual inventory",
+    )
   ) {
-    fail("manual mutation convergence contract is incomplete");
+    fail("manual tool convergence contract is incomplete");
   }
 }
 
@@ -332,7 +335,7 @@ export function validateManualPolicy(policy, context) {
     ],
     "manual policy",
   );
-  if (policy.schemaVersion !== 5 || policy.index !== INDEX_PATH) {
+  if (policy.schemaVersion !== 9 || policy.index !== INDEX_PATH) {
     fail("unsupported manual policy schema or index");
   }
   if (!isRecord(context) || !Array.isArray(context.manualPaths) || !Array.isArray(context.ownedPaths)) {
@@ -364,7 +367,7 @@ export function validateManualPolicy(policy, context) {
     extractToolContracts(fileText(context, TOOL_SOURCE)),
     "manual tool source inventory",
   );
-  verifyMutationConvergence(tools, context);
+  verifyToolConvergence(tools, context);
 
   if (!Array.isArray(policy.requiredPaths) || policy.requiredPaths.length === 0) {
     fail("manual evidence paths must be a non-empty array");

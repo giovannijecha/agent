@@ -4,6 +4,11 @@
 - Date: 2026-08-13
 - Amended: 2026-08-14 by decision 0046 for owned handle-relative mutation
   commit
+- Approval presentation amended by: decision 0057
+
+Decision 0057 keeps the exact workspace plan and commit binding below but
+replaces technical patch metadata in the permission UI with a bounded
+human-readable diff.
 
 ## Context
 
@@ -238,13 +243,13 @@ call; prepared model input cannot bypass planning.
 Decision 0053 consolidates text mutation under `apply_patch`. It records the
 canonical relative target, target absence or file identity, parent identity,
 complete bounded observed and proposed content, original and result SHA-256
-digests, and ordered unique non-overlapping exact-text hunks. Its delimited
-remove/insert preview shows short patch text completely. Longer patch text uses
-explicit prefix, suffix, and omitted-code-unit fields; omission is never
-presented as complete content. Preview line counts treat CRLF as one boundary
-and lone CR or LF as one boundary. Paths, input text, and previews must be
-Unicode-scalar UTF-8, and unsafe terminal scalars remain escaped by the shared
-structured projection.
+digests, and ordered unique non-overlapping exact-text hunks. Its readable
+remove/insert preview shows short patch text completely as `- ` and `+ ` logical
+rows. Longer patch text uses explicit prefix, suffix, and omitted-code-unit
+counts; omission is never presented as complete content. CRLF, lone CR, and LF
+become structural display rows while the plan retains exact line endings. Paths
+and input text remain Unicode-scalar UTF-8; backslashes, tabs, and non-line
+unsafe terminal scalars are escaped before display.
 
 The one pending approval names the immutable planned call, not the original
 input sizes. Denial discards that plan. Invocation opens and checks the observed
@@ -358,7 +363,8 @@ before credentials and terminal ownership.
 The complete mutation delivery proves that batch validation precedes
 all planner calls, plans are just in time and sequential, approvals carry the
 concrete preview, planning conflicts skip approval, and planner failures remain
-contained. Built-in mutation tests cover exact and truncated previews, digests,
+contained. Built-in mutation tests cover exact and truncated human previews,
+internal digest binding,
 ambiguous replacement, invalid scalar input, strict-UTF-8 rejection, target
 appearance, content drift, file-identity replacement, parent replacement, and
 symbolic-link swaps without an applied stale write. Decision 0046 adds exact

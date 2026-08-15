@@ -2,17 +2,19 @@
 
 - Status: Accepted
 - Date: 2026-08-12
-- Updated: 2026-08-13
+- Updated: 2026-08-15
 - Amended by: decisions 0040, 0041, and 0043
 
 Decision 0040 makes technical content and completion surfaces transparent,
-retains neutral subtle user and input surfaces, removes the command hint, gives
+retains the then-current neutral subtle user and input surfaces, removes the command hint, gives
 each adjacent lower-shell region the same optional one-row rhythm, and lets the
 footer pulse align with the composer's right edge. The fluid stage and pure
 projection below remain in force.
-Decision 0043 removes vertical padding from activity surfaces while retaining
-one vertical padding row around user and composer content and the shared
-external rhythm. Stage width and projection remain unchanged.
+Decision 0043 removes vertical padding from activity surfaces, replaces the
+padded subtle user region with a transparent generic `Surface` plus an
+exact-height muted `SideRail`, and amends the composer to use one full-width
+rule row above and below its transparent content. The shared external rhythm,
+stage width, and projection remain unchanged.
 
 ## Context
 
@@ -40,16 +42,18 @@ The CLI owns one pure responsive conversation-stage projection.
   available column. There is no arbitrary reading-width cap.
 - Transcript, activity, notices, command completion, composer, and footer are
   wrapped by the same stage. The pulse therefore ends on the same cell as the
-  composer surface. Individual product regions do not calculate a competing
+  composer frame. Individual product regions do not calculate a competing
   shell width.
 - The generic TUI `HorizontalInset` component remains the mechanism that
   applies the projection. It owns no agent-specific policy.
 - User-message regions fill the stage width. Structured technical content
   remains content-fit so code and tables do not become decorative full-width
   bands.
-- The composer is a stage-wide, borderless subtle surface around the
-  generic input area. One cell of horizontal and vertical padding creates
-  separation without recreating an outlined terminal input control.
+- The composer uses one generic stage-wide horizontal-rule frame around the
+  generic input area. Its content row is transparent with one cell of
+  horizontal padding; one full-width light-blue accent rule appears above and
+  below it when three rows fit. Constrained viewports collapse the optional
+  rules before editor content.
 - One shared one-row, zero-minimum rhythm appears before each non-empty
   contextual region, before the composer, and before the footer. Each slot
   disappears independently when absent or when the viewport cannot afford it.

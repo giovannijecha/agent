@@ -44,10 +44,11 @@ tests, update and rollback procedures, and an independent removal path.
   before mutation; reflective access and hostile getters must remain contained.
 - Treat model tool calls as hostile structured data. Bound and validate a
   complete ordered batch against the closed advertised schemas before effects,
-  execute its calls sequentially, and never infer approval from prose, a prefix,
+  execute its calls sequentially, and never infer permission from prose, a prefix,
   a prior call, another batch member, or a risk category.
-- Escape non-printing and directional Unicode in exact approval fields before
-  display, then reject any unescaped unsafe scalar at the application boundary.
+- Escape non-printing and directional Unicode in exact permission-preview
+  fields before display, then reject any unescaped unsafe scalar at the
+  application boundary.
 - Treat warnings, stale documentation, skipped tests, and suppressed type errors
   as failures.
 - Delete obsolete paths completely; never retain dormant compatibility code.
@@ -79,8 +80,8 @@ tests, update and rollback procedures, and an independent removal path.
   contract.
 - The footer pulse is the only right-edge footer content. Show it only for
   autonomous progress (`generating`, `runningTool`, or `cancelling`); leave the
-  edge empty while idle or awaiting approval. Its final cell coincides with the
-  composer's final surface cell. Keep the six-phase neutral-lead, ochre-head,
+  edge empty while idle or awaiting permission. Its final cell coincides with the
+  composer's final frame cell. Keep the six-phase neutral-lead, ochre-head,
   neutral-trail sequence pure and constant-width. Keep its owned bullet in the
   exact single-cell structural-glyph set together with the footer's owned middle
   dot separator.
@@ -129,7 +130,7 @@ bounded controller-internal mechanics over immutable snapshots during a
 read-only phase, and it must reduce their results in a deterministic order.
 Such work cannot enter the model, runtime, or tool engine or own context, plans,
 conversations, follow-up decisions, or authority. Any mutation excludes
-concurrent mechanics. Model turns, writes, process execution, approvals, and
+concurrent mechanics. Model turns, writes, process execution, permissions, and
 terminal output remain serialized. Current runtime remains sequential. Do not
 introduce worker identities, delegation, concurrent agent turns, or inter-agent
 state without a superseding architecture decision and its complete authority
@@ -279,8 +280,11 @@ row boundary.
 Treat Markdown as one closed display grammar, not a compatibility target. Under
 decision 0023, parse only the registered line and inline forms, keep incomplete
 and unsupported constructs literal, and compile directly into the canonical
-structured rows. Reuse the plain-text sanitizer, cell measurement, wrapping,
-anchoring, padding, fragment, frame, and renderer path. Under decision 0025,
+structured rows. Recognize exact same-line inline code before strong text and
+strong text before single-asterisk italic emphasis. Carry the parser-selected
+closed slant beside tone, selection, and interaction metadata through the same
+display-run and wrapping path. Reuse the plain-text sanitizer, cell measurement,
+wrapping, anchoring, padding, fragment, frame, and renderer path. Under decision 0025,
 ordinary text wraps only through the shared word-aware policy, long tokens use
 its cell fallback, and literal code remains on its explicit cell policy. Keep
 structural and continuation prefixes in the logical-line contract; do not add a
@@ -295,7 +299,8 @@ and emit it in the same surface; never add a table-specific painter, outer box,
 or full row grid. Reserve the declared surface padding before wrapping,
 retain the region identity beside bounded visible rows, and reuse the generic
 surface painter.
-Inline code and fenced language labels may select `accent`; table headers use
+Inline code and fenced language labels may select `accent`; single-asterisk
+emphasis retains the prose tone and selects `italic`; table headers use
 `emphasis`; structural separators use `muted`. Parse only exact `---` as the
 semantic horizontal separator and expand it in shared display layout, never in
 the parser. Under decision 0031 as amended by 0032, complete recognized
@@ -329,12 +334,14 @@ truth in the reducer; do not expose it as footer telemetry.
 Compose the product shell through decisions 0026, 0027, 0028, and 0039. The CLI alone
 decides vertical order, slot priorities, product wording, semantic tones, and
 truthful status facts. `Panel`, `SplitLine`, `ThreeColumnLine`,
-`HorizontalInset`, `SideRail`, `Surface`, `SelectionList`, and `Spacer`
+`HorizontalInset`, `HorizontalRules`, `SideRail`, `Surface`, `SelectionList`, and `Spacer`
 remain Node-free, agent-agnostic
 component mechanics. A panel must render its complete border or delegate its
 entire viewport without a border; partial boxes are forbidden. Compose the
-composer from one borderless neutral `Surface` and the prompt-free `InputArea`;
-never create a second
+composer from generic `HorizontalRules` and the prompt-free `InputArea`:
+retain transparent content, one cell of horizontal padding, and one full-width
+`accent` rule above and below it. Collapse the optional rule rows before
+content when fewer than three rows are assigned. Never create a second
 editor, decoder, draft, or submission path. Let the area grow from one to six
 content rows, wrap at word boundaries when possible, and keep the real terminal
 caret visible as the projection moves. Bracketed paste is one bounded atomic
@@ -348,18 +355,24 @@ Keep the draft neutral. Project one shared conversation stage in the
 CLI before composing the shell: transcript, activity, notice, completion, and
 composer use the same full usable width, retaining one technical outer column
 per side when the viewport permits it. Apply that stage to the footer and place
-the pulse on the composer's final surface cell. Do not let
+the pulse on the composer's final frame cell. Do not let
 product components invent private shell widths or arbitrary reading-width caps.
-Under decision 0043, read every internal padding and external rhythm value from
-the one frozen CLI-owned conversation-density record. A user surface retains
-one vertical row above and below its content, so a one-line user occupies three
-painted rows. Activity surfaces use zero vertical padding, and the current
-activity header plus detail occupies two rows. The focused composer retains one
-vertical row above and below its one-through-six content rows. Keep
+Under decision 0043, read the canonical content inset, flush offsets, composer
+rule rows, and external rhythm from the one frozen CLI-owned
+conversation-density record. Presenters and composer pointer projection consume
+that same record. User turns
+use a transparent zero-padding `Surface` composed with the generic `SideRail`;
+the muted solid half-block rail follows exactly the visible content rows and
+adds no synthetic row.
+Activity surfaces use zero vertical padding. Every state starts with one compact
+right-priority split line; pending permission alone may add a separately wrapped
+exact preview before one transparent contextual action list. The focused composer retains one
+full-width accent rule row above and below its transparent one-through-six
+content rows. Keep
 the external rhythm at one optional row and do not trade it for private surface
 padding.
 Project lower regions in authoritative order: transcript, activity, latest
-notice, completion, composer, and footer. A notice is transparent product
+notice, contextual selection or completion, composer, and footer. A notice is transparent product
 feedback, not transcript or tool lifecycle. Give it one closed `info` or
 `warning` level, one content-free generation token, one-cell horizontal inset,
 and no private panel. Replace rather than accumulate notices, dismiss on editor
@@ -375,15 +388,20 @@ working folder left and provider/model at the physical center. Reserve the
 footer's right edge for the constant-width active-work pulse and leave it empty
 otherwise. When width is scarce, retain right, then center, then left. Do not add
 a static product header or duplicate lifecycle or navigation prose. Footer facts
-come only from the composition root or authoritative application state. Compose stage-wide user transcript regions with
-`Surface`; keep surface, slant, and foreground tone independent, closed, and
-renderer-owned. Use italic slant for user role distinction, leave assistant
-prose direct, and reuse the content-fit transparent painter for registered
-structured Markdown regions. Use the neutral subtle surface for user turns and
-the composer. Reserve green, ochre, and red backgrounds for authoritative tool
-lifecycle state. Keep green for
-success, yellow for active/approval, and red for negative terminal
-state. Do not add permanent dashboards, empty metrics, speculative progress, or
+come only from the composition root or authoritative application state. Compose
+stage-wide user transcript regions with a transparent `Surface` and the generic
+`SideRail`; keep surface, slant, and foreground tone independent, closed, and
+renderer-owned. Use italic slant and the closed `highContrast` base tone for
+user role distinction, plus one muted solid half-block rail cell that itself
+owns the shared content inset for exactly the visible rows. Its following cell
+aligns with assistant prose and composer text and caret. Registered Markdown roles override
+the base tone only on their spans. Leave assistant base prose `plain` and
+direct, and reuse the content-fit transparent painter for registered
+structured Markdown regions.
+Keep composer content transparent between the generic light-blue accent rules.
+Keep tool activity transparent. Reserve success, attention, and failure
+foregrounds for its status mark and written authoritative state. Keep the action,
+optional safe subject, and preview neutral. Do not add permanent dashboards, empty metrics, speculative progress, or
 integration-specific cards. Future tools and integrations reuse the same
 split-line, three-column-line, inset, rail, marker, spacer, activity-stack, scroll, and
 vertical-layout paths. Keep role and content structured in the CLI, but do not
@@ -405,21 +423,32 @@ execution, or provider policy. Compose command and description as one compact
 transparent inline row with a fixed two-cell gap. Do not add a passive keyboard
 hint or right-align the description.
 
+Keep session permission policy in one CLI-owned closed six-entry module. The
+generic TUI knows only `SelectionList`; it never receives tool names, modes, or
+authority. `/permissions` projects exact tool, risk, and mode rows; Up/Down move
+without wrapping, Left/Right change mode without wrapping, and Enter closes.
+Pending `Ask` uses the same generic selection primitive for exactly `Allow
+once`, `Allow for session`, and `Deny`. Give the pending decision precedence
+over the session editor, and never let legacy command text or composer input
+resolve it accidentally.
+
 Compose sequential component documents through the one bounded generic stack
 defined by decision 0022. Product lifecycle state never enters that component:
 the CLI owns one tool-activity log and maps every registered tool through the
-same presentation function. Preserve the focused activity header before
-optional scope in short viewports by anchoring the shared stack at its head.
-Every state uses one generic borderless
-semantic `Surface`; success, attention, and failure are closed renderer-owned
-backgrounds selected from authoritative CLI state. Keep the tool name neutral
-and italic, retain the written state, and do not add per-tool components,
+same pure closed presentation table under decisions 0056 and 0057. Keep its display labels
+separate from tool names and dispatch. Preserve the compact status mark and action on the left and
+the written state on the right before an optional useful safe subject or preview
+detail in short viewports by anchoring the shared stack at its head.
+Every state uses one generic borderless transparent `Surface`; success, attention,
+and failure are closed renderer-owned foregrounds selected for the status mark and
+written state from authoritative CLI state. Canonical name and risk validate the
+projection but do not repeat in the visible head. Do not add per-tool components,
 panels, rails, icons, colors, aliases, or state paths. Visible activity is
 derived from one bounded log: only the latest tool occupies the contextual slot
 while its turn is active. The next tool replaces it, turn settlement removes
 it, and no activity enters the scrollable conversation. Project the exact
-bounded effect preview only for `approval`; every other state keeps its second
-row to the risk value. Retain the preview in the bounded lifecycle log rather
+bounded human-readable effect preview only for `permission`; every other state occupies exactly
+the compact main line. Retain the preview in the bounded lifecycle log rather
 than deleting state or creating a terminal-summary model. Do not add a second
 archive or lifecycle model. Activity
 is limited to the current or most recently settled turn and is scrubbed during
@@ -428,12 +457,13 @@ each non-empty activity or completion region, before the composer, and before
 the footer. Give every instance zero minimum height so constrained viewports
 discard rhythm before required interaction or activity content. Do not add
 component-private margins.
-When differential rendering redraws a homogeneous nontransparent row whose
-logical width equals the viewport, prepaint exactly that width with ASCII spaces
-under the row's authoritative surface, return to column zero, and then emit its
-structured spans. Do this only inside the renderer and only for rows already
-selected for redraw. Do not compensate in component text, add Unicode-specific
-width exceptions, or alter frame equality.
+When differential rendering redraws a row, prepaint every maximal contiguous
+nontransparent surface run across its exact measured start and width with ASCII
+spaces under that run's authoritative surface, return to column zero, and then
+emit its structured spans. Keep transparent gaps and differently surfaced runs
+separate. Do this only inside the renderer and only for rows already selected
+for redraw. Do not compensate in component text, add Unicode-specific width
+exceptions, or alter frame equality.
 Keep the empty session empty and keep
 operator guidance in the manual; do not recreate welcome suggestions or an
 embedded help document.
@@ -449,10 +479,13 @@ atomically. Provider vocabulary is translated at the adapter boundary rather
 than expanding the runtime registry. Product descriptor construction stays in
 the registered CLI module; the generic tool engine owns mechanics only.
 
-Tool descriptors and schemas are immutable provider-neutral data. Read tools may
-run automatically. A write or execute call with a successfully planned effect
-requires one exact pending-call decision from `/approve` or `/deny`; a failed
-plan has no effect and must not request approval. One model response may select
+Tool descriptors and schemas are immutable provider-neutral data. Keep one
+CLI-owned memory-only `Allow`, `Ask`, or `Deny` entry for every exact tool;
+reads default to `Allow`, writes and execution to `Ask`. Every valid runtime
+request waits for one exact turn-and-call decision. Pending `Ask` requests use
+only `Allow once`, `Allow for session`, and `Deny` through the contextual
+selection path; `/approve` and `/deny` are forbidden. A failed plan has no
+effect and must not prompt. One model response may select
 a bounded ordered batch. Pure complete-batch preflight precedes observation,
 then each call is planned just in time and invoked sequentially in provider
 order. Filesystem tools use no ambient network access.
@@ -543,8 +576,9 @@ still runs with the launching user's general operating-system authority.
 Checkpoint the structured call and result before the next model step. Later
 cancellation or failure must not erase the recorded truth of an attempted side
 effect. Render only descriptor-declared bounded projections or an owned bounded
-effect preview. A mutation preview may show exact content when it fits, or
-bounded excerpts plus SHA-256 digests and an explicit omitted count. Never put
+effect preview. A patch preview shows the canonical path and `- ` and `+ ` rows
+when they fit, or bounded excerpts with an explicit omitted-code-unit count.
+Keep SHA-256 digests, identity, and tuple metadata inside the effect plan. Never put
 raw arguments, file content, outputs, call identifiers, or causes in notices,
 errors, transcripts, or logs. Project a checkpointed terminal failure only
 through the pure CLI-owned classifier from decision 0052. Keep the closed

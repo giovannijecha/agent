@@ -2,6 +2,11 @@
 
 - Status: accepted
 - Date: 2026-08-11
+- Permission amended by: decision 0055
+
+Decision 0055 replaces mandatory typed approval with the exact `run_process`
+session mode and one per-request runtime decision. Program resolution,
+arguments, bounds, containment, and effect preview remain unchanged.
 
 ## Context
 

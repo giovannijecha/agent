@@ -19,11 +19,13 @@ import { RichRow } from "./rich-row.js";
 import { err, ok, type Result } from "./result.js";
 import type { TextAnchor } from "./text-block.js";
 import { TextSelection } from "./text-interaction.js";
+import { isTone, type Tone } from "./tone.js";
 import type { Viewport } from "./viewport.js";
 
 /** Immutable untrusted document component for the closed owned Markdown subset. */
 export class MarkdownBlock implements Component {
   readonly #anchor: TextAnchor;
+  readonly #baseTone: Tone;
   readonly #documents: readonly string[];
   readonly #document: number | undefined;
   readonly #selection: TextSelection | undefined;
@@ -31,11 +33,13 @@ export class MarkdownBlock implements Component {
   private constructor(
     documents: readonly string[],
     anchor: TextAnchor,
+    baseTone: Tone,
     document: number | undefined = undefined,
     selection: TextSelection | undefined = undefined,
   ) {
     this.#documents = Object.freeze([...documents]);
     this.#anchor = anchor;
+    this.#baseTone = baseTone;
     this.#document = document;
     this.#selection = selection;
     Object.freeze(this);
@@ -46,6 +50,7 @@ export class MarkdownBlock implements Component {
     text: string,
     anchor: TextAnchor,
     interaction?: Readonly<{
+      baseTone?: Tone;
       document: number;
       selection?: TextSelection | undefined;
     }>,
@@ -57,9 +62,11 @@ export class MarkdownBlock implements Component {
       return err(new ComponentError("invalidText", undefined));
     }
     let document: unknown;
+    let baseTone: unknown;
     let selection: unknown;
     try {
       document = interaction.document;
+      baseTone = interaction.baseTone ?? "plain";
       selection = interaction.selection;
     } catch (_cause: unknown) {
       return err(new ComponentError("invalidText", undefined));
@@ -72,16 +79,18 @@ export class MarkdownBlock implements Component {
     if (
       !Number.isSafeInteger(document) ||
       (document as number) < 0 ||
+      !isTone(baseTone) ||
       (selection !== undefined && retainedSelection === undefined)
     ) {
       return err(new ComponentError("invalidText", undefined));
     }
-    const created = MarkdownBlock.createDocuments([text], anchor);
+    const created = MarkdownBlock.createDocuments([text], anchor, baseTone);
     return created.ok
       ? ok(
           new MarkdownBlock(
             created.value.#documents,
             anchor,
+            baseTone,
             document as number,
             retainedSelection,
           ),
@@ -93,6 +102,7 @@ export class MarkdownBlock implements Component {
   static createDocuments(
     documents: readonly string[],
     anchor: TextAnchor,
+    baseTone: Tone = "plain",
   ): Result<MarkdownBlock, ComponentError> {
     try {
       if (
@@ -103,6 +113,9 @@ export class MarkdownBlock implements Component {
       }
       if (anchor !== "head" && anchor !== "tail") {
         return err(new ComponentError("invalidAnchor", undefined));
+      }
+      if (!isTone(baseTone)) {
+        return err(new ComponentError("invalidTone", undefined));
       }
       const owned: string[] = [];
       let codeUnits = 0;
@@ -121,7 +134,7 @@ export class MarkdownBlock implements Component {
         owned.push(document);
         codeUnits += separator + document.length;
       }
-      return ok(new MarkdownBlock(owned, anchor));
+      return ok(new MarkdownBlock(owned, anchor, baseTone));
     } catch (_cause: unknown) {
       return err(new ComponentError("invalidText", undefined));
     }
@@ -175,7 +188,12 @@ export class MarkdownBlock implements Component {
   #displayLines(): Iterable<DisplayLine> {
     const document = this.#documents.at(0);
     return this.#document === undefined || document === undefined
-      ? markdownDisplayDocuments(this.#documents)
-      : interactiveMarkdownLines(document, this.#document, this.#selection);
+      ? markdownDisplayDocuments(this.#documents, this.#baseTone)
+      : interactiveMarkdownLines(
+          document,
+          this.#document,
+          this.#selection,
+          this.#baseTone,
+        );
   }
 }

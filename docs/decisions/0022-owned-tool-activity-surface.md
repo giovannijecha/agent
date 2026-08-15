@@ -2,7 +2,15 @@
 
 - Status: accepted
 - Date: 2026-08-10
-- Amended by: decision 0033
+- Amended by: decisions 0033, 0055, 0056, and 0057
+
+Decision 0055 replaces embedded approval commands with a separate transparent
+contextual selection list and renames the pending lifecycle state to
+`permission`. Latest-only retention and transcript exclusion remain unchanged.
+Decision 0056 replaces the multi-row ordinary projection with one compact
+status/action/identity/state line while retaining this lifecycle model.
+Decision 0057 makes that compact surface transparent, removes repeated canonical
+name and risk from its visible head, and gives patch permission a readable diff.
 
 Decision 0028 later supersedes the presentation order and placement described
 here: only the latest activity is projected contextually while its turn is

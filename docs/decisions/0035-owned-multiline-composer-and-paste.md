@@ -3,11 +3,15 @@
 - Status: accepted
 - Date: 2026-08-11
 - Composer surface amended by: decision 0040
+- Composer frame amended by: decision 0043
 - Editor interaction amended by: decision 0045
 
 Decision 0040 replaces the original enclosing `Panel` below with one
 stage-wide borderless neutral `Surface`; `InputArea`, editor ownership, bounds,
-paste semantics, and caret behavior remain unchanged.
+paste semantics, and caret behavior remain unchanged. Decision 0043 later
+replaces that filled surface with the generic transparent `HorizontalRules`
+frame while retaining the same `InputArea`, three-row minimum geometry,
+horizontal inset, editor ownership, and caret behavior.
 
 ## Context
 
@@ -55,7 +59,8 @@ editor is introduced.
 
 The TUI adds one generic `InputArea` component beside the retained one-row
 `InputLine`. Its synchronous projection contains printable rows and one local
-caret. The CLI composer uses `InputArea` inside the existing generic `Panel`.
+caret. The CLI composer uses `InputArea` inside the active generic composer
+frame.
 It grows from one through six content rows, wraps at owned terminal-cell
 boundaries, expands tabs through the one display policy, and then retains only
 the caret-visible tail window. No prompt marker, scrollbar, modal editor, or

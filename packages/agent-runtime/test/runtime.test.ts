@@ -372,6 +372,15 @@ async function next<E>(runtime: AgentRuntime<E>) {
   return result.value;
 }
 
+function decideTool<E>(
+  runtime: AgentRuntime<E>,
+  turnId: number,
+  callId: string,
+  allowed = true,
+): void {
+  assert.ok(runtime.resolveToolPermission(turnId, callId, allowed).ok);
+}
+
 function responseSteps(length: number): Result<ModelStreamEvent, string>[] {
   const steps: Result<ModelStreamEvent, string>[] = [];
   let remaining = length;
@@ -1162,6 +1171,7 @@ test("runs a read tool sequentially and checkpoints its structured result", asyn
     risk: "read",
     turnId: started.value.turnId,
   });
+  decideTool(runtime, started.value.turnId, "call-1");
   assert.equal((await next(runtime)).kind, "toolStarted");
   const finished = await next(runtime);
   assert.equal(finished.kind, "toolFinished");
@@ -1208,6 +1218,7 @@ test("checkpoints an observed tool failure and lets the model continue", async (
   assert.ok(started.ok);
 
   assert.equal((await next(runtime)).kind, "toolRequested");
+  decideTool(runtime, started.value.turnId, "call-failed");
   assert.equal((await next(runtime)).kind, "toolStarted");
   const finished = await next(runtime);
   assert.equal(finished.kind, "toolFinished");
@@ -1273,6 +1284,7 @@ test("preflights and executes one ordered tool-call batch sequentially", async (
     firstRequested.kind === "toolRequested" ? firstRequested.callId : "",
     "call-html",
   );
+  decideTool(runtime, started.value.turnId, "call-html");
   assert.equal((await next(runtime)).kind, "toolStarted");
   const firstFinished = runtime.nextEvent();
   await firstStarted.promise;
@@ -1287,6 +1299,7 @@ test("preflights and executes one ordered tool-call batch sequentially", async (
     "call-script",
   );
   assert.deepEqual(observed, ["index.html"]);
+  decideTool(runtime, started.value.turnId, "call-script");
   assert.equal((await next(runtime)).kind, "toolStarted");
   assert.equal((await next(runtime)).kind, "toolFinished");
   assert.deepEqual(observed, ["index.html", "script.js"]);
@@ -1330,12 +1343,15 @@ test("checkpoints a complete batch and blocks its suffix after a handler contrac
         : ok(ToolHandlerOutcome.success({ text: path }));
     }),
   );
-  assert.ok(runtime.startTurn("inspect three files").ok);
+  const started = runtime.startTurn("inspect three files");
+  assert.ok(started.ok);
 
   assert.equal((await next(runtime)).kind, "toolRequested");
+  decideTool(runtime, started.value.turnId, "call-first");
   assert.equal((await next(runtime)).kind, "toolStarted");
   assert.equal((await next(runtime)).kind, "toolFinished");
   assert.equal((await next(runtime)).kind, "toolRequested");
+  decideTool(runtime, started.value.turnId, "call-invalid");
   assert.equal((await next(runtime)).kind, "toolStarted");
   const failed = await next(runtime);
   assert.equal(failed.kind, "toolFinished");
@@ -1391,6 +1407,7 @@ test("cancels an executing batch and records its unstarted suffix", async () => 
   assert.ok(started.ok);
 
   assert.equal((await next(runtime)).kind, "toolRequested");
+  decideTool(runtime, started.value.turnId, "call-running");
   assert.equal((await next(runtime)).kind, "toolStarted");
   const executing = runtime.nextEvent();
   await handlerStarted.promise;
@@ -1601,11 +1618,11 @@ test("requires exact approval for writes and checkpoints denial", async () => {
   assert.equal(requested.approvalRequired, true);
   const pending = runtime.nextEvent();
   assert.deepEqual(
-    runtime.resolveToolApproval(started.value.turnId, "wrong", false),
-    { ok: false, error: { kind: "notAwaitingApproval" } },
+    runtime.resolveToolPermission(started.value.turnId, "wrong", false),
+    { ok: false, error: { kind: "notAwaitingPermission" } },
   );
   assert.ok(
-    runtime.resolveToolApproval(
+    runtime.resolveToolPermission(
       started.value.turnId,
       requested.callId,
       false,
@@ -1654,7 +1671,7 @@ test("scopes approval to one call at a time within a write batch", async () => {
   assert.equal(firstRequested.kind, "toolRequested");
   assert.equal(observed.length, 0);
   assert.ok(
-    runtime.resolveToolApproval(started.value.turnId, "call-one", true).ok,
+    runtime.resolveToolPermission(started.value.turnId, "call-one", true).ok,
   );
   assert.equal((await next(runtime)).kind, "toolStarted");
   assert.equal((await next(runtime)).kind, "toolFinished");
@@ -1663,12 +1680,12 @@ test("scopes approval to one call at a time within a write batch", async () => {
   const secondRequested = await next(runtime);
   assert.equal(secondRequested.kind, "toolRequested");
   assert.deepEqual(
-    runtime.resolveToolApproval(started.value.turnId, "call-one", true),
-    { ok: false, error: { kind: "notAwaitingApproval" } },
+    runtime.resolveToolPermission(started.value.turnId, "call-one", true),
+    { ok: false, error: { kind: "notAwaitingPermission" } },
   );
   assert.equal(observed.length, 1);
   assert.ok(
-    runtime.resolveToolApproval(started.value.turnId, "call-two", true).ok,
+    runtime.resolveToolPermission(started.value.turnId, "call-two", true).ok,
   );
   assert.equal((await next(runtime)).kind, "toolStarted");
   assert.equal((await next(runtime)).kind, "toolFinished");
@@ -1712,7 +1729,7 @@ test("plans each mutation just in time after complete batch validation", async (
   assert.deepEqual(plannedPaths, ["one.txt"]);
   assert.deepEqual(invokedPaths, []);
   assert.ok(
-    runtime.resolveToolApproval(started.value.turnId, "call-one", true).ok,
+    runtime.resolveToolPermission(started.value.turnId, "call-one", true).ok,
   );
   assert.equal((await next(runtime)).kind, "toolStarted");
   assert.equal((await next(runtime)).kind, "toolFinished");
@@ -1785,7 +1802,8 @@ test("reports an effect-planning conflict without requesting approval", async ()
       err(Object.freeze({ kind: "conflict" as const })),
     ),
   );
-  assert.ok(runtime.startTurn("change").ok);
+  const started = runtime.startTurn("change");
+  assert.ok(started.ok);
 
   const requested = await next(runtime);
   assert.equal(requested.kind, "toolRequested");
@@ -1793,6 +1811,7 @@ test("reports an effect-planning conflict without requesting approval", async ()
     assert.equal(requested.approvalRequired, false);
     assert.equal(requested.approvalPreview, "");
   }
+  decideTool(runtime, started.value.turnId, "call-stale");
   assert.equal((await next(runtime)).kind, "toolStarted");
   const finished = await next(runtime);
   assert.equal(finished.kind, "toolFinished");
@@ -1844,7 +1863,7 @@ test("checkpoints a generic result after a mutation handler contract failure", a
     return;
   }
   assert.ok(
-    runtime.resolveToolApproval(
+    runtime.resolveToolPermission(
       started.value.turnId,
       requested.callId,
       true,
@@ -1909,6 +1928,7 @@ test("reserves the final assistant entry at the exact conversation boundary", as
   const started = runtime.startTurn("u");
   assert.ok(started.ok);
   assert.equal((await next(runtime)).kind, "toolRequested");
+  decideTool(runtime, started.value.turnId, "call-boundary");
   assert.equal((await next(runtime)).kind, "toolStarted");
   assert.equal((await next(runtime)).kind, "toolFinished");
   assert.equal(runtime.conversation.length, 254);
@@ -1944,7 +1964,7 @@ test("stop cancels a pending tool handler and preserves its attempted result", a
     return;
   }
   assert.ok(
-    runtime.resolveToolApproval(
+    runtime.resolveToolPermission(
       started.value.turnId,
       requested.callId,
       true,

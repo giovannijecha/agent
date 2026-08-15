@@ -6,6 +6,7 @@ const SINGLE_CELL_STRUCTURAL_GLYPHS = new Set([
   "\u2192",
   "\u2500",
   "\u2502",
+  "\u258c",
   "\u250c",
   "\u2510",
   "\u2514",

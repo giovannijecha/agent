@@ -205,16 +205,16 @@ test("rejects an incomplete lean harness inventory", () => {
   );
 });
 
-test("rejects mutation convergence documentation drift", () => {
+test("rejects tool convergence documentation drift", () => {
   const countContext = currentContext();
   countContext.files["PRIVACY.md"] = countContext.files["PRIVACY.md"].replace(
-    "The four filesystem tools",
     "The five filesystem tools",
+    "The four filesystem tools",
   );
   assert.throws(
     () => validateManualPolicy(currentPolicy, countContext),
     {
-      message: "manual mutation convergence contract is incomplete",
+      message: "manual tool convergence contract is incomplete",
       name: "ManualPolicyError",
     },
   );
@@ -232,7 +232,25 @@ test("rejects mutation convergence documentation drift", () => {
   assert.throws(
     () => validateManualPolicy(currentPolicy, rollbackContext),
     {
-      message: "manual mutation convergence contract is incomplete",
+      message: "manual tool convergence contract is incomplete",
+      name: "ManualPolicyError",
+    },
+  );
+
+  const namespaceContext = currentContext();
+  const maintainedNamespace = namespaceContext.files["docs/MAINTENANCE.md"];
+  namespaceContext.files["docs/MAINTENANCE.md"] = maintainedNamespace.replace(
+    "remove `manage_path` advertisement",
+    "remove `manage_path` implementation",
+  );
+  assert.notEqual(
+    namespaceContext.files["docs/MAINTENANCE.md"],
+    maintainedNamespace,
+  );
+  assert.throws(
+    () => validateManualPolicy(currentPolicy, namespaceContext),
+    {
+      message: "manual tool convergence contract is incomplete",
       name: "ManualPolicyError",
     },
   );
@@ -243,7 +261,7 @@ test("rejects stale manual removal schema guidance", () => {
   const maintainedGuidance = context.files["docs/MAINTENANCE.md"];
   context.files["docs/MAINTENANCE.md"] = context.files[
     "docs/MAINTENANCE.md"
-  ].replace("manual-policy schema 5", "manual-policy schema 4");
+  ].replace("manual-policy schema 9", "manual-policy schema 8");
   assert.notEqual(context.files["docs/MAINTENANCE.md"], maintainedGuidance);
   assert.throws(
     () => validateManualPolicy(currentPolicy, context),

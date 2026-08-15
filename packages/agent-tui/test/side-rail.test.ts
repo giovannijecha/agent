@@ -16,7 +16,7 @@ function viewport(columns: number, rows: number): Viewport {
   return created.value;
 }
 
-test("adds one open structural rail without changing row count", () => {
+test("adds one solid structural rail without changing row count", () => {
   const text = TextBlock.create("one two", "head", "plain");
   assert.ok(text.ok);
   const rail = SideRail.create(text.value, {
@@ -33,8 +33,8 @@ test("adds one open structural rail without changing row count", () => {
 
   assert.ok(rendered.ok);
   assert.deepEqual(rendered.value.rows.map((row) => row.text), [
-    "\u2502 one",
-    "\u2502 two",
+    "\u258c one",
+    "\u258c two",
   ]);
   assert.deepEqual(
     rendered.value.rows.at(0)?.spans.map((span) => span.tone),
@@ -78,7 +78,7 @@ test("translates one child caret through the structural rail", () => {
   const rendered = rail.value.render(viewport(8, 1));
 
   assert.ok(rendered.ok);
-  assert.equal(rendered.value.rows.at(0)?.text, "│ > go");
+  assert.equal(rendered.value.rows.at(0)?.text, "\u258c > go");
   assert.deepEqual(rendered.value.caret, { row: 0, column: 6 });
 });
 

@@ -1,8 +1,11 @@
 import { RUNTIME_LIMITS } from "@agent/runtime";
-import { TOOL_ENGINE_LIMITS, type ToolRisk } from "@agent/tools";
+import {
+  isSafeApprovalPreview,
+  TOOL_ENGINE_LIMITS,
+  type ToolRisk,
+} from "@agent/tools";
 import { err, ok, type Result } from "@agent/tui";
 
-const UNSAFE_PREVIEW = /[\p{C}\p{Zl}\p{Zp}]/u;
 const VALID_TOOL_NAME = /^[a-z][a-z0-9_]{0,63}$/u;
 
 export const TOOL_ACTIVITY_LIMITS = Object.freeze({
@@ -10,7 +13,7 @@ export const TOOL_ACTIVITY_LIMITS = Object.freeze({
 });
 
 export type ToolActivityState =
-  | "approval"
+  | "permission"
   | "cancelled"
   | "cancelling"
   | "denied"
@@ -79,7 +82,7 @@ function validPreview(preview: string): boolean {
   return (
     typeof preview === "string" &&
     preview.length <= TOOL_ENGINE_LIMITS.approvalPreviewCodeUnits &&
-    !UNSAFE_PREVIEW.test(preview)
+    isSafeApprovalPreview(preview)
   );
 }
 
@@ -110,7 +113,8 @@ export class ToolActivityLog {
     name: string,
     risk: ToolRisk,
     preview: string,
-    approvalRequired: boolean,
+    effectApprovalRequired: boolean,
+    decisionRequired: boolean,
   ): Result<void, ToolActivityError> {
     if (turnId !== this.#turnId) {
       return err(new ToolActivityError("staleTurn"));
@@ -121,8 +125,10 @@ export class ToolActivityLog {
       !VALID_TOOL_NAME.test(name) ||
       !validRisk(risk) ||
       !validPreview(preview) ||
-      typeof approvalRequired !== "boolean" ||
-      approvalRequired !== (risk !== "read" && preview.length > 0)
+      typeof effectApprovalRequired !== "boolean" ||
+      effectApprovalRequired !== (risk !== "read" && preview.length > 0) ||
+      typeof decisionRequired !== "boolean" ||
+      (risk === "read" && preview.length !== 0)
     ) {
       return err(new ToolActivityError("invalidActivity"));
     }
@@ -140,25 +146,25 @@ export class ToolActivityLog {
       open: true,
       preview,
       risk,
-      state: approvalRequired ? "approval" : "queued",
+      state: decisionRequired ? "permission" : "queued",
     };
     return ok(undefined);
   }
 
-  /** Records the one-shot operator decision without caching approval. */
+  /** Records the one-shot permission decision without retaining session policy. */
   decide(
     turnId: number,
     callId: string,
-    approved: boolean,
+    allowed: boolean,
   ): Result<void, ToolActivityError> {
     const entry = this.#openEntry(turnId, callId);
     if (!entry.ok) {
       return entry;
     }
-    if (entry.value.state !== "approval" || typeof approved !== "boolean") {
+    if (entry.value.state !== "permission" || typeof allowed !== "boolean") {
       return err(new ToolActivityError("invalidTransition"));
     }
-    if (approved) {
+    if (allowed) {
       entry.value.state = "queued";
     } else {
       entry.value.denied = true;
@@ -167,7 +173,7 @@ export class ToolActivityLog {
     return ok(undefined);
   }
 
-  /** Marks the exact approved request as executing. */
+  /** Marks the exact permitted request as executing. */
   start(turnId: number, callId: string): Result<void, ToolActivityError> {
     const entry = this.#openEntry(turnId, callId);
     if (!entry.ok) {

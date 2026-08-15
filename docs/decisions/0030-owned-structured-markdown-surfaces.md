@@ -63,7 +63,8 @@ candidate stays literal prose.
 Markdown syntax may now select `accent` only for complete inline-code content
 and complete fenced-code language labels. Headings, strong text, and table
 headers use `emphasis`; structural markers and table separators use `muted`;
-prose and unknown or unlabeled code bodies use `plain`. Recognized complete
+single-asterisk emphasis retains the prose tone and selects the closed italic
+slant; prose and unknown or unlabeled code bodies use `plain`. Recognized complete
 fences may use only the five code roles registered by decision 0031. This is a
 closed parser-owned mapping, not a theme or model-controlled styling surface.
 `attention`, `success`, and

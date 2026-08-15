@@ -44,7 +44,8 @@ caret row only when at least one separating cell remains after the projected
 draft. It does not reserve columns, alter projection width, wrap the draft,
 change preferred rows, move the caret, or add a layout slot; if it cannot fit,
 the visual status collapses while the generation still expires normally. The
-composer surface supplies its existing background. No second state owner,
+status shares the `InputArea` content row and leaves the surrounding transparent
+horizontal-rule frame unchanged. No second state owner,
 timer, overlay framework, or private panel is introduced.
 
 Every notice is ephemeral. The CLI-owned notice scheduler receives the current

@@ -4,10 +4,15 @@
 - Date: 2026-08-13
 - Notice boundary amended by: decision 0041
 - Density amended by: decision 0043
+- Composer frame amended by: decision 0043
+- User-turn surface amended by: decision 0043
 
 Decision 0043 removes internal vertical padding from activity surfaces while
-retaining one vertical padding row around user and composer content and the
-one-row external rhythm.
+retaining the one-row external rhythm. It replaces the then-current padded
+subtle user surface with a transparent generic `Surface` plus an exact-height
+muted `SideRail`, and replaces the composer's subtle padded surface with a
+transparent generic frame whose full-width light-blue accent rules occupy one
+row above and below the input when space permits.
 
 ## Context
 
@@ -20,9 +25,10 @@ should terminate on the composer's right edge, using the same stage geometry
 rather than a separate terminal-edge alignment.
 
 The same review found that background-filled code, table, and completion regions
-competed with the semantic tool lifecycle surfaces. User turns and the composer,
-however, still need a quiet neutral distinction so role and input focus remain
-immediately visible. Semantic green, ochre, and red backgrounds should
+competed with the semantic tool lifecycle surfaces. User turns still need a
+quiet neutral distinction, while the composer needs an independent focused
+frame, so role and input focus remain immediately visible. Semantic green,
+ochre, and red backgrounds should
 communicate authoritative operational state rather than generic content
 structure.
 
@@ -47,7 +53,7 @@ merges visually with the composer.
 The footer remains one generic three-column line and enters the same responsive
 conversation-stage projection as the composer. Its left factual group, physical
 center, and constant-width active-work pulse therefore share the stage axes;
-the pulse's final cell coincides with the composer's final surface cell. No
+the pulse's final cell coincides with the composer's final frame cell. No
 terminal-size policy moves into the generic line component.
 
 The pulse retains three cells and the existing eight-frame-per-second bounded
@@ -61,8 +67,11 @@ cannot move the three rendered pulse cells away from that shared edge.
 
 Green, ochre, and red background surfaces are reserved for authoritative tool
 lifecycle state: active work, approval, success, and negative terminal outcomes.
-User turns and the composer use the neutral `subtle` surface so they remain
-recognizable without implying lifecycle state. Slash completion, fenced code,
+User turns now use a transparent generic `Surface` with a generic muted
+`SideRail` exactly as tall as their visible italic content, so they remain
+recognizable without implying lifecycle state. The composer later uses a transparent content row
+between two full-width light-blue accent rules through the generic
+horizontal-rule frame. Slash completion, fenced code,
 and strict tables retain their owned structure, padding, foreground roles,
 slant, clipping, and bounds, but use the transparent surface. Assistant prose
 remains transparent as before.
@@ -97,8 +106,9 @@ state, or alternate rendering path.
 
 CLI regressions prove exact composer-edge pulse placement, one blank row at every
 active lower-shell boundary, preserved separation while the transcript scrolls,
-compact completion descriptions, absence of the passive hint, neutral subtle
-user and composer regions, and continued semantic tool backgrounds. TUI
+compact completion descriptions, absence of the passive hint, the transparent
+exact-height railed user region, the transparent ruled composer, and continued semantic tool
+backgrounds. TUI
 regressions prove every pulse phase, constant pulse width, transparent
 fenced-code and table regions without losing syntax tones, padding, rectangular
 table geometry, wrapping, or clipping. Wide, narrow, tiny, resize, renderer,

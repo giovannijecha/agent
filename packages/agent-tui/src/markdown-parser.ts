@@ -12,14 +12,19 @@ import {
   highlightSyntaxLine,
   initialSyntaxState,
 } from "./syntax-highlighter.js";
+import type { TextSlant } from "./text-style.js";
 import type { Tone } from "./tone.js";
 
 const FENCE_LANGUAGE = /^[A-Za-z0-9_+.#-]{0,32}$/u;
 const ORDERED_ITEM = /^(\d{1,9}\. )(.*)$/u;
 const TABLE_DELIMITER = /^:?-{3,}:?$/u;
 
-function run(text: string, tone: Tone): DisplayRun {
-  return Object.freeze({ text, tone });
+function run(
+  text: string,
+  tone: Tone,
+  slant: TextSlant = "normal",
+): DisplayRun {
+  return Object.freeze({ slant, text, tone });
 }
 
 function displayLine(
@@ -59,27 +64,34 @@ function separatorLine(): DisplayLine {
 }
 
 function normalizeRuns(runs: readonly DisplayRun[]): readonly DisplayRun[] {
-  const normalized: Array<{ text: string; tone: Tone }> = [];
+  const normalized: Array<{
+    slant: TextSlant;
+    text: string;
+    tone: Tone;
+  }> = [];
   for (const candidate of runs) {
     if (candidate.text.length === 0) {
       continue;
     }
     const previous = normalized.at(-1);
-    if (previous?.tone === candidate.tone) {
+    const slant = candidate.slant ?? "normal";
+    if (previous?.tone === candidate.tone && previous.slant === slant) {
       previous.text += candidate.text;
     } else {
-      normalized.push({ text: candidate.text, tone: candidate.tone });
+      normalized.push({ slant, text: candidate.text, tone: candidate.tone });
     }
   }
   return Object.freeze(
-    normalized.map((candidate) => run(candidate.text, candidate.tone)),
+    normalized.map((candidate) =>
+      run(candidate.text, candidate.tone, candidate.slant),
+    ),
   );
 }
 
 function exactDelimiterAt(
   text: string,
   index: number,
-  delimiter: "`" | "**",
+  delimiter: "`" | "*" | "**",
 ): boolean {
   const unit = delimiter.at(0);
   return (
@@ -93,7 +105,7 @@ function exactDelimiterAt(
 function findExactClosing(
   text: string,
   startIndex: number,
-  delimiter: "`" | "**",
+  delimiter: "`" | "*" | "**",
 ): number {
   let searchIndex = startIndex;
   while (searchIndex < text.length) {
@@ -114,21 +126,22 @@ function inlineRuns(text: string, baseTone: Tone): readonly DisplayRun[] {
   let plainStart = 0;
   let index = 0;
   while (index < text.length) {
-    let markerLength = 0;
+    let delimiter: "`" | "*" | "**" | undefined;
     if (exactDelimiterAt(text, index, "`")) {
-      markerLength = 1;
+      delimiter = "`";
     } else if (exactDelimiterAt(text, index, "**")) {
-      markerLength = 2;
+      delimiter = "**";
+    } else if (exactDelimiterAt(text, index, "*")) {
+      delimiter = "*";
     }
-    if (markerLength === 0) {
+    if (delimiter === undefined) {
       index += 1;
       continue;
     }
-    const contentStart = index + markerLength;
-    const delimiter = markerLength === 1 ? "`" : "**";
+    const contentStart = index + delimiter.length;
     const closing = findExactClosing(text, contentStart, delimiter);
     if (closing < 0) {
-      index += markerLength;
+      index += delimiter.length;
       continue;
     }
     if (plainStart < index) {
@@ -137,10 +150,15 @@ function inlineRuns(text: string, baseTone: Tone): readonly DisplayRun[] {
     parsed.push(
       run(
         text.slice(contentStart, closing),
-        delimiter === "`" ? "accent" : "emphasis",
+        delimiter === "`"
+          ? "accent"
+          : delimiter === "**"
+            ? "emphasis"
+            : baseTone,
+        delimiter === "*" ? "italic" : "normal",
       ),
     );
-    index = closing + markerLength;
+    index = closing + delimiter.length;
     plainStart = index;
   }
   if (plainStart < text.length) {
@@ -160,7 +178,7 @@ function parsedLine(
   return prefix.length + parsed.length + continuation.length <=
     TUI_LIMITS.rowSpans
     ? displayLine(parsed, "word", prefix, continuation)
-    : displayLine(Object.freeze([run(original, "plain")]));
+    : displayLine(Object.freeze([run(original, baseTone)]));
 }
 
 function fenceLanguage(line: string): string | undefined {
@@ -329,7 +347,7 @@ function tableHeaderRule(
   );
 }
 
-function ordinaryLine(line: string): DisplayLine {
+function ordinaryLine(line: string, baseTone: Tone): DisplayLine {
   if (line === "---") {
     return separatorLine();
   }
@@ -345,7 +363,7 @@ function ordinaryLine(line: string): DisplayLine {
       line,
       Object.freeze([run("- ", "muted")]),
       line.slice(2),
-      "plain",
+      baseTone,
       Object.freeze([run("  ", "muted")]),
     );
   }
@@ -356,7 +374,7 @@ function ordinaryLine(line: string): DisplayLine {
       line,
       Object.freeze([run(marker, "muted")]),
       ordered.at(2) ?? "",
-      "plain",
+      baseTone,
       Object.freeze([run(" ".repeat(marker.length), "muted")]),
     );
   }
@@ -365,15 +383,18 @@ function ordinaryLine(line: string): DisplayLine {
       line,
       Object.freeze([run("\u2502 ", "muted")]),
       line.slice(2),
-      "plain",
+      baseTone,
       Object.freeze([run("\u2502 ", "muted")]),
     );
   }
-  return parsedLine(line, Object.freeze([]), line, "plain");
+  return parsedLine(line, Object.freeze([]), line, baseTone);
 }
 
 /** Pure line-oriented compiler for the closed Markdown subset in decision 0023. */
-export function* markdownDisplayLines(text: string): Generator<DisplayLine> {
+export function* markdownDisplayLines(
+  text: string,
+  baseTone: Tone = "plain",
+): Generator<DisplayLine> {
   let index = 0;
   let nextSurfaceGroup = 0;
   let noClosingFenceFrom: number | undefined;
@@ -487,7 +508,7 @@ export function* markdownDisplayLines(text: string): Generator<DisplayLine> {
         }
       }
     }
-    yield ordinaryLine(line.text);
+    yield ordinaryLine(line.text, baseTone);
     index = line.nextIndex;
     if (line.hadBreak && index === text.length) {
       yield displayLine(Object.freeze([]));
@@ -498,6 +519,7 @@ export function* markdownDisplayLines(text: string): Generator<DisplayLine> {
 /** Compiles isolated documents with one literal blank row between them. */
 export function* markdownDisplayDocuments(
   documents: readonly string[],
+  baseTone: Tone = "plain",
 ): Generator<DisplayLine> {
   for (let position = 0; position < documents.length; position += 1) {
     const document = documents.at(position);
@@ -507,6 +529,6 @@ export function* markdownDisplayDocuments(
     if (position > 0) {
       yield displayLine(Object.freeze([]));
     }
-    yield* markdownDisplayLines(document);
+    yield* markdownDisplayLines(document, baseTone);
   }
 }

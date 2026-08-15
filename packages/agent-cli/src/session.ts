@@ -26,8 +26,8 @@ export type TranscriptMovement =
   | "pageUp";
 
 export type SessionAction =
-  | Readonly<{ kind: "approve" }>
-  | Readonly<{ kind: "deny" }>
+  | Readonly<{ kind: "activateContextSelection" }>
+  | Readonly<{ kind: "closePermissions" }>
   | Readonly<{ kind: "exit" }>
   | Readonly<{ kind: "interactionBreak" }>
   | Readonly<{ kind: "interrupt" }>
@@ -40,6 +40,15 @@ export type SessionAction =
       level: NoticeLevel;
       lines: readonly string[];
     }>
+  | Readonly<{
+      direction: "less" | "more";
+      kind: "changePermission";
+    }>
+  | Readonly<{
+      direction: "next" | "previous";
+      kind: "moveContextSelection";
+    }>
+  | Readonly<{ kind: "openPermissions" }>
   | Readonly<{
       event: PointerEvent;
       kind: "pointer";
@@ -54,8 +63,14 @@ export type SessionUpdate = Readonly<{
 
 export type SessionReductionPort = Readonly<{
   apply(action: SessionAction): void;
+  context(): SessionInputContext;
   editorRedrawn(): void;
 }>;
+
+export type SessionInputContext =
+  | "composer"
+  | "permissions"
+  | "toolDecision";
 
 function notice(...lines: string[]): SessionAction {
   return Object.freeze({
@@ -87,8 +102,8 @@ function dispatchSubmission(
     emit(
       Object.freeze({ kind: "submit" as const, text: command.text }),
     );
-  } else if (command.kind === "approve" || command.kind === "deny") {
-    emit(Object.freeze({ kind: command.kind }));
+  } else if (command.kind === "permissions") {
+    emit(Object.freeze({ kind: "openPermissions" as const }));
   }
   return false;
 }
@@ -100,6 +115,7 @@ export class SessionController {
   readonly #provider: ProviderPresentation | undefined;
   #completionIndex = 0;
   #pointerContext = false;
+  #toolDecisionInputBlocked = false;
 
   constructor(provider?: ProviderPresentation) {
     this.#provider = provider;
@@ -254,6 +270,72 @@ export class SessionController {
         );
         continue;
       }
+      const context = reduction?.context() ?? "composer";
+      if (context !== "toolDecision") {
+        this.#toolDecisionInputBlocked = false;
+      }
+      if (context === "toolDecision") {
+        if (event.kind === "up" || event.kind === "down") {
+          this.#toolDecisionInputBlocked = false;
+          emit(
+            Object.freeze({
+              direction: event.kind === "up" ? "previous" as const : "next" as const,
+              kind: "moveContextSelection" as const,
+            }),
+          );
+          continue;
+        }
+        if (event.kind === "enter") {
+          if (this.#toolDecisionInputBlocked) {
+            this.#toolDecisionInputBlocked = false;
+            emit(notice("Resolve the pending tool permission first."));
+            continue;
+          }
+          emit(Object.freeze({ kind: "activateContextSelection" as const }));
+          continue;
+        }
+        if (
+          event.kind !== "interrupt" &&
+          event.kind !== "eof" &&
+          event.kind !== "pageUp" &&
+          event.kind !== "pageDown"
+        ) {
+          this.#toolDecisionInputBlocked = true;
+          emit(notice("Resolve the pending tool permission first."));
+          continue;
+        }
+      }
+      if (context === "permissions") {
+        if (event.kind === "up" || event.kind === "down") {
+          emit(
+            Object.freeze({
+              direction: event.kind === "up" ? "previous" as const : "next" as const,
+              kind: "moveContextSelection" as const,
+            }),
+          );
+          continue;
+        }
+        if (event.kind === "left" || event.kind === "right") {
+          emit(
+            Object.freeze({
+              direction: event.kind === "left" ? "less" as const : "more" as const,
+              kind: "changePermission" as const,
+            }),
+          );
+          continue;
+        }
+        if (event.kind === "enter" || event.kind === "interrupt") {
+          emit(Object.freeze({ kind: "closePermissions" as const }));
+          continue;
+        }
+        if (
+          event.kind !== "pageUp" &&
+          event.kind !== "pageDown" &&
+          event.kind !== "eof"
+        ) {
+          emit(Object.freeze({ kind: "closePermissions" as const }));
+        }
+      }
       if (
         event.kind === "up" ||
         event.kind === "down" ||
@@ -356,6 +438,7 @@ export class SessionController {
   end(): SessionUpdate {
     this.#decoder.finish();
     this.#pointerContext = false;
+    this.#toolDecisionInputBlocked = false;
     return Object.freeze({
       actions: Object.freeze([
         Object.freeze({ kind: "exit" as const }),
@@ -370,5 +453,6 @@ export class SessionController {
     this.#editor.clear();
     this.#completionIndex = 0;
     this.#pointerContext = false;
+    this.#toolDecisionInputBlocked = false;
   }
 }
