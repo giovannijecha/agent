@@ -223,6 +223,20 @@ function verifyMutationConvergence(tools, context) {
   }
 }
 
+function verifyRemovalSchemaGuidance(policy, context) {
+  const maintenance = normalizedProse(
+    fileText(context, "docs/MAINTENANCE.md"),
+  );
+  if (
+    !maintenance.includes(
+      "replace manual-policy schema " + String(policy.schemaVersion) +
+        " with a schema that removes the advertised tool inventory",
+    )
+  ) {
+    fail("manual removal schema guidance is stale");
+  }
+}
+
 function verifyChapter(chapter, index, context) {
   exactKeys(chapter, ["path", "title"], "manual chapter");
   const expectedPrefix = String(index).padStart(2, "0");
@@ -343,6 +357,7 @@ export function validateManualPolicy(policy, context) {
   const commands = stringList(policy.commands, "manual commands", /^\/[a-z][a-z0-9-]*$/u);
   const tools = validateToolSurface(policy.toolSurface);
   verifyDescriptorConstruction(context);
+  verifyRemovalSchemaGuidance(policy, context);
   same(commands, extractCommands(fileText(context, COMMAND_SOURCE)), "manual command source inventory");
   same(
     tools.map((tool) => ({ name: tool.name, risk: tool.risk })),
