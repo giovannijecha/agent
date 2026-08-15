@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "index": "docs/manual/README.md",
   "chapters": [
     {
@@ -44,10 +44,10 @@
   "toolSurface": {
     "tools": [
       {
-        "name": "create_file",
-        "capability": "create-new-file",
+        "name": "apply_patch",
+        "capability": "patch-one-text-file",
         "risk": "write",
-        "necessity": "Creates a new file without broad overwrite or process authority."
+        "necessity": "Creates or updates one file through ordered exact-text hunks without broad overwrite or shell authority."
       },
       {
         "name": "list_directory",
@@ -60,12 +60,6 @@
         "capability": "read-one-file",
         "risk": "read",
         "necessity": "Inspects one known file without traversing unrelated workspace paths."
-      },
-      {
-        "name": "replace_text",
-        "capability": "replace-one-exact-match",
-        "risk": "write",
-        "necessity": "Changes one exact match without arbitrary overwrite or shell authority."
       },
       {
         "name": "run_process",
@@ -134,6 +128,7 @@
     "docs/decisions/0050-owned-minimal-coding-capability-surface.md",
     "docs/decisions/0051-owned-bounded-file-line-projection.md",
     "docs/decisions/0052-owned-checkpointed-turn-failure-classification.md",
+    "docs/decisions/0053-owned-structured-text-patch.md",
     "evaluations/README.md",
     "evaluations/failures/registry.json",
     "assets/brand/README.md",
@@ -179,6 +174,7 @@
     "packages/agent-cli/src/builtin-tool-limits.ts",
     "packages/agent-cli/src/workspace-mutation-plans.ts",
     "packages/agent-cli/src/workspace-mutation-preview.ts",
+    "packages/agent-cli/src/workspace-text-patch.ts",
     "packages/agent-cli/src/workspace-mutation-committer.ts",
     "packages/agent-cli/src/platform-workspace-mutation-protocol.ts",
     "packages/agent-cli/src/platform-workspace-mutation.ts",

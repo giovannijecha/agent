@@ -31,6 +31,7 @@ import {
   TOOL_ENGINE_LIMITS,
   ToolRegistry,
   type ToolRisk,
+  type ToolSchema,
 } from "@agent/tools";
 
 import type { ProcessRunner } from "./process-runner.js";
@@ -56,10 +57,8 @@ import {
 } from "./workspace-path.js";
 import { WorkspaceReadPolicy } from "./workspace-read-policy.js";
 import { projectWorkspaceFileRead } from "./workspace-file-read.js";
-import {
-  createFilePlanner,
-  replaceTextPlanner,
-} from "./workspace-mutation-plans.js";
+import { applyPatchPlanner } from "./workspace-mutation-plans.js";
+import { TEXT_PATCH_LIMITS } from "./workspace-text-patch.js";
 
 export { BUILTIN_TOOL_LIMITS } from "./builtin-tool-limits.js";
 
@@ -590,7 +589,7 @@ function integerSchema(minimum: number, maximum: number): IntegerSchema {
 }
 
 function listSchema(
-  item: StringSchema,
+  item: ToolSchema,
   minimum: number,
   maximum: number,
 ): ListSchema {
@@ -700,15 +699,14 @@ function registrations(
       rejectNul: true,
     }),
   } as const;
-  const contentField = {
-    description: "Complete UTF-8 text content.",
-    name: "content",
-    required: true,
-    schema: stringSchema(0, BUILTIN_TOOL_LIMITS.fileCodeUnits, {
+  const patchTextSchema = stringSchema(
+    0,
+    BUILTIN_TOOL_LIMITS.fileCodeUnits,
+    {
       maximumUtf8Bytes: BUILTIN_TOOL_LIMITS.fileUtf8Bytes,
       rejectNul: true,
-    }),
-  } as const;
+    },
+  );
   return Object.freeze([
     Object.freeze({
       descriptor: descriptor(
@@ -761,50 +759,41 @@ function registrations(
     }),
     Object.freeze({
       descriptor: descriptor(
-        "create_file",
-        "Create one new workspace file without overwriting an existing path.",
-        "write",
-        objectSchema([pathField, contentField]),
-        Object.freeze([
-          Object.freeze({ mode: "exact" as const, name: "path" }),
-          Object.freeze({ mode: "size" as const, name: "content" }),
-        ]),
-      ),
-      planner: createFilePlanner(root, platform.mutationCommitter),
-    }),
-    Object.freeze({
-      descriptor: descriptor(
-        "replace_text",
-        "Replace exactly one occurrence in one bounded workspace file.",
+        "apply_patch",
+        "Create or update one bounded UTF-8 workspace file through ordered exact-text hunks.",
         "write",
         objectSchema([
           pathField,
           {
-            description: "Exact text that must occur once.",
-            name: "oldText",
+            description: "Ordered exact-text hunks applied to one observed source snapshot.",
+            name: "hunks",
             required: true,
-            schema: stringSchema(1, BUILTIN_TOOL_LIMITS.fileCodeUnits, {
-              maximumUtf8Bytes: BUILTIN_TOOL_LIMITS.fileUtf8Bytes,
-              rejectNul: true,
-            }),
-          },
-          {
-            description: "Replacement text.",
-            name: "newText",
-            required: true,
-            schema: stringSchema(0, BUILTIN_TOOL_LIMITS.fileCodeUnits, {
-              maximumUtf8Bytes: BUILTIN_TOOL_LIMITS.fileUtf8Bytes,
-              rejectNul: true,
-            }),
+            schema: listSchema(
+              objectSchema([
+                {
+                  description: "Exact source anchor, or empty only for absent-target creation.",
+                  name: "oldText",
+                  required: true,
+                  schema: patchTextSchema,
+                },
+                {
+                  description: "Replacement text, or complete new-file content for creation.",
+                  name: "newText",
+                  required: true,
+                  schema: patchTextSchema,
+                },
+              ]),
+              1,
+              TEXT_PATCH_LIMITS.hunks,
+            ),
           },
         ]),
         Object.freeze([
           Object.freeze({ mode: "exact" as const, name: "path" }),
-          Object.freeze({ mode: "size" as const, name: "oldText" }),
-          Object.freeze({ mode: "size" as const, name: "newText" }),
+          Object.freeze({ mode: "size" as const, name: "hunks" }),
         ]),
       ),
-      planner: replaceTextPlanner(root, platform.mutationCommitter),
+      planner: applyPatchPlanner(root, platform.mutationCommitter),
     }),
     Object.freeze({
       descriptor: descriptor(

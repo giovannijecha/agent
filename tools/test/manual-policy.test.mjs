@@ -187,8 +187,8 @@ test("rejects an incomplete lean harness inventory", () => {
   const riskContext = currentContext();
   riskContext.files["docs/manual/04-tools-and-approval.md"] =
     riskContext.files["docs/manual/04-tools-and-approval.md"].replace(
-      "| `create_file` | `create-new-file` | `write` |",
-      "| `create_file` | `create-new-file` | `read` |",
+      "| `apply_patch` | `patch-one-text-file` | `write` |",
+      "| `apply_patch` | `patch-one-text-file` | `read` |",
     );
   assert.throws(
     () => validateManualPolicy(currentPolicy, riskContext),
@@ -197,7 +197,7 @@ test("rejects an incomplete lean harness inventory", () => {
 
   const substringPolicy = structuredClone(currentPolicy);
   substringPolicy.toolSurface.tools.at(0).necessity =
-    "Creates a new file without broad overwrite.";
+    "Creates or updates one file through ordered exact-text hunks.";
   assert.throws(
     () => validateManualPolicy(substringPolicy, currentContext()),
     ManualPolicyError,

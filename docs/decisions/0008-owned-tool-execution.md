@@ -53,10 +53,11 @@ Write and execute calls with a valid planned invocation require the exact
 interactive `/approve` or `/deny` command for the single pending call. No
 approval is cached or broadened. A planning failure has no effect to approve and
 settles as a normal failed call. Direct handlers retain descriptor projections.
-Under decision 0042, `create_file` and `replace_text` instead plan a concrete
-effect just in time from observed filesystem state. Their bounded previews show
-the canonical target, precondition, SHA-256 state digests, and exact content
-when it fits or bounded prefix/suffix excerpts with an omitted count. Exact
+Under decisions 0042, 0046, and 0053, `apply_patch` plans one concrete effect
+just in time from observed filesystem state. Its bounded preview shows the
+canonical target, precondition, SHA-256 state digests, ordered hunks, and exact
+patch content when it fits or bounded prefix/suffix excerpts with an omitted
+count. Exact
 string fields escape Unicode control, format, surrogate, private-use,
 line-separator, and paragraph-separator scalars before display. The CLI
 independently rejects an unescaped unsafe scalar, so bidi or zero-width content
@@ -105,9 +106,9 @@ entries, file size, text volume, and matches are bounded at the Node adapter.
 Foreign values, planner/handler promises, effect plans, and results are decoded
 into owned snapshots before state mutation. Errors never retain model arguments,
 file contents, credentials, or thrown causes. Mutation tools use explicit
-preconditions; `replace_text` requires one exact match and binds file identity
-plus complete content, while `create_file` binds absence and parent identity.
-Decision 0046 invokes those immutable effects through one owned Windows/Linux
+preconditions; `apply_patch` binds either absent-target creation or ordered
+unique exact-text hunks to one file identity and complete content. Decision 0046
+invokes that immutable effect through one owned Windows/Linux
 handle-relative committer with no portable pathname-write fallback. Unsupported
 exclusion or publication primitives fail closed. Directory reads are
 incremental, and recursive search revalidates canonical paths before enumeration

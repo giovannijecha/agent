@@ -15,7 +15,7 @@ function request(
   return log.request(
     turnId,
     callId,
-    approvalRequired ? "replace_text" : "read_file",
+    approvalRequired ? "apply_patch" : "read_file",
     approvalRequired ? "write" : "read",
     approvalRequired ? 'path="src/index.ts" oldText=<3 code units>' : "",
     approvalRequired,
@@ -28,7 +28,7 @@ test("models one exact approved activity lifecycle without exposing identity", (
   assert.ok(request(log, "private-call-id").ok);
   assert.deepEqual(log.snapshots(), [
     {
-      name: "replace_text",
+      name: "apply_patch",
       preview: 'path="src/index.ts" oldText=<3 code units>',
       risk: "write",
       state: "approval",
@@ -73,7 +73,7 @@ test("renders a failed mutation plan without opening an approval", () => {
     log.request(
       7,
       "stale-call",
-      "replace_text",
+      "apply_patch",
       "write",
       "",
       false,
@@ -81,7 +81,7 @@ test("renders a failed mutation plan without opening an approval", () => {
   );
   assert.deepEqual(log.snapshots(), [
     {
-      name: "replace_text",
+      name: "apply_patch",
       preview: "",
       risk: "write",
       state: "queued",
@@ -103,7 +103,7 @@ test("rejects stale identities, contradictory transitions, and unsafe previews",
     log.request(
       7,
       "unsafe-call",
-      "replace_text",
+      "apply_patch",
       "write",
       'path="docs/\u202Egnp.exe"',
       true,

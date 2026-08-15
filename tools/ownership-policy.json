@@ -68,6 +68,7 @@
     "docs/decisions/0050-owned-minimal-coding-capability-surface.md",
     "docs/decisions/0051-owned-bounded-file-line-projection.md",
     "docs/decisions/0052-owned-checkpointed-turn-failure-classification.md",
+    "docs/decisions/0053-owned-structured-text-patch.md",
     "evaluations/README.md"
   ],
   "workspaces": [

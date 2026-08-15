@@ -1534,7 +1534,7 @@ test("plans each mutation just in time after complete batch validation", async (
       assert.equal(typeof path, "string");
       plannedPaths.push(path as string);
       const effect = ToolEffectPlan.create(
-        'operation="replace_text" path="' + String(path) + '"',
+        'operation="apply_patch" path="' + String(path) + '"',
         async () => {
           invokedPaths.push(path as string);
           return ok(ToolHandlerOutcome.success({ changed: true }));
@@ -1583,7 +1583,7 @@ test("cancellation during effect planning wins before an approval is exposed", a
       await releasePlanner.promise;
       assert.equal(cancellation.requested, true);
       const effect = ToolEffectPlan.create(
-        'operation="replace_text" path="planned.txt"',
+        'operation="apply_patch" path="planned.txt"',
         async () => {
           effectCalls += 1;
           return ok(ToolHandlerOutcome.success({ changed: true }));

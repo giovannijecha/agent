@@ -604,7 +604,7 @@ test("keeps completed mutation activity compact after exact approval", () => {
   const application = new ApplicationController(true);
   assert.ok(application.turnAccepted(started(23, "change styles")).ok);
   const preview =
-    'operation="replace_text" path="index.html" remove="' +
+    'operation="apply_patch" path="index.html" remove="' +
     "x".repeat(512) +
     '" insert="' +
     "y".repeat(512) +
@@ -612,7 +612,7 @@ test("keeps completed mutation activity compact after exact approval", () => {
   requestTool(application, {
     approval: true,
     callId: "private-large-write",
-    name: "replace_text",
+    name: "apply_patch",
     preview,
     risk: "write",
     turnId: 23,
@@ -622,7 +622,7 @@ test("keeps completed mutation activity compact after exact approval", () => {
     application.applyRuntime({
       callId: "private-large-write",
       kind: "toolStarted",
-      name: "replace_text",
+      name: "apply_patch",
       risk: "write",
       turnId: 23,
     }).ok,
@@ -631,7 +631,7 @@ test("keeps completed mutation activity compact after exact approval", () => {
     application.applyRuntime({
       callId: "private-large-write",
       kind: "toolFinished",
-      name: "replace_text",
+      name: "apply_patch",
       risk: "write",
       status: "success",
       turnId: 23,
@@ -646,7 +646,7 @@ test("keeps completed mutation activity compact after exact approval", () => {
   const activityText = activityRows.map((row) => row.text).join("\n");
 
   assert.equal(activityRows.length, 2);
-  assert.equal(activityText.includes("replace_text"), true);
+  assert.equal(activityText.includes("apply_patch"), true);
   assert.equal(activityText.includes("succeeded"), true);
   assert.equal(activityText.includes("write"), true);
   assert.equal(activityText.includes("operation="), false);
@@ -668,7 +668,7 @@ test("renders approval through the same borderless semantic surface", () => {
   requestTool(application, {
     approval: true,
     callId: "private-write",
-    name: "replace_text",
+    name: "apply_patch",
     preview: 'path="src/index.ts" oldText=<5 code units>',
     risk: "write",
     turnId: 3,
@@ -679,7 +679,7 @@ test("renders approval through the same borderless semantic surface", () => {
   const text = rendered.value.rows.map((row) => row.text).join("\n");
   assert.equal(text.includes("approval required"), true);
   assert.equal(text.includes("/approve  /deny"), true);
-  assert.equal(text.includes("replace_text"), true);
+  assert.equal(text.includes("apply_patch"), true);
   assert.equal(text.includes('path="src/index.ts"'), true);
   assert.equal(text.includes("private-write"), false);
   assert.equal(text.split("┌").length - 1, 0);
@@ -693,7 +693,7 @@ test("renders approval through the same borderless semantic surface", () => {
     .find((span) => span.text.includes("approval required"));
   const name = rendered.value.rows
     .flatMap((row) => row.spans)
-    .find((span) => span.text.includes("replace_text"));
+    .find((span) => span.text.includes("apply_patch"));
   assert.equal(title?.tone, "emphasis");
   assert.equal(title?.surface, "attention");
   assert.equal(name?.slant, "italic");
@@ -722,7 +722,7 @@ test("places compact phase-independent notices between activity and composer", (
   requestTool(application, {
     approval: true,
     callId: "notice-write",
-    name: "replace_text",
+    name: "apply_patch",
     preview: 'path="src/index.ts" oldText=<5 code units>',
     risk: "write",
     turnId: 31,
@@ -1026,7 +1026,7 @@ test("replaces the contextual tool and clears it when the turn settles", () => {
   requestTool(application, {
     approval: true,
     callId: "second-write",
-    name: "replace_text",
+    name: "apply_patch",
     preview: 'path="index.html" oldText=<5 code units>',
     risk: "write",
     turnId: 7,
@@ -1036,14 +1036,14 @@ test("replaces the contextual tool and clears it when the turn settles", () => {
     application.activities,
     application.activeTurnId !== undefined,
   );
-  assert.equal(pending?.name, "replace_text");
+  assert.equal(pending?.name, "apply_patch");
   assert.equal(pending?.state, "approval");
 
   const rendered = frame(application, 72, 14);
   assert.ok(rendered.ok);
   const text = rendered.value.rows.map((row) => row.text).join("\n");
   assert.equal(text.includes("list_directory"), false);
-  assert.equal(text.includes("replace_text"), true);
+  assert.equal(text.includes("apply_patch"), true);
   assert.equal(text.includes("approval required"), true);
   assert.equal(text.includes("\u203a"), false);
   assert.equal(rendered.value.rows.at(-1)?.text.includes("approval"), false);
@@ -1054,7 +1054,7 @@ test("replaces the contextual tool and clears it when the turn settles", () => {
     application.applyRuntime({
       callId: "second-write",
       kind: "toolStarted",
-      name: "replace_text",
+      name: "apply_patch",
       risk: "write",
       turnId: 7,
     }).ok,
@@ -1063,7 +1063,7 @@ test("replaces the contextual tool and clears it when the turn settles", () => {
     application.applyRuntime({
       callId: "second-write",
       kind: "toolFinished",
-      name: "replace_text",
+      name: "apply_patch",
       risk: "write",
       status: "success",
       turnId: 7,
@@ -1073,14 +1073,14 @@ test("replaces the contextual tool and clears it when the turn settles", () => {
     application.activities,
     application.activeTurnId !== undefined,
   );
-  assert.equal(secondSettled?.name, "replace_text");
+  assert.equal(secondSettled?.name, "apply_patch");
   assert.equal(secondSettled?.state, "succeeded");
 
   const afterTool = frame(application, 72, 14);
   assert.ok(afterTool.ok);
   const afterToolText = afterTool.value.rows.map((row) => row.text).join("\n");
   assert.equal(afterToolText.includes("list_directory"), false);
-  assert.equal(afterToolText.includes("replace_text"), true);
+  assert.equal(afterToolText.includes("apply_patch"), true);
   assert.equal(afterToolText.includes("succeeded"), true);
 
   assert.ok(
@@ -1116,7 +1116,7 @@ test("replaces the contextual tool and clears it when the turn settles", () => {
   assert.ok(completed.ok);
   const completedText = completed.value.rows.map((row) => row.text).join("\n");
   assert.equal(completedText.includes("list_directory"), false);
-  assert.equal(completedText.includes("replace_text"), false);
+  assert.equal(completedText.includes("apply_patch"), false);
 });
 
 test("sanitizes streamed terminal controls before the assistant document", () => {
