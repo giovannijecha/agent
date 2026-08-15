@@ -4,6 +4,7 @@ import {
   mkdir,
   mkdtemp,
   readFile,
+  readdir,
   realpath,
   rename,
   rm,
@@ -44,7 +45,7 @@ function currentCommitter(): PlatformWorkspaceNamespaceCommitter {
   return created.value;
 }
 
-test("commits create, move, and bounded remove effects through the native boundary", async () => {
+test("commits only object-bound namespace effects through the native boundary", async () => {
   await withWorkspace(async (workspace) => {
     const source = path.join(workspace, "source");
     const destination = path.join(workspace, "destination");
@@ -80,6 +81,50 @@ test("commits create, move, and bounded remove effects through the native bounda
       },
       cancellation,
     );
+    if (platform === "linux") {
+      assert.deepEqual(moved, {
+        ok: false,
+        error: { kind: "unsupported" },
+      });
+      assert.equal(await readFile(file, { encoding: "utf8" }), "owned");
+      assert.deepEqual(await readdir(destination, { withFileTypes: true }), []);
+
+      const removedFile = await committer.commit(
+        {
+          entryKind: "file",
+          identity: identity(await lstat(file, { bigint: true })),
+          kind: "remove",
+          parentIdentity: identity(await lstat(source, { bigint: true })),
+          relativePath: "source/file.txt",
+          root: path.join(workspace, "missing-root"),
+        },
+        cancellation,
+      );
+      assert.deepEqual(removedFile, {
+        ok: false,
+        error: { kind: "unsupported" },
+      });
+      assert.equal(await readFile(file, { encoding: "utf8" }), "owned");
+
+      const createdDirectory = path.join(source, "created");
+      const removedDirectory = await committer.commit(
+        {
+          entryKind: "directory",
+          identity: identity(await lstat(createdDirectory, { bigint: true })),
+          kind: "remove",
+          parentIdentity: identity(await lstat(source, { bigint: true })),
+          relativePath: "source/created",
+          root: workspace,
+        },
+        cancellation,
+      );
+      assert.deepEqual(removedDirectory, {
+        ok: false,
+        error: { kind: "unsupported" },
+      });
+      assert.equal((await lstat(createdDirectory)).isDirectory(), true);
+      return;
+    }
     assert.deepEqual(moved, { ok: true, value: "moved" });
     const movedFile = path.join(destination, "file.txt");
     assert.equal(await readFile(movedFile, { encoding: "utf8" }), "owned");
@@ -113,7 +158,7 @@ test("commits create, move, and bounded remove effects through the native bounda
   });
 });
 
-test("rejects stale identities, destination overwrite, and nonempty removal", async () => {
+test("rejects stale identities and unsupported or conflicting effects", async () => {
   await withWorkspace(async (workspace) => {
     const committer = currentCommitter();
     const source = path.join(workspace, "source");
@@ -144,23 +189,26 @@ test("rejects stale identities, destination overwrite, and nonempty removal", as
       encoding: "utf8",
       flag: "wx",
     });
+    const destinationConflict = await committer.commit(
+      {
+        destinationParentIdentity: identity(
+          await lstat(destination, { bigint: true }),
+        ),
+        destinationPath: "destination/file.txt",
+        entryKind: "file",
+        identity: identity(await lstat(sourceFile, { bigint: true })),
+        kind: "move",
+        relativePath: "source/file.txt",
+        root: workspace,
+        sourceParentIdentity: identity(await lstat(source, { bigint: true })),
+      },
+      cancellation,
+    );
     assert.deepEqual(
-      await committer.commit(
-        {
-          destinationParentIdentity: identity(
-            await lstat(destination, { bigint: true }),
-          ),
-          destinationPath: "destination/file.txt",
-          entryKind: "file",
-          identity: identity(await lstat(sourceFile, { bigint: true })),
-          kind: "move",
-          relativePath: "source/file.txt",
-          root: workspace,
-          sourceParentIdentity: identity(await lstat(source, { bigint: true })),
-        },
-        cancellation,
-      ),
-      { ok: false, error: { kind: "conflict" } },
+      destinationConflict,
+      platform === "linux"
+        ? { ok: false, error: { kind: "unsupported" } }
+        : { ok: false, error: { kind: "conflict" } },
     );
     assert.equal(await readFile(sourceFile, { encoding: "utf8" }), "source");
     assert.equal(
@@ -174,19 +222,26 @@ test("rejects stale identities, destination overwrite, and nonempty removal", as
       encoding: "utf8",
       flag: "wx",
     });
+    const nonemptyRemoval = await committer.commit(
+      {
+        entryKind: "directory",
+        identity: identity(await lstat(nonempty, { bigint: true })),
+        kind: "remove",
+        parentIdentity: identity(await lstat(workspace, { bigint: true })),
+        relativePath: "nonempty",
+        root: workspace,
+      },
+      cancellation,
+    );
     assert.deepEqual(
-      await committer.commit(
-        {
-          entryKind: "directory",
-          identity: identity(await lstat(nonempty, { bigint: true })),
-          kind: "remove",
-          parentIdentity: identity(await lstat(workspace, { bigint: true })),
-          relativePath: "nonempty",
-          root: workspace,
-        },
-        cancellation,
-      ),
-      { ok: false, error: { kind: "conflict" } },
+      nonemptyRemoval,
+      platform === "linux"
+        ? { ok: false, error: { kind: "unsupported" } }
+        : { ok: false, error: { kind: "conflict" } },
+    );
+    assert.equal(
+      await readFile(path.join(nonempty, "child.txt"), { encoding: "utf8" }),
+      "child",
     );
   });
 });

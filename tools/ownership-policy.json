@@ -73,6 +73,7 @@
     "docs/decisions/0055-owned-session-tool-permissions.md",
     "docs/decisions/0056-owned-compact-tool-activity-line.md",
     "docs/decisions/0057-owned-transparent-human-tool-activity.md",
+    "docs/decisions/0058-owned-linux-namespace-fail-closed-boundary.md",
     "evaluations/README.md"
   ],
   "workspaces": [

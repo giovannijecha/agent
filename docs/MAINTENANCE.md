@@ -899,14 +899,18 @@ authority.
 `manage_path`, `packages/agent-cli/src/workspace-namespace-plans.ts`,
 `workspace-namespace-preview.ts`, `workspace-namespace-committer.ts`,
 `platform-workspace-namespace-protocol.ts`,
-`platform-workspace-namespace.ts`, the native namespace broker, decision 0054,
-focused tests, manual inventory, and policy entries form one contract. Change
-the union grammar, path bounds, identity snapshot, preview, approval, protocol,
-native primitive, or failure mapping only together. Keep complete-batch
-validation before observation, plan each call just in time, bind one exact
-approval to one effect, and cross the namespace committer exactly once. Never
-add recursive removal, overwrite or merge, implicit parent creation,
-cross-volume movement, or pathname fallback as hidden options.
+`platform-workspace-namespace.ts`, the native namespace broker, decisions 0054
+and 0058, focused tests, manual inventory, and policy entries form one contract.
+Change the union grammar, path bounds, identity snapshot, preview, permission,
+protocol, native primitive, platform capability, or failure mapping only
+together. Keep complete-batch validation before observation, plan each call
+just in time, bind one exact permission to one effect, and cross the namespace
+committer exactly once. Windows retains create, move, and remove. Linux retains
+only verified-parent directory creation and must return `unsupported` for move
+or remove before namespace observation. Never restore the removed Linux
+check-close-name mutation sequence or add recursive removal, overwrite or merge,
+implicit parent creation, cross-volume movement, cooperative locking,
+mutation-then-rollback, or pathname fallback as hidden options.
 
 To remove namespace mutation, remove `manage_path` advertisement and manual
 inventory before deleting its planner, preview, committer, protocol, native

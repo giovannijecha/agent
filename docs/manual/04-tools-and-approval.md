@@ -142,15 +142,19 @@ recursively, removes a non-empty directory, crosses volumes, or moves a
 directory beneath itself.
 
 Planning binds canonical paths, source kind and identity, relevant parent
-identities, and destination absence before one exact authorization. Invocation
-rechecks that state and crosses the separate decision 0054 native namespace
-committer exactly once. Linux uses guarded handle-relative traversal and native
-`mkdirat`, no-replace `renameat2`, or `unlinkat`; Windows anchors relevant
-parents with handle-relative `NtCreateFile` and native create, rename, or
-disposition information classes. Missing primitives or stale state fail closed
-without a pathname fallback. The guarantee is one stale-checked
-handle-relative namespace commit, not recursive authority, multi-object
-atomicity, rollback, durability, or a filesystem sandbox.
+identities, and destination absence before one exact authorization. Each effect
+crosses the separate decision 0054 native namespace committer exactly once; a
+supported invocation rechecks the approved state before mutation. Linux uses
+guarded handle-relative traversal and
+verified-parent `mkdirat` for `create_directory`. It returns `unsupported` for
+`move` and `remove` before opening or observing the workspace namespace because
+its admitted APIs cannot atomically bind the approved source identity to those
+mutations. Windows anchors relevant parents with handle-relative `NtCreateFile`
+and supports native create, rename, or disposition information classes. Missing
+primitives or stale state fail closed without a pathname, cooperative-lock, or
+rollback fallback. Every successful result is one stale-checked handle-relative
+namespace commit, not recursive authority, multi-object atomicity, rollback,
+durability, or a filesystem sandbox.
 
 `run_process` accepts only the registered `node` program token, enforced before
 approval by an owned exact-literal schema, an ordered list of literal arguments,
@@ -209,8 +213,10 @@ six non-overlapping authority domains. Decision
 [0053](../decisions/0053-owned-structured-text-patch.md) converges text writes
 as `apply_patch`, and decision
 [0054](../decisions/0054-owned-workspace-namespace-management.md) converges
-namespace mutation as `manage_path`. No overlapping legacy name or alias
-remains. Decision
+namespace mutation as `manage_path`, while decision
+[0058](../decisions/0058-owned-linux-namespace-fail-closed-boundary.md) records
+the operation-specific Linux fail-closed boundary. No overlapping legacy name
+or alias remains. Decision
 [0055](../decisions/0055-owned-session-tool-permissions.md) owns the session
 permission modes and contextual decision path.
 
@@ -284,13 +290,15 @@ first, then remove the mutation-plan, preview, committer, protocol, and native
 sources only after the affected write tools have been removed or replaced.
 Never roll back to size-only approval, a stale approved invocation, or direct
 Node writes. Never add negation or a handler-specific bypass.
-Changing namespace grammar, planning, identity checks, approval previews,
-protocol, or commit primitives requires decision 0054 plus create, move,
-empty-directory, non-empty-directory, overwrite, self-descendant, stale-state,
-native-protocol, cancellation, and forced-termination regressions on Windows
-and Linux. Remove `manage_path` advertisement first, then remove its planner,
-preview, committer, protocol, and native sources. Never retain an unadvertised
-namespace alias or portable pathname fallback. Changing the
+Changing namespace grammar, planning, identity checks, permission previews,
+protocol, platform capability, or commit primitives requires decisions 0054
+and 0058 plus create, move, empty-directory, non-empty-directory, overwrite,
+self-descendant, stale-state, native-protocol, cancellation, and
+forced-termination regressions on Windows and Linux. Linux regressions must
+prove that move and remove remain mutation-free `unsupported` results until a
+new object-bound protocol is accepted. Remove `manage_path` advertisement first,
+then remove its planner, preview, committer, protocol, and native sources. Never
+retain an unadvertised namespace alias or portable pathname fallback. Changing the
 process registry, protocol, limits, output contract, executable resolution, or
 containment backend also requires the complete Windows and Linux proof and
 decision 0036 to change in the same review. Remove `run_process` advertisement
@@ -306,6 +314,7 @@ function defined by decisions 0022, 0033, 0056, and 0057.
 - Bounded file projection decision: `docs/decisions/0051-owned-bounded-file-line-projection.md`
 - Structured text-patch decision: `docs/decisions/0053-owned-structured-text-patch.md`
 - Namespace management decision: `docs/decisions/0054-owned-workspace-namespace-management.md`
+- Linux namespace fail-closed decision: `docs/decisions/0058-owned-linux-namespace-fail-closed-boundary.md`
 - Session permission decision: `docs/decisions/0055-owned-session-tool-permissions.md`
 - Compact activity decision: `docs/decisions/0056-owned-compact-tool-activity-line.md`
 - Transparent human activity decision: `docs/decisions/0057-owned-transparent-human-tool-activity.md`

@@ -10,10 +10,6 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-#ifndef RENAME_NOREPLACE
-#define RENAME_NOREPLACE (1u << 0u)
-#endif
-
 struct agent_namespace_parent {
   int descriptor;
   char *base_name;
@@ -170,138 +166,14 @@ static enum agent_namespace_status agent_create_directory(
     : agent_linux_error(error);
 }
 
-static enum agent_namespace_status agent_remove(
-  const struct agent_namespace_request *request,
-  int root
-) {
-  struct agent_namespace_parent parent = { .descriptor = -1, .base_name = NULL };
-  enum agent_namespace_status status = agent_parent(
-    root,
-    request->relative_path,
-    &parent
-  );
-  if (status != AGENT_NAMESPACE_DIRECTORY_CREATED) {
-    return status;
-  }
-  if (
-    !agent_identity(
-      parent.descriptor,
-      AGENT_NAMESPACE_DIRECTORY,
-      request->source_parent_identity
-    )
-  ) {
-    agent_parent_dispose(&parent);
-    return AGENT_NAMESPACE_CONFLICT;
-  }
-  const int target = agent_openat2(
-    parent.descriptor,
-    parent.base_name,
-    O_PATH | O_CLOEXEC | O_NOFOLLOW,
-    RESOLVE_BENEATH | RESOLVE_NO_MAGICLINKS | RESOLVE_NO_SYMLINKS
-  );
-  if (target < 0) {
-    status = agent_resolution_error(errno);
-    agent_parent_dispose(&parent);
-    return status;
-  }
-  if (!agent_identity(target, request->entry_kind, request->identity)) {
-    close(target);
-    agent_parent_dispose(&parent);
-    return AGENT_NAMESPACE_CONFLICT;
-  }
-  if (close(target) != 0) {
-    agent_parent_dispose(&parent);
-    return AGENT_NAMESPACE_IO;
-  }
-  const int flags = request->entry_kind == AGENT_NAMESPACE_DIRECTORY
-    ? AT_REMOVEDIR
-    : 0;
-  const int result = unlinkat(parent.descriptor, parent.base_name, flags);
-  const int error = errno;
-  agent_parent_dispose(&parent);
-  return result == 0 ? AGENT_NAMESPACE_REMOVED : agent_linux_error(error);
-}
-
-static enum agent_namespace_status agent_move(
-  const struct agent_namespace_request *request,
-  int root
-) {
-  struct agent_namespace_parent source = { .descriptor = -1, .base_name = NULL };
-  struct agent_namespace_parent destination = {
-    .descriptor = -1,
-    .base_name = NULL
-  };
-  enum agent_namespace_status status = agent_parent(
-    root,
-    request->relative_path,
-    &source
-  );
-  if (status != AGENT_NAMESPACE_DIRECTORY_CREATED) {
-    return status;
-  }
-  status = agent_parent(root, request->destination_path, &destination);
-  if (status != AGENT_NAMESPACE_DIRECTORY_CREATED) {
-    agent_parent_dispose(&source);
-    return status;
-  }
-  if (
-    !agent_identity(
-      source.descriptor,
-      AGENT_NAMESPACE_DIRECTORY,
-      request->source_parent_identity
-    ) ||
-    !agent_identity(
-      destination.descriptor,
-      AGENT_NAMESPACE_DIRECTORY,
-      request->destination_parent_identity
-    )
-  ) {
-    agent_parent_dispose(&source);
-    agent_parent_dispose(&destination);
-    return AGENT_NAMESPACE_CONFLICT;
-  }
-  const int target = agent_openat2(
-    source.descriptor,
-    source.base_name,
-    O_PATH | O_CLOEXEC | O_NOFOLLOW,
-    RESOLVE_BENEATH | RESOLVE_NO_MAGICLINKS | RESOLVE_NO_SYMLINKS
-  );
-  if (target < 0) {
-    status = agent_resolution_error(errno);
-    agent_parent_dispose(&source);
-    agent_parent_dispose(&destination);
-    return status;
-  }
-  if (!agent_identity(target, request->entry_kind, request->identity)) {
-    close(target);
-    agent_parent_dispose(&source);
-    agent_parent_dispose(&destination);
-    return AGENT_NAMESPACE_CONFLICT;
-  }
-  if (close(target) != 0) {
-    agent_parent_dispose(&source);
-    agent_parent_dispose(&destination);
-    return AGENT_NAMESPACE_IO;
-  }
-  const long result = syscall(
-    SYS_renameat2,
-    source.descriptor,
-    source.base_name,
-    destination.descriptor,
-    destination.base_name,
-    RENAME_NOREPLACE
-  );
-  const int error = errno;
-  agent_parent_dispose(&source);
-  agent_parent_dispose(&destination);
-  return result == 0 ? AGENT_NAMESPACE_MOVED : agent_linux_error(error);
-}
-
 enum agent_namespace_status agent_namespace_commit(
   const struct agent_namespace_request *request
 ) {
   if (request == NULL || request->root[0] != '/') {
     return AGENT_NAMESPACE_PERMISSION;
+  }
+  if (request->operation != AGENT_NAMESPACE_CREATE_DIRECTORY) {
+    return AGENT_NAMESPACE_UNSUPPORTED;
   }
   const int root = open(
     request->root,
@@ -315,14 +187,10 @@ enum agent_namespace_status agent_namespace_commit(
     close(root);
     return AGENT_NAMESPACE_PERMISSION;
   }
-  enum agent_namespace_status status = AGENT_NAMESPACE_UNSUPPORTED;
-  if (request->operation == AGENT_NAMESPACE_CREATE_DIRECTORY) {
-    status = agent_create_directory(request, root);
-  } else if (request->operation == AGENT_NAMESPACE_MOVE) {
-    status = agent_move(request, root);
-  } else if (request->operation == AGENT_NAMESPACE_REMOVE) {
-    status = agent_remove(request, root);
-  }
+  const enum agent_namespace_status status = agent_create_directory(
+    request,
+    root
+  );
   if (close(root) != 0 && status <= AGENT_NAMESPACE_REMOVED) {
     return AGENT_NAMESPACE_IO;
   }
