@@ -50,7 +50,8 @@ function lineCount(content: string): number {
   return content.length === 0 ? 0 : lineBreaks(content) + 1;
 }
 
-function validateAggregate(
+/** Validates the complete hunk batch without observing a target snapshot. */
+export function validateTextPatchHunks(
   hunks: readonly TextPatchHunk[],
 ): Result<void, TextPatchError> {
   if (hunks.length < 1 || hunks.length > TEXT_PATCH_LIMITS.hunks) {
@@ -116,7 +117,7 @@ function boundedResult(
 export function createTextPatch(
   hunks: readonly TextPatchHunk[],
 ): Result<TextPatchApplication, TextPatchError> {
-  const aggregate = validateAggregate(hunks);
+  const aggregate = validateTextPatchHunks(hunks);
   if (!aggregate.ok) {
     return aggregate;
   }
@@ -131,7 +132,7 @@ export function applyTextPatch(
   source: string,
   hunks: readonly TextPatchHunk[],
 ): Result<TextPatchApplication, TextPatchError> {
-  const aggregate = validateAggregate(hunks);
+  const aggregate = validateTextPatchHunks(hunks);
   if (!aggregate.ok) {
     return aggregate;
   }
