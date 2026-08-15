@@ -21,10 +21,10 @@ own explicit approval. The terminal UI avoids placing raw prompts, file
 contents, tool outputs, credentials, and foreign error causes in notices or
 logs.
 
-`create_file` and `replace_text` approval is intentionally concrete. Its local
-activity surface may display the canonical target, SHA-256 state digests, and
-exact proposed or removed/inserted text when that text fits the 2,048-code-unit
-preview. Larger text is limited to bounded prefix and suffix excerpts with an
+`apply_patch` approval is intentionally concrete. Its local activity surface may
+display the canonical target, SHA-256 state digests, hunk and line counts, and
+exact removed/inserted text when the patch fits the 2,048-code-unit preview.
+Larger patches are limited to bounded prefix and suffix excerpts with an
 explicit omitted count. This approval content is neither transcript nor log and
 is released when the tool activity settles. Planning failures show no preview
 and request no approval.

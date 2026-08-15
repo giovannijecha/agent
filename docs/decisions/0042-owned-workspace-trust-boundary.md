@@ -212,9 +212,9 @@ Decision 0051 adds optional exact logical-line projection only after these same
 not alter disclosure policy, readable targets, source bounds, or canonical
 read identity.
 
-The read-privacy policy does not broaden or override `create_file`,
-`replace_text`, or `run_process`. Writes use the separate effect-plan contract
-below, and approved Node code remains capable of reading outside this policy
+The read-privacy policy does not broaden or override `apply_patch` or
+`run_process`. Writes use the separate effect-plan contract below, and approved
+Node code remains capable of reading outside this policy
 because process containment is not a filesystem or network sandbox. Effect
 planning and machine isolation remain separate.
 
@@ -235,17 +235,16 @@ thrown or malformed planner is a contract failure and blocks the remaining
 batch exactly like a malformed handler. `execute` accepts only an owned planned
 call; prepared model input cannot bypass planning.
 
-`create_file` records the canonical relative target, target absence, parent
-directory identity, complete bounded proposed content, its SHA-256 digest, and
-a bounded new-file preview. `replace_text` records the canonical relative
-target, file identity, complete bounded original content, original and result
-SHA-256 digests, the unique exact occurrence, and a delimited remove/insert
-preview. Short text is shown completely. Longer text uses explicit prefix,
-suffix, and omitted-code-unit fields; omission is never presented as complete
-content. Preview line positions and counts treat CRLF as one boundary and lone
-CR or LF as one boundary. Paths, input text, and previews must be Unicode-scalar
-UTF-8, and unsafe terminal scalars remain escaped by the shared structured
-projection.
+Decision 0053 consolidates text mutation under `apply_patch`. It records the
+canonical relative target, target absence or file identity, parent identity,
+complete bounded observed and proposed content, original and result SHA-256
+digests, and ordered unique non-overlapping exact-text hunks. Its delimited
+remove/insert preview shows short patch text completely. Longer patch text uses
+explicit prefix, suffix, and omitted-code-unit fields; omission is never
+presented as complete content. Preview line counts treat CRLF as one boundary
+and lone CR or LF as one boundary. Paths, input text, and previews must be
+Unicode-scalar UTF-8, and unsafe terminal scalars remain escaped by the shared
+structured projection.
 
 The one pending approval names the immutable planned call, not the original
 input sizes. Denial discards that plan. Invocation opens and checks the observed

@@ -135,6 +135,11 @@ Decision 0051 completes the first `read_file` range-projection phase under the
 existing descriptor. It adds optional bounded inputs and exact result metadata,
 not another capability or filesystem authority.
 
+Decision 0053 completes the text-mutation convergence phase. The final registry
+replaces `create_file` and `replace_text` with one structured `apply_patch`
+descriptor while retaining the two internal native commit primitives behind one
+approved effect plan.
+
 ## Update, rollback, and removal
 
 Change the target inventory only when a capability has distinct necessity,

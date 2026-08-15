@@ -79,6 +79,20 @@ function toolPlatform(runner: ProcessRunner = processRunner) {
   });
 }
 
+function patchInput(
+  path: string,
+  oldText: string,
+  newText: string,
+): Readonly<{
+  hunks: readonly Readonly<{ newText: string; oldText: string }>[];
+  path: string;
+}> {
+  return Object.freeze({
+    hunks: Object.freeze([Object.freeze({ newText, oldText })]),
+    path,
+  });
+}
+
 async function engine(
   root: string,
   runner: ProcessRunner = processRunner,
@@ -104,8 +118,7 @@ async function engine(
       ["read_file", "read"],
       ["list_directory", "read"],
       ["search_text", "read"],
-      ["create_file", "write"],
-      ["replace_text", "write"],
+      ["apply_patch", "write"],
       ["run_process", "execute"],
     ],
   );
@@ -382,10 +395,11 @@ async function withWorkspace(
 test("creates, reads, replaces, lists, and searches bounded workspace text", async () => {
   await withWorkspace(async (workspace) => {
     const tools = await engine(workspace);
-    const created = await execute(tools, "create_file", {
-      content: "α € 😀\nbeta\n",
-      path: "notes.txt",
-    });
+    const created = await execute(
+      tools,
+      "apply_patch",
+      patchInput("notes.txt", "", "α € 😀\nbeta\n"),
+    );
     assert.equal(created.result.status, "success");
 
     const read = await execute(tools, "read_file", { path: "notes.txt" });
@@ -395,15 +409,36 @@ test("creates, reads, replaces, lists, and searches bounded workspace text", asy
     assert.equal(output(read).get("hasMore"), false);
     assert.equal(output(read).get("text"), "α € 😀\nbeta\n");
 
-    const replaced = await execute(tools, "replace_text", {
-      newText: "owned € 😀",
-      oldText: "beta",
-      path: "notes.txt",
-    });
+    const replaced = await execute(
+      tools,
+      "apply_patch",
+      patchInput("notes.txt", "beta", "owned € 😀"),
+    );
     assert.equal(replaced.result.status, "success");
     assert.equal(
       await readFile(path.join(workspace, "notes.txt"), { encoding: "utf8" }),
       "α € 😀\nowned € 😀\n",
+    );
+
+    const multiCreated = await execute(
+      tools,
+      "apply_patch",
+      patchInput("multi.txt", "", "alpha beta gamma"),
+    );
+    assert.equal(multiCreated.result.status, "success");
+    const multiPatched = await execute(tools, "apply_patch", {
+      hunks: [
+        { newText: "ALPHA", oldText: "alpha" },
+        { newText: "GAMMA", oldText: "gamma" },
+      ],
+      path: "multi.txt",
+    });
+    assert.equal(multiPatched.result.status, "success");
+    assert.equal(output(multiPatched).get("effect"), "updated");
+    assert.equal(output(multiPatched).get("hunks"), 2);
+    assert.equal(
+      await readFile(path.join(workspace, "multi.txt"), { encoding: "utf8" }),
+      "ALPHA beta GAMMA",
     );
 
     const listed = await execute(tools, "list_directory", { path: "." });
@@ -544,10 +579,11 @@ test("plans concrete bounded creation and replacement effects", async () => {
     );
     const tools = await engine(workspace);
 
-    const creation = await preparePlan(tools, "create_file", {
-      content: "first\nsecond\n",
-      path: path.join("docs", "new.txt"),
-    });
+    const creation = await preparePlan(
+      tools,
+      "apply_patch",
+      patchInput(path.join("docs", "new.txt"), "", "first\nsecond\n"),
+    );
     assert.equal(creation.planned.approvalRequired, false);
     assert.equal(creation.planned.approvalPreview, "");
     const failedCreation = await tools.execute(
@@ -559,14 +595,15 @@ test("plans concrete bounded creation and replacement effects", async () => {
     assert.equal(output(failedCreation.value).get("error"), "notFound");
 
     await mkdir(path.join(workspace, "docs"));
-    const availableCreation = await preparePlan(tools, "create_file", {
-      content: "first\nsecond\n",
-      path: path.join("docs", "new.txt"),
-    });
+    const availableCreation = await preparePlan(
+      tools,
+      "apply_patch",
+      patchInput(path.join("docs", "new.txt"), "", "first\nsecond\n"),
+    );
     assert.equal(availableCreation.planned.approvalRequired, true);
     assert.equal(
       availableCreation.planned.approvalPreview.includes(
-        'operation="create_file"',
+        'operation="apply_patch"',
       ),
       true,
     );
@@ -584,41 +621,47 @@ test("plans concrete bounded creation and replacement effects", async () => {
     );
     assert.equal(
       availableCreation.planned.approvalPreview.includes(
-        'content="first\\\\u{000a}second\\\\u{000a}"',
+        'insert:\\\\u{000a}first\\\\u{000a}second\\\\u{000a}',
       ),
       true,
     );
 
-    const mixedCreation = await preparePlan(tools, "create_file", {
-      content: "one\r\ntwo\rthree\nfour",
-      path: path.join("docs", "mixed.txt"),
-    });
+    const mixedCreation = await preparePlan(
+      tools,
+      "apply_patch",
+      patchInput(
+        path.join("docs", "mixed.txt"),
+        "",
+        "one\r\ntwo\rthree\nfour",
+      ),
+    );
     assert.equal(mixedCreation.planned.approvalRequired, true);
     assert.equal(
-      mixedCreation.planned.approvalPreview.includes("lines=4"),
+      mixedCreation.planned.approvalPreview.includes("addedLines=4"),
       true,
     );
 
-    const replacement = await preparePlan(tools, "replace_text", {
-      newText: "owned\nvalue",
-      oldText: "beta",
-      path: "notes.txt",
-    });
+    const replacement = await preparePlan(
+      tools,
+      "apply_patch",
+      patchInput("notes.txt", "beta", "owned\nvalue"),
+    );
     assert.equal(replacement.planned.approvalRequired, true);
     assert.equal(
       replacement.planned.approvalPreview.includes(
-        'operation="replace_text"',
+        'operation="apply_patch"',
       ),
-      true,
-    );
-    assert.equal(replacement.planned.approvalPreview.includes("line=2"), true);
-    assert.equal(
-      replacement.planned.approvalPreview.includes('remove="beta"'),
       true,
     );
     assert.equal(
       replacement.planned.approvalPreview.includes(
-        'insert="owned\\\\u{000a}value"',
+        'remove:\\\\u{000a}beta\\\\u{000a}insert:',
+      ),
+      true,
+    );
+    assert.equal(
+      replacement.planned.approvalPreview.includes(
+        'insert:\\\\u{000a}owned\\\\u{000a}value',
       ),
       true,
     );
@@ -640,14 +683,18 @@ test("plans concrete bounded creation and replacement effects", async () => {
       "alpha\r\nbeta\rgamma\ndelta\rremove-a\rremove-b\r\nremove-c\nremove-d",
       { encoding: "utf8", flag: "wx" },
     );
-    const mixedReplacement = await preparePlan(tools, "replace_text", {
-      newText: "insert-a\rinsert-b\r\ninsert-c\ninsert-d",
-      oldText: "remove-a\rremove-b\r\nremove-c\nremove-d",
-      path: "mixed-lines.txt",
-    });
+    const mixedReplacement = await preparePlan(
+      tools,
+      "apply_patch",
+      patchInput(
+        "mixed-lines.txt",
+        "remove-a\rremove-b\r\nremove-c\nremove-d",
+        "insert-a\rinsert-b\r\ninsert-c\ninsert-d",
+      ),
+    );
     assert.equal(mixedReplacement.planned.approvalRequired, true);
     assert.equal(
-      mixedReplacement.planned.approvalPreview.includes("line=5"),
+      mixedReplacement.planned.approvalPreview.includes('effect="update"'),
       true,
     );
     assert.equal(
@@ -670,11 +717,11 @@ test("rejects stale content, target creation, and parent replacement", async () 
     });
     const tools = await engine(workspace);
 
-    const replacement = await preparePlan(tools, "replace_text", {
-      newText: "after",
-      oldText: "before",
-      path: "replace.txt",
-    });
+    const replacement = await preparePlan(
+      tools,
+      "apply_patch",
+      patchInput("replace.txt", "before", "after"),
+    );
     await writeFile(path.join(workspace, "replace.txt"), "external", {
       encoding: "utf8",
       flag: "w",
@@ -697,11 +744,11 @@ test("rejects stale content, target creation, and parent replacement", async () 
       encoding: "utf8",
       flag: "wx",
     });
-    const identitySwap = await preparePlan(tools, "replace_text", {
-      newText: "changed",
-      oldText: "same",
-      path: "identity.txt",
-    });
+    const identitySwap = await preparePlan(
+      tools,
+      "apply_patch",
+      patchInput("identity.txt", "same", "changed"),
+    );
     await rename(
       path.join(workspace, "identity.txt"),
       path.join(workspace, "original-identity.txt"),
@@ -729,10 +776,11 @@ test("rejects stale content, target creation, and parent replacement", async () 
       "same",
     );
 
-    const appeared = await preparePlan(tools, "create_file", {
-      content: "approved",
-      path: path.join("parent", "appeared.txt"),
-    });
+    const appeared = await preparePlan(
+      tools,
+      "apply_patch",
+      patchInput(path.join("parent", "appeared.txt"), "", "approved"),
+    );
     await writeFile(
       path.join(workspace, "parent", "appeared.txt"),
       "external",
@@ -748,10 +796,15 @@ test("rejects stale content, target creation, and parent replacement", async () 
       "external",
     );
 
-    const parentSwap = await preparePlan(tools, "create_file", {
-      content: "must stay contained",
-      path: path.join("parent", "new.txt"),
-    });
+    const parentSwap = await preparePlan(
+      tools,
+      "apply_patch",
+      patchInput(
+        path.join("parent", "new.txt"),
+        "",
+        "must stay contained",
+      ),
+    );
     await rename(
       path.join(workspace, "parent"),
       path.join(workspace, "moved-parent"),
@@ -776,29 +829,32 @@ test("bounds mutation previews and skips approval when no effect can be planned"
       flag: "wx",
     });
     const tools = await engine(workspace);
-    const large = await preparePlan(tools, "create_file", {
-      content: "line\n".repeat(40_000),
-      path: "large.txt",
-    });
+    const large = await preparePlan(
+      tools,
+      "apply_patch",
+      patchInput("large.txt", "", "line\n".repeat(40_000)),
+    );
     assert.equal(large.planned.approvalRequired, true);
     assert.ok(
       large.planned.approvalPreview.length <=
         WORKSPACE_MUTATION_PREVIEW_CODE_UNITS,
     );
     assert.equal(
-      large.planned.approvalPreview.includes("omittedCodeUnits="),
+      large.planned.approvalPreview.includes("patchOmitted="),
       true,
     );
     assert.equal(
-      /digest="[0-9a-f]{64}"/u.test(large.planned.approvalPreview),
+      /resultingDigest="[0-9a-f]{64}"/u.test(
+        large.planned.approvalPreview,
+      ),
       true,
     );
 
-    const ambiguous = await preparePlan(tools, "replace_text", {
-      newText: "y",
-      oldText: "x",
-      path: "duplicate.txt",
-    });
+    const ambiguous = await preparePlan(
+      tools,
+      "apply_patch",
+      patchInput("duplicate.txt", "x", "y"),
+    );
     assert.equal(ambiguous.planned.approvalRequired, false);
     assert.equal(ambiguous.planned.approvalPreview, "");
     const failed = await tools.execute(ambiguous.planned, cancellation);
@@ -831,25 +887,25 @@ test("rejects unsafe mutation text and unsupported observed files before approva
     const tools = await engine(workspace);
 
     for (const input of [
-      { content: "nul\u0000content", path: "nul.txt" },
-      { content: "lone \ud800 surrogate", path: "surrogate.txt" },
-      { content: "safe", path: "nul\u0000path.txt" },
+      patchInput("nul.txt", "", "nul\u0000content"),
+      patchInput("surrogate.txt", "", "lone \ud800 surrogate"),
+      patchInput("nul\u0000path.txt", "", "safe"),
     ]) {
       const structured = structuredValueFromUnknown(input);
       assert.ok(structured.ok && structured.value instanceof StructuredObject);
       const prepared = tools.prepare(
         "call-unsafe",
-        "create_file",
+        "apply_patch",
         structured.value,
       );
       assert.equal(prepared.ok, false);
     }
 
-    const invalidUtf8 = await preparePlan(tools, "replace_text", {
-      newText: "new",
-      oldText: "old",
-      path: "invalid.txt",
-    });
+    const invalidUtf8 = await preparePlan(
+      tools,
+      "apply_patch",
+      patchInput("invalid.txt", "old", "new"),
+    );
     assert.equal(invalidUtf8.planned.approvalRequired, false);
     assert.equal(invalidUtf8.planned.approvalPreview, "");
     const failed = await tools.execute(invalidUtf8.planned, cancellation);
@@ -860,11 +916,11 @@ test("rejects unsafe mutation text and unsupported observed files before approva
     assert.equal(retained.at(0), 0xff);
     assert.equal(retained.at(1), 0xfe);
 
-    const nulSource = await preparePlan(tools, "replace_text", {
-      newText: "new",
-      oldText: "old",
-      path: "nul-source.txt",
-    });
+    const nulSource = await preparePlan(
+      tools,
+      "apply_patch",
+      patchInput("nul-source.txt", "old", "new"),
+    );
     assert.equal(nulSource.planned.approvalRequired, false);
     assert.equal(nulSource.planned.approvalPreview, "");
     const unsupported = await tools.execute(nulSource.planned, cancellation);
@@ -875,11 +931,11 @@ test("rejects unsafe mutation text and unsupported observed files before approva
       [0x6f, 0x6c, 0x64, 0x00, 0x74, 0x61, 0x69, 0x6c],
     );
 
-    const oversized = await preparePlan(tools, "replace_text", {
-      newText: "y",
-      oldText: "x",
-      path: "oversized.txt",
-    });
+    const oversized = await preparePlan(
+      tools,
+      "apply_patch",
+      patchInput("oversized.txt", "x", "y"),
+    );
     assert.equal(oversized.planned.approvalRequired, false);
     const limited = await tools.execute(oversized.planned, cancellation);
     assert.ok(limited.ok);
@@ -972,16 +1028,21 @@ test("enforces the disclosure policy before reads and prunes discovery", async (
       ["owned-marker readme-value", "owned-marker public-value"],
     );
 
-    const created = await execute(tools, "create_file", {
-      content: "created without disclosure",
-      path: "private/created.txt",
-    });
+    const created = await execute(
+      tools,
+      "apply_patch",
+      patchInput("private/created.txt", "", "created without disclosure"),
+    );
     assert.equal(created.result.status, "success");
-    const replaced = await execute(tools, "replace_text", {
-      newText: "updated without disclosure",
-      oldText: "private-secret",
-      path: "private/report.txt",
-    });
+    const replaced = await execute(
+      tools,
+      "apply_patch",
+      patchInput(
+        "private/report.txt",
+        "private-secret",
+        "updated without disclosure",
+      ),
+    );
     assert.equal(replaced.result.status, "success");
   });
 });
@@ -1074,15 +1135,16 @@ test("rejects parent traversal, overwrite, ambiguous replacement, and symlinks",
       await execute(tools, "read_file", {
         path: "internal-link/owned.txt",
       }),
-      await execute(tools, "create_file", {
-        content: "new",
-        path: "duplicate.txt",
-      }),
-      await execute(tools, "replace_text", {
-        newText: "y",
-        oldText: "x",
-        path: "duplicate.txt",
-      }),
+      await execute(
+        tools,
+        "apply_patch",
+        patchInput("duplicate.txt", "", "new"),
+      ),
+      await execute(
+        tools,
+        "apply_patch",
+        patchInput("duplicate.txt", "x", "y"),
+      ),
     ]) {
       assert.equal(execution.result.status, "failure");
     }

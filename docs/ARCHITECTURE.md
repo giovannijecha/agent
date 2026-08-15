@@ -260,8 +260,10 @@ deadline after termination is requested. Missing or late `close` cannot keep or
 later mutate the content-free result. Platform discovery remains separate from
 the boundary's filesystem canonicalization and exact-root denial.
 
-Approved `create_file` and `replace_text` plans cross a separate
-`WorkspaceMutationCommitter` port. The CLI adapter encodes one immutable plan,
+Approved `apply_patch` plans cross a separate `WorkspaceMutationCommitter` port.
+The pure patch layer resolves one absent-target creation or one ordered set of
+unique, non-overlapping exact-text hunks against the complete observed source.
+The CLI adapter then encodes one immutable create or replace commit plan,
 launches the exact package-local C17 broker with no arguments or environment,
 and accepts one fixed content-free settlement. Windows binds relative opens to
 directory handles, reserves creation with no replacement and delete-pending

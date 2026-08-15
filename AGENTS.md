@@ -235,10 +235,12 @@ agent.”
   approval for every successfully planned write or execute call, and commit one
   complete exchange. A failed plan requests no approval and settles as a
   structured failure. A batch is one agent decision, never a group of agents.
-- `create_file` and `replace_text` use CLI-owned mutation effect plans. Bind an
-  approved effect to canonical paths, object identity, observed absence or
-  complete content, and SHA-256 state digests; show exact bounded content or
-  bounded excerpts with an omitted count; reject stale state before mutation.
+- `apply_patch` uses one CLI-owned structured text-patch effect plan. Bind an
+  approved effect to one canonical path, object identity, observed absence or
+  complete content, ordered exact-text hunks, and SHA-256 state digests; show
+  exact bounded patch content or bounded excerpts with an omitted count; reject
+  ambiguous anchors, overlapping or reordered hunks, no-op hunks, and stale
+  state before mutation.
   Invocation crosses the owned decision 0046 mutation committer exactly once;
   it never returns to a portable pathname write. Linux uses guarded `openat2`,
   `O_TMPFILE` publication, and an exclusive write lease. Windows uses

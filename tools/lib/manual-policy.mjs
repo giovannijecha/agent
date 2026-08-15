@@ -291,7 +291,7 @@ export function validateManualPolicy(policy, context) {
     ],
     "manual policy",
   );
-  if (policy.schemaVersion !== 4 || policy.index !== INDEX_PATH) {
+  if (policy.schemaVersion !== 5 || policy.index !== INDEX_PATH) {
     fail("unsupported manual policy schema or index");
   }
   if (!isRecord(context) || !Array.isArray(context.manualPaths) || !Array.isArray(context.ownedPaths)) {

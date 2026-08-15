@@ -405,7 +405,7 @@ test("requires exact approval commands and exposes one bounded activity snapshot
       approvalPreview: 'path="src/index.ts" oldText=<3 code units>',
       callId: "private-call-id",
       kind: "toolRequested" as const,
-      name: "replace_text",
+      name: "apply_patch",
       risk: "write" as const,
       turnId: 7,
     }),
@@ -414,7 +414,7 @@ test("requires exact approval commands and exposes one bounded activity snapshot
   assert.equal(application.phase, "awaitingApproval");
   assert.deepEqual(application.activities, [
     {
-      name: "replace_text",
+      name: "apply_patch",
       preview: 'path="src/index.ts" oldText=<3 code units>',
       risk: "write",
       state: "approval",
@@ -655,7 +655,7 @@ test("accepts a failed mutation plan without exposing an approval", () => {
         approvalRequired: false,
         callId: "call-stale",
         kind: "toolRequested" as const,
-        name: "replace_text",
+        name: "apply_patch",
         risk: "write" as const,
         turnId: 12,
       }),
@@ -668,7 +668,7 @@ test("accepts a failed mutation plan without exposing an approval", () => {
       Object.freeze({
         callId: "call-stale",
         kind: "toolStarted" as const,
-        name: "replace_text",
+        name: "apply_patch",
         risk: "write" as const,
         turnId: 12,
       }),
@@ -686,7 +686,7 @@ test("rejects tool events that bypass approval or contradict checkpoints", () =>
         approvalRequired: true,
         callId: "call-9",
         kind: "toolRequested" as const,
-        name: "create_file",
+        name: "apply_patch",
         risk: "write" as const,
         turnId: 9,
       }),
@@ -703,7 +703,7 @@ test("rejects tool events that bypass approval or contradict checkpoints", () =>
         approvalRequired: true,
         callId: "call-10",
         kind: "toolRequested" as const,
-        name: "create_file",
+        name: "apply_patch",
         risk: "write" as const,
         turnId: 10,
       }),
@@ -714,7 +714,7 @@ test("rejects tool events that bypass approval or contradict checkpoints", () =>
       Object.freeze({
         callId: "call-10",
         kind: "toolStarted" as const,
-        name: "create_file",
+        name: "apply_patch",
         risk: "write" as const,
         turnId: 10,
       }),
@@ -726,7 +726,7 @@ test("rejects tool events that bypass approval or contradict checkpoints", () =>
       Object.freeze({
         callId: "call-10",
         kind: "toolFinished" as const,
-        name: "create_file",
+        name: "apply_patch",
         risk: "write" as const,
         status: "success" as const,
         turnId: 10,
@@ -756,7 +756,7 @@ test("rejects tool events that bypass approval or contradict checkpoints", () =>
         approvalRequired: true,
         callId: "call-11",
         kind: "toolRequested" as const,
-        name: "create_file",
+        name: "apply_patch",
         risk: "write" as const,
         turnId: 11,
       }),
@@ -768,7 +768,7 @@ test("rejects tool events that bypass approval or contradict checkpoints", () =>
       Object.freeze({
         callId: "call-11",
         kind: "toolStarted" as const,
-        name: "create_file",
+        name: "apply_patch",
         risk: "write" as const,
         turnId: 11,
       }),
@@ -779,7 +779,7 @@ test("rejects tool events that bypass approval or contradict checkpoints", () =>
     Object.freeze({
       callId: "call-11",
       kind: "toolFinished" as const,
-      name: "create_file",
+      name: "apply_patch",
       risk: "write" as const,
       status: "failure" as const,
       turnId: 11,

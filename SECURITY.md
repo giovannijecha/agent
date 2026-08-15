@@ -51,12 +51,14 @@ complete-file observation and its post-read checks. It changes returned
 context, not readable paths, source-size limits, or filesystem authority.
 
 Write calls are schema-validated with the complete batch before observation,
-then planned just in time. `create_file` binds approval to target absence,
-canonical parent identity, complete proposed content, and its SHA-256 digest.
-`replace_text` binds approval to canonical file identity, strict UTF-8 complete
-content, one exact match, and observed/result digests. Invocation rejects stale
-path, identity, absence, or content state before mutation. Decision 0046 routes
-the approved immutable effect through one owned Windows/Linux native committer.
+then planned just in time. `apply_patch` binds approval to one canonical target,
+ordered exact-text hunks, target absence or canonical file identity, strict
+UTF-8 complete content, and observed/result SHA-256 digests. Existing-file
+anchors must each be unique, strictly ordered, non-overlapping, and effective;
+creation has one empty anchor whose replacement is the complete new file.
+Invocation rejects stale path, identity, absence, or content state before
+mutation. Decision 0046 routes the approved immutable effect through one owned
+Windows/Linux native committer.
 Linux uses guarded handle-relative lookup, unnamed-file publication, and a write
 lease; Windows uses handle-relative opens, exclusive sharing, and delete-pending
 creation. Missing platform or filesystem primitives fail closed. This closes

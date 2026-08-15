@@ -123,9 +123,11 @@ terminal-native selection path, while Ctrl+C remains the agent interrupt.
   just in time and invoked sequentially.
 - Read tools may run automatically; every successfully planned write or execute
   call needs its own exact approval.
-- `create_file` and `replace_text` show one bounded concrete effect preview and
-  commit the approved state through one owned handle-relative Windows/Linux
-  broker. Changed identity, absence, path, or content fails as a conflict.
+- `apply_patch` creates or updates one file through ordered exact-text hunks,
+  shows one bounded concrete effect preview, and commits the approved state
+  through one owned handle-relative Windows/Linux broker. Ambiguous anchors,
+  overlap, reordering, no-op hunks, or changed identity, absence, path, or
+  content fail as conflicts.
 - `read_file`, `list_directory`, and `search_text` share one immutable built-in
   plus `.agentignore` disclosure policy; denied targets never enter tool output.
 - `read_file` optionally returns an exact bounded logical-line range with

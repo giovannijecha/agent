@@ -475,7 +475,8 @@ tests, decision, documentation, and verifier expectations together; retain
 
 Decision 0042, `workspace-boundary.ts`, `workspace-ignore.ts`,
 `workspace-read-policy.ts`, `workspace-path.ts`,
-`workspace-mutation-plans.ts`, `workspace-mutation-preview.ts`, the CLI
+`workspace-text-patch.ts`, `workspace-mutation-plans.ts`,
+`workspace-mutation-preview.ts`, the CLI
 composition root, built-in tool registration, `workspace-mutation-committer.ts`,
 `platform-workspace-mutation-protocol.ts`,
 `platform-workspace-mutation.ts`, the native mutation broker,
@@ -819,6 +820,22 @@ fields, the projection module, decision 0051, and their tests and documentation
 in one change. Restore the exact `{ path } -> { text }` result. To remove
 `read_file`, first remove its descriptor and handler following decisions 0014
 and 0050; do not leave a private range reader or compatibility alias.
+
+## Update or remove structured text patching
+
+`apply_patch`, `packages/agent-cli/src/workspace-text-patch.ts`, its descriptor,
+planner, bounded preview, internal create-or-replace commit adaptation, decision
+0053, focused tests, manual inventory, and policy entries form one contract.
+Change hunk ordering, uniqueness, overlap, creation form, aggregate bounds,
+result bounds, preview fields, approval, or stale-state behavior only together.
+Keep patch resolution pure over one complete immutable source snapshot and cross
+the decision 0046 native committer exactly once after approval.
+
+To roll back the convergence, remove `apply_patch` before deleting its parser,
+planner, preview, tests, decision, documentation, and policy entries. Do not
+restore the retired public mutation names or retain an unadvertised alias. To
+remove all mutation authority, remove the decision 0046 committer and both
+native backends only after no advertised tool consumes them.
 
 ## Update or remove structured process execution
 

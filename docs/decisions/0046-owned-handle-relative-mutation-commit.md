@@ -13,6 +13,10 @@ before the last check, but pathname lookup and mutation are still separate
 operations. A concurrent namespace change can therefore win after the last
 check.
 
+Decision 0053 later replaces those two public names with `apply_patch` while
+retaining the create and replace commit forms below as private protocol
+operations.
+
 The remaining boundary must not be implemented with another pathname retry,
 an advisory application lock, a foreign executable, or a package. It must use
 one owned native operation whose object selection is relative to opened
@@ -179,8 +183,8 @@ together.
 
 Rollback removes automatic mutation capability before removing this committer;
 it never restores portable direct writes while the tools remain advertised.
-Complete removal deletes `create_file` and `replace_text` descriptors, planners,
-previews, native committer, protocol, tests, documentation, and policy entries.
+Complete removal deletes the `apply_patch` descriptor, planner, preview, native
+committer, protocol, tests, documentation, and policy entries.
 Do not leave one platform on the native boundary while another silently uses a
 pathname fallback.
 

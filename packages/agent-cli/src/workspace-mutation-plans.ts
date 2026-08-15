@@ -6,6 +6,7 @@ import {
   err,
   ok,
   type Result,
+  StructuredList,
   StructuredObject,
 } from "@agent/core";
 import {
@@ -19,11 +20,14 @@ import {
 import { BUILTIN_TOOL_LIMITS } from "./builtin-tool-limits.js";
 import { decodeUtf8Text } from "./utf8-text.js";
 import type { WorkspaceMutationCommitter } from "./workspace-mutation-committer.js";
+import { patchMutationPreview } from "./workspace-mutation-preview.js";
 import {
-  createMutationPreview,
-  mutationPreviewLineAt,
-  replaceMutationPreview,
-} from "./workspace-mutation-preview.js";
+  applyTextPatch,
+  createTextPatch,
+  type TextPatchApplication,
+  type TextPatchError,
+  type TextPatchHunk,
+} from "./workspace-text-patch.js";
 import {
   isMissingWorkspacePath,
   mapWorkspaceIoError,
@@ -37,6 +41,7 @@ import {
 type CreateEffectSnapshot = Readonly<{
   content: string;
   digest: string;
+  hunkCount: number;
   parentIdentity: WorkspaceObjectIdentity;
   relative: string;
 }>;
@@ -49,6 +54,7 @@ type ObservedFileSnapshot = Readonly<{
 }>;
 
 type ReplaceEffectSnapshot = ObservedFileSnapshot & Readonly<{
+  hunkCount: number;
   replacement: string;
   replacementDigest: string;
 }>;
@@ -73,8 +79,35 @@ function text(input: StructuredObject, name: string): string {
   return value;
 }
 
+function patchHunks(input: StructuredObject): readonly TextPatchHunk[] {
+  const value = input.get("hunks");
+  if (!(value instanceof StructuredList)) {
+    throw new Error("validated patch hunk list invariant");
+  }
+  const hunks: TextPatchHunk[] = [];
+  for (let index = 0; index < value.length; index += 1) {
+    const item = value.values.at(index);
+    if (!(item instanceof StructuredObject)) {
+      throw new Error("validated patch hunk invariant");
+    }
+    hunks.push(
+      Object.freeze({
+        newText: text(item, "newText"),
+        oldText: text(item, "oldText"),
+      }),
+    );
+  }
+  return Object.freeze(hunks);
+}
+
 function digest(content: string): string {
   return createHash("sha256").update(content, "utf8").digest("hex");
+}
+
+function patchFailure(
+  error: TextPatchError,
+): Result<never, ToolHandlerError> {
+  return toolFailure(error.kind);
 }
 
 async function readFileHandleBounded(
@@ -129,7 +162,7 @@ function createInvocation(
       cancellation,
     );
     return committed.ok
-      ? toolSuccess({ created: true })
+      ? toolSuccess({ effect: "created", hunks: snapshot.hunkCount })
       : err(committed.error);
   };
 }
@@ -137,7 +170,7 @@ function createInvocation(
 async function observeCreate(
   root: string,
   relative: string,
-  content: string,
+  application: TextPatchApplication,
 ): Promise<Result<CreateEffectSnapshot, ToolHandlerError>> {
   const observed = await resolveWorkspaceCreationPath(root, relative);
   if (!observed.ok) {
@@ -162,8 +195,9 @@ async function observeCreate(
   }
   return ok(
     Object.freeze({
-      content,
-      digest: digest(content),
+      content: application.replacement,
+      digest: digest(application.replacement),
+      hunkCount: application.hunkCount,
       parentIdentity: observed.value.identity,
       relative: workspacePolicyPath(root, observed.value.target),
     }),
@@ -192,9 +226,7 @@ async function readObservedFile(
       !sameWorkspaceIdentity(handleIdentity, resolved.value.identity)
     ) {
       result = toolFailure("conflict");
-    } else if (
-      status.size > BigInt(BUILTIN_TOOL_LIMITS.fileUtf8Bytes)
-    ) {
+    } else if (status.size > BigInt(BUILTIN_TOOL_LIMITS.fileUtf8Bytes)) {
       result = toolFailure("limit");
     } else {
       const bytes = await readFileHandleBounded(handle);
@@ -279,13 +311,13 @@ function replaceInvocation(
       cancellation,
     );
     return committed.ok
-      ? toolSuccess({ replacements: 1 })
+      ? toolSuccess({ effect: "updated", hunks: snapshot.hunkCount })
       : err(committed.error);
   };
 }
 
-/** Plans one bounded absent-target creation and binds invocation to its parent. */
-export function createFilePlanner(
+/** Plans one structured create-or-update patch and binds one native commit. */
+export function applyPatchPlanner(
   root: string,
   committer: WorkspaceMutationCommitter,
 ): ToolPlanner {
@@ -293,71 +325,57 @@ export function createFilePlanner(
     if (cancellation.requested) {
       return toolFailure("cancelled");
     }
-    const observed = await observeCreate(
-      root,
-      text(input, "path"),
-      text(input, "content"),
-    );
-    if (!observed.ok) {
+    const relative = text(input, "path");
+    const hunks = patchHunks(input);
+    const observed = await readObservedFile(root, relative);
+    if (!observed.ok && observed.error.kind !== "notFound") {
       return observed;
     }
-    const preview = createMutationPreview({
-      content: observed.value.content,
-      digest: observed.value.digest,
-      path: observed.value.relative,
-    });
-    if (preview === undefined) {
-      return toolFailure("limit");
-    }
-    const planned = ToolEffectPlan.create(
-      preview,
-      createInvocation(committer, root, observed.value),
-    );
-    return planned.ok ? ok(planned.value) : toolFailure("limit");
-  };
-}
 
-/** Plans one exact replacement and binds invocation to identity and content. */
-export function replaceTextPlanner(
-  root: string,
-  committer: WorkspaceMutationCommitter,
-): ToolPlanner {
-  return async (input, cancellation) => {
-    if (cancellation.requested) {
-      return toolFailure("cancelled");
-    }
-    const oldText = text(input, "oldText");
-    const newText = text(input, "newText");
-    const observed = await readObservedFile(root, text(input, "path"));
     if (!observed.ok) {
-      return observed;
+      const applied = createTextPatch(hunks);
+      if (!applied.ok) {
+        return patchFailure(applied.error);
+      }
+      const snapshot = await observeCreate(root, relative, applied.value);
+      if (!snapshot.ok) {
+        return snapshot;
+      }
+      const preview = patchMutationPreview({
+        addedLines: applied.value.addedLines,
+        effect: "create",
+        hunks,
+        path: snapshot.value.relative,
+        removedLines: applied.value.removedLines,
+        resultingDigest: snapshot.value.digest,
+      });
+      if (preview === undefined) {
+        return toolFailure("limit");
+      }
+      const planned = ToolEffectPlan.create(
+        preview,
+        createInvocation(committer, root, snapshot.value),
+      );
+      return planned.ok ? ok(planned.value) : toolFailure("limit");
     }
-    const first = observed.value.content.indexOf(oldText);
-    const second = first < 0
-      ? -1
-      : observed.value.content.indexOf(oldText, first + oldText.length);
-    if (first < 0 || second >= 0) {
-      return toolFailure("conflict");
-    }
-    const replacement =
-      observed.value.content.slice(0, first) +
-      newText +
-      observed.value.content.slice(first + oldText.length);
-    if (replacement.length > BUILTIN_TOOL_LIMITS.fileCodeUnits) {
-      return toolFailure("limit");
+
+    const applied = applyTextPatch(observed.value.content, hunks);
+    if (!applied.ok) {
+      return patchFailure(applied.error);
     }
     const snapshot = Object.freeze({
       ...observed.value,
-      replacement,
-      replacementDigest: digest(replacement),
+      hunkCount: applied.value.hunkCount,
+      replacement: applied.value.replacement,
+      replacementDigest: digest(applied.value.replacement),
     });
-    const line = mutationPreviewLineAt(observed.value.content, first);
-    const preview = replaceMutationPreview({
-      line,
-      newText,
+    const preview = patchMutationPreview({
+      addedLines: applied.value.addedLines,
+      effect: "update",
+      hunks,
       observedDigest: snapshot.digest,
-      oldText,
       path: snapshot.relative,
+      removedLines: applied.value.removedLines,
       resultingDigest: snapshot.replacementDigest,
     });
     if (preview === undefined) {
