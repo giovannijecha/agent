@@ -19,17 +19,18 @@ ownership policy. The verifier rejects missing, extra, or inconsistent files,
 manifests, links, declarations, generated formats, and registry entries.
 
 Provider eligibility is a separate canonical input in
-`tools/provider-policy.json`. Version 5 keeps the four subscription OAuth
+`tools/provider-policy.json`. Version 6 keeps the four subscription OAuth
 providers blocked and admits exactly two direct API-key providers, OpenCode Go
-and OpenCode Zen. It pins each provider's origin, model, transport, environment variable,
+and OpenCode Zen. It pins each provider's chat and public catalog endpoints,
+complete model allowlist and cost classes, transport, environment variable,
 memory-only persistence, evidence date, and exact workspace. It additionally
 pins each authorization request's lifecycle state, official route, visibility,
 research date, submission date, and public or content-free private reference.
 That metadata cannot change blocked eligibility. The verifier pins the exact
-six-workspace graph, including the provider, runtime, and tool engine. It denies
+seven-workspace graph, including both providers, runtime, and tool engine. It denies
 ambient network and provider escape paths while admitting only reviewed direct
 provider literals in their exact files. Filesystem and HTTPS APIs remain
-explicitly allowlisted only at the CLI edge. Process execution is not active.
+explicitly allowlisted only at the CLI edge.
 
 Public identity is registered independently in
 `tools/publication-policy.json`. It pins the project name, namespace,
@@ -105,9 +106,12 @@ retry, or implicit replay of a completed effect.
 
 Checkpointed failure-presentation changes follow decision 0052. Update the
 closed pure classifier, reducer regressions, turn-lifecycle manual,
-architecture, and engineering guidance together. A new runtime failure variant
+architecture, and engineering guidance together. Keep provider normalization
+in its separate pure module and require both admitted provider identities to
+produce the same adapter-neutral families. A new runtime failure variant
 must receive one content-free code before publication. Never add provider
-causes, tool payloads, paths, content, call identifiers, retry state, or a
+identities, raw reasons, statuses, response text, tool payloads, paths, content,
+call identifiers, retry state, or a
 second diagnostic log. Roll back the classifier and classified marker together
 without changing checkpoint retention.
 
@@ -135,6 +139,11 @@ decision, pure complete-batch
 preflight, just-in-time effect planning, root containment, symlink denial,
 incremental directory bounds, post-invocation checkpoints, content-free
 failures, and only owned bounded projections or effect previews in UI.
+Keep the required workspace-relative `path` field and its exact `.` root
+notation aligned across descriptors, provider-neutral instructions, manuals,
+and tests. Preserve the runtime's closed preparation reason and the CLI's
+`name`, `input`, and `identity` invalid-call subcodes. Do not diagnose provider
+interoperability by retaining tool arguments, paths, content, or raw responses.
 Reintroduce process execution only
 after the private decision-0016 broker passes its complete matching-platform
 adversarial matrix and a later decision accepts the model-facing schema,
@@ -176,7 +185,8 @@ Remove the CLI permission command, policy, contextual selectors, tool activity,
 built-in Node handlers, imports, declarations, and allowlist entries. Then remove the runtime dependency on
 `@agent/tools` and delete its workspace from npm, TypeScript, provider-policy,
 and lock registries. Remove core structured tool entries only if no remaining
-adapter consumes them. Build core, TUI, runtime, and the providerless CLI after
+adapter consumes them. Build core, TUI, runtime, and the provider-independent
+CLI surfaces after
 each stage.
 
 ## Update or remove session tool permissions
@@ -459,7 +469,8 @@ retention, controls, or cleanup changes.
 To remove application/runtime composition, restore a terminal-only serialized
 loop and unconditional no-model handling first. Remove the CLI runtime dependency
 and TypeScript reference, then delete arbiter and display-chat modules and
-decision 0007. Keep the generic TUI and providerless CLI buildable.
+decision 0007. Keep the generic TUI and provider-independent CLI surfaces
+buildable.
 
 ## Update or remove multiline composition, paste, or word editing
 
@@ -506,42 +517,50 @@ independently buildable.
 
 Each admitted provider has two owners. Its `@agent/provider-opencode-*` workspace owns the
 Node-free request, UTF-8, SSE, response, and tool-call contract. CLI owns the
-exact environment variable, HTTPS origin, response backpressure, timeout,
-composition, and provider presentation. Do not move process or socket access
+exact environment variable, HTTPS origins and paths, public catalog decoding,
+response backpressure, timeout, composition, and provider/model presentation.
+Do not move process or socket access
 into the provider package and do not leak provider vocabulary into runtime,
 tools, core, or TUI.
 
-An endpoint, model, header, privacy, limit, request-selection, instruction, or
+An endpoint, catalog, model allowlist, cost class, header, privacy, limit,
+request-selection, instruction, or
 wire change requires current official evidence, updates to decisions 0017,
-0061, and 0067 as applicable, exact provider-policy changes, provider and CLI
+0061, 0067, and 0068 as applicable, exact provider-policy changes, provider and CLI
 contract tests, manual/privacy/security updates, and the full offline release
-gate. Never add discovery, redirects, aliases, retries,
+gate. Public catalog discovery remains fixed-origin, credential-free, bounded,
+and intersected with the owned allowlist. Never add redirects, aliases, retries,
 fallbacks, arbitrary base URLs, or persistent key storage as a compatibility
 shortcut.
 
 To roll back or remove one provider, first remove its composition from
-`main.ts` and retain the remaining exact provider selection. Then remove that CLI
-transport, configuration and instructions modules; the provider workspace and
+`main.ts` and retain the remaining exact provider selection. Then remove its CLI
+chat and catalog transport entries, configuration, model allowlist, selection
+presentation, and instructions modules; the provider workspace and
 all npm/TypeScript/ownership edges; the `node:https` declaration and allowlist
 if unused; the exact direct-provider policy entry and source-literal exceptions;
 governing decision and provider-specific documentation. Regenerate the lockfile
 through the offline npm command. Preserve the other direct provider and the four
-blocked OAuth request records. Removing both must restore the providerless
-command result and prove the remaining five workspaces through the canonical verifier.
+blocked OAuth request records. Removing both must retain immediate TUI startup
+with no selected provider or model and prove the remaining five workspaces
+through the canonical verifier.
 
 ## Update or remove executable startup
 
 The root `bin` metadata, exact root scripts, CLI shebang, argument parser,
-hidden prompt, manual chapters, decision 0018, lockfile, and manifest verifier
+TUI credential context, manual chapters, decisions 0018 and 0068, lockfile, and manifest verifier
 form one executable contract. Preserve no-argument startup, exact `--help` and
-`--version`, secret-free arguments, non-TTY silence, bounded hidden input, and
+`--version`, secret-free arguments, non-TTY silence, bounded zero-projection
+input, and
 terminal restoration. The npm link is explicit operator state and must never be
 created by install lifecycle scripts.
 
-OpenCode Zen removal deletes only its prompt and composition. The `agent` binary,
-providerless startup, and npm link remain. To remove the command from one
+OpenCode Zen removal deletes only its credential slot, catalog and chat
+composition, allowlist, and selection entry. The `agent` binary, unselected
+startup, and npm link remain. To remove the command from one
 machine, run `npm unlink --global agent-workspace`. To remove the feature from
-source, delete the root `bin` and installation script, argument parser, prompt,
+source, delete the root `bin` and installation script, argument parser,
+credential context,
 tests, decision, documentation, and verifier expectations together; retain
 `npm start` as the rollback entry point.
 

@@ -14,7 +14,18 @@ const CASES = [
   [{ kind: "unexpected", operation: "read" }, "model/read/unexpected"],
   [{ kind: "invalidModelStream" }, "model/open/invalid-stream"],
   [{ kind: "invalidModelEvent" }, "model/read/invalid-event"],
-  [{ kind: "invalidToolCall" }, "tool/invalid-call"],
+  [
+    { kind: "invalidToolCall", reason: "unknownTool" },
+    "tool/invalid-call/name",
+  ],
+  [
+    { kind: "invalidToolCall", reason: "invalidInput" },
+    "tool/invalid-call/input",
+  ],
+  [
+    { kind: "invalidToolCall", reason: "invalidCall" },
+    "tool/invalid-call/identity",
+  ],
   [{ kind: "toolEngine" }, "tool/engine"],
   [{ kind: "toolLimit" }, "tool/limit"],
   [{ kind: "toolUnavailable" }, "tool/unavailable"],
@@ -46,6 +57,50 @@ test("distinguishes retained tool truth from an uncommitted failed turn", () => 
   assert.equal(
     projectTurnFailure({ kind: "toolLimit" }, false).notice,
     "The turn failed (tool/limit); no conversation changes were committed.",
+  );
+});
+
+test("explains a classified provider-open failure without exposing its identity", () => {
+  const projected = projectTurnFailure(
+    {
+      error: Object.freeze({
+        cleanupFailed: false,
+        kind: "openCodeGo" as const,
+        operation: "open" as const,
+        reason: "status" as const,
+      }),
+      kind: "model",
+      operation: "open",
+    },
+    false,
+  );
+  assert.equal(projected.code, "model/open/rejected");
+  assert.equal(
+    projected.notice,
+    "The turn failed (model/open/rejected); the provider did not open a usable response stream; no tools ran and no conversation changes were committed.",
+  );
+  assert.equal(projected.notice.includes("OpenCode Go"), false);
+  assert.equal(projected.notice.includes("status"), false);
+});
+
+test("retains completed tool truth in a classified continuation failure", () => {
+  const projected = projectTurnFailure(
+    {
+      error: Object.freeze({
+        cleanupFailed: false,
+        kind: "openCodeZen" as const,
+        operation: "open" as const,
+        reason: "transportTimeout" as const,
+      }),
+      kind: "model",
+      operation: "open",
+    },
+    true,
+  );
+  assert.equal(projected.code, "model/open/timeout");
+  assert.equal(
+    projected.notice,
+    "The turn failed (model/open/timeout); the provider did not open a usable response stream; completed tool activity remains in conversation.",
   );
 });
 

@@ -11,12 +11,14 @@ import {
 function configuredProviders() {
   return Object.freeze([
     Object.freeze({
+      configured: true,
       id: "opencodeZen" as const,
       presentation: Object.freeze({
         authentication: "memory-only API key",
         displayName: "OpenCode Zen",
         model: "configured-model",
       }),
+      ready: true,
       selected: true,
     }),
   ]);
@@ -25,21 +27,52 @@ function configuredProviders() {
 function configuredDualProviders() {
   return Object.freeze([
     Object.freeze({
+      configured: true,
       id: "opencodeGo" as const,
       presentation: Object.freeze({
         authentication: "memory-only API key",
         displayName: "OpenCode Go",
         model: "go-model",
       }),
+      ready: true,
       selected: true,
     }),
     Object.freeze({
+      configured: true,
       id: "opencodeZen" as const,
       presentation: Object.freeze({
         authentication: "memory-only API key",
         displayName: "OpenCode Zen",
         model: "zen-model",
       }),
+      ready: true,
+      selected: false,
+    }),
+  ]);
+}
+
+function unconfiguredProviders() {
+  return Object.freeze([
+    Object.freeze({
+      configured: false,
+      id: "opencodeGo" as const,
+      presentation: Object.freeze({
+        authentication: "memory-only API key",
+        displayName: "OpenCode Go",
+        model: undefined,
+      }),
+      ready: false,
+      selected: false,
+    }),
+    Object.freeze({
+      configured: false,
+      id: "opencodeZen" as const,
+      presentation: Object.freeze({
+        authentication: "memory-only API key",
+        displayName: "OpenCode Zen",
+        model: undefined,
+      }),
+      ready: false,
       selected: false,
     }),
   ]);
@@ -66,13 +99,12 @@ function reduceInput(application: ApplicationController, input: string) {
   return application.feed(input);
 }
 
-test("discards no-runtime input without adding transcript or echoing it", () => {
+test("blocks no-runtime input without adding transcript or echoing it", () => {
   const application = new ApplicationController(false);
   const privateText = "private no-provider request";
   const submission = reduceInput(application, privateText + "\r");
 
-  assert.equal(submission.effects.at(0)?.kind, "startTurn");
-  application.noRuntime();
+  assert.deepEqual(submission.effects, []);
 
   assert.equal(application.hasTranscript, false);
   assert.equal(application.transcriptText(), "");
@@ -86,7 +118,7 @@ test("never presents a provider without an executable runtime", () => {
 
   assert.deepEqual(result.effects, []);
   assert.equal(application.provider, undefined);
-  assert.deepEqual(application.notice, ["No provider configured"]);
+  assert.deepEqual(application.notice, ["No providers are available."]);
   assert.equal(application.noticeLevel, "info");
   assert.ok(application.noticeToken !== undefined);
 });
@@ -115,11 +147,15 @@ test("selects one configured provider only after router confirmation", () => {
   assert.equal(application.provider?.displayName, "OpenCode Go");
   assert.equal(application.projectProviderMenu(), undefined);
 
-  const confirmed = application.providerSelected("opencodeZen");
+  const switched = configuredDualProviders().map((provider) => ({
+    ...provider,
+    selected: provider.id === "opencodeZen",
+  }));
+  const confirmed = application.providerSelected(switched, "opencodeZen");
   assert.ok(confirmed.ok);
   assert.equal(application.provider?.displayName, "OpenCode Zen");
   assert.deepEqual(application.notice, [
-    "OpenCode Zen selected for this session.",
+    "OpenCode Zen selected for this process.",
   ]);
 
   reduceInput(application, "/providers\r");
@@ -135,19 +171,100 @@ test("selects one configured provider only after router confirmation", () => {
   );
 });
 
+test("conceals provider credentials and requires an explicit model selection", () => {
+  const application = new ApplicationController(true, unconfiguredProviders());
+
+  assert.deepEqual(reduceInput(application, "private task\r").effects, []);
+  assert.deepEqual(application.notice, [
+    "Configure and select a provider with /providers first.",
+  ]);
+
+  reduceInput(application, "/providers\r");
+  const opened = reduceInput(application, "\r");
+  assert.deepEqual(opened.effects, []);
+  assert.deepEqual(application.projectProviderCredential(), {
+    providerName: "OpenCode Go",
+  });
+
+  const typed = reduceInput(application, "ephemeral-key");
+  assert.deepEqual(typed.effects, []);
+  assert.equal(application.draftLength, 0);
+  assert.deepEqual(application.project(80), { caretColumn: 0, text: "" });
+  assert.deepEqual(application.projectArea(80, 6), {
+    caretColumn: 0,
+    caretRow: 0,
+    rows: [""],
+    selections: [{ end: 0, start: 0 }],
+  });
+  const submitted = reduceInput(application, "\r");
+  assert.deepEqual(submitted.effects, [
+    {
+      credential: "ephemeral-key",
+      id: "opencodeGo",
+      kind: "configureProvider",
+    },
+  ]);
+  assert.equal(application.projectProviderCredential(), undefined);
+
+  const configured = unconfiguredProviders().map((provider) =>
+    provider.id === "opencodeGo"
+      ? { ...provider, configured: true, selected: true }
+      : provider,
+  );
+  assert.ok(application.providerConfigured(configured, "opencodeGo").ok);
+  const models = reduceInput(application, "/models\r");
+  assert.deepEqual(models.effects, [{ kind: "loadModels" }]);
+  assert.ok(
+    application.modelsLoaded([
+      { cost: "goPlan", id: "go-model", selected: false },
+    ]).ok,
+  );
+  assert.deepEqual(application.projectModelMenu(), {
+    items: [{ cost: "goPlan", id: "go-model", selected: false }],
+    providerName: "OpenCode Go",
+    selectedIndex: 0,
+  });
+  assert.deepEqual(reduceInput(application, "\r").effects, [
+    { id: "go-model", kind: "selectModel" },
+  ]);
+  const ready = configured.map((provider) =>
+    provider.id === "opencodeGo"
+      ? {
+          ...provider,
+          presentation: { ...provider.presentation, model: "go-model" },
+          ready: true,
+        }
+      : provider,
+  );
+  assert.ok(application.modelSelected(ready, "go-model").ok);
+  assert.equal(application.provider?.model, "go-model");
+  assert.equal(reduceInput(application, "private task\r").effects.at(0)?.kind, "startTurn");
+});
+
+test("credential entry treats slash text as secret and Ctrl+C clears it", () => {
+  const application = new ApplicationController(true, unconfiguredProviders());
+
+  reduceInput(application, "/providers\r");
+  reduceInput(application, "\r");
+  const typed = reduceInput(application, "/exit");
+  assert.deepEqual(typed.effects, []);
+  assert.deepEqual(application.project(80), { caretColumn: 0, text: "" });
+
+  const cancelled = reduceInput(application, "\u0003");
+  assert.deepEqual(cancelled.effects, []);
+  assert.equal(application.projectProviderCredential(), undefined);
+  assert.deepEqual(application.notice, [
+    "Provider configuration cancelled.",
+  ]);
+  assert.equal(application.draftLength, 0);
+});
+
 test("rejects invalid configured provider snapshots", () => {
   const go = configuredDualProviders().at(0);
   assert.ok(go !== undefined);
   for (const create of [
     () => new ApplicationController(true, [go, go]),
-    () =>
-      new ApplicationController(
-        true,
-        configuredDualProviders().map((provider) => ({
-          ...provider,
-          selected: false,
-        })),
-      ),
+    () => new ApplicationController(true, [{ ...go, configured: false }]),
   ]) {
     let caught: unknown;
     try {
@@ -176,7 +293,7 @@ test("replaces, dismisses, and expires only the current notice generation", () =
   assert.equal(current === stale, false);
   assert.equal(application.noticeLevel, "info");
   assert.equal(application.expireNotice(stale).redraw, false);
-  assert.deepEqual(application.notice, ["No provider configured"]);
+  assert.deepEqual(application.notice, ["No providers are available."]);
   assert.equal(application.expireNotice(current).redraw, true);
   assert.deepEqual(application.notice, []);
   assert.equal(application.noticeToken, undefined);
@@ -457,7 +574,10 @@ test("identifies invalid model tool calls without retaining their content", () =
       cleanup: Object.freeze([]),
       kind: "turnFinished" as const,
       outcome: Object.freeze({
-        failure: Object.freeze({ kind: "invalidToolCall" as const }),
+        failure: Object.freeze({
+          kind: "invalidToolCall" as const,
+          reason: "invalidInput" as const,
+        }),
         kind: "failed" as const,
       }),
       turnId: 5,
@@ -465,7 +585,10 @@ test("identifies invalid model tool calls without retaining their content", () =
   );
 
   assert.ok(failed.ok);
-  assert.equal(application.notice.at(0)?.includes("tool/invalid-call"), true);
+  assert.equal(
+    application.notice.at(0)?.includes("tool/invalid-call/input"),
+    true,
+  );
   assert.equal(application.notice.join("\n").includes("private"), false);
 });
 

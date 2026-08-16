@@ -49,6 +49,10 @@ lifecycle log retains the preview internally.
 Every tool receives a validated structured object and the same immutable
 canonical workspace boundary selected before startup. The footer exposes that
 exact absolute root; tool handlers do not select or recanonicalize another one.
+Every required model-facing argument must be supplied exactly as advertised.
+Filesystem `path` fields are workspace-relative and use the exact string `.`
+for the workspace root. The field remains required; omission, an empty value,
+an absolute path, or a provider-specific substitute is not rewritten.
 Absolute model inputs, parent escape, symbolic links, unsupported file kinds,
 unknown fields, and oversized data fail closed.
 Files are limited to 262,144 code units. Directory listing is limited to 512

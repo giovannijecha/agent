@@ -2,6 +2,8 @@
 
 - Status: accepted
 - Date: 2026-08-14
+- Amended: 2026-08-16 for adapter-neutral provider failure families
+- Amended: 2026-08-16 by decision 0069 for content-free invalid-call reasons
 
 ## Context
 
@@ -24,14 +26,19 @@ improve diagnosis would violate the content-free failure boundary.
 The CLI owns one pure turn-failure presentation projection. It maps the closed
 `TurnFailure` union to the existing bounded content-free classification codes:
 
-- model transport and protocol failures use the `model/...` domain;
+- model transport and protocol failures use the `model/...` domain. Exact
+  admitted OpenCode errors may add one adapter-neutral `cancelled`,
+  `connectivity`, `lifecycle`, `limit`, `protocol`, `rejected`, `request`, or
+  `timeout` family after the runtime operation;
 - invalid, unavailable, limited, and invariant tool failures use the `tool/...`
-  domain; and
+  domain. Invalid calls distinguish only `tool/invalid-call/name`,
+  `tool/invalid-call/input`, and `tool/invalid-call/identity`; and
 - the closed residual runtime failure uses `runtime/failure`.
 
 For a failed turn with no checkpoint, the contextual notice states the exact
-closed code and that no conversation changes were committed. No transcript
-entry is published.
+closed code and that no conversation changes were committed. A `model/open/...`
+notice additionally states that the provider did not open a usable response
+stream and that no tool ran. No transcript entry is published.
 
 For a failed turn after a checkpoint, the application publishes the exact
 bounded marker `[turn failed (<code>) after completed tool activity]` and the
@@ -47,10 +54,15 @@ enters the transcript.
 
 ## Privacy, bounds, and failures
 
-The projection accepts only the runtime's closed immutable failure union. It
-never includes provider errors, exception text, tool arguments, tool output,
-paths, content, call identifiers, or model text. Every code and sentence is a
-fixed CLI-owned string bounded by the existing notice and transcript limits.
+The projection accepts only the runtime's closed immutable failure union. One
+separate pure CLI classifier recognizes the exact two admitted provider error
+shapes and maps their already content-free reasons into the shared families
+above. It never includes a provider identity, provider reason spelling,
+exception text, status value, response body, tool arguments, tool output,
+paths, content, call identifiers, or model text. Unknown, malformed, or
+operation-mismatched provider values retain the coarser `model/<operation>`
+code. Every code and sentence is a fixed CLI-owned string bounded by the
+existing notice and transcript limits.
 
 An unknown runtime variant fails closed to `runtime/failure`; it does not echo
 the rejected value. This classification is diagnostic presentation only. It
@@ -59,12 +71,13 @@ limit, alter provider transport, or retain a new log.
 
 ## Verification
 
-Pure projection tests cover every admitted failure variant, the residual
-content-free fallback, immutable results, checkpointed markers, and
-checkpoint-free notices. Application regressions prove that a successful tool
-followed by a model-read failure retains the tool checkpoint, removes ephemeral
-activity, publishes the classified marker, and exposes the same classified
-notice without a provider cause.
+Pure projection tests cover every admitted failure variant, both provider
+identities, every shared provider family, malformed and operation-mismatched
+provider values, the residual content-free fallback, immutable results,
+checkpointed markers, and checkpoint-free notices. Application regressions
+prove that a successful tool followed by a model-read failure retains the tool
+checkpoint, removes ephemeral activity, publishes the classified marker, and
+exposes the same classified notice without provider-specific data.
 
 The canonical Windows and Linux verification gates remain mandatory.
 
@@ -73,7 +86,9 @@ The canonical Windows and Linux verification gates remain mandatory.
 Changing a runtime failure variant or its public code requires this decision,
 the pure projection, reducer tests, turn-lifecycle manual, architecture,
 engineering guidance, and maintenance guidance to change together. Provider
-adapters may not add private presentation codes.
+adapters may not add private presentation codes; a new provider reason must
+join an existing adapter-neutral family or amend this decision and both
+admitted adapters in one change.
 
 Rollback removes the pure projection and restores the former generic marker
 and notice in one change; it does not alter checkpoint retention. Removing

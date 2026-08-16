@@ -9,6 +9,8 @@
 - Amended: 2026-08-15 by decision 0055 for session tool permissions
 - Amended: 2026-08-16 by decision 0057 for human patch approval presentation
 - Amended: 2026-08-16 by decision 0061 for convergent model-tool turns
+- Amended: 2026-08-16 by decision 0069 for exact root-path guidance and
+  content-free invalid-call reasons
 
 Decision 0055 replaces implicit read allowance and the typed `/approve` and
 `/deny` path with one exact-tool session policy and contextual decisions. The

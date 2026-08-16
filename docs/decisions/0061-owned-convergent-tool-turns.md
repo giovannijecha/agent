@@ -3,6 +3,8 @@
 - Status: accepted
 - Date: 2026-08-16
 - Amended: 2026-08-16 by decision 0067 for the OpenCode Zen adapter
+- Amended: 2026-08-16 by decision 0069 for exact required-argument and
+  workspace-root guidance
 - Amends: decisions 0008, 0017, and 0029
 
 ## Context
@@ -33,7 +35,9 @@ model to issue at most one call, observe its structured result, reassess the
 remaining user goal, and continue until every requested part is complete or one
 explicit blocker remains. Currently known edits to one file should be
 consolidated into one `apply_patch` call rather than split into adjacent patches.
-A failed result must be corrected or explained, never repeated blindly.
+A failed result must be corrected or explained, never repeated blindly. The
+same instruction requires every advertised required argument and identifies
+`"."` as the exact workspace-root path representation.
 
 This is a model-turn barrier, not a second controller and not a handler retry.
 After one tool result is checkpointed, the existing runtime reopens the same

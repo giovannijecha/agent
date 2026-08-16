@@ -37,8 +37,16 @@ remains in conversation and only newer prospective model text is discarded. A
 bounded transcript marker and the latest ephemeral notice expose the same
 closed code: `model/...` identifies model continuation, `tool/...` identifies
 tool-call, availability, limit, or engine settlement, and `runtime/failure` is
-the content-free residual. A prior green tool result remains successful; the
-later classified failure does not rewrite it. Provider causes, tool payloads,
+the content-free residual. Admitted provider errors may add one shared
+content-free family after `model/open` or `model/read`; an initial open failure
+also states that no usable stream opened and no tool ran. A prior green tool
+result remains successful; the later classified failure does not rewrite it.
+An invalid request is rejected before planning or permission and distinguishes
+only `tool/invalid-call/name`, `tool/invalid-call/input`, or
+`tool/invalid-call/identity`. These codes identify an unknown canonical name,
+invalid structured arguments, or an invalid call identity respectively; they
+never reproduce the rejected request.
+Provider identity, raw reason names, statuses, response bodies, tool payloads,
 paths, content, and call identifiers are never displayed or retained for this
 diagnosis. Check the code before retrying because an external effect may already
 have completed.
@@ -47,7 +55,8 @@ have completed.
 
 Change turn ordering only with runtime, reducer, arbiter, cancellation,
 checkpoint, privacy, and cleanup regressions. Remove runtime composition before
-removing its package so the providerless CLI continues to discard input safely.
+removing its package so the provider-independent CLI surfaces continue to
+discard input safely.
 The full rollback order is in [the maintenance runbook](../MAINTENANCE.md).
 
 ## Evidence
@@ -59,3 +68,4 @@ The full rollback order is in [the maintenance runbook](../MAINTENANCE.md).
 - Display-only chat state: `packages/agent-cli/src/chat-state.ts`
 - Failure presentation: `packages/agent-cli/src/turn-failure-presentation.ts`
 - Classification decision: `docs/decisions/0052-owned-checkpointed-turn-failure-classification.md`
+- Tool-call interoperability decision: `docs/decisions/0069-owned-tool-call-interoperability.md`

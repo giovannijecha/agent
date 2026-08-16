@@ -7,36 +7,93 @@ import type { Conversation, Result } from "@agent/core";
 import { err, ok } from "@agent/core";
 import type { ToolDescriptor } from "@agent/tools";
 
-export type ProviderId = "opencodeGo" | "opencodeZen";
+import {
+  isValidOpenCodeGoCredential,
+  isValidOpenCodeZenCredential,
+} from "./provider-configuration.js";
+import {
+  isProviderId,
+  type ProviderId,
+} from "./provider-identity.js";
+import type {
+  ProviderModelCatalog,
+  ProviderModelCatalogError,
+} from "./provider-model-catalog.js";
+
+export type { ProviderId } from "./provider-identity.js";
+
+export type ProviderModelCost = "free" | "goPlan" | "zenBalance";
+
+export type ProviderModelDefinition = Readonly<{
+  cost: ProviderModelCost;
+  id: string;
+}>;
 
 export type ProviderPresentation = Readonly<{
   authentication: string;
   displayName: string;
-  model: string;
+  model: string | undefined;
 }>;
 
 export type ProviderDefinition<E> = Readonly<{
+  createModel(
+    credential: string,
+    model: string,
+  ): StreamingModel<E> | undefined;
   id: ProviderId;
-  model: StreamingModel<E>;
-  presentation: ProviderPresentation;
+  models: readonly ProviderModelDefinition[];
+  presentation: Readonly<{
+    authentication: string;
+    displayName: string;
+  }>;
 }>;
 
 export type ProviderSelectionSnapshot = Readonly<{
+  configured: boolean;
   id: ProviderId;
   presentation: ProviderPresentation;
+  ready: boolean;
+  selected: boolean;
+}>;
+
+export type ProviderModelSnapshot = Readonly<{
+  cost: ProviderModelCost;
+  id: string;
   selected: boolean;
 }>;
 
 export type ProviderSelectionPort = Readonly<{
+  clear(): void;
+  configure(
+    id: ProviderId,
+    credential: string,
+  ): Result<void, ProviderSessionError>;
+  listModels(): Promise<
+    Result<readonly ProviderModelSnapshot[], ProviderSessionModelsError>
+  >;
+  ready(): boolean;
   select(id: ProviderId): Result<void, ProviderSessionError>;
+  selectModel(id: string): Result<void, ProviderSessionError>;
   snapshots(): readonly ProviderSelectionSnapshot[];
 }>;
 
 export type ProviderSessionErrorKind =
+  | "duplicateModel"
   | "duplicateProvider"
+  | "invalidCredential"
+  | "invalidModel"
   | "invalidProvider"
   | "invalidProviderCount"
+  | "modelCreationFailed"
+  | "modelNotAvailable"
+  | "modelNotSelected"
+  | "noActiveProvider"
+  | "providerNotConfigured"
   | "unknownProvider";
+
+export type ProviderSessionModelsError =
+  | Readonly<{ kind: "catalog"; error: ProviderModelCatalogError }>
+  | Readonly<{ kind: "session"; error: ProviderSessionError }>;
 
 /** Content-free failure from the closed session provider selector. */
 export class ProviderSessionError {
@@ -52,84 +109,185 @@ export class ProviderSessionError {
   }
 }
 
-function copyPresentation(
-  presentation: ProviderPresentation,
-): ProviderPresentation {
+type RetainedProvider<E> = {
+  catalog: readonly string[] | undefined;
+  createModel(
+    credential: string,
+    model: string,
+  ): StreamingModel<E> | undefined;
+  credential: string | undefined;
+  id: ProviderId;
+  model: StreamingModel<E> | undefined;
+  modelId: string | undefined;
+  models: readonly ProviderModelDefinition[];
+  presentation: Readonly<{
+    authentication: string;
+    displayName: string;
+  }>;
+};
+
+function validModelDefinition(value: ProviderModelDefinition): boolean {
+  return (
+    typeof value.id === "string" &&
+    value.id.length >= 1 &&
+    value.id.length <= 128 &&
+    /^[a-z0-9][a-z0-9._-]*$/u.test(value.id) &&
+    (value.cost === "free" ||
+      value.cost === "goPlan" ||
+      value.cost === "zenBalance")
+  );
+}
+
+function credentialValid(id: ProviderId, credential: string): boolean {
+  return id === "opencodeGo"
+    ? isValidOpenCodeGoCredential(credential)
+    : isValidOpenCodeZenCredential(credential);
+}
+
+function sessionModelsError(
+  kind: ProviderSessionErrorKind,
+): ProviderSessionModelsError {
   return Object.freeze({
-    authentication: presentation.authentication,
-    displayName: presentation.displayName,
-    model: presentation.model,
+    error: new ProviderSessionError(kind),
+    kind: "session" as const,
   });
 }
 
 /**
- * Owns one closed provider choice while exposing one StreamingModel port.
- * Selection is explicit and never retries a request through another backend.
+ * Owns two ephemeral provider credentials and one active model port.
+ * Configuration, catalogs, selections, and adapters are released on clear.
  */
 export class ProviderSession<E> implements StreamingModel<E> {
-  readonly #definitions: readonly ProviderDefinition<E>[];
-  #selectedIndex: number;
+  readonly #listModels: ProviderModelCatalog["list"];
+  readonly #providers: RetainedProvider<E>[];
+  #selectedIndex: number | undefined;
 
   private constructor(
-    definitions: readonly ProviderDefinition<E>[],
-    selectedIndex: number,
+    providers: RetainedProvider<E>[],
+    listModels: ProviderModelCatalog["list"],
   ) {
-    this.#definitions = definitions;
-    this.#selectedIndex = selectedIndex;
+    this.#providers = providers;
+    this.#listModels = listModels;
+    this.#selectedIndex = undefined;
   }
 
   static create<E>(
     definitions: readonly ProviderDefinition<E>[],
+    catalog: ProviderModelCatalog,
   ): Result<ProviderSession<E>, ProviderSessionError> {
-    if (definitions.length < 1 || definitions.length > 2) {
-      return err(new ProviderSessionError("invalidProviderCount"));
-    }
-    const copied: ProviderDefinition<E>[] = [];
-    for (const definition of definitions) {
+    try {
+      if (definitions.length < 1 || definitions.length > 2) {
+        return err(new ProviderSessionError("invalidProviderCount"));
+      }
       if (
-        definition.id !== "opencodeGo" &&
-        definition.id !== "opencodeZen"
+        catalog === null ||
+        typeof catalog !== "object" ||
+        typeof catalog.list !== "function"
       ) {
         return err(new ProviderSessionError("invalidProvider"));
       }
-      if (copied.some((entry) => entry.id === definition.id)) {
-        return err(new ProviderSessionError("duplicateProvider"));
+      const listModels = catalog.list.bind(catalog);
+      const copied: RetainedProvider<E>[] = [];
+      for (const definition of definitions) {
+        const id = definition.id;
+        const duplicate = isProviderId(id) &&
+          copied.some((entry) => entry.id === id);
+        const createModel = definition.createModel;
+        const modelDefinitions = definition.models;
+        const presentation = definition.presentation;
+        if (
+          !isProviderId(id) ||
+          duplicate ||
+          typeof createModel !== "function" ||
+          !Array.isArray(modelDefinitions) ||
+          modelDefinitions.length < 1 ||
+          typeof presentation?.authentication !== "string" ||
+          typeof presentation.displayName !== "string"
+        ) {
+          return err(
+            new ProviderSessionError(
+              duplicate ? "duplicateProvider" : "invalidProvider",
+            ),
+          );
+        }
+        const models: ProviderModelDefinition[] = [];
+        for (const model of modelDefinitions) {
+          if (!validModelDefinition(model)) {
+            return err(new ProviderSessionError("invalidModel"));
+          }
+          if (models.some((entry) => entry.id === model.id)) {
+            return err(new ProviderSessionError("duplicateModel"));
+          }
+          models.push(Object.freeze({ cost: model.cost, id: model.id }));
+        }
+        copied.push({
+          catalog: undefined,
+          createModel,
+          credential: undefined,
+          id,
+          model: undefined,
+          modelId: undefined,
+          models: Object.freeze(models),
+          presentation: Object.freeze({
+            authentication: presentation.authentication,
+            displayName: presentation.displayName,
+          }),
+        });
       }
-      copied.push(
-        Object.freeze({
-          id: definition.id,
-          model: definition.model,
-          presentation: copyPresentation(definition.presentation),
-        }),
-      );
+      return ok(new ProviderSession(copied, listModels));
+    } catch (_cause: unknown) {
+      return err(new ProviderSessionError("invalidProvider"));
     }
-    const goIndex = copied.findIndex((entry) => entry.id === "opencodeGo");
-    return ok(
-      new ProviderSession(
-        Object.freeze(copied),
-        goIndex >= 0 ? goIndex : 0,
-      ),
-    );
   }
 
-  get selected(): ProviderSelectionSnapshot {
-    const definition = this.#definitions.at(this.#selectedIndex);
-    if (definition === undefined) {
-      throw new ProviderSessionError("unknownProvider");
+  clear(): void {
+    for (const provider of this.#providers) {
+      provider.catalog = undefined;
+      provider.credential = undefined;
+      provider.model = undefined;
+      provider.modelId = undefined;
     }
-    return Object.freeze({
-      id: definition.id,
-      presentation: definition.presentation,
-      selected: true,
-    });
+    this.#selectedIndex = undefined;
+  }
+
+  configure(
+    id: ProviderId,
+    credential: string,
+  ): Result<void, ProviderSessionError> {
+    const index = this.#providers.findIndex((entry) => entry.id === id);
+    if (index < 0) {
+      return err(new ProviderSessionError("unknownProvider"));
+    }
+    if (!credentialValid(id, credential)) {
+      return err(new ProviderSessionError("invalidCredential"));
+    }
+    const provider = this.#providers.at(index);
+    if (provider === undefined) {
+      return err(new ProviderSessionError("unknownProvider"));
+    }
+    provider.catalog = undefined;
+    provider.credential = credential;
+    provider.model = undefined;
+    provider.modelId = undefined;
+    return ok(undefined);
+  }
+
+  ready(): boolean {
+    return this.#active()?.model !== undefined;
   }
 
   snapshots(): readonly ProviderSelectionSnapshot[] {
     return Object.freeze(
-      this.#definitions.map((definition, index) =>
+      this.#providers.map((provider, index) =>
         Object.freeze({
-          id: definition.id,
-          presentation: definition.presentation,
+          configured: provider.credential !== undefined,
+          id: provider.id,
+          presentation: Object.freeze({
+            authentication: provider.presentation.authentication,
+            displayName: provider.presentation.displayName,
+            model: provider.modelId,
+          }),
+          ready: provider.model !== undefined,
           selected: index === this.#selectedIndex,
         }),
       ),
@@ -137,11 +295,83 @@ export class ProviderSession<E> implements StreamingModel<E> {
   }
 
   select(id: ProviderId): Result<void, ProviderSessionError> {
-    const index = this.#definitions.findIndex((entry) => entry.id === id);
+    const index = this.#providers.findIndex((entry) => entry.id === id);
     if (index < 0) {
       return err(new ProviderSessionError("unknownProvider"));
     }
+    if (this.#providers.at(index)?.credential === undefined) {
+      return err(new ProviderSessionError("providerNotConfigured"));
+    }
     this.#selectedIndex = index;
+    return ok(undefined);
+  }
+
+  async listModels(): Promise<
+    Result<readonly ProviderModelSnapshot[], ProviderSessionModelsError>
+  > {
+    const provider = this.#active();
+    if (provider === undefined) {
+      return err(sessionModelsError("noActiveProvider"));
+    }
+    if (provider.credential === undefined) {
+      return err(sessionModelsError("providerNotConfigured"));
+    }
+    provider.catalog = undefined;
+    let listed: Result<readonly string[], ProviderModelCatalogError>;
+    try {
+      listed = await this.#listModels(provider.id);
+    } catch (_cause: unknown) {
+      return err(sessionModelsError("modelNotAvailable"));
+    }
+    if (!listed.ok) {
+      return err(Object.freeze({ kind: "catalog" as const, error: listed.error }));
+    }
+    const remote = new Set(listed.value);
+    const available = provider.models.filter((model) => remote.has(model.id));
+    if (available.length === 0) {
+      provider.catalog = undefined;
+      return err(sessionModelsError("modelNotAvailable"));
+    }
+    provider.catalog = Object.freeze(available.map((model) => model.id));
+    return ok(
+      Object.freeze(
+        available.map((model) =>
+          Object.freeze({
+            cost: model.cost,
+            id: model.id,
+            selected: model.id === provider.modelId,
+          }),
+        ),
+      ),
+    );
+  }
+
+  selectModel(id: string): Result<void, ProviderSessionError> {
+    const provider = this.#active();
+    if (provider === undefined) {
+      return err(new ProviderSessionError("noActiveProvider"));
+    }
+    if (provider.credential === undefined) {
+      return err(new ProviderSessionError("providerNotConfigured"));
+    }
+    if (provider.catalog === undefined || !provider.catalog.includes(id)) {
+      return err(new ProviderSessionError("modelNotAvailable"));
+    }
+    const definition = provider.models.find((model) => model.id === id);
+    if (definition === undefined) {
+      return err(new ProviderSessionError("invalidModel"));
+    }
+    let model: StreamingModel<E> | undefined;
+    try {
+      model = provider.createModel(provider.credential, definition.id);
+    } catch (_cause: unknown) {
+      model = undefined;
+    }
+    if (model === undefined) {
+      return err(new ProviderSessionError("modelCreationFailed"));
+    }
+    provider.model = model;
+    provider.modelId = definition.id;
     return ok(undefined);
   }
 
@@ -150,10 +380,16 @@ export class ProviderSession<E> implements StreamingModel<E> {
     cancellation: CancellationSignal,
     tools: readonly ToolDescriptor[],
   ): Promise<Result<ModelStream<E>, E>> {
-    const definition = this.#definitions.at(this.#selectedIndex);
-    if (definition === undefined) {
-      throw new ProviderSessionError("unknownProvider");
+    const model = this.#active()?.model;
+    if (model === undefined) {
+      throw new ProviderSessionError("modelNotSelected");
     }
-    return definition.model.open(conversation, cancellation, tools);
+    return model.open(conversation, cancellation, tools);
+  }
+
+  #active(): RetainedProvider<E> | undefined {
+    return this.#selectedIndex === undefined
+      ? undefined
+      : this.#providers.at(this.#selectedIndex);
   }
 }

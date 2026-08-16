@@ -120,8 +120,8 @@ It may be implemented only through an accepted provider-specific decision, an
 exact origin and credential variable, a CLI-owned transport, a Node-free wire
 adapter, content-free failures, offline adversarial tests, and documented
 privacy and removal behavior. One admitted key provider does not authorize a
-generic endpoint, model selector, credential store, OAuth flow, SDK, or second
-provider adapter.
+generic endpoint, remote-authoritative model selector, credential store, OAuth
+flow, SDK, or unreviewed provider adapter.
 
 All integrations preserve the single-agent execution model. A provider is one
 replaceable backend for the active runtime session; a tool is one bounded
@@ -518,6 +518,12 @@ effect and must not prompt. One model response may select
 a bounded ordered batch. Pure complete-batch preflight precedes observation,
 then each call is planned just in time and invoked sequentially in provider
 order. Filesystem tools use no ambient network access.
+Required model-facing fields must remain explicit. Every built-in filesystem
+`path` description names `.` as the workspace root; do not make the field
+optional, infer a default, add an alias, or repair a provider request. Preserve
+the exact content-free preparation reason through runtime settlement so an
+operator can distinguish invalid name, input, and identity without observing
+the rejected payload.
 Both OpenCode adapters request at most one call per response under decisions
 0061 and 0067. Keep the
 owned instruction, exact request field, provider/runtime integration regression,
@@ -625,7 +631,10 @@ raw arguments, file content, outputs, call identifiers, or causes in notices,
 errors, transcripts, or logs. Project a checkpointed terminal failure only
 through the pure CLI-owned classifier from decision 0052. Keep the closed
 `model/...`, `tool/...`, or `runtime/failure` code identical in the transcript
-marker and notice, and never reinterpret a successful tool as failed because a
+marker and notice. Map admitted provider errors only through the separate pure
+adapter-neutral classifier; unknown or operation-mismatched values retain the
+coarser model code. Never emit provider identity, raw reason spelling, status,
+or response text, and never reinterpret a successful tool as failed because a
 later model step stopped. Update decision 0008 whenever schemas, risk,
 approval, checkpoint, containment, or Node-tool safety changes. Update decision
 0014, the manual registry, necessity record, focused tests, and removal guidance

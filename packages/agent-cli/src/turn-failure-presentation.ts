@@ -1,5 +1,7 @@
 import type { TurnFailure } from "@agent/runtime";
 
+import { classifyProviderFailure } from "./provider-failure-classification.js";
+
 export type TurnFailurePresentation = Readonly<{
   checkpointedMarker: string;
   code: string;
@@ -9,7 +11,11 @@ export type TurnFailurePresentation = Readonly<{
 function failureCode<E>(failure: TurnFailure<E>): string {
   const kind = failure.kind;
   if (kind === "model") {
-    return "model/" + failure.operation;
+    const family = classifyProviderFailure(failure.error, failure.operation);
+    return (
+      "model/" + failure.operation +
+      (family === undefined ? "" : "/" + family)
+    );
   }
   if (kind === "invalidModelResult") {
     return "model/" + failure.operation + "/invalid-result";
@@ -24,6 +30,15 @@ function failureCode<E>(failure: TurnFailure<E>): string {
     return "model/read/invalid-event";
   }
   if (kind === "invalidToolCall") {
+    if (failure.reason === "unknownTool") {
+      return "tool/invalid-call/name";
+    }
+    if (failure.reason === "invalidInput") {
+      return "tool/invalid-call/input";
+    }
+    if (failure.reason === "invalidCall") {
+      return "tool/invalid-call/identity";
+    }
     return "tool/invalid-call";
   }
   if (kind === "toolEngine") {
@@ -56,6 +71,7 @@ export function projectTurnFailure<E>(
   checkpointed: boolean,
 ): TurnFailurePresentation {
   const code = failureCode(failure);
+  const openFailure = code.startsWith("model/open");
   return Object.freeze({
     checkpointedMarker:
       "[turn failed (" + code + ") after completed tool activity]",
@@ -63,9 +79,17 @@ export function projectTurnFailure<E>(
     notice: checkpointed
       ? "The turn failed (" +
         code +
-        "); completed tool activity remains in conversation."
+        ");" +
+        (openFailure
+          ? " the provider did not open a usable response stream;"
+          : "") +
+        " completed tool activity remains in conversation."
       : "The turn failed (" +
         code +
-        "); no conversation changes were committed.",
+        ");" +
+        (openFailure
+          ? " the provider did not open a usable response stream; no tools ran and"
+          : "") +
+        " no conversation changes were committed.",
   });
 }

@@ -27,8 +27,7 @@ import {
 } from "@agent/tools";
 
 import { OPENCODE_ZEN_LIMITS } from "./limits.js";
-
-export const OPENCODE_ZEN_MODEL = "deepseek-v4-flash-free";
+import type { OpenCodeZenModelId } from "./models.js";
 
 export type WireError = Readonly<{
   kind: "finishReason" | "limit" | "protocol" | "request";
@@ -166,6 +165,7 @@ export function encodeRequest(
   conversation: Conversation,
   instructions: string,
   tools: readonly ToolDescriptor[],
+  model: OpenCodeZenModelId,
 ): Result<string, WireError> {
   try {
     const messages = [
@@ -176,12 +176,12 @@ export function encodeRequest(
       tools.length === 0
         ? Object.freeze({
             messages,
-            model: OPENCODE_ZEN_MODEL,
+            model,
             stream: true,
           })
         : Object.freeze({
             messages,
-            model: OPENCODE_ZEN_MODEL,
+            model,
             parallel_tool_calls: false,
             stream: true,
             tools: tools.map((tool) => toolValue(tool)),

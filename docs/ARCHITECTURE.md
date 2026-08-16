@@ -39,12 +39,12 @@ each provider adapter to `runtime`, `tools`, and `core`,
 Runtime is a concrete independent foundation exercised by deterministic tests.
 CLI has a real optional runtime composition edge exercised by deterministic
 integration sessions. The production entry point builds one bounded provider
-session from only the OpenCode Go and OpenCode Zen backends whose independent
-memory-only credentials were supplied through their hidden CLI prompts or
-environment variables. Go is initially selected when both are configured;
-without either credential the entry point preserves the providerless path. Executable
-argument parsing and hidden input stay in CLI and complete before the generic
-terminal host takes ownership. Cross-package access uses public package
+session from only the OpenCode Go and OpenCode Zen backends. Environment
+variables may preload independent memory-only credentials, but the entry point
+never selects a provider or model. The generic terminal host takes ownership
+before the CLI-owned `/providers` credential and selection flow and `/models`
+catalog flow. Until both selections settle, normal text follows the no-model
+path. Executable argument parsing stays in CLI. Cross-package access uses public package
 surfaces; deep and relative cross-package imports are forbidden.
 
 ## Brand and clean-room presentation
@@ -142,7 +142,7 @@ Runtime is Node-free and imports only core and tools.
 
 ### `@agent/provider-opencode-go` and `@agent/provider-opencode-zen`
 
-Owns the strict provider wire contract: fixed model selection, request
+Owns the strict provider wire contract: closed validated model selection, request
 serialization, incremental UTF-8 and SSE decoding, streamed text and indexed
 tool-call batch assembly, protocol bounds, a one-call request policy, and
 content-free failures. Each implements
@@ -311,11 +311,13 @@ exposes no overwrite, merge, recursive removal, implicit parent creation,
 self-descendant move, or portable pathname fallback. Missing namespace
 primitives and stale state fail closed.
 
-CLI also owns both exact OpenCode HTTPS adapters and startup configurations.
-They admit only `opencode.ai:443` and their registered Go or Zen path, never
-follow an application-selected origin, keep each API key in its independent
-memory slot, and expose only bytes and response metadata to the corresponding
-Node-free provider package.
+CLI also owns the exact OpenCode HTTPS adapters, public catalog adapter, and
+session configuration. They admit only `opencode.ai:443` and the registered Go
+or Zen catalog and Chat Completions paths, never follow an
+application-selected origin, keep each API key in its independent memory slot,
+and expose only bytes and response metadata to the corresponding Node-free
+provider package. Public catalog GETs carry no credential. Their bounded strict
+IDs are intersected with the matching owned allowlist before adapter creation.
 Decision 0036 admits one model-facing execute capability, `run_process`, through
 the CLI-owned C17 broker proven by decisions 0015 and 0016. The structured tool
 accepts one registered program token, literal arguments, and a rooted working
@@ -351,6 +353,14 @@ command catalog. Each tool has one canonical name, one unique capability, a
 current necessity statement, a risk class bound to its source descriptor, and
 an independent removal path. Aliases are forbidden. A rename replaces the old
 name everywhere rather than advertising both names.
+
+Built-in filesystem descriptors explicitly advertise `.` as the exact
+workspace-root representation while retaining a required workspace-relative
+`path`. The shared provider-neutral instruction requires all advertised fields;
+adapters do not repair or retry malformed calls. Tool preparation retains only
+the closed unknown-name, invalid-input, or invalid-identity reason, which the
+CLI projects as a content-free `tool/invalid-call/...` code before any planner,
+permission, or handler effect.
 
 Admission requires evidence that the capability is not already available with
 comparable bounds, approval semantics, and model effort. Convenience or future
@@ -576,7 +586,7 @@ activity, status, provider data, or application lifecycle state.
 Every structured role entry is a separate parser document; syntax cannot cross
 from user to assistant content or between turns.
 
-The current shell implements `/providers`, `/permissions`, and `/exit`
+The current shell implements `/providers`, `/models`, `/permissions`, and `/exit`
 through one immutable CLI-owned catalog shared by exact dispatch and completion.
 Only a non-empty, whitespace-free, non-exact case-sensitive prefix activates
 completion. While visible, Up and Down change its bounded non-wrapping selection
@@ -629,9 +639,12 @@ unbounded content never appear.
 A terminal failure after a truthful tool checkpoint is projected through one
 pure CLI-owned classifier. Its fixed `model/...`, `tool/...`, or residual
 `runtime/failure` code appears in the bounded incomplete-turn marker and latest
-ephemeral notice. The code identifies the stage that stopped while the prior
-tool lifecycle state remains authoritative; no provider error, tool payload,
-path, content, or call identifier crosses into presentation.
+ephemeral notice. One separate pure CLI module maps the two admitted providers'
+already content-free errors into the same closed adapter-neutral reason
+families. The code identifies the stage that stopped while the prior tool
+lifecycle state remains authoritative; no provider identity, raw reason,
+status value, response body, tool payload, path, content, or call identifier
+crosses into presentation.
 
 Active Ctrl+C requests cancellation and keeps the shell open; idle Ctrl+C exits.
 Ctrl+D, terminal EOF, and `/exit` exit in every phase. Shutdown closes the
@@ -718,19 +731,19 @@ must each be removable without changing unrelated domain rules.
 
 ## Provider eligibility boundary
 
-`tools/provider-policy.json` is the fail-closed registry for subscription
-integrations. A technically observed OAuth flow is not eligible until the
-project has independent-client authorization and an owned or expressly reusable
-registration. Schema version 3 also binds the four provider-specific
+`tools/provider-policy.json` is the fail-closed registry for subscription and
+direct integrations. A technically observed OAuth flow is not eligible until
+the project has independent-client authorization and an owned or expressly reusable
+registration. Schema version 6 binds the four provider-specific
 authorization inquiries in `docs/PROVIDER-APPLICATIONS.md` to their research
 date, official route, visibility, lifecycle state, submission date, and public
 or content-free private reference. Request metadata cannot change eligibility.
-While every provider is blocked,
-verification rejects auth or provider workspaces by pinning the exact
-provider-neutral foundation workspace set. It scans
-product source, tests, and declarations and rejects ambient network access,
+It also binds the two admitted direct providers to exact chat and public catalog
+endpoints, credential slots, complete model allowlists, cost classes, and
+process-only persistence. Verification pins the exact workspace set and scans
+product source, tests, and declarations for ambient network access,
 subscription endpoints, OAuth identifiers, foreign credential storage, broad
-process access, and borrowed product identity.
+process access, borrowed product identity, and provider-literal drift.
 
 The accepted direct-integration path also rejects vendor SDKs, CLIs, app
 servers, ACP executables, and other foreign runtime bridges. Provider-hosted
@@ -780,12 +793,14 @@ process access remain unavailable unless the CLI composes an explicit capability
   TUI remain unchanged after runtime is removed or redirected first.
 - Remove runtime by first removing CLI composition, restoring unconditional
   no-model handling, and then deleting its workspace, registry, path, decision,
-  and generated artifacts. Core, TUI, and the providerless CLI remain buildable.
+  and generated artifacts. Core, TUI, and provider-independent CLI surfaces
+  remain buildable.
 - Remove the application loop by restoring a terminal-only serialized loop,
   removing CLI runtime composition and decision 0007, then deleting arbiter,
   chat-state, and chat-view modules without changing generic TUI or core.
 - Add or remove a provider at the adapter, registries, and CLI edge; core changes
-  only if its owned model contract deliberately changes.
+  only if its owned model contract deliberately changes. Remove its credential
+  slot, catalog path, allowlist, model selector entries, and transport together.
 - Remove one built-in tool by first stopping its descriptor advertisement, then
   deleting its handler, focused tests, permission and activity-presentation
   entries, manual record, and unused private helpers. Update decision 0008 if
@@ -798,8 +813,8 @@ process access remain unavailable unless the CLI composes an explicit capability
   manual-policy schema 9 so it removes the advertised inventory; unregister
   decisions 0008, 0014, 0015, 0016, and 0036 only when their admitted surfaces
   and proof infrastructure are gone; and remove their ownership, required-path,
-  and manual-evidence registrations. Core text chat and the providerless CLI
-  remain buildable throughout.
+  and manual-evidence registrations. Core text chat and provider-independent
+  CLI surfaces remain buildable throughout.
 - Remove namespace management by first removing `manage_path` advertisement,
   manual inventory, and policy entry, then deleting its planner, preview,
   committer, protocol, native broker, tests, and decisions 0054 and 0058. Never

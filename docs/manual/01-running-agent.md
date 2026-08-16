@@ -29,7 +29,7 @@ The resolver has a five-second operation deadline and a 250-millisecond
 post-kill cleanup deadline; startup fails closed even if the native child never
 reports `close`.
 Startup then loads mandatory sensitive-path denials and one optional root
-`.agentignore` before reading a credential or constructing tools. The file may
+`.agentignore` before preloading credentials or constructing tools. The file may
 only add denials through the bounded grammar in chapter 04. Its compiled value
 is fixed until restart, so edit it before starting the session.
 Maintainers can instead use `npm run dev` from the repository root to rebuild
@@ -37,9 +37,13 @@ and start, or `npm start` to start an existing build.
 
 Use `agent --help` for executable help and `agent --version` for the exact
 version. Unknown or combined arguments fail; credentials are never accepted on
-the command line. Interactive startup asks independently for each missing
-OpenCode Go and OpenCode Zen key with terminal echo disabled. Press Enter to
-skip a backend; skipping both starts providerless. Ctrl+C cancels startup.
+the command line. Interactive startup enters the TUI immediately. Use
+`/providers` to configure or select OpenCode Go or OpenCode Zen through the
+same application, then `/models` to load and select one admitted model. The
+concealed credential editor projects neither the key nor mask characters.
+Its one-line transparent context identifies the provider and states `process
+only`; the composer shows `Enter API key · Ctrl+C cancels`, and the draft is
+discarded on exit.
 
 Use the exact `agent --evaluation-receipt` form only for one maintained
 interactive task evaluation. It requires TTY input and output, runs the same
@@ -57,18 +61,20 @@ is the command reference. In an interactive terminal, use `/exit` to close.
 The lockfile contains only local workspace topology. Installation is offline,
 ignores lifecycle scripts, and cannot fetch a package. Interactive mode requires
 both TTY input and TTY output. Redirected execution prints a short plain status
-without ANSI sequences. Production starts without a model when the key prompt
-is skipped and both exact OpenCode environment variables are absent. Normal
-text is then discarded after a generic notice and never becomes transcript or
-conversation state. Workspace rejection occurs before a credential is read, a
-provider or tool is constructed, or the terminal enters interactive mode.
+without ANSI sequences. Production starts with no provider or model selected,
+including when exact OpenCode environment variables preload valid keys. Normal
+text is discarded after a generic notice until `/providers` and `/models`
+complete the selection, and never becomes transcript or conversation state.
+Workspace rejection occurs before a credential is preloaded, a provider or
+tool is constructed, or the terminal enters interactive mode.
 Workspace privacy-policy rejection has the same ordering.
 Chapter 05 owns provider setup and data-flow details.
 
 ## Failure behavior
 
 A missing build means neither the linked command nor npm start can execute. A
-missing or mismatched toolchain causes verification to fail. Prompt, startup,
+missing or mismatched toolchain causes verification to fail. Credential,
+startup,
 viewport, input, rendering, or cleanup failures return a nonzero process status
 and a short category label; private causes, keys, and submitted content are not
 printed. An unavailable platform-root resolver or an invalid, inaccessible,
@@ -83,7 +89,7 @@ only `agent rejected the workspace privacy policy` and exits nonzero.
 Keep root binary metadata, scripts, engine pins, lock topology, setup prose, and
 the verifier in sync. Never add TypeScript or runtime dependencies to a
 manifest. Remove the global link with `npm unlink --global agent-workspace`.
-To replace the entry point, preserve plain-mode behavior, prompt cleanup,
+To replace the entry point, preserve plain-mode behavior, credential cleanup,
 terminal restoration, and the exact offline build path until the new
 composition is verified.
 
@@ -97,7 +103,7 @@ composition is verified.
 - Workspace-ignore grammar: `packages/agent-cli/src/workspace-ignore.ts`
 - Workspace read-policy loader: `packages/agent-cli/src/workspace-read-policy.ts`
 - Workspace decision: `docs/decisions/0042-owned-workspace-trust-boundary.md`
-- Hidden credential prompt: `packages/agent-cli/src/hidden-credential-prompt.ts`
+- Concealed credential presentation: `packages/agent-cli/src/provider-credential-view.ts`
 - Exact argument parser: `packages/agent-cli/src/launch-command.ts`
 - Evaluation receipt: `packages/agent-cli/src/evaluation-receipt.ts`
 - Evaluation receipt decision: `docs/decisions/0048-owned-content-free-evaluation-receipt.md`

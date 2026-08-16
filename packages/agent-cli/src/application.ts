@@ -28,11 +28,15 @@ import {
   type NoticePlacement,
   type NoticeToken,
 } from "./notice.js";
+import { isProviderId } from "./provider-identity.js";
 import type {
   ProviderId,
+  ProviderModelSnapshot,
   ProviderPresentation,
   ProviderSelectionSnapshot,
 } from "./provider-session.js";
+import type { ModelMenuProjection } from "./models-view.js";
+import type { ProviderCredentialProjection } from "./provider-credential-view.js";
 import type { ProviderMenuProjection } from "./providers-view.js";
 import {
   SessionController,
@@ -74,7 +78,13 @@ export type ApplicationEffect =
   | Readonly<{ kind: "acknowledgeTurn"; turnId: number }>
   | Readonly<{ kind: "cancelTurn"; turnId: number }>
   | Readonly<{ kind: "commitTurn"; turnId: number }>
+  | Readonly<{
+      credential: string;
+      id: ProviderId;
+      kind: "configureProvider";
+    }>
   | Readonly<{ kind: "exit" }>
+  | Readonly<{ kind: "loadModels" }>
   | Readonly<{
       kind: "resolveToolPermission";
       turnId: number;
@@ -83,6 +93,7 @@ export type ApplicationEffect =
       operatorApproved: boolean;
     }>
   | Readonly<{ kind: "selectProvider"; id: ProviderId }>
+  | Readonly<{ kind: "selectModel"; id: string }>
   | Readonly<{ kind: "startTurn"; text: string }>;
 
 export type ApplicationUpdate = Readonly<{
@@ -129,14 +140,69 @@ function validNotice(lines: readonly string[]): boolean {
   );
 }
 
+function copyProviderSnapshots(
+  providers: readonly ProviderSelectionSnapshot[],
+): readonly ProviderSelectionSnapshot[] | undefined {
+  if (!Array.isArray(providers) || providers.length > 2) {
+    return undefined;
+  }
+  const copied: ProviderSelectionSnapshot[] = [];
+  for (const provider of providers) {
+    const presentation = provider?.presentation;
+    if (
+      provider === null ||
+      typeof provider !== "object" ||
+      !isProviderId(provider.id) ||
+      copied.some((entry) => entry.id === provider.id) ||
+      typeof provider.configured !== "boolean" ||
+      typeof provider.ready !== "boolean" ||
+      typeof provider.selected !== "boolean" ||
+      presentation === null ||
+      typeof presentation !== "object" ||
+      typeof presentation.authentication !== "string" ||
+      presentation.authentication.length < 1 ||
+      presentation.authentication.length > 128 ||
+      typeof presentation.displayName !== "string" ||
+      presentation.displayName.length < 1 ||
+      presentation.displayName.length > 128 ||
+      (presentation.model !== undefined &&
+        (typeof presentation.model !== "string" ||
+          !/^[a-z0-9][a-z0-9._-]{0,127}$/u.test(presentation.model))) ||
+      provider.ready !== (presentation.model !== undefined) ||
+      (provider.selected && !provider.configured) ||
+      (!provider.configured && provider.ready)
+    ) {
+      return undefined;
+    }
+    copied.push(
+      Object.freeze({
+        configured: provider.configured,
+        id: provider.id,
+        presentation: Object.freeze({
+          authentication: presentation.authentication,
+          displayName: presentation.displayName,
+          model: presentation.model,
+        }),
+        ready: provider.ready,
+        selected: provider.selected,
+      }),
+    );
+  }
+  if (copied.filter((provider) => provider.selected).length > 1) {
+    return undefined;
+  }
+  return Object.freeze(copied);
+}
+
 /** Sole mutable reducer for CLI editing, chat display, phase, and notices. */
 export class ApplicationController
   implements InputProjectionSource, InputAreaProjectionSource
 {
   readonly #activityLog = new ToolActivityLog();
   readonly #chat = new ChatState();
-  readonly #providers: readonly ProviderSelectionSnapshot[];
+  #providers: readonly ProviderSelectionSnapshot[];
   readonly #permissions = new ToolPermissionPolicy();
+  readonly #runtimeAvailable: boolean;
   readonly #session: SessionController;
   readonly #terminalInteraction = new TerminalInteraction();
   readonly #workspace: string | undefined;
@@ -147,7 +213,11 @@ export class ApplicationController
   #phase: ApplicationPhase = "idle";
   #permissionSelectionIndex = 0;
   #permissionsVisible = false;
-  #activeProviderIndex = 0;
+  #activeProviderIndex: number | undefined;
+  #credentialProviderId: ProviderId | undefined;
+  #models: readonly ProviderModelSnapshot[] = Object.freeze([]);
+  #modelSelectionIndex = 0;
+  #modelsVisible = false;
   #providerSelectionIndex = 0;
   #providersVisible = false;
   #transcriptGeometry:
@@ -176,35 +246,17 @@ export class ApplicationController
     workspace?: string,
   ) {
     const admitted = runtimeAvailable ? providers : [];
-    const selected = admitted.reduce(
-      (count, provider) => count + (provider.selected ? 1 : 0),
-      0,
-    );
-    if (
-      admitted.length > 2 ||
-      (admitted.length > 0 && selected !== 1) ||
-      new Set(admitted.map((provider) => provider.id)).size !== admitted.length
-    ) {
+    const copied = copyProviderSnapshots(admitted);
+    if (copied === undefined) {
       throw new ApplicationError("providerInvariant");
     }
-    this.#providers = Object.freeze(
-      admitted.map((provider) =>
-        Object.freeze({
-          id: provider.id,
-          presentation: Object.freeze({
-            authentication: provider.presentation.authentication,
-            displayName: provider.presentation.displayName,
-            model: provider.presentation.model,
-          }),
-          selected: provider.selected,
-        }),
-      ),
-    );
+    this.#providers = copied;
     const selectedIndex = this.#providers.findIndex(
       (provider) => provider.selected,
     );
-    this.#activeProviderIndex = selectedIndex < 0 ? 0 : selectedIndex;
-    this.#providerSelectionIndex = this.#activeProviderIndex;
+    this.#activeProviderIndex = selectedIndex < 0 ? undefined : selectedIndex;
+    this.#providerSelectionIndex = this.#activeProviderIndex ?? 0;
+    this.#runtimeAvailable = runtimeAvailable;
     this.#workspace = workspace;
     this.#session = new SessionController();
     this.#notice = Object.freeze([]);
@@ -231,7 +283,9 @@ export class ApplicationController
   }
 
   get provider(): ProviderPresentation | undefined {
-    return this.#providers.at(this.#activeProviderIndex)?.presentation;
+    return this.#activeProviderIndex === undefined
+      ? undefined
+      : this.#providers.at(this.#activeProviderIndex)?.presentation;
   }
 
   get workspace(): string | undefined {
@@ -239,7 +293,9 @@ export class ApplicationController
   }
 
   get draftLength(): number {
-    return this.#session.draftLength;
+    return this.#credentialProviderId === undefined
+      ? this.#session.draftLength
+      : 0;
   }
 
   get activities(): readonly ToolActivitySnapshot[] {
@@ -275,14 +331,25 @@ export class ApplicationController
   }
 
   project(columns: number): EditorProjection {
-    return this.#session.projectEditor(columns);
+    return this.#credentialProviderId === undefined
+      ? this.#session.projectEditor(columns)
+      : Object.freeze({ caretColumn: 0, text: "" });
   }
 
   projectArea(
     columns: number,
     maximumRows: number,
   ): EditorAreaProjection {
-    return this.#session.projectEditorArea(columns, maximumRows);
+    return this.#credentialProviderId === undefined
+      ? this.#session.projectEditorArea(columns, maximumRows)
+      : Object.freeze({
+          caretColumn: 0,
+          caretRow: 0,
+          rows: Object.freeze([""]),
+          selections: Object.freeze([
+            Object.freeze({ end: 0, start: 0 }),
+          ]),
+        });
   }
 
   projectCommandCompletion(): CommandCompletionProjection | undefined {
@@ -309,14 +376,47 @@ export class ApplicationController
       items: Object.freeze(
         this.#providers.map((provider, index) =>
           Object.freeze({
+            configured: provider.configured,
             id: provider.id,
             presentation: provider.presentation,
+            ready: provider.ready,
             selected: index === this.#activeProviderIndex,
           }),
         ),
       ),
       selectedIndex: this.#providerSelectionIndex,
     });
+  }
+
+  projectModelMenu(): ModelMenuProjection | undefined {
+    const provider = this.#activeProviderIndex === undefined
+      ? undefined
+      : this.#providers.at(this.#activeProviderIndex);
+    if (
+      !this.#modelsVisible ||
+      this.#phase !== "idle" ||
+      provider === undefined ||
+      this.#models.length === 0
+    ) {
+      return undefined;
+    }
+    return Object.freeze({
+      items: this.#models,
+      providerName: provider.presentation.displayName,
+      selectedIndex: this.#modelSelectionIndex,
+    });
+  }
+
+  projectProviderCredential(): ProviderCredentialProjection | undefined {
+    if (this.#credentialProviderId === undefined || this.#phase !== "idle") {
+      return undefined;
+    }
+    const provider = this.#providers.find(
+      (entry) => entry.id === this.#credentialProviderId,
+    );
+    return provider === undefined
+      ? undefined
+      : Object.freeze({ providerName: provider.presentation.displayName });
   }
 
   projectToolDecision(): ToolDecisionProjection | undefined {
@@ -444,8 +544,12 @@ export class ApplicationController
     this.#permissionSelectionIndex = 0;
     this.#permissions.reset();
     this.#permissionsVisible = false;
+    this.#credentialProviderId = undefined;
+    this.#models = Object.freeze([]);
+    this.#modelSelectionIndex = 0;
+    this.#modelsVisible = false;
     this.#providersVisible = false;
-    this.#providerSelectionIndex = this.#activeProviderIndex;
+    this.#providerSelectionIndex = this.#activeProviderIndex ?? 0;
     this.#transcriptGeometry = undefined;
     this.#transcriptScroll = ScrollState.followEnd();
     this.#terminalInteraction.reset();
@@ -462,6 +566,10 @@ export class ApplicationController
     pointerProjection?: PointerProjection,
   ): ApplicationUpdate {
     if (action.kind === "pointer") {
+      if (this.#credentialProviderId !== undefined) {
+        this.#terminalInteraction.reset();
+        return update(false);
+      }
       if (pointerProjection === undefined) {
         return update(false);
       }
@@ -500,6 +608,7 @@ export class ApplicationController
         return update(false);
       }
       this.#permissionsVisible = true;
+      this.#modelsVisible = false;
       this.#providersVisible = false;
       this.#setNotice([]);
       return update(true);
@@ -513,7 +622,7 @@ export class ApplicationController
     }
     if (action.kind === "openProviders") {
       if (this.#providers.length === 0) {
-        this.#setNotice(["No provider configured"], "info");
+        this.#setNotice(["No providers are available."], "info");
         return update(true);
       }
       if (this.#phase !== "idle") {
@@ -523,7 +632,8 @@ export class ApplicationController
         return update(true);
       }
       this.#providersVisible = true;
-      this.#providerSelectionIndex = this.#activeProviderIndex;
+      this.#providerSelectionIndex = this.#activeProviderIndex ?? 0;
+      this.#modelsVisible = false;
       this.#permissionsVisible = false;
       this.#setNotice([]);
       return update(true);
@@ -534,6 +644,58 @@ export class ApplicationController
       }
       this.#providersVisible = false;
       return update(true);
+    }
+    if (action.kind === "openModels") {
+      if (this.#phase !== "idle") {
+        this.#setNotice(["Model selection is available only while idle."]);
+        return update(true);
+      }
+      const provider = this.#activeProviderIndex === undefined
+        ? undefined
+        : this.#providers.at(this.#activeProviderIndex);
+      if (provider === undefined || !provider.configured) {
+        this.#setNotice([
+          "Configure and select a provider with /providers first.",
+        ]);
+        return update(true);
+      }
+      this.#permissionsVisible = false;
+      this.#providersVisible = false;
+      this.#modelsVisible = false;
+      this.#models = Object.freeze([]);
+      this.#modelSelectionIndex = 0;
+      this.#setNotice([]);
+      return update(true, [Object.freeze({ kind: "loadModels" as const })]);
+    }
+    if (action.kind === "closeModels") {
+      if (!this.#modelsVisible) {
+        return update(false);
+      }
+      this.#modelsVisible = false;
+      return update(true);
+    }
+    if (action.kind === "cancelProviderCredential") {
+      if (this.#credentialProviderId === undefined) {
+        return update(false);
+      }
+      this.#credentialProviderId = undefined;
+      this.#setNotice(["Provider configuration cancelled."], "info");
+      return update(true);
+    }
+    if (action.kind === "submitProviderCredential") {
+      const id = this.#credentialProviderId;
+      this.#credentialProviderId = undefined;
+      if (id === undefined) {
+        return update(false);
+      }
+      this.#setNotice([]);
+      return update(true, [
+        Object.freeze({
+          credential: action.credential,
+          id,
+          kind: "configureProvider" as const,
+        }),
+      ]);
     }
     if (action.kind === "moveContextSelection") {
       if (this.#phase === "awaitingPermission") {
@@ -560,6 +722,19 @@ export class ApplicationController
           return update(false);
         }
         this.#providerSelectionIndex = next;
+        return update(true);
+      }
+      if (this.#modelsVisible) {
+        const next = action.direction === "previous"
+          ? Math.max(0, this.#modelSelectionIndex - 1)
+          : Math.min(
+              this.#models.length - 1,
+              this.#modelSelectionIndex + 1,
+            );
+        if (next === this.#modelSelectionIndex) {
+          return update(false);
+        }
+        this.#modelSelectionIndex = next;
         return update(true);
       }
       if (!this.#permissionsVisible) {
@@ -599,6 +774,11 @@ export class ApplicationController
           this.#setNotice(["Provider selection could not be updated."]);
           return update(true);
         }
+        if (!selected.configured) {
+          this.#credentialProviderId = selected.id;
+          this.#setNotice([]);
+          return update(true);
+        }
         if (this.#providerSelectionIndex === this.#activeProviderIndex) {
           return update(true);
         }
@@ -606,6 +786,20 @@ export class ApplicationController
           Object.freeze({
             id: selected.id,
             kind: "selectProvider" as const,
+          }),
+        ]);
+      }
+      if (this.#modelsVisible && this.#phase === "idle") {
+        const selected = this.#models.at(this.#modelSelectionIndex);
+        this.#modelsVisible = false;
+        if (selected === undefined) {
+          this.#setNotice(["Model selection could not be updated."]);
+          return update(true);
+        }
+        return update(true, [
+          Object.freeze({
+            id: selected.id,
+            kind: "selectModel" as const,
           }),
         ]);
       }
@@ -672,6 +866,24 @@ export class ApplicationController
         ]);
         return update(true);
       }
+      if (this.#providers.length > 0) {
+        const provider = this.#activeProviderIndex === undefined
+          ? undefined
+          : this.#providers.at(this.#activeProviderIndex);
+        if (provider === undefined || !provider.configured) {
+          this.#setNotice([
+            "Configure and select a provider with /providers first.",
+          ]);
+          return update(true);
+        }
+        if (!provider.ready) {
+          this.#setNotice(["Select a model with /models first."]);
+          return update(true);
+        }
+      } else if (!this.#runtimeAvailable) {
+        this.#setNotice(["No model is configured; input was not sent."]);
+        return update(true);
+      }
       return update(true, [
         Object.freeze({ kind: "startTurn" as const, text: action.text }),
       ]);
@@ -726,6 +938,8 @@ export class ApplicationController
       return err(new ApplicationError("invalidStartedTurn"));
     }
     this.#phase = "generating";
+    this.#credentialProviderId = undefined;
+    this.#modelsVisible = false;
     this.#providersVisible = false;
     this.#transcriptGeometry = undefined;
     this.#transcriptScroll = ScrollState.followEnd();
@@ -763,24 +977,131 @@ export class ApplicationController
     this.#setNotice(["No model is configured; input was not sent."]);
   }
 
-  /** Confirms one CLI-owned provider selection after the model router accepts it. */
-  providerSelected(id: ProviderId): Result<ApplicationUpdate, ApplicationError> {
-    const index = this.#providers.findIndex((provider) => provider.id === id);
-    if (index < 0 || this.#phase !== "idle") {
+  /** Confirms concealed provider configuration and selection for this process. */
+  providerConfigured(
+    providers: readonly ProviderSelectionSnapshot[],
+    id: ProviderId,
+  ): Result<ApplicationUpdate, ApplicationError> {
+    const accepted = this.#acceptProviders(providers, id);
+    if (!accepted.ok) {
+      return accepted;
+    }
+    const provider = this.#providers.at(this.#activeProviderIndex ?? -1);
+    if (provider === undefined || !provider.configured) {
       return err(new ApplicationError("providerInvariant"));
     }
-    const provider = this.#providers.at(index);
-    if (provider === undefined) {
-      return err(new ApplicationError("providerInvariant"));
-    }
-    this.#activeProviderIndex = index;
-    this.#providerSelectionIndex = index;
-    this.#providersVisible = false;
+    this.#models = Object.freeze([]);
+    this.#modelsVisible = false;
     this.#setNotice(
-      [provider.presentation.displayName + " selected for this session."],
+      [provider.presentation.displayName + " configured for this process."],
       "info",
     );
     return ok(update(true));
+  }
+
+  /** Confirms one CLI-owned provider selection after the router accepts it. */
+  providerSelected(
+    providers: readonly ProviderSelectionSnapshot[],
+    id: ProviderId,
+  ): Result<ApplicationUpdate, ApplicationError> {
+    const accepted = this.#acceptProviders(providers, id);
+    if (!accepted.ok) {
+      return accepted;
+    }
+    const provider = this.#providers.at(this.#activeProviderIndex ?? -1);
+    if (provider === undefined) {
+      return err(new ApplicationError("providerInvariant"));
+    }
+    this.#models = Object.freeze([]);
+    this.#modelsVisible = false;
+    this.#setNotice(
+      [provider.presentation.displayName + " selected for this process."],
+      "info",
+    );
+    return ok(update(true));
+  }
+
+  /** Opens one bounded compatible model list returned by the active provider. */
+  modelsLoaded(
+    models: readonly ProviderModelSnapshot[],
+  ): Result<ApplicationUpdate, ApplicationError> {
+    if (
+      this.#phase !== "idle" ||
+      !Array.isArray(models) ||
+      models.length < 1 ||
+      models.length > 256
+    ) {
+      return err(new ApplicationError("providerInvariant"));
+    }
+    const copied: ProviderModelSnapshot[] = [];
+    for (const model of models) {
+      if (
+        model === null ||
+        typeof model !== "object" ||
+        typeof model.id !== "string" ||
+        !/^[a-z0-9][a-z0-9._-]{0,127}$/u.test(model.id) ||
+        copied.some((entry) => entry.id === model.id) ||
+        (model.cost !== "free" &&
+          model.cost !== "goPlan" &&
+          model.cost !== "zenBalance") ||
+        typeof model.selected !== "boolean"
+      ) {
+        return err(new ApplicationError("providerInvariant"));
+      }
+      copied.push(Object.freeze({ ...model }));
+    }
+    if (copied.filter((model) => model.selected).length > 1) {
+      return err(new ApplicationError("providerInvariant"));
+    }
+    this.#models = Object.freeze(copied);
+    const selected = this.#models.findIndex((model) => model.selected);
+    this.#modelSelectionIndex = selected < 0 ? 0 : selected;
+    this.#modelsVisible = true;
+    this.#setNotice([]);
+    return ok(update(true));
+  }
+
+  /** Confirms one model selection and refreshes provider readiness. */
+  modelSelected(
+    providers: readonly ProviderSelectionSnapshot[],
+    id: string,
+  ): Result<ApplicationUpdate, ApplicationError> {
+    if (
+      !/^[a-z0-9][a-z0-9._-]{0,127}$/u.test(id) ||
+      !this.#models.some((model) => model.id === id)
+    ) {
+      return err(new ApplicationError("providerInvariant"));
+    }
+    const active = providers.find((provider) => provider.selected);
+    if (active === undefined || active.presentation.model !== id) {
+      return err(new ApplicationError("providerInvariant"));
+    }
+    const accepted = this.#acceptProviders(providers, active.id);
+    if (!accepted.ok) {
+      return accepted;
+    }
+    this.#models = Object.freeze(
+      this.#models.map((model) =>
+        Object.freeze({ ...model, selected: model.id === id }),
+      ),
+    );
+    this.#modelsVisible = false;
+    this.#setNotice([id + " selected for this process."], "info");
+    return ok(update(true));
+  }
+
+  /** Reports a content-free provider or catalog failure without leaving the TUI. */
+  providerOperationFailed(operation: "catalog" | "configuration" | "model"): ApplicationUpdate {
+    this.#credentialProviderId = undefined;
+    this.#modelsVisible = false;
+    this.#models = Object.freeze([]);
+    const line = operation === "catalog"
+      ? "Models could not be loaded."
+      : operation === "configuration"
+        ? "The provider key was rejected by local validation."
+        : "The model could not be selected.";
+    this.#setNotice([line]);
+    return update(true);
   }
 
   /** Applies one ordered runtime event and filters stale turn identities. */
@@ -867,6 +1188,7 @@ export class ApplicationController
           turnId,
         };
         this.#permissionsVisible = false;
+        this.#modelsVisible = false;
         this.#providersVisible = false;
         this.#toolDecisionIndex = 0;
         this.#phase = mode === "ask" ? "awaitingPermission" : "runningTool";
@@ -1134,10 +1456,41 @@ export class ApplicationController
     if (this.#phase === "awaitingPermission") {
       return "toolDecision";
     }
+    if (this.#credentialProviderId !== undefined) {
+      return "providerCredential";
+    }
+    if (this.#modelsVisible) {
+      return "models";
+    }
     if (this.#providersVisible) {
       return "providers";
     }
     return this.#permissionsVisible ? "permissions" : "composer";
+  }
+
+  #acceptProviders(
+    providers: readonly ProviderSelectionSnapshot[],
+    id: ProviderId,
+  ): Result<void, ApplicationError> {
+    if (this.#phase !== "idle") {
+      return err(new ApplicationError("providerInvariant"));
+    }
+    const copied = copyProviderSnapshots(providers);
+    if (copied === undefined) {
+      return err(new ApplicationError("providerInvariant"));
+    }
+    const index = copied.findIndex(
+      (provider) => provider.id === id && provider.selected,
+    );
+    if (index < 0) {
+      return err(new ApplicationError("providerInvariant"));
+    }
+    this.#providers = copied;
+    this.#activeProviderIndex = index;
+    this.#providerSelectionIndex = index;
+    this.#providersVisible = false;
+    this.#credentialProviderId = undefined;
+    return ok(undefined);
   }
 
   #setNotice(

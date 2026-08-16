@@ -33,7 +33,9 @@ import {
 } from "./conversation-stage.js";
 import { createConversationDocument } from "./conversation-view.js";
 import { isMotionActive } from "./motion-policy.js";
+import { createModelsDocument } from "./models-view.js";
 import { createPermissionsDocument } from "./permissions-view.js";
+import { createProviderCredentialDocument } from "./provider-credential-view.js";
 import { createProvidersDocument } from "./providers-view.js";
 import { createSpacer, createSpan } from "./view-components.js";
 
@@ -63,10 +65,13 @@ function createFooter(
   const provider = application.provider;
   if (provider !== undefined) {
     const name = createSpan(provider.displayName, "plain");
-    const model = createSpan(" \u00b7 " + provider.model, "muted");
     if (!name.ok) return name;
-    if (!model.ok) return model;
-    center.push(name.value, model.value);
+    center.push(name.value);
+    if (provider.model !== undefined) {
+      const model = createSpan(" \u00b7 " + provider.model, "muted");
+      if (!model.ok) return model;
+      center.push(model.value);
+    }
   }
   const right = [];
   if (isMotionActive(application.phase)) {
@@ -113,22 +118,27 @@ function createNotice(
 function createComposer(
   application: ApplicationController,
 ): Result<Component, ComponentError> {
+  const credentialEntry = application.projectProviderCredential();
   const notice = application.noticePlacement === "composer"
     ? application.notice.at(0)
     : undefined;
+  const trailingStatus = credentialEntry === undefined
+    ? notice === undefined
+      ? undefined
+      : Object.freeze({
+          text: notice,
+          tone: application.noticeLevel === "warning"
+            ? "attention" as const
+            : "muted" as const,
+        })
+    : Object.freeze({
+        text: "Enter API key · Ctrl+C cancels",
+        tone: "muted" as const,
+      });
   const input = InputArea.create(application, {
     maximumRows: COMPOSER_MAXIMUM_CONTENT_ROWS,
     textTone: "plain",
-    ...(notice === undefined
-      ? {}
-      : {
-          trailingStatus: Object.freeze({
-            text: notice,
-            tone: application.noticeLevel === "warning"
-              ? "attention" as const
-              : "muted" as const,
-          }),
-        }),
+    ...(trailingStatus === undefined ? {} : { trailingStatus }),
   });
   if (!input.ok) return input;
   return HorizontalRules.create(input.value, {
@@ -185,23 +195,36 @@ export function createChatRender(
   const permissionMenu = application.projectPermissionMenu();
   const toolDecision = application.projectToolDecision();
   const providerMenu = application.projectProviderMenu();
-  if (
-    providerMenu !== undefined &&
-    (permissionMenu !== undefined || toolDecision !== undefined)
-  ) {
+  const modelMenu = application.projectModelMenu();
+  const providerCredential = application.projectProviderCredential();
+  const contextCount = [
+    permissionMenu,
+    toolDecision,
+    providerMenu,
+    modelMenu,
+    providerCredential,
+  ].filter((projection) => projection !== undefined).length;
+  if (contextCount > 1) {
     return err(new ComponentError("invalidComponent", undefined));
   }
   const permissions = createPermissionsDocument(permissionMenu, toolDecision);
   if (!permissions.ok) return permissions;
   const providers = createProvidersDocument(providerMenu);
   if (!providers.ok) return providers;
-  const contextualSelection =
-    permissionMenu !== undefined ||
-    toolDecision !== undefined ||
-    providerMenu !== undefined;
-  const completion = contextualSelection
-    ? providerMenu === undefined ? permissions : providers
-    : createCommandCompletionDocument(commandCompletion);
+  const models = createModelsDocument(modelMenu);
+  if (!models.ok) return models;
+  const credential = createProviderCredentialDocument(providerCredential);
+  if (!credential.ok) return credential;
+  const contextualSelection = contextCount === 1;
+  const completion = providerMenu !== undefined
+    ? providers
+    : modelMenu !== undefined
+      ? models
+      : providerCredential !== undefined
+        ? credential
+        : contextualSelection
+          ? permissions
+          : createCommandCompletionDocument(commandCompletion);
   if (!completion.ok) return completion;
   const completionColumn = createConversationStage(completion.value);
   if (!completionColumn.ok) return completionColumn;

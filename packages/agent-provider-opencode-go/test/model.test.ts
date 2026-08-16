@@ -19,6 +19,7 @@ import {
   OPENCODE_GO_LIMITS,
   OPENCODE_GO_MODEL,
   type OpenCodeGoError,
+  type OpenCodeGoModelId,
   type OpenCodeGoTransport,
   type OpenCodeGoTransportError,
   type OpenCodeGoTransportRequest,
@@ -354,11 +355,13 @@ function editEngine(edits: string[]): ToolEngine {
 
 function model(
   stream: OpenCodeGoTransportStream,
+  selectedModel: OpenCodeGoModelId = OPENCODE_GO_MODEL,
 ): Readonly<{ model: OpenCodeGoModel; transport: FakeTransport }> {
   const transport = new FakeTransport(ok(stream));
   const created = OpenCodeGoModel.create(
     transport,
     "You are agent, one single coding agent.",
+    selectedModel,
   );
   assert.ok(created.ok);
   return Object.freeze({ model: created.value, transport });
@@ -454,6 +457,30 @@ test("encodes the fixed model, instructions, conversation, and exact tool schema
       parsed.tools.at(0)?.function.parameters.properties ?? {},
       "path",
     ),
+  );
+});
+
+test("encodes an exact admitted selected model and rejects every other identifier", async () => {
+  const fixture = model(
+    new FakeStream([
+      ok(frame(completion({ content: "done" }))),
+      ok(frame(completion({}, "stop"))),
+    ]),
+    "deepseek-v4-flash",
+  );
+  const stream = await open(fixture.model);
+  assert.equal((await read(stream)).kind, "delta");
+  const body = fixture.transport.request?.body;
+  assert.ok(body !== undefined);
+  assert.equal((JSON.parse(body) as { model: string }).model, "deepseek-v4-flash");
+
+  assert.deepEqual(
+    OpenCodeGoModel.create(
+      new FakeTransport(err(Object.freeze({ kind: "connection" as const }))),
+      "You are agent.",
+      "private-model" as never,
+    ),
+    { error: { kind: "invalidModel" }, ok: false },
   );
 });
 

@@ -1,5 +1,5 @@
 import type { Message } from "@agent/core";
-import type { ToolRisk } from "@agent/tools";
+import type { ToolPrepareErrorKind, ToolRisk } from "@agent/tools";
 
 export type StartTurnErrorKind =
   | "busy"
@@ -45,7 +45,10 @@ export type TurnFailure<E> =
   | Readonly<{ kind: "invalidModelResult"; operation: "open" | "read" }>
   | Readonly<{ kind: "invalidModelStream" }>
   | Readonly<{ kind: "invalidModelEvent" }>
-  | Readonly<{ kind: "invalidToolCall" }>
+  | Readonly<{
+      kind: "invalidToolCall";
+      reason: ToolPrepareErrorKind;
+    }>
   | Readonly<{ kind: "toolEngine" }>
   | Readonly<{ kind: "toolLimit" }>
   | Readonly<{ kind: "toolUnavailable" }>

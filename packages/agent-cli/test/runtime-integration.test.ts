@@ -386,8 +386,28 @@ class ControlledRuntime implements RuntimeSession<string> {
 }
 
 class ControlledProviders implements ProviderSelectionPort {
+  readonly configurations: Readonly<{ credential: string; id: ProviderId }>[] = [];
+  readonly modelSelections: string[] = [];
   readonly selections: ProviderId[] = [];
   #selected: ProviderId = "opencodeGo";
+
+  clear(): void {}
+
+  configure(id: ProviderId, credential: string) {
+    this.configurations.push(Object.freeze({ credential, id }));
+    return ok(undefined);
+  }
+
+  listModels() {
+    return Promise.resolve(ok(Object.freeze([
+      Object.freeze({ cost: "goPlan" as const, id: "go-model", selected: false }),
+      Object.freeze({ cost: "free" as const, id: "zen-model", selected: true }),
+    ])));
+  }
+
+  ready(): boolean {
+    return true;
+  }
 
   select(id: ProviderId) {
     this.selections.push(id);
@@ -402,16 +422,23 @@ class ControlledProviders implements ProviderSelectionPort {
         ["opencodeZen", "OpenCode Zen", "zen-model"],
       ] as const).map(([id, displayName, model]) =>
         Object.freeze({
+          configured: true,
           id,
           presentation: Object.freeze({
             authentication: "memory-only API key",
             displayName,
             model,
           }),
+          ready: true,
           selected: id === this.#selected,
         })
       ),
     );
+  }
+
+  selectModel(id: string) {
+    this.modelSelections.push(id);
+    return ok(undefined);
   }
 }
 

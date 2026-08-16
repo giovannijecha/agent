@@ -2,11 +2,13 @@
 
 - Status: accepted
 - Date: 2026-08-11
-- Amended by: decisions 0040, 0055, 0057, 0059, and 0060
+- Amended by: decisions 0040, 0055, 0057, 0059, 0060, and 0068
 
 Decision 0055 changes the exact catalog to `/providers`, `/permissions`, and
 `/exit`. It removes `/approve` and `/deny`; pending tool decisions are
 contextual selections, not commands.
+Decision 0068 adds `/models` to that exact catalog and makes `/providers` the
+interactive credential and provider selection path.
 Decision 0057 supersedes the activity-background refinement below: activity is
 transparent and only its mark and written state carry semantic truth foregrounds.
 

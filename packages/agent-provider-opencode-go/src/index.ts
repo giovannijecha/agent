@@ -9,6 +9,12 @@ export type {
 } from "./errors.js";
 export { OPENCODE_GO_LIMITS } from "./limits.js";
 export { OpenCodeGoModel } from "./model.js";
+export {
+  isOpenCodeGoModelId,
+  OPENCODE_GO_MODEL,
+  OPENCODE_GO_MODELS,
+  type OpenCodeGoModelId,
+} from "./models.js";
 export type {
   OpenCodeGoTransport,
   OpenCodeGoTransportError,
@@ -16,4 +22,3 @@ export type {
   OpenCodeGoTransportRequest,
   OpenCodeGoTransportStream,
 } from "./transport.js";
-export { OPENCODE_GO_MODEL } from "./wire.js";

@@ -14,6 +14,11 @@ import type {
   OpenCodeZenFailureReason,
 } from "./errors.js";
 import { OPENCODE_ZEN_LIMITS } from "./limits.js";
+import {
+  isOpenCodeZenModelId,
+  OPENCODE_ZEN_MODEL,
+  type OpenCodeZenModelId,
+} from "./models.js";
 import { SseDecoder } from "./sse.js";
 import type {
   OpenCodeZenTransport,
@@ -324,17 +329,24 @@ class OpenCodeZenStream implements ModelStream<OpenCodeZenError> {
 /** Concrete Node-free StreamingModel implementation for OpenCode Zen. */
 export class OpenCodeZenModel implements StreamingModel<OpenCodeZenError> {
   readonly #instructions: string;
+  readonly #model: OpenCodeZenModelId;
   readonly #openTransport: TransportOpen;
 
-  private constructor(openTransport: TransportOpen, instructions: string) {
+  private constructor(
+    openTransport: TransportOpen,
+    instructions: string,
+    model: OpenCodeZenModelId,
+  ) {
     this.#openTransport = openTransport;
     this.#instructions = instructions;
+    this.#model = model;
     Object.freeze(this);
   }
 
   static create(
     transport: OpenCodeZenTransport,
     instructions: string,
+    model: OpenCodeZenModelId = OPENCODE_ZEN_MODEL,
   ): Result<OpenCodeZenModel, OpenCodeZenCreateError> {
     let openTransport: TransportOpen;
     try {
@@ -357,7 +369,10 @@ export class OpenCodeZenModel implements StreamingModel<OpenCodeZenError> {
     ) {
       return err(createError("invalidInstructions"));
     }
-    return ok(new OpenCodeZenModel(openTransport, instructions));
+    if (!isOpenCodeZenModelId(model)) {
+      return err(createError("invalidModel"));
+    }
+    return ok(new OpenCodeZenModel(openTransport, instructions, model));
   }
 
   async open(
@@ -368,7 +383,12 @@ export class OpenCodeZenModel implements StreamingModel<OpenCodeZenError> {
     if (cancellation.requested) {
       return err(modelError("open", "cancelled"));
     }
-    const body = encodeRequest(conversation, this.#instructions, tools);
+    const body = encodeRequest(
+      conversation,
+      this.#instructions,
+      tools,
+      this.#model,
+    );
     if (!body.ok) {
       return err(modelError("open", wireReason(body.error)));
     }

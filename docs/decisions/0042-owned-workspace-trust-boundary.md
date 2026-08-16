@@ -1,5 +1,9 @@
 # 0042: Owned workspace trust boundary
 
+> Amended by decision 0068: workspace resolution still precedes provider state,
+> but provider credentials are now configured inside the owned TUI or preloaded
+> from exact environment inputs without any startup prompt or implicit selection.
+
 - Status: accepted
 - Date: 2026-08-13
 - Amended: 2026-08-14 by decision 0046 for owned handle-relative mutation

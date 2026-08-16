@@ -12,6 +12,7 @@ test("exposes the exact owned commands", () => {
   assert.deepEqual(executeSubmission("/permissions"), {
     kind: "permissions",
   });
+  assert.deepEqual(executeSubmission("/models"), { kind: "models" });
   assert.equal(executeSubmission("/approve").kind, "notice");
   assert.equal(executeSubmission("/deny").kind, "notice");
   assert.deepEqual(executeSubmission("   "), { kind: "none" });
@@ -20,14 +21,15 @@ test("exposes the exact owned commands", () => {
 test("uses one canonical catalog for exact dispatch and completion", () => {
   assert.deepEqual(
     COMMANDS.map((definition) => definition.command),
-    ["/providers", "/permissions", "/exit"],
+    ["/providers", "/models", "/permissions", "/exit"],
   );
   assert.equal(executeSubmission("/providers").kind, "providers");
+  assert.equal(executeSubmission("/models").kind, "models");
   assert.equal(executeSubmission("/permissions").kind, "permissions");
   assert.equal(executeSubmission("/exit").kind, "exit");
   assert.deepEqual(
     commandCompletions("/").map((definition) => definition.command),
-    ["/providers", "/permissions", "/exit"],
+    ["/providers", "/models", "/permissions", "/exit"],
   );
   assert.deepEqual(
     commandCompletions("/p").map((definition) => definition.command),
@@ -66,6 +68,10 @@ test("opens the canonical provider selector", () => {
   const result = executeSubmission("/providers");
 
   assert.deepEqual(result, { kind: "providers" });
+});
+
+test("opens the canonical model selector", () => {
+  assert.deepEqual(executeSubmission("/models"), { kind: "models" });
 });
 
 test("classifies ordinary text for transient runtime submission", () => {
