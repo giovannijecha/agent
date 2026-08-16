@@ -606,7 +606,10 @@ or the concrete effect preview produced by a mutation plan. Patch previews show
 the canonical target and human-readable changed rows when they fit. The CLI
 removes only exact complete common prefix and non-overlapping suffix rows inside
 one hunk before budgeting; separator differences and partial rows remain, while
-the complete untrimmed hunk stays bound to permission and commit. Removed rows
+the complete untrimmed hunk stays bound to permission and commit. If unequal
+terminal separators are the only field difference, exact printable ASCII
+escapes stay inline on their owning rows and source backslashes remain doubled.
+Removed rows
 use `diffRemoved` and inserted rows use `diffAdded`, including
 wrapped continuations, while their exact prefixes remain visible;
 larger content uses bounded prefix/suffix excerpts and an explicit omitted-code-unit

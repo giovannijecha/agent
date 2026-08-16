@@ -108,7 +108,10 @@ and inserted changed logical text. Within each hunk, the formatter removes only
 the longest exact common prefix and non-overlapping suffix of complete logical
 rows before budgeting. Original separators participate in comparison, so a
 line-ending difference remains a replacement; partial rows and cross-hunk text
-never collapse. The complete untrimmed hunk remains bound to authorization,
+never collapse. If unequal terminal separators are the only field difference,
+the exact `\r\n`, `\r`, or `\n` is escaped inline on its owning row; source
+backslashes remain doubled, so the display is unambiguous without an empty diff
+row. The complete untrimmed hunk remains bound to authorization,
 stale-state validation, and commit. The complete removed row and any wrapped
 continuation
 use a restrained non-bold red foreground; the complete inserted row and its
@@ -331,7 +334,7 @@ decision 0036 to change in the same review. Remove `run_process` advertisement
 before its handler or adapter, then remove the native product build only when
 no remaining proof or platform work consumes it. Tool-specific presenters are
 forbidden; activity changes go through the one log and one presentation
-function defined by decisions 0022, 0033, 0056, 0057, 0060, and 0062.
+function defined by decisions 0022, 0033, 0056, 0057, 0060, 0062, and 0063.
 
 ## Evidence
 
@@ -346,6 +349,7 @@ function defined by decisions 0022, 0033, 0056, 0057, 0060, and 0062.
 - Transparent human activity decision: `docs/decisions/0057-owned-transparent-human-tool-activity.md`
 - Semantic patch diff foreground decision: `docs/decisions/0060-owned-semantic-patch-diff-foregrounds.md`
 - Changed-only patch preview decision: `docs/decisions/0062-owned-changed-only-patch-preview.md`
+- Terminal-separator patch preview decision: `docs/decisions/0063-owned-terminal-separator-patch-preview.md`
 - Built-in filesystem adapters: `packages/agent-cli/src/builtin-tools.ts`
 - Shared built-in limits: `packages/agent-cli/src/builtin-tool-limits.ts`
 - Pure file line projection: `packages/agent-cli/src/workspace-file-read.ts`

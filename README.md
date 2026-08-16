@@ -145,7 +145,8 @@ terminal-native selection path, while Ctrl+C remains the agent interrupt.
   preflight before observation; ambiguous anchors, overlap, reordering, no-op
   hunks, or changed identity, absence, path, or content fail as conflicts. Its
   preview shows changed logical rows only; exact complete shared context remains
-  bound to the effect but does not repeat as a removal and insertion.
+  bound to the effect but does not repeat as a removal and insertion. A
+  terminal-separator-only change remains visible as one exact inline escape.
 - `manage_path` creates one directory, moves one file or directory to an absent
   destination, or removes one file or empty directory. Every effect has one
   exact authorization and one owned namespace-committer invocation; every

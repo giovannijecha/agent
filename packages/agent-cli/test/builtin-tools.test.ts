@@ -1385,6 +1385,59 @@ test("does not render an empty direction row for a terminal separator", () => {
   );
 });
 
+test("preserves terminal separator ownership in both patch directions", () => {
+  assert.equal(
+    patchMutationPreview({
+      effect: "update",
+      hunks: Object.freeze([
+        Object.freeze({ newText: "line", oldText: "line\n" }),
+      ]),
+      path: "remove-lf.txt",
+    }),
+    "Path: remove-lf.txt\n- line\\n\n+ line",
+  );
+  assert.equal(
+    patchMutationPreview({
+      effect: "update",
+      hunks: Object.freeze([
+        Object.freeze({ newText: "line\n", oldText: "line" }),
+      ]),
+      path: "add-lf.txt",
+    }),
+    "Path: add-lf.txt\n- line\n+ line\\n",
+  );
+  assert.equal(
+    patchMutationPreview({
+      effect: "update",
+      hunks: Object.freeze([
+        Object.freeze({ newText: "line\n", oldText: "line\r\n" }),
+      ]),
+      path: "replace-crlf.txt",
+    }),
+    "Path: replace-crlf.txt\n- line\\r\\n\n+ line\\n",
+  );
+  assert.equal(
+    patchMutationPreview({
+      effect: "update",
+      hunks: Object.freeze([
+        Object.freeze({ newText: "line", oldText: "line\r" }),
+      ]),
+      path: "remove-cr.txt",
+    }),
+    "Path: remove-cr.txt\n- line\\r\n+ line",
+  );
+  assert.equal(
+    patchMutationPreview({
+      effect: "update",
+      hunks: Object.freeze([
+        Object.freeze({ newText: "line", oldText: "line\\n" }),
+      ]),
+      path: "literal-backslash.txt",
+    }),
+    "Path: literal-backslash.txt\n- line\\\\n\n+ line",
+  );
+});
+
 test("renders empty creation and escapes non-line diff controls", () => {
   const empty = patchMutationPreview({
     effect: "create",

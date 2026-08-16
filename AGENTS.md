@@ -122,7 +122,10 @@ agent.”
   Before display budgeting, remove only exact complete logical rows shared by
   the beginning or non-overlapping end of both sides of one hunk; original line
   separators participate in comparison, partial rows never collapse, and the
-  complete untrimmed hunk remains the authorization and commit authority. The
+  complete untrimmed hunk remains the authorization and commit authority. When
+  unequal terminal separators are the only field difference, expose exact
+  `\r\n`, `\r`, or `\n` inline on the owning row; literal source backslashes
+  remain doubled and no false empty row appears. The
   complete `- ` rows use the closed non-bold `diffRemoved` red foreground and
   complete `+ ` rows use the closed non-bold `diffAdded` green foreground;
   wrapped continuations retain their owning row's direction tone, while prefixes
@@ -299,7 +302,8 @@ agent.”
   approval preview bound.
   Preview remove and insert fields retain independent line prefixes; backslashes,
   tabs, and non-line control or format scalars are escaped. Only formatter-owned
-  LF separators are admitted by the preview boundary. Reject
+  LF separators are admitted by the preview boundary; exact terminal-separator
+  escapes remain printable ASCII inside their owning row. Reject
   ambiguous anchors, overlapping or reordered hunks, no-op hunks, and stale
   state before mutation.
   Invocation crosses the owned decision 0046 mutation committer exactly once;

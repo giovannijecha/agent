@@ -12,6 +12,8 @@ type TextExcerpt = Readonly<{
   suffix: string;
 }>;
 
+type TerminalSeparator = "" | "\r" | "\n" | "\r\n";
+
 type PatchMutationPreview = Readonly<{
   effect: "create" | "update";
   hunks: readonly TextPatchHunk[];
@@ -105,6 +107,27 @@ function changedMutation(
   });
 }
 
+function terminalSeparator(content: string): TerminalSeparator {
+  if (content.endsWith("\r\n")) return "\r\n";
+  if (content.endsWith("\r")) return "\r";
+  return content.endsWith("\n") ? "\n" : "";
+}
+
+function terminalSeparatorExposure(hunk: TextPatchHunk): Readonly<{
+  inserted: boolean;
+  removed: boolean;
+}> {
+  const removed = terminalSeparator(hunk.oldText);
+  const inserted = terminalSeparator(hunk.newText);
+  const onlyDifference = removed !== inserted &&
+    hunk.oldText.slice(0, hunk.oldText.length - removed.length) ===
+      hunk.newText.slice(0, hunk.newText.length - inserted.length);
+  return Object.freeze({
+    inserted: onlyDifference && inserted.length > 0,
+    removed: onlyDifference && removed.length > 0,
+  });
+}
+
 function safePrefix(content: string, codeUnits: number): string {
   let end = Math.min(content.length, codeUnits);
   if (
@@ -142,7 +165,10 @@ function excerpt(content: string, budget: number): TextExcerpt {
   });
 }
 
-function escapeDiffText(content: string): string {
+function escapeDiffText(
+  content: string,
+  exposeTerminalSeparator: boolean,
+): string {
   const parts: string[] = [];
   let index = 0;
   while (index < content.length) {
@@ -153,12 +179,22 @@ function escapeDiffText(content: string): string {
     const scalar = String.fromCodePoint(point);
     index += scalar.length;
     if (scalar === "\r") {
+      let separator = "\\r";
       if (content.charAt(index) === "\n") {
         index += 1;
+        separator += "\\n";
       }
-      parts.push("\n");
+      parts.push(
+        exposeTerminalSeparator && index === content.length
+          ? separator
+          : "\n",
+      );
     } else if (scalar === "\n") {
-      parts.push("\n");
+      parts.push(
+        exposeTerminalSeparator && index === content.length
+          ? "\\n"
+          : "\n",
+      );
     } else if (scalar === "\\") {
       parts.push("\\\\");
     } else if (scalar === "\t") {
@@ -178,6 +214,7 @@ function appendChangedRows(
   content: string,
   budget: number | undefined,
   compactOmission: boolean,
+  exposeTerminalSeparator: boolean,
 ): void {
   if (content.length === 0) {
     return;
@@ -186,7 +223,12 @@ function appendChangedRows(
     ? Object.freeze({ omitted: 0, prefix: content, suffix: "" })
     : excerpt(content, budget);
   if (retained.prefix.length > 0) {
-    const lines = escapeDiffText(retained.prefix).split("\n");
+    const lines = escapeDiffText(
+      retained.prefix,
+      exposeTerminalSeparator &&
+        retained.omitted === 0 &&
+        retained.suffix.length === 0,
+    ).split("\n");
     if (lines.at(-1) === "") {
       lines.pop();
     }
@@ -203,7 +245,10 @@ function appendChangedRows(
     );
   }
   if (retained.suffix.length > 0) {
-    const lines = escapeDiffText(retained.suffix).split("\n");
+    const lines = escapeDiffText(
+      retained.suffix,
+      exposeTerminalSeparator,
+    ).split("\n");
     if (lines.at(-1) === "") {
       lines.pop();
     }
@@ -244,6 +289,7 @@ function renderDiff(
     if (hunk === undefined) {
       continue;
     }
+    const separatorExposure = terminalSeparatorExposure(hunk);
     const removeBudget = sharedBudget === undefined || hunk.oldText.length === 0
       ? sharedBudget
       : sharedBudget + (fieldIndex < remainder ? 1 : 0);
@@ -258,6 +304,7 @@ function renderDiff(
       hunk.oldText,
       removeBudget,
       compactOmission,
+      separatorExposure.removed,
     );
     appendChangedRows(
       rows,
@@ -265,6 +312,7 @@ function renderDiff(
       hunk.newText,
       insertBudget,
       compactOmission,
+      separatorExposure.inserted,
     );
   }
   if (

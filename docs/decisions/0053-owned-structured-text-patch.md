@@ -6,6 +6,7 @@
 - Approval presentation amended by: decision 0057
 - Diff foregrounds amended by: decision 0060
 - Changed-only preview amended by: decision 0062
+- Terminal-separator preview amended by: decision 0063
 
 Decision 0055 allows an exact planned patch through either current-session
 `Allow` or a contextual `Ask` decision. Planning, preview binding, stale-state
@@ -17,6 +18,8 @@ red and green foreground roles without changing preview text or authority.
 Decision 0062 removes only exact complete logical rows retained on both sides of
 one hunk before display budgeting; the complete untrimmed plan remains the
 authorization and commit authority.
+Decision 0063 distinguishes an otherwise ambiguous terminal-separator-only
+replacement with one inline ASCII escape on its owning diff row.
 
 ## Context
 
@@ -96,7 +99,9 @@ Comparison retains original CRLF, lone CR, or LF separators, so differing line
 endings remain a visible replacement. Partial rows and cross-hunk context are
 never collapsed. Complete changed logical text is shown when it fits; line
 separators become structural display rows while the plan retains exact line
-endings.
+endings. If unequal terminal separators are the only field difference, their
+owning rows expose exact `\r\n`, `\r`, or `\n` escapes; literal source
+backslashes remain doubled and no empty terminal row is added.
 Larger fields use deterministic prefix and suffix excerpts with an exact
 per-changed-field omitted-code-unit count. If
 verbose omission rows do not fit, the final compact projection retains every

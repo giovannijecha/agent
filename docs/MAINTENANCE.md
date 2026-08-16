@@ -155,6 +155,10 @@ Under decision 0062, also prove exact common logical prefix and non-overlapping
 suffix rows disappear per hunk, separator and partial-line differences survive,
 terminal separators add no false empty row, and compaction never changes the
 untrimmed plan, permission, or commit.
+Under decision 0063, prove both directions of a terminal-separator-only change
+remain distinct through exact inline LF, CR, and CRLF escapes, literal source
+backslashes cannot collide with them, and ordinary equal-separator diffs remain
+compact.
 
 To remove one tool, stop advertising its descriptor, then delete its handler,
 focused tests, policy record, manual entry, and unused private helpers. Update
