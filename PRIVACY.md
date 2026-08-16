@@ -157,6 +157,9 @@ The red-green fixture's assertion output is generated only from original
 versioned source during repository verification. A live recovery run remains
 normal product activity; the evaluator captures neither process output nor the
 conversation around it.
+The namespace-directory fixture contains only original static HTML and CSS.
+Its live run uses normal product permissions, while the evaluator records no
+directory request, patch content, provider response, or transcript.
 
 Grading reads only the selected run workspace and reports bounded relative path
 names classified as changed, missing, or unexpected. Completed records admit

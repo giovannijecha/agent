@@ -755,6 +755,12 @@ snapshot passes, and its brief requires those outcomes before and after the
 source edit. Do not replace it with an ad hoc prompt or infer a product change
 from one run.
 
+The namespace-directory task under decision 0066 must retain an input with no
+`assets` directory and an expected snapshot with exactly one nested stylesheet
+plus the linked page. Keep it limited to portable `create_directory`; do not
+extend it to Linux-unsupported `move` or `remove`, infer tool use from grading,
+or describe the separate commits as one transaction.
+
 Retain one compound same-file task that requires several independent outcomes
 and one separate multi-file task. Review them as convergence evidence, not as a
 required model call count, parallel-handler contract, or permission shortcut.
@@ -810,6 +816,8 @@ Remove decision 0064 with the TypeScript task or replace its self-verification
 contract in a new decision.
 Remove decision 0065 with the JavaScript red-green task or replace its recovery
 contract in a new decision.
+Remove decision 0066 with the namespace-directory task or replace its portable
+namespace evidence contract in a new decision.
 The receipt can remain as independent generic interaction evidence. To remove it
 too, delete its exact launch form, recorder, read and reducer observation hooks,
 tests, decision 0048, and registrations. No provider or model-facing tool needs

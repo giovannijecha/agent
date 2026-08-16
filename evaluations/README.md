@@ -4,10 +4,12 @@ This directory contains small original workspaces for repeatable `agent` usage.
 It is an evaluation corpus, not product runtime, training data, or a claim of
 model quality. The expected snapshots never enter a prepared workspace.
 
-The seven-task corpus spans C, documentation, JavaScript, TypeScript, and
+The eight-task corpus spans C, documentation, JavaScript, TypeScript, and
 browser work. `web-compound-page-edit` and `web-extract-script` cover same-file
-and multi-file convergence. `javascript-red-green-recovery` requires the same
-Node test to fail before its bounded edit and pass afterward.
+and multi-file convergence. `web-extract-stylesheet` requires one portable
+namespace-directory creation before a nested stylesheet can be written.
+`javascript-red-green-recovery` requires the same Node test to fail before its
+bounded edit and pass afterward.
 `typescript-inclusive-range` directly proves its input assertion failure and
 expected success through one tracked `.ts` import.
 

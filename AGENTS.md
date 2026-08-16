@@ -383,6 +383,10 @@ agent.”
   observe one nonzero `node --test` result before correction and the exact same
   command succeeding afterward. This sequence changes no tool authority, and
   one negative run cannot justify a product change.
+  The decision 0066 browser stylesheet task requires one portable
+  `create_directory` operation before a nested file effect can complete. It
+  does not admit Linux-unsupported namespace operations or turn separate
+  commits into a transaction.
   The exact interactive `agent --evaluation-receipt` option from decision 0048
   is a separate CLI-owned observer. It emits only duration, accepted-turn,
   accepted-tool-call, affirmative-approval, and repeated-read counts after

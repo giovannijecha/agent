@@ -226,9 +226,10 @@ imported actions or repository secrets.
 
 ## Task evaluation
 
-The repository includes seven small original coding tasks spanning C,
+The repository includes eight small original coding tasks spanning C,
 documentation, JavaScript, TypeScript, and browser code, including separate
-same-file compound, multi-file browser, and controlled red-green recovery work.
+same-file compound, multi-file browser, portable namespace-directory, and
+controlled red-green recovery work.
 The offline evaluator prepares an isolated input workspace and grades its
 regular-file tree without executing candidate code or contacting a provider:
 
