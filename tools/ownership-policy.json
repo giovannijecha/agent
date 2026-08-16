@@ -80,6 +80,7 @@
     "docs/decisions/0062-owned-changed-only-patch-preview.md",
     "docs/decisions/0063-owned-terminal-separator-patch-preview.md",
     "docs/decisions/0064-owned-self-verifying-typescript-evaluation.md",
+    "docs/decisions/0065-owned-red-green-tool-recovery-evaluation.md",
     "evaluations/README.md"
   ],
   "workspaces": [

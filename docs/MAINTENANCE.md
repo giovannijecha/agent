@@ -749,6 +749,11 @@ input must reach the intended behavioral failure and the expected fixture must
 pass. Never point that regression at ignored state or a prepared candidate. The
 TypeScript endpoint task uses the exact `.ts` source import under decision 0064;
 do not restore an absent `.js` target, generated copy, dependency, or loader.
+The JavaScript recovery task under decision 0065 must retain one exact
+`node --test` command: its input fails the intended assertion, its expected
+snapshot passes, and its brief requires those outcomes before and after the
+source edit. Do not replace it with an ad hoc prompt or infer a product change
+from one run.
 
 Retain one compound same-file task that requires several independent outcomes
 and one separate multi-file task. Review them as convergence evidence, not as a
@@ -802,6 +807,8 @@ To remove evaluation, first delete any retained ignored runs. Then remove
 tests and verifier hooks, decisions 0047 and 0049, and all ownership, manual,
 architecture, engineering, security, privacy, README, and AGENTS registrations.
 Remove decision 0064 with the TypeScript task or replace its self-verification
+contract in a new decision.
+Remove decision 0065 with the JavaScript red-green task or replace its recovery
 contract in a new decision.
 The receipt can remain as independent generic interaction evidence. To remove it
 too, delete its exact launch form, recorder, read and reducer observation hooks,

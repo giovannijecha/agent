@@ -135,6 +135,12 @@ candidate. The TypeScript endpoint task imports `sum-range.ts` directly under
 decision 0064. If a receipt is lost, leave that run record pending; do not infer
 or reconstruct any of its five values.
 
+The JavaScript recovery task under decision 0065 requires the normal product to
+run the exact `node --test` command before editing, observe the intended
+assertion failure, make the bounded source correction, and run the same command
+successfully. One negative run remains observational until the same failure is
+reviewed again on the unchanged task revision.
+
 Register a reviewed negative result only through
 `evaluations/failures/registry.json`. Increment an occurrence only after the
 same failure recurs on the same maintained task. `observing` and `actionable`
@@ -185,6 +191,7 @@ resolved product failure.
 - Evaluation failure validator tests: `tools/test/evaluation-failure-registry.test.mjs`
 - Evaluation failure decision: `docs/decisions/0049-owned-evaluation-failure-registry.md`
 - TypeScript fixture decision: `docs/decisions/0064-owned-self-verifying-typescript-evaluation.md`
+- Red-green recovery decision: `docs/decisions/0065-owned-red-green-tool-recovery-evaluation.md`
 - Manual validator: `tools/lib/manual-policy.mjs`
 - Manual validator tests: `tools/test/manual-policy.test.mjs`
 - Publication registry: `tools/publication-policy.json`

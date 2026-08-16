@@ -188,6 +188,12 @@ operations and never substitute a prepared candidate path. Under decision 0064,
 the TypeScript endpoint test imports its tracked `.ts` source directly and adds
 no build output, dependency, or loader.
 
+Under decision 0065, keep one JavaScript red-green task whose brief requires
+the normal product to run `node --test` before editing and again after the
+bounded correction. Prove both immutable fixture outcomes with the same fixed
+command and empty environment. Do not encode provider call counts, loosen
+`run_process`, or treat one negative run as an actionable product diagnosis.
+
 Apply file-count, byte, segment, and path-byte limits to each snapshot-relative
 tree. Corpus traversal may add only the fixed registered task prefix before the
 same relative path is revalidated. Keep canonical input and expected snapshots
