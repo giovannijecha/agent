@@ -386,9 +386,10 @@ agent.”
   The decision 0066 browser stylesheet task requires one observed and approved
   `manage_path(create_directory)` operation for `assets` before a nested file
   effect can complete. The operator denies `run_process` and every alternate
-  creation mechanism; the final tree and receipt do not prove tool identity.
-  It does not admit Linux-unsupported namespace operations or turn separate
-  commits into a transaction.
+  directory-creation mechanism, then may approve `apply_patch` to create the
+  stylesheet and update the page; the final tree and receipt do not prove tool
+  identity. It does not admit Linux-unsupported namespace operations or turn
+  separate commits into a transaction.
   The exact interactive `agent --evaluation-receipt` option from decision 0048
   is a separate CLI-owned observer. It emits only duration, accepted-turn,
   accepted-tool-call, affirmative-approval, and repeated-read counts after

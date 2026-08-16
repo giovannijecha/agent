@@ -36,10 +36,12 @@ block. Its expected snapshot:
 
 The operator brief requires the missing directory to be created through the
 exact `manage_path(create_directory)` operation before the nested stylesheet is
-written. It forbids `run_process` and every other alternate directory or file
-creation mechanism. It does not prescribe a provider response count, internal
-reasoning strategy, permission choice, or exact tool-call count. The existing
-per-call permission contract remains authoritative.
+written. It forbids `run_process` and every other alternate directory-creation
+mechanism while explicitly permitting `apply_patch` to create the stylesheet
+and update the page after that namespace exists. It does not prescribe a
+provider response count, internal reasoning strategy, permission choice, or
+exact tool-call count. The existing per-call permission contract remains
+authoritative.
 
 This task measures one portable namespace creation followed by bounded text
 effects. It does not measure or authorize `move`, `remove`, parallel tool
@@ -63,11 +65,13 @@ files, credentials, personal content, links, dependencies, or executable code.
 
 The live operator accepts the run only after observing and approving the exact
 `manage_path(create_directory)` request for `assets`. The operator denies
-`run_process` or any other alternate creation mechanism; an exact final tree
-without the required namespace request is not successful evidence. A
-successful directory result remains one object-bound namespace commit.
-Subsequent file effects retain their own independently planned and approved
-object-bound commits; the evaluation does not combine them into a transaction.
+`run_process` or any other alternate directory-creation mechanism; an exact
+final tree without the required namespace request is not successful evidence.
+The operator may then approve `apply_patch` to create `assets/theme.css` and
+update `index.html`. A successful directory result remains one object-bound
+namespace commit. Subsequent file effects retain their own independently
+planned and approved object-bound commits; the evaluation does not combine
+them into a transaction.
 
 One negative live run remains observational under decision 0049. It cannot
 justify a product change, a new tool, or wider namespace support without an
@@ -83,11 +87,12 @@ ownership, and manual tests continue to apply. The canonical Windows and Linux
 verifier remains the release gate.
 
 After integration, prepare one new run from the registered input. Start the
-normal product in that exact workspace, deny any alternate creation mechanism,
-and accept only an observed `manage_path(create_directory)` request for
-`assets`. Collect the content-free receipt after terminal cleanup, grade the
-artifact, and classify the record through operator review. Do not inject the
-expected snapshot or infer tool use from the grade or receipt.
+normal product in that exact workspace, deny any alternate directory-creation
+mechanism, and accept only an observed `manage_path(create_directory)` request
+for `assets`. The following `apply_patch` requests may create the stylesheet and
+update the page. Collect the content-free receipt after terminal cleanup, grade
+the artifact, and classify the record through operator review. Do not inject
+the expected snapshot or infer tool use from the grade or receipt.
 
 ## Update, rollback, and removal
 
