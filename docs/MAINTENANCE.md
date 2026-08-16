@@ -397,9 +397,11 @@ exports and tests, decisions 0023, 0030, 0031, and 0032, and their policy and ma
 evidence. First remove table recognition and its derived header rule,
 structured-region identities, the
 shared row-paint integration and the five syntax tones if unused; the generic
-`Surface` and `SideRail` remain for user turns and other callers. If no remaining
-component uses the `emphasis` tone, remove only that renderer mapping in the same
-change. Removing only italic Markdown emphasis deletes its delimiter branch and
+`Surface` remains for rail-free user turns and other callers. `SideRail` remains
+only as an independently tested generic primitive; removing it requires deleting
+its implementation, export, and tests together after confirming that no caller
+depends on it. If no remaining component uses the `emphasis` tone, remove only
+that renderer mapping in the same change. Removing only italic Markdown emphasis deletes its delimiter branch and
 display-run slant propagation; the generic `TextSpan` slant remains for user
 prose and tool identity. If no remaining component uses `highContrast`, remove its renderer
 mapping and role registration in the same change. Decision

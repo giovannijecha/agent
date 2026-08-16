@@ -370,10 +370,9 @@ product components invent private shell widths or arbitrary reading-width caps.
 Under decision 0043, read the canonical content inset, flush offsets, composer
 rule rows, and external rhythm from the one frozen CLI-owned
 conversation-density record. Presenters and composer pointer projection consume
-that same record. User turns
-use a transparent zero-padding `Surface` composed with the generic `SideRail`;
-the muted solid half-block rail follows exactly the visible content rows and
-adds no synthetic row.
+that same record. User turns use one stage-wide transparent `Surface` with zero
+vertical padding and the shared content inset; italic `accent` prose
+distinguishes the role without a rail, marker, border, or background.
 Activity surfaces use zero vertical padding. Every state starts with one compact
 right-priority split line; pending permission alone may add a separately wrapped
 exact preview before one transparent contextual action list. The focused composer retains one
@@ -399,8 +398,8 @@ footer's right edge for the constant-width active-work pulse and leave it empty
 otherwise. When width is scarce, retain right, then center, then left. Do not add
 a static product header or duplicate lifecycle or navigation prose. Footer facts
 come only from the composition root or authoritative application state. Compose
-stage-wide user transcript regions with a transparent `Surface` and the generic
-`Surface`; keep surface, slant, and foreground tone independent, closed, and
+each stage-wide user transcript region as one generic transparent `Surface`;
+keep surface, slant, and foreground tone independent, closed, and
 renderer-owned. Use italic slant and the closed `accent` base tone for user role
 distinction, the shared content inset, and no rail, marker, border, or background.
 Its first text cell aligns with assistant prose and composer text and caret.
