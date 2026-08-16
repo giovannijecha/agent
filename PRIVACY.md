@@ -150,6 +150,9 @@ The optional evaluation tool creates runs only under ignored
 and a content-free record template; it contains no expected snapshot, provider
 credential, prompt capture, transcript, or personal identifier. The evaluator
 does not start `agent`, contact a provider, or execute candidate workspace code.
+Focused repository tests may execute only immutable versioned input and expected
+fixtures to prove a maintained completion command; they never read or execute an
+ignored candidate run.
 
 Grading reads only the selected run workspace and reports bounded relative path
 names classified as changed, missing, or unexpected. Completed records admit
@@ -164,7 +167,8 @@ bounded canonical successful read-request identities in memory. It emits no
 digest and clears them on close. After terminal restoration it prints one ASCII
 JSON line with elapsed milliseconds and accepted turn, tool-call, approval, and
 repeated-read counts. It writes no file and ordinary `agent` runs do not create
-the recorder.
+the recorder. A lost receipt is not recoverable from another retained channel
+and its values must not be guessed into the pending record.
 
 The versioned evaluation failure registry is separate from local runs. It may
 retain only a maintained task identifier, closed classifications, priority,
@@ -172,6 +176,9 @@ lifecycle, occurrence count, and fixture-relative changed, missing, or
 unexpected path names. It excludes run identifiers, metric samples, candidate
 contents, diffs, prompts, responses, transcripts, model or provider identity,
 timestamps, credentials, personal identifiers, and free-form notes.
+Evidence derived from a canonical expected snapshot that cannot satisfy its own
+completion check is removed as invalid corpus evidence rather than retained as
+a product diagnosis.
 
 ## Removal
 

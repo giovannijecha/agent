@@ -28,10 +28,12 @@ grader, and tests are original repository artifacts. They are not copied or
 adapted benchmark material, and no external task corpus or candidate solution
 is admitted into product source.
 
-The evaluation failure registry, its taxonomy, validation rules, and first
-content-free evidence entry are original repository artifacts derived only from
-the maintained owned task corpus. The registry retains no candidate source,
-transcript, provider output, external benchmark result, or personal content.
+The evaluation failure registry, its taxonomy, validation rules, and synthetic
+contract-test examples are original repository artifacts derived only from the
+maintained owned task corpus. The canonical registry may be empty and retains
+no candidate source, transcript, provider output, external benchmark result, or
+personal content. The directly executable TypeScript input and expected
+fixtures are likewise original maintained source, not captured candidate code.
 
 ## Forbidden inputs
 

@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-14
+- Amended: 2026-08-16 by decision 0064
 
 ## Context
 
@@ -14,9 +15,11 @@ observed defect from evidence that justifies a product or tool change.
 
 The first complete five-task baseline produced one bounded failure signal. The
 TypeScript endpoint task reached the required source change but also created an
-unexpected JavaScript copy. The operator classified the run as `partial`, the
-artifact as `different`, and the primary constraint as `model`. This is evidence
-of a planning failure, not evidence that a model-facing capability is missing.
+unexpected JavaScript copy. A later audit proved that the canonical expected
+snapshot could not execute its own test because that test imported a JavaScript
+path absent from both snapshots. Decision 0064 corrects the task contract and
+invalidates the earlier comparison; it was not admissible product-failure
+evidence.
 
 A durable register must not retain the ignored run, candidate content, prompt,
 response, transcript, provider credential, personal identifier, or free-form
@@ -65,7 +68,10 @@ the entry's task. Every `unexpected` path must be absent from that snapshot.
 The canonical verifier derives this inventory from the already validated,
 immutable evaluation suite; the registry neither reloads task files nor owns a
 parallel snapshot model. A task corpus change therefore invalidates stale or
-impossible grade evidence at the same gate that validates the registry.
+impossible grade evidence at the same gate that validates the registry. If that
+change proves the former expected snapshot could not satisfy its own completion
+check, remove evidence derived from the invalid contract instead of treating it
+as a product failure.
 
 `observing` means evidence exists but frequency or impact does not yet justify
 a correction. An entry with exactly one occurrence must remain `observing`.
@@ -73,7 +79,9 @@ a correction. An entry with exactly one occurrence must remain `observing`.
 Both require a null resolution. `resolved` requires at least two occurrences
 and one existing tracked evidence path under `docs/decisions/`, `packages/`, or
 `tools/test/`; the path identifies the decision or regression proof that closed
-the failure. Resolution never deletes the historical entry.
+the failure. Resolution never deletes valid historical evidence. Evidence
+invalidated by a defective task contract is removed rather than resolved,
+reclassified, or incremented.
 
 Occurrence counts are explicit maintainer judgments. The validator does not
 scan ignored runs, infer recurrence, inspect provider output, or aggregate
@@ -82,10 +90,9 @@ failure against the same maintained task. A corpus change requires reviewing
 every entry bound to that task because decision 0047 already invalidates older
 comparisons when task fixtures change.
 
-The initial registry contains the TypeScript unexpected-source-copy signal as
-one `planning`, `p2`, `observing` occurrence. One occurrence is enough to retain
-the evidence but not enough to change prompts, runtime behavior, or the tool
-surface.
+The canonical registry is currently empty after decision 0064 removed the
+invalid TypeScript signal. An empty registry remains a complete owned state and
+does not weaken its parser, bounds, task binding, lifecycle, or inventory gate.
 
 ## Bounds, security, and failure behavior
 
@@ -150,8 +157,8 @@ machine details.
 
 ## Verification
 
-Focused pure tests cover the canonical first entry, exact keys, task and
-expected-path binding,
+Focused pure tests cover the canonical empty registry plus one synthetic entry,
+exact keys, task and expected-path binding,
 closed taxonomy and priority, positive frequency bounds, canonical ordering,
 duplicate identifiers, evidence consistency, path bounds and collisions,
 lifecycle rules, and existing resolution targets. Boundary tests prove that one
@@ -179,9 +186,8 @@ candidate code, or changing product behavior.
 
 Repeated negative outcomes can now be counted and prioritized without retaining
 personal or model-generated content. Tool admission can cite durable evidence
-instead of impressions. The first entry explicitly argues against a new tool:
-the existing capability completed the required edit, while model planning added
-an unnecessary file.
+instead of impressions. Invalid task evidence cannot be used to justify a new
+tool, prompt change, runtime change, or provider conclusion.
 
 The closed schema cannot preserve a narrative diagnosis. The maintained task,
 grade classifications, category, frequency, and optional resolution proof are
@@ -197,8 +203,9 @@ bounds, task binding, resolution roots, or inventory ownership requires updating
 this decision, the validator, tests, evaluation guide, engineering guidance,
 AGENTS, ownership and manual policies, and canonical verifier together.
 
-To roll back the initial evidence, remove its complete registry entry and the
-focused canonical assertion; do not alter the underlying task or ignored run.
+To restore an entry after a task-contract correction, collect and review a new
+negative run against the corrected maintained task; never reconstruct the old
+entry or its metrics.
 To remove the facility, delete `evaluations/failures/`, the validator and its
 tests, this decision, and every verifier, ownership, manual, engineering,
 maintenance, README, and AGENTS reference. Decisions 0047 and 0048, the task

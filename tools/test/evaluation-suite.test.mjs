@@ -185,6 +185,44 @@ test("owns one exact compound same-file web convergence task", () => {
   );
 });
 
+test("owns one directly verifiable TypeScript endpoint task", () => {
+  const taskRoot = path.join(
+    projectRoot,
+    "evaluations/tasks/typescript-inclusive-range",
+  );
+  const inputRoot = path.join(taskRoot, "input");
+  const expectedRoot = path.join(taskRoot, "expected");
+  const testPath = path.join("test", "sum-range.test.ts");
+  const inputTest = readFileSync(path.join(inputRoot, testPath), "utf8");
+  const expectedTest = readFileSync(path.join(expectedRoot, testPath), "utf8");
+  assert.equal(inputTest, expectedTest);
+  assert.match(inputTest, /from "\.\.\/src\/sum-range\.ts";/u);
+  assert.doesNotMatch(inputTest, /sum-range\.js/u);
+
+  const input = spawnSync(process.execPath, ["--test", testPath], {
+    cwd: inputRoot,
+    encoding: "utf8",
+    env: {},
+  });
+  const inputOutput = input.stdout + input.stderr;
+  assert.equal(input.error, undefined);
+  assert.equal(input.signal, null);
+  assert.equal(input.status, 1, inputOutput);
+  assert.match(inputOutput, /ERR_ASSERTION/u);
+  assert.doesNotMatch(inputOutput, /ERR_MODULE_NOT_FOUND/u);
+
+  const expected = spawnSync(process.execPath, ["--test", testPath], {
+    cwd: expectedRoot,
+    encoding: "utf8",
+    env: {},
+  });
+  const expectedOutput = expected.stdout + expected.stderr;
+  assert.equal(expected.error, undefined);
+  assert.equal(expected.signal, null);
+  assert.equal(expected.status, 0, expectedOutput);
+  assert.doesNotMatch(expectedOutput, /ERR_MODULE_NOT_FOUND/u);
+});
+
 test("keeps failure registry contents outside evaluator task operations", (t) => {
   const root = temporaryRepository(t);
   const registry = path.join(root, "evaluations/failures/registry.json");

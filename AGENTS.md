@@ -375,6 +375,10 @@ agent.”
   grading compares regular-file trees without executing candidate code; the
   canonical verifier validates the corpus but never creates a run, launches
   `agent`, contacts a provider, captures a transcript, or reads credentials.
+  A focused verifier regression may execute only immutable versioned input and
+  expected fixtures when a task owns a direct completion command: the input
+  must reach its intended behavioral failure and the expected fixture must
+  pass. It never executes a prepared or model-authored candidate workspace.
   The exact interactive `agent --evaluation-receipt` option from decision 0048
   is a separate CLI-owned observer. It emits only duration, accepted-turn,
   accepted-tool-call, affirmative-approval, and repeated-read counts after
@@ -399,7 +403,10 @@ agent.”
   time, and change time through opening and completion. Fatal decoding, parsing,
   and canonical reconstruction failures remain content-free. One
   observed failure remains `observing`; it does not justify a new tool, prompt
-  change, or runtime change by itself.
+  change, or runtime change by itself. Evidence derived from a task whose
+  canonical expected snapshot cannot satisfy its own completion check is
+  invalid corpus evidence and must be removed rather than resolved or used to
+  change product behavior.
 
 ## Change discipline
 

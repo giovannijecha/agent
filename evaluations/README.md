@@ -8,6 +8,9 @@ The six-task corpus spans C, documentation, JavaScript, TypeScript, and browser
 work. `web-compound-page-edit` is the maintained same-file convergence case: it
 requires three independent page refinements without an extra file or unrelated
 change. `web-extract-script` remains the separate multi-file browser case.
+`typescript-inclusive-range` is self-verifying: its shared test imports the
+tracked `.ts` source, the input fails its endpoint assertion, and the expected
+snapshot passes with Node.
 
 List the registered tasks:
 
@@ -55,10 +58,10 @@ task prefix is removed. An empty candidate workspace is graded as a non-exact
 tree with every expected path missing. A non-exact tree is a review signal;
 only the operator may classify it as an accepted alternative.
 
-If the receipt itself fails, preserve the product result, record no guessed
-mechanical values, and diagnose the fixed content-free error separately. The
-option requires TTY input and output; it cannot be redirected or combined with
-another launch option.
+If a receipt fails or is lost, preserve the product result and leave its record
+pending. Never reconstruct values from screenshots, transcripts, provider
+output, or tool activity. The option requires TTY input and output; it cannot be
+redirected or combined with another launch option.
 
 ## Failure evidence
 
@@ -76,3 +79,5 @@ A `resolved` entry must point to tracked decision or regression evidence. The
 canonical verifier validates the registry against the current task catalog and
 tracked source inventory. Evaluator commands reserve the registry directory,
 file, and complete byte allowance but do not parse it or inspect ignored runs.
+Remove evidence if a corpus correction proves its expected snapshot could not
+satisfy its own check; do not resolve or use that evidence.

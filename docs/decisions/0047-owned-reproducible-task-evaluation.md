@@ -2,7 +2,8 @@
 
 - Status: accepted
 - Date: 2026-08-14
-- Amended: 2026-08-16 for one compound same-file web task
+- Amended: 2026-08-16 for compound convergence and a self-verifying
+  TypeScript fixture
 
 ## Context
 
@@ -50,6 +51,14 @@ three independent requested outcomes. It measures whether the same agent keeps
 the complete goal in view and produces one focused artifact without adding a
 file. The existing browser extraction task remains the distinct multi-file
 case. Neither task prescribes a model call count or changes product authority.
+
+The TypeScript endpoint task owns one directly executable test contract. Its
+input and expected snapshots retain the same `.ts` import specifier; the input
+must fail on the intended endpoint assertion and the expected snapshot must
+pass under the approved Node runtime. Focused verifier tests may execute these
+immutable versioned fixtures, but the evaluator and verifier never execute a
+prepared or model-authored candidate workspace. Decision 0064 owns that exact
+boundary.
 
 ## Run lifecycle
 
@@ -127,13 +136,16 @@ changes a product result.
 
 ## Verification
 
-Pure policy tests cover the canonical six-task corpus, schema and key drift, task
-ordering, duplicate identifiers, path and text rejection, snapshot bounds,
-identical snapshots, metric bounds, and record consistency. Filesystem tests
-cover staged preparation, existing-run rejection, exact grading, changed,
-missing, unexpected, and empty candidate trees, portable run identifiers, exact
-snapshot-relative path boundaries, and content-free diagnostics. The canonical
-gate validates the registered suite and runs those tests on Windows and Linux.
+Pure policy tests cover the canonical six-task corpus, schema and key drift,
+task ordering, duplicate identifiers, path and text rejection, snapshot bounds,
+identical snapshots, metric bounds, and record consistency. A focused process
+regression executes only the maintained TypeScript input and expected fixtures,
+proving assertion failure and success respectively without module-resolution
+failure. Filesystem tests cover staged preparation, existing-run rejection,
+exact grading, changed, missing, unexpected, and empty candidate trees,
+portable run identifiers, exact snapshot-relative path boundaries, and
+content-free diagnostics. The canonical gate validates the registered suite
+and runs those tests on Windows and Linux.
 
 ## Consequences
 
@@ -153,6 +165,11 @@ Adding or changing a task requires updating the manifest, brief, input,
 expected snapshot, policy tests, and relevant maintenance documentation in one
 change. Corpus changes invalidate comparisons with earlier task revisions and
 must be reviewed as evaluation-contract changes.
+
+A task that claims a runnable completion check must prove that its maintained
+input reaches the intended behavioral failure and its expected snapshot passes.
+Do not retain product-failure evidence from a corpus whose expected snapshot
+cannot satisfy its own check.
 
 To roll back one task, remove its manifest entry and complete task directory.
 To remove the framework, first remove every evaluation run outside version

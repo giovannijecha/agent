@@ -655,7 +655,10 @@ only an input tree under ignored state, grades regular-file equality without
 execution, and validates one closed content-free record. It has no dependency
 on product packages and adds no provider, runtime, controller, tool descriptor,
 prompt, transcript, or terminal path. The canonical verifier validates this
-inventory and its regressions but never creates a run.
+inventory and its regressions but never creates a run. One focused regression
+may start the approved Node executable against the immutable versioned
+TypeScript input and expected fixtures; the evaluator and verifier never run a
+prepared or model-authored candidate workspace.
 
 `packages/agent-cli/src/evaluation-receipt.ts` is an adjacent, independently
 removable product observer, not part of the evaluator. The composition root
@@ -685,7 +688,9 @@ source inventory; the validator never reads ignored runs, candidate content, or
 provider output. Evaluator commands admit the exact inventory path and reuse
 only the registry's immutable byte bound to reserve complete corpus-tree
 capacity. They do not parse its contents, so failure evidence cannot affect
-preparation or grading.
+preparation or grading. Evidence invalidated by a defective task contract is
+removed rather than resolved or made available to product decisions; the empty
+registry remains one valid owned state.
 
 ## Implemented and planned boundaries
 
@@ -797,8 +802,9 @@ process access remain unavailable unless the CLI composes an explicit capability
   them. File tools, runtime text chat, and TUI remain independently buildable.
 - Remove task evaluation by deleting local ignored runs, then its corpus,
   manifest, evaluator entry point and library, tests, verifier hook, decision
-  0047, failure registry, validator, tests, decision 0049, and documentation
-  registrations. The independently optional receipt may remain as generic
+  0047, the TypeScript fixture decision 0064, failure registry, validator,
+  tests, decision 0049, and documentation registrations. The independently
+  optional receipt may remain as generic
   interaction evidence. Remove the receipt separately by
   deleting its launch flag, recorder, composition hooks, tests, decision 0048,
   and registrations. The model-facing tool surface remains unchanged in either

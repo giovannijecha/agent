@@ -16,6 +16,28 @@ const registryBytes = readFileSync(
   path.join(projectRoot, "evaluations/failures/registry.json"),
 );
 const registry = JSON.parse(registryBytes.toString("utf8"));
+const exampleRegistry = {
+  entries: [
+    {
+      category: "planning",
+      evidence: {
+        artifact: "different",
+        changed: [],
+        missing: [],
+        outcome: "partial",
+        primaryConstraint: "model",
+        unexpected: ["src/sum-range.js"],
+      },
+      id: "synthetic-inclusive-range-extra-source",
+      occurrences: 1,
+      priority: "p2",
+      resolution: null,
+      status: "observing",
+      taskId: "typescript-inclusive-range",
+    },
+  ],
+  schemaVersion: 1,
+};
 const evaluationSuite = loadEvaluationSuite(projectRoot);
 const decisionPath =
   "docs/decisions/0049-owned-evaluation-failure-registry.md";
@@ -32,7 +54,7 @@ function context(overrides = {}) {
   };
 }
 
-function clone(value = registry) {
+function clone(value = exampleRegistry) {
   return structuredClone(value);
 }
 
@@ -62,8 +84,8 @@ test("parses registry source without exposing rejected content", () => {
 test("rejects every noncanonical registry source representation", () => {
   const canonical = registryBytes.toString("utf8");
   const duplicateKey = canonical.replace(
-    '      "category": "planning",',
-    '      "category": "security",\n      "category": "planning",',
+    '  "schemaVersion": 1',
+    '  "schemaVersion": 2,\n  "schemaVersion": 1',
   );
   for (const source of [
     Buffer.from(canonical.replaceAll("\n", "\r\n"), "utf8"),
@@ -95,21 +117,22 @@ test("translates canonical reconstruction depth failures", () => {
 test("accepts the canonical content-free failure registry", () => {
   assert.deepEqual(validateEvaluationFailureRegistry(registry, context()), {
     actionable: 0,
-    entries: 1,
-    observing: 1,
-    resolved: 0,
-    schemaVersion: 1,
-  });
-
-  const empty = clone();
-  empty.entries = [];
-  assert.deepEqual(validateEvaluationFailureRegistry(empty, context()), {
-    actionable: 0,
     entries: 0,
     observing: 0,
     resolved: 0,
     schemaVersion: 1,
   });
+
+  assert.deepEqual(
+    validateEvaluationFailureRegistry(exampleRegistry, context()),
+    {
+      actionable: 0,
+      entries: 1,
+      observing: 1,
+      resolved: 0,
+      schemaVersion: 1,
+    },
+  );
 });
 
 test("rejects registry and entry shape or ordering drift", () => {
@@ -285,7 +308,7 @@ test("rejects oversized source and malformed context without leaking content", (
   assert.throws(
     () =>
       validateEvaluationFailureRegistry(
-        registry,
+        exampleRegistry,
         context({
           sourceBytes: EVALUATION_FAILURE_LIMITS.registryBytes + 1,
         }),
@@ -297,7 +320,7 @@ test("rejects oversized source and malformed context without leaking content", (
     repositoryPaths: [decisionPath, decisionPath],
   });
   assert.throws(
-    () => validateEvaluationFailureRegistry(registry, duplicatePaths),
+    () => validateEvaluationFailureRegistry(exampleRegistry, duplicatePaths),
     expectCode("invalidContext"),
   );
 
@@ -305,7 +328,7 @@ test("rejects oversized source and malformed context without leaking content", (
     taskExpectedPaths: [{ paths: ["src/file.ts"], taskId: "unknown/task" }],
   });
   assert.throws(
-    () => validateEvaluationFailureRegistry(registry, malformedTask),
+    () => validateEvaluationFailureRegistry(exampleRegistry, malformedTask),
     expectCode("invalidContext"),
   );
 
@@ -315,7 +338,11 @@ test("rejects oversized source and malformed context without leaking content", (
     ],
   });
   assert.throws(
-    () => validateEvaluationFailureRegistry(registry, malformedExpectedPaths),
+    () =>
+      validateEvaluationFailureRegistry(
+        exampleRegistry,
+        malformedExpectedPaths,
+      ),
     expectCode("invalidContext"),
   );
 });
