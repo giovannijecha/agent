@@ -33,7 +33,8 @@ contract-test examples are original repository artifacts derived only from the
 maintained owned task corpus. The canonical registry may be empty and retains
 no candidate source, transcript, provider output, external benchmark result, or
 personal content. The directly executable TypeScript input and expected
-fixtures are likewise original maintained source, not captured candidate code.
+fixtures and the controlled JavaScript red-green task are likewise original
+maintained source, not captured candidate code or foreign benchmark material.
 
 ## Forbidden inputs
 

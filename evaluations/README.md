@@ -4,13 +4,12 @@ This directory contains small original workspaces for repeatable `agent` usage.
 It is an evaluation corpus, not product runtime, training data, or a claim of
 model quality. The expected snapshots never enter a prepared workspace.
 
-The six-task corpus spans C, documentation, JavaScript, TypeScript, and browser
-work. `web-compound-page-edit` is the maintained same-file convergence case: it
-requires three independent page refinements without an extra file or unrelated
-change. `web-extract-script` remains the separate multi-file browser case.
-`typescript-inclusive-range` is self-verifying: its shared test imports the
-tracked `.ts` source, the input fails its endpoint assertion, and the expected
-snapshot passes with Node.
+The seven-task corpus spans C, documentation, JavaScript, TypeScript, and
+browser work. `web-compound-page-edit` and `web-extract-script` cover same-file
+and multi-file convergence. `javascript-red-green-recovery` requires the same
+Node test to fail before its bounded edit and pass afterward.
+`typescript-inclusive-range` directly proves its input assertion failure and
+expected success through one tracked `.ts` import.
 
 List the registered tasks:
 

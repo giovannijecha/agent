@@ -74,6 +74,18 @@ function expectCode(code) {
     error.message === "evaluation " + code;
 }
 
+function runFixtureTest(root, testPath) {
+  const result = spawnSync(process.execPath, ["--test", testPath], {
+    cwd: root,
+    encoding: "utf8",
+    env: {},
+  });
+  const output = result.stdout + result.stderr;
+  assert.equal(result.error, undefined);
+  assert.equal(result.signal, null);
+  return Object.freeze({ output, status: result.status });
+}
+
 test("reserves complete corpus-tree capacity for the failure registry", () => {
   assert.equal(
     EVALUATION_CORPUS_TREE_LIMITS.directories,
@@ -147,6 +159,7 @@ test("accepts the canonical bounded corpus", () => {
       ["c-count-positive", "c"],
       ["documentation-check-command", "documentation"],
       ["javascript-collapse-whitespace", "javascript"],
+      ["javascript-red-green-recovery", "javascript"],
       ["typescript-inclusive-range", "typescript"],
       ["web-compound-page-edit", "web"],
       ["web-extract-script", "web"],
@@ -185,6 +198,66 @@ test("owns one exact compound same-file web convergence task", () => {
   );
 });
 
+test("owns one controlled red-green process-recovery task", () => {
+  const suite = validateEvaluationSuite(policy, canonicalContext());
+  const task = suite.tasks.find((candidate) =>
+    candidate.id === "javascript-red-green-recovery"
+  );
+  assert.ok(task !== undefined);
+  assert.equal(task.category, "bug-fix");
+  assert.equal(task.projectKind, "javascript");
+  assert.deepEqual(task.input.map((entry) => entry.path), [
+    "package.json",
+    "src/cap.js",
+    "test/cap.test.js",
+  ]);
+  assert.deepEqual(
+    task.expected.map((entry) => entry.path),
+    task.input.map((entry) => entry.path),
+  );
+
+  const taskRoot = path.join(
+    projectRoot,
+    "evaluations/tasks/javascript-red-green-recovery",
+  );
+  const inputRoot = path.join(taskRoot, "input");
+  const expectedRoot = path.join(taskRoot, "expected");
+  const testPath = path.join("test", "cap.test.js");
+  const inputPackage = readFileSync(
+    path.join(inputRoot, "package.json"),
+    "utf8",
+  );
+  const expectedPackage = readFileSync(
+    path.join(expectedRoot, "package.json"),
+    "utf8",
+  );
+  const inputTest = readFileSync(path.join(inputRoot, testPath), "utf8");
+  const expectedTest = readFileSync(path.join(expectedRoot, testPath), "utf8");
+  const inputSource = readFileSync(path.join(inputRoot, "src/cap.js"), "utf8");
+  const expectedSource = readFileSync(
+    path.join(expectedRoot, "src/cap.js"),
+    "utf8",
+  );
+  assert.equal(inputPackage, expectedPackage);
+  assert.equal(inputTest, expectedTest);
+  assert.equal(
+    expectedSource,
+    inputSource.replace("return maximum - 1;", "return maximum;"),
+  );
+  assert.match(task.task, /Before changing any file, run `node --test`/u);
+  assert.match(task.task, /Run the exact same `node --test` command/u);
+
+  const input = runFixtureTest(inputRoot, testPath);
+  assert.equal(input.status, 1, input.output);
+  assert.match(input.output, /ERR_ASSERTION/u);
+  assert.match(input.output, /caps a value at the inclusive maximum/u);
+  assert.doesNotMatch(input.output, /ERR_MODULE_NOT_FOUND/u);
+
+  const expected = runFixtureTest(expectedRoot, testPath);
+  assert.equal(expected.status, 0, expected.output);
+  assert.doesNotMatch(expected.output, /ERR_MODULE_NOT_FOUND/u);
+});
+
 test("owns one directly verifiable TypeScript endpoint task", () => {
   const taskRoot = path.join(
     projectRoot,
@@ -199,28 +272,14 @@ test("owns one directly verifiable TypeScript endpoint task", () => {
   assert.match(inputTest, /from "\.\.\/src\/sum-range\.ts";/u);
   assert.doesNotMatch(inputTest, /sum-range\.js/u);
 
-  const input = spawnSync(process.execPath, ["--test", testPath], {
-    cwd: inputRoot,
-    encoding: "utf8",
-    env: {},
-  });
-  const inputOutput = input.stdout + input.stderr;
-  assert.equal(input.error, undefined);
-  assert.equal(input.signal, null);
-  assert.equal(input.status, 1, inputOutput);
-  assert.match(inputOutput, /ERR_ASSERTION/u);
-  assert.doesNotMatch(inputOutput, /ERR_MODULE_NOT_FOUND/u);
+  const input = runFixtureTest(inputRoot, testPath);
+  assert.equal(input.status, 1, input.output);
+  assert.match(input.output, /ERR_ASSERTION/u);
+  assert.doesNotMatch(input.output, /ERR_MODULE_NOT_FOUND/u);
 
-  const expected = spawnSync(process.execPath, ["--test", testPath], {
-    cwd: expectedRoot,
-    encoding: "utf8",
-    env: {},
-  });
-  const expectedOutput = expected.stdout + expected.stderr;
-  assert.equal(expected.error, undefined);
-  assert.equal(expected.signal, null);
-  assert.equal(expected.status, 0, expectedOutput);
-  assert.doesNotMatch(expectedOutput, /ERR_MODULE_NOT_FOUND/u);
+  const expected = runFixtureTest(expectedRoot, testPath);
+  assert.equal(expected.status, 0, expected.output);
+  assert.doesNotMatch(expected.output, /ERR_MODULE_NOT_FOUND/u);
 });
 
 test("keeps failure registry contents outside evaluator task operations", (t) => {

@@ -2,8 +2,8 @@
 
 - Status: accepted
 - Date: 2026-08-14
-- Amended: 2026-08-16 for compound convergence and a self-verifying
-  TypeScript fixture
+- Amended: 2026-08-16 for compound convergence, self-verifying fixtures, and
+  controlled red-green recovery
 
 ## Context
 
@@ -59,6 +59,13 @@ pass under the approved Node runtime. Focused verifier tests may execute these
 immutable versioned fixtures, but the evaluator and verifier never execute a
 prepared or model-authored candidate workspace. Decision 0064 owns that exact
 boundary.
+
+The JavaScript red-green task owns one controlled process-recovery contract.
+Its brief requires the normal product to run `node --test` before editing,
+acknowledge the intended assertion failure, make one bounded source correction,
+and run the exact same command successfully. Its immutable input and expected
+fixtures prove those two command outcomes independently. Decision 0065 owns
+this evidence boundary; it changes no product behavior or execution authority.
 
 ## Run lifecycle
 
@@ -136,13 +143,14 @@ changes a product result.
 
 ## Verification
 
-Pure policy tests cover the canonical six-task corpus, schema and key drift,
+Pure policy tests cover the canonical seven-task corpus, schema and key drift,
 task ordering, duplicate identifiers, path and text rejection, snapshot bounds,
 identical snapshots, metric bounds, and record consistency. A focused process
-regression executes only the maintained TypeScript input and expected fixtures,
-proving assertion failure and success respectively without module-resolution
-failure. Filesystem tests cover staged preparation, existing-run rejection,
-exact grading, changed, missing, unexpected, and empty candidate trees,
+regression executes only the maintained TypeScript and JavaScript red-green
+input and expected fixtures, proving intended assertion failure and success
+respectively without module-resolution failure. Filesystem tests cover staged
+preparation, existing-run rejection, exact grading, changed, missing,
+unexpected, and empty candidate trees,
 portable run identifiers, exact snapshot-relative path boundaries, and
 content-free diagnostics. The canonical gate validates the registered suite
 and runs those tests on Windows and Linux.
@@ -170,6 +178,11 @@ A task that claims a runnable completion check must prove that its maintained
 input reaches the intended behavioral failure and its expected snapshot passes.
 Do not retain product-failure evidence from a corpus whose expected snapshot
 cannot satisfy its own check.
+
+A task that measures red-green recovery must keep the pre-edit failure and
+post-edit success on one exact fixed command. One negative run remains
+observational; require independently reviewed recurrence on the same task
+revision before changing product behavior.
 
 To roll back one task, remove its manifest entry and complete task directory.
 To remove the framework, first remove every evaluation run outside version

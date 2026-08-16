@@ -153,6 +153,10 @@ does not start `agent`, contact a provider, or execute candidate workspace code.
 Focused repository tests may execute only immutable versioned input and expected
 fixtures to prove a maintained completion command; they never read or execute an
 ignored candidate run.
+The red-green fixture's assertion output is generated only from original
+versioned source during repository verification. A live recovery run remains
+normal product activity; the evaluator captures neither process output nor the
+conversation around it.
 
 Grading reads only the selected run workspace and reports bounded relative path
 names classified as changed, missing, or unexpected. Completed records admit

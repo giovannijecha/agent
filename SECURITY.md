@@ -138,6 +138,10 @@ The canonical gate may execute a fixed completion command only against
 immutable versioned input and expected fixtures when a task decision requires
 self-verification. It never substitutes a prepared workspace, candidate path,
 model-authored argument, shell, or provider input into that proof.
+The red-green recovery proof runs the same fixed Node test against its tracked
+input and expected directories. During a live evaluation, both process calls
+still cross the ordinary registered-program, permission, containment, output,
+and cancellation boundaries.
 
 The optional interactive evaluation receipt does not expand that boundary or
 weaken product controls. It observes only already accepted serialized lifecycle

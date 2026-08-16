@@ -226,11 +226,11 @@ imported actions or repository secrets.
 
 ## Task evaluation
 
-The repository includes six small original coding tasks spanning C,
+The repository includes seven small original coding tasks spanning C,
 documentation, JavaScript, TypeScript, and browser code, including separate
-same-file compound and multi-file browser work. The offline evaluator
-prepares an isolated input workspace and grades its regular-file tree without
-executing candidate code or contacting a provider:
+same-file compound, multi-file browser, and controlled red-green recovery work.
+The offline evaluator prepares an isolated input workspace and grades its
+regular-file tree without executing candidate code or contacting a provider:
 
 ```powershell
 node tools/evaluate.mjs list
@@ -240,6 +240,9 @@ The maintained TypeScript endpoint fixture is self-verifying with the approved
 Node runtime: its input reaches the intended assertion failure and its expected
 snapshot passes. Repository tests execute only those immutable versioned
 fixtures, never a prepared candidate workspace.
+The JavaScript recovery fixture additionally requires `node --test` to fail
+before the correction and the exact same command to pass afterward. One
+negative live run remains observational until it recurs on that task revision.
 
 For a maintained run, start `agent --evaluation-receipt` inside the prepared
 workspace. After terminal cleanup it prints one JSON line containing only

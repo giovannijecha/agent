@@ -379,6 +379,10 @@ agent.”
   expected fixtures when a task owns a direct completion command: the input
   must reach its intended behavioral failure and the expected fixture must
   pass. It never executes a prepared or model-authored candidate workspace.
+  The decision 0065 JavaScript red-green task requires the normal product to
+  observe one nonzero `node --test` result before correction and the exact same
+  command succeeding afterward. This sequence changes no tool authority, and
+  one negative run cannot justify a product change.
   The exact interactive `agent --evaluation-receipt` option from decision 0048
   is a separate CLI-owned observer. It emits only duration, accepted-turn,
   accepted-tool-call, affirmative-approval, and repeated-read counts after

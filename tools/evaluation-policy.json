@@ -21,6 +21,12 @@
     },
     {
       "category": "bug-fix",
+      "id": "javascript-red-green-recovery",
+      "projectKind": "javascript",
+      "title": "Recover from a failing boundary test"
+    },
+    {
+      "category": "bug-fix",
       "id": "typescript-inclusive-range",
       "projectKind": "typescript",
       "title": "Include the range endpoint"
