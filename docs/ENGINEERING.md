@@ -599,7 +599,10 @@ effect preview. A patch preview shows the canonical path and `- ` and `+ ` rows
 for changed logical text when they fit, or bounded excerpts with an explicit
 omitted-code-unit count. Remove only exact complete shared prefix and
 non-overlapping suffix rows inside one hunk; keep separator differences,
-partial-line changes, hunk order, and the untrimmed effect binding intact.
+partial-line changes, hunk order, and the untrimmed effect binding intact. Keep
+an otherwise ambiguous terminal separator visible as exact inline `\r\n`,
+`\r`, or `\n`, distinct from doubled source backslashes and without an empty
+diff row.
 Keep SHA-256 digests, identity, and tuple metadata inside the effect plan. Never put
 raw arguments, file content, outputs, call identifiers, or causes in notices,
 errors, transcripts, or logs. Project a checkpointed terminal failure only

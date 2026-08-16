@@ -3,6 +3,7 @@
 - Status: accepted
 - Date: 2026-08-16
 - Amends: decisions 0053, 0057, and 0060
+- Terminal-separator ambiguity amended by: decision 0063
 
 ## Context
 
@@ -38,7 +39,9 @@ the exact `- ` and `+ ` direction prefixes. A side may disappear when an update
 is a pure insertion or deletion relative to retained context, but every valid
 non-no-op hunk retains at least one visible changed row. A structural line
 separator does not create an additional empty terminal display row. Empty-file
-creation keeps its explicit `+ [empty file]` row.
+creation keeps its explicit `+ [empty file]` row. Decision 0063 adds an inline
+ASCII separator escape only when unequal terminal separators would otherwise
+leave the opposite patches with the same displayed rows.
 
 The compacted changed fields enter the existing deterministic excerpt and
 2,048-code-unit preview budget. Omitted counts describe only code units in the

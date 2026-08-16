@@ -5,11 +5,14 @@
 - Amends: decisions 0022, 0027, 0028, 0033, 0043, 0053, and 0056
 - Patch diff foregrounds amended by: decision 0060
 - Patch context compaction amended by: decision 0062
+- Terminal-separator preview amended by: decision 0063
 
 Decision 0060 retains the transparent human-readable patch preview while
 giving removed and inserted rows separate non-bold red and green foregrounds.
 Decision 0062 retains the exact immutable patch while removing only complete
 code-unit-identical context rows from both display sides of one hunk.
+Decision 0063 distinguishes otherwise identical rows whose terminal separators
+differ by retaining the exact separator as one inline ASCII escape.
 
 ## Context
 
@@ -72,15 +75,18 @@ Original separators participate in comparison, partial rows never collapse,
 and compaction never crosses a hunk. A pure insertion or deletion may therefore
 show only one direction, while the complete untrimmed hunk remains bound to the
 permission and native commit. Structural separators do not create a false empty
-terminal display row.
+terminal display row. When unequal terminal separators are the only remaining
+field difference, the exact `\r\n`, `\r`, or `\n` appears inline on its
+owning row; a literal source backslash remains doubled.
 
 The complete compacted changed logical text is shown when the
 2,048-code-unit patch preview
 bound permits. Larger remove and insert fields retain deterministic prefix and
 suffix excerpts with an explicit omitted-code-unit count. The compact fallback
 keeps one omitted count for every non-empty remove and insert field, so every
-ordered hunk remains represented. CRLF, lone CR, and LF become structural display
-rows while the immutable plan retains the exact original line endings. An
+ordered hunk remains represented. Nonterminal CRLF, lone CR, and LF become
+structural display rows while the immutable plan retains the exact original
+line endings. An
 empty-file creation has an explicit
 inserted empty-file row. Digest values, object identity, observed content,
 resulting content, line counters, field registries, and tuple encodings remain

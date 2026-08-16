@@ -4,9 +4,12 @@
 - Date: 2026-08-16
 - Amends: decisions 0028, 0031, 0033, 0034, 0053, 0056, and 0057
 - Preview row set amended by: decision 0062
+- Terminal-separator preview amended by: decision 0063
 
 Decision 0062 narrows the displayed row set to changed logical rows after exact
 per-hunk context compaction. Direction classification and tones remain unchanged.
+Decision 0063 may append an exact terminal-separator escape to an otherwise
+ambiguous row; that escape retains the row's existing direction tone.
 
 ## Context
 

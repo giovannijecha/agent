@@ -76,7 +76,9 @@ creation has one empty anchor whose replacement is the complete new file.
 The permission UI projects only the canonical path and bounded human-readable
 changed rows. It removes only exact complete logical context shared by both
 sides of one hunk; partial rows, separator differences, and the complete
-untrimmed effect remain intact. Digests, identities, counters, and tuple metadata
+untrimmed effect remain intact. An otherwise ambiguous terminal separator is
+escaped inline on its owning direction-prefixed row and cannot collide with a
+doubled source backslash. Digests, identities, counters, and tuple metadata
 remain inside the immutable plan.
 Invocation rejects stale path, identity, absence, or content state before
 mutation. Decision 0046 routes the authorized immutable effect through one owned

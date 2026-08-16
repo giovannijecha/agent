@@ -33,7 +33,9 @@ pending, its local activity surface may display the canonical target and exact
 human-readable changed rows when the patch fits the 2,048-code-unit preview.
 Exact complete logical context shared by both sides of one hunk is removed from
 the display before budgeting; it remains inside the authorized plan and is not
-counted as omitted content. Larger changed fields are limited to bounded prefix
+counted as omitted content. An otherwise ambiguous terminal-separator-only
+change exposes only its exact printable ASCII escape inline on the owning
+changed row; source backslashes remain doubled. Larger changed fields are limited to bounded prefix
 and suffix excerpts with an explicit omitted-code-unit count. State digests,
 object identity, complete untrimmed hunks, observed and replacement content,
 aggregate counters, and tuple metadata remain
