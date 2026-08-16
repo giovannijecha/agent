@@ -75,7 +75,10 @@ function expectCode(code) {
 }
 
 function runFixtureTest(root, testPath) {
-  const result = spawnSync(process.execPath, ["--test", testPath], {
+  const commandArguments = testPath === undefined
+    ? ["--test"]
+    : ["--test", testPath];
+  const result = spawnSync(process.execPath, commandArguments, {
     cwd: root,
     encoding: "utf8",
     env: {},
@@ -239,6 +242,7 @@ test("owns one controlled red-green process-recovery task", () => {
     "utf8",
   );
   assert.equal(inputPackage, expectedPackage);
+  assert.equal(JSON.parse(inputPackage).scripts.test, "node --test");
   assert.equal(inputTest, expectedTest);
   assert.equal(
     expectedSource,
@@ -247,13 +251,13 @@ test("owns one controlled red-green process-recovery task", () => {
   assert.match(task.task, /Before changing any file, run `node --test`/u);
   assert.match(task.task, /Run the exact same `node --test` command/u);
 
-  const input = runFixtureTest(inputRoot, testPath);
+  const input = runFixtureTest(inputRoot);
   assert.equal(input.status, 1, input.output);
   assert.match(input.output, /ERR_ASSERTION/u);
   assert.match(input.output, /caps a value at the inclusive maximum/u);
   assert.doesNotMatch(input.output, /ERR_MODULE_NOT_FOUND/u);
 
-  const expected = runFixtureTest(expectedRoot, testPath);
+  const expected = runFixtureTest(expectedRoot);
   assert.equal(expected.status, 0, expected.output);
   assert.doesNotMatch(expected.output, /ERR_MODULE_NOT_FOUND/u);
 });
