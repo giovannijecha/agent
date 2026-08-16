@@ -63,24 +63,26 @@ for the controlled environment-variable path.
 
 ## Terminal interface
 
-The transcript stays dominant. User turns compose one transparent stage-wide
-surface with one muted exact-height left rail and italic text. The rail itself
-owns the shared content inset, so user text, assistant prose, and composer text
-and caret begin on one canonical column. The composer keeps its content
+The transcript stays dominant. User turns compose one rail-free transparent
+stage-wide surface with italic restrained steel-blue prose and the shared
+content inset. Their first text cell aligns with assistant prose and composer
+text and caret on one canonical column. The composer keeps its content
 transparent between two full-width light-blue rules. Code, tables, and completion stay
 transparent. Tool activity is transparent too: its marker and written state use
 restrained success, attention, or failure foregrounds. One shared rhythm separates every lower-shell
-region. A user rail follows only the visible content rows without synthetic
-padding, activity surfaces follow their content height, and the focused
+region. Transcript entries and activity surfaces follow their content height
+without synthetic padding, and the focused
 composer retains one rule row on each side when the viewport permits. Exact
 bounded mutation or execution previews appear only while permission is pending;
 every other activity state stays on one compact line with a status mark, readable
 action, optional useful subject, and right-aligned written state. Patch permission
-shows the path and bounded human-readable removed and inserted rows instead of
-internal digests or tuple metadata. Opaque structured rows are repainted from their
+shows the path and bounded human-readable removed rows in restrained red and
+inserted rows in restrained green instead of internal digests or tuple metadata.
+Opaque structured rows are repainted from their
 semantic surface before content. The footer keeps workspace and provider
 facts quiet while a soft active-work pulse aligns with the composer frame's
-right edge. Command feedback appears as one transparent contextual notice below any
+right edge. Slash completion and permission lists use the same restrained blue
+foreground for the selected row. Command feedback appears as one transparent contextual notice below any
 tool activity; it is replaced by newer feedback, disappears after five seconds,
 and closes immediately when editing resumes. `/providers` uses one compact muted
 line, while invalid commands use one short warning.

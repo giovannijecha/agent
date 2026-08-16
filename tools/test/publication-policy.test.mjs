@@ -99,6 +99,27 @@ test("rejects deterministic motion public contract drift", () => {
   );
 });
 
+test("rejects rail-free public terminal contract drift", () => {
+  const cases = [
+    ["rail-free transparent", "muted exact-height left rail"],
+    ["removed rows in restrained red", "removed rows without color"],
+    ["foreground for the selected row", "weight for the selected row"],
+  ];
+
+  for (const [marker, replacement] of cases) {
+    const context = currentContext();
+    context.files["README.md"] = context.files["README.md"].replace(
+      marker,
+      replacement,
+    );
+    assert.throws(
+      () => validatePublicationPolicy(policy, context),
+      PublicationPolicyError,
+      marker,
+    );
+  }
+});
+
 test("rejects modified license terms", () => {
   const context = currentContext();
   context.files.LICENSE = context.files.LICENSE.replace(

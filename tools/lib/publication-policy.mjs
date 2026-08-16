@@ -140,6 +140,9 @@ function validatePublicDocuments(context) {
       "Future controller-internal mechanical concurrency",
       "Current runtime remains sequential",
       "overlap a mutation",
+      "rail-free transparent",
+      "removed rows in restrained red",
+      "foreground for the selected row",
     ],
     "README",
   );
