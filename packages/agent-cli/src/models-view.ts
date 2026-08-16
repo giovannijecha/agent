@@ -9,26 +9,35 @@ import {
 } from "@agent/tui";
 
 import { CONVERSATION_DENSITY } from "./conversation-density.js";
-import type { ProviderSelectionSnapshot } from "./provider-session.js";
+import type { ProviderModelSnapshot } from "./provider-session.js";
 import { createSpan, createStack } from "./view-components.js";
 
-export type ProviderMenuProjection = Readonly<{
-  items: readonly ProviderSelectionSnapshot[];
+export type ModelMenuProjection = Readonly<{
+  items: readonly ProviderModelSnapshot[];
+  providerName: string;
   selectedIndex: number;
 }>;
 
-/** Projects the closed current-session provider selector. */
-export function createProvidersDocument(
-  projection: ProviderMenuProjection | undefined,
+function costLabel(cost: ProviderModelSnapshot["cost"]): string {
+  return cost === "free"
+    ? "free"
+    : cost === "goPlan"
+      ? "Go plan"
+      : "Zen balance";
+}
+
+/** Projects one bounded provider-owned remote model selection. */
+export function createModelsDocument(
+  projection: ModelMenuProjection | undefined,
 ): Result<Component, ComponentError> {
   if (projection === undefined) {
     return createStack([]);
   }
-  const title = createSpan("Providers", "emphasis");
-  const scope = createSpan("current session", "muted");
+  const title = createSpan("Models", "emphasis");
+  const provider = createSpan(projection.providerName, "muted");
   if (!title.ok) return title;
-  if (!scope.ok) return scope;
-  const header = SplitLine.create([title.value], [scope.value], {
+  if (!provider.ok) return provider;
+  const header = SplitLine.create([title.value], [provider.value], {
     gap: 2,
     priority: "left",
   });
@@ -40,31 +49,17 @@ export function createProvidersDocument(
     if (item === undefined) {
       return err(new ComponentError("invalidComponent", position));
     }
-    const name = createSpan(item.presentation.displayName, "plain");
-    const model = createSpan(
-      item.presentation.model === undefined
-        ? ""
-        : "  " + item.presentation.model,
-      "muted",
-    );
+    const name = createSpan(item.id, "plain");
     const state = createSpan(
-      item.selected && item.ready
-        ? "active"
-        : item.selected
-          ? "selected"
-          : item.configured
-            ? "configured"
-            : "not configured",
+      item.selected ? "active · " + costLabel(item.cost) : costLabel(item.cost),
       "muted",
     );
     if (!name.ok) return name;
-    if (!model.ok) return model;
     if (!state.ok) return state;
-    const row = SplitLine.create(
-      [name.value, model.value],
-      [state.value],
-      { gap: 2, priority: "left" },
-    );
+    const row = SplitLine.create([name.value], [state.value], {
+      gap: 2,
+      priority: "left",
+    });
     if (!row.ok) return row;
     rows.push(row.value);
   }

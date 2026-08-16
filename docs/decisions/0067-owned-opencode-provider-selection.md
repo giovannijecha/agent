@@ -3,6 +3,11 @@
 - Status: accepted
 - Date: 2026-08-16
 - Amends: decisions 0017, 0018, 0029, and 0061
+- Amended by: decision 0068
+
+Decision 0068 supersedes the fixed-model and automatic initial-selection
+clauses below with exact public catalog intersection, owned per-provider model
+allowlists, and explicit process-only `/providers` then `/models` selection.
 
 ## Context
 

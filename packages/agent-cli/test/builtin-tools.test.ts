@@ -135,6 +135,34 @@ async function engine(
   return created.value;
 }
 
+test("advertises the exact workspace-root path convention", async () => {
+  await withWorkspace(async (workspace) => {
+    const tools = await engine(workspace);
+    for (const name of ["read_file", "list_directory", "search_text"]) {
+      const descriptor = tools.descriptors.find(
+        (candidate) => candidate.name === name,
+      );
+      assert.ok(descriptor !== undefined);
+      const pathField = descriptor?.input.fields.find(
+        (field) => field.name === "path",
+      );
+      assert.deepEqual(
+        pathField === undefined
+          ? undefined
+          : Object.freeze({
+              description: pathField.description,
+              required: pathField.required,
+            }),
+        Object.freeze({
+          description:
+            'Workspace-relative path. Use "." for the workspace root.',
+          required: true,
+        }),
+      );
+    }
+  });
+});
+
 test("runs only the registered program with structured arguments", async () => {
   await withWorkspace(async (workspace) => {
     let received: ProcessRunRequest | undefined;

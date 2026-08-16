@@ -14,6 +14,11 @@ import type {
   OpenCodeGoFailureReason,
 } from "./errors.js";
 import { OPENCODE_GO_LIMITS } from "./limits.js";
+import {
+  isOpenCodeGoModelId,
+  OPENCODE_GO_MODEL,
+  type OpenCodeGoModelId,
+} from "./models.js";
 import { SseDecoder } from "./sse.js";
 import type {
   OpenCodeGoTransport,
@@ -324,17 +329,24 @@ class OpenCodeGoStream implements ModelStream<OpenCodeGoError> {
 /** Concrete Node-free StreamingModel implementation for OpenCode Go. */
 export class OpenCodeGoModel implements StreamingModel<OpenCodeGoError> {
   readonly #instructions: string;
+  readonly #model: OpenCodeGoModelId;
   readonly #openTransport: TransportOpen;
 
-  private constructor(openTransport: TransportOpen, instructions: string) {
+  private constructor(
+    openTransport: TransportOpen,
+    instructions: string,
+    model: OpenCodeGoModelId,
+  ) {
     this.#openTransport = openTransport;
     this.#instructions = instructions;
+    this.#model = model;
     Object.freeze(this);
   }
 
   static create(
     transport: OpenCodeGoTransport,
     instructions: string,
+    model: OpenCodeGoModelId = OPENCODE_GO_MODEL,
   ): Result<OpenCodeGoModel, OpenCodeGoCreateError> {
     let openTransport: TransportOpen;
     try {
@@ -357,7 +369,10 @@ export class OpenCodeGoModel implements StreamingModel<OpenCodeGoError> {
     ) {
       return err(createError("invalidInstructions"));
     }
-    return ok(new OpenCodeGoModel(openTransport, instructions));
+    if (!isOpenCodeGoModelId(model)) {
+      return err(createError("invalidModel"));
+    }
+    return ok(new OpenCodeGoModel(openTransport, instructions, model));
   }
 
   async open(
@@ -368,7 +383,12 @@ export class OpenCodeGoModel implements StreamingModel<OpenCodeGoError> {
     if (cancellation.requested) {
       return err(modelError("open", "cancelled"));
     }
-    const body = encodeRequest(conversation, this.#instructions, tools);
+    const body = encodeRequest(
+      conversation,
+      this.#instructions,
+      tools,
+      this.#model,
+    );
     if (!body.ok) {
       return err(modelError("open", wireReason(body.error)));
     }

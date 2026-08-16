@@ -26,11 +26,12 @@ maintainer-controlled workspace without third-party runtime packages.
 - Can emit one opt-in content-free interaction receipt after an evaluation run.
 - Retains bounded recurring evaluation failures in a versioned closed registry.
 
-The current direct providers are OpenCode Go and OpenCode Zen. Both are
-optional: without either API key, `agent` starts providerless and does not send
-content anywhere. Go remains the initial provider when both are configured;
-`/providers` selects either fixed backend for the current idle session.
-Credentials and selection stay in process memory and are never persisted.
+The current direct providers are OpenCode Go and OpenCode Zen. `agent` opens the
+TUI without a selected backend. `/providers` configures or selects either one;
+`/models` loads its public catalog and exposes only IDs admitted by the owned
+Chat Completions allowlist. Credentials, catalog results, provider selection,
+and model selection stay in process memory and are never persisted. No provider
+or model is selected automatically, and no fallback crosses provider slots.
 
 ## Quick start
 
@@ -59,9 +60,10 @@ variables. Startup never widens the selection to a parent Git repository.
 It then loads built-in sensitive-path denials plus an optional bounded root
 `.agentignore` before credentials or tools. Malformed policy fails startup;
 policy changes take effect only after restart.
-Interactive startup can request the optional key without echo; see
+Inside the TUI, use `/providers` to enter a key through the zero-projection
+credential editor, then `/models` to choose one compatible model. See
 [providers and authentication](docs/manual/05-providers-and-authentication.md)
-for the controlled environment-variable path.
+for the exact interactive and controlled environment-variable paths.
 
 ## Terminal interface
 
@@ -88,8 +90,9 @@ facts quiet while a soft active-work pulse aligns with the composer frame's
 right edge. Slash completion and permission lists use the same restrained blue
 foreground for the selected row. Command feedback appears as one transparent contextual notice below any
 tool activity; it is replaced by newer feedback, disappears after five seconds,
-and closes immediately when editing resumes. `/providers` uses one compact muted
-line, while invalid commands use one short warning.
+and closes immediately when editing resumes. Provider, model, permission, and
+completion selection reuse one compact transparent list, while invalid commands
+use one short warning.
 
 If a turn fails after a completed tool checkpoint, the completed tool truth is
 retained and the transcript plus notice expose one closed content-free failure
@@ -101,7 +104,8 @@ The exact command surface is:
 
 | Command | Action |
 | --- | --- |
-| `/providers` | Show integration availability |
+| `/providers` | Configure or select a provider |
+| `/models` | Load and select an admitted provider model |
 | `/permissions` | Set current-session tool permissions |
 | `/exit` | Close `agent` |
 

@@ -751,7 +751,12 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
       if (!prepared.ok) {
         return this.#finish(
           state,
-          failed(Object.freeze({ kind: "invalidToolCall" })),
+          failed(
+            Object.freeze({
+              kind: "invalidToolCall",
+              reason: prepared.error.kind,
+            }),
+          ),
         );
       }
       preparedCalls.push(prepared.value);
@@ -763,7 +768,12 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
       if (!preamble.ok) {
         return this.#finish(
           state,
-          failed(Object.freeze({ kind: "invalidToolCall" })),
+          failed(
+            Object.freeze({
+              kind: "invalidToolCall",
+              reason: "invalidCall",
+            }),
+          ),
         );
       }
       assistant = preamble.value;
@@ -826,7 +836,12 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
     if (first === undefined) {
       return this.#finish(
         state,
-        failed(Object.freeze({ kind: "invalidToolCall" })),
+        failed(
+          Object.freeze({
+            kind: "invalidToolCall",
+            reason: "invalidCall",
+          }),
+        ),
       );
     }
     const planned = await tools.plan(first, state.cancellation.signal);

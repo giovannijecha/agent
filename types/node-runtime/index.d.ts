@@ -159,13 +159,13 @@ declare module "node:https" {
     agent: false;
     headers: Readonly<{
       accept: string;
-      authorization: string;
-      "content-type": string;
+      authorization?: string;
+      "content-type"?: string;
       "user-agent": string;
     }>;
     hostname: string;
     maxHeaderSize: number;
-    method: "POST";
+    method: "GET" | "POST";
     path: string;
     port: 443;
     protocol: "https:";

@@ -17,9 +17,9 @@ Start with `agent` in a terminal after the one-time command installation, or use
 composer. Left and Right move one code point. Ctrl+Left and Ctrl+Right move one
 whitespace-delimited word. Backspace and Delete remove one code point;
 Ctrl+Backspace, Ctrl+W, and Ctrl+Delete remove one word. Home and End move to the
-draft boundaries. Enter submits. `/providers` shows integration availability,
-`/permissions` edits the current session tool policy, and `/exit` closes the
-application.
+draft boundaries. Enter submits. `/providers` configures or selects one
+provider, `/models` loads and selects one admitted model, `/permissions` edits
+the current session tool policy, and `/exit` closes the application.
 
 A bracketed paste is inserted as one atomic draft edit. Line feeds and tabs
 remain draft content, control-looking bytes inside the paste are not interpreted
@@ -70,7 +70,7 @@ launch a browser. Markdown link labels, hidden targets, non-HTTPS schemes, and
 credentials are not admitted as hyperlink destinations.
 
 Type `/` or a non-exact command prefix to open completion above the composer.
-The list contains only the three exact commands. While it is visible, Up and Down
+The list contains only the four exact commands. While it is visible, Up and Down
 move the selection without wrapping and do not move the transcript. The current
 row uses the restrained steel-blue accent shared by every generic selection
 list; other rows retain their neutral hierarchy. Tab copies
@@ -83,10 +83,23 @@ and execution remain the complete interaction contract at every viewport size.
 
 Command feedback appears as one transparent line group below current tool
 activity and above completion or the composer. New feedback replaces old
-feedback. `/providers` shows display name, model, and authentication in one
-muted line; an unknown command shows one short warning. The current notice
+feedback. `/providers` and `/models` use the same transparent generic selection
+list; an unknown command shows one short warning. The current notice
 disappears after five seconds or immediately when editor interaction resumes.
 It never enters transcript history.
+
+`/providers` always lists the two admitted provider identities. Enter on an
+unconfigured row opens the existing bounded editor in a credential context.
+The editor retains the key in memory but projects zero text and zero caret
+offset, so neither key nor mask characters enter the frame. The one-line
+transparent context says `Connect <provider>` and `process only`; the generic
+composer trailing status says `Enter API key · Ctrl+C cancels`. Enter
+configures the exact provider; Ctrl+C cancels and clears the credential draft.
+Enter on a configured row selects it. `/models` is available only for the selected
+configured provider and loads its bounded public catalog. It shows only remote
+IDs also present in the owned provider allowlist, with the maintained cost
+class at the right. Enter selects one exact model. Neither selector can change
+an active turn, and no provider or model is selected automatically.
 
 `/permissions` opens one transparent six-row session editor above the composer.
 Up and Down select a tool without wrapping, Left and Right change its exact
@@ -362,6 +375,9 @@ rollback, and removal.
 Decision [0034](../decisions/0034-owned-slash-command-completion.md) governs
 the canonical command catalog, contextual keys, Tab-without-submit behavior,
 generic selection list, contrast refinement, tests, rollback, and removal.
+Decision [0068](../decisions/0068-owned-ephemeral-provider-and-model-selection.md)
+governs the concealed credential context, provider and model selectors, public
+catalog projection, process-only state, tests, rollback, and removal.
 Decision [0035](../decisions/0035-owned-multiline-composer-and-paste.md) governs
 multiline composition, atomic bracketed paste, semantic word editing, bounds,
 terminal lifecycle, tests, rollback, and removal.

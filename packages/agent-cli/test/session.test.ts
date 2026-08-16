@@ -70,7 +70,11 @@ test("selects slash completions without navigating the transcript", () => {
     items: [
       {
         command: "/providers",
-        description: "select session provider",
+        description: "configure or select provider",
+      },
+      {
+        command: "/models",
+        description: "select provider model",
       },
       {
         command: "/permissions",
@@ -89,7 +93,7 @@ test("bounds completion selection and completes with Tab without executing", () 
   const bounded = session.feed("\u001B[A[B[B[B[B");
 
   assert.equal(bounded.redraw, true);
-  assert.equal(session.projectCommandCompletion()?.selectedIndex, 2);
+  assert.equal(session.projectCommandCompletion()?.selectedIndex, 3);
   const completed = session.feed("\t");
   assert.deepEqual(completed, { actions: [], redraw: true });
   assert.equal(session.projectEditor(20).text, "/exit");
@@ -101,7 +105,7 @@ test("bounds completion selection and completes with Tab without executing", () 
 
 test("dispatches the selected slash completion with Enter", () => {
   const session = new SessionController();
-  session.feed("/\u001B[B");
+  session.feed("/\u001B[B\u001B[B");
 
   const submitted = session.feed("\r");
 
@@ -124,7 +128,7 @@ test("recomputes completion after editing and keeps unsupported Tab explicit", (
     items: [
       {
         command: "/providers",
-        description: "select session provider",
+        description: "configure or select provider",
       },
       {
         command: "/permissions",

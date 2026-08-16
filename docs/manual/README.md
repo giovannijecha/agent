@@ -16,8 +16,8 @@ Use this manual to run, understand, and maintain the behavior that exists today.
 ## Current product boundary
 
 - The executable owns its CLI, TUI, runtime composition, and local tools.
-- OpenCode Go and OpenCode Zen are optional; without either documented
-  memory-only key, startup is providerless.
+- OpenCode Go and OpenCode Zen are optional process-local backends. Startup
+  enters the TUI with neither provider nor model selected.
 - Credentials and sessions are not persisted. Subscription OAuth remains
   blocked without an eligible independent-client identity.
 - Process execution is limited to the documented `run_process` contract: the

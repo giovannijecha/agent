@@ -4,9 +4,12 @@
 - Date: 2026-08-07
 - Input lifecycle amended by: decision 0045
 - Command catalog amended by: decision 0055
+- Provider interaction amended by: decision 0068
 
 Decision 0055 replaces the historical approval commands described below with
 the exact `/permissions` session editor and contextual pending-call decisions.
+Decision 0068 adds the process-only concealed provider credential context and
+the `/models` selector through the same serialized application input path.
 
 ## Context
 

@@ -2,6 +2,10 @@
 
 - Status: accepted
 - Date: 2026-08-07
+- Provider lifecycle amended by: decision 0068
+
+Decision 0068 keeps provider credentials, catalogs, and selections inside this
+single application controller and adds no second runtime or conversation.
 - Event sources extended by: decisions 0038 and 0041
 - Command and permission lifecycle amended by: decision 0055
 

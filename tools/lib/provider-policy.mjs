@@ -74,6 +74,50 @@ const EXPECTED_PROVIDERS = [
   },
 ];
 
+const GO_MODELS = Object.freeze([
+  "glm-5.3",
+  "glm-5.2",
+  "glm-5.1",
+  "kimi-k3",
+  "kimi-k2.7-code",
+  "kimi-k2.6",
+  "deepseek-v4-pro",
+  "deepseek-v4-flash",
+  "mimo-v2.5",
+  "mimo-v2.5-pro",
+  "hy3",
+]);
+const ZEN_MODELS = Object.freeze([
+  "deepseek-v4-pro",
+  "deepseek-v4-flash",
+  "minimax-m3",
+  "minimax-m2.7",
+  "minimax-m2.5",
+  "glm-5.2",
+  "glm-5.1",
+  "glm-5",
+  "kimi-k2.5",
+  "kimi-k2.6",
+  "kimi-k2.7-code",
+  "kimi-k3",
+  "big-pickle",
+  "mimo-v2.5-free",
+  "hy3-free",
+  "laguna-s-2.1-free",
+  "nemotron-3-ultra-free",
+  "nemotron-3.5-lightning-free",
+  "deepseek-v4-flash-free",
+]);
+const GO_MODEL_RECORDS = Object.freeze(
+  GO_MODELS.map((id) => Object.freeze({ id, cost: "goPlan" })),
+);
+const ZEN_MODEL_RECORDS = Object.freeze(
+  ZEN_MODELS.map((id) => Object.freeze({
+    id,
+    cost: id.endsWith("-free") ? "free" : "zenBalance",
+  })),
+);
+
 const EXPECTED_DIRECT_PROVIDERS = [
   {
     id: "opencode-go",
@@ -82,8 +126,9 @@ const EXPECTED_DIRECT_PROVIDERS = [
     authorization: "direct-api-key",
     credentialVariable: "AGENT_OPENCODE_GO_API_KEY",
     credentialPersistence: "memory-only",
-    endpoint: "https://opencode.ai/zen/go/v1/chat/completions",
-    model: "kimi-k2.7-code",
+    chatEndpoint: "https://opencode.ai/zen/go/v1/chat/completions",
+    catalogEndpoint: "https://opencode.ai/zen/go/v1/models",
+    models: GO_MODEL_RECORDS,
     transport: "chat-completions-sse",
     evidence: "https://opencode.ai/docs/go/",
     researchedOn: "2026-08-16",
@@ -95,8 +140,9 @@ const EXPECTED_DIRECT_PROVIDERS = [
     authorization: "direct-api-key",
     credentialVariable: "AGENT_OPENCODE_ZEN_API_KEY",
     credentialPersistence: "memory-only",
-    endpoint: "https://opencode.ai/zen/v1/chat/completions",
-    model: "deepseek-v4-flash-free",
+    chatEndpoint: "https://opencode.ai/zen/v1/chat/completions",
+    catalogEndpoint: "https://opencode.ai/zen/v1/models",
+    models: ZEN_MODEL_RECORDS,
     transport: "chat-completions-sse",
     evidence: "https://opencode.ai/docs/zen/",
     researchedOn: "2026-08-16",
@@ -169,8 +215,15 @@ const EXPECTED_WORKSPACES = [
 ];
 
 const APPROVED_SOURCE_LITERALS = Object.freeze({
-  "packages/agent-provider-opencode-go/src/wire.ts": ["kimi-k2.7-code"],
-  "packages/agent-provider-opencode-zen/src/wire.ts": ["deepseek-v4-flash-free"],
+  "packages/agent-provider-opencode-go/src/models.ts": GO_MODELS,
+  "packages/agent-provider-opencode-go/test/model.test.ts": GO_MODELS,
+  "packages/agent-provider-opencode-zen/src/models.ts": ZEN_MODELS,
+  "packages/agent-provider-opencode-zen/test/model.test.ts": ZEN_MODELS,
+  "packages/agent-cli/test/node-opencode-model-catalog.test.ts": ZEN_MODELS,
+  "packages/agent-cli/test/provider-model-catalog.test.ts": Object.freeze([
+    ...GO_MODELS,
+    ...ZEN_MODELS,
+  ]),
   "packages/agent-cli/src/node-opencode-go-transport.ts": ["Bearer "],
   "packages/agent-cli/test/node-opencode-go-transport.test.ts": ["Bearer "],
   "packages/agent-cli/src/node-opencode-zen-transport.ts": ["Bearer "],
@@ -467,7 +520,7 @@ function validateRegistry(policy) {
     ],
     "provider policy",
   );
-  if (policy.schemaVersion !== 5) {
+  if (policy.schemaVersion !== 6) {
     fail("unsupported provider policy schema");
   }
   if (!Array.isArray(policy.providers)) {
@@ -517,7 +570,7 @@ function validateRegistry(policy) {
     !Array.isArray(policy.directProviders) ||
     policy.directProviders.length !== EXPECTED_DIRECT_PROVIDERS.length
   ) {
-    fail("provider policy must contain exactly one admitted direct provider");
+    fail("provider policy must contain exactly two admitted direct providers");
   }
   for (let index = 0; index < policy.directProviders.length; index += 1) {
     const provider = policy.directProviders[index];
@@ -530,14 +583,25 @@ function validateRegistry(policy) {
         "authorization",
         "credentialVariable",
         "credentialPersistence",
-        "endpoint",
-        "model",
+        "chatEndpoint",
+        "catalogEndpoint",
+        "models",
         "transport",
         "evidence",
         "researchedOn",
       ],
       "direct provider at index " + String(index),
     );
+    if (!Array.isArray(provider.models)) {
+      fail("direct provider models at index " + String(index) + " must be an array");
+    }
+    for (let modelIndex = 0; modelIndex < provider.models.length; modelIndex += 1) {
+      assertExactKeys(
+        provider.models[modelIndex],
+        ["id", "cost"],
+        "direct provider model at index " + String(index) + ":" + String(modelIndex),
+      );
+    }
     if (
       JSON.stringify(provider) !==
       JSON.stringify(EXPECTED_DIRECT_PROVIDERS[index])

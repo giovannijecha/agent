@@ -4,6 +4,12 @@
 - Date: 2026-08-09
 - Amended: 2026-08-13 by decision 0042 for workspace-first startup
 - Amended: 2026-08-16 by decision 0067 for two independent provider prompts
+- Amended: 2026-08-16 by decision 0068 for immediate TUI startup and
+  process-only in-application credential selection
+
+Decision 0068 supersedes the pre-TUI credential prompts below. Environment
+variables may preload credentials, while `/providers` owns interactive entry
+and no provider or model is selected automatically.
 
 ## Context
 

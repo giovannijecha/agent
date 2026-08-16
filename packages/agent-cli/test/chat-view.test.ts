@@ -21,12 +21,14 @@ import { createConversationDocument } from "../dist/conversation-view.js";
 function configuredProviders() {
   return Object.freeze([
     Object.freeze({
+      configured: true,
       id: "opencodeZen" as const,
       presentation: Object.freeze({
         authentication: "memory-only API key",
         displayName: "OpenCode Zen",
         model: "configured-model",
       }),
+      ready: true,
       selected: true,
     }),
   ]);
@@ -35,21 +37,52 @@ function configuredProviders() {
 function configuredDualProviders() {
   return Object.freeze([
     Object.freeze({
+      configured: true,
       id: "opencodeGo" as const,
       presentation: Object.freeze({
         authentication: "memory-only API key",
         displayName: "OpenCode Go",
         model: "go-model",
       }),
+      ready: true,
       selected: true,
     }),
     Object.freeze({
+      configured: true,
       id: "opencodeZen" as const,
       presentation: Object.freeze({
         authentication: "memory-only API key",
         displayName: "OpenCode Zen",
         model: "zen-model",
       }),
+      ready: true,
+      selected: false,
+    }),
+  ]);
+}
+
+function unconfiguredProviders() {
+  return Object.freeze([
+    Object.freeze({
+      configured: false,
+      id: "opencodeGo" as const,
+      presentation: Object.freeze({
+        authentication: "memory-only API key",
+        displayName: "OpenCode Go",
+        model: undefined,
+      }),
+      ready: false,
+      selected: false,
+    }),
+    Object.freeze({
+      configured: false,
+      id: "opencodeZen" as const,
+      presentation: Object.freeze({
+        authentication: "memory-only API key",
+        displayName: "OpenCode Zen",
+        model: undefined,
+      }),
+      ready: false,
       selected: false,
     }),
   ]);
@@ -1181,10 +1214,10 @@ test("renders bounded slash completion above the composer", () => {
   assert.equal(providersIndex < composerTop, true);
   assert.equal(
     providers.text.trim(),
-    "/providers  select session provider",
+    "/providers  configure or select provider",
   );
   assert.equal(
-    providers.text.indexOf("select session provider"),
+    providers.text.indexOf("configure or select provider"),
     providers.text.indexOf("/providers") + "/providers".length + 2,
   );
   assert.equal(
@@ -1232,6 +1265,49 @@ test("renders the current-session provider selector without a box", () => {
       .every((span) => span.surface === "none"),
     true,
   );
+});
+
+test("renders concealed credential entry guidance inside the composer", () => {
+  for (const navigation of ["", "\u001B[B"]) {
+    const application = new ApplicationController(
+      true,
+      unconfiguredProviders(),
+    );
+    application.feed("/providers\r" + navigation + "\r");
+
+    const rendered = frame(application, 72, 16);
+    assert.ok(rendered.ok);
+    const rows = rendered.value.rows;
+    const providerName = navigation.length === 0
+      ? "OpenCode Go"
+      : "OpenCode Zen";
+
+    assert.equal(
+      rows.some((row) => row.text.includes("Connect " + providerName)),
+      true,
+    );
+    assert.equal(rows.some((row) => row.text.includes("process only")), true);
+    assert.equal(
+      rows.some((row) =>
+        row.text.includes("API key is concealed and discarded on exit.")),
+      false,
+    );
+    assert.equal(
+      rows.some((row) => row.text.includes("Enter confirms; Ctrl+C cancels.")),
+      false,
+    );
+    const guidance = rows.find((row) =>
+      row.text.includes("Enter API key · Ctrl+C cancels"));
+    assert.ok(guidance !== undefined);
+    assert.equal(
+      guidance.spans.some((span) =>
+        span.text === "Enter API key · Ctrl+C cancels" &&
+        span.tone === "muted" &&
+        span.surface === "none"),
+      true,
+    );
+    assert.equal(rendered.value.caret?.column, 2);
+  }
 });
 
 test("renders the transient six-tool session permission editor without a box", () => {
@@ -1285,7 +1361,7 @@ test("moves slash selection, hides exact completion, and coexists with activity"
     risk: "read",
     turnId: 9,
   });
-  application.feed("/\u001B[B");
+  application.feed("/\u001B[B\u001B[B");
 
   const active = frame(application, 72, 18);
   assert.ok(active.ok);
@@ -1310,7 +1386,7 @@ test("moves slash selection, hides exact completion, and coexists with activity"
   assert.equal(rows[firstActivityIndex - 1]?.text.trim(), "");
   assert.equal(rows[lastActivityIndex + 1]?.text.trim(), "");
   assert.equal(firstCompletionIndex, lastActivityIndex + 2);
-  assert.equal(permissionsIndex, firstCompletionIndex + 1);
+  assert.equal(permissionsIndex, firstCompletionIndex + 2);
   assert.equal(
     permissions?.spans
       .filter((span) => span.text.trim().length > 0)
@@ -1341,7 +1417,7 @@ test("moves slash selection, hides exact completion, and coexists with activity"
   assert.ok(hidden.ok);
   assert.equal(
     hidden.value.rows.some((row) =>
-      row.text.includes("select session provider"),
+      row.text.includes("configure or select provider"),
     ),
     false,
   );

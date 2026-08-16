@@ -27,7 +27,9 @@ export type TranscriptMovement =
 export type SessionAction =
   | Readonly<{ kind: "activateContextSelection" }>
   | Readonly<{ kind: "closePermissions" }>
+  | Readonly<{ kind: "closeModels" }>
   | Readonly<{ kind: "closeProviders" }>
+  | Readonly<{ kind: "cancelProviderCredential" }>
   | Readonly<{ kind: "exit" }>
   | Readonly<{ kind: "interactionBreak" }>
   | Readonly<{ kind: "interrupt" }>
@@ -49,13 +51,15 @@ export type SessionAction =
       kind: "moveContextSelection";
     }>
   | Readonly<{ kind: "openPermissions" }>
+  | Readonly<{ kind: "openModels" }>
   | Readonly<{ kind: "openProviders" }>
   | Readonly<{
       event: PointerEvent;
       kind: "pointer";
       timeMilliseconds: number;
     }>
-  | Readonly<{ kind: "submit"; text: string }>;
+  | Readonly<{ kind: "submit"; text: string }>
+  | Readonly<{ credential: string; kind: "submitProviderCredential" }>;
 
 export type SessionUpdate = Readonly<{
   actions: readonly SessionAction[];
@@ -70,7 +74,9 @@ export type SessionReductionPort = Readonly<{
 
 export type SessionInputContext =
   | "composer"
+  | "models"
   | "permissions"
+  | "providerCredential"
   | "providers"
   | "toolDecision";
 
@@ -107,6 +113,8 @@ function dispatchSubmission(
     emit(Object.freeze({ kind: "openPermissions" as const }));
   } else if (command.kind === "providers") {
     emit(Object.freeze({ kind: "openProviders" as const }));
+  } else if (command.kind === "models") {
+    emit(Object.freeze({ kind: "openModels" as const }));
   }
   return false;
 }
@@ -359,6 +367,63 @@ export class SessionController {
         ) {
           emit(Object.freeze({ kind: "closeProviders" as const }));
         }
+      }
+      if (context === "models") {
+        if (event.kind === "up" || event.kind === "down") {
+          emit(
+            Object.freeze({
+              direction: event.kind === "up" ? "previous" as const : "next" as const,
+              kind: "moveContextSelection" as const,
+            }),
+          );
+          continue;
+        }
+        if (event.kind === "enter") {
+          emit(Object.freeze({ kind: "activateContextSelection" as const }));
+          continue;
+        }
+        if (event.kind === "interrupt") {
+          emit(Object.freeze({ kind: "closeModels" as const }));
+          continue;
+        }
+        if (
+          event.kind !== "pageUp" &&
+          event.kind !== "pageDown" &&
+          event.kind !== "eof"
+        ) {
+          emit(Object.freeze({ kind: "closeModels" as const }));
+        }
+      }
+      if (context === "providerCredential") {
+        if (event.kind === "interrupt") {
+          if (this.#editor.clear()) {
+            markEditorRedrawn();
+          }
+          emit(Object.freeze({ kind: "cancelProviderCredential" as const }));
+          continue;
+        }
+        const credentialOutcome = this.#editor.apply(event);
+        if (credentialOutcome.kind === "changed") {
+          markEditorRedrawn();
+        } else if (credentialOutcome.kind === "submitted") {
+          markEditorRedrawn();
+          emit(
+            Object.freeze({
+              credential: credentialOutcome.text,
+              kind: "submitProviderCredential" as const,
+            }),
+          );
+        } else if (credentialOutcome.kind === "eof") {
+          emit(Object.freeze({ kind: "exit" as const }));
+          stopChunk = true;
+        } else if (credentialOutcome.kind === "limit") {
+          markEditorRedrawn();
+          emit(notice("Credential limit reached; additional text was ignored."));
+        } else if (credentialOutcome.kind === "unsupported") {
+          markEditorRedrawn();
+          emit(notice("Unsupported key sequence was ignored."));
+        }
+        continue;
       }
       if (
         event.kind === "up" ||

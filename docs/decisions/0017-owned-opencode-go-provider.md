@@ -4,6 +4,10 @@
 - Date: 2026-08-09
 - Amended: 2026-08-16 by decision 0061 for convergent tool turns
 - Amended: 2026-08-16 by decision 0067 for explicit provider selection
+- Amended: 2026-08-16 by decision 0068 for explicit model selection from an
+  owned allowlist intersected with the public Go catalog
+- Amended: 2026-08-16 by decision 0069 for provider-neutral tool-call
+  interoperability guidance
 
 ## Context
 

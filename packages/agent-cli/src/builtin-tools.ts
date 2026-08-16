@@ -711,7 +711,7 @@ function registrations(
   observer?: EvaluationReceiptRecorder,
 ) {
   const pathField = {
-    description: "Workspace-relative path.",
+    description: 'Workspace-relative path. Use "." for the workspace root.',
     name: "path",
     required: true,
     schema: stringSchema(1, 4_096, {

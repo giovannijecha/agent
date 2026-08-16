@@ -16,23 +16,21 @@ import {
 } from "node:process";
 
 import {
+  isOpenCodeGoModelId,
   OpenCodeGoModel,
-  OPENCODE_GO_MODEL,
+  OPENCODE_GO_MODELS,
   type OpenCodeGoError,
 } from "@agent/provider-opencode-go";
 import {
+  isOpenCodeZenModelId,
   OpenCodeZenModel,
-  OPENCODE_ZEN_MODEL,
+  OPENCODE_ZEN_MODELS,
   type OpenCodeZenError,
 } from "@agent/provider-opencode-zen";
 import { AgentRuntime } from "@agent/runtime";
 
 import { AGENT_INSTRUCTIONS } from "./agent-instructions.js";
 import { createBuiltinToolEngine } from "./builtin-tools.js";
-import {
-  readHiddenOpenCodeGoCredential,
-  readHiddenOpenCodeZenCredential,
-} from "./hidden-credential-prompt.js";
 import {
   EvaluationReceiptRecorder,
   formatEvaluationReceipt,
@@ -44,6 +42,7 @@ import { parseLaunchCommand } from "./launch-command.js";
 import { NodeTerminalHost } from "./node-terminal-host.js";
 import { NodeOpenCodeGoTransport } from "./node-opencode-go-transport.js";
 import { NodeOpenCodeZenTransport } from "./node-opencode-zen-transport.js";
+import { NodeOpenCodeModelCatalog } from "./node-opencode-model-catalog.js";
 import { PlatformClipboard } from "./platform-clipboard.js";
 import { PlatformWorkspaceMutationCommitter } from "./platform-workspace-mutation.js";
 import { PlatformWorkspaceNamespaceCommitter } from "./platform-workspace-namespace.js";
@@ -60,10 +59,10 @@ import {
 import {
   ProviderSession,
   type ProviderDefinition,
+  type ProviderModelDefinition,
 } from "./provider-session.js";
 import { run } from "./run.js";
 import { MotionScheduler } from "./motion-scheduler.js";
-import { acquireProviderCredential } from "./startup-credential.js";
 import { WorkspaceBoundary } from "./workspace-boundary.js";
 import { WorkspaceReadPolicy } from "./workspace-read-policy.js";
 
@@ -160,10 +159,8 @@ if (!launch.ok) {
       "usage: agent [--evaluation-receipt | --help | --version]\n\n" +
       "Use --evaluation-receipt only for one interactive owned task " +
       "evaluation; it prints bounded content-free counts after cleanup.\n\n" +
-      "Without a configured credential, interactive startup asks for the " +
-      "OpenCode Go and OpenCode Zen API keys with terminal echo disabled. " +
-      "Press Enter at either prompt to skip that provider. Use /providers " +
-      "to select a configured backend for the current session.\n",
+      "Use /providers to configure or select a memory-only provider, then " +
+      "use /models to choose one compatible model for this process.\n",
     0,
   );
 } else if (launch.command === "version") {
@@ -204,26 +201,12 @@ const workspaceReadPolicy = workspaceReadPolicyResult.ok
       1,
     );
 
-const interactiveCredentialPrompt =
-  launch.ok &&
-  launch.command === "run" &&
-  stdin.isTTY === true &&
-  stdout.isTTY === true;
-const goCredential = await acquireProviderCredential(
+const goConfiguration = resolveOpenCodeGoConfiguration(
   env.AGENT_OPENCODE_GO_API_KEY,
-  interactiveCredentialPrompt,
-  () => readHiddenOpenCodeGoCredential(stdin, stdout),
-  (diagnostic, code) => writeAndExit(stderr, diagnostic, code),
 );
-const zenCredential = await acquireProviderCredential(
+const zenConfiguration = resolveOpenCodeZenConfiguration(
   env.AGENT_OPENCODE_ZEN_API_KEY,
-  interactiveCredentialPrompt,
-  () => readHiddenOpenCodeZenCredential(stdin, stdout),
-  (diagnostic, code) => writeAndExit(stderr, diagnostic, code),
 );
-
-const goConfiguration = resolveOpenCodeGoConfiguration(goCredential);
-const zenConfiguration = resolveOpenCodeZenConfiguration(zenCredential);
 const terminalHost = new NodeTerminalHost();
 const timerClock = terminalHost.interactive ? new NodeTimerClock() : undefined;
 const motion = timerClock !== undefined
@@ -239,90 +222,65 @@ const evaluation =
     : undefined;
 if (!goConfiguration.ok || !zenConfiguration.ok) {
   stderr.write("agent rejected the provider configuration\n", () => exit(1));
-} else if (
-  goConfiguration.value.kind === "disabled" &&
-  zenConfiguration.value.kind === "disabled"
-) {
-  await startEvaluation(evaluation);
-  const result = await run(
-    terminalHost,
-    undefined,
-    undefined,
-    workspaceRoot,
-    motion,
-    notices,
-    clipboard,
-    evaluation,
-  );
-  await settleEvaluationRun(
-    result.ok ? undefined : result.error.primary?.kind ?? "cleanup",
-    evaluation,
-  );
 } else {
-  const definitions: ProviderDefinition<ProviderError>[] = [];
-  if (goConfiguration.value.kind === "enabled") {
-    const transport = NodeOpenCodeGoTransport.create(
-      goConfiguration.value.credential,
-    );
-    const transportValue = transport.ok
-      ? transport.value
-      : await writeAndExit(
-        stderr,
-        "agent could not initialize the configured provider\n",
-        1,
-      );
-    const model = OpenCodeGoModel.create(transportValue, AGENT_INSTRUCTIONS);
-    const modelValue = model.ok
-      ? model.value
-      : await writeAndExit(
-        stderr,
-        "agent could not initialize the configured provider\n",
-        1,
-      );
-    definitions.push(
+  const goModels: readonly ProviderModelDefinition[] = Object.freeze(
+    OPENCODE_GO_MODELS.map((id) =>
+      Object.freeze({ cost: "goPlan" as const, id }),
+    ),
+  );
+  const zenModels: readonly ProviderModelDefinition[] = Object.freeze(
+    OPENCODE_ZEN_MODELS.map((id) =>
       Object.freeze({
+        cost: id.endsWith("-free") ? "free" as const : "zenBalance" as const,
+        id,
+      }),
+    ),
+  );
+  const definitions: readonly ProviderDefinition<ProviderError>[] =
+    Object.freeze([
+      Object.freeze({
+        createModel: (credential: string, model: string) => {
+          if (!isOpenCodeGoModelId(model)) return undefined;
+          const transport = NodeOpenCodeGoTransport.create(credential);
+          if (!transport.ok) return undefined;
+          const created = OpenCodeGoModel.create(
+            transport.value,
+            AGENT_INSTRUCTIONS,
+            model,
+          );
+          return created.ok ? created.value : undefined;
+        },
         id: "opencodeGo" as const,
-        model: modelValue,
+        models: goModels,
         presentation: Object.freeze({
           authentication: "memory-only API key",
           displayName: "OpenCode Go",
-          model: OPENCODE_GO_MODEL,
         }),
       }),
-    );
-  }
-  if (zenConfiguration.value.kind === "enabled") {
-    const transport = NodeOpenCodeZenTransport.create(
-      zenConfiguration.value.credential,
-    );
-    const transportValue = transport.ok
-      ? transport.value
-      : await writeAndExit(
-        stderr,
-        "agent could not initialize the configured provider\n",
-        1,
-      );
-    const model = OpenCodeZenModel.create(transportValue, AGENT_INSTRUCTIONS);
-    const modelValue = model.ok
-      ? model.value
-      : await writeAndExit(
-        stderr,
-        "agent could not initialize the configured provider\n",
-        1,
-      );
-    definitions.push(
       Object.freeze({
+        createModel: (credential: string, model: string) => {
+          if (!isOpenCodeZenModelId(model)) return undefined;
+          const transport = NodeOpenCodeZenTransport.create(credential);
+          if (!transport.ok) return undefined;
+          const created = OpenCodeZenModel.create(
+            transport.value,
+            AGENT_INSTRUCTIONS,
+            model,
+          );
+          return created.ok ? created.value : undefined;
+        },
         id: "opencodeZen" as const,
-        model: modelValue,
+        models: zenModels,
         presentation: Object.freeze({
           authentication: "memory-only API key",
           displayName: "OpenCode Zen",
-          model: OPENCODE_ZEN_MODEL,
         }),
       }),
-    );
-  }
-  const providerSession = ProviderSession.create(definitions);
+    ]);
+  const providerSession = ProviderSession.create(
+    definitions,
+    new NodeOpenCodeModelCatalog(),
+  );
   const processRunner = NodeProcessRunner.create(platform, arch);
   const processPrograms = ProcessProgramRegistry.create(execPath);
   const mutationCommitter = PlatformWorkspaceMutationCommitter.create(
@@ -344,37 +302,54 @@ if (!goConfiguration.ok || !zenConfiguration.ok) {
       exit(1),
     );
   } else {
-    const tools = createBuiltinToolEngine(
-      workspaceBoundary,
-      workspaceReadPolicy,
-      {
-        mutationCommitter: mutationCommitter.value,
-        namespaceCommitter: namespaceCommitter.value,
-        processPrograms: processPrograms.value,
-        processRunner: processRunner.value,
-      },
-      evaluation,
-    );
-    if (!tools.ok) {
-      stderr.write("agent could not initialize the configured provider\n", () =>
+    const goPreloaded = goConfiguration.value.kind === "disabled" ||
+      providerSession.value.configure(
+        "opencodeGo",
+        goConfiguration.value.credential,
+      ).ok;
+    const zenPreloaded = zenConfiguration.value.kind === "disabled" ||
+      providerSession.value.configure(
+        "opencodeZen",
+        zenConfiguration.value.credential,
+      ).ok;
+    if (!goPreloaded || !zenPreloaded) {
+      stderr.write("agent rejected the provider configuration\n", () =>
         exit(1),
       );
     } else {
-      await startEvaluation(evaluation);
-      const result = await run(
-        terminalHost,
-        new AgentRuntime(providerSession.value, tools.value),
-        providerSession.value,
-        workspaceRoot,
-        motion,
-        notices,
-        clipboard,
+      const tools = createBuiltinToolEngine(
+        workspaceBoundary,
+        workspaceReadPolicy,
+        {
+          mutationCommitter: mutationCommitter.value,
+          namespaceCommitter: namespaceCommitter.value,
+          processPrograms: processPrograms.value,
+          processRunner: processRunner.value,
+        },
         evaluation,
       );
-      await settleEvaluationRun(
-        result.ok ? undefined : result.error.primary?.kind ?? "cleanup",
-        evaluation,
-      );
+      if (!tools.ok) {
+        stderr.write(
+          "agent could not initialize the configured provider\n",
+          () => exit(1),
+        );
+      } else {
+        await startEvaluation(evaluation);
+        const result = await run(
+          terminalHost,
+          new AgentRuntime(providerSession.value, tools.value),
+          providerSession.value,
+          workspaceRoot,
+          motion,
+          notices,
+          clipboard,
+          evaluation,
+        );
+        await settleEvaluationRun(
+          result.ok ? undefined : result.error.primary?.kind ?? "cleanup",
+          evaluation,
+        );
+      }
     }
   }
 }

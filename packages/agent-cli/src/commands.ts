@@ -4,6 +4,7 @@ export type CommandResult =
   | Readonly<{ kind: "exit" }>
   | Readonly<{ kind: "none" }>
   | Readonly<{ kind: "permissions" }>
+  | Readonly<{ kind: "models" }>
   | Readonly<{ kind: "providers" }>
   | Readonly<{
       kind: "notice";
@@ -12,7 +13,7 @@ export type CommandResult =
     }>
   | Readonly<{ kind: "submit"; text: string }>;
 
-export type CommandName = "/exit" | "/permissions" | "/providers";
+export type CommandName = "/exit" | "/models" | "/permissions" | "/providers";
 
 export type CommandDefinition = Readonly<{
   command: CommandName;
@@ -23,7 +24,11 @@ export type CommandDefinition = Readonly<{
 export const COMMANDS: readonly CommandDefinition[] = Object.freeze([
   Object.freeze({
     command: "/providers" as const,
-    description: "select session provider",
+    description: "configure or select provider",
+  }),
+  Object.freeze({
+    command: "/models" as const,
+    description: "select provider model",
   }),
   Object.freeze({
     command: "/permissions" as const,
@@ -78,6 +83,9 @@ export function executeSubmission(
   }
   if (exact === "/providers") {
     return Object.freeze({ kind: "providers" as const });
+  }
+  if (exact === "/models") {
+    return Object.freeze({ kind: "models" as const });
   }
   if (exact === "/permissions") {
     return Object.freeze({ kind: "permissions" as const });

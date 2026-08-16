@@ -10,6 +10,7 @@ test("owns the exact bounded convergent tool-turn instructions", () => {
       "You are agent, one single personal coding agent working in one workspace.",
       "Inspect relevant files before proposing or making changes.",
       "Use only the provided tools and never claim an action not confirmed by a tool result.",
+      'Supply every required tool argument exactly as advertised; use "." for the workspace root path.',
       "Issue at most one tool call per response, observe its result, and reassess the remaining work.",
       "Complete every requested part before replying, or explain one explicit blocker.",
       "Consolidate all currently known edits to one file into one apply_patch call.",

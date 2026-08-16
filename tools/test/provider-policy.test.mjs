@@ -68,8 +68,8 @@ test("rejects credential and endpoint fields for blocked providers", () => {
 test("rejects drift in either admitted direct provider", () => {
   for (let index = 0; index < currentPolicy.directProviders.length; index += 1) {
     for (const [field, value] of [
-      ["endpoint", "https://example.com/v1"],
-      ["model", "unreviewed-model"],
+      ["chatEndpoint", "https://example.com/v1"],
+      ["catalogEndpoint", "https://example.com/v1/models"],
       ["credentialVariable", "UNREVIEWED_KEY"],
       ["credentialPersistence", "disk"],
     ]) {
@@ -80,6 +80,22 @@ test("rejects drift in either admitted direct provider", () => {
         ProviderPolicyError,
       );
     }
+  }
+
+  for (let index = 0; index < currentPolicy.directProviders.length; index += 1) {
+    const driftedId = structuredClone(currentPolicy);
+    driftedId.directProviders[index].models[0].id = "unreviewed-model";
+    assert.throws(
+      () => validateProviderPolicy(driftedId, emptyContext),
+      ProviderPolicyError,
+    );
+
+    const driftedCost = structuredClone(currentPolicy);
+    driftedCost.directProviders[index].models[0].cost = "unreviewed-cost";
+    assert.throws(
+      () => validateProviderPolicy(driftedCost, emptyContext),
+      ProviderPolicyError,
+    );
   }
 
   const extra = structuredClone(currentPolicy);
@@ -323,7 +339,7 @@ test("rejects every provider or auth workspace that was not admitted", () => {
 test("allows only the reviewed direct-provider literals in their exact files", () => {
   const admitted = [
     {
-      path: "packages/agent-provider-opencode-go/src/wire.ts",
+      path: "packages/agent-provider-opencode-go/src/models.ts",
       text: "export const model = 'kimi-k2.7-code';\n",
     },
     {
@@ -331,7 +347,7 @@ test("allows only the reviewed direct-provider literals in their exact files", (
       text: "const authorization = 'Bearer ' + credential;\n",
     },
     {
-      path: "packages/agent-provider-opencode-zen/src/wire.ts",
+      path: "packages/agent-provider-opencode-zen/src/models.ts",
       text: "export const model = 'deepseek-v4-flash-free';\n",
     },
     {

@@ -47,6 +47,20 @@ agent.”
   decision 0067.
 - Provider requests live in `docs/PROVIDER-APPLICATIONS.md`. A prepared,
   submitted, or unanswered request never changes blocked eligibility.
+- Provider credentials, catalog results, provider selection, and model
+  selection are process-only. `agent` enters the TUI without selecting a
+  backend. `/providers` is the sole interactive credential and provider
+  selection path; its credential context reuses the bounded editor while
+  projecting zero secret text. The transparent context names the provider and
+  states its process-only lifetime, while the generic composer trailing status
+  gives the exact entry and cancel actions without projecting a mask, length,
+  or validation detail. Exact environment variables may preload
+  credentials for automation but never select a provider or model.
+- `/models` performs one credential-free request to the selected provider's
+  exact public catalog path and exposes only the intersection with that
+  adapter's owned Chat Completions allowlist. Remote catalog content never
+  widens model authority. No provider or model has an automatic default,
+  redirect, alias, retry, router, or cross-provider fallback.
 - Secrets, credentials, sessions, and personal content never enter source,
   fixtures, logs, or documentation.
 
@@ -249,6 +263,9 @@ agent.”
   unnumbered text plus `startLine`, `lineCount`, `totalLines`, and `hasMore`.
   Projection follows the same complete bounded observation and policy checks;
   it reduces provider context but is not random-access filesystem authority.
+  Every built-in model-facing filesystem `path` field remains required and
+  explicitly advertises `.` as the workspace root. Provider adapters never
+  infer, alias, rewrite, or retry a missing or invalid path.
 - `run_process` is the only admitted execute tool. It accepts the registered
   `node` token, literal arguments, and one workspace-relative directory; it
   never accepts a shell, executable path, PATH lookup, stdin, inherited or
@@ -342,9 +359,13 @@ agent.”
 - A failed turn after a completed tool checkpoint retains that tool truth and
   publishes only the CLI-owned closed failure classification. The transcript
   marker and ephemeral notice distinguish `model/...`, `tool/...`, and the
-  residual `runtime/failure` without exposing provider causes, tool payloads,
-  paths, content, or call identifiers. Do not describe a later model
+  residual `runtime/failure`. Exact admitted provider errors may refine a model
+  operation through one shared content-free family, but never expose provider
+  identity, provider-specific reason spelling, status values, response bodies,
+  tool payloads, paths, content, or call identifiers. Do not describe a later model
   continuation failure as a failed tool or retry a completed effect implicitly.
+  Invalid tool-call preparation distinguishes only the closed content-free
+  `name`, `input`, or `identity` subcode before any planning or permission.
 - Core and TUI never depend on each other. Dependencies point inward, public
   surfaces go through `src/index.ts`, and deep cross-package imports are banned.
 - Keep modules cohesive, documented, independently testable, replaceable, and

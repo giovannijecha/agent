@@ -28,6 +28,7 @@ export type OpenCodeZenError = Readonly<{
 
 export type OpenCodeZenCreateErrorKind =
   | "invalidInstructions"
+  | "invalidModel"
   | "invalidTransport";
 
 /** Content-free construction failure for a provider adapter. */

@@ -1470,6 +1470,9 @@ test("rejects an invalid batch before any tool handler can run", async () => {
     assert.equal(terminal.outcome.kind, "failed");
     if (terminal.outcome.kind === "failed") {
       assert.equal(terminal.outcome.failure.kind, "invalidToolCall");
+      if (terminal.outcome.failure.kind === "invalidToolCall") {
+        assert.equal(terminal.outcome.failure.reason, "unknownTool");
+      }
     }
     assert.equal(terminal.checkpointed, false);
   }
@@ -1547,6 +1550,9 @@ test("rejects a later aggregate-invalid patch before any planner effect", async 
     assert.equal(terminal.outcome.kind, "failed");
     if (terminal.outcome.kind === "failed") {
       assert.equal(terminal.outcome.failure.kind, "invalidToolCall");
+      if (terminal.outcome.failure.kind === "invalidToolCall") {
+        assert.equal(terminal.outcome.failure.reason, "invalidInput");
+      }
     }
     assert.equal(terminal.checkpointed, false);
   }
@@ -1589,6 +1595,9 @@ test("rejects a later projection-invalid patch before any planner effect", async
     assert.equal(terminal.outcome.kind, "failed");
     if (terminal.outcome.kind === "failed") {
       assert.equal(terminal.outcome.failure.kind, "invalidToolCall");
+      if (terminal.outcome.failure.kind === "invalidToolCall") {
+        assert.equal(terminal.outcome.failure.reason, "invalidInput");
+      }
     }
     assert.equal(terminal.checkpointed, false);
   }

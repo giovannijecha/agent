@@ -79,7 +79,13 @@ export type CleanupFailure<E, RE> =
   | Readonly<{ kind: "terminal"; error: E }>
   | Readonly<{
       kind: "unexpected";
-      operation: "motion" | "notice" | "renderer" | "runtime" | "terminal";
+      operation:
+        | "motion"
+        | "notice"
+        | "provider"
+        | "renderer"
+        | "runtime"
+        | "terminal";
     }>;
 
 export type RunError<E, RE> = Readonly<{
@@ -222,14 +228,14 @@ async function renderApplication<E>(
     : err(terminalFailure("output", rendered.error));
 }
 
-function applyEffect<E, RE>(
+async function applyEffect<E, RE>(
   effect: ApplicationEffect,
   application: ApplicationController,
   arbiter: EventArbiter<E, RE>,
   runtime: RuntimeSession<RE> | undefined,
   providers: ProviderSelectionPort | undefined,
   evaluation: EvaluationReceiptRecorder | undefined,
-): EffectOutcome<E> {
+): Promise<EffectOutcome<E>> {
   if (effect.kind === "exit") {
     return Object.freeze({ exit: true, failure: undefined, redraw: false });
   }
@@ -256,7 +262,10 @@ function applyEffect<E, RE>(
           redraw: false,
         });
       }
-      const applied = application.providerSelected(effect.id);
+      const applied = application.providerSelected(
+        providers.snapshots(),
+        effect.id,
+      );
       return applied.ok
         ? Object.freeze({
             exit: false,
@@ -281,6 +290,157 @@ function applyEffect<E, RE>(
         redraw: false,
       });
     }
+  }
+  if (effect.kind === "configureProvider") {
+    if (providers === undefined) {
+      return Object.freeze({
+        exit: false,
+        failure: Object.freeze({
+          kind: "unexpected" as const,
+          operation: "providerSelection" as const,
+        }),
+        redraw: false,
+      });
+    }
+    try {
+      const configured = providers.configure(effect.id, effect.credential);
+      if (!configured.ok) {
+        const failed = application.providerOperationFailed("configuration");
+        return Object.freeze({
+          exit: false,
+          failure: undefined,
+          redraw: failed.redraw,
+        });
+      }
+      const selected = providers.select(effect.id);
+      if (!selected.ok) {
+        const failed = application.providerOperationFailed("configuration");
+        return Object.freeze({
+          exit: false,
+          failure: undefined,
+          redraw: failed.redraw,
+        });
+      }
+      const applied = application.providerConfigured(
+        providers.snapshots(),
+        effect.id,
+      );
+      return applied.ok
+        ? Object.freeze({
+            exit: false,
+            failure: undefined,
+            redraw: applied.value.redraw,
+          })
+        : Object.freeze({
+            exit: false,
+            failure: Object.freeze({
+              kind: "application" as const,
+              error: applied.error,
+            }),
+            redraw: false,
+          });
+    } catch (_cause: unknown) {
+      return Object.freeze({
+        exit: false,
+        failure: Object.freeze({
+          kind: "unexpected" as const,
+          operation: "providerSelection" as const,
+        }),
+        redraw: false,
+      });
+    }
+  }
+  if (effect.kind === "loadModels") {
+    if (providers === undefined) {
+      return Object.freeze({
+        exit: false,
+        failure: Object.freeze({
+          kind: "unexpected" as const,
+          operation: "providerSelection" as const,
+        }),
+        redraw: false,
+      });
+    }
+    let listed: Awaited<ReturnType<ProviderSelectionPort["listModels"]>>;
+    try {
+      listed = await providers.listModels();
+    } catch (_cause: unknown) {
+      const failed = application.providerOperationFailed("catalog");
+      return Object.freeze({
+        exit: false,
+        failure: undefined,
+        redraw: failed.redraw,
+      });
+    }
+    if (!listed.ok) {
+      const failed = application.providerOperationFailed("catalog");
+      return Object.freeze({
+        exit: false,
+        failure: undefined,
+        redraw: failed.redraw,
+      });
+    }
+    const applied = application.modelsLoaded(listed.value);
+    return applied.ok
+      ? Object.freeze({
+          exit: false,
+          failure: undefined,
+          redraw: applied.value.redraw,
+        })
+      : Object.freeze({
+          exit: false,
+          failure: Object.freeze({
+            kind: "application" as const,
+            error: applied.error,
+          }),
+          redraw: false,
+        });
+  }
+  if (effect.kind === "selectModel") {
+    if (providers === undefined) {
+      return Object.freeze({
+        exit: false,
+        failure: Object.freeze({
+          kind: "unexpected" as const,
+          operation: "providerSelection" as const,
+        }),
+        redraw: false,
+      });
+    }
+    let selected: ReturnType<ProviderSelectionPort["selectModel"]>;
+    try {
+      selected = providers.selectModel(effect.id);
+    } catch (_cause: unknown) {
+      const failed = application.providerOperationFailed("model");
+      return Object.freeze({
+        exit: false,
+        failure: undefined,
+        redraw: failed.redraw,
+      });
+    }
+    if (!selected.ok) {
+      const failed = application.providerOperationFailed("model");
+      return Object.freeze({
+        exit: false,
+        failure: undefined,
+        redraw: failed.redraw,
+      });
+    }
+    const applied = application.modelSelected(providers.snapshots(), effect.id);
+    return applied.ok
+      ? Object.freeze({
+          exit: false,
+          failure: undefined,
+          redraw: applied.value.redraw,
+        })
+      : Object.freeze({
+          exit: false,
+          failure: Object.freeze({
+            kind: "application" as const,
+            error: applied.error,
+          }),
+          redraw: false,
+        });
   }
   if (effect.kind === "startTurn") {
     if (runtime === undefined) {
@@ -496,7 +656,7 @@ function applyEffect<E, RE>(
   }
 }
 
-function applyApplicationUpdate<E, RE>(
+async function applyApplicationUpdate<E, RE>(
   update: Readonly<{
     effects: readonly ApplicationEffect[];
     redraw: boolean;
@@ -506,10 +666,10 @@ function applyApplicationUpdate<E, RE>(
   runtime: RuntimeSession<RE> | undefined,
   providers: ProviderSelectionPort | undefined,
   evaluation: EvaluationReceiptRecorder | undefined,
-): EffectOutcome<E> {
+): Promise<EffectOutcome<E>> {
   let redraw = update.redraw;
   for (const effect of update.effects) {
-    const outcome = applyEffect(
+    const outcome = await applyEffect(
       effect,
       application,
       arbiter,
@@ -536,8 +696,19 @@ async function cleanup<E, RE>(
   arbiter: EventArbiter<E, RE> | undefined,
   motion: MotionController | undefined,
   notices: NoticeController | undefined,
+  providers: ProviderSelectionPort | undefined,
 ): Promise<readonly CleanupFailure<E, RE>[]> {
   const failures = closeAuxiliaryControllers<E, RE>(motion, notices);
+  try {
+    providers?.clear();
+  } catch (_cause: unknown) {
+    failures.push(
+      Object.freeze({
+        kind: "unexpected" as const,
+        operation: "provider" as const,
+      }),
+    );
+  }
   arbiter?.close();
   const runtimeStop = beginRuntimeStop(runtime);
   try {
@@ -647,6 +818,16 @@ export async function run<E, RE = never>(
       });
     }
     const cleanupFailures = closeAuxiliaryControllers<E, RE>(motion, notices);
+    try {
+      providers?.clear();
+    } catch (_cause: unknown) {
+      cleanupFailures.push(
+        Object.freeze({
+          kind: "unexpected" as const,
+          operation: "provider" as const,
+        }),
+      );
+    }
     const runtimeCleanup = await cleanupPlainRuntime(runtime);
     cleanupFailures.push(
       ...(runtimeCleanup as readonly CleanupFailure<E, RE>[]),
@@ -777,7 +958,7 @@ export async function run<E, RE = never>(
               });
               break;
             }
-            const outcome = applyApplicationUpdate(
+            const outcome = await applyApplicationUpdate(
               applicationUpdate,
               application,
               arbiter,
@@ -817,7 +998,7 @@ export async function run<E, RE = never>(
           if (acceptedToolRequest) {
             evaluation?.requestedTool();
           }
-          const outcome = applyApplicationUpdate(
+          const outcome = await applyApplicationUpdate(
             applied.value,
             application,
             arbiter,
@@ -938,6 +1119,7 @@ export async function run<E, RE = never>(
     arbiter,
     motion,
     notices,
+    providers,
   );
   return primary === undefined && cleanupFailures.length === 0
     ? ok(undefined)

@@ -9,6 +9,12 @@ export type {
 } from "./errors.js";
 export { OPENCODE_ZEN_LIMITS } from "./limits.js";
 export { OpenCodeZenModel } from "./model.js";
+export {
+  isOpenCodeZenModelId,
+  OPENCODE_ZEN_MODEL,
+  OPENCODE_ZEN_MODELS,
+  type OpenCodeZenModelId,
+} from "./models.js";
 export type {
   OpenCodeZenTransport,
   OpenCodeZenTransportError,
@@ -16,4 +22,3 @@ export type {
   OpenCodeZenTransportRequest,
   OpenCodeZenTransportStream,
 } from "./transport.js";
-export { OPENCODE_ZEN_MODEL } from "./wire.js";

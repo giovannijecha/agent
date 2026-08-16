@@ -113,12 +113,15 @@ Native root, content-mutation, namespace-mutation, and clipboard helpers have
 hard operation and post-kill cleanup deadlines; late events cannot change
 settled content-free results.
 
-The project enables two exact outbound HTTPS paths, one for each independently
-configured OpenCode Go or OpenCode Zen API key. The selected adapter can reach
-only its registered path, never copies credentials, and never falls back to the
-other backend. The owned startup prompts disable echo, bound input, and restore
-terminal state before TUI startup. They enable no provider OAuth login, arbitrary network
-transport, persistent credential or session store, or redirect policy. The
+The project enables two exact public catalog paths and two exact Chat
+Completions paths for OpenCode Go and OpenCode Zen. Catalog GET requests are
+credential-free and their bounded IDs are intersected with an owned allowlist
+before model selection. The selected adapter can reach only its registered
+chat path, never copies credentials, and never falls back to the other backend.
+The TUI credential context reuses the bounded editor while projecting zero
+secret text and zero secret caret offset. It enables no provider OAuth login,
+arbitrary network transport, persistent credential, catalog, or session store,
+automatic provider or model selection, or redirect policy. The
 single `run_process` capability admits only an exactly approved bounded `node`
 invocation resolved by the CLI-owned closed program registry and launched
 through owned descendant-tree containment. That containment is not a
