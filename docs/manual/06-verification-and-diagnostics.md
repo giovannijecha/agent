@@ -141,6 +141,12 @@ assertion failure, make the bounded source correction, and run the same command
 successfully. One negative run remains observational until the same failure is
 reviewed again on the unchanged task revision.
 
+The browser stylesheet task under decision 0066 begins without its required
+`assets` directory. Exact completion creates that portable namespace before
+writing the nested stylesheet and linking it from the page. Review each
+permission independently; neither grading nor the final tree proves which tool
+was used, and the separate namespace and file commits are not one transaction.
+
 Register a reviewed negative result only through
 `evaluations/failures/registry.json`. Increment an occurrence only after the
 same failure recurs on the same maintained task. `observing` and `actionable`
@@ -192,6 +198,7 @@ resolved product failure.
 - Evaluation failure decision: `docs/decisions/0049-owned-evaluation-failure-registry.md`
 - TypeScript fixture decision: `docs/decisions/0064-owned-self-verifying-typescript-evaluation.md`
 - Red-green recovery decision: `docs/decisions/0065-owned-red-green-tool-recovery-evaluation.md`
+- Namespace-directory decision: `docs/decisions/0066-owned-namespace-directory-evaluation.md`
 - Manual validator: `tools/lib/manual-policy.mjs`
 - Manual validator tests: `tools/test/manual-policy.test.mjs`
 - Publication registry: `tools/publication-policy.json`

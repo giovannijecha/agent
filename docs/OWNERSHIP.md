@@ -35,6 +35,9 @@ no candidate source, transcript, provider output, external benchmark result, or
 personal content. The directly executable TypeScript input and expected
 fixtures and the controlled JavaScript red-green task are likewise original
 maintained source, not captured candidate code or foreign benchmark material.
+The namespace-directory browser task and its HTML and CSS snapshots are
+likewise original maintained source and contain no captured external page or
+stylesheet.
 
 ## Forbidden inputs
 

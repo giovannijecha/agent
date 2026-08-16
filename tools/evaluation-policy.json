@@ -42,6 +42,12 @@
       "id": "web-extract-script",
       "projectKind": "web",
       "title": "Extract the inline browser script"
+    },
+    {
+      "category": "refactor",
+      "id": "web-extract-stylesheet",
+      "projectKind": "web",
+      "title": "Extract the page stylesheet"
     }
   ]
 }

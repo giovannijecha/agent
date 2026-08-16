@@ -2,8 +2,8 @@
 
 - Status: accepted
 - Date: 2026-08-14
-- Amended: 2026-08-16 for compound convergence, self-verifying fixtures, and
-  controlled red-green recovery
+- Amended: 2026-08-16 for compound convergence, self-verifying fixtures,
+  controlled red-green recovery, and namespace-directory evidence
 
 ## Context
 
@@ -66,6 +66,12 @@ acknowledge the intended assertion failure, make one bounded source correction,
 and run the exact same command successfully. Its immutable input and expected
 fixtures prove those two command outcomes independently. Decision 0065 owns
 this evidence boundary; it changes no product behavior or execution authority.
+
+The browser stylesheet task owns one portable namespace-directory contract.
+Its input omits the directory required by its expected nested stylesheet, so
+ordinary exact completion must create that namespace before applying the file
+effect. Decision 0066 owns this evidence boundary and deliberately limits it to
+`create_directory`, which is admitted on both supported platforms.
 
 ## Run lifecycle
 
@@ -143,7 +149,7 @@ changes a product result.
 
 ## Verification
 
-Pure policy tests cover the canonical seven-task corpus, schema and key drift,
+Pure policy tests cover the canonical eight-task corpus, schema and key drift,
 task ordering, duplicate identifiers, path and text rejection, snapshot bounds,
 identical snapshots, metric bounds, and record consistency. A focused process
 regression executes only the maintained TypeScript and JavaScript red-green

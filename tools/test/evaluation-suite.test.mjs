@@ -166,6 +166,7 @@ test("accepts the canonical bounded corpus", () => {
       ["typescript-inclusive-range", "typescript"],
       ["web-compound-page-edit", "web"],
       ["web-extract-script", "web"],
+      ["web-extract-stylesheet", "web"],
     ],
   );
   assert.deepEqual(
@@ -260,6 +261,73 @@ test("owns one controlled red-green process-recovery task", () => {
   const expected = runFixtureTest(expectedRoot);
   assert.equal(expected.status, 0, expected.output);
   assert.doesNotMatch(expected.output, /ERR_MODULE_NOT_FOUND/u);
+});
+
+test("owns one cross-platform namespace-directory task", () => {
+  const suite = validateEvaluationSuite(policy, canonicalContext());
+  const task = suite.tasks.find((candidate) =>
+    candidate.id === "web-extract-stylesheet"
+  );
+  assert.ok(task !== undefined);
+  assert.equal(task.category, "refactor");
+  assert.equal(task.projectKind, "web");
+  assert.deepEqual(task.input.map((entry) => entry.path), ["index.html"]);
+  assert.deepEqual(task.expected.map((entry) => entry.path), [
+    "assets/theme.css",
+    "index.html",
+  ]);
+
+  const corpus = canonicalContext();
+  const input = corpus.files.get(
+    "tasks/web-extract-stylesheet/input/index.html",
+  ).toString("utf8");
+  const expectedPage = corpus.files.get(
+    "tasks/web-extract-stylesheet/expected/index.html",
+  ).toString("utf8");
+  const expectedStylesheet = corpus.files.get(
+    "tasks/web-extract-stylesheet/expected/assets/theme.css",
+  ).toString("utf8");
+  const styleBlock = [
+    "    <style>",
+    "      body {",
+    "        background: #0f1115;",
+    "        color: #e8eaed;",
+    "        display: grid;",
+    "        margin: 0;",
+    "        min-height: 100vh;",
+    "        place-items: center;",
+    "      }",
+    "    </style>",
+  ].join("\n");
+  assert.equal(
+    expectedPage,
+    input.replace(
+      styleBlock,
+      '    <link href="assets/theme.css" rel="stylesheet">',
+    ),
+  );
+  assert.equal(
+    expectedStylesheet,
+    [
+      "body {",
+      "  background: #0f1115;",
+      "  color: #e8eaed;",
+      "  display: grid;",
+      "  margin: 0;",
+      "  min-height: 100vh;",
+      "  place-items: center;",
+      "}",
+      "",
+    ].join("\n"),
+  );
+  assert.match(task.task, /Create the missing `assets` directory/u);
+  assert.match(task.task, /Create the directory before writing/u);
+  assert.equal(
+    [...corpus.files.keys()].some((ownedPath) =>
+      ownedPath.startsWith("tasks/web-extract-stylesheet/input/assets/")
+    ),
+    false,
+  );
 });
 
 test("owns one directly verifiable TypeScript endpoint task", () => {
