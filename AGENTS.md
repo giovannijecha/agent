@@ -78,33 +78,33 @@ agent.”
   horizontal-inset, side-rail, spacer, activity, scroll, and layout paths; they do not add
   private cards, empty metrics, or parallel view models. User and assistant
   content remain structured role entries but render without redundant `you` or
-  `agent` labels. A user turn composes one stage-wide transparent `Surface` with
-  the generic `SideRail`: one muted solid half-block rail cell spans exactly the
-  visible content rows and itself owns the shared one-cell content inset; the
-  next cell is the canonical text column shared by assistant prose and composer
-  text, caret, and pointer projection. Internal horizontal and vertical padding
-  stay at zero. Base user prose remains italic and uses the
-  closed `highContrast` tone; registered Markdown semantic roles override that
+  `agent` labels. A user turn composes one stage-wide transparent `Surface`
+  with the shared one-cell content inset and no rail, marker, border, or
+  background. Its first text cell is the canonical text column shared by
+  assistant prose and composer text, caret, and pointer projection. Vertical
+  padding stays at zero. Base user prose remains italic and uses the closed
+  steel-blue `accent` tone; registered Markdown semantic roles override that
   base tone, while assistant base prose remains `plain` and unboxed. Fenced code and strict
   pipe tables use one content-fit transparent structured region. Complete fences with at
   most two visible logical rows use zero horizontal padding; larger fences and
   tables retain one cell. An exact Markdown `---` renders through the shared
   display path as one muted responsive separator, while unsupported variants
   remain literal. Surface, slant, and
-  foreground tone remain independent closed style dimensions. The muted user
-  rail distinguishes user input without implying lifecycle state. Strict tables
+  foreground tone remain independent closed style dimensions. Strict tables
   measure every header and body cell before display and pad each column to one
   shared visible width, so the technical surface stays rectangular. One muted
   rule spans that exact measured width between the header and body inside the
   same surface; do not add an outer border or a full cell grid. Complete
   recognized fences may derive only the registered bounded lexical roles from
   the owned highlighter; unknown or unlabeled fences remain plain. Model text
-  never selects styling. The restrained steel-blue `accent` role is reserved
-  for references and fence labels; lighter blues remain code-only syntax roles.
+  never selects styling. The restrained steel-blue `accent` role identifies
+  references, fence labels, user base prose, and the exact current row in a
+  generic `SelectionList`; lighter blues remain code-only syntax roles.
   Every tool lifecycle state uses the same borderless transparent `Surface`.
   Restrained success, attention, or failure foregrounds appear only on the
-  status mark and written state; the action, optional safe subject, preview, and
-  permission actions remain neutral. Activity surfaces use one cell of horizontal
+  status mark and written state; the action, optional safe subject, ordinary
+  previews, and resting permission actions remain neutral. The exact selected permission
+  action receives only the generic `SelectionList` accent. Activity surfaces use one cell of horizontal
   padding and zero vertical padding. Under decisions 0056 and 0057, every snapshot
   starts with one compact `SplitLine`: the left side contains the registered bullet
   or ASCII `x`, one of the exact display-only `Read`, `List`, `Search`, `Write`,
@@ -118,7 +118,11 @@ agent.”
   or height is constrained, the display action, written state, and decision
   actions survive before subject or preview detail. Exact bounded
   `apply_patch` previews expose the canonical path and bounded `- ` and `+ ` diff
-  rows while internal digests and tuple metadata remain private plan state. Effect
+  rows while internal digests and tuple metadata remain private plan state. The
+  complete `- ` rows use the closed non-bold `diffRemoved` red foreground and
+  complete `+ ` rows use the closed non-bold `diffAdded` green foreground;
+  wrapped continuations retain their owning row's direction tone, while prefixes
+  remain explicit and authoritative. Effect
   previews appear only while permission is pending; queued, running,
   cancelling, and terminal snapshots never replay them. The activity log may
   retain its bounded preview as lifecycle state, but settled presentation never
@@ -180,7 +184,10 @@ agent.”
   not add a browser launcher, foreign clipboard package or executable, global
   mouse hook, screen-coordinate transcript archive, or separate pointer paths.
 - Slash completion reuses one exact CLI-owned command catalog for dispatch and
-  discovery. The generic TUI owns only a bounded `SelectionList`. While a
+  discovery. The generic TUI owns only a bounded `SelectionList`; it renders
+  every unselected child with its supplied resting tones and reconstructs the
+  exact selected row with the closed `accent` foreground while preserving all
+  other span metadata. While a
   completion is visible, Up and Down select without wrapping and Tab completes
   without submitting; Enter dispatches the selected exact command through the
   canonical dispatcher. Otherwise existing transcript and editor controls

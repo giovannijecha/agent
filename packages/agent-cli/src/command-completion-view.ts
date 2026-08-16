@@ -23,16 +23,9 @@ export function createCommandCompletionDocument(
     if (item === undefined) {
       return err(new ComponentError("invalidComponent", position));
     }
-    const selected = position === projection.selectedIndex;
-    const command = createSpan(
-      item.command,
-      selected ? "emphasis" : "plain",
-    );
+    const command = createSpan(item.command, "plain");
     const gap = createSpan("  ", "muted");
-    const description = createSpan(
-      item.description,
-      selected ? "plain" : "muted",
-    );
+    const description = createSpan(item.description, "muted");
     if (!command.ok) return command;
     if (!gap.ok) return gap;
     if (!description.ok) return description;

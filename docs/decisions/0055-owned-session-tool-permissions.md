@@ -2,11 +2,13 @@
 
 - Status: accepted
 - Date: 2026-08-15
-- Presentation amended by: decision 0056
+- Presentation amended by: decisions 0056 and 0059
 
 Decision 0056 compacts the lifecycle head and risk into one activity line. The
 permission policy, contextual actions, exact preview, and authority remain
 unchanged.
+Decision 0059 gives the generic `SelectionList` one accent foreground for its
+exact selected row; permission authority and input behavior remain unchanged.
 
 ## Context
 

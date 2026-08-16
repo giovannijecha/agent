@@ -3,8 +3,10 @@ import test from "node:test";
 
 import {
   type Component,
+  InlineText,
   SelectionList,
   TextBlock,
+  TextSpan,
   TUI_LIMITS,
   type Result,
   Viewport,
@@ -39,6 +41,8 @@ test("measures a bounded one-row list and keeps the selection visible", () => {
     "three",
     "four",
   ]);
+  assert.equal(rendered.value.rows.at(0)?.spans.at(0)?.tone, "plain");
+  assert.equal(rendered.value.rows.at(1)?.spans.at(0)?.tone, "accent");
 });
 
 test("supports a one-row viewport around an interior selection", () => {
@@ -51,6 +55,42 @@ test("supports a one-row viewport around an interior selection", () => {
   const rendered = list.value.render(viewport(8, 1));
   assert.ok(rendered.ok);
   assert.deepEqual(rendered.value.rows.map((value) => value.text), ["two"]);
+  assert.equal(rendered.value.rows.at(0)?.spans.at(0)?.tone, "accent");
+});
+
+test("accents only the selected row and preserves every other span property", () => {
+  const resting = TextSpan.create("resting", "muted");
+  const focused = TextSpan.create("focused", "attention", {
+    mark: "selected",
+    slant: "italic",
+    surface: "subtle",
+  }, {
+    hyperlink: "https://example.com",
+    position: Object.freeze({ document: 7, offset: 3 }),
+  });
+  assert.ok(resting.ok);
+  assert.ok(focused.ok);
+  const restingRow = InlineText.create([resting.value]);
+  const focusedRow = InlineText.create([focused.value]);
+  assert.ok(restingRow.ok);
+  assert.ok(focusedRow.ok);
+  const list = SelectionList.create(
+    [restingRow.value, focusedRow.value],
+    1,
+  );
+  assert.ok(list.ok);
+
+  const rendered = list.value.render(viewport(20, 2));
+  assert.ok(rendered.ok);
+  const unselected = rendered.value.rows.at(0)?.spans.at(0);
+  const selected = rendered.value.rows.at(1)?.spans.at(0);
+  assert.equal(unselected?.tone, "muted");
+  assert.equal(selected?.tone, "accent");
+  assert.equal(selected?.mark, "selected");
+  assert.equal(selected?.slant, "italic");
+  assert.equal(selected?.surface, "subtle");
+  assert.equal(selected?.hyperlink, "https://example.com");
+  assert.deepEqual(selected?.position, { document: 7, offset: 3 });
 });
 
 test("rejects empty, oversized, invalid-selection, and multi-row lists", () => {

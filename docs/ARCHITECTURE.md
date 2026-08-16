@@ -151,7 +151,8 @@ roles, one bounded line-oriented Markdown subset with an exact semantic
 separator, one bounded internal lexical highlighter, one generic bordered
 panel, one generic paired horizontal-rule frame, one generic split line,
 dynamically centered horizontal insets, one generic solid side rail, one bounded
-generic selection list over one-row components,
+generic selection list over one-row components whose selected row alone receives
+the closed accent foreground,
 deterministic vertical allocation, ANSI commands, and serialized asynchronous
 differential rendering. One immutable layout plan
 exposes measured and assigned slot rows, then renders that exact allocation;
@@ -218,8 +219,8 @@ inset, flush offsets, composer-rule rows, and rhythm rows to the existing
 presenters and composer pointer projection. The focused composer retains one
 full-width rule row above and below its transparent content, activity surfaces
 have zero vertical padding, and external lower-shell rhythm remains one
-optional row. The user `SideRail` itself consumes the shared content inset and
-follows exact visible rows outside a transparent zero-padding `Surface`.
+optional row. User entries consume the shared content inset directly through a
+transparent `Surface`; they add no rail, marker, border, or background.
 Activity stack clipping retains its identity/state head before optional detail.
 It is the only product package
 allowed to import approved `node:` APIs. It uses only
@@ -445,8 +446,11 @@ turn is active. A new tool replaces it, and turn settlement removes it. Tool
 activity never enters the scrollable conversation. Every state, including
 pending permission, uses the same generic borderless transparent `Surface`.
 The status mark and written state select one of the closed success, attention,
-or failure foregrounds; action, safe subject, preview, and permission actions
-remain neutral, and written state remains explicit. One pure closed six-entry projection maps
+or failure foregrounds; action, safe subject, ordinary previews, and resting
+permission actions remain neutral, and written state remains explicit. Exact
+patch-preview removals use the separate non-bold `diffRemoved` red foreground,
+and insertions use the non-bold `diffAdded` green foreground while their written
+prefixes remain authoritative. One pure closed six-entry projection maps
 the exact tool name and risk to a display-only action label. A generic
 right-priority `SplitLine` retains the status mark and action on the left and the
 written state on the right before an optional useful safe subject. Canonical tool
@@ -457,8 +461,8 @@ selection list.
 Queued, running, cancelling, and terminal states never project that preview. The
 bounded log still retains the preview as lifecycle state, so presentation does
 not create a second activity model.
-Decisions 0056 and 0057 own the exact display table, status marks, split priority,
-transparent truth treatment, one-line ordinary projection, useful subject, and
+Decisions 0056, 0057, and 0060 own the exact display table, status marks, split priority,
+transparent truth treatment, patch-direction foregrounds, one-line ordinary projection, useful subject, and
 permission-only expansion independently from the lifecycle and permission engines.
 Tools cannot choose surfaces, colors, panels, or private presentation
 paths. The generic TUI owns stacking, clipping, padding, caret translation, and
@@ -467,7 +471,7 @@ Decision 0022 defines update and removal of this surface independently from the
 tool engine, runtime protocol, structured rows, scroll view, and renderer.
 
 The responsive conversation shell follows decisions 0026, 0027, 0028, 0039,
-0040, 0041, 0043, and 0045. In vertical order the CLI composes a flexible document,
+0040, 0041, 0043, 0045, and 0059. In vertical order the CLI composes a flexible document,
 contextual activity, one latest ephemeral notice, completion, one bounded
 stage-wide composer, and a compact status line. The document remains
 dominant; absent contextual state consumes no rows.
@@ -510,12 +514,11 @@ The event arbiter serializes expiry after terminal and runtime work but before
 cosmetic motion, and a stale token cannot clear newer feedback. The generic
 timer port is shared substrate, while motion and notice scheduling retain
 independent lifecycle state.
-User entries compose one stage-wide transparent `Surface` with the generic
-`SideRail`. One muted solid half-block rail cell owns the shared one-cell inset
-and spans exactly the visible rows; the following cell is the canonical content
-column shared by assistant prose and composer text, caret, and pointer geometry.
-Internal padding stays at zero. Base user prose uses the
-closed `highContrast` tone and italic slant. Registered Markdown roles replace
+User entries compose one stage-wide transparent `Surface` with the shared
+one-cell content inset and no rail, marker, border, or background. Its first text
+cell is the canonical content column shared by assistant prose and composer text,
+caret, and pointer geometry. Vertical padding stays at zero. Base user prose uses
+the closed steel-blue `accent` tone and italic slant. Registered Markdown roles replace
 that base tone for their exact spans; assistant base prose remains `plain` and
 unboxed. Fenced code
 and strict pipe tables use the generic content-fit transparent surface painter after visible rows are selected. Complete fences with at
@@ -527,9 +530,9 @@ one muted header rule from the same measured total row extent and emits it
 inside that surface; it does not emit an outer border or a complete cell grid.
 No `you`, `agent`, or static
 header label is injected. Surface, slant, and foreground tone remain
-independent closed style dimensions. The muted solid user rail distinguishes user
-input; the composer stays transparent between two full-width light-blue
-accent rules. Semantic success, attention, and failure foregrounds are reserved
+independent closed style dimensions. User authorship is distinguished by its
+base accent prose; the composer stays transparent between two full-width
+light-blue accent rules. Semantic success, attention, and failure foregrounds are reserved
 for authoritative tool marks and written lifecycle state. One blank row separates adjacent transcript entries. The empty state contributes no
 welcome or reference content. Semantic state is shared across interactive
 surfaces: green is successful, yellow is active or permission-sensitive, and red
@@ -563,8 +566,9 @@ completion. While visible, Up and Down change its bounded non-wrapping selection
 instead of navigating the transcript; Tab replaces the draft with the selected
 exact command without submitting it, while Enter dispatches the selected exact
 command through the same canonical path as a fully typed submission. The generic
-TUI selection list owns only one-row measurement, clipping, caret translation,
-and selected-row visibility; it knows no command names or execution policy. The
+TUI selection list owns one-row measurement, clipping, caret translation,
+selected-row visibility, and the exact selected-row `accent` foreground. It
+preserves every other span property and knows no command names or execution policy. The
 completion slot is below contextual activity and any context notice, and above the composer. Each entry
 is one compact transparent inline row with its description immediately after
 the command; no passive keyboard hint is rendered. One shared optional generic
@@ -577,8 +581,9 @@ interactive help surface. The application owns one memory-only exact-tool
 permission table: reads default to `Allow`, writes and execution to `Ask`, and
 `/permissions` changes only the current session. Every runtime request waits for
 one turn-and-call decision. Pending `Ask` requests use the contextual
-`SelectionList` actions `Allow once`, `Allow for session`, and `Deny`; no slash
-command resolves a pending call. Without an
+`SelectionList` actions `Allow once`, `Allow for session`, and `Deny`; its exact
+current action receives the generic accent foreground, and no slash command
+resolves a pending call. Without an
 injected runtime, ordinary submitted content is discarded after a generic notice
 and never becomes transcript or conversation state. With a runtime, only one
 turn is active: streamed text is prospective display state, completion publishes
@@ -589,6 +594,8 @@ state remain visible in one contextual TUI region. A separate bounded
 permission preview exposes either the descriptor projection for a direct handler
 or the concrete effect preview produced by a mutation plan. Patch previews show
 the canonical target and human-readable removed and inserted rows when they fit;
+removed rows use `diffRemoved` and inserted rows use `diffAdded`, including
+wrapped continuations, while their exact prefixes remain visible;
 larger content uses bounded prefix/suffix excerpts and an explicit omitted-code-unit
 count. Observed identity, SHA-256 digests, and complete replacement content remain
 bound inside the effect plan and native commit rather than becoming UI metadata.

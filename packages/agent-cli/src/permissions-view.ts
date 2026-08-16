@@ -49,15 +49,11 @@ function createPermissionMenu(
     if (item === undefined) {
       return err(new ComponentError("invalidComponent", position));
     }
-    const selected = position === projection.selectedIndex;
-    const name = createSpan(item.name, selected ? "emphasis" : "plain", {
+    const name = createSpan(item.name, "plain", {
       slant: "italic",
     });
     const risk = createSpan("  " + item.risk, "muted");
-    const mode = createSpan(
-      modeLabel(item.mode),
-      selected ? "emphasis" : "plain",
-    );
+    const mode = createSpan(modeLabel(item.mode), "plain");
     if (!name.ok) return name;
     if (!risk.ok) return risk;
     if (!mode.ok) return mode;
@@ -91,10 +87,7 @@ function createToolDecision(
     if (action === undefined) {
       return err(new ComponentError("invalidComponent", position));
     }
-    const label = createSpan(
-      actionLabel(action),
-      position === projection.selectedIndex ? "emphasis" : "plain",
-    );
+    const label = createSpan(actionLabel(action), "plain");
     if (!label.ok) return label;
     const row = InlineText.create([label.value]);
     if (!row.ok) return row;

@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-08-11
 - Updated: 2026-08-15
-- Amended by: decisions 0032, 0040, and 0043
+- Amended by: decisions 0032, 0040, 0043, 0059, and 0060
 
 Decision 0040 removes the structured-region background while retaining this
 decision's closed foreground roles, lexical roles, bounded language profiles,
@@ -16,6 +16,10 @@ Its 2026-08-15 contrast amendment assigns user prose the generic
 `highContrast` foreground while assistant prose retains `plain`.
 Historical palette choices below remain evidence for the state accepted before
 that amendment.
+Decision 0059 retains the fixed steel-blue mapping while extending `accent` to
+user base prose and the exact selected row of every generic `SelectionList`.
+Decision 0060 adds non-bold `diffAdded` and `diffRemoved` roles using the
+existing restrained green and red RGB values without changing lifecycle tones.
 
 ## Context
 

@@ -6,10 +6,13 @@
 - Permission presentation amended by: decision 0055
 - Compact line amended by: decision 0056
 - Surface truth amended by: decision 0057
+- Patch diff foregrounds amended by: decision 0060
 
 Decision 0055 removes slash-command actions from the activity surface. Pending
 permission retains the shared semantic surface for identity, state, risk, and
 preview, followed by one transparent contextual `SelectionList`.
+Decision 0060 supersedes the neutral patch-preview detail clause below only for
+validated `- ` and `+ ` rows; other preview detail remains neutral.
 Decision 0056 places status mark, display action, canonical name, and risk on
 one left side and the written state on the right. Non-permission snapshots now
 occupy exactly that line; pending permission alone may append the preview.

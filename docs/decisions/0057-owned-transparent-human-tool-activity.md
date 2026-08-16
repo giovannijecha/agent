@@ -3,6 +3,10 @@
 - Status: accepted
 - Date: 2026-08-16
 - Amends: decisions 0022, 0027, 0028, 0033, 0043, 0053, and 0056
+- Patch diff foregrounds amended by: decision 0060
+
+Decision 0060 retains the transparent human-readable patch preview while
+giving removed and inserted rows separate non-bold red and green foregrounds.
 
 ## Context
 

@@ -270,12 +270,22 @@ cleanup without allowing one failure to mask another.
 Treat visual emphasis as closed metadata, never as display text. Components and
 frames accept only normalized `TextSpan` and `RichRow` values under decision
 0021, and spans accept only the semantic tones registered by decisions 0019,
-0023, 0027, 0031, and 0032. The renderer alone maps them to fixed ANSI, redraws text- or tone-only
+0023, 0027, 0031, 0032, 0059, and 0060. The renderer alone maps them to fixed ANSI, redraws text- or tone-only
 changes, and resets terminal style after emphasized spans and during cleanup.
 Application code and untrusted content must never construct escape sequences or
 arbitrary color values. Bound span count before iteration, merge adjacent equal
 tones, and contain arrays, proxies, accessors, and subclasses at every public
 row boundary.
+
+Under decision 0059, user base prose and the exact selected row of every generic
+`SelectionList` use the existing closed `accent` tone. Keep user and list
+surfaces transparent, preserve Markdown overrides and all non-foreground span
+metadata, and do not reproduce focus styling in CLI presenters.
+
+Under decision 0060, only a validated owned `apply_patch` display projection
+may select `diffRemoved` or `diffAdded`. Apply the tone to the complete logical
+row and every wrapped continuation, keep the `- ` or `+ ` prefix explicit, and
+leave lifecycle truth, permission focus, other previews, and surfaces unchanged.
 
 Treat Markdown as one closed display grammar, not a compatibility target. Under
 decision 0023, parse only the registered line and inline forms, keep incomplete
@@ -390,18 +400,20 @@ otherwise. When width is scarce, retain right, then center, then left. Do not ad
 a static product header or duplicate lifecycle or navigation prose. Footer facts
 come only from the composition root or authoritative application state. Compose
 stage-wide user transcript regions with a transparent `Surface` and the generic
-`SideRail`; keep surface, slant, and foreground tone independent, closed, and
-renderer-owned. Use italic slant and the closed `highContrast` base tone for
-user role distinction, plus one muted solid half-block rail cell that itself
-owns the shared content inset for exactly the visible rows. Its following cell
-aligns with assistant prose and composer text and caret. Registered Markdown roles override
+`Surface`; keep surface, slant, and foreground tone independent, closed, and
+renderer-owned. Use italic slant and the closed `accent` base tone for user role
+distinction, the shared content inset, and no rail, marker, border, or background.
+Its first text cell aligns with assistant prose and composer text and caret.
+Registered Markdown roles override
 the base tone only on their spans. Leave assistant base prose `plain` and
 direct, and reuse the content-fit transparent painter for registered
 structured Markdown regions.
 Keep composer content transparent between the generic light-blue accent rules.
 Keep tool activity transparent. Reserve success, attention, and failure
 foregrounds for its status mark and written authoritative state. Keep the action,
-optional safe subject, and preview neutral. Do not add permanent dashboards, empty metrics, speculative progress, or
+optional safe subject, and ordinary previews neutral. Validated exact patch
+removals and insertions alone use the non-bold `diffRemoved` and `diffAdded`
+foregrounds under decision 0060. Do not add permanent dashboards, empty metrics, speculative progress, or
 integration-specific cards. Future tools and integrations reuse the same
 split-line, three-column-line, inset, rail, marker, spacer, activity-stack, scroll, and
 vertical-layout paths. Keep role and content structured in the CLI, but do not

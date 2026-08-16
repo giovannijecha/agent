@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-11
-- Amended by: decisions 0040, 0055, and 0057
+- Amended by: decisions 0040, 0055, 0057, 0059, and 0060
 
 Decision 0055 changes the exact catalog to `/providers`, `/permissions`, and
 `/exit`. It removes `/approve` and `/deny`; pending tool decisions are
@@ -13,6 +13,10 @@ transparent and only its mark and written state carry semantic truth foregrounds
 Decision 0040 replaces split, background-filled rows and the passive keyboard
 hint with compact transparent inline rows. Catalog, selection, key, dispatch,
 and bounded-window behavior below remain in force.
+Decision 0059 moves the selected-row accent into the generic `SelectionList`;
+CLI completion rows now supply only their unselected text hierarchy.
+Decision 0060 supersedes the historical neutral-preview clause below only for
+validated patch diff rows; completion behavior and permission focus do not change.
 
 ## Context
 

@@ -52,6 +52,7 @@ test("projects every lifecycle through explicit written and visual truth", () =>
       assert.equal(Object.isFrozen(projected.value), true);
       assert.equal(projected.value.action, "Read");
       assert.equal(projected.value.marker, marker);
+      assert.equal(projected.value.previewKind, "plain");
       assert.equal(projected.value.stateLabel, state);
       assert.equal(projected.value.truth, truth);
     }
@@ -72,11 +73,29 @@ test("projects one patch path as useful detail and removes it from the diff body
       detail: "src/index.ts",
       marker: "\u2022",
       preview: "- old\n+ new",
+      previewKind: "patchDiff",
       state: "permission",
       stateLabel: "permission",
       truth: "attention",
     },
   });
+});
+
+test("keeps non-patch permission previews plain", () => {
+  const projected = projectToolActivityPresentation({
+    name: "manage_path",
+    preview: "Operation: create_directory\nPath: docs",
+    risk: "write",
+    state: "permission",
+  });
+  assert.equal(projected.ok, true);
+  if (projected.ok) {
+    assert.equal(projected.value.previewKind, "plain");
+    assert.equal(
+      projected.value.preview,
+      "Operation: create_directory\nPath: docs",
+    );
+  }
 });
 
 test("rejects unknown activity identity and risk drift without a fallback", () => {

@@ -37,7 +37,9 @@ neutral. Canonical tool name and risk still validate the closed projection but
 do not repeat in the visible head. The compact main line keeps its status mark
 and operation on the left and its written state on the right. A
 pending `Ask` uses a separate transparent contextual selection list after the
-activity surface, so slash-command text is never an authority path. The exact
+activity surface; its exact current action uses the generic restrained
+steel-blue selection accent, while its resting actions remain neutral. Slash-command
+text is never an authority path. The exact
 bounded human-readable effect preview is visible only while permission is pending. Queued,
 running, cancelling, and terminal states remain one line, while the bounded
 lifecycle log retains the preview internally.
@@ -102,7 +104,10 @@ and SHA-256 digests. Unsupported source text, ambiguous anchors, overlap,
 reordering, no-op hunks, and limit failures settle before approval. The approval
 surface is limited to 2,048 code units. Its first row supplies the canonical
 relative path as useful head detail; subsequent `- ` and `+ ` rows show removed
-and inserted logical text. Backslashes, tabs, and non-line control or format
+and inserted logical text. The complete removed row and any wrapped continuation
+use a restrained non-bold red foreground; the complete inserted row and its
+continuations use a restrained non-bold green foreground. The prefixes remain
+visible, so color is not the only direction signal. Backslashes, tabs, and non-line control or format
 scalars are escaped. When complete changed text does not fit, deterministic
 prefix and suffix excerpts retain an explicit omitted-code-unit count. The
 compact fallback keeps one bracketed omitted count for each non-empty remove or
@@ -309,7 +314,7 @@ decision 0036 to change in the same review. Remove `run_process` advertisement
 before its handler or adapter, then remove the native product build only when
 no remaining proof or platform work consumes it. Tool-specific presenters are
 forbidden; activity changes go through the one log and one presentation
-function defined by decisions 0022, 0033, 0056, and 0057.
+function defined by decisions 0022, 0033, 0056, 0057, and 0060.
 
 ## Evidence
 
@@ -322,6 +327,7 @@ function defined by decisions 0022, 0033, 0056, and 0057.
 - Session permission decision: `docs/decisions/0055-owned-session-tool-permissions.md`
 - Compact activity decision: `docs/decisions/0056-owned-compact-tool-activity-line.md`
 - Transparent human activity decision: `docs/decisions/0057-owned-transparent-human-tool-activity.md`
+- Semantic patch diff foreground decision: `docs/decisions/0060-owned-semantic-patch-diff-foregrounds.md`
 - Built-in filesystem adapters: `packages/agent-cli/src/builtin-tools.ts`
 - Shared built-in limits: `packages/agent-cli/src/builtin-tool-limits.ts`
 - Pure file line projection: `packages/agent-cli/src/workspace-file-read.ts`

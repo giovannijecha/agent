@@ -13,6 +13,7 @@ import type {
 } from "./tool-activity-log.js";
 import {
   projectToolActivityPresentation,
+  type ToolActivityPresentation,
   type ToolActivityTruth,
 } from "./tool-activity-presentation.js";
 import { CONVERSATION_DENSITY } from "./conversation-density.js";
@@ -26,6 +27,52 @@ function truthTone(
     : truth === "negative"
       ? "failure"
       : "attention";
+}
+
+type PatchPreviewGroup = {
+  rows: string[];
+  tone: "diffAdded" | "diffRemoved";
+};
+
+function createPatchPreview(
+  preview: string,
+): Result<Component, ComponentError> {
+  const groups: PatchPreviewGroup[] = [];
+  for (const row of preview.split("\n")) {
+    const tone = row.startsWith("- ")
+      ? "diffRemoved" as const
+      : row.startsWith("+ ")
+        ? "diffAdded" as const
+        : undefined;
+    if (tone === undefined) {
+      return err(new ComponentError("invalidComponent", undefined));
+    }
+    const previous = groups.at(-1);
+    if (previous?.tone === tone) {
+      previous.rows.push(row);
+    } else {
+      groups.push({ rows: [row], tone });
+    }
+  }
+  const components: Component[] = [];
+  for (let position = 0; position < groups.length; position += 1) {
+    const group = groups.at(position);
+    if (group === undefined) {
+      return err(new ComponentError("invalidComponent", position));
+    }
+    const block = TextBlock.create(group.rows.join("\n"), "head", group.tone);
+    if (!block.ok) return block;
+    components.push(block.value);
+  }
+  return createStack(components);
+}
+
+function createPreview(
+  presentation: ToolActivityPresentation,
+): Result<Component, ComponentError> {
+  return presentation.previewKind === "patchDiff"
+    ? createPatchPreview(presentation.preview)
+    : TextBlock.create(presentation.preview, "head", "plain");
 }
 
 /** Selects the latest tool only while its model turn remains active. */
@@ -72,7 +119,7 @@ function createActivityRows(
     presentation.state === "permission" &&
     presentation.preview.length > 0
   ) {
-    const preview = TextBlock.create(presentation.preview, "head", "plain");
+    const preview = createPreview(presentation);
     if (!preview.ok) return preview;
     components.push(preview.value);
   }

@@ -139,6 +139,8 @@
     "docs/decisions/0056-owned-compact-tool-activity-line.md",
     "docs/decisions/0057-owned-transparent-human-tool-activity.md",
     "docs/decisions/0058-owned-linux-namespace-fail-closed-boundary.md",
+    "docs/decisions/0059-owned-accented-conversation-focus.md",
+    "docs/decisions/0060-owned-semantic-patch-diff-foregrounds.md",
     "evaluations/README.md",
     "evaluations/failures/registry.json",
     "assets/brand/README.md",

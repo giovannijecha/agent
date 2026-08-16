@@ -71,7 +71,9 @@ credentials are not admitted as hyperlink destinations.
 
 Type `/` or a non-exact command prefix to open completion above the composer.
 The list contains only the three exact commands. While it is visible, Up and Down
-move the selection without wrapping and do not move the transcript. Tab copies
+move the selection without wrapping and do not move the transcript. The current
+row uses the restrained steel-blue accent shared by every generic selection
+list; other rows retain their neutral hierarchy. Tab copies
 the selected command into the composer and moves the caret to its end; it does
 not execute anything. Enter runs the highlighted exact command immediately
 through the normal command dispatcher and clears the draft. Exact commands,
@@ -92,7 +94,8 @@ Up and Down select a tool without wrapping, Left and Right change its exact
 Editing composer text also closes it before that same edit is applied. A pending
 tool decision takes precedence and shows exactly `Allow once`, `Allow for
 session`, and `Deny`; Up and Down select, and Enter resolves the exact pending
-call. Neither selector enters the transcript.
+call. In both selectors, the exact current row uses the same restrained
+steel-blue accent as command completion. Neither selector enters the transcript.
 
 Use Up and Down to move the transcript by one row. Use Page Up and Page Down to
 move by the visible transcript height minus one row, so adjacent pages retain
@@ -153,22 +156,19 @@ Transcript, activity, notice, completion, and composer use that projection;
 resizing recomputes it without changing transcript, draft, or model state and
 clears only geometry-dependent selection. The footer uses the
 same projection so the pulse ends exactly with the composer frame. User requests
-compose one stage-wide transparent generic `Surface` with zero internal padding
-and italic `highContrast` base prose. Registered Markdown roles retain their
-semantic tones on their exact spans. The generic `SideRail` prefixes every
-visible content row with one muted solid half-block rail cell. That cell itself
-owns the shared inset, so its following text aligns with assistant prose and
-composer text and caret. A
-one-line request therefore paints one railed row; multiline content adds one rail
-per visible row without synthetic top or bottom rows. Assistant responses keep
+compose one stage-wide transparent generic `Surface` with the shared one-cell
+content inset, zero vertical padding, and italic steel-blue `accent` base prose.
+Registered Markdown roles retain their semantic tones on their exact spans. No
+rail, marker, border, or background is added, and the first user text cell still
+aligns with assistant prose and composer text and caret. Assistant responses keep
 `plain` base prose and remain unboxed when they are ordinary prose. Fenced code and strict pipe tables
 use one content-fit transparent technical region. Complete fences with one or two
 visible logical rows use zero horizontal padding; larger fences and tables use
 one cell. Roles
 remain structured internally, but the transcript does not repeat `you` or
 `agent` labels. User and structured-content surfaces have no border or
-background. The user rail drops before content on a viewport too narrow to fit
-both, while structured content stays content-fit.
+background. The shared inset drops before required content on a viewport too
+narrow to fit both, while structured content stays content-fit.
 One blank row separates adjacent turns.
 The composer is one stage-wide generic `HorizontalRules` frame around the
 prompt-free `InputArea`; it owns no second editor or submission path. Its
@@ -194,13 +194,16 @@ scope, and the draft remain neutral. Dim text marks passive structure, bold
 default text marks document emphasis, green marks successful tool completion,
 yellow marks active or permission-sensitive state, and red marks
 failure, denial, or cancellation. Restrained steel blue marks parser-recognized
-inline code and fenced language labels, never model-selected state. Recognized
+inline code, fenced language labels, user base prose, and the exact selected row
+of a generic list, never model-selected state. Recognized
 code may use lighter code-only blues, sand, sage, and quiet-green syntax roles for scan
-hierarchy; these roles never represent lifecycle truth. The muted user rail
+hierarchy; these roles never represent lifecycle truth. Accented italic prose
 distinguishes user input; the composer remains transparent between
 its two light-blue accent rules. Tool activity remains transparent; restrained
 green, ochre, and red foregrounds on its mark and written state express
-authoritative lifecycle truth. The compact footer shows the working folder
+authoritative lifecycle truth. Exact patch additions use a separate non-bold
+green diff role and removals a separate non-bold red diff role; their visible
+`+ ` and `- ` prefixes remain authoritative. The compact footer shows the working folder
 at the left edge and provider/model at the physical center. Its right edge shows
 only a constant-width active-work pulse whose final cell coincides with the
 composer frame's final cell, and otherwise remains empty. Lifecycle
@@ -373,9 +376,14 @@ removal. Decision [0040](../decisions/0040-owned-quiet-conversation-rhythm.md)
 governs quiet input treatment, transparent technical regions, compact completion, uniform
 lower-shell rhythm, physical pulse alignment, tests, rollback, and removal.
 Decision [0043](../decisions/0043-owned-conversation-density.md) governs the
-frozen CLI density record, exact-height user rails, compact activity surfaces,
+frozen CLI density record, compact activity surfaces,
 action/state-first clipping, focused composer rule rows, reference viewport matrix,
 tests, rollback, and removal.
+Decision [0059](../decisions/0059-owned-accented-conversation-focus.md) governs
+rail-free accented user prose and the generic selected-row focus shared by
+completion and permission lists.
+Decision [0060](../decisions/0060-owned-semantic-patch-diff-foregrounds.md)
+governs the closed non-bold direction tones for validated patch preview rows.
 Decision [0056](../decisions/0056-owned-compact-tool-activity-line.md) governs
 the exact display labels, status marks, one-line hierarchy, responsive retention,
 preview expansion, tests, rollback, and removal.
@@ -435,6 +443,8 @@ preview expansion, tests, rollback, and removal.
 - Slash-command completion: `docs/decisions/0034-owned-slash-command-completion.md`
 - Quiet conversation rhythm: `docs/decisions/0040-owned-quiet-conversation-rhythm.md`
 - Conversation density: `docs/decisions/0043-owned-conversation-density.md`
+- Accented conversation focus: `docs/decisions/0059-owned-accented-conversation-focus.md`
+- Semantic patch diff foregrounds: `docs/decisions/0060-owned-semantic-patch-diff-foregrounds.md`
 - Latin prose cell width: `docs/decisions/0044-owned-latin-prose-cell-width.md`
 - Owned terminal interaction: `docs/decisions/0045-owned-terminal-interaction.md`
 - Multiline composer, paste, and word editing: `docs/decisions/0035-owned-multiline-composer-and-paste.md`

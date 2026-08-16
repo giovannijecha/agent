@@ -4,12 +4,15 @@
 - Date: 2026-08-15
 - Permission amended by: decision 0055
 - Approval presentation amended by: decision 0057
+- Diff foregrounds amended by: decision 0060
 
 Decision 0055 allows an exact planned patch through either current-session
 `Allow` or a contextual `Ask` decision. Planning, preview binding, stale-state
 checks, and the one native commit remain unchanged.
 Decision 0057 replaces the technical binding dump with a bounded human-readable
 diff while keeping the same immutable plan, stale-state checks, and native commit.
+Decision 0060 gives complete removed and inserted display rows separate closed
+red and green foreground roles without changing preview text or authority.
 
 ## Context
 

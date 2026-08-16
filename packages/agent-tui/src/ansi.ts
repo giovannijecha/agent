@@ -29,6 +29,10 @@ function toneParameters(tone: Tone): readonly string[] {
       return Object.freeze(["38", "2", "102", "155", "210"]);
     case "attention":
       return Object.freeze(["1", "38", "2", "230", "191", "95"]);
+    case "diffAdded":
+      return Object.freeze(["38", "2", "134", "203", "146"]);
+    case "diffRemoved":
+      return Object.freeze(["38", "2", "232", "112", "112"]);
     case "emphasis":
       return Object.freeze(["1"]);
     case "failure":
