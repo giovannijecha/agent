@@ -151,6 +151,10 @@ mixed CRLF/CR/LF input, strict UTF-8, stale identity, and cancellation regressio
 Under decision 0060, prove complete and wrapped removed rows use only
 `diffRemoved`, inserted rows use only `diffAdded`, prefixes remain visible,
 non-patch previews remain plain, and every preview surface stays transparent.
+Under decision 0062, also prove exact common logical prefix and non-overlapping
+suffix rows disappear per hunk, separator and partial-line differences survive,
+terminal separators add no false empty row, and compaction never changes the
+untrimmed plan, permission, or commit.
 
 To remove one tool, stop advertising its descriptor, then delete its handler,
 focused tests, policy record, manual entry, and unused private helpers. Update
@@ -894,7 +898,7 @@ planner, bounded preview, internal create-or-replace commit adaptation, decision
 Change hunk ordering, uniqueness, overlap, creation form, aggregate bounds,
 mutation-path or structured-projection bounds, result bounds, preview grammar,
 formatter, direction-tone mapping, approval, or stale-state behavior only
-together under decisions 0053, 0057, and 0060. The `apply_patch` path retains
+together under decisions 0053, 0057, 0060, and 0062. The `apply_patch` path retains
 its 447-code-unit and 896-projected-code-unit reservation independently of the
 read-tool path fields. Recalculate and test the complete 32-hunk compact
 preview against the maximum admitted path whenever either reservation or the

@@ -1229,6 +1229,162 @@ test("fits the maximum admitted hunk batch in the bounded approval preview", () 
   assert.equal(preview.split("\n").length, 65);
 });
 
+test("shows only changed logical rows from exact retained patch context", () => {
+  const preview = patchMutationPreview({
+    effect: "update",
+    hunks: Object.freeze([
+      Object.freeze({
+        newText: "  background: green;\n  color: #e8eaed;",
+        oldText: "  background: #0f1115;\n  color: #e8eaed;",
+      }),
+      Object.freeze({
+        newText: "<h1>Hello World!</h1>",
+        oldText: "<h1>Hello World</h1>",
+      }),
+      Object.freeze({
+        newText: "</body>\n</html>",
+        oldText: "</body>\n<!-- Fine del documento -->\n</html>",
+      }),
+    ]),
+    path: "index.html",
+  });
+
+  assert.ok(preview !== undefined);
+  assert.equal(
+    preview,
+    "Path: index.html\n" +
+      "-   background: #0f1115;\n" +
+      "+   background: green;\n" +
+      "- <h1>Hello World</h1>\n" +
+      "+ <h1>Hello World!</h1>\n" +
+      "- <!-- Fine del documento -->",
+  );
+  assert.equal(preview.includes("color: #e8eaed"), false);
+  assert.equal(preview.includes("</body>"), false);
+  assert.equal(preview.includes("</html>"), false);
+});
+
+test("keeps compacted HTML context inside the authorized committed patch", async () => {
+  await withWorkspace(async (workspace) => {
+    const source = [
+      "<style>",
+      "body {",
+      "  background: #0f1115;",
+      "  color: #e8eaed;",
+      "}",
+      "</style>",
+      "<body>",
+      "<h1>Hello World</h1>",
+      "</body>",
+      "<!-- Fine del documento -->",
+      "</html>",
+    ].join("\n");
+    await writeFile(path.join(workspace, "index.html"), source, {
+      encoding: "utf8",
+      flag: "wx",
+    });
+    const tools = await engine(workspace);
+    const planned = await preparePlan(tools, "apply_patch", {
+      hunks: [
+        {
+          newText: "  background: green;\n  color: #e8eaed;",
+          oldText: "  background: #0f1115;\n  color: #e8eaed;",
+        },
+        {
+          newText: "<h1>Hello World!</h1>",
+          oldText: "<h1>Hello World</h1>",
+        },
+        {
+          newText: "</body>\n</html>",
+          oldText: "</body>\n<!-- Fine del documento -->\n</html>",
+        },
+      ],
+      path: "index.html",
+    });
+
+    assert.equal(planned.planned.approvalRequired, true);
+    assert.equal(planned.planned.approvalPreview.includes("</body>"), false);
+    assert.equal(planned.planned.approvalPreview.includes("</html>"), false);
+    assert.equal(
+      planned.planned.approvalPreview.includes("- <!-- Fine del documento -->"),
+      true,
+    );
+    const executed = await tools.execute(planned.planned, cancellation);
+    assert.ok(executed.ok);
+    assert.equal(executed.value.result.status, "success");
+    assert.equal(
+      await readFile(path.join(workspace, "index.html"), {
+        encoding: "utf8",
+      }),
+      source
+        .replace("background: #0f1115", "background: green")
+        .replace("Hello World</h1>", "Hello World!</h1>")
+        .replace("\n<!-- Fine del documento -->", ""),
+    );
+  });
+});
+
+test("compacts context per hunk without hiding separator or partial-line changes", () => {
+  const preview = patchMutationPreview({
+    effect: "update",
+    hunks: Object.freeze([
+      Object.freeze({
+        newText: "same\nadded\nend",
+        oldText: "same\nend",
+      }),
+      Object.freeze({
+        newText: "same\nend",
+        oldText: "same\nremoved\nend",
+      }),
+      Object.freeze({
+        newText: "same\nnew\nend",
+        oldText: "same\r\nold\nend",
+      }),
+      Object.freeze({
+        newText: "prefix new suffix",
+        oldText: "prefix old suffix",
+      }),
+    ]),
+    path: "context.txt",
+  });
+
+  assert.equal(
+    preview,
+    "Path: context.txt\n" +
+      "+ added\n" +
+      "- removed\n" +
+      "- same\n" +
+      "- old\n" +
+      "+ same\n" +
+      "+ new\n" +
+      "- prefix old suffix\n" +
+      "+ prefix new suffix",
+  );
+  assert.equal(
+    patchMutationPreview({
+      effect: "update",
+      hunks: Object.freeze([
+        Object.freeze({ newText: "unchanged", oldText: "unchanged" }),
+      ]),
+      path: "invalid.txt",
+    }),
+    undefined,
+  );
+});
+
+test("does not render an empty direction row for a terminal separator", () => {
+  assert.equal(
+    patchMutationPreview({
+      effect: "create",
+      hunks: Object.freeze([
+        Object.freeze({ newText: "first\nsecond\n", oldText: "" }),
+      ]),
+      path: "created.txt",
+    }),
+    "Path: created.txt\n+ first\n+ second",
+  );
+});
+
 test("renders empty creation and escapes non-line diff controls", () => {
   const empty = patchMutationPreview({
     effect: "create",

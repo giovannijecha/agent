@@ -412,7 +412,9 @@ Keep tool activity transparent. Reserve success, attention, and failure
 foregrounds for its status mark and written authoritative state. Keep the action,
 optional safe subject, and ordinary previews neutral. Validated exact patch
 removals and insertions alone use the non-bold `diffRemoved` and `diffAdded`
-foregrounds under decision 0060. Do not add permanent dashboards, empty metrics, speculative progress, or
+foregrounds under decision 0060. Under decision 0062, derive those rows only
+after exact complete shared logical context is compacted within each hunk; never
+alter the untrimmed authorized plan. Do not add permanent dashboards, empty metrics, speculative progress, or
 integration-specific cards. Future tools and integrations reuse the same
 split-line, three-column-line, inset, rail, marker, spacer, activity-stack, scroll, and
 vertical-layout paths. Keep role and content structured in the CLI, but do not
@@ -594,7 +596,10 @@ Checkpoint the structured call and result before the next model step. Later
 cancellation or failure must not erase the recorded truth of an attempted side
 effect. Render only descriptor-declared bounded projections or an owned bounded
 effect preview. A patch preview shows the canonical path and `- ` and `+ ` rows
-when they fit, or bounded excerpts with an explicit omitted-code-unit count.
+for changed logical text when they fit, or bounded excerpts with an explicit
+omitted-code-unit count. Remove only exact complete shared prefix and
+non-overlapping suffix rows inside one hunk; keep separator differences,
+partial-line changes, hunk order, and the untrimmed effect binding intact.
 Keep SHA-256 digests, identity, and tuple metadata inside the effect plan. Never put
 raw arguments, file content, outputs, call identifiers, or causes in notices,
 errors, transcripts, or logs. Project a checkpointed terminal failure only

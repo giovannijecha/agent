@@ -30,10 +30,13 @@ activity history. The next tool replaces it and turn settlement removes it.
 
 An `apply_patch` permission preview is intentionally concrete. While `Ask` is
 pending, its local activity surface may display the canonical target and exact
-human-readable removed and inserted rows when the patch fits the 2,048-code-unit
-preview. Larger patches are limited to bounded prefix and suffix excerpts with
-an explicit omitted-code-unit count. State digests, object identity, complete
-observed and replacement content, aggregate counters, and tuple metadata remain
+human-readable changed rows when the patch fits the 2,048-code-unit preview.
+Exact complete logical context shared by both sides of one hunk is removed from
+the display before budgeting; it remains inside the authorized plan and is not
+counted as omitted content. Larger changed fields are limited to bounded prefix
+and suffix excerpts with an explicit omitted-code-unit count. State digests,
+object identity, complete untrimmed hunks, observed and replacement content,
+aggregate counters, and tuple metadata remain
 inside the effect plan rather than becoming UI content. Its mutation-specific path is bounded to 447 code units
 and 896 exact structured-projection code units so the full target and the closed
 32-hunk compact omission form always fit the preview; read-tool path limits are

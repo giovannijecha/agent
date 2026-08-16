@@ -23,6 +23,88 @@ export type PatchMutationDisplay = Readonly<{
   path: string;
 }>;
 
+function logicalRowTokens(content: string): readonly string[] {
+  const rows: string[] = [];
+  let start = 0;
+  let index = 0;
+  while (index < content.length) {
+    const character = content.charAt(index);
+    if (character === "\r") {
+      index += content.charAt(index + 1) === "\n" ? 2 : 1;
+      rows.push(content.slice(start, index));
+      start = index;
+    } else if (character === "\n") {
+      index += 1;
+      rows.push(content.slice(start, index));
+      start = index;
+    } else {
+      index += 1;
+    }
+  }
+  if (start < content.length) {
+    rows.push(content.slice(start));
+  }
+  return Object.freeze(rows);
+}
+
+function changedRows(hunk: TextPatchHunk): TextPatchHunk | undefined {
+  if (hunk.oldText === hunk.newText) {
+    return undefined;
+  }
+  const removed = logicalRowTokens(hunk.oldText);
+  const inserted = logicalRowTokens(hunk.newText);
+  let prefix = 0;
+  while (
+    prefix < removed.length &&
+    prefix < inserted.length &&
+    removed.at(prefix) === inserted.at(prefix)
+  ) {
+    prefix += 1;
+  }
+
+  let removedEnd = removed.length;
+  let insertedEnd = inserted.length;
+  while (
+    removedEnd > prefix &&
+    insertedEnd > prefix &&
+    removed.at(removedEnd - 1) === inserted.at(insertedEnd - 1)
+  ) {
+    removedEnd -= 1;
+    insertedEnd -= 1;
+  }
+
+  const oldText = removed.slice(prefix, removedEnd).join("");
+  const newText = inserted.slice(prefix, insertedEnd).join("");
+  return oldText.length === 0 && newText.length === 0
+    ? undefined
+    : Object.freeze({ newText, oldText });
+}
+
+function changedMutation(
+  mutation: PatchMutationPreview,
+): PatchMutationPreview | undefined {
+  if (mutation.effect === "create") {
+    return mutation;
+  }
+  const hunks: TextPatchHunk[] = [];
+  for (let index = 0; index < mutation.hunks.length; index += 1) {
+    const hunk = mutation.hunks.at(index);
+    if (hunk === undefined) {
+      continue;
+    }
+    const changed = changedRows(hunk);
+    if (changed === undefined) {
+      return undefined;
+    }
+    hunks.push(changed);
+  }
+  return Object.freeze({
+    effect: mutation.effect,
+    hunks: Object.freeze(hunks),
+    path: mutation.path,
+  });
+}
+
 function safePrefix(content: string, codeUnits: number): string {
   let end = Math.min(content.length, codeUnits);
   if (
@@ -104,7 +186,11 @@ function appendChangedRows(
     ? Object.freeze({ omitted: 0, prefix: content, suffix: "" })
     : excerpt(content, budget);
   if (retained.prefix.length > 0) {
-    for (const line of escapeDiffText(retained.prefix).split("\n")) {
+    const lines = escapeDiffText(retained.prefix).split("\n");
+    if (lines.at(-1) === "") {
+      lines.pop();
+    }
+    for (const line of lines) {
       rows.push(marker + " " + line);
     }
   }
@@ -117,7 +203,11 @@ function appendChangedRows(
     );
   }
   if (retained.suffix.length > 0) {
-    for (const line of escapeDiffText(retained.suffix).split("\n")) {
+    const lines = escapeDiffText(retained.suffix).split("\n");
+    if (lines.at(-1) === "") {
+      lines.pop();
+    }
+    for (const line of lines) {
       rows.push(marker + " " + line);
     }
   }
@@ -198,17 +288,21 @@ export function patchMutationPreview(
   if (!validPath(mutation.path) || mutation.hunks.length === 0) {
     return undefined;
   }
-  const exact = renderDiff(mutation, undefined, false);
+  const changed = changedMutation(mutation);
+  if (changed === undefined) {
+    return undefined;
+  }
+  const exact = renderDiff(changed, undefined, false);
   if (exact.length <= WORKSPACE_MUTATION_PREVIEW_CODE_UNITS) {
     return exact;
   }
   for (const budget of EXCERPT_BUDGETS) {
-    const bounded = renderDiff(mutation, budget, false);
+    const bounded = renderDiff(changed, budget, false);
     if (bounded.length <= WORKSPACE_MUTATION_PREVIEW_CODE_UNITS) {
       return bounded;
     }
   }
-  const compact = renderDiff(mutation, 0, true);
+  const compact = renderDiff(changed, 0, true);
   return compact.length <= WORKSPACE_MUTATION_PREVIEW_CODE_UNITS
     ? compact
     : undefined;
