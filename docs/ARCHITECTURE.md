@@ -470,8 +470,9 @@ selection list.
 Queued, running, cancelling, and terminal states never project that preview. The
 bounded log still retains the preview as lifecycle state, so presentation does
 not create a second activity model.
-Decisions 0056, 0057, and 0060 own the exact display table, status marks, split priority,
-transparent truth treatment, patch-direction foregrounds, one-line ordinary projection, useful subject, and
+Decisions 0056, 0057, 0060, and 0062 own the exact display table, status marks,
+split priority, transparent truth treatment, changed-only patch rows,
+patch-direction foregrounds, one-line ordinary projection, useful subject, and
 permission-only expansion independently from the lifecycle and permission engines.
 Tools cannot choose surfaces, colors, panels, or private presentation
 paths. The generic TUI owns stacking, clipping, padding, caret translation, and
@@ -602,11 +603,15 @@ prospective state after the last truthful tool checkpoint. Tool names, risk, and
 state remain visible in one contextual TUI region. A separate bounded
 permission preview exposes either the descriptor projection for a direct handler
 or the concrete effect preview produced by a mutation plan. Patch previews show
-the canonical target and human-readable removed and inserted rows when they fit;
-removed rows use `diffRemoved` and inserted rows use `diffAdded`, including
+the canonical target and human-readable changed rows when they fit. The CLI
+removes only exact complete common prefix and non-overlapping suffix rows inside
+one hunk before budgeting; separator differences and partial rows remain, while
+the complete untrimmed hunk stays bound to permission and commit. Removed rows
+use `diffRemoved` and inserted rows use `diffAdded`, including
 wrapped continuations, while their exact prefixes remain visible;
 larger content uses bounded prefix/suffix excerpts and an explicit omitted-code-unit
-count. Observed identity, SHA-256 digests, and complete replacement content remain
+count. Observed identity, SHA-256 digests, complete hunks, and replacement
+content remain
 bound inside the effect plan and native commit rather than becoming UI metadata.
 Call identifiers, tool outputs, causes, and
 unbounded content never appear.

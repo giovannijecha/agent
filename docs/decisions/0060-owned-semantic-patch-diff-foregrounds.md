@@ -3,6 +3,10 @@
 - Status: accepted
 - Date: 2026-08-16
 - Amends: decisions 0028, 0031, 0033, 0034, 0053, 0056, and 0057
+- Preview row set amended by: decision 0062
+
+Decision 0062 narrows the displayed row set to changed logical rows after exact
+per-hunk context compaction. Direction classification and tones remain unchanged.
 
 ## Context
 

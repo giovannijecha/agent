@@ -287,8 +287,10 @@ useful safe subject on the left and the written state on the right. Canonical
 tool name and risk validate the closed projection but do not repeat in the
 visible head. The surface has one horizontal padding cell and no vertical
 padding. Non-permission states occupy exactly that line. Pending patch permission
-may append the exact bounded human-readable `- ` and `+ ` diff rows, followed by
-the separate transparent contextual decision list. In a short viewport, display
+may append the exact bounded human-readable changed `- ` and `+ ` diff rows,
+with exact complete context shared by both sides of one hunk omitted from
+display, followed by the separate transparent contextual decision list. In a
+short viewport, display
 action, written state, and decision actions survive before subject or preview
 detail. Queued, running,
 cancelling, and terminal
@@ -384,6 +386,8 @@ rail-free accented user prose and the generic selected-row focus shared by
 completion and permission lists.
 Decision [0060](../decisions/0060-owned-semantic-patch-diff-foregrounds.md)
 governs the closed non-bold direction tones for validated patch preview rows.
+Decision [0062](../decisions/0062-owned-changed-only-patch-preview.md) governs
+exact per-hunk context compaction without changing the authorized patch.
 Decision [0056](../decisions/0056-owned-compact-tool-activity-line.md) governs
 the exact display labels, status marks, one-line hierarchy, responsive retention,
 preview expansion, tests, rollback, and removal.
@@ -445,6 +449,7 @@ preview expansion, tests, rollback, and removal.
 - Conversation density: `docs/decisions/0043-owned-conversation-density.md`
 - Accented conversation focus: `docs/decisions/0059-owned-accented-conversation-focus.md`
 - Semantic patch diff foregrounds: `docs/decisions/0060-owned-semantic-patch-diff-foregrounds.md`
+- Changed-only patch preview: `docs/decisions/0062-owned-changed-only-patch-preview.md`
 - Latin prose cell width: `docs/decisions/0044-owned-latin-prose-cell-width.md`
 - Owned terminal interaction: `docs/decisions/0045-owned-terminal-interaction.md`
 - Multiline composer, paste, and word editing: `docs/decisions/0035-owned-multiline-composer-and-paste.md`

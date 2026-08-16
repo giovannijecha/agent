@@ -78,6 +78,8 @@ every other activity state stays on one compact line with a status mark, readabl
 action, optional useful subject, and right-aligned written state. Patch permission
 shows the path and bounded human-readable removed rows in restrained red and
 inserted rows in restrained green instead of internal digests or tuple metadata.
+Exact complete context rows retained on both sides of one hunk are omitted from
+display, while the untrimmed patch remains bound to authorization and commit.
 Opaque structured rows are repainted from their
 semantic surface before content. The footer keeps workspace and provider
 facts quiet while a soft active-work pulse aligns with the composer frame's
@@ -141,7 +143,9 @@ terminal-native selection path, while Ctrl+C remains the agent interrupt.
   commits the approved state through one owned handle-relative Windows/Linux
   broker. Invalid path projections or aggregate hunk batches fail complete
   preflight before observation; ambiguous anchors, overlap, reordering, no-op
-  hunks, or changed identity, absence, path, or content fail as conflicts.
+  hunks, or changed identity, absence, path, or content fail as conflicts. Its
+  preview shows changed logical rows only; exact complete shared context remains
+  bound to the effect but does not repeat as a removal and insertion.
 - `manage_path` creates one directory, moves one file or directory to an absent
   destination, or removes one file or empty directory. Every effect has one
   exact authorization and one owned namespace-committer invocation; every

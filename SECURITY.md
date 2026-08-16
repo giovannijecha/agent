@@ -74,7 +74,9 @@ UTF-8 complete content, and observed/result SHA-256 digests. Existing-file
 anchors must each be unique, strictly ordered, non-overlapping, and effective;
 creation has one empty anchor whose replacement is the complete new file.
 The permission UI projects only the canonical path and bounded human-readable
-removed and inserted rows; digests, identities, counters, and tuple metadata
+changed rows. It removes only exact complete logical context shared by both
+sides of one hunk; partial rows, separator differences, and the complete
+untrimmed effect remain intact. Digests, identities, counters, and tuple metadata
 remain inside the immutable plan.
 Invocation rejects stale path, identity, absence, or content state before
 mutation. Decision 0046 routes the authorized immutable effect through one owned

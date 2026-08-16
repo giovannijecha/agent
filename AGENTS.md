@@ -118,7 +118,11 @@ agent.”
   or height is constrained, the display action, written state, and decision
   actions survive before subject or preview detail. Exact bounded
   `apply_patch` previews expose the canonical path and bounded `- ` and `+ ` diff
-  rows while internal digests and tuple metadata remain private plan state. The
+  rows while internal digests and tuple metadata remain private plan state.
+  Before display budgeting, remove only exact complete logical rows shared by
+  the beginning or non-overlapping end of both sides of one hunk; original line
+  separators participate in comparison, partial rows never collapse, and the
+  complete untrimmed hunk remains the authorization and commit authority. The
   complete `- ` rows use the closed non-bold `diffRemoved` red foreground and
   complete `+ ` rows use the closed non-bold `diffAdded` green foreground;
   wrapped continuations retain their owning row's direction tone, while prefixes
@@ -283,6 +287,10 @@ agent.”
   canonical relative path and exact bounded human-readable `- ` and `+ ` patch
   rows, or bounded excerpts with an omitted-code-unit count. Do not expose plan
   digests, object identities, field registries, or tuple encodings in the UI.
+  The display projects changed logical rows only by removing exact complete
+  common prefix and non-overlapping suffix rows within each hunk before
+  budgeting. Never trim partial rows, compare across hunks, or modify the bound
+  untrimmed effect plan.
   Its target path admits at most 447 code units and 896 code units in the exact
   structured string projection; read-tool path limits remain independent. The
   complete ordered batch validates both that path projection and aggregate

@@ -142,6 +142,7 @@
     "docs/decisions/0059-owned-accented-conversation-focus.md",
     "docs/decisions/0060-owned-semantic-patch-diff-foregrounds.md",
     "docs/decisions/0061-owned-convergent-tool-turns.md",
+    "docs/decisions/0062-owned-changed-only-patch-preview.md",
     "evaluations/README.md",
     "evaluations/failures/registry.json",
     "assets/brand/README.md",

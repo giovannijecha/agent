@@ -5,6 +5,7 @@
 - Permission amended by: decision 0055
 - Approval presentation amended by: decision 0057
 - Diff foregrounds amended by: decision 0060
+- Changed-only preview amended by: decision 0062
 
 Decision 0055 allows an exact planned patch through either current-session
 `Allow` or a contextual `Ask` decision. Planning, preview binding, stale-state
@@ -13,6 +14,9 @@ Decision 0057 replaces the technical binding dump with a bounded human-readable
 diff while keeping the same immutable plan, stale-state checks, and native commit.
 Decision 0060 gives complete removed and inserted display rows separate closed
 red and green foreground roles without changing preview text or authority.
+Decision 0062 removes only exact complete logical rows retained on both sides of
+one hunk before display budgeting; the complete untrimmed plan remains the
+authorization and commit authority.
 
 ## Context
 
@@ -86,14 +90,20 @@ Unicode scalar text fail schema validation or strict source decoding.
 Approval shows one bounded concrete human-readable patch preview. Its first row
 contains the canonical path; every retained remove or insert logical row begins
 with `- ` or `+ `. Backslashes, tabs, and non-line control or format scalars are
-escaped. Complete changed logical text is shown when it fits; CRLF, lone CR, and
-LF become structural display rows while the plan retains exact line endings.
+escaped. Before budgeting, the formatter removes only the longest exact common
+prefix and non-overlapping suffix of complete logical rows within each hunk.
+Comparison retains original CRLF, lone CR, or LF separators, so differing line
+endings remain a visible replacement. Partial rows and cross-hunk context are
+never collapsed. Complete changed logical text is shown when it fits; line
+separators become structural display rows while the plan retains exact line
+endings.
 Larger fields use deterministic prefix and suffix excerpts with an exact
-per-field omitted-code-unit count. If
+per-changed-field omitted-code-unit count. If
 verbose omission rows do not fit, the final compact projection retains every
 non-empty remove and insert field as one bracketed omitted count. It never drops,
 merges, or reorders a hunk to fit the preview bound. Observed state, digests,
-complete content, identity, aggregate counters, field registries, and tuple
+complete untrimmed hunks and content, identity, aggregate counters, field
+registries, and tuple
 encodings remain immutable plan state rather than terminal content. Pending
 permission alone shows changed text; settlement never replays it.
 
@@ -139,7 +149,8 @@ replace regression suite because those are the two internal commit primitives.
 
 ## Update, rollback, and removal
 
-Change the structured hunk grammar, mutation-path or projection reservation,
+Change the structured hunk grammar, changed-only projection, logical-row
+comparison, mutation-path or projection reservation,
 declarative schema limits, defensive patch limits, preview, planner,
 descriptor, manual, security text, or tests together. Recalculate the maximum
 32-hunk compact projection whenever any constituent field changes and prove it

@@ -4,9 +4,12 @@
 - Date: 2026-08-16
 - Amends: decisions 0022, 0027, 0028, 0033, 0043, 0053, and 0056
 - Patch diff foregrounds amended by: decision 0060
+- Patch context compaction amended by: decision 0062
 
 Decision 0060 retains the transparent human-readable patch preview while
 giving removed and inserted rows separate non-bold red and green foregrounds.
+Decision 0062 retains the exact immutable patch while removing only complete
+code-unit-identical context rows from both display sides of one hunk.
 
 ## Context
 
@@ -63,7 +66,16 @@ formatter alone may introduce LF separators; every other control, Unicode line
 separator, and paragraph separator remains invalid at the generic effect-plan,
 runtime-event, and activity-log boundaries.
 
-The complete changed logical text is shown when the 2,048-code-unit patch preview
+Within each validated hunk, remove only the longest exact common prefix and
+non-overlapping exact common suffix of complete logical rows before display.
+Original separators participate in comparison, partial rows never collapse,
+and compaction never crosses a hunk. A pure insertion or deletion may therefore
+show only one direction, while the complete untrimmed hunk remains bound to the
+permission and native commit. Structural separators do not create a false empty
+terminal display row.
+
+The complete compacted changed logical text is shown when the
+2,048-code-unit patch preview
 bound permits. Larger remove and insert fields retain deterministic prefix and
 suffix excerpts with an explicit omitted-code-unit count. The compact fallback
 keeps one omitted count for every non-empty remove and insert field, so every
@@ -83,7 +95,8 @@ snapshot and turn settlement still removes it.
 
 ## Verification
 
-Pure formatter tests cover creation, update, deletion, multiple hunks, line
+Pure formatter tests cover creation, update, deletion, exact common context,
+separator differences, partial-line similarity, multiple hunks, line
 breaks, escaped controls, empty creation, exact bounds, deterministic excerpts,
 maximum hunk/path fallback, and rejection of malformed display projections.
 Tool tests prove that approval no longer exposes digests, tuple fields, or

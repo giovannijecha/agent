@@ -104,12 +104,19 @@ and SHA-256 digests. Unsupported source text, ambiguous anchors, overlap,
 reordering, no-op hunks, and limit failures settle before approval. The approval
 surface is limited to 2,048 code units. Its first row supplies the canonical
 relative path as useful head detail; subsequent `- ` and `+ ` rows show removed
-and inserted logical text. The complete removed row and any wrapped continuation
+and inserted changed logical text. Within each hunk, the formatter removes only
+the longest exact common prefix and non-overlapping suffix of complete logical
+rows before budgeting. Original separators participate in comparison, so a
+line-ending difference remains a replacement; partial rows and cross-hunk text
+never collapse. The complete untrimmed hunk remains bound to authorization,
+stale-state validation, and commit. The complete removed row and any wrapped
+continuation
 use a restrained non-bold red foreground; the complete inserted row and its
 continuations use a restrained non-bold green foreground. The prefixes remain
 visible, so color is not the only direction signal. Backslashes, tabs, and non-line control or format
 scalars are escaped. When complete changed text does not fit, deterministic
-prefix and suffix excerpts retain an explicit omitted-code-unit count. The
+prefix and suffix excerpts retain an explicit omitted-code-unit count over the
+changed projection. The
 compact fallback keeps one bracketed omitted count for each non-empty remove or
 insert field, so every ordered hunk remains represented; the number is the exact
 omitted code-unit count. Internal state digests, object identity, complete
@@ -324,7 +331,7 @@ decision 0036 to change in the same review. Remove `run_process` advertisement
 before its handler or adapter, then remove the native product build only when
 no remaining proof or platform work consumes it. Tool-specific presenters are
 forbidden; activity changes go through the one log and one presentation
-function defined by decisions 0022, 0033, 0056, 0057, and 0060.
+function defined by decisions 0022, 0033, 0056, 0057, 0060, and 0062.
 
 ## Evidence
 
@@ -338,6 +345,7 @@ function defined by decisions 0022, 0033, 0056, 0057, and 0060.
 - Compact activity decision: `docs/decisions/0056-owned-compact-tool-activity-line.md`
 - Transparent human activity decision: `docs/decisions/0057-owned-transparent-human-tool-activity.md`
 - Semantic patch diff foreground decision: `docs/decisions/0060-owned-semantic-patch-diff-foregrounds.md`
+- Changed-only patch preview decision: `docs/decisions/0062-owned-changed-only-patch-preview.md`
 - Built-in filesystem adapters: `packages/agent-cli/src/builtin-tools.ts`
 - Shared built-in limits: `packages/agent-cli/src/builtin-tool-limits.ts`
 - Pure file line projection: `packages/agent-cli/src/workspace-file-read.ts`
