@@ -318,6 +318,9 @@ application-selected origin, keep each API key in its independent memory slot,
 and expose only bytes and response metadata to the corresponding Node-free
 provider package. Public catalog GETs carry no credential. Their bounded strict
 IDs are intersected with the matching owned allowlist before adapter creation.
+Each catalog operation owns one monotonic absolute deadline in addition to its
+socket inactivity timeout; traffic cannot extend that deadline, settlement
+cancels it, and late transport or timer events are inert.
 Decision 0036 admits one model-facing execute capability, `run_process`, through
 the CLI-owned C17 broker proven by decisions 0015 and 0016. The structured tool
 accepts one registered program token, literal arguments, and a rooted working

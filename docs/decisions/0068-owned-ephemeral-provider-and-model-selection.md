@@ -64,6 +64,11 @@ provider catalog:
 
 The catalog request sends no provider credential, follows no operator-selected
 origin or path, admits no redirect, and retains no response after the process.
+One CLI-owned monotonic wall-clock deadline is armed exactly once before the
+request opens and is cancelled on every settlement. It is independent of the
+Node socket inactivity timeout: response traffic cannot extend the wall-clock
+deadline. Expiry or inability to arm the deadline fails closed, destroys the
+active request and response, and late transport or timer events are inert.
 The decoder accepts only the bounded OpenAI-style model-list envelope, exact
 bounded identifiers, a bounded number of unique rows, and an exact JSON media
 type. Connection, timeout, status, media-type, size, and shape failures become
@@ -130,7 +135,9 @@ identifier and reject unknown identifiers before transport use.
 Catalog decoder and Node HTTPS contract tests cover both fixed paths, absent
 authorization, no redirect behavior, bounded headers and bodies, exact media
 type and shape, duplicate and unknown rows, timeouts, cleanup, and content-free
-failures. CLI tests cover prompt-free launch, `/providers`, explicit
+failures. Deterministic clock tests prove the independent wall-clock deadline,
+successful cancellation, failed scheduling, and inert late callbacks while a
+peer continues to provide response data. CLI tests cover prompt-free launch, `/providers`, explicit
 concealed-entry guidance, secret-free frames, Ctrl+C cancellation, `/models`,
 contextual selection, footer settlement,
 unready turn rejection, and secret absence. No canonical test contacts

@@ -52,6 +52,10 @@ OpenAI-style JSON list and fails closed on unknown shape, duplicate or hostile
 IDs, invalid UTF-8, status, content type, timeout, or size. A remote ID alone
 cannot become executable authority: it must also exist in the matching owned
 allowlist registered in `tools/provider-policy.json`.
+The request has both a socket inactivity timeout and an independent absolute
+deadline. Continued response traffic cannot keep `/models` pending beyond that
+deadline, and settlement discards the timer with the rest of the process-only
+catalog state.
 
 Selected Go model requests go only to
 `https://opencode.ai/zen/go/v1/chat/completions`; selected Zen model requests go

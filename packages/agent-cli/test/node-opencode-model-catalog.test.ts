@@ -14,6 +14,10 @@ import {
   OPENCODE_MODEL_CATALOG_LIMITS,
   OPENCODE_ZEN_MODELS_PATH,
 } from "../dist/node-opencode-model-catalog.js";
+import type {
+  ScheduledTimer,
+  TimerClock,
+} from "../dist/timer-clock.js";
 
 type Listener = (() => void) | ((value: unknown) => void);
 
@@ -131,6 +135,35 @@ class FakeClient implements HttpsClient {
   }
 }
 
+class ManualRegistration implements ScheduledTimer {
+  cancelled = false;
+  readonly listener: () => void;
+
+  constructor(listener: () => void) {
+    this.listener = listener;
+  }
+
+  cancel(): void {
+    this.cancelled = true;
+  }
+
+  fire(): void {
+    this.listener();
+  }
+}
+
+class ManualClock implements TimerClock {
+  readonly delays: number[] = [];
+  readonly registrations: ManualRegistration[] = [];
+
+  schedule(delayMilliseconds: number, listener: () => void): ScheduledTimer {
+    this.delays.push(delayMilliseconds);
+    const registration = new ManualRegistration(listener);
+    this.registrations.push(registration);
+    return registration;
+  }
+}
+
 function ascii(value: string): Uint8Array {
   return Uint8Array.from([...value].map((character) => character.charCodeAt(0)));
 }
@@ -138,8 +171,9 @@ function ascii(value: string): Uint8Array {
 async function complete(
   provider: "opencodeGo" | "opencodeZen",
   client: FakeClient,
+  clock: TimerClock = new ManualClock(),
 ) {
-  const pending = new NodeOpenCodeModelCatalog(client).list(provider);
+  const pending = new NodeOpenCodeModelCatalog(client, clock).list(provider);
   client.response.emit("data", ascii(JSON.stringify({
     data: [{ id: "deepseek-v4-flash-free", object: "model" }],
     object: "list",
@@ -169,6 +203,79 @@ test("uses exact public Go and Zen catalog requests without authorization", asyn
     assert.equal(client.requestValue?.timeoutMilliseconds, 30_000);
     assert.equal(client.response.resumes, 1);
   }
+});
+
+test("enforces one absolute deadline despite continuing response data", async () => {
+  const response = new FakeResponse();
+  const client = new FakeClient(response);
+  const clock = new ManualClock();
+  const pending = new NodeOpenCodeModelCatalog(client, clock).list("opencodeGo");
+
+  assert.deepEqual(clock.delays, [
+    OPENCODE_MODEL_CATALOG_LIMITS.deadlineMilliseconds,
+  ]);
+  response.emit("data", ascii('{"data":['));
+  response.emit("data", ascii('{"id":"deepseek-v4-flash-free"}'));
+  clock.registrations.at(0)?.fire();
+
+  assert.deepEqual(await pending, { error: { kind: "timeout" }, ok: false });
+  assert.equal(client.requestValue?.destroyed, 1);
+  assert.equal(response.destroyed, 1);
+
+  response.emit("data", ascii("]}"));
+  response.emit("end");
+  clock.registrations.at(0)?.fire();
+  assert.equal(client.requestValue?.destroyed, 1);
+  assert.equal(response.destroyed, 1);
+});
+
+test("cancels the absolute deadline on success and rejects its late callback", async () => {
+  const response = new FakeResponse();
+  const client = new FakeClient(response);
+  const clock = new ManualClock();
+
+  const result = await complete("opencodeZen", client, clock);
+  assert.ok(result.ok);
+  assert.equal(clock.registrations.at(0)?.cancelled, true);
+
+  clock.registrations.at(0)?.fire();
+  assert.equal(client.requestValue?.destroyed, 0);
+  assert.equal(response.destroyed, 0);
+});
+
+test("fails closed before transport when the absolute deadline cannot arm", async () => {
+  const client = new FakeClient(new FakeResponse());
+  const clock: TimerClock = Object.freeze({
+    schedule(): ScheduledTimer {
+      throw new Error("clock unavailable");
+    },
+  });
+
+  const result = await new NodeOpenCodeModelCatalog(client, clock).list(
+    "opencodeGo",
+  );
+
+  assert.deepEqual(result, { error: { kind: "timeout" }, ok: false });
+  assert.equal(client.options, undefined);
+});
+
+test("contains a synchronously fired absolute deadline before transport", async () => {
+  const client = new FakeClient(new FakeResponse());
+  const registration = new ManualRegistration(() => undefined);
+  const clock: TimerClock = Object.freeze({
+    schedule(_delayMilliseconds: number, listener: () => void): ScheduledTimer {
+      listener();
+      return registration;
+    },
+  });
+
+  const result = await new NodeOpenCodeModelCatalog(client, clock).list(
+    "opencodeZen",
+  );
+
+  assert.deepEqual(result, { error: { kind: "timeout" }, ok: false });
+  assert.equal(registration.cancelled, true);
+  assert.equal(client.options, undefined);
 });
 
 test("fails closed on status, content type, and oversized response chunks", async () => {
