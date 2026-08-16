@@ -18,8 +18,11 @@ import {
   type ProviderModelCatalogError,
   type ProviderModelCatalogErrorKind,
 } from "./provider-model-catalog.js";
+import { NodeTimerClock } from "./node-timer-clock.js";
+import type { ScheduledTimer, TimerClock } from "./timer-clock.js";
 
 export const OPENCODE_MODEL_CATALOG_LIMITS = Object.freeze({
+  deadlineMilliseconds: 30_000,
   headerBytes: 16_384,
   inactivityMilliseconds: 30_000,
   responseChunkBytes: 65_536,
@@ -87,9 +90,14 @@ function exactOptions(provider: ProviderId): RequestOptions {
 
 /** Fixed-origin public OpenCode model catalog with bounded response capture. */
 export class NodeOpenCodeModelCatalog implements ProviderModelCatalog {
+  readonly #clock: TimerClock;
   readonly #requestHttps: RequestHttps;
 
-  constructor(client: HttpsClient = NODE_HTTPS_CLIENT) {
+  constructor(
+    client: HttpsClient = NODE_HTTPS_CLIENT,
+    clock: TimerClock = new NodeTimerClock(),
+  ) {
+    this.#clock = clock;
     this.#requestHttps = client.request.bind(client) as RequestHttps;
   }
 
@@ -102,9 +110,19 @@ export class NodeOpenCodeModelCatalog implements ProviderModelCatalog {
     let settled = false;
     let activeRequest: HttpsRequest | undefined;
     let activeResponse: HttpsResponse | undefined;
+    let deadline: ScheduledTimer | undefined;
     const chunks: Uint8Array[] = [];
     let bytes = 0;
     return new Promise((resolve) => {
+      const cancelDeadline = (): void => {
+        const scheduled = deadline;
+        deadline = undefined;
+        try {
+          scheduled?.cancel();
+        } catch (_cause: unknown) {
+          // Clearing ownership first makes a failed cancellation callback inert.
+        }
+      };
       const settle = (
         result: Result<readonly string[], ProviderModelCatalogError>,
       ): void => {
@@ -119,6 +137,7 @@ export class NodeOpenCodeModelCatalog implements ProviderModelCatalog {
           activeResponse.off("error", onResponseError);
         }
         activeRequest?.off("error", onRequestError);
+        cancelDeadline();
         resolve(result);
       };
       const destroy = (): void => {
@@ -134,6 +153,9 @@ export class NodeOpenCodeModelCatalog implements ProviderModelCatalog {
         }
       };
       const fail = (kind: ProviderModelCatalogErrorKind): void => {
+        if (settled) {
+          return;
+        }
         settle(err(failure(kind)));
         destroy();
       };
@@ -162,6 +184,39 @@ export class NodeOpenCodeModelCatalog implements ProviderModelCatalog {
         }
         settle(decodeProviderModelCatalog(body));
       };
+
+      let scheduled: ScheduledTimer | undefined;
+      let firedSynchronously = false;
+      try {
+        scheduled = this.#clock.schedule(
+          OPENCODE_MODEL_CATALOG_LIMITS.deadlineMilliseconds,
+          () => {
+            if (deadline === undefined) {
+              firedSynchronously = true;
+              return;
+            }
+            if (settled || deadline !== scheduled) {
+              return;
+            }
+            deadline = undefined;
+            fail("timeout");
+          },
+        );
+      } catch (_cause: unknown) {
+        fail("timeout");
+        return;
+      }
+      if (firedSynchronously) {
+        try {
+          scheduled.cancel();
+        } catch (_cause: unknown) {
+          // A synchronously fired registration retains no deadline authority.
+        }
+        fail("timeout");
+        return;
+      }
+      deadline = scheduled;
+
       try {
         activeRequest = this.#requestHttps(exactOptions(provider), (response) => {
           if (settled) {

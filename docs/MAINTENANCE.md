@@ -523,13 +523,19 @@ Do not move process or socket access
 into the provider package and do not leak provider vocabulary into runtime,
 tools, core, or TUI.
 
+Catalog transport retains two distinct bounds: Node's socket inactivity timeout
+and one CLI-owned monotonic absolute deadline armed once per request. Maintain
+deterministic tests proving that periodic response traffic cannot extend the
+absolute deadline, every settlement cancels retained timer work, failed timer
+registration fails closed, and late callbacks cannot change the result.
+
 An endpoint, catalog, model allowlist, cost class, header, privacy, limit,
 request-selection, instruction, or
 wire change requires current official evidence, updates to decisions 0017,
 0061, 0067, and 0068 as applicable, exact provider-policy changes, provider and CLI
 contract tests, manual/privacy/security updates, and the full offline release
 gate. Public catalog discovery remains fixed-origin, credential-free, bounded,
-and intersected with the owned allowlist. Never add redirects, aliases, retries,
+absolutely time-bounded, and intersected with the owned allowlist. Never add redirects, aliases, retries,
 fallbacks, arbitrary base URLs, or persistent key storage as a compatibility
 shortcut.
 
