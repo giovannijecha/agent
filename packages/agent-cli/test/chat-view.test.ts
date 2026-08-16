@@ -34,7 +34,7 @@ function isComposerRule(row: RichRow | undefined): boolean {
   );
 }
 
-function isUserRail(row: RichRow | undefined): boolean {
+function hasSideRail(row: RichRow | undefined): boolean {
   return (
     row !== undefined &&
     row.spans.some(
@@ -295,7 +295,7 @@ test("keeps a valid caret as the only one-cell priority", () => {
   assert.deepEqual(rendered.value.caret, { row: 0, column: 0 });
 });
 
-test("uses one transparent railed italic user region and one unboxed assistant turn", () => {
+test("uses one transparent accented italic user region and one unboxed assistant turn", () => {
   const application = new ApplicationController(true);
   assert.ok(application.turnAccepted(started(1, "question")).ok);
   assert.ok(
@@ -315,21 +315,17 @@ test("uses one transparent railed italic user region and one unboxed assistant t
   const userIndex = user === undefined ? -1 : rows.indexOf(user);
   const userColumn = user?.text.indexOf("question") ?? -1;
   const assistantColumn = assistant?.text.indexOf("answer") ?? -1;
-  const railColumn = user?.text.indexOf("\u258c") ?? -1;
   assert.equal(userColumn, assistantColumn);
   assert.equal(userColumn, rendered.value.caret?.column);
-  assert.equal(
-    userColumn - railColumn,
-    CONVERSATION_DENSITY.contentInsetCells,
-  );
+  assert.equal(userColumn >= CONVERSATION_DENSITY.contentInsetCells, true);
   assert.equal(user?.text.trimEnd().endsWith("question"), true);
-  assert.equal(isUserRail(user), true);
+  assert.equal(hasSideRail(user), false);
   assert.equal(
     userContent?.every((span) => span.slant === "italic"),
     true,
   );
   assert.equal(
-    userContent?.every((span) => span.tone === "highContrast"),
+    userContent?.every((span) => span.tone === "accent"),
     true,
   );
   assert.equal(
@@ -337,9 +333,9 @@ test("uses one transparent railed italic user region and one unboxed assistant t
     true,
   );
   assert.equal(user?.text.includes("\u203a"), false);
-  assert.equal(rows.filter((row) => isUserRail(row)).length, 1);
-  assert.equal(isUserRail(rows[userIndex - 1]), false);
-  assert.equal(isUserRail(rows[userIndex + 1]), false);
+  assert.equal(rows.some((row) => hasSideRail(row)), false);
+  assert.equal(hasSideRail(rows[userIndex - 1]), false);
+  assert.equal(hasSideRail(rows[userIndex + 1]), false);
   assert.equal(assistant?.text.trim(), "answer");
   assert.equal(
     assistant?.spans.find((span) => span.text.includes("answer"))?.tone,
@@ -370,12 +366,13 @@ test("paints copied Latin prose completely in user and composer regions", () => 
     contentRows.every((row) => row.text.length === row.cellWidth),
     true,
   );
-  assert.equal(
-    contentRows.filter((row) => isUserRail(row)).length,
-    1,
+  assert.equal(contentRows.some((row) => hasSideRail(row)), false);
+  const user = contentRows.find((row) =>
+    row.spans.some(
+      (span) => span.text.includes(content) && span.slant === "italic",
+    )
   );
-  const user = contentRows.find((row) => isUserRail(row));
-  const composerRow = contentRows.find((row) => !isUserRail(row));
+  const composerRow = contentRows.find((row) => row !== user);
   assert.ok(user !== undefined);
   assert.ok(composerRow !== undefined);
   assert.equal(
@@ -387,7 +384,7 @@ test("paints copied Latin prose completely in user and composer regions", () => 
   assert.equal(
     user.spans
       .filter((span) => span.text.includes(content))
-      .every((span) => span.tone === "highContrast"),
+      .every((span) => span.tone === "accent"),
     true,
   );
   assert.equal(user.spans.every((span) => span.surface === "none"), true);
@@ -403,7 +400,7 @@ test("paints copied Latin prose completely in user and composer regions", () => 
   );
 });
 
-test("frames multiline user turns with one exact rail per content row", () => {
+test("frames multiline user turns without rails and with accented prose", () => {
   const application = new ApplicationController(true);
   assert.ok(application.turnAccepted(started(4, "first line\nsecond line")).ok);
 
@@ -414,9 +411,9 @@ test("frames multiline user turns with one exact rail per content row", () => {
   const second = rows.findIndex((row) => row.text.includes("second line"));
   assert.ok(first >= 0);
   assert.equal(second, first + 1);
-  assert.equal(isUserRail(rows[first]), true);
-  assert.equal(isUserRail(rows[second]), true);
-  assert.equal(rows.filter((row) => isUserRail(row)).length, 2);
+  assert.equal(hasSideRail(rows[first]), false);
+  assert.equal(hasSideRail(rows[second]), false);
+  assert.equal(rows.some((row) => hasSideRail(row)), false);
   assert.equal(
     rows[first]?.spans
       .filter((span) => span.text.includes("first line"))
@@ -426,7 +423,7 @@ test("frames multiline user turns with one exact rail per content row", () => {
   assert.equal(
     rows[first]?.spans
       .filter((span) => span.text.includes("first line"))
-      .every((span) => span.tone === "highContrast"),
+      .every((span) => span.tone === "accent"),
     true,
   );
   assert.equal(
@@ -438,11 +435,37 @@ test("frames multiline user turns with one exact rail per content row", () => {
   assert.equal(
     rows[second]?.spans
       .filter((span) => span.text.includes("second line"))
-      .every((span) => span.tone === "highContrast"),
+      .every((span) => span.tone === "accent"),
     true,
   );
-  assert.equal(isUserRail(rows[first - 1]), false);
-  assert.equal(isUserRail(rows[second + 1]), false);
+  assert.equal(hasSideRail(rows[first - 1]), false);
+  assert.equal(hasSideRail(rows[second + 1]), false);
+});
+
+test("keeps registered Markdown tones authoritative inside accented user prose", () => {
+  const application = new ApplicationController(true);
+  assert.ok(
+    application.turnAccepted(
+      started(41, "ordinary **strong** and `literal`"),
+    ).ok,
+  );
+
+  const rendered = frame(application, 48, 14);
+  assert.ok(rendered.ok);
+  const row = rendered.value.rows.find((candidate) =>
+    candidate.text.includes("ordinary strong and literal")
+  );
+  assert.ok(row !== undefined);
+  assert.equal(hasSideRail(row), false);
+  assert.equal(row.spans.find((span) => span.text.includes("ordinary"))?.tone, "accent");
+  assert.equal(row.spans.find((span) => span.text === "strong")?.tone, "emphasis");
+  assert.equal(row.spans.find((span) => span.text.includes("literal"))?.tone, "accent");
+  assert.equal(
+    row.spans
+      .filter((span) => span.text.trim().length > 0)
+      .every((span) => span.slant === "italic"),
+    true,
+  );
 });
 
 test("applies compact transparent activity and external rhythm at wide and medium sizes", () => {
@@ -461,9 +484,6 @@ test("applies compact transparent activity and external rhythm at wide and mediu
     const rendered = frame(application, columns, rowCount);
     assert.ok(rendered.ok);
     const rows = rendered.value.rows;
-    const userRailIndexes = rows
-      .map((row, index) => (isUserRail(row) ? index : -1))
-      .filter((index) => index >= 0);
     const activityIndexes = rows
       .map((row, index) =>
         isActivityRow(row, "Read", "queued") ? index : -1,
@@ -474,12 +494,11 @@ test("applies compact transparent activity and external rhythm at wide and mediu
     const firstActivity = activityIndexes.at(0);
     const lastActivity = activityIndexes.at(-1);
 
-    assert.equal(userRailIndexes.length, 1);
+    assert.equal(rows.some((row) => hasSideRail(row)), false);
     assert.equal(activityIndexes.length, 1);
     assert.ok(userIndex >= 0);
     assert.ok(firstActivity !== undefined);
     assert.ok(lastActivity !== undefined);
-    assert.deepEqual(userRailIndexes, [userIndex]);
     assert.equal(isComposerRule(rows.at(composerTop)), true);
     assert.equal(isComposerRule(rows.at(composerTop + 2)), true);
     assert.equal(
@@ -832,13 +851,19 @@ test("renders a pending permission through the shared activity and contextual se
     rendered.value.rows
       .flatMap((row) => row.spans)
       .find((span) => span.text.includes("Allow once"))?.tone,
-    "emphasis",
+    "accent",
   );
   assert.equal(
     rendered.value.rows
       .flatMap((row) => row.spans)
       .find((span) => span.text.includes("- old"))?.tone,
-    "plain",
+    "diffRemoved",
+  );
+  assert.equal(
+    rendered.value.rows
+      .flatMap((row) => row.spans)
+      .find((span) => span.text.includes("+ new"))?.tone,
+    "diffAdded",
   );
 });
 
@@ -872,6 +897,29 @@ test("retains the compact action, state, and selected permission before preview"
     activityRows.at(0)?.spans.every((span) => span.surface === "none"),
     true,
   );
+});
+
+test("keeps non-patch permission previews neutral", () => {
+  const application = new ApplicationController(true);
+  assert.ok(application.turnAccepted(started(42, "create docs")).ok);
+  requestTool(application, {
+    approval: true,
+    callId: "private-manage",
+    name: "manage_path",
+    preview: "Operation: create_directory\nPath: docs",
+    risk: "write",
+    turnId: 42,
+  });
+
+  const rendered = frame(application, 48, 18);
+  assert.ok(rendered.ok);
+  for (const text of ["Operation: create_directory", "Path: docs"]) {
+    const span = rendered.value.rows
+      .flatMap((row) => row.spans)
+      .find((candidate) => candidate.text.includes(text));
+    assert.equal(span?.tone, "plain");
+    assert.equal(span?.surface, "none");
+  }
 });
 
 test("wraps exact effect previews while retaining the contextual decision", () => {
@@ -915,6 +963,24 @@ test("wraps exact effect previews while retaining the contextual decision", () =
   assert.equal(activityText.includes("alpha beta gamma"), true);
   assert.equal(activityText.includes("+ replacement"), true);
   assert.equal(activityText.includes("Allow once"), false);
+  const insertedIndex = activityRows.findIndex((row) =>
+    row.text.includes("+ replacement")
+  );
+  assert.equal(insertedIndex > 1, true);
+  assert.equal(
+    activityRows.slice(1, insertedIndex).every((row) =>
+      row.spans
+        .filter((span) => span.text.trim().length > 0)
+        .every((span) => span.tone === "diffRemoved")
+    ),
+    true,
+  );
+  assert.equal(
+    activityRows.at(insertedIndex)?.spans
+      .filter((span) => span.text.trim().length > 0)
+      .every((span) => span.tone === "diffAdded"),
+    true,
+  );
   assert.equal(
     activityRows.every((row) =>
       row.spans.every((span) => span.surface === "none")
@@ -1134,11 +1200,11 @@ test("renders the transient six-tool session permission editor without a box", (
   const selected = rows.find((row) => row.text.includes("apply_patch"));
   assert.equal(
     selected?.spans.find((span) => span.text.includes("apply_patch"))?.tone,
-    "emphasis",
+    "accent",
   );
   assert.equal(
     selected?.spans.find((span) => span.text.includes("Allow"))?.tone,
-    "emphasis",
+    "accent",
   );
   assert.equal(
     rows
@@ -1194,8 +1260,15 @@ test("moves slash selection, hides exact completion, and coexists with activity"
     true,
   );
   assert.equal(
-    permissions?.spans.find((span) => span.text === "/permissions")?.tone,
-    "emphasis",
+    permissions?.spans
+      .filter((span) => span.text.trim().length > 0)
+      .every((span) => span.tone === "accent"),
+    true,
+  );
+  const providers = rows.find((row) => row.text.includes("/providers"));
+  assert.equal(
+    providers?.spans.find((span) => span.text.includes("/providers"))?.tone,
+    "plain",
   );
   const lastCompletionIndex = rows.findIndex((row) =>
     row.text.includes("/exit"),

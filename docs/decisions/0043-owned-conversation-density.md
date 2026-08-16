@@ -8,10 +8,14 @@
 - Shared content alignment amended: 2026-08-15
 - Activity line amended by: decision 0056
 - Activity surface amended by: decision 0057
+- User identity amended by: decision 0059
 
 Decision 0057 retains the one-cell horizontal and zero-row vertical activity
 padding below while making the surface transparent and moving lifecycle truth
 to the status mark and written-state foreground.
+Decision 0059 removes the user rail while retaining the exact shared content
+column and changes user base prose from `highContrast` to `accent`. Its current
+presentation and regressions supersede the historical rail clauses below.
 
 ## Context
 

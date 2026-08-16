@@ -6,6 +6,7 @@
 - Density amended by: decision 0043
 - Composer frame amended by: decision 0043
 - User-turn surface amended by: decision 0043
+- User identity and list focus amended by: decision 0059
 
 Decision 0043 removes internal vertical padding from activity surfaces while
 retaining the one-row external rhythm. It replaces the then-current padded
@@ -13,6 +14,9 @@ subtle user surface with a transparent generic `Surface` plus an exact-height
 muted `SideRail`, and replaces the composer's subtle padded surface with a
 transparent generic frame whose full-width light-blue accent rules occupy one
 row above and below the input when space permits.
+Decision 0059 removes that user rail while retaining the shared content inset,
+changes user base prose to the existing accent foreground, and gives the generic
+selection list the same foreground for its exact selected row.
 
 ## Context
 

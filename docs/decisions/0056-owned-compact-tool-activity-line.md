@@ -2,11 +2,13 @@
 
 - Status: accepted
 - Date: 2026-08-15
-- Presentation amended by: decision 0057
+- Presentation amended by: decisions 0057 and 0060
 
 Decision 0057 keeps the action table, status marks, split priority, and latest-only
 lifecycle below while making the surface transparent, removing repeated canonical
 name and risk from the visible head, and admitting one optional useful safe subject.
+Decision 0060 retains the compact hierarchy while giving validated removed and
+inserted patch rows separate non-bold direction foregrounds.
 
 ## Context
 

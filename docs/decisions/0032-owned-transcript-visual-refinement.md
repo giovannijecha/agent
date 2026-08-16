@@ -4,11 +4,15 @@
 - Date: 2026-08-11
 - Surface, footer, and palette refined by: decision 0040 and the 2026-08-13
   update to decision 0031
+- Accent semantics amended by: decision 0059
 
 The exact separator and compact-fence padding below remain current. Decision
 0040 later makes structured regions transparent and removes the history footer
 label, while decision 0031 now owns the fixed RGB palette. The original inset,
 history-label, and indexed-SGR descriptions remain historical baselines.
+Decision 0059 retains the same restrained steel-blue mapping and admits it for
+user base prose and generic selected-row focus in addition to references and
+fence labels.
 
 ## Context
 

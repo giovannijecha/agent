@@ -9,7 +9,7 @@ import {
 import { Fragment, type FragmentCaret } from "./fragment.js";
 import { TUI_LIMITS } from "./limits.js";
 import { err, ok, type Result } from "./result.js";
-import { RichRow } from "./rich-row.js";
+import { RichRow, TextSpan } from "./rich-row.js";
 import { Viewport } from "./viewport.js";
 
 function validComponent(value: unknown): value is Component {
@@ -23,6 +23,35 @@ function validComponent(value: unknown): value is Component {
   } catch (_cause: unknown) {
     return false;
   }
+}
+
+function accentRow(
+  row: RichRow,
+  position: number,
+): Result<RichRow, ComponentError> {
+  const spans: TextSpan[] = [];
+  for (let spanIndex = 0; spanIndex < row.spans.length; spanIndex += 1) {
+    const span = row.spans.at(spanIndex);
+    if (span === undefined) {
+      return err(new ComponentError("invalidRow", position));
+    }
+    const accented = TextSpan.create(span.text, "accent", {
+      mark: span.mark,
+      slant: span.slant,
+      surface: span.surface,
+    }, {
+      hyperlink: span.hyperlink,
+      position: span.position,
+    });
+    if (!accented.ok) {
+      return err(new ComponentError("invalidRow", position));
+    }
+    spans.push(accented.value);
+  }
+  const created = RichRow.create(spans);
+  return created.ok
+    ? created
+    : err(new ComponentError("invalidRow", position));
 }
 
 /** Bounded one-row component list whose selected entry remains visible. */
@@ -128,7 +157,15 @@ export class SelectionList implements Component {
       if (row === undefined) {
         return err(new ComponentError("rowMismatch", position));
       }
-      rows.push(row);
+      if (position === this.#selectedIndex) {
+        const accented = accentRow(row, position);
+        if (!accented.ok) {
+          return accented;
+        }
+        rows.push(accented.value);
+      } else {
+        rows.push(row);
+      }
     }
     while (rows.length < viewport.rows) {
       rows.push(RichRow.empty());

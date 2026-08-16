@@ -8,6 +8,7 @@ import type {
 import { projectPatchMutationPreview } from "./workspace-mutation-preview.js";
 
 export type ToolActivityTruth = "attention" | "negative" | "positive";
+export type ToolActivityPreviewKind = "patchDiff" | "plain";
 
 export type ToolActivityPresentationDefinition = Readonly<{
   action: string;
@@ -20,6 +21,7 @@ export type ToolActivityPresentation = Readonly<{
   detail: string;
   marker: "x" | "\u2022";
   preview: string;
+  previewKind: ToolActivityPreviewKind;
   state: ToolActivityState;
   stateLabel: string;
   truth: ToolActivityTruth;
@@ -103,6 +105,7 @@ export function projectToolActivityPresentation(
   }
   let detail = "";
   let preview = activity.preview;
+  let previewKind: ToolActivityPreviewKind = "plain";
   if (activity.name === "apply_patch" && activity.preview.length > 0) {
     const patch = projectPatchMutationPreview(activity.preview);
     if (patch === undefined) {
@@ -110,6 +113,7 @@ export function projectToolActivityPresentation(
     }
     detail = patch.path;
     preview = patch.diff;
+    previewKind = "patchDiff";
   }
   const truth = truthFor(activity.state);
   return ok(
@@ -118,6 +122,7 @@ export function projectToolActivityPresentation(
       detail,
       marker: truth === "negative" ? "x" as const : "\u2022" as const,
       preview,
+      previewKind,
       state: activity.state,
       stateLabel: activity.state,
       truth,

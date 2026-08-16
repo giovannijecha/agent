@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-08-10
 - Amended by: decisions 0030, 0031, 0033, 0035, 0038, 0039, 0040, 0043, 0045,
-  0055, 0056, and 0057
+  0055, 0056, 0057, 0059, and 0060
 
 Decision 0033 later replaces the unboxed-activity and approval-panel
 distinction with one borderless semantic surface for every activity state.
@@ -24,6 +24,11 @@ exact-height generic muted `SideRail`, and retains the external rhythm. It also
 replaces the composer's subtle surface and vertical padding with a transparent
 generic frame carrying one full-width light-blue accent rule above and below
 the focused input when space permits.
+Decision 0059 removes the user rail while preserving the shared content column,
+uses the existing accent foreground for user base prose, and centralizes the
+same accent on the selected row of every generic `SelectionList`.
+Decision 0060 keeps patch previews transparent but gives validated removed and
+inserted rows separate non-bold red and green direction foregrounds.
 Decision 0045 adds an independent selection mark to conversation and composer
 text without owning the surrounding surface, frame, slant, foreground, or
 spacing grammar.

@@ -141,6 +141,9 @@ unsafe scalars before any TUI component receives the summary. Mutation effect
 preview changes additionally require exact and excerpted `- ` and `+ ` rows,
 omitted counts, control escaping, LF-only structural separation, empty creation,
 mixed CRLF/CR/LF input, strict UTF-8, stale identity, and cancellation regressions.
+Under decision 0060, prove complete and wrapped removed rows use only
+`diffRemoved`, inserted rows use only `diffAdded`, prefixes remain visible,
+non-patch previews remain plain, and every preview surface stays transparent.
 
 To remove one tool, stop advertising its descriptor, then delete its handler,
 focused tests, policy record, manual entry, and unused private helpers. Update
@@ -210,8 +213,8 @@ runtime, and core must stay green.
 Conversation-shell changes require panel, surface, horizontal-rules, text-style, split-line,
 three-column-line, horizontal-inset, side-rail, spacer, footer, composer,
 transcript-role, activity, notice, empty-state, tiny-viewport, semantic-state,
-and manual regressions under decisions 0026, 0027, 0028, 0039, 0040, 0041, and
-0043. Keep the transcript
+and manual regressions under decisions 0026, 0027, 0028, 0039, 0040, 0041,
+0043, and 0059. Keep the transcript
 dominant, omit absent contextual blocks, and render only status facts already
 held by the composition root or application reducer. Preserve the footer's
 left/physical-center/right anchors and right-center-left narrow-width retention.
@@ -220,27 +223,29 @@ pulse, place its final cell on the composer's final frame cell, and render no
 lifecycle or navigation words there. Do not recreate a static
 header or lifecycle notice. Keep the draft and ordinary assistant conversation
 foreground neutral. Compose each user turn from one transparent generic
-`Surface` and the generic `SideRail`: one muted solid half-block rail cell owns
-the shared content inset and spans exactly the visible rows, with zero internal
-horizontal or vertical padding. Its following cell must align with assistant
-prose and composer text, caret, and pointer geometry. Use italic slant and the closed `highContrast` base tone for user prose;
+`Surface` with the shared content inset, zero vertical padding, and no rail,
+marker, border, or background. Its first text cell must align with assistant
+prose and composer text, caret, and pointer geometry. Use italic slant and the
+closed `accent` base tone for user prose;
 registered Markdown roles retain their semantic tones. Keep the composer transparent between its accent rules and
 keep other non-operational regions transparent. Use the transparent content-fit
 surface path for registered structured Markdown. Keep
 complete one- and two-row fences compact with zero horizontal padding, larger
 fences and tables at one cell, and exact `---` on the shared responsive muted
-separator path. Reserve restrained steel blue for parser-recognized inline code
-and language labels and lighter blues for fenced syntax only,
+separator path. Use restrained steel blue only for the roles admitted by
+decision 0059: parser-recognized inline code, language labels, user base prose,
+and the exact current generic-list row. Keep lighter blues for fenced syntax only,
 and reserve green, yellow, and red foregrounds for authoritative tool marks and
 written success, active, and negative state. Complete recognized fences may use only the five closed syntax
 roles; unknown or unlabeled fences remain plain.
 Conversation-density changes go through the one frozen CLI-owned record and
 decision 0043. Keep the shared content inset at one, flush offsets at zero,
 composer top and bottom rule rows at one, and external rhythm at one optional
-row. Keep the user
-`Surface` padding at zero and its generic rail exactly as tall as visible
-content unless all three wide, medium, and short geometry matrices change
-together. On clipping, retain the activity status mark and display action on the
+row. Keep the user `Surface` at the shared one-cell horizontal inset and zero
+vertical padding unless all three wide, medium, and short geometry matrices
+change together. Every `SelectionList` must apply selected-row focus itself;
+CLI consumers supply only resting tones and must not branch on selection for
+presentation. On clipping, retain the activity status mark and display action on the
 left and the written state on the right before optional useful subject or preview
 detail. Keep the exact six display labels in the pure CLI presentation
 table and prove their name/risk alignment with the permission catalog; never use
@@ -249,8 +254,9 @@ line. Pending permission may add the separately wrapped exact bounded human-read
 effect preview before its contextual action list. Keep the preview in the bounded
 activity log so this remains a presentation rule, not a second lifecycle. Do
 not duplicate these values in generic TUI components.
-Changing activity labels, marks, truth foregrounds, transparency, safe subjects,
-or detail order requires decisions 0056 and 0057, the pure projection table, catalog-alignment tests, wide and
+Changing activity labels, marks, truth foregrounds, patch-direction foregrounds,
+transparency, safe subjects, or detail order requires decisions 0056, 0057, and
+0060, the pure projection table, catalog-alignment tests, wide and
 short rendering tests, manual evidence, and privacy review in the same change.
 Removing the compact projection removes its table and decision together and
 restores one reviewed generic presentation; it never creates a transcript or
@@ -467,7 +473,10 @@ form one contract. Preserve exact prefix matching, absence of aliases and
 arguments, bounded non-wrapping selection, contextual Up/Down interception, Tab
 completion without execution, selected-command dispatch through the canonical
 path on Enter, selected-row visibility on short viewports, compact inline
-descriptions, transparent rows, and absence of a passive keyboard hint.
+descriptions, transparent rows, the generic selected-row `accent` foreground,
+resting tones supplied without CLI selection branches, and absence of a passive
+keyboard hint. Changing that focus contract also requires decision 0059 and
+permission-list regressions.
 
 To remove presentation only, delete the CLI completion slot and presenter while
 retaining the catalog and exact dispatcher. To remove the capability entirely,
@@ -873,9 +882,9 @@ and 0050; do not leave a private range reader or compatibility alias.
 planner, bounded preview, internal create-or-replace commit adaptation, decision
 0053, focused tests, manual inventory, and policy entries form one contract.
 Change hunk ordering, uniqueness, overlap, creation form, aggregate bounds,
-mutation-path or structured-projection bounds, result bounds, preview grammar or
-formatter, approval, or stale-state behavior only together under decisions 0053
-and 0057. The `apply_patch` path retains
+mutation-path or structured-projection bounds, result bounds, preview grammar,
+formatter, direction-tone mapping, approval, or stale-state behavior only
+together under decisions 0053, 0057, and 0060. The `apply_patch` path retains
 its 447-code-unit and 896-projected-code-unit reservation independently of the
 read-tool path fields. Recalculate and test the complete 32-hunk compact
 preview against the maximum admitted path whenever either reservation or the

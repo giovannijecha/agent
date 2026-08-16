@@ -250,6 +250,8 @@ test("renders only fixed semantic tones and resets each styled span", async () =
         "agent",
         "ready",
         "approve",
+        "added",
+        "removed",
         "success",
         "failure",
         "contrast",
@@ -259,6 +261,8 @@ test("renders only fixed semantic tones and resets each styled span", async () =
         "accent",
         "muted",
         "attention",
+        "diffAdded",
+        "diffRemoved",
         "success",
         "failure",
         "highContrast",
@@ -280,6 +284,14 @@ test("renders only fixed semantic tones and resets each styled span", async () =
   );
   assert.equal(
     output.text.includes("\u001B[1;38;2;230;191;95mapprove\u001B[0m"),
+    true,
+  );
+  assert.equal(
+    output.text.includes("\u001B[38;2;134;203;146madded\u001B[0m"),
+    true,
+  );
+  assert.equal(
+    output.text.includes("\u001B[38;2;232;112;112mremoved\u001B[0m"),
     true,
   );
   assert.equal(

@@ -4,7 +4,6 @@ import {
   err,
   MarkdownBlock,
   type Result,
-  SideRail,
   Surface,
   TextSelection,
 } from "@agent/tui";
@@ -18,7 +17,7 @@ function createEntryComponent(
   selection: TextSelection | undefined,
 ): Result<Component, ComponentError> {
   const markdown = MarkdownBlock.create(entry.content, "head", {
-    baseTone: entry.role === "user" ? "highContrast" : "plain",
+    baseTone: entry.role === "user" ? "accent" : "plain",
     document: entry.document,
     selection,
   });
@@ -26,20 +25,12 @@ function createEntryComponent(
 
   const surface = Surface.create(markdown.value, {
     extent: "viewport",
-    horizontalPadding:
-      entry.role === "user"
-        ? CONVERSATION_DENSITY.flushCells
-        : CONVERSATION_DENSITY.contentInsetCells,
+    horizontalPadding: CONVERSATION_DENSITY.contentInsetCells,
     slant: entry.role === "user" ? "italic" : "inherit",
     surface: "none",
     verticalPadding: CONVERSATION_DENSITY.flushRows,
   });
-  if (!surface.ok || entry.role !== "user") return surface;
-
-  return SideRail.create(surface.value, {
-    horizontalPadding: CONVERSATION_DENSITY.flushCells,
-    railTone: "muted",
-  });
+  return surface;
 }
 
 function createTurnComponent(
