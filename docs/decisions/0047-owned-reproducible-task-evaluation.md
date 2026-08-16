@@ -68,10 +68,13 @@ fixtures prove those two command outcomes independently. Decision 0065 owns
 this evidence boundary; it changes no product behavior or execution authority.
 
 The browser stylesheet task owns one portable namespace-directory contract.
-Its input omits the directory required by its expected nested stylesheet, so
-ordinary exact completion must create that namespace before applying the file
-effect. Decision 0066 owns this evidence boundary and deliberately limits it to
-`create_directory`, which is admitted on both supported platforms.
+Its input omits the directory required by its expected nested stylesheet, and
+its operator acceptance requires the exact observed and approved
+`manage_path(create_directory)` operation before applying the file effect.
+Alternate creation mechanisms are denied; the final tree and content-free
+receipt cannot prove tool identity. Decision 0066 owns this evidence boundary
+and deliberately limits it to `create_directory`, which is admitted on both
+supported platforms.
 
 ## Run lifecycle
 

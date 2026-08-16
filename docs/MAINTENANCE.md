@@ -757,9 +757,12 @@ from one run.
 
 The namespace-directory task under decision 0066 must retain an input with no
 `assets` directory and an expected snapshot with exactly one nested stylesheet
-plus the linked page. Keep it limited to portable `create_directory`; do not
-extend it to Linux-unsupported `move` or `remove`, infer tool use from grading,
-or describe the separate commits as one transaction.
+plus the linked page. Accept live evidence only after observing and approving
+the exact `manage_path(create_directory)` request for `assets`; deny
+`run_process` and every alternate creation mechanism. Keep it limited to that
+portable operation; do not extend it to Linux-unsupported `move` or `remove`,
+infer tool use from grading or the receipt, or describe the separate commits as
+one transaction.
 
 Retain one compound same-file task that requires several independent outcomes
 and one separate multi-file task. Review them as convergence evidence, not as a

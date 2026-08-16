@@ -142,10 +142,12 @@ successfully. One negative run remains observational until the same failure is
 reviewed again on the unchanged task revision.
 
 The browser stylesheet task under decision 0066 begins without its required
-`assets` directory. Exact completion creates that portable namespace before
-writing the nested stylesheet and linking it from the page. Review each
-permission independently; neither grading nor the final tree proves which tool
-was used, and the separate namespace and file commits are not one transaction.
+`assets` directory. Accept the run only after observing and approving the exact
+`manage_path(create_directory)` request for `assets` before the nested file
+effect. Deny `run_process` or another creation mechanism even if it could
+produce the expected tree. Review each permission independently; neither
+grading, the receipt, nor the final tree proves which tool was used, and the
+separate namespace and file commits are not one transaction.
 
 Register a reviewed negative result only through
 `evaluations/failures/registry.json`. Increment an occurrence only after the
