@@ -1821,6 +1821,98 @@ test("reports an effect-planning conflict without requesting approval", async ()
   assert.equal((await next(runtime)).kind, "assistantDelta");
 });
 
+test("returns a stale batched mutation to the model and converges on a corrective step", async () => {
+  let content = "initial";
+  const planned: string[] = [];
+  const first = new ScriptedStream<string>([
+    ok(
+      toolBatchEvent([
+        { callId: "call-remove", path: "remove" },
+        { callId: "call-stale", path: "stale-theme" },
+      ]),
+    ),
+  ]);
+  const second = new ScriptedStream<string>([
+    ok(toolCallEvent("call-corrective", toolInput("corrective-theme"))),
+  ]);
+  const third = new ScriptedStream<string>([
+    ok(Object.freeze({ kind: "delta" as const, text: "task complete" })),
+    ok(Object.freeze({ kind: "done" as const })),
+  ]);
+  const model = new SequenceModel([first, second, third]);
+  const runtime = new AgentRuntime(
+    model,
+    plannedToolEngine(async (input) => {
+      const operation = input.get("path");
+      assert.equal(typeof operation, "string");
+      planned.push(operation as string);
+      if (operation === "stale-theme") {
+        assert.equal(content, "emoji-removed");
+        return err(Object.freeze({ kind: "conflict" as const }));
+      }
+      const expected = operation === "remove" ? "initial" : "emoji-removed";
+      const replacement = operation === "remove" ? "emoji-removed" : "dark";
+      if (content !== expected) {
+        return err(Object.freeze({ kind: "conflict" as const }));
+      }
+      const effect = ToolEffectPlan.create(
+        'operation="apply_patch" path="index.html"',
+        async () => {
+          content = replacement;
+          return ok(ToolHandlerOutcome.success({ changed: true }));
+        },
+      );
+      assert.ok(effect.ok);
+      return ok(effect.value);
+    }),
+  );
+  const started = runtime.startTurn("remove the emoji and apply a dark theme");
+  assert.ok(started.ok);
+
+  assert.equal((await next(runtime)).kind, "toolRequested");
+  decideTool(runtime, started.value.turnId, "call-remove");
+  assert.equal((await next(runtime)).kind, "toolStarted");
+  assert.equal((await next(runtime)).kind, "toolFinished");
+  assert.equal(content, "emoji-removed");
+
+  const staleRequest = await next(runtime);
+  assert.equal(staleRequest.kind, "toolRequested");
+  if (staleRequest.kind === "toolRequested") {
+    assert.equal(staleRequest.approvalRequired, false);
+  }
+  decideTool(runtime, started.value.turnId, "call-stale");
+  assert.equal((await next(runtime)).kind, "toolStarted");
+  const staleFinished = await next(runtime);
+  assert.equal(staleFinished.kind, "toolFinished");
+  if (staleFinished.kind === "toolFinished") {
+    assert.equal(staleFinished.status, "failure");
+  }
+
+  const failedExchange = runtime.conversation.entries.at(1);
+  assert.ok(failedExchange instanceof ToolExchange);
+  const staleResult = failedExchange.results.at(1);
+  assert.ok(staleResult?.output instanceof StructuredObject);
+  assert.equal(staleResult.output.get("error"), "conflict");
+
+  assert.equal((await next(runtime)).kind, "toolRequested");
+  decideTool(runtime, started.value.turnId, "call-corrective");
+  assert.equal((await next(runtime)).kind, "toolStarted");
+  assert.equal((await next(runtime)).kind, "toolFinished");
+  assert.equal(content, "dark");
+  assert.equal((await next(runtime)).kind, "assistantDelta");
+  const prepared = await next(runtime);
+  assert.equal(prepared.kind, "turnPrepared");
+  if (prepared.kind === "turnPrepared") {
+    assert.equal(prepared.checkpointed, true);
+    assert.deepEqual(runtime.commitTurn(prepared.turnId), {
+      ok: true,
+      value: { kind: "committed" },
+    });
+  }
+  assert.deepEqual(planned, ["remove", "stale-theme", "corrective-theme"]);
+  assert.equal(model.conversations.length, 3);
+});
+
 test("cancels a pending approval without executing or checkpointing", async () => {
   const stream = new ScriptedStream<string>([
     ok(toolCallEvent("call-cancel")),

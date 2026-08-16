@@ -60,6 +60,13 @@ Compact `Read`, `List`, `Search`, `Write`, `Manage`, and `Run` activity labels
 are display-only closed data. They cannot dispatch a tool, select a permission,
 or replace the canonical tool name and risk validation.
 
+OpenCode Go requests one tool call per model response so the next model decision
+observes the previous checkpointed result before authoring another effect. This
+is a convergence boundary, not an authority change: schemas, permissions,
+effect plans, committers, and process containment remain exact. A service-returned
+bounded batch is still validated completely and executed sequentially. Tool
+handlers never overlap, and a completed effect is never retried implicitly.
+
 Write calls are schema-validated with the complete batch before observation,
 then planned just in time. `apply_patch` binds each authorized plan to one canonical target,
 ordered exact-text hunks, target absence or canonical file identity, strict

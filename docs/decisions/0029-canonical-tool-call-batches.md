@@ -4,6 +4,7 @@
 - Date: 2026-08-10
 - Amended: 2026-08-13 by decision 0042 for just-in-time effect planning
 - Amended: 2026-08-15 by decision 0055 for one decision on every tool request
+- Amended: 2026-08-16 by decision 0061 for the OpenCode Go one-call request policy
 
 Decision 0055 makes the runtime wait for one exact turn-and-call decision for
 reads, writes, and execution alike. The CLI resolves it from session policy or
@@ -80,10 +81,12 @@ exchange is checkpointed. Runtime events remain per call, so the CLI continues
 to show only the current contextual activity above the composer and keeps tool
 traffic out of the conversation transcript.
 
-OpenCode Go advertises `parallel_tool_calls: true` only after its decoder,
-history encoder, runtime, bounds, cancellation, and tests implement this
-decision. In this protocol the field permits the model to *select* a batch; it
-does not promise simultaneous handler execution.
+Decision 0061 changes OpenCode Go to advertise `parallel_tool_calls: false` so a
+normal provider response contains at most one call and the next model decision
+observes its checkpointed result. The decoder, history encoder, runtime, bounds,
+cancellation, and tests retain this decision's complete batch contract because a
+compatible service may still return several indexed calls and existing history
+may contain them. No request field promises simultaneous handler execution.
 
 Actual read-tool concurrency remains deferred. It requires a separate decision
 and an explicit snapshot/independence contract, a fixed worker bound,

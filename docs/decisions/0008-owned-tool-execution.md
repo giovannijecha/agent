@@ -8,12 +8,16 @@
   commit
 - Amended: 2026-08-15 by decision 0055 for session tool permissions
 - Amended: 2026-08-16 by decision 0057 for human patch approval presentation
+- Amended: 2026-08-16 by decision 0061 for convergent model-tool turns
 
 Decision 0055 replaces implicit read allowance and the typed `/approve` and
 `/deny` path with one exact-tool session policy and contextual decisions. The
 schema, planning, checkpoint, and handler boundaries in this decision remain.
 Decision 0057 replaces patch binding metadata in the permission UI with a
 bounded human-readable diff; the immutable plan and commit binding remain exact.
+Decision 0061 makes OpenCode Go request one call per model response so each new
+call is authored after the previous structured result is checkpointed. The
+generic defensive batch and sequential execution contracts below remain exact.
 
 ## Context
 

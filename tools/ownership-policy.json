@@ -76,6 +76,7 @@
     "docs/decisions/0058-owned-linux-namespace-fail-closed-boundary.md",
     "docs/decisions/0059-owned-accented-conversation-focus.md",
     "docs/decisions/0060-owned-semantic-patch-diff-foregrounds.md",
+    "docs/decisions/0061-owned-convergent-tool-turns.md",
     "evaluations/README.md"
   ],
   "workspaces": [

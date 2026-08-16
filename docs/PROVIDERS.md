@@ -19,6 +19,7 @@ independent clients. Decision 0017 admits exactly:
 | Path | `/zen/go/v1/chat/completions` |
 | Initial model | `kimi-k2.7-code` |
 | Wire mode | Streaming Chat Completions over SSE |
+| Tool selection | One call requested per model response; bounded batches decoded defensively |
 
 The implementation is independent. It does not install or invoke OpenCode,
 read OpenCode configuration, use an OpenCode SDK, reuse another application's

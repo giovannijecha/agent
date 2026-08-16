@@ -119,6 +119,12 @@ pass through a project-owned backend. The official Go page currently states
 zero-day retention and no training for Kimi K2.7 Code. Those terms can change
 and are not guarantees made by this project.
 
+The request disables parallel tool selection. A multi-part task may therefore
+send additional bounded model requests as each structured tool result is
+checkpointed and the remaining goal is reassessed. This changes request timing,
+not the categories of transmitted content, credential handling, retention, or
+the fixed destination above. No tool handler is executed concurrently.
+
 `agent` never asks for provider passwords, cookies, recovery codes, payment
 details, or one-time codes. The OpenCode Go API key is accepted only through the
 documented hidden prompt or environment variable and remains in process memory.

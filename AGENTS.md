@@ -254,12 +254,21 @@ agent.”
   one active runtime session, and one active model decision loop. Providers are
   interchangeable backends, never additional agents; do not add sub-agents,
   delegation, swarms, or concurrent agent conversations.
-- One model response may select one bounded ordered tool-call batch. Validate the
-  complete batch before planner or handler effects, plan each call just in time,
-  execute calls sequentially in provider order, require one exact CLI
-  permission decision for every successfully planned call, and commit one
-  complete exchange. A failed plan requests no permission and settles as a
-  structured failure. A batch is one agent decision, never a group of agents.
+- The provider-neutral boundary accepts one bounded ordered tool-call batch from
+  one model response. Validate the complete batch before planner or handler
+  effects, plan each call just in time, execute calls sequentially in provider
+  order, require one exact CLI permission decision for every successfully
+  planned call, and commit one complete exchange. A failed plan requests no
+  permission and settles as a structured failure. A batch is one agent decision,
+  never a group of agents.
+- Under decision 0061, OpenCode Go requests at most one tool call per model
+  response. The owned instruction requires the model to observe the checkpointed
+  result, reassess all remaining requested work, and continue until every part is
+  complete or one explicit blocker remains. Consolidate all currently known
+  edits to one file into one `apply_patch` call. Correct a failed request or
+  explain its blocker; never repeat it blindly. Retain bounded batch decoding and
+  sequential execution when a compatible service returns several calls despite
+  the request. Do not add implicit retries or concurrent handlers.
 - The CLI owns one session-only closed `Allow`, `Ask`, or `Deny` entry for each
   exact advertised tool under decision 0055. Reads default to `Allow`; writes
   and execution default to `Ask`. `/permissions` is the sole command for editing
