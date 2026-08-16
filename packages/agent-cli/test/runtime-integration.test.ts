@@ -37,6 +37,10 @@ import type {
   NoticeEvent,
   NoticeSourceError,
 } from "../dist/notice-scheduler.js";
+import type {
+  ProviderId,
+  ProviderSelectionPort,
+} from "../dist/provider-session.js";
 import type { HostEvent, TerminalHost } from "../dist/terminal-host.js";
 
 class Deferred<T> {
@@ -381,6 +385,36 @@ class ControlledRuntime implements RuntimeSession<string> {
   }
 }
 
+class ControlledProviders implements ProviderSelectionPort {
+  readonly selections: ProviderId[] = [];
+  #selected: ProviderId = "opencodeGo";
+
+  select(id: ProviderId) {
+    this.selections.push(id);
+    this.#selected = id;
+    return ok(undefined);
+  }
+
+  snapshots() {
+    return Object.freeze(
+      ([
+        ["opencodeGo", "OpenCode Go", "go-model"],
+        ["opencodeZen", "OpenCode Zen", "zen-model"],
+      ] as const).map(([id, displayName, model]) =>
+        Object.freeze({
+          id,
+          presentation: Object.freeze({
+            authentication: "memory-only API key",
+            displayName,
+            model,
+          }),
+          selected: id === this.#selected,
+        })
+      ),
+    );
+  }
+}
+
 class ControlledMotion implements MotionController {
   #eventWaiter:
     | ((result: Result<MotionEvent, MotionSourceError>) => void)
@@ -606,6 +640,28 @@ test("streams one runtime turn into chat and exits only on later idle Ctrl+C", a
   assert.equal(runtime.stopCalls, 1);
   assert.equal(host.writes.join("").includes("question"), true);
   assert.equal(host.writes.join("").includes("answer"), true);
+});
+
+test("routes an idle provider selection through the configured session port", async () => {
+  const host = new ControlledHost();
+  const runtime = new ControlledRuntime();
+  const providers = new ControlledProviders();
+  const running = run(host, runtime, providers);
+  await host.started.promise;
+  await host.waitForWrites(1);
+
+  host.emit(input("/providers\r"));
+  await host.waitForWrites(2);
+  host.emit(input("\u001B[B\r"));
+  await host.waitForWrites(3);
+  host.emit(input("\u0003"));
+  const result = await running;
+
+  assert.ok(result.ok);
+  assert.deepEqual(providers.selections, ["opencodeZen"]);
+  assert.equal(host.writes.join("").includes("OpenCode Zen"), true);
+  assert.equal(host.writes.join("").includes("zen-model"), true);
+  assert.equal(runtime.startCalls, 0);
 });
 
 test("observes accepted turns, tool requests, and affirmative contextual permissions", async () => {

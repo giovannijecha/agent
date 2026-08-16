@@ -2,6 +2,7 @@ import {
   activityPulseTones,
   type Component,
   ComponentError,
+  err,
   type Frame,
   HorizontalRules,
   InputArea,
@@ -33,6 +34,7 @@ import {
 import { createConversationDocument } from "./conversation-view.js";
 import { isMotionActive } from "./motion-policy.js";
 import { createPermissionsDocument } from "./permissions-view.js";
+import { createProvidersDocument } from "./providers-view.js";
 import { createSpacer, createSpan } from "./view-components.js";
 
 const DOCUMENT_SLOT = 0;
@@ -182,12 +184,23 @@ export function createChatRender(
   const commandCompletion = application.projectCommandCompletion();
   const permissionMenu = application.projectPermissionMenu();
   const toolDecision = application.projectToolDecision();
+  const providerMenu = application.projectProviderMenu();
+  if (
+    providerMenu !== undefined &&
+    (permissionMenu !== undefined || toolDecision !== undefined)
+  ) {
+    return err(new ComponentError("invalidComponent", undefined));
+  }
   const permissions = createPermissionsDocument(permissionMenu, toolDecision);
   if (!permissions.ok) return permissions;
+  const providers = createProvidersDocument(providerMenu);
+  if (!providers.ok) return providers;
   const contextualSelection =
-    permissionMenu !== undefined || toolDecision !== undefined;
+    permissionMenu !== undefined ||
+    toolDecision !== undefined ||
+    providerMenu !== undefined;
   const completion = contextualSelection
-    ? permissions
+    ? providerMenu === undefined ? permissions : providers
     : createCommandCompletionDocument(commandCompletion);
   if (!completion.ok) return completion;
   const completionColumn = createConversationStage(completion.value);

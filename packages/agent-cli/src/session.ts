@@ -10,7 +10,6 @@ import {
   commandCompletions,
   executeSubmission,
   type CommandDefinition,
-  type ProviderPresentation,
 } from "./commands.js";
 import type { NoticeLevel } from "./notice.js";
 
@@ -28,6 +27,7 @@ export type TranscriptMovement =
 export type SessionAction =
   | Readonly<{ kind: "activateContextSelection" }>
   | Readonly<{ kind: "closePermissions" }>
+  | Readonly<{ kind: "closeProviders" }>
   | Readonly<{ kind: "exit" }>
   | Readonly<{ kind: "interactionBreak" }>
   | Readonly<{ kind: "interrupt" }>
@@ -49,6 +49,7 @@ export type SessionAction =
       kind: "moveContextSelection";
     }>
   | Readonly<{ kind: "openPermissions" }>
+  | Readonly<{ kind: "openProviders" }>
   | Readonly<{
       event: PointerEvent;
       kind: "pointer";
@@ -70,6 +71,7 @@ export type SessionReductionPort = Readonly<{
 export type SessionInputContext =
   | "composer"
   | "permissions"
+  | "providers"
   | "toolDecision";
 
 function notice(...lines: string[]): SessionAction {
@@ -83,9 +85,8 @@ function notice(...lines: string[]): SessionAction {
 function dispatchSubmission(
   emit: (action: SessionAction) => void,
   input: string,
-  provider: ProviderPresentation | undefined,
 ): boolean {
-  const command = executeSubmission(input, provider);
+  const command = executeSubmission(input);
   if (command.kind === "exit") {
     emit(Object.freeze({ kind: "exit" as const }));
     return true;
@@ -104,6 +105,8 @@ function dispatchSubmission(
     );
   } else if (command.kind === "permissions") {
     emit(Object.freeze({ kind: "openPermissions" as const }));
+  } else if (command.kind === "providers") {
+    emit(Object.freeze({ kind: "openProviders" as const }));
   }
   return false;
 }
@@ -112,14 +115,9 @@ function dispatchSubmission(
 export class SessionController {
   readonly #decoder = new InputDecoder();
   readonly #editor = new LineEditor();
-  readonly #provider: ProviderPresentation | undefined;
   #completionIndex = 0;
   #pointerContext = false;
   #toolDecisionInputBlocked = false;
-
-  constructor(provider?: ProviderPresentation) {
-    this.#provider = provider;
-  }
 
   get draftLength(): number {
     return this.#editor.length;
@@ -336,6 +334,32 @@ export class SessionController {
           emit(Object.freeze({ kind: "closePermissions" as const }));
         }
       }
+      if (context === "providers") {
+        if (event.kind === "up" || event.kind === "down") {
+          emit(
+            Object.freeze({
+              direction: event.kind === "up" ? "previous" as const : "next" as const,
+              kind: "moveContextSelection" as const,
+            }),
+          );
+          continue;
+        }
+        if (event.kind === "enter") {
+          emit(Object.freeze({ kind: "activateContextSelection" as const }));
+          continue;
+        }
+        if (event.kind === "interrupt") {
+          emit(Object.freeze({ kind: "closeProviders" as const }));
+          continue;
+        }
+        if (
+          event.kind !== "pageUp" &&
+          event.kind !== "pageDown" &&
+          event.kind !== "eof"
+        ) {
+          emit(Object.freeze({ kind: "closeProviders" as const }));
+        }
+      }
       if (
         event.kind === "up" ||
         event.kind === "down" ||
@@ -399,7 +423,6 @@ export class SessionController {
             stopChunk = dispatchSubmission(
               emit,
               selected.command,
-              this.#provider,
             );
             continue;
           }
@@ -415,7 +438,6 @@ export class SessionController {
         stopChunk = dispatchSubmission(
           emit,
           outcome.text,
-          this.#provider,
         );
       } else if (outcome.kind === "interrupt") {
         emit(Object.freeze({ kind: "interrupt" as const }));

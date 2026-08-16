@@ -38,6 +38,7 @@ declare module "node:process" {
   export const hrtime: Readonly<{ bigint(): bigint }>;
   export const env: Readonly<{
     AGENT_OPENCODE_GO_API_KEY?: string;
+    AGENT_OPENCODE_ZEN_API_KEY?: string;
   }>;
   export function cwd(): string;
   export function exit(code?: number): never;

@@ -5,6 +5,7 @@
 - Amended: 2026-08-13 by decision 0042 for just-in-time effect planning
 - Amended: 2026-08-15 by decision 0055 for one decision on every tool request
 - Amended: 2026-08-16 by decision 0061 for the OpenCode Go one-call request policy
+- Amended: 2026-08-16 by decision 0067 for the OpenCode Zen adapter
 
 Decision 0055 makes the runtime wait for one exact turn-and-call decision for
 reads, writes, and execution alike. The CLI resolves it from session policy or
@@ -85,6 +86,7 @@ Decision 0061 changes OpenCode Go to advertise `parallel_tool_calls: false` so a
 normal provider response contains at most one call and the next model decision
 observes its checkpointed result. The decoder, history encoder, runtime, bounds,
 cancellation, and tests retain this decision's complete batch contract because a
+second admitted adapter can reuse that contract under decision 0067, and a
 compatible service may still return several indexed calls and existing history
 may contain them. No request field promises simultaneous handler execution.
 

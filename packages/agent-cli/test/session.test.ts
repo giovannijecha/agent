@@ -70,7 +70,7 @@ test("selects slash completions without navigating the transcript", () => {
     items: [
       {
         command: "/providers",
-        description: "show integration availability",
+        description: "select session provider",
       },
       {
         command: "/permissions",
@@ -124,7 +124,7 @@ test("recomputes completion after editing and keeps unsupported Tab explicit", (
     items: [
       {
         command: "/providers",
-        description: "show integration availability",
+        description: "select session provider",
       },
       {
         command: "/permissions",
@@ -212,29 +212,17 @@ test("returns ordered actions from a multi-submission chunk", () => {
 
   assert.deepEqual(update.actions, [
     { kind: "submit", text: "one" },
-    {
-      kind: "notice",
-      level: "info",
-      lines: ["No provider configured"],
-    },
+    { kind: "openProviders" },
     { kind: "exit" },
   ]);
   assert.equal(session.draftLength, 0);
 });
 
-test("reports one configured provider without changing command ownership", () => {
-  const session = new SessionController({
-    authentication: "memory-only API key",
-    displayName: "OpenCode Go",
-    model: "kimi-k2.7-code",
-  });
+test("opens provider selection without changing command ownership", () => {
+  const session = new SessionController();
 
   assert.deepEqual(session.feed("/providers\r").actions, [
-    {
-      kind: "notice",
-      level: "info",
-      lines: ["OpenCode Go \u00b7 kimi-k2.7-code \u00b7 memory-only API key"],
-    },
+    { kind: "openProviders" },
   ]);
 });
 

@@ -15,7 +15,7 @@ Decision 0055 replaces implicit read allowance and the typed `/approve` and
 schema, planning, checkpoint, and handler boundaries in this decision remain.
 Decision 0057 replaces patch binding metadata in the permission UI with a
 bounded human-readable diff; the immutable plan and commit binding remain exact.
-Decision 0061 makes OpenCode Go request one call per model response so each new
+Decisions 0061 and 0067 make both OpenCode adapters request one call per model response so each new
 call is authored after the previous structured result is checkpointed. The
 generic defensive batch and sequential execution contracts below remain exact.
 

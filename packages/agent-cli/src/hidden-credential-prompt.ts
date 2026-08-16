@@ -5,7 +5,10 @@ import {
 
 import { err, ok, type Result } from "@agent/core";
 
-import { isValidOpenCodeGoCredential } from "./provider-configuration.js";
+import {
+  isValidOpenCodeGoCredential,
+  isValidOpenCodeZenCredential,
+} from "./provider-configuration.js";
 
 export type HiddenCredentialPromptOutcome =
   | Readonly<{ credential: string; kind: "provided" }>
@@ -81,16 +84,18 @@ function writeOutput(
  * Reads one bounded credential with terminal echo disabled.
  * Empty input explicitly selects providerless startup; Ctrl+C cancels startup.
  */
-export async function readHiddenOpenCodeGoCredential(
+async function readHiddenCredential(
   input: ReadableStream,
   output: WritableStream,
+  label: "OpenCode Go" | "OpenCode Zen",
+  validate: (value: unknown) => value is string,
 ): Promise<Result<HiddenCredentialPromptOutcome, HiddenCredentialPromptError>> {
   if (input.isTTY !== true || output.isTTY !== true) {
     return ok(Object.freeze({ kind: "skipped" as const }));
   }
   const announced = await writeOutput(
     output,
-    "OpenCode Go API key (hidden; Enter skips): ",
+    label + " API key (hidden; Enter skips): ",
   );
   if (!announced.ok) {
     return announced;
@@ -164,7 +169,7 @@ export async function readHiddenOpenCodeGoCredential(
       }
       const credential = characters.join("");
       finish(
-        isValidOpenCodeGoCredential(credential)
+        validate(credential)
           ? ok(
               Object.freeze({
                 credential,
@@ -228,4 +233,28 @@ export async function readHiddenOpenCodeGoCredential(
       finish(err(new HiddenCredentialPromptError("start")));
     }
   });
+}
+
+export function readHiddenOpenCodeGoCredential(
+  input: ReadableStream,
+  output: WritableStream,
+): Promise<Result<HiddenCredentialPromptOutcome, HiddenCredentialPromptError>> {
+  return readHiddenCredential(
+    input,
+    output,
+    "OpenCode Go",
+    isValidOpenCodeGoCredential,
+  );
+}
+
+export function readHiddenOpenCodeZenCredential(
+  input: ReadableStream,
+  output: WritableStream,
+): Promise<Result<HiddenCredentialPromptOutcome, HiddenCredentialPromptError>> {
+  return readHiddenCredential(
+    input,
+    output,
+    "OpenCode Zen",
+    isValidOpenCodeZenCredential,
+  );
 }

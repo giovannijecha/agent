@@ -3,7 +3,47 @@ import test from "node:test";
 
 import type { RuntimeEvent, StartedTurn } from "@agent/runtime";
 
-import { ApplicationController } from "../dist/application.js";
+import {
+  ApplicationController,
+  ApplicationError,
+} from "../dist/application.js";
+
+function configuredProviders() {
+  return Object.freeze([
+    Object.freeze({
+      id: "opencodeZen" as const,
+      presentation: Object.freeze({
+        authentication: "memory-only API key",
+        displayName: "OpenCode Zen",
+        model: "configured-model",
+      }),
+      selected: true,
+    }),
+  ]);
+}
+
+function configuredDualProviders() {
+  return Object.freeze([
+    Object.freeze({
+      id: "opencodeGo" as const,
+      presentation: Object.freeze({
+        authentication: "memory-only API key",
+        displayName: "OpenCode Go",
+        model: "go-model",
+      }),
+      selected: true,
+    }),
+    Object.freeze({
+      id: "opencodeZen" as const,
+      presentation: Object.freeze({
+        authentication: "memory-only API key",
+        displayName: "OpenCode Zen",
+        model: "zen-model",
+      }),
+      selected: false,
+    }),
+  ]);
+}
 
 function started(turnId: number, content: string): StartedTurn {
   return Object.freeze({
@@ -40,11 +80,7 @@ test("discards no-runtime input without adding transcript or echoing it", () => 
 });
 
 test("never presents a provider without an executable runtime", () => {
-  const application = new ApplicationController(false, {
-    authentication: "memory-only API key",
-    displayName: "OpenCode Go",
-    model: "configured-model",
-  });
+  const application = new ApplicationController(false, configuredProviders());
 
   const result = reduceInput(application, "/providers\r");
 
@@ -53,6 +89,77 @@ test("never presents a provider without an executable runtime", () => {
   assert.deepEqual(application.notice, ["No provider configured"]);
   assert.equal(application.noticeLevel, "info");
   assert.ok(application.noticeToken !== undefined);
+});
+
+test("selects one configured provider only after router confirmation", () => {
+  const application = new ApplicationController(true, configuredDualProviders());
+
+  assert.equal(application.provider?.displayName, "OpenCode Go");
+  const opened = reduceInput(application, "/providers\r");
+  assert.deepEqual(opened.effects, []);
+  assert.deepEqual(
+    application.projectProviderMenu()?.items.map((provider) => [
+      provider.id,
+      provider.selected,
+    ]),
+    [
+      ["opencodeGo", true],
+      ["opencodeZen", false],
+    ],
+  );
+
+  const requested = reduceInput(application, "\u001B[B\r");
+  assert.deepEqual(requested.effects, [
+    { id: "opencodeZen", kind: "selectProvider" },
+  ]);
+  assert.equal(application.provider?.displayName, "OpenCode Go");
+  assert.equal(application.projectProviderMenu(), undefined);
+
+  const confirmed = application.providerSelected("opencodeZen");
+  assert.ok(confirmed.ok);
+  assert.equal(application.provider?.displayName, "OpenCode Zen");
+  assert.deepEqual(application.notice, [
+    "OpenCode Zen selected for this session.",
+  ]);
+
+  reduceInput(application, "/providers\r");
+  assert.deepEqual(
+    application.projectProviderMenu()?.items.map((provider) => [
+      provider.id,
+      provider.selected,
+    ]),
+    [
+      ["opencodeGo", false],
+      ["opencodeZen", true],
+    ],
+  );
+});
+
+test("rejects invalid configured provider snapshots", () => {
+  const go = configuredDualProviders().at(0);
+  assert.ok(go !== undefined);
+  for (const create of [
+    () => new ApplicationController(true, [go, go]),
+    () =>
+      new ApplicationController(
+        true,
+        configuredDualProviders().map((provider) => ({
+          ...provider,
+          selected: false,
+        })),
+      ),
+  ]) {
+    let caught: unknown;
+    try {
+      create();
+    } catch (cause: unknown) {
+      caught = cause;
+    }
+    assert.equal(caught instanceof ApplicationError, true);
+    if (caught instanceof ApplicationError) {
+      assert.equal(caught.kind, "providerInvariant");
+    }
+  }
 });
 
 test("replaces, dismisses, and expires only the current notice generation", () => {

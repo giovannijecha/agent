@@ -1,36 +1,41 @@
 # Provider eligibility
 
 This reference separates direct API-key access from subscription OAuth client
-registration. Status is current as of 2026-08-11.
+registration. Status is current as of 2026-08-16.
 
-## Enabled direct provider
+## Enabled direct providers
 
-OpenCode Go is the only enabled provider. Its official service issues the
-operator a direct API key and publishes the Chat Completions endpoint used by
-independent clients. Decision 0017 admits exactly:
+OpenCode Go and OpenCode Zen are the two enabled providers. OpenCode issues the
+operator direct API keys and publishes the Chat Completions endpoints used by
+independent clients. Decisions 0017 and 0067 admit exactly:
 
-| Field | Admitted value |
-|---|---|
-| Provider | OpenCode Go |
-| Authentication | Direct API key supplied by the operator |
-| Credential input | `AGENT_OPENCODE_GO_API_KEY` |
-| Persistence | Process memory only |
-| Origin | `https://opencode.ai` |
-| Path | `/zen/go/v1/chat/completions` |
-| Initial model | `kimi-k2.7-code` |
-| Wire mode | Streaming Chat Completions over SSE |
-| Tool selection | One call requested per model response; bounded batches decoded defensively |
+| Field | OpenCode Go | OpenCode Zen |
+|---|---|---|
+| Authentication | Direct API key supplied by the operator | Direct API key supplied by the operator |
+| Credential input | `AGENT_OPENCODE_GO_API_KEY` | `AGENT_OPENCODE_ZEN_API_KEY` |
+| Persistence | Process memory only | Process memory only |
+| Origin | `https://opencode.ai` | `https://opencode.ai` |
+| Path | `/zen/go/v1/chat/completions` | `/zen/v1/chat/completions` |
+| Fixed model | `kimi-k2.7-code` | `deepseek-v4-flash-free` |
+| Wire mode | Streaming Chat Completions over SSE | Streaming Chat Completions over SSE |
+| Tool selection | One call requested per response; bounded batches decoded defensively | One call requested per response; bounded batches decoded defensively |
 
 The implementation is independent. It does not install or invoke OpenCode,
 read OpenCode configuration, use an OpenCode SDK, reuse another application's
 identity, discover endpoints, follow model aliases, or persist the key. The
 CLI owns the fixed HTTPS boundary; the provider workspace is Node-free and sees
-only bounded response bytes and metadata.
+only bounded response bytes and metadata. Credentials are independent and
+selection never copies a key, changes an endpoint, or falls back after failure.
+Go remains initially selected when both are configured; `/providers` can select
+either backend only while the application is idle.
 
 The OpenCode Go page currently states that Kimi K2.7 Code has zero-day retention
-and is not used for training. These are provider terms, not guarantees made by
-`agent`, and may change. Operators must recheck the official page before sending
-sensitive material.
+and is not used for training. OpenCode documents Zen models as hosted in the
+United States and identifies `deepseek-v4-flash-free` as a temporary free model
+whose collected data may be used to improve the model. These are provider terms,
+not guarantees made by `agent`, and may change. Do not submit secrets, personal
+data, or confidential content to the free Zen model, and recheck the official
+pages before sending sensitive material.
 
 ## Blocked subscription OAuth providers
 
@@ -70,13 +75,13 @@ and confidential correspondence stay outside Git.
 ## Machine gate
 
 `tools/provider-policy.json` schema version 5 records the four blocked OAuth
-providers and the one exact enabled direct provider. Canonical verification
+providers and the two exact enabled direct providers. Canonical verification
 rejects unregistered provider workspaces, OAuth identifiers, subscription
 endpoints, ambient network capabilities, foreign credential stores, borrowed
 product identity, endpoint drift, model drift, and credential-persistence drift.
 The reviewed direct literals are admitted only in their exact source files.
 
-One direct provider does not authorize a generic provider framework, arbitrary
+Two concrete providers do not authorize a generic provider framework, arbitrary
 base URL, model selector, key store, or additional integration. Each new trust
 boundary requires its own decision, policy entry, adapter, tests, documentation,
 and independent removal path.
@@ -93,15 +98,17 @@ implementation code.
 ## Account and secret boundary
 
 `agent` never creates provider accounts, purchases plans, or asks for passwords,
-one-time codes, recovery codes, cookies, or payment details. The OpenCode Go key
-must not enter source, tests, logs, errors, documentation values, process
-arguments, or command history. It is read once from the exact environment
-variable and released with the process. Persistent storage requires a separate
-accepted operating-system vault design.
+one-time codes, recovery codes, cookies, or payment details. Neither OpenCode
+key may enter source, tests, logs, errors, documentation values, process
+arguments, or command history. Each is read from only its exact environment
+variable or hidden prompt, remains in its own memory slot, and is released with
+the process. Persistent storage requires a separate accepted operating-system
+vault design.
 
 ## Primary references
 
 - [OpenCode Go](https://opencode.ai/docs/go/)
+- [OpenCode Zen](https://opencode.ai/docs/zen/)
 - [OpenAI Chat Completions create contract](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create)
 - [OpenAI Codex authentication](https://developers.openai.com/codex/auth/)
 - [OpenAI Codex App Server](https://developers.openai.com/codex/app-server/)

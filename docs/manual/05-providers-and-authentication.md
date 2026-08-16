@@ -2,43 +2,51 @@
 
 ## Purpose
 
-Use this chapter to run the admitted OpenCode Go adapter safely and to check why
-the four requested subscription OAuth providers remain blocked.
+Use this chapter to run the admitted OpenCode Go and OpenCode Zen adapters
+safely, select one for the current session, and check why the four requested
+subscription OAuth providers remain blocked.
 
 ## Operator workflow
 
-Create an OpenCode Go subscription and API key only on the provider's official
-site. Start `agent` in an interactive terminal. When the exact environment
-variable is absent, the owned startup prompt asks for the key with terminal
-echo disabled. Paste the key and press Enter. The prompt prints neither the key
-nor mask characters, releases raw mode, and passes the value directly to the
-provider composition in process memory. Press Enter on an empty prompt to start
-without a provider or Ctrl+C to cancel startup.
+Create OpenCode API keys only on the provider's official site. Start `agent` in
+an interactive terminal. When either exact environment variable is absent, the
+owned startup sequence asks independently for its Go or Zen key with terminal
+echo disabled. Paste a key and press Enter, or press Enter on an empty prompt to
+skip that backend. The prompts print neither keys nor mask characters, release
+raw mode, and pass each value directly to its own provider composition in
+process memory. Skipping both starts providerless; Ctrl+C cancels startup.
 
-Inside `agent`, run `/providers`. It must report OpenCode Go, the fixed
-`kimi-k2.7-code` model, and memory-only API-key authentication. `/exit` closes
-the runtime. Controlled automation may set the exact documented environment
-variable before starting; the interactive prompt remains the preferred
-operator workflow.
+Inside an idle `agent`, run `/providers`. It opens one transparent selection
+list containing only configured backends and their fixed models. Up and Down
+move without wrapping; Enter selects the highlighted provider for subsequent
+turns. Go is initially selected when both are configured. Selection never
+changes an active turn and is not persisted. `/exit` closes the runtime.
+Controlled automation may set either exact documented environment variable
+before starting; the interactive prompts remain the preferred operator workflow.
 
 ## Guarantees and limits
 
-The key is accepted only from the owned hidden prompt or
-`AGENT_OPENCODE_GO_API_KEY`, is never accepted as a command-line argument, and
-is not written by `agent`. Requests go only to
-`https://opencode.ai/zen/go/v1/chat/completions`. The model is fixed to
-`kimi-k2.7-code`; there is no arbitrary endpoint, model alias, automatic router,
-fallback provider, SDK, OpenCode executable, credential-file reader, redirect,
-cookie, or telemetry path.
+Keys are accepted only from the owned hidden prompts or the exact
+`AGENT_OPENCODE_GO_API_KEY` and `AGENT_OPENCODE_ZEN_API_KEY` variables. They are
+never accepted as command-line arguments or written by `agent`. Go requests go
+only to `https://opencode.ai/zen/go/v1/chat/completions` with
+`kimi-k2.7-code`; Zen requests go only to
+`https://opencode.ai/zen/v1/chat/completions` with
+`deepseek-v4-flash-free`. There is no arbitrary endpoint, model alias, automatic
+router, fallback provider, shared credential slot, SDK, OpenCode executable,
+credential-file reader, redirect, cookie, or telemetry path.
 
 When configured, each turn sends the lean system instruction, bounded
 conversation context, the current owned tool schemas, user input, and
 checkpointed tool calls and results required for the single-agent loop. The API
-key is sent in the fixed request authorization header. OpenCode Go's current
-page states zero-day retention and no training for Kimi K2.7 Code, but provider
-terms can change and remain outside `agent`'s control.
+key is sent in the selected adapter's fixed request authorization header. The
+OpenCode Go page currently states zero-day retention and no training for Kimi
+K2.7 Code. OpenCode documents Zen models as hosted in the United States and the
+temporary free DeepSeek model as eligible for data collection used to improve
+the model. Do not submit secrets, personal data, or confidential content to that
+free model. Provider terms can change and remain outside `agent`'s control.
 
-OpenCode Go requests at most one tool call per model response. After a result is
+Both OpenCode adapters request at most one tool call per model response. After a result is
 checkpointed, the next bounded request includes that result and asks the same
 model to reassess the unfinished parts of the user goal. The generic decoder
 still accepts a complete bounded batch if the compatible service returns one,
@@ -69,28 +77,33 @@ and never consumes an account or performs a live request.
 
 ## Maintenance and removal
 
-Recheck the official OpenCode Go page before changing the endpoint, model,
-privacy statement, limits, or wire behavior. Update decision 0017, the provider
-registry, adapter tests, CLI transport tests, privacy/security documents, and
-this chapter together. Never broaden the origin or add a second provider behind
-the OpenCode Go name.
+Recheck the corresponding official OpenCode page before changing an endpoint,
+model, privacy statement, limit, or wire behavior. Update decision 0017 or 0067,
+the provider registry, adapter tests, CLI transport tests, privacy/security
+documents, and this chapter together. Never broaden an origin or place a second
+backend behind either registered provider name.
 
-To remove the integration, first remove CLI composition and restore the exact
-providerless `/providers` result. Then remove the CLI HTTPS/configuration files,
-provider workspace and dependency edges, environment declaration, provider
-policy admission and exact source allowlists, decision 0017, and this setup
-workflow. Keep the four blocked OAuth records unchanged and prove the remaining
-core, tools, runtime, TUI, and CLI workspaces offline.
+To remove one integration, remove only its CLI composition, HTTPS transport,
+credential input, provider workspace and dependency edges, policy admission,
+source allowlists, governing decision references, and documentation. Preserve
+the other provider and its `/providers` entry. Removing both restores the exact
+providerless result. Keep the four blocked OAuth records unchanged and prove the
+remaining graph offline.
 
 ## Evidence
 
 - Eligibility and official references: `docs/PROVIDERS.md`
-- Provider decision: `docs/decisions/0017-owned-opencode-go-provider.md`
+- Go provider decision: `docs/decisions/0017-owned-opencode-go-provider.md`
+- Provider selection and Zen decision: `docs/decisions/0067-owned-opencode-provider-selection.md`
 - Convergent tool-turn decision: `docs/decisions/0061-owned-convergent-tool-turns.md`
 - Provider authentication boundary: `docs/decisions/0003-owned-provider-authentication.md`
 - Registration-request decision: `docs/decisions/0011-verified-provider-registration-requests.md`
-- Provider adapter: `packages/agent-provider-opencode-go/src/index.ts`
-- Exact HTTPS boundary: `packages/agent-cli/src/node-opencode-go-transport.ts`
+- Go provider adapter: `packages/agent-provider-opencode-go/src/index.ts`
+- Zen provider adapter: `packages/agent-provider-opencode-zen/src/index.ts`
+- Go HTTPS boundary: `packages/agent-cli/src/node-opencode-go-transport.ts`
+- Zen HTTPS boundary: `packages/agent-cli/src/node-opencode-zen-transport.ts`
+- Session selector: `packages/agent-cli/src/provider-session.ts`
+- Provider selection presentation: `packages/agent-cli/src/providers-view.ts`
 - Credential validation: `packages/agent-cli/src/provider-configuration.ts`
 - Hidden credential input: `packages/agent-cli/src/hidden-credential-prompt.ts`
 - Executable startup decision: `docs/decisions/0018-owned-executable-startup.md`

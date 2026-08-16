@@ -18,6 +18,43 @@ import { createChatRender } from "../dist/chat-view.js";
 import { CONVERSATION_DENSITY } from "../dist/conversation-density.js";
 import { createConversationDocument } from "../dist/conversation-view.js";
 
+function configuredProviders() {
+  return Object.freeze([
+    Object.freeze({
+      id: "opencodeZen" as const,
+      presentation: Object.freeze({
+        authentication: "memory-only API key",
+        displayName: "OpenCode Zen",
+        model: "configured-model",
+      }),
+      selected: true,
+    }),
+  ]);
+}
+
+function configuredDualProviders() {
+  return Object.freeze([
+    Object.freeze({
+      id: "opencodeGo" as const,
+      presentation: Object.freeze({
+        authentication: "memory-only API key",
+        displayName: "OpenCode Go",
+        model: "go-model",
+      }),
+      selected: true,
+    }),
+    Object.freeze({
+      id: "opencodeZen" as const,
+      presentation: Object.freeze({
+        authentication: "memory-only API key",
+        displayName: "OpenCode Zen",
+        model: "zen-model",
+      }),
+      selected: false,
+    }),
+  ]);
+}
+
 function viewport(columns: number, rows: number): Viewport {
   const result = Viewport.create(columns, rows);
   assert.ok(result.ok);
@@ -70,11 +107,7 @@ function frame(
 }
 
 test("projects a smooth fixed-width active-work pulse on the composer edge", () => {
-  const application = new ApplicationController(true, {
-    authentication: "memory-only API key",
-    displayName: "OpenCode Go",
-    model: "configured-model",
-  });
+  const application = new ApplicationController(true, configuredProviders());
   assert.ok(application.turnAccepted(started(91, "question")).ok);
 
   const frames = ([0, 1, 2, 3, 4, 5] as const).map((phase) => {
@@ -186,11 +219,11 @@ test("keeps an empty session visually empty", () => {
 
 test("renders one ruled composer and the exact canonical workspace root", () => {
   const canonicalWorkspaceRoot = "/owned/workspace";
-  const application = new ApplicationController(true, {
-    authentication: "memory-only API key",
-    displayName: "OpenCode Go",
-    model: "configured-model",
-  }, canonicalWorkspaceRoot);
+  const application = new ApplicationController(
+    true,
+    configuredProviders(),
+    canonicalWorkspaceRoot,
+  );
   application.feed("draft");
 
   const rendered = frame(application, 72, 18);
@@ -225,13 +258,13 @@ test("renders one ruled composer and the exact canonical workspace root", () => 
   assert.equal(rows.at(-1)?.text.includes(canonicalWorkspaceRoot), true);
   assert.equal(rows.at(-1)?.text.indexOf(canonicalWorkspaceRoot), 1);
   assert.equal(
-    rows.at(-1)?.text.includes("OpenCode Go \u00b7 configured-model"),
+    rows.at(-1)?.text.includes("OpenCode Zen \u00b7 configured-model"),
     true,
   );
   assert.equal(
-    rows.at(-1)?.text.indexOf("OpenCode Go \u00b7 configured-model"),
+    rows.at(-1)?.text.indexOf("OpenCode Zen \u00b7 configured-model"),
     (() => {
-      const name = TextSpan.create("OpenCode Go", "plain");
+      const name = TextSpan.create("OpenCode Zen", "plain");
       const model = TextSpan.create(" \u00b7 configured-model", "muted");
       assert.ok(name.ok);
       assert.ok(model.ok);
@@ -994,11 +1027,7 @@ test("wraps exact effect previews while retaining the contextual decision", () =
 });
 
 test("places compact phase-independent notices between activity and composer", () => {
-  const application = new ApplicationController(true, {
-    authentication: "memory-only API key",
-    displayName: "OpenCode Go",
-    model: "configured-model",
-  });
+  const application = new ApplicationController(true, configuredProviders());
   assert.ok(application.turnAccepted(started(31, "change")).ok);
   requestTool(application, {
     approval: false,
@@ -1037,14 +1066,14 @@ test("places compact phase-independent notices between activity and composer", (
   const providerRows = infoRows.filter(
     (row, index) =>
       index < infoComposerTop &&
-      row.text.includes("OpenCode Go \u00b7 configured-model"),
+      row.text.includes("Provider selection is available only while idle."),
   );
   const infoSpan = providerRows.at(0)?.spans.find((span) =>
-    span.text.includes("OpenCode Go"),
+    span.text.includes("Provider selection"),
   );
 
   assert.equal(providerRows.length, 1);
-  assert.equal(infoSpan?.tone, "muted");
+  assert.equal(infoSpan?.tone, "attention");
   assert.equal(infoSpan?.surface, "none");
   assert.equal(infoRows.some((row) => row.text.includes("Unknown command")), false);
 });
@@ -1152,10 +1181,10 @@ test("renders bounded slash completion above the composer", () => {
   assert.equal(providersIndex < composerTop, true);
   assert.equal(
     providers.text.trim(),
-    "/providers  show integration availability",
+    "/providers  select session provider",
   );
   assert.equal(
-    providers.text.indexOf("show integration availability"),
+    providers.text.indexOf("select session provider"),
     providers.text.indexOf("/providers") + "/providers".length + 2,
   );
   assert.equal(
@@ -1173,6 +1202,35 @@ test("renders bounded slash completion above the composer", () => {
   assert.equal(
     rows.some((row) => row.text.includes("navigate")),
     false,
+  );
+});
+
+test("renders the current-session provider selector without a box", () => {
+  const application = new ApplicationController(true, configuredDualProviders());
+  application.feed("/providers\r\u001B[B");
+
+  const rendered = frame(application, 72, 16);
+  assert.ok(rendered.ok);
+  const rows = rendered.value.rows;
+  const go = rows.find((row) => row.text.includes("OpenCode Go"));
+  const zen = rows.find((row) => row.text.includes("OpenCode Zen"));
+
+  assert.equal(rows.some((row) => row.text.includes("Providers")), true);
+  assert.equal(go?.text.includes("go-model"), true);
+  assert.equal(go?.text.includes("active"), true);
+  assert.equal(zen?.text.includes("zen-model"), true);
+  assert.equal(
+    zen?.spans
+      .filter((span) => span.text.trim().length > 0)
+      .every((span) => span.tone === "accent"),
+    true,
+  );
+  assert.equal(
+    rows
+      .flatMap((row) => row.spans)
+      .filter((span) => span.text.trim().length > 0)
+      .every((span) => span.surface === "none"),
+    true,
   );
 });
 
@@ -1283,7 +1341,7 @@ test("moves slash selection, hides exact completion, and coexists with activity"
   assert.ok(hidden.ok);
   assert.equal(
     hidden.value.rows.some((row) =>
-      row.text.includes("show integration availability"),
+      row.text.includes("select session provider"),
     ),
     false,
   );

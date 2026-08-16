@@ -82,6 +82,7 @@
     "docs/decisions/0064-owned-self-verifying-typescript-evaluation.md",
     "docs/decisions/0065-owned-red-green-tool-recovery-evaluation.md",
     "docs/decisions/0066-owned-namespace-directory-evaluation.md",
+    "docs/decisions/0067-owned-opencode-provider-selection.md",
     "evaluations/README.md"
   ],
   "workspaces": [
@@ -115,6 +116,15 @@
       }
     },
     {
+      "path": "packages/agent-provider-opencode-zen",
+      "name": "@agent/provider-opencode-zen",
+      "dependencies": {
+        "@agent/core": "0.1.0",
+        "@agent/runtime": "0.1.0",
+        "@agent/tools": "0.1.0"
+      }
+    },
+    {
       "path": "packages/agent-tui",
       "name": "@agent/tui",
       "dependencies": {}
@@ -125,6 +135,7 @@
       "dependencies": {
         "@agent/core": "0.1.0",
         "@agent/provider-opencode-go": "0.1.0",
+        "@agent/provider-opencode-zen": "0.1.0",
         "@agent/runtime": "0.1.0",
         "@agent/tools": "0.1.0",
         "@agent/tui": "0.1.0"

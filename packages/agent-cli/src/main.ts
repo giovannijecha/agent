@@ -15,13 +15,24 @@ import {
   type WritableStream,
 } from "node:process";
 
-import { OpenCodeGoModel, OPENCODE_GO_MODEL } from "@agent/provider-opencode-go";
+import {
+  OpenCodeGoModel,
+  OPENCODE_GO_MODEL,
+  type OpenCodeGoError,
+} from "@agent/provider-opencode-go";
+import {
+  OpenCodeZenModel,
+  OPENCODE_ZEN_MODEL,
+  type OpenCodeZenError,
+} from "@agent/provider-opencode-zen";
 import { AgentRuntime } from "@agent/runtime";
 
 import { AGENT_INSTRUCTIONS } from "./agent-instructions.js";
 import { createBuiltinToolEngine } from "./builtin-tools.js";
-import type { ProviderPresentation } from "./commands.js";
-import { readHiddenOpenCodeGoCredential } from "./hidden-credential-prompt.js";
+import {
+  readHiddenOpenCodeGoCredential,
+  readHiddenOpenCodeZenCredential,
+} from "./hidden-credential-prompt.js";
 import {
   EvaluationReceiptRecorder,
   formatEvaluationReceipt,
@@ -32,6 +43,7 @@ import {
 import { parseLaunchCommand } from "./launch-command.js";
 import { NodeTerminalHost } from "./node-terminal-host.js";
 import { NodeOpenCodeGoTransport } from "./node-opencode-go-transport.js";
+import { NodeOpenCodeZenTransport } from "./node-opencode-zen-transport.js";
 import { PlatformClipboard } from "./platform-clipboard.js";
 import { PlatformWorkspaceMutationCommitter } from "./platform-workspace-mutation.js";
 import { PlatformWorkspaceNamespaceCommitter } from "./platform-workspace-namespace.js";
@@ -41,18 +53,21 @@ import { NodeTimerClock } from "./node-timer-clock.js";
 import { NoticeScheduler } from "./notice-scheduler.js";
 import { writeProcessText } from "./process-output.js";
 import { ProcessProgramRegistry } from "./process-program-registry.js";
-import { resolveOpenCodeGoConfiguration } from "./provider-configuration.js";
+import {
+  resolveOpenCodeGoConfiguration,
+  resolveOpenCodeZenConfiguration,
+} from "./provider-configuration.js";
+import {
+  ProviderSession,
+  type ProviderDefinition,
+} from "./provider-session.js";
 import { run } from "./run.js";
 import { MotionScheduler } from "./motion-scheduler.js";
-import { acquireOpenCodeGoCredential } from "./startup-credential.js";
+import { acquireProviderCredential } from "./startup-credential.js";
 import { WorkspaceBoundary } from "./workspace-boundary.js";
 import { WorkspaceReadPolicy } from "./workspace-read-policy.js";
 
-const PROVIDER_PRESENTATION: ProviderPresentation = Object.freeze({
-  authentication: "memory-only API key",
-  displayName: "OpenCode Go",
-  model: OPENCODE_GO_MODEL,
-});
+type ProviderError = OpenCodeGoError | OpenCodeZenError;
 
 async function writeAndExit(
   output: WritableStream,
@@ -146,8 +161,9 @@ if (!launch.ok) {
       "Use --evaluation-receipt only for one interactive owned task " +
       "evaluation; it prints bounded content-free counts after cleanup.\n\n" +
       "Without a configured credential, interactive startup asks for the " +
-      "OpenCode Go API key with terminal echo disabled. Press Enter to " +
-      "continue without a model.\n",
+      "OpenCode Go and OpenCode Zen API keys with terminal echo disabled. " +
+      "Press Enter at either prompt to skip that provider. Use /providers " +
+      "to select a configured backend for the current session.\n",
     0,
   );
 } else if (launch.command === "version") {
@@ -188,19 +204,26 @@ const workspaceReadPolicy = workspaceReadPolicyResult.ok
       1,
     );
 
-const credential = await acquireOpenCodeGoCredential(
-  env.AGENT_OPENCODE_GO_API_KEY,
+const interactiveCredentialPrompt =
   launch.ok &&
-    launch.command === "run" &&
-    stdin.isTTY === true &&
-    stdout.isTTY === true,
+  launch.command === "run" &&
+  stdin.isTTY === true &&
+  stdout.isTTY === true;
+const goCredential = await acquireProviderCredential(
+  env.AGENT_OPENCODE_GO_API_KEY,
+  interactiveCredentialPrompt,
   () => readHiddenOpenCodeGoCredential(stdin, stdout),
   (diagnostic, code) => writeAndExit(stderr, diagnostic, code),
 );
-
-const configuration = resolveOpenCodeGoConfiguration(
-  credential,
+const zenCredential = await acquireProviderCredential(
+  env.AGENT_OPENCODE_ZEN_API_KEY,
+  interactiveCredentialPrompt,
+  () => readHiddenOpenCodeZenCredential(stdin, stdout),
+  (diagnostic, code) => writeAndExit(stderr, diagnostic, code),
 );
+
+const goConfiguration = resolveOpenCodeGoConfiguration(goCredential);
+const zenConfiguration = resolveOpenCodeZenConfiguration(zenCredential);
 const terminalHost = new NodeTerminalHost();
 const timerClock = terminalHost.interactive ? new NodeTimerClock() : undefined;
 const motion = timerClock !== undefined
@@ -214,9 +237,12 @@ const evaluation =
   launch.ok && launch.command === "run" && launch.evaluationReceipt
     ? new EvaluationReceiptRecorder()
     : undefined;
-if (!configuration.ok) {
+if (!goConfiguration.ok || !zenConfiguration.ok) {
   stderr.write("agent rejected the provider configuration\n", () => exit(1));
-} else if (configuration.value.kind === "disabled") {
+} else if (
+  goConfiguration.value.kind === "disabled" &&
+  zenConfiguration.value.kind === "disabled"
+) {
   await startEvaluation(evaluation);
   const result = await run(
     terminalHost,
@@ -233,12 +259,70 @@ if (!configuration.ok) {
     evaluation,
   );
 } else {
-  const transport = NodeOpenCodeGoTransport.create(
-    configuration.value.credential,
-  );
-  const model = transport.ok
-    ? OpenCodeGoModel.create(transport.value, AGENT_INSTRUCTIONS)
-    : transport;
+  const definitions: ProviderDefinition<ProviderError>[] = [];
+  if (goConfiguration.value.kind === "enabled") {
+    const transport = NodeOpenCodeGoTransport.create(
+      goConfiguration.value.credential,
+    );
+    const transportValue = transport.ok
+      ? transport.value
+      : await writeAndExit(
+        stderr,
+        "agent could not initialize the configured provider\n",
+        1,
+      );
+    const model = OpenCodeGoModel.create(transportValue, AGENT_INSTRUCTIONS);
+    const modelValue = model.ok
+      ? model.value
+      : await writeAndExit(
+        stderr,
+        "agent could not initialize the configured provider\n",
+        1,
+      );
+    definitions.push(
+      Object.freeze({
+        id: "opencodeGo" as const,
+        model: modelValue,
+        presentation: Object.freeze({
+          authentication: "memory-only API key",
+          displayName: "OpenCode Go",
+          model: OPENCODE_GO_MODEL,
+        }),
+      }),
+    );
+  }
+  if (zenConfiguration.value.kind === "enabled") {
+    const transport = NodeOpenCodeZenTransport.create(
+      zenConfiguration.value.credential,
+    );
+    const transportValue = transport.ok
+      ? transport.value
+      : await writeAndExit(
+        stderr,
+        "agent could not initialize the configured provider\n",
+        1,
+      );
+    const model = OpenCodeZenModel.create(transportValue, AGENT_INSTRUCTIONS);
+    const modelValue = model.ok
+      ? model.value
+      : await writeAndExit(
+        stderr,
+        "agent could not initialize the configured provider\n",
+        1,
+      );
+    definitions.push(
+      Object.freeze({
+        id: "opencodeZen" as const,
+        model: modelValue,
+        presentation: Object.freeze({
+          authentication: "memory-only API key",
+          displayName: "OpenCode Zen",
+          model: OPENCODE_ZEN_MODEL,
+        }),
+      }),
+    );
+  }
+  const providerSession = ProviderSession.create(definitions);
   const processRunner = NodeProcessRunner.create(platform, arch);
   const processPrograms = ProcessProgramRegistry.create(execPath);
   const mutationCommitter = PlatformWorkspaceMutationCommitter.create(
@@ -250,7 +334,7 @@ if (!configuration.ok) {
     arch,
   );
   if (
-    !model.ok ||
+    !providerSession.ok ||
     !processRunner.ok ||
     !processPrograms.ok ||
     !mutationCommitter.ok ||
@@ -279,8 +363,8 @@ if (!configuration.ok) {
       await startEvaluation(evaluation);
       const result = await run(
         terminalHost,
-        new AgentRuntime(model.value, tools.value),
-        PROVIDER_PRESENTATION,
+        new AgentRuntime(providerSession.value, tools.value),
+        providerSession.value,
         workspaceRoot,
         motion,
         notices,

@@ -86,7 +86,20 @@ const EXPECTED_DIRECT_PROVIDERS = [
     model: "kimi-k2.7-code",
     transport: "chat-completions-sse",
     evidence: "https://opencode.ai/docs/go/",
-    researchedOn: "2026-08-09",
+    researchedOn: "2026-08-16",
+  },
+  {
+    id: "opencode-zen",
+    displayName: "OpenCode Zen",
+    eligibility: "enabled",
+    authorization: "direct-api-key",
+    credentialVariable: "AGENT_OPENCODE_ZEN_API_KEY",
+    credentialPersistence: "memory-only",
+    endpoint: "https://opencode.ai/zen/v1/chat/completions",
+    model: "deepseek-v4-flash-free",
+    transport: "chat-completions-sse",
+    evidence: "https://opencode.ai/docs/zen/",
+    researchedOn: "2026-08-16",
   },
 ];
 
@@ -150,15 +163,18 @@ const EXPECTED_WORKSPACES = [
   "@agent/tools",
   "@agent/runtime",
   "@agent/provider-opencode-go",
+  "@agent/provider-opencode-zen",
   "@agent/tui",
   "@agent/cli",
 ];
 
 const APPROVED_SOURCE_LITERALS = Object.freeze({
   "packages/agent-provider-opencode-go/src/wire.ts": ["kimi-k2.7-code"],
-  "packages/agent-cli/test/session.test.ts": ["kimi-k2.7-code"],
+  "packages/agent-provider-opencode-zen/src/wire.ts": ["deepseek-v4-flash-free"],
   "packages/agent-cli/src/node-opencode-go-transport.ts": ["Bearer "],
   "packages/agent-cli/test/node-opencode-go-transport.test.ts": ["Bearer "],
+  "packages/agent-cli/src/node-opencode-zen-transport.ts": ["Bearer "],
+  "packages/agent-cli/test/node-opencode-zen-transport.test.ts": ["Bearer "],
 });
 
 const FORBIDDEN_SOURCE_MARKERS = [
@@ -169,7 +185,7 @@ const FORBIDDEN_SOURCE_MARKERS = [
   [/\b(?:fetch|WebSocket|EventSource|XMLHttpRequest)\b/u, "ambient network capability"],
   [/\b(?:oauth|pkce|CLIENT_ID|clientId|client_id)\b/iu, "OAuth client protocol"],
   [/\b(?:accessToken|access_token|refreshToken|refresh_token|deviceCode|device_code)\b/iu, "OAuth credential protocol"],
-  [/\b(?:openai|chatgpt|anthropic|claude|kimi|xai|grok)\b/iu, "blocked provider implementation"],
+  [/\b(?:openai|chatgpt|anthropic|claude|kimi|deepseek|xai|grok)\b/iu, "provider implementation outside its reviewed source"],
   [/\b(?:applicationId|bearer(?:Token|Value)?)\b/iu, "OAuth identity or credential protocol"],
   [/\b(?:ANTHROPIC_OAUTH_TOKEN|KIMI_CODE_OAUTH_HOST)\b/u, "provider token configuration"],
   [/(?:auth\.json|\.codex|\.claude|\.kimi-code|\.grok)/u, "foreign credential storage"],

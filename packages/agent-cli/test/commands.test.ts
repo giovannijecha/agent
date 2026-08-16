@@ -22,7 +22,7 @@ test("uses one canonical catalog for exact dispatch and completion", () => {
     COMMANDS.map((definition) => definition.command),
     ["/providers", "/permissions", "/exit"],
   );
-  assert.equal(executeSubmission("/providers").kind, "notice");
+  assert.equal(executeSubmission("/providers").kind, "providers");
   assert.equal(executeSubmission("/permissions").kind, "permissions");
   assert.equal(executeSubmission("/exit").kind, "exit");
   assert.deepEqual(
@@ -62,29 +62,10 @@ test("keeps documentation outside the command surface", () => {
   });
 });
 
-test("reports integration status without creating an adapter", () => {
+test("opens the canonical provider selector", () => {
   const result = executeSubmission("/providers");
 
-  assert.deepEqual(result, {
-    kind: "notice",
-    level: "info",
-    lines: ["No provider configured"],
-  });
-});
-
-test("reports one configured provider as one compact informational line", () => {
-  assert.deepEqual(
-    executeSubmission("/providers", {
-      authentication: "memory-only API key",
-      displayName: "OpenCode Go",
-      model: "configured-model",
-    }),
-    {
-      kind: "notice",
-      level: "info",
-      lines: ["OpenCode Go \u00b7 configured-model \u00b7 memory-only API key"],
-    },
-  );
+  assert.deepEqual(result, { kind: "providers" });
 });
 
 test("classifies ordinary text for transient runtime submission", () => {

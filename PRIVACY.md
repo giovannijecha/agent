@@ -112,28 +112,33 @@ The terminal owns activation and any security prompt. Holding Shift retains the
 terminal's optional native selection route while application mouse reporting is
 active. Ctrl+C remains the agent interrupt and is not a copy shortcut.
 
-## OpenCode Go connection
+## OpenCode provider connections
 
-When the operator enters an OpenCode Go key through the owned hidden prompt or
-configures the exact environment variable and submits a turn, `agent` sends the
-system instruction, bounded conversation,
-owned tool schemas, user input, and necessary checkpointed tool calls and
-results directly to `https://opencode.ai/zen/go/v1/chat/completions`. Provider
-processing is governed by OpenCode's terms and privacy policy; requests never
-pass through a project-owned backend. The official Go page currently states
-zero-day retention and no training for Kimi K2.7 Code. Those terms can change
-and are not guarantees made by this project.
+When the operator configures an OpenCode Go or OpenCode Zen key and submits a
+turn, `agent` sends the system instruction, bounded conversation, owned tool
+schemas, user input, and necessary checkpointed tool calls and results directly
+to the selected fixed endpoint. Go uses
+`https://opencode.ai/zen/go/v1/chat/completions`; Zen uses
+`https://opencode.ai/zen/v1/chat/completions`. Requests never pass through a
+project-owned backend. The official Go page currently states zero-day retention
+and no training for Kimi K2.7 Code. OpenCode documents Zen models as hosted in
+the United States and identifies `deepseek-v4-flash-free` as a temporary free
+model whose collected data may be used to improve the model. Do not submit
+secrets, personal data, or confidential content to that free model. Provider
+terms can change and are not guarantees made by this project.
 
 The request disables parallel tool selection. A multi-part task may therefore
 send additional bounded model requests as each structured tool result is
 checkpointed and the remaining goal is reassessed. This changes request timing,
 not the categories of transmitted content, credential handling, retention, or
-the fixed destination above. No tool handler is executed concurrently.
+the selected fixed destination above. Selecting a provider never retries or
+falls back to the other backend. No tool handler is executed concurrently.
 
 `agent` never asks for provider passwords, cookies, recovery codes, payment
-details, or one-time codes. The OpenCode Go API key is accepted only through the
-documented hidden prompt or environment variable and remains in process memory.
-The prompt disables terminal echo and writes no key or mask characters.
+details, or one-time codes. Each API key is accepted only through its own
+documented hidden prompt or exact environment variable and remains in process
+memory. A key is never copied into the other provider slot. The prompt disables
+terminal echo and writes no key or mask characters.
 Persistent storage requires a separate accepted operating-system vault design.
 The four subscription OAuth connections remain disabled.
 

@@ -20,6 +20,9 @@
       "path": "../agent-provider-opencode-go"
     },
     {
+      "path": "../agent-provider-opencode-zen"
+    },
+    {
       "path": "../agent-runtime"
     },
     {

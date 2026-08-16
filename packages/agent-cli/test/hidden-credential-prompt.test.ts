@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { readHiddenOpenCodeGoCredential } from "../dist/hidden-credential-prompt.js";
+import {
+  readHiddenOpenCodeGoCredential,
+  readHiddenOpenCodeZenCredential,
+} from "../dist/hidden-credential-prompt.js";
 
 class FakeInput {
   readonly dataListeners: ((text: string) => void)[] = [];
@@ -99,7 +102,7 @@ class FakeOutput {
 test("reads a credential without echo and restores terminal ownership", async () => {
   const input = new FakeInput();
   const output = new FakeOutput();
-  const pending = readHiddenOpenCodeGoCredential(input, output);
+  const pending = readHiddenOpenCodeZenCredential(input, output);
 
   await Promise.resolve();
   input.emit("secret-value\r");
@@ -116,10 +119,32 @@ test("reads a credential without echo and restores terminal ownership", async ()
   assert.equal(input.dataListeners.length, 0);
 });
 
+test("owns distinct hidden prompts for Go and Zen", async () => {
+  for (const [read, label] of [
+    [readHiddenOpenCodeGoCredential, "OpenCode Go"],
+    [readHiddenOpenCodeZenCredential, "OpenCode Zen"],
+  ] as const) {
+    const input = new FakeInput();
+    const output = new FakeOutput();
+    const pending = read(input, output);
+    await Promise.resolve();
+    input.emit("provider-key\r");
+    assert.deepEqual(await pending, {
+      ok: true,
+      value: { credential: "provider-key", kind: "provided" },
+    });
+    assert.equal(
+      output.writes.at(0),
+      label + " API key (hidden; Enter skips): ",
+    );
+    assert.equal(output.writes.join("").includes("provider-key"), false);
+  }
+});
+
 test("supports editing, explicit skip, and cancellation", async () => {
   const editedInput = new FakeInput();
   const editedOutput = new FakeOutput();
-  const edited = readHiddenOpenCodeGoCredential(editedInput, editedOutput);
+  const edited = readHiddenOpenCodeZenCredential(editedInput, editedOutput);
   await Promise.resolve();
   editedInput.emit("abc\u007Fx\r");
   assert.deepEqual(await edited, {
@@ -128,7 +153,7 @@ test("supports editing, explicit skip, and cancellation", async () => {
   });
 
   const skippedInput = new FakeInput();
-  const skipped = readHiddenOpenCodeGoCredential(
+  const skipped = readHiddenOpenCodeZenCredential(
     skippedInput,
     new FakeOutput(),
   );
@@ -137,7 +162,7 @@ test("supports editing, explicit skip, and cancellation", async () => {
   assert.deepEqual(await skipped, { ok: true, value: { kind: "skipped" } });
 
   const cancelledInput = new FakeInput();
-  const cancelled = readHiddenOpenCodeGoCredential(
+  const cancelled = readHiddenOpenCodeZenCredential(
     cancelledInput,
     new FakeOutput(),
   );
@@ -154,7 +179,7 @@ test("does not prompt outside a fully interactive terminal", async () => {
   const output = new FakeOutput();
   output.isTTY = false;
 
-  assert.deepEqual(await readHiddenOpenCodeGoCredential(input, output), {
+  assert.deepEqual(await readHiddenOpenCodeZenCredential(input, output), {
     ok: true,
     value: { kind: "skipped" },
   });
@@ -166,7 +191,7 @@ test("rejects whitespace and oversized input without echoing it", async () => {
   for (const value of ["two values", "x".repeat(8_193)]) {
     const input = new FakeInput();
     const output = new FakeOutput();
-    const pending = readHiddenOpenCodeGoCredential(input, output);
+    const pending = readHiddenOpenCodeZenCredential(input, output);
     await Promise.resolve();
     input.emit(value + "\r");
     const result = await pending;

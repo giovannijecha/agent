@@ -25,21 +25,24 @@ one-way dependencies, not speculative packages.
 | terminal UI|
 +------------+
 
-@agent/cli -> @agent/provider-opencode-go -> @agent/runtime
-                                      |----> @agent/tools
-                                      +----> @agent/core
+@agent/cli -> @agent/provider-opencode-go  -> @agent/runtime
+           -> @agent/provider-opencode-zen -> @agent/runtime
+                                               |----> @agent/tools
+                                               +----> @agent/core
 ```
 
 The diagram's direct edges are `cli -> runtime`, `cli -> tools`, `cli -> core`,
-`cli -> tui`, `cli -> provider-opencode-go`, `provider-opencode-go -> runtime`,
-`provider-opencode-go -> tools`, `provider-opencode-go -> core`,
+`cli -> tui`, `cli -> provider-opencode-go`, `cli -> provider-opencode-zen`,
+each provider adapter to `runtime`, `tools`, and `core`,
 `runtime -> tools`, `runtime -> core`, and `tools -> core`.
 
 Runtime is a concrete independent foundation exercised by deterministic tests.
 CLI has a real optional runtime composition edge exercised by deterministic
-integration sessions. The production entry point injects OpenCode Go only when
-its exact memory-only credential is supplied through the hidden CLI prompt or
-environment variable; otherwise it preserves the providerless path. Executable
+integration sessions. The production entry point builds one bounded provider
+session from only the OpenCode Go and OpenCode Zen backends whose independent
+memory-only credentials were supplied through their hidden CLI prompts or
+environment variables. Go is initially selected when both are configured;
+without either credential the entry point preserves the providerless path. Executable
 argument parsing and hidden input stay in CLI and complete before the generic
 terminal host takes ownership. Cross-package access uses public package
 surfaces; deep and relative cross-package imports are forbidden.
@@ -90,7 +93,7 @@ replacement architecture defined by decision 0013, including new identity,
 authority, scheduling, cancellation, privacy, migration, and removal contracts.
 
 Decision 0061 adds a provider-side convergence boundary without changing that
-generic runtime shape. OpenCode Go requests at most one call per response, so
+generic runtime shape. Both OpenCode adapters request at most one call per response, so
 the model observes each checkpointed result before it authors the next call and
 can reassess every remaining part of the same user goal. If the compatible
 service nevertheless returns a bounded batch, the decoder and runtime retain
@@ -137,15 +140,18 @@ failure and cancellation receipts remain until application acknowledgement or
 runtime stop, preserving cleanup failures across buffered-event shutdown races.
 Runtime is Node-free and imports only core and tools.
 
-### `@agent/provider-opencode-go`
+### `@agent/provider-opencode-go` and `@agent/provider-opencode-zen`
 
 Owns the strict provider wire contract: fixed model selection, request
 serialization, incremental UTF-8 and SSE decoding, streamed text and indexed
 tool-call batch assembly, protocol bounds, a one-call request policy, and
-content-free failures. It implements
+content-free failures. Each implements
 the existing streaming-model port through an injected pull-based byte transport.
 It owns no socket, environment access, API key, terminal, application state,
-tool policy, or second agent identity. It imports only core, runtime, and tools.
+tool policy, or second agent identity. Each imports only core, runtime, and tools.
+The CLI-owned provider session delegates one open to exactly the selected
+backend; it does not retain a second runtime, retry through the other adapter,
+or merge credential slots.
 
 ### `@agent/tui`
 
@@ -305,9 +311,10 @@ exposes no overwrite, merge, recursive removal, implicit parent creation,
 self-descendant move, or portable pathname fallback. Missing namespace
 primitives and stale state fail closed.
 
-CLI also owns the exact OpenCode Go HTTPS adapter and startup configuration. It
-admits only `opencode.ai:443`, never follows an application-selected origin,
-keeps the API key in memory, and exposes only bytes and response metadata to the
+CLI also owns both exact OpenCode HTTPS adapters and startup configurations.
+They admit only `opencode.ai:443` and their registered Go or Zen path, never
+follow an application-selected origin, keep each API key in its independent
+memory slot, and expose only bytes and response metadata to the corresponding
 Node-free provider package.
 Decision 0036 admits one model-facing execute capability, `run_process`, through
 the CLI-owned C17 broker proven by decisions 0015 and 0016. The structured tool

@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-16
+- Amended: 2026-08-16 by decision 0067 for the OpenCode Zen adapter
 - Amends: decisions 0008, 0017, and 0029
 
 ## Context
@@ -26,7 +27,7 @@ implicitly.
 
 ## Decision
 
-OpenCode Go requests exactly one tool call per model response by encoding
+Every admitted OpenCode adapter requests exactly one tool call per model response by encoding
 `parallel_tool_calls: false`. The owned provider-neutral instruction tells the
 model to issue at most one call, observe its structured result, reassess the
 remaining user goal, and continue until every requested part is complete or one
