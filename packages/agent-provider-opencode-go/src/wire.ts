@@ -182,7 +182,7 @@ export function encodeRequest(
         : Object.freeze({
             messages,
             model: OPENCODE_GO_MODEL,
-            parallel_tool_calls: true,
+            parallel_tool_calls: false,
             stream: true,
             tools: tools.map((tool) => toolValue(tool)),
           });

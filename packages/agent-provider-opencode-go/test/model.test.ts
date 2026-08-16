@@ -36,6 +36,9 @@ import {
   StringSchema,
   TOOL_ENGINE_LIMITS,
   ToolDescriptor,
+  ToolEngine,
+  ToolHandlerOutcome,
+  ToolRegistry,
   UnionSchema,
 } from "@agent/tools";
 
@@ -124,6 +127,26 @@ class FakeTransport implements OpenCodeGoTransport {
     this.request = request;
     this.cancellation = cancellation;
     return this.#opened;
+  }
+}
+
+class SequenceFakeTransport implements OpenCodeGoTransport {
+  readonly requests: OpenCodeGoTransportRequest[] = [];
+  readonly #streams: OpenCodeGoTransportStream[];
+
+  constructor(streams: OpenCodeGoTransportStream[]) {
+    this.#streams = [...streams];
+  }
+
+  async open(
+    request: OpenCodeGoTransportRequest,
+    _cancellation: CancellationSignal,
+  ): Promise<Result<OpenCodeGoTransportStream, OpenCodeGoTransportError>> {
+    this.requests.push(request);
+    const stream = this.#streams.shift();
+    return stream === undefined
+      ? err(Object.freeze({ kind: "connection" as const }))
+      : ok(stream);
   }
 }
 
@@ -282,6 +305,53 @@ function unionDescriptor(): ToolDescriptor {
   return tool.value;
 }
 
+function editEngine(edits: string[]): ToolEngine {
+  const path = StringSchema.create(1, 4_096);
+  const edit = StringSchema.create(1, 64);
+  assert.ok(path.ok && edit.ok);
+  const input = ObjectSchema.create([
+    {
+      description: "Workspace-relative path.",
+      name: "path",
+      required: true,
+      schema: path.value,
+    },
+    {
+      description: "Bounded edit operation.",
+      name: "edit",
+      required: true,
+      schema: edit.value,
+    },
+  ]);
+  assert.ok(input.ok);
+  const descriptor = ToolDescriptor.create(
+    "apply_patch",
+    "Apply one bounded edit to one text file.",
+    "write",
+    input.value,
+    Object.freeze([
+      Object.freeze({ mode: "exact" as const, name: "path" }),
+      Object.freeze({ mode: "exact" as const, name: "edit" }),
+    ]),
+  );
+  assert.ok(descriptor.ok);
+  const registry = ToolRegistry.create([
+    {
+      descriptor: descriptor.value,
+      handler: async (value) => {
+        const operation = value.get("edit");
+        assert.equal(typeof operation, "string");
+        edits.push(operation as string);
+        return ok(ToolHandlerOutcome.success({ changed: true }));
+      },
+    },
+  ]);
+  assert.ok(registry.ok);
+  const engine = ToolEngine.create(registry.value);
+  assert.ok(engine.ok);
+  return engine.value;
+}
+
 function model(
   stream: OpenCodeGoTransportStream,
 ): Readonly<{ model: OpenCodeGoModel; transport: FakeTransport }> {
@@ -370,7 +440,7 @@ test("encodes the fixed model, instructions, conversation, and exact tool schema
   };
   assert.equal(parsed.model, OPENCODE_GO_MODEL);
   assert.equal(parsed.stream, true);
-  assert.equal(parsed.parallel_tool_calls, true);
+  assert.equal(parsed.parallel_tool_calls, false);
   assert.deepEqual(parsed.messages.map((entry) => entry.role), ["system", "user"]);
   assert.equal(parsed.messages.at(0)?.content.includes("single coding agent"), true);
   assert.equal(parsed.messages.at(1)?.content, "Inspect the project.");
@@ -567,6 +637,129 @@ test("drives one complete runtime turn through the concrete provider adapter", a
     ),
     ["Owned question.", "Owned answer."],
   );
+  assert.ok((await runtime.stop()).ok);
+});
+
+test("converges a multi-part edit through separate concrete provider decisions", async () => {
+  const toolStream = (callId: string, edit: string) =>
+    new FakeStream([
+      ok(
+        frame(
+          completion({
+            tool_calls: [
+              {
+                function: {
+                  arguments: JSON.stringify({ edit, path: "index.html" }),
+                  name: "apply_patch",
+                },
+                id: callId,
+                index: 0,
+                type: "function",
+              },
+            ],
+          }),
+        ),
+      ),
+      ok(frame(completion({}, "tool_calls"))),
+    ]);
+  const transport = new SequenceFakeTransport([
+    toolStream("call-remove", "remove-emoji"),
+    toolStream("call-theme", "github-dark"),
+    new FakeStream([
+      ok(frame(completion({ content: "Both requested edits are complete." }))),
+      ok(frame(completion({}, "stop"))),
+    ]),
+  ]);
+  const provider = OpenCodeGoModel.create(
+    transport,
+    "Use one tool call, observe its result, and continue until complete.",
+  );
+  assert.ok(provider.ok);
+  const edits: string[] = [];
+  const runtime = new AgentRuntime(provider.value, editEngine(edits));
+  const started = runtime.startTurn(
+    "Remove the emoji, then use a GitHub-style dark theme.",
+  );
+  assert.ok(started.ok);
+
+  for (const callId of ["call-remove", "call-theme"]) {
+    const requested = await runtime.nextEvent();
+    assert.ok(requested.ok);
+    assert.equal(requested.value.kind, "toolRequested");
+    if (requested.value.kind === "toolRequested") {
+      assert.equal(requested.value.callId, callId);
+      assert.ok(
+        runtime.resolveToolPermission(
+          started.value.turnId,
+          requested.value.callId,
+          true,
+        ).ok,
+      );
+    }
+    const toolStarted = await runtime.nextEvent();
+    assert.ok(toolStarted.ok);
+    assert.equal(toolStarted.value.kind, "toolStarted");
+    const toolFinished = await runtime.nextEvent();
+    assert.ok(toolFinished.ok);
+    assert.equal(toolFinished.value.kind, "toolFinished");
+    if (toolFinished.value.kind === "toolFinished") {
+      assert.equal(toolFinished.value.status, "success");
+    }
+  }
+
+  const delta = await runtime.nextEvent();
+  assert.deepEqual(delta, {
+    ok: true,
+    value: {
+      kind: "assistantDelta",
+      text: "Both requested edits are complete.",
+      turnId: started.value.turnId,
+    },
+  });
+  const prepared = await runtime.nextEvent();
+  assert.ok(prepared.ok);
+  assert.equal(prepared.value.kind, "turnPrepared");
+  assert.deepEqual(edits, ["remove-emoji", "github-dark"]);
+  assert.equal(transport.requests.length, 3);
+
+  const requestBodies = transport.requests.map((request) =>
+    JSON.parse(request.body) as {
+      messages: Array<{
+        content?: string;
+        role: string;
+        tool_call_id?: string;
+      }>;
+      parallel_tool_calls: boolean;
+    }
+  );
+  assert.deepEqual(
+    requestBodies.map((request) => request.parallel_tool_calls),
+    [false, false, false],
+  );
+  assert.deepEqual(
+    requestBodies.at(1)?.messages.map((message) => message.role),
+    ["system", "user", "assistant", "tool"],
+  );
+  assert.deepEqual(
+    requestBodies.at(2)?.messages.map((message) => message.role),
+    ["system", "user", "assistant", "tool", "assistant", "tool"],
+  );
+  assert.equal(
+    requestBodies.at(1)?.messages.at(3)?.tool_call_id,
+    "call-remove",
+  );
+  assert.equal(
+    requestBodies.at(2)?.messages.at(5)?.tool_call_id,
+    "call-theme",
+  );
+  assert.equal(
+    JSON.parse(requestBodies.at(1)?.messages.at(3)?.content ?? "null").status,
+    "success",
+  );
+  assert.deepEqual(runtime.commitTurn(started.value.turnId), {
+    ok: true,
+    value: { kind: "committed" },
+  });
   assert.ok((await runtime.stop()).ok);
 });
 

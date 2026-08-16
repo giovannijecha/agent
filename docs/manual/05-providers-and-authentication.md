@@ -38,6 +38,12 @@ key is sent in the fixed request authorization header. OpenCode Go's current
 page states zero-day retention and no training for Kimi K2.7 Code, but provider
 terms can change and remain outside `agent`'s control.
 
+OpenCode Go requests at most one tool call per model response. After a result is
+checkpointed, the next bounded request includes that result and asks the same
+model to reassess the unfinished parts of the user goal. The generic decoder
+still accepts a complete bounded batch if the compatible service returns one,
+but runtime handlers remain sequential and are never retried implicitly.
+
 ChatGPT Plus/Pro, Claude Pro/Max, Kimi Code credential login, and Grok
 subscription OAuth remain blocked. Kimi Code Team confirmed on 2026-08-11 that
 it does not currently offer a public OAuth flow for third-party clients; the
@@ -80,6 +86,7 @@ core, tools, runtime, TUI, and CLI workspaces offline.
 
 - Eligibility and official references: `docs/PROVIDERS.md`
 - Provider decision: `docs/decisions/0017-owned-opencode-go-provider.md`
+- Convergent tool-turn decision: `docs/decisions/0061-owned-convergent-tool-turns.md`
 - Provider authentication boundary: `docs/decisions/0003-owned-provider-authentication.md`
 - Registration-request decision: `docs/decisions/0011-verified-provider-registration-requests.md`
 - Provider adapter: `packages/agent-provider-opencode-go/src/index.ts`

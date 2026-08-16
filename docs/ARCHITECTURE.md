@@ -89,6 +89,14 @@ capabilities rather than agents. Changing this invariant requires the
 replacement architecture defined by decision 0013, including new identity,
 authority, scheduling, cancellation, privacy, migration, and removal contracts.
 
+Decision 0061 adds a provider-side convergence boundary without changing that
+generic runtime shape. OpenCode Go requests at most one call per response, so
+the model observes each checkpointed result before it authors the next call and
+can reassess every remaining part of the same user goal. If the compatible
+service nevertheless returns a bounded batch, the decoder and runtime retain
+the defensive sequential path. No tool handler executes concurrently and no
+completed effect is retried implicitly.
+
 ## Package contracts
 
 ### `@agent/core`
@@ -133,7 +141,8 @@ Runtime is Node-free and imports only core and tools.
 
 Owns the strict provider wire contract: fixed model selection, request
 serialization, incremental UTF-8 and SSE decoding, streamed text and indexed
-tool-call batch assembly, protocol bounds, and content-free failures. It implements
+tool-call batch assembly, protocol bounds, a one-call request policy, and
+content-free failures. It implements
 the existing streaming-model port through an injected pull-based byte transport.
 It owns no socket, environment access, API key, terminal, application state,
 tool policy, or second agent identity. It imports only core, runtime, and tools.

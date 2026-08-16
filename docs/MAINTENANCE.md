@@ -96,6 +96,13 @@ that only state newer than the last checkpoint may be discarded. Update
 decision 0029 with any batch order, planning, limit, output-budget, cancellation,
 or checkpoint change.
 
+The OpenCode Go model-turn barrier follows decision 0061. Preserve the exact
+one-call request field, bounded owned instruction, complete result checkpoint,
+provider/runtime integration regression, and defensive batch path together.
+Changing that barrier requires task-convergence evidence and updates to
+decisions 0017, 0029, and 0061. Never substitute concurrent handlers, a blind
+retry, or implicit replay of a completed effect.
+
 Checkpointed failure-presentation changes follow decision 0052. Update the
 closed pure classifier, reducer regressions, turn-lifecycle manual,
 architecture, and engineering guidance together. A new runtime failure variant
@@ -496,10 +503,11 @@ composition, and provider presentation. Do not move process or socket access
 into the provider package and do not leak provider vocabulary into runtime,
 tools, core, or TUI.
 
-An endpoint, model, header, privacy, limit, or wire change requires current
-official evidence, an update to decision 0017, exact provider-policy changes,
-provider and CLI contract tests, manual/privacy/security updates, and the full
-offline release gate. Never add discovery, redirects, aliases, retries,
+An endpoint, model, header, privacy, limit, request-selection, instruction, or
+wire change requires current official evidence, updates to decisions 0017 and
+0061 when convergence changes, exact provider-policy changes, provider and CLI
+contract tests, manual/privacy/security updates, and the full offline release
+gate. Never add discovery, redirects, aliases, retries,
 fallbacks, arbitrary base URLs, or persistent key storage as a compatibility
 shortcut.
 

@@ -186,15 +186,25 @@ approved Node code still has the launching user's filesystem and network
 authority. Do not approve untrusted programs on the assumption that they are
 confined to the displayed workspace.
 
-One model response may select up to 32 ordered tool calls, subject to the
-remaining per-turn, argument, output, and conversation limits. The complete
-batch is validated without filesystem observation before planning or invocation.
-Calls are then planned just in time and invoked sequentially in provider order,
-so a later mutation observes the settled result of every earlier call. Every
-successfully planned call receives one exact runtime permission decision. An
-`Ask` pauses independently for that call; session `Allow` and `Deny` modes are
-looked up again by exact tool name for every request. A batch is one decision by the same agent,
-not delegation or multi-agent orchestration.
+OpenCode Go requests at most one tool call per model response. After that call
+settles, the complete structured exchange is checkpointed and the same model is
+opened again with the result before it authors another call. The owned
+instruction requires it to reassess the remaining user goal, complete every
+requested part or explain one blocker, consolidate all currently known edits to
+one file into one `apply_patch`, and never repeat a failed request blindly. This
+prevents ordinary dependent edits from being authored against the same stale
+pre-result snapshot.
+
+The provider-neutral boundary remains defensive. If a compatible service
+returns several calls despite the request, one response may contain up to 32
+ordered calls subject to the remaining per-turn, argument, output, and
+conversation limits. The complete batch is validated without filesystem
+observation before planning or invocation. Calls are planned just in time and
+invoked sequentially in provider order. Every successfully planned call
+receives one exact runtime permission decision. An `Ask` pauses independently;
+session `Allow` and `Deny` modes are looked up again by exact tool name. This is
+one decision by the same agent, not concurrent handlers, delegation, implicit
+retry, or multi-agent orchestration.
 
 Mutation preview line positions and added or removed line counts treat CRLF as
 one line boundary and lone CR or LF as one boundary. The displayed metadata
@@ -381,6 +391,9 @@ function defined by decisions 0022, 0033, 0056, 0057, and 0060.
 - Tool-activity decision: `docs/decisions/0022-owned-tool-activity-surface.md`
 - Semantic-activity decision: `docs/decisions/0033-owned-semantic-activity-surfaces.md`
 - Tool-call batch decision: `docs/decisions/0029-canonical-tool-call-batches.md`
+- Convergent tool-turn decision: `docs/decisions/0061-owned-convergent-tool-turns.md`
+- Owned model instruction: `packages/agent-cli/src/agent-instructions.ts`
+- OpenCode Go request encoder: `packages/agent-provider-opencode-go/src/wire.ts`
 - Visual-grammar decision: `docs/decisions/0028-owned-conversation-visual-grammar.md`
 - Native broker contract: `packages/agent-cli/native/process-broker/broker.h`
 - Cross-platform proof: `tools/test/native-process-broker.test.mjs`

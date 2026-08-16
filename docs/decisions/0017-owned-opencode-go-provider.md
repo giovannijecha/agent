@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-09
+- Amended: 2026-08-16 by decision 0061 for convergent tool turns
 
 ## Context
 
@@ -41,13 +42,16 @@ framer, Chat Completions request encoder, streamed response validator, tool-call
 assembler, and content-free error vocabulary. It sends one small
 provider-neutral system instruction authored in this repository, the immutable
 conversation snapshot, the exact owned tool descriptors, `stream: true`, and
-`parallel_tool_calls: true`. Decision 0029 supersedes the original one-call
-limit: the strict decoder accepts one choice and one bounded ordered call batch,
-assembles indexed fragments, and emits it atomically. This permits model
-selection of several calls; handlers still execute sequentially under the sole
-runtime controller. Unsupported finish reasons, multiple choices, malformed JSON,
-invalid UTF-8, unknown tool-call structure, excessive data, wrong status, and
-wrong content type fail closed.
+`parallel_tool_calls: false`. Decision 0061 restores a one-call request policy so
+each new model decision observes the prior checkpointed result before authoring
+another call. The instruction requires the model to reassess remaining work and
+finish every requested part or explain one blocker. Decision 0029 still governs
+defensive compatibility: the strict decoder accepts one choice and one bounded
+ordered call batch, assembles indexed fragments, and emits it atomically if the
+service returns several calls despite the request. Handlers remain sequential
+under the sole runtime controller. Unsupported finish reasons, multiple choices,
+malformed JSON, invalid UTF-8, unknown tool-call structure, excessive data,
+wrong status, and wrong content type fail closed.
 
 The transport exposes a pull-based response with one-reader semantics. The
 Node adapter pauses the incoming response between reads, retains at most one

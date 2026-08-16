@@ -500,6 +500,12 @@ effect and must not prompt. One model response may select
 a bounded ordered batch. Pure complete-batch preflight precedes observation,
 then each call is planned just in time and invoked sequentially in provider
 order. Filesystem tools use no ambient network access.
+OpenCode Go requests at most one call per response under decision 0061. Keep the
+owned instruction, exact request field, provider/runtime integration regression,
+and defensive batch decoder aligned. After every checkpointed result the same
+model must reassess the remaining goal. Consolidate currently known same-file
+edits, correct or explain a failed request, and never add a blind handler retry,
+implicit effect replay, or concurrent tool execution.
 Decision 0036 admits only `run_process`, the registered `node` token, and the
 owned native whole-tree containment broker; no other process capability may be
 advertised.

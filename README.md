@@ -18,7 +18,7 @@ maintainer-controlled workspace without third-party runtime packages.
 - Streams one model turn into a conversation-first terminal interface.
 - Runs bounded local coding tools through explicit schemas and risk classes.
 - Applies one session-scoped `Allow`, `Ask`, or `Deny` policy to every tool.
-- Executes ordered tool-call batches sequentially and checkpoints their truth.
+- Advances tools through checkpointed model-turn barriers until the task settles.
 - Filters automatic reads through an owned deny-only workspace privacy policy.
 - Contains the admitted `node` process token through an owned native broker.
 - Verifies source, ownership, build, tests, and CLI behavior offline.
@@ -129,9 +129,11 @@ terminal-native selection path, while Ctrl+C remains the agent interrupt.
 
 ## Safety boundaries
 
-- One model response may select one bounded ordered tool-call batch.
-- The complete batch is validated before observation; calls are then planned
-  just in time and invoked sequentially.
+- OpenCode Go requests at most one tool call per model response, checkpoints its
+  result, and lets the next model decision reassess the remaining user goal.
+- A defensive bounded batch returned despite that request is validated before
+  observation, then planned just in time and invoked sequentially; handlers
+  never run concurrently and completed effects are never retried implicitly.
 - Read tools default to `Allow`; writes and execution default to `Ask`. Every
   successfully planned request receives one exact runtime permission decision.
 - `apply_patch` creates or updates one file through ordered exact-text hunks,
