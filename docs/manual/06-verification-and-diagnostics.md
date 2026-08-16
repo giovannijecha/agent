@@ -144,8 +144,9 @@ reviewed again on the unchanged task revision.
 The browser stylesheet task under decision 0066 begins without its required
 `assets` directory. Accept the run only after observing and approving the exact
 `manage_path(create_directory)` request for `assets` before the nested file
-effect. Deny `run_process` or another creation mechanism even if it could
-produce the expected tree. Review each permission independently; neither
+effect. Deny `run_process` or another directory-creation mechanism even if it
+could produce the expected tree; then permit `apply_patch` to create the
+stylesheet and update the page. Review each permission independently; neither
 grading, the receipt, nor the final tree proves which tool was used, and the
 separate namespace and file commits are not one transaction.
 

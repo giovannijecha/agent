@@ -327,7 +327,11 @@ test("owns one cross-platform namespace-directory task", () => {
   );
   assert.match(
     task.task,
-    /Do not use `run_process` or any other mechanism/u,
+    /Do not use `run_process` or any other mechanism to create that\s+directory/u,
+  );
+  assert.match(
+    task.task,
+    /use `apply_patch` to create `assets\/theme\.css` and\s+update `index\.html`/u,
   );
   assert.match(
     task.task,
@@ -335,7 +339,11 @@ test("owns one cross-platform namespace-directory task", () => {
   );
   assert.match(
     task.task,
-    /Deny `run_process` or any other\s+alternate mechanism/u,
+    /Deny `run_process` or any other\s+alternate directory-creation mechanism/u,
+  );
+  assert.match(
+    task.task,
+    /The subsequent `apply_patch` request\s+may create `assets\/theme\.css`/u,
   );
   assert.equal(
     [...corpus.files.keys()].some((ownedPath) =>
