@@ -7,12 +7,17 @@ Create the missing `assets` directory, extract the inline styles from
 
 ## Constraints
 
-Create the directory before writing the nested file. Preserve the document
-language, title, markup, visible content, declarations, and declaration order.
-Change only `index.html` and the new stylesheet. Add no dependency, script,
-framework, or unrelated formatting change.
+Use `manage_path` with `create_directory` to create `assets` before writing the
+nested file. Do not use `run_process` or any other mechanism to create the
+directory or either file. Preserve the document language, title, markup,
+visible content, declarations, and declaration order. Change only `index.html`
+and the new stylesheet. Add no dependency, script, framework, or unrelated
+formatting change.
 
 ## Completion
 
 `index.html` contains no inline style block, loads `assets/theme.css`, and the
 new stylesheet owns the existing page declarations without any other change.
+Accept the run only if the approved namespace request is exactly
+`manage_path(create_directory)` for `assets`. Deny `run_process` or any other
+alternate mechanism for creating the directory or files.

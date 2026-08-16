@@ -34,12 +34,12 @@ block. Its expected snapshot:
 4. preserves the document language, title, markup, visible content, and exact
    rendered declarations.
 
-The operator brief requires the missing directory to exist before the nested
-stylesheet is written. It does not prescribe a provider response count,
-internal reasoning strategy, permission choice, or exact tool-call count.
-Because `apply_patch` cannot create an absent parent namespace, ordinary exact
-completion exercises `manage_path(create_directory)` before the nested file
-effect. The existing per-call permission contract remains authoritative.
+The operator brief requires the missing directory to be created through the
+exact `manage_path(create_directory)` operation before the nested stylesheet is
+written. It forbids `run_process` and every other alternate directory or file
+creation mechanism. It does not prescribe a provider response count, internal
+reasoning strategy, permission choice, or exact tool-call count. The existing
+per-call permission contract remains authoritative.
 
 This task measures one portable namespace creation followed by bounded text
 effects. It does not measure or authorize `move`, `remove`, parallel tool
@@ -47,11 +47,12 @@ execution, multi-file atomicity, rollback, durability, or a filesystem
 sandbox. Tool calls, permissions, planning, and commits remain sequential.
 
 The canonical expected tree is the semantic artifact. The evaluator compares
-regular files without executing HTML, CSS, or candidate code. A focused pure
-regression binds the exact input and expected inventories, the extracted CSS,
-the replacement link, preserved page content, and the absence of unrelated
-files. Live provider use remains an explicit maintainer operation after this
-change is integrated.
+regular files without executing HTML, CSS, or candidate code. It cannot infer
+tool identity from that tree. A focused pure regression therefore binds both
+the explicit operator-acceptance language and the exact input and expected
+inventories, extracted CSS, replacement link, preserved page content, and
+absence of unrelated files. Live provider use remains an explicit maintainer
+operation after this change is integrated.
 
 ## Bounds and security
 
@@ -60,11 +61,13 @@ provider adapter, runtime loop, tool schema, permission policy, native
 committer, TUI, transcript, or receipt. The input snapshot exposes no expected
 files, credentials, personal content, links, dependencies, or executable code.
 
-The live operator reviews the exact directory and patch requests through the
-normal product. A successful directory result remains one object-bound
-namespace commit. Subsequent file effects retain their own independently
-planned and approved object-bound commits; the evaluation does not combine
-them into a transaction.
+The live operator accepts the run only after observing and approving the exact
+`manage_path(create_directory)` request for `assets`. The operator denies
+`run_process` or any other alternate creation mechanism; an exact final tree
+without the required namespace request is not successful evidence. A
+successful directory result remains one object-bound namespace commit.
+Subsequent file effects retain their own independently planned and approved
+object-bound commits; the evaluation does not combine them into a transaction.
 
 One negative live run remains observational under decision 0049. It cannot
 justify a product change, a new tool, or wider namespace support without an
@@ -80,9 +83,11 @@ ownership, and manual tests continue to apply. The canonical Windows and Linux
 verifier remains the release gate.
 
 After integration, prepare one new run from the registered input. Start the
-normal product in that exact workspace, collect the content-free receipt after
-terminal cleanup, grade the artifact, and classify the record through operator
-review. Do not inject the expected snapshot or infer tool use from the grade.
+normal product in that exact workspace, deny any alternate creation mechanism,
+and accept only an observed `manage_path(create_directory)` request for
+`assets`. Collect the content-free receipt after terminal cleanup, grade the
+artifact, and classify the record through operator review. Do not inject the
+expected snapshot or infer tool use from the grade or receipt.
 
 ## Update, rollback, and removal
 

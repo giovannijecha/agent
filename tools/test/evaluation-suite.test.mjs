@@ -321,7 +321,22 @@ test("owns one cross-platform namespace-directory task", () => {
     ].join("\n"),
   );
   assert.match(task.task, /Create the missing `assets` directory/u);
-  assert.match(task.task, /Create the directory before writing/u);
+  assert.match(
+    task.task,
+    /Use `manage_path` with `create_directory` to create `assets`/u,
+  );
+  assert.match(
+    task.task,
+    /Do not use `run_process` or any other mechanism/u,
+  );
+  assert.match(
+    task.task,
+    /Accept the run only if the approved namespace request is exactly/u,
+  );
+  assert.match(
+    task.task,
+    /Deny `run_process` or any other\s+alternate mechanism/u,
+  );
   assert.equal(
     [...corpus.files.keys()].some((ownedPath) =>
       ownedPath.startsWith("tasks/web-extract-stylesheet/input/assets/")

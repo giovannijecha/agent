@@ -6,8 +6,9 @@ model quality. The expected snapshots never enter a prepared workspace.
 
 The eight-task corpus spans C, documentation, JavaScript, TypeScript, and
 browser work. `web-compound-page-edit` and `web-extract-script` cover same-file
-and multi-file convergence. `web-extract-stylesheet` requires one portable
-namespace-directory creation before a nested stylesheet can be written.
+and multi-file convergence. For `web-extract-stylesheet`, approve
+`manage_path(create_directory)` and reject alternate creation mechanisms before
+writing its nested stylesheet.
 `javascript-red-green-recovery` requires the same Node test to fail before its
 bounded edit and pass afterward.
 `typescript-inclusive-range` directly proves its input assertion failure and
