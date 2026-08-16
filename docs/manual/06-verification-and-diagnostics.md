@@ -128,12 +128,22 @@ errored write callback, so a closed output stream cannot escape as an unhandled
 exception or hide that ordering. The receipt is independently removable under
 decision 0048.
 
+A task with a direct completion command must prove its maintained input reaches
+the intended behavioral failure and its expected snapshot passes. The focused
+proof may execute only those immutable versioned fixtures, never a prepared
+candidate. The TypeScript endpoint task imports `sum-range.ts` directly under
+decision 0064. If a receipt is lost, leave that run record pending; do not infer
+or reconstruct any of its five values.
+
 Register a reviewed negative result only through
 `evaluations/failures/registry.json`. Increment an occurrence only after the
 same failure recurs on the same maintained task. `observing` and `actionable`
 entries have no resolution path; `resolved` entries point to tracked decision
 or regression evidence. Decision 0049 defines independent update, rollback, and
 removal.
+Remove an entry if a corpus correction proves its former expected snapshot
+could not satisfy the completion check; invalid corpus evidence is not a
+resolved product failure.
 
 ## Evidence
 
@@ -174,6 +184,7 @@ removal.
 - Evaluation failure validator: `tools/lib/evaluation-failure-registry.mjs`
 - Evaluation failure validator tests: `tools/test/evaluation-failure-registry.test.mjs`
 - Evaluation failure decision: `docs/decisions/0049-owned-evaluation-failure-registry.md`
+- TypeScript fixture decision: `docs/decisions/0064-owned-self-verifying-typescript-evaluation.md`
 - Manual validator: `tools/lib/manual-policy.mjs`
 - Manual validator tests: `tools/test/manual-policy.test.mjs`
 - Publication registry: `tools/publication-policy.json`

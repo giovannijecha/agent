@@ -743,6 +743,13 @@ bounds, and input distinct from expected. Corpus history is part of result
 interpretation; do not compare records across a changed task revision as if the
 task were identical.
 
+For a task with a direct completion command, retain one focused repository test
+that executes only the immutable versioned input and expected fixtures. The
+input must reach the intended behavioral failure and the expected fixture must
+pass. Never point that regression at ignored state or a prepared candidate. The
+TypeScript endpoint task uses the exact `.ts` source import under decision 0064;
+do not restore an absent `.js` target, generated copy, dependency, or loader.
+
 Retain one compound same-file task that requires several independent outcomes
 and one separate multi-file task. Review them as convergence evidence, not as a
 required model call count, parallel-handler contract, or permission shortcut.
@@ -769,6 +776,9 @@ Copy only its five observed values into `record.json`; classify outcome,
 artifact, manual corrections, risky actions, and primary constraint through
 operator review. Changing any receipt contract requires decision 0048, focused
 recorder, launch, tool, and runtime tests, plus privacy and manual updates.
+If cleanup output is lost, leave the record pending and start a distinct future
+run; never reconstruct receipt values from screenshots, transcript content,
+provider output, elapsed wall time, or tool activity.
 
 Maintain `evaluations/failures/registry.json` in canonical identifier order.
 Add or increment an entry only after operator review of the same reproducible
@@ -781,12 +791,18 @@ remain outside it. Review affected entries whenever their task corpus changes.
 Promote `observing` to `actionable` only
 when frequency or impact justifies work; `resolved` requires an existing tracked
 decision or regression path.
+If review proves the task's canonical expected snapshot could not satisfy its
+own completion check, remove evidence derived from that invalid task revision.
+Do not mark it resolved, carry it into the corrected task, or use it to justify
+a product change.
 
 To remove evaluation, first delete any retained ignored runs. Then remove
 `evaluations/`, `tools/evaluation-policy.json`, `tools/evaluate.mjs`,
 `tools/lib/evaluation-suite.mjs`, the failure-registry validator, their focused
 tests and verifier hooks, decisions 0047 and 0049, and all ownership, manual,
 architecture, engineering, security, privacy, README, and AGENTS registrations.
+Remove decision 0064 with the TypeScript task or replace its self-verification
+contract in a new decision.
 The receipt can remain as independent generic interaction evidence. To remove it
 too, delete its exact launch form, recorder, read and reducer observation hooks,
 tests, decision 0048, and registrations. No provider or model-facing tool needs

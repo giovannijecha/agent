@@ -236,11 +236,18 @@ executing candidate code or contacting a provider:
 node tools/evaluate.mjs list
 ```
 
+The maintained TypeScript endpoint fixture is self-verifying with the approved
+Node runtime: its input reaches the intended assertion failure and its expected
+snapshot passes. Repository tests execute only those immutable versioned
+fixtures, never a prepared candidate workspace.
+
 For a maintained run, start `agent --evaluation-receipt` inside the prepared
 workspace. After terminal cleanup it prints one JSON line containing only
 elapsed milliseconds and accepted turn, tool-call, approval, and repeated-read
 counts. Copy those five values into the run record; semantic outcome, artifact,
 correction, risk, and constraint fields remain operator judgments.
+If the receipt is lost, its values are not reconstructed; the ignored record
+remains pending and a later evaluation starts as a new run.
 
 Runs stay under ignored `state/evaluations/`. Exact equality is a reproducible
 artifact signal, not a universal quality score. See the
@@ -252,6 +259,8 @@ canonical gate binds grade paths to each task's current expected snapshot. The
 registry stores no run identifier, prompt, response, transcript, candidate
 content, provider identity, or free-form diagnosis. One occurrence remains an
 observation and does not by itself admit a new tool or product change.
+Evidence from a task whose expected snapshot cannot satisfy its own completion
+check is invalid corpus evidence and is removed rather than resolved.
 
 ## Documentation
 

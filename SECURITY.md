@@ -134,6 +134,11 @@ state-directory component before writing. Evaluation workspaces still contain
 untrusted candidate text and must not be executed outside the normal product
 approval and process contracts.
 
+The canonical gate may execute a fixed completion command only against
+immutable versioned input and expected fixtures when a task decision requires
+self-verification. It never substitutes a prepared workspace, candidate path,
+model-authored argument, shell, or provider input into that proof.
+
 The optional interactive evaluation receipt does not expand that boundary or
 weaken product controls. It observes only already accepted serialized lifecycle
 events, cannot approve or reorder work, retains read identities only as bounded
@@ -146,6 +151,9 @@ evidence and fixture-relative paths that pass the corpus safety bounds. It never
 reads ignored runs, executes candidate code, captures model output, or grants
 product authority. Unknown fields, task identifiers, resolution targets, or
 unsafe paths fail the canonical gate.
+Evidence from a task contract whose expected snapshot cannot satisfy its own
+check is invalidated and removed before it can justify a security or product
+change.
 
 ## Disclosure
 

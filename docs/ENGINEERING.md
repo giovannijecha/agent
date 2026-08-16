@@ -181,6 +181,13 @@ Never execute a candidate workspace from the evaluator or infer semantic
 equivalence from a different file tree. Only the operator may mark a reviewed
 alternative as accepted.
 
+If a task publishes a direct completion command, prove against immutable
+versioned fixtures that the input reaches the intended behavioral failure and
+the expected snapshot passes. Keep that focused proof separate from evaluator
+operations and never substitute a prepared candidate path. Under decision 0064,
+the TypeScript endpoint test imports its tracked `.ts` source directly and adds
+no build output, dependency, or loader.
+
 Apply file-count, byte, segment, and path-byte limits to each snapshot-relative
 tree. Corpus traversal may add only the fixed registered task prefix before the
 same relative path is revalidated. Keep canonical input and expected snapshots
@@ -207,6 +214,9 @@ require tracked evidence for
 resolution, and never infer frequency from ignored runs. Do not add a tool or
 change product behavior from one isolated observation. Registry validation is
 part of the canonical gate, not the evaluator CLI or product runtime.
+Remove evidence if a task correction proves that its former expected snapshot
+could not satisfy its own completion check; that is invalid corpus evidence,
+not a resolved product failure.
 
 ## Terminal input policy
 
