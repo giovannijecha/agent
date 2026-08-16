@@ -739,6 +739,10 @@ bounds, and input distinct from expected. Corpus history is part of result
 interpretation; do not compare records across a changed task revision as if the
 task were identical.
 
+Retain one compound same-file task that requires several independent outcomes
+and one separate multi-file task. Review them as convergence evidence, not as a
+required model call count, parallel-handler contract, or permission shortcut.
+
 Keep snapshot path bounds relative to `input/`, `expected/`, or the run
 workspace rather than charging the fixed corpus prefix against a task. Preserve
 cross-platform rejection of Windows device names for identifiers. Canonical

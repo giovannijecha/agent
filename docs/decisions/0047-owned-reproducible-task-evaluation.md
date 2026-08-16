@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-14
+- Amended: 2026-08-16 for one compound same-file web task
 
 ## Context
 
@@ -43,6 +44,12 @@ Paths that collide under ASCII case folding or use Windows reserved device
 names also fail, so one registered tree materializes consistently on both
 supported platforms. Task and run identifiers reject the same reserved device
 names before any state path is derived.
+
+The maintained corpus also includes one compound same-file browser task with
+three independent requested outcomes. It measures whether the same agent keeps
+the complete goal in view and produces one focused artifact without adding a
+file. The existing browser extraction task remains the distinct multi-file
+case. Neither task prescribes a model call count or changes product authority.
 
 ## Run lifecycle
 
@@ -120,7 +127,7 @@ changes a product result.
 
 ## Verification
 
-Pure policy tests cover the canonical corpus, schema and key drift, task
+Pure policy tests cover the canonical six-task corpus, schema and key drift, task
 ordering, duplicate identifiers, path and text rejection, snapshot bounds,
 identical snapshots, metric bounds, and record consistency. Filesystem tests
 cover staged preparation, existing-run rejection, exact grading, changed,

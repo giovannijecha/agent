@@ -4,6 +4,11 @@ This directory contains small original workspaces for repeatable `agent` usage.
 It is an evaluation corpus, not product runtime, training data, or a claim of
 model quality. The expected snapshots never enter a prepared workspace.
 
+The six-task corpus spans C, documentation, JavaScript, TypeScript, and browser
+work. `web-compound-page-edit` is the maintained same-file convergence case: it
+requires three independent page refinements without an extra file or unrelated
+change. `web-extract-script` remains the separate multi-file browser case.
+
 List the registered tasks:
 
 ```powershell

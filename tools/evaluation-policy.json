@@ -27,6 +27,12 @@
     },
     {
       "category": "refactor",
+      "id": "web-compound-page-edit",
+      "projectKind": "web",
+      "title": "Apply three page refinements"
+    },
+    {
+      "category": "refactor",
       "id": "web-extract-script",
       "projectKind": "web",
       "title": "Extract the inline browser script"

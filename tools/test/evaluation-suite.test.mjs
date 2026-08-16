@@ -148,12 +148,40 @@ test("accepts the canonical bounded corpus", () => {
       ["documentation-check-command", "documentation"],
       ["javascript-collapse-whitespace", "javascript"],
       ["typescript-inclusive-range", "typescript"],
+      ["web-compound-page-edit", "web"],
       ["web-extract-script", "web"],
     ],
   );
   assert.deepEqual(
     listEvaluationTasks(projectRoot).map((task) => task.id),
     suite.tasks.map((task) => task.id),
+  );
+});
+
+test("owns one exact compound same-file web convergence task", () => {
+  const suite = validateEvaluationSuite(policy, canonicalContext());
+  const task = suite.tasks.find((candidate) =>
+    candidate.id === "web-compound-page-edit"
+  );
+  assert.ok(task !== undefined);
+  assert.equal(task.category, "refactor");
+  assert.equal(task.projectKind, "web");
+  assert.deepEqual(task.input.map((entry) => entry.path), ["index.html"]);
+  assert.deepEqual(task.expected.map((entry) => entry.path), ["index.html"]);
+
+  const corpus = canonicalContext();
+  const input = corpus.files.get(
+    "tasks/web-compound-page-edit/input/index.html",
+  ).toString("utf8");
+  const expected = corpus.files.get(
+    "tasks/web-compound-page-edit/expected/index.html",
+  ).toString("utf8");
+  assert.equal(
+    expected,
+    input
+      .replace("background: #0f1115", "background: green")
+      .replace("Hello World</h1>", "Hello World!</h1>")
+      .replace("  <!-- End of document -->\n", ""),
   );
 });
 
