@@ -4,18 +4,13 @@ export type CommandResult =
   | Readonly<{ kind: "exit" }>
   | Readonly<{ kind: "none" }>
   | Readonly<{ kind: "permissions" }>
+  | Readonly<{ kind: "providers" }>
   | Readonly<{
       kind: "notice";
       level: NoticeLevel;
       lines: readonly string[];
     }>
   | Readonly<{ kind: "submit"; text: string }>;
-
-export type ProviderPresentation = Readonly<{
-  authentication: string;
-  displayName: string;
-  model: string;
-}>;
 
 export type CommandName = "/exit" | "/permissions" | "/providers";
 
@@ -28,7 +23,7 @@ export type CommandDefinition = Readonly<{
 export const COMMANDS: readonly CommandDefinition[] = Object.freeze([
   Object.freeze({
     command: "/providers" as const,
-    description: "show integration availability",
+    description: "select session provider",
   }),
   Object.freeze({
     command: "/permissions" as const,
@@ -70,7 +65,6 @@ export function commandCompletions(
 /** Classifies one submission as an exact command or transient model input. */
 export function executeSubmission(
   input: string,
-  provider?: ProviderPresentation,
 ): CommandResult {
   const command = input.trim();
   if (command.length === 0) {
@@ -83,17 +77,7 @@ export function executeSubmission(
     return EXIT;
   }
   if (exact === "/providers") {
-    if (provider !== undefined) {
-      return notice(
-        "info",
-        provider.displayName +
-          " \u00b7 " +
-          provider.model +
-          " \u00b7 " +
-          provider.authentication,
-      );
-    }
-    return notice("info", "No provider configured");
+    return Object.freeze({ kind: "providers" as const });
   }
   if (exact === "/permissions") {
     return Object.freeze({ kind: "permissions" as const });

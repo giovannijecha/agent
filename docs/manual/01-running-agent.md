@@ -37,8 +37,9 @@ and start, or `npm start` to start an existing build.
 
 Use `agent --help` for executable help and `agent --version` for the exact
 version. Unknown or combined arguments fail; credentials are never accepted on
-the command line. Interactive startup asks for a missing OpenCode Go key with
-terminal echo disabled. Press Enter to start providerless or Ctrl+C to cancel.
+the command line. Interactive startup asks independently for each missing
+OpenCode Go and OpenCode Zen key with terminal echo disabled. Press Enter to
+skip a backend; skipping both starts providerless. Ctrl+C cancels startup.
 
 Use the exact `agent --evaluation-receipt` form only for one maintained
 interactive task evaluation. It requires TTY input and output, runs the same
@@ -57,7 +58,7 @@ The lockfile contains only local workspace topology. Installation is offline,
 ignores lifecycle scripts, and cannot fetch a package. Interactive mode requires
 both TTY input and TTY output. Redirected execution prints a short plain status
 without ANSI sequences. Production starts without a model when the key prompt
-is skipped and the exact OpenCode Go environment variable is absent. Normal
+is skipped and both exact OpenCode environment variables are absent. Normal
 text is then discarded after a generic notice and never becomes transcript or
 conversation state. Workspace rejection occurs before a credential is read, a
 provider or tool is constructed, or the terminal enters interactive mode.

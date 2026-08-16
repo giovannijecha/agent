@@ -14,6 +14,9 @@
       "path": "packages/agent-provider-opencode-go"
     },
     {
+      "path": "packages/agent-provider-opencode-zen"
+    },
+    {
       "path": "packages/agent-tui"
     },
     {

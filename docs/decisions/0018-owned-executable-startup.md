@@ -3,16 +3,17 @@
 - Status: accepted
 - Date: 2026-08-09
 - Amended: 2026-08-13 by decision 0042 for workspace-first startup
+- Amended: 2026-08-16 by decision 0067 for two independent provider prompts
 
 ## Context
 
 The built CLI can be started through `npm start`, but the repository does not
 expose the product name as an executable and has no maintainer development
-command. OpenCode Go also requires a manually prepared environment variable.
+command. Direct providers also require manually prepared environment variables.
 That workflow is safe but needlessly exposes provider setup details before the
 terminal application starts.
 
-Startup must stay useful if OpenCode Go is later removed. A provider-specific
+Startup must stay useful if either provider is later removed. A provider-specific
 launcher, persistent credential file, shell alias, or copied platform script
 would make the executable harder to update and remove.
 
@@ -24,11 +25,12 @@ link after a successful build; it installs no dependency. `npm run dev` is a
 deterministic build-and-run command rather than a hidden watcher.
 
 The executable accepts only no arguments, `--help`, or `--version`. Secrets are
-never accepted as arguments. In an interactive terminal, a missing OpenCode Go
-environment credential triggers one owned bounded prompt with terminal echo
-disabled. Enter selects providerless startup and Ctrl+C cancels startup. The
-prompt restores cooked input and removes listeners before the TUI takes terminal
-ownership. Non-TTY execution never prompts and preserves exact plain output.
+never accepted as arguments. In an interactive terminal, each missing OpenCode
+Go or OpenCode Zen environment credential triggers its own owned bounded prompt
+with terminal echo disabled. Enter skips that backend and Ctrl+C cancels
+startup. Skipping both selects providerless startup. Each prompt restores
+cooked input and removes listeners before the TUI takes terminal ownership.
+Non-TTY execution never prompts and preserves exact plain output.
 
 For normal startup, decision 0042 resolves the exact current directory into one
 canonical immutable workspace boundary before the environment credential is
@@ -57,7 +59,7 @@ only with this decision, focused tests, manual updates, and the canonical gate.
 Never add a command-line secret, persistent store, provider fallback, or
 implicit network request.
 
-To remove OpenCode Go, delete its prompt and composition while retaining the
+To remove either provider, delete only its prompt and composition while retaining the
 `agent` binary, argument parser, providerless startup, and npm link. To remove
 the installed command, run `npm unlink --global agent-workspace`, then delete the
 root `bin` and installation script; `npm start` remains available. To roll back

@@ -196,7 +196,7 @@ approved Node code still has the launching user's filesystem and network
 authority. Do not approve untrusted programs on the assumption that they are
 confined to the displayed workspace.
 
-OpenCode Go requests at most one tool call per model response. After that call
+Both OpenCode adapters request at most one tool call per model response. After that call
 settles, the complete structured exchange is checkpointed and the same model is
 opened again with the result before it authors another call. The owned
 instruction requires it to reassess the remaining user goal, complete every
@@ -406,6 +406,7 @@ function defined by decisions 0022, 0033, 0056, 0057, 0060, 0062, and 0063.
 - Convergent tool-turn decision: `docs/decisions/0061-owned-convergent-tool-turns.md`
 - Owned model instruction: `packages/agent-cli/src/agent-instructions.ts`
 - OpenCode Go request encoder: `packages/agent-provider-opencode-go/src/wire.ts`
+- OpenCode Zen request encoder: `packages/agent-provider-opencode-zen/src/wire.ts`
 - Visual-grammar decision: `docs/decisions/0028-owned-conversation-visual-grammar.md`
 - Native broker contract: `packages/agent-cli/native/process-broker/broker.h`
 - Cross-platform proof: `tools/test/native-process-broker.test.mjs`

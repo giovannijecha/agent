@@ -26,9 +26,11 @@ maintainer-controlled workspace without third-party runtime packages.
 - Can emit one opt-in content-free interaction receipt after an evaluation run.
 - Retains bounded recurring evaluation failures in a versioned closed registry.
 
-The current direct provider is OpenCode Go. It is optional: without an API key,
-`agent` starts providerless and does not send content anywhere. Credentials and
-sessions stay in process memory and are never persisted.
+The current direct providers are OpenCode Go and OpenCode Zen. Both are
+optional: without either API key, `agent` starts providerless and does not send
+content anywhere. Go remains the initial provider when both are configured;
+`/providers` selects either fixed backend for the current idle session.
+Credentials and selection stay in process memory and are never persisted.
 
 ## Quick start
 
@@ -131,7 +133,7 @@ terminal-native selection path, while Ctrl+C remains the agent interrupt.
 
 ## Safety boundaries
 
-- OpenCode Go requests at most one tool call per model response, checkpoints its
+- Both OpenCode adapters request at most one tool call per model response, checkpoint its
   result, and lets the next model decision reassess the remaining user goal.
 - A defensive bounded batch returned despite that request is validated before
   observation, then planned just in time and invoked sequentially; handlers
@@ -190,6 +192,7 @@ the sole controller for deterministic reduction.
 | `packages/agent-tools` | Schemas, registry, risk, validation, and execution boundary |
 | `packages/agent-runtime` | Streaming turns, cancellation, tools, and checkpoints |
 | `packages/agent-provider-opencode-go` | Node-free OpenCode Go wire adapter |
+| `packages/agent-provider-opencode-zen` | Node-free OpenCode Zen wire adapter |
 | `packages/agent-tui` | Generic input, layout, Markdown, frames, and renderer |
 | `packages/agent-cli` | Commands, chat, tools, terminal, Node I/O, and composition |
 | `packages/agent-cli/native` | Private platform roots, content and namespace mutation commits, clipboard, and process containment |

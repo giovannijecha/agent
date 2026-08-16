@@ -43,7 +43,8 @@ agent.”
   CLIs, app servers, ACP binaries, and borrowed OAuth identities are forbidden.
 - Direct API-key providers require a provider-published endpoint, an exact
   CLI-owned origin allowlist, memory-only secrets, and a concrete removable
-  adapter; OpenCode Go is the first admitted provider under decision 0017.
+  adapter; OpenCode Go is admitted under decision 0017 and OpenCode Zen under
+  decision 0067.
 - Provider requests live in `docs/PROVIDER-APPLICATIONS.md`. A prepared,
   submitted, or unanswered request never changes blocked eligibility.
 - Secrets, credentials, sessions, and personal content never enter source,
@@ -268,7 +269,7 @@ agent.”
   planned call, and commit one complete exchange. A failed plan requests no
   permission and settles as a structured failure. A batch is one agent decision,
   never a group of agents.
-- Under decision 0061, OpenCode Go requests at most one tool call per model
+- Under decisions 0061 and 0067, both OpenCode adapters request at most one tool call per model
   response. The owned instruction requires the model to observe the checkpointed
   result, reassess all remaining requested work, and continue until every part is
   complete or one explicit blocker remains. Consolidate all currently known

@@ -806,6 +806,9 @@ function verifyTypeScriptPolicy() {
       "@agent/provider-opencode-go": [
         "packages/agent-provider-opencode-go/src/index.ts",
       ],
+      "@agent/provider-opencode-zen": [
+        "packages/agent-provider-opencode-zen/src/index.ts",
+      ],
       "@agent/tui": ["packages/agent-tui/src/index.ts"],
     },
     "TypeScript workspace paths",

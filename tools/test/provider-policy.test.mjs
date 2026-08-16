@@ -20,6 +20,7 @@ const emptyContext = {
     "@agent/tools",
     "@agent/runtime",
     "@agent/provider-opencode-go",
+    "@agent/provider-opencode-zen",
     "@agent/tui",
     "@agent/cli",
   ],
@@ -35,7 +36,7 @@ test("accepts the canonical blocked and direct provider registry", () => {
   );
   assert.deepEqual(
     currentPolicy.directProviders.map((provider) => provider.id),
-    ["opencode-go"],
+    ["opencode-go", "opencode-zen"],
   );
 });
 
@@ -64,19 +65,21 @@ test("rejects credential and endpoint fields for blocked providers", () => {
   );
 });
 
-test("rejects drift in the single admitted direct provider", () => {
-  for (const [field, value] of [
-    ["endpoint", "https://example.com/v1"],
-    ["model", "unreviewed-model"],
-    ["credentialVariable", "UNREVIEWED_KEY"],
-    ["credentialPersistence", "disk"],
-  ]) {
-    const drifted = structuredClone(currentPolicy);
-    drifted.directProviders[0][field] = value;
-    assert.throws(
-      () => validateProviderPolicy(drifted, emptyContext),
-      ProviderPolicyError,
-    );
+test("rejects drift in either admitted direct provider", () => {
+  for (let index = 0; index < currentPolicy.directProviders.length; index += 1) {
+    for (const [field, value] of [
+      ["endpoint", "https://example.com/v1"],
+      ["model", "unreviewed-model"],
+      ["credentialVariable", "UNREVIEWED_KEY"],
+      ["credentialPersistence", "disk"],
+    ]) {
+      const drifted = structuredClone(currentPolicy);
+      drifted.directProviders[index][field] = value;
+      assert.throws(
+        () => validateProviderPolicy(drifted, emptyContext),
+        ProviderPolicyError,
+      );
+    }
   }
 
   const extra = structuredClone(currentPolicy);
@@ -325,6 +328,14 @@ test("allows only the reviewed direct-provider literals in their exact files", (
     },
     {
       path: "packages/agent-cli/src/node-opencode-go-transport.ts",
+      text: "const authorization = 'Bearer ' + credential;\n",
+    },
+    {
+      path: "packages/agent-provider-opencode-zen/src/wire.ts",
+      text: "export const model = 'deepseek-v4-flash-free';\n",
+    },
+    {
+      path: "packages/agent-cli/src/node-opencode-zen-transport.ts",
       text: "const authorization = 'Bearer ' + credential;\n",
     },
   ];

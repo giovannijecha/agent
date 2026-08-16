@@ -3,6 +3,7 @@
 - Status: accepted
 - Date: 2026-08-09
 - Amended: 2026-08-16 by decision 0061 for convergent tool turns
+- Amended: 2026-08-16 by decision 0067 for explicit provider selection
 
 ## Context
 
@@ -96,11 +97,12 @@ adding a foreign runtime. The package graph becomes:
 @agent/cli -> @agent/tui
 ```
 
-The initial model is intentionally fixed. Model discovery, aliases, automatic
-routing, balance fallback, and a generic provider registry are deferred. A
-future model choice must be explicit, documented, bounded, and tested; a second
-protocol may justify extracting shared primitives only after duplication is
-measured.
+The initial model is intentionally fixed. Decision 0067 later admits one
+second concrete backend and one closed session selector without adding model
+discovery, aliases, automatic routing, balance fallback, or a generic provider
+registry. Any further model choice must remain explicit, documented, bounded,
+and tested; shared protocol extraction requires measured duplication and an
+independent decision.
 
 ## Update, rollback, and removal
 

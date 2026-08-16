@@ -17,7 +17,7 @@ export type StartupTermination = (
 const PROMPT_FAILURE = "agent could not read the provider credential\n";
 
 /** Resolves one optional startup credential and makes prompt failure terminal. */
-export async function acquireOpenCodeGoCredential(
+export async function acquireProviderCredential(
   configured: string | undefined,
   interactive: boolean,
   prompt: CredentialPrompt,

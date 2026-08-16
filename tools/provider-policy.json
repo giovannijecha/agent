@@ -81,7 +81,20 @@
       "model": "kimi-k2.7-code",
       "transport": "chat-completions-sse",
       "evidence": "https://opencode.ai/docs/go/",
-      "researchedOn": "2026-08-09"
+      "researchedOn": "2026-08-16"
+    },
+    {
+      "id": "opencode-zen",
+      "displayName": "OpenCode Zen",
+      "eligibility": "enabled",
+      "authorization": "direct-api-key",
+      "credentialVariable": "AGENT_OPENCODE_ZEN_API_KEY",
+      "credentialPersistence": "memory-only",
+      "endpoint": "https://opencode.ai/zen/v1/chat/completions",
+      "model": "deepseek-v4-flash-free",
+      "transport": "chat-completions-sse",
+      "evidence": "https://opencode.ai/docs/zen/",
+      "researchedOn": "2026-08-16"
     }
   ]
 }

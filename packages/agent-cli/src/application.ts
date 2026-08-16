@@ -22,13 +22,18 @@ import {
 } from "@agent/tui";
 
 import { ChatState, type TranscriptEntry } from "./chat-state.js";
-import type { ProviderPresentation } from "./commands.js";
 import {
   createNoticeToken,
   type NoticeLevel,
   type NoticePlacement,
   type NoticeToken,
 } from "./notice.js";
+import type {
+  ProviderId,
+  ProviderPresentation,
+  ProviderSelectionSnapshot,
+} from "./provider-session.js";
+import type { ProviderMenuProjection } from "./providers-view.js";
 import {
   SessionController,
   type CommandCompletionProjection,
@@ -77,6 +82,7 @@ export type ApplicationEffect =
       allowed: boolean;
       operatorApproved: boolean;
     }>
+  | Readonly<{ kind: "selectProvider"; id: ProviderId }>
   | Readonly<{ kind: "startTurn"; text: string }>;
 
 export type ApplicationUpdate = Readonly<{
@@ -89,6 +95,7 @@ export type ApplicationErrorKind =
   | "chatInvariant"
   | "invalidRuntimeEvent"
   | "invalidStartedTurn"
+  | "providerInvariant"
   | "scrollInvariant";
 
 /** Content-free invariant failure from the single-writer application reducer. */
@@ -128,7 +135,7 @@ export class ApplicationController
 {
   readonly #activityLog = new ToolActivityLog();
   readonly #chat = new ChatState();
-  readonly #provider: ProviderPresentation | undefined;
+  readonly #providers: readonly ProviderSelectionSnapshot[];
   readonly #permissions = new ToolPermissionPolicy();
   readonly #session: SessionController;
   readonly #terminalInteraction = new TerminalInteraction();
@@ -140,6 +147,9 @@ export class ApplicationController
   #phase: ApplicationPhase = "idle";
   #permissionSelectionIndex = 0;
   #permissionsVisible = false;
+  #activeProviderIndex = 0;
+  #providerSelectionIndex = 0;
+  #providersVisible = false;
   #transcriptGeometry:
     | Readonly<{ contentRows: number; viewportRows: number }>
     | undefined;
@@ -162,19 +172,41 @@ export class ApplicationController
 
   constructor(
     runtimeAvailable: boolean,
-    provider?: ProviderPresentation,
+    providers: readonly ProviderSelectionSnapshot[] = [],
     workspace?: string,
   ) {
-    this.#provider =
-      runtimeAvailable && provider !== undefined
-        ? Object.freeze({
-            authentication: provider.authentication,
-            displayName: provider.displayName,
-            model: provider.model,
-          })
-        : undefined;
+    const admitted = runtimeAvailable ? providers : [];
+    const selected = admitted.reduce(
+      (count, provider) => count + (provider.selected ? 1 : 0),
+      0,
+    );
+    if (
+      admitted.length > 2 ||
+      (admitted.length > 0 && selected !== 1) ||
+      new Set(admitted.map((provider) => provider.id)).size !== admitted.length
+    ) {
+      throw new ApplicationError("providerInvariant");
+    }
+    this.#providers = Object.freeze(
+      admitted.map((provider) =>
+        Object.freeze({
+          id: provider.id,
+          presentation: Object.freeze({
+            authentication: provider.presentation.authentication,
+            displayName: provider.presentation.displayName,
+            model: provider.presentation.model,
+          }),
+          selected: provider.selected,
+        }),
+      ),
+    );
+    const selectedIndex = this.#providers.findIndex(
+      (provider) => provider.selected,
+    );
+    this.#activeProviderIndex = selectedIndex < 0 ? 0 : selectedIndex;
+    this.#providerSelectionIndex = this.#activeProviderIndex;
     this.#workspace = workspace;
-    this.#session = new SessionController(this.#provider);
+    this.#session = new SessionController();
     this.#notice = Object.freeze([]);
   }
 
@@ -199,7 +231,7 @@ export class ApplicationController
   }
 
   get provider(): ProviderPresentation | undefined {
-    return this.#provider;
+    return this.#providers.at(this.#activeProviderIndex)?.presentation;
   }
 
   get workspace(): string | undefined {
@@ -266,6 +298,24 @@ export class ApplicationController
     return Object.freeze({
       items: this.#permissions.snapshots(),
       selectedIndex: this.#permissionSelectionIndex,
+    });
+  }
+
+  projectProviderMenu(): ProviderMenuProjection | undefined {
+    if (!this.#providersVisible || this.#phase !== "idle") {
+      return undefined;
+    }
+    return Object.freeze({
+      items: Object.freeze(
+        this.#providers.map((provider, index) =>
+          Object.freeze({
+            id: provider.id,
+            presentation: provider.presentation,
+            selected: index === this.#activeProviderIndex,
+          }),
+        ),
+      ),
+      selectedIndex: this.#providerSelectionIndex,
     });
   }
 
@@ -394,6 +444,8 @@ export class ApplicationController
     this.#permissionSelectionIndex = 0;
     this.#permissions.reset();
     this.#permissionsVisible = false;
+    this.#providersVisible = false;
+    this.#providerSelectionIndex = this.#activeProviderIndex;
     this.#transcriptGeometry = undefined;
     this.#transcriptScroll = ScrollState.followEnd();
     this.#terminalInteraction.reset();
@@ -448,6 +500,7 @@ export class ApplicationController
         return update(false);
       }
       this.#permissionsVisible = true;
+      this.#providersVisible = false;
       this.#setNotice([]);
       return update(true);
     }
@@ -456,6 +509,30 @@ export class ApplicationController
         return update(false);
       }
       this.#permissionsVisible = false;
+      return update(true);
+    }
+    if (action.kind === "openProviders") {
+      if (this.#providers.length === 0) {
+        this.#setNotice(["No provider configured"], "info");
+        return update(true);
+      }
+      if (this.#phase !== "idle") {
+        this.#setNotice([
+          "Provider selection is available only while idle.",
+        ]);
+        return update(true);
+      }
+      this.#providersVisible = true;
+      this.#providerSelectionIndex = this.#activeProviderIndex;
+      this.#permissionsVisible = false;
+      this.#setNotice([]);
+      return update(true);
+    }
+    if (action.kind === "closeProviders") {
+      if (!this.#providersVisible) {
+        return update(false);
+      }
+      this.#providersVisible = false;
       return update(true);
     }
     if (action.kind === "moveContextSelection") {
@@ -470,6 +547,19 @@ export class ApplicationController
           return update(false);
         }
         this.#toolDecisionIndex = next;
+        return update(true);
+      }
+      if (this.#providersVisible) {
+        const next = action.direction === "previous"
+          ? Math.max(0, this.#providerSelectionIndex - 1)
+          : Math.min(
+              this.#providers.length - 1,
+              this.#providerSelectionIndex + 1,
+            );
+        if (next === this.#providerSelectionIndex) {
+          return update(false);
+        }
+        this.#providerSelectionIndex = next;
         return update(true);
       }
       if (!this.#permissionsVisible) {
@@ -502,6 +592,23 @@ export class ApplicationController
       return update(true);
     }
     if (action.kind === "activateContextSelection") {
+      if (this.#providersVisible && this.#phase === "idle") {
+        const selected = this.#providers.at(this.#providerSelectionIndex);
+        this.#providersVisible = false;
+        if (selected === undefined) {
+          this.#setNotice(["Provider selection could not be updated."]);
+          return update(true);
+        }
+        if (this.#providerSelectionIndex === this.#activeProviderIndex) {
+          return update(true);
+        }
+        return update(true, [
+          Object.freeze({
+            id: selected.id,
+            kind: "selectProvider" as const,
+          }),
+        ]);
+      }
       const tool = this.#tool;
       const selected = TOOL_DECISION_ACTIONS.at(this.#toolDecisionIndex);
       if (
@@ -619,6 +726,7 @@ export class ApplicationController
       return err(new ApplicationError("invalidStartedTurn"));
     }
     this.#phase = "generating";
+    this.#providersVisible = false;
     this.#transcriptGeometry = undefined;
     this.#transcriptScroll = ScrollState.followEnd();
     this.#terminalInteraction.reset();
@@ -653,6 +761,26 @@ export class ApplicationController
   /** Confirms no-runtime discard without retaining or echoing submitted text. */
   noRuntime(): void {
     this.#setNotice(["No model is configured; input was not sent."]);
+  }
+
+  /** Confirms one CLI-owned provider selection after the model router accepts it. */
+  providerSelected(id: ProviderId): Result<ApplicationUpdate, ApplicationError> {
+    const index = this.#providers.findIndex((provider) => provider.id === id);
+    if (index < 0 || this.#phase !== "idle") {
+      return err(new ApplicationError("providerInvariant"));
+    }
+    const provider = this.#providers.at(index);
+    if (provider === undefined) {
+      return err(new ApplicationError("providerInvariant"));
+    }
+    this.#activeProviderIndex = index;
+    this.#providerSelectionIndex = index;
+    this.#providersVisible = false;
+    this.#setNotice(
+      [provider.presentation.displayName + " selected for this session."],
+      "info",
+    );
+    return ok(update(true));
   }
 
   /** Applies one ordered runtime event and filters stale turn identities. */
@@ -739,6 +867,7 @@ export class ApplicationController
           turnId,
         };
         this.#permissionsVisible = false;
+        this.#providersVisible = false;
         this.#toolDecisionIndex = 0;
         this.#phase = mode === "ask" ? "awaitingPermission" : "runningTool";
         this.#setNotice([]);
@@ -1004,6 +1133,9 @@ export class ApplicationController
   #inputContext(): SessionInputContext {
     if (this.#phase === "awaitingPermission") {
       return "toolDecision";
+    }
+    if (this.#providersVisible) {
+      return "providers";
     }
     return this.#permissionsVisible ? "permissions" : "composer";
   }

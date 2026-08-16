@@ -25,7 +25,6 @@ import {
 } from "./application.js";
 import { createChatRender } from "./chat-view.js";
 import type { ChatRender } from "./chat-view.js";
-import type { ProviderPresentation } from "./commands.js";
 import {
   type ArbiterError,
   EventArbiter,
@@ -36,6 +35,7 @@ import { isMotionActive } from "./motion-policy.js";
 import type { NoticeController } from "./notice-scheduler.js";
 import type { ClipboardPort } from "./platform-clipboard.js";
 import type { EvaluationReceiptRecorder } from "./evaluation-receipt.js";
+import type { ProviderSelectionPort } from "./provider-session.js";
 
 export const PLAIN_STATUS =
   "agent\ninteractive terminal requires TTY input and output\n";
@@ -64,6 +64,7 @@ export type RunFailure<E> =
         | "application"
         | "motion"
         | "notice"
+        | "providerSelection"
         | "runtimeAcknowledge"
         | "runtimePermission"
         | "runtimeCancel"
@@ -226,10 +227,60 @@ function applyEffect<E, RE>(
   application: ApplicationController,
   arbiter: EventArbiter<E, RE>,
   runtime: RuntimeSession<RE> | undefined,
+  providers: ProviderSelectionPort | undefined,
   evaluation: EvaluationReceiptRecorder | undefined,
 ): EffectOutcome<E> {
   if (effect.kind === "exit") {
     return Object.freeze({ exit: true, failure: undefined, redraw: false });
+  }
+  if (effect.kind === "selectProvider") {
+    if (providers === undefined) {
+      return Object.freeze({
+        exit: false,
+        failure: Object.freeze({
+          kind: "unexpected" as const,
+          operation: "providerSelection" as const,
+        }),
+        redraw: false,
+      });
+    }
+    try {
+      const selected = providers.select(effect.id);
+      if (!selected.ok) {
+        return Object.freeze({
+          exit: false,
+          failure: Object.freeze({
+            kind: "unexpected" as const,
+            operation: "providerSelection" as const,
+          }),
+          redraw: false,
+        });
+      }
+      const applied = application.providerSelected(effect.id);
+      return applied.ok
+        ? Object.freeze({
+            exit: false,
+            failure: undefined,
+            redraw: applied.value.redraw,
+          })
+        : Object.freeze({
+            exit: false,
+            failure: Object.freeze({
+              kind: "application" as const,
+              error: applied.error,
+            }),
+            redraw: false,
+          });
+    } catch (_cause: unknown) {
+      return Object.freeze({
+        exit: false,
+        failure: Object.freeze({
+          kind: "unexpected" as const,
+          operation: "providerSelection" as const,
+        }),
+        redraw: false,
+      });
+    }
   }
   if (effect.kind === "startTurn") {
     if (runtime === undefined) {
@@ -453,6 +504,7 @@ function applyApplicationUpdate<E, RE>(
   application: ApplicationController,
   arbiter: EventArbiter<E, RE>,
   runtime: RuntimeSession<RE> | undefined,
+  providers: ProviderSelectionPort | undefined,
   evaluation: EvaluationReceiptRecorder | undefined,
 ): EffectOutcome<E> {
   let redraw = update.redraw;
@@ -462,6 +514,7 @@ function applyApplicationUpdate<E, RE>(
       application,
       arbiter,
       runtime,
+      providers,
       evaluation,
     );
     redraw = redraw || outcome.redraw;
@@ -573,7 +626,7 @@ async function cleanupPlainRuntime<RE>(
 export async function run<E, RE = never>(
   host: TerminalHost<E>,
   runtime?: RuntimeSession<RE>,
-  provider?: ProviderPresentation,
+  providers?: ProviderSelectionPort,
   workspace?: string,
   motion?: MotionController,
   notices?: NoticeController,
@@ -627,7 +680,7 @@ export async function run<E, RE = never>(
     if (primary === undefined && viewport !== undefined) {
       application = new ApplicationController(
         runtime !== undefined,
-        provider,
+        providers?.snapshots(),
         workspace,
       );
       arbiter = new EventArbiter(host, runtime, motion, notices);
@@ -729,6 +782,7 @@ export async function run<E, RE = never>(
               application,
               arbiter,
               runtime,
+              providers,
               evaluation,
             );
             redraw = outcome.redraw;
@@ -768,6 +822,7 @@ export async function run<E, RE = never>(
             application,
             arbiter,
             runtime,
+            providers,
             evaluation,
           );
           redraw = outcome.redraw;

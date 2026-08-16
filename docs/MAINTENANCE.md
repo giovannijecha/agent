@@ -19,9 +19,9 @@ ownership policy. The verifier rejects missing, extra, or inconsistent files,
 manifests, links, declarations, generated formats, and registry entries.
 
 Provider eligibility is a separate canonical input in
-`tools/provider-policy.json`. Version 4 keeps the four subscription OAuth
-providers blocked and admits exactly one direct API-key provider, OpenCode Go.
-It pins that provider's origin, model, transport, environment variable,
+`tools/provider-policy.json`. Version 5 keeps the four subscription OAuth
+providers blocked and admits exactly two direct API-key providers, OpenCode Go
+and OpenCode Zen. It pins each provider's origin, model, transport, environment variable,
 memory-only persistence, evidence date, and exact workspace. It additionally
 pins each authorization request's lifecycle state, official route, visibility,
 research date, submission date, and public or content-free private reference.
@@ -96,7 +96,7 @@ that only state newer than the last checkpoint may be discarded. Update
 decision 0029 with any batch order, planning, limit, output-budget, cancellation,
 or checkpoint change.
 
-The OpenCode Go model-turn barrier follows decision 0061. Preserve the exact
+The OpenCode model-turn barrier follows decisions 0061 and 0067. Preserve the exact
 one-call request field, bounded owned instruction, complete result checkpoint,
 provider/runtime integration regression, and defensive batch path together.
 Changing that barrier requires task-convergence evidence and updates to
@@ -502,9 +502,9 @@ and its export/tests, decision 0034, and its policy/manual evidence. Transcript
 navigation, line editing, composer, commands, activity, and renderer must remain
 independently buildable.
 
-## Update or remove OpenCode Go
+## Update or remove an OpenCode provider
 
-The admitted provider has two owners. `@agent/provider-opencode-go` owns the
+Each admitted provider has two owners. Its `@agent/provider-opencode-*` workspace owns the
 Node-free request, UTF-8, SSE, response, and tool-call contract. CLI owns the
 exact environment variable, HTTPS origin, response backpressure, timeout,
 composition, and provider presentation. Do not move process or socket access
@@ -512,21 +512,22 @@ into the provider package and do not leak provider vocabulary into runtime,
 tools, core, or TUI.
 
 An endpoint, model, header, privacy, limit, request-selection, instruction, or
-wire change requires current official evidence, updates to decisions 0017 and
-0061 when convergence changes, exact provider-policy changes, provider and CLI
+wire change requires current official evidence, updates to decisions 0017,
+0061, and 0067 as applicable, exact provider-policy changes, provider and CLI
 contract tests, manual/privacy/security updates, and the full offline release
 gate. Never add discovery, redirects, aliases, retries,
 fallbacks, arbitrary base URLs, or persistent key storage as a compatibility
 shortcut.
 
-To roll back or remove the provider, first remove its composition from
-`main.ts` and restore the providerless command result. Then remove the CLI
+To roll back or remove one provider, first remove its composition from
+`main.ts` and retain the remaining exact provider selection. Then remove that CLI
 transport, configuration and instructions modules; the provider workspace and
 all npm/TypeScript/ownership edges; the `node:https` declaration and allowlist
 if unused; the exact direct-provider policy entry and source-literal exceptions;
-decision 0017; and provider-specific documentation. Regenerate the lockfile
-through the offline npm command. Preserve the four blocked OAuth request records
-and prove the remaining five workspaces through the canonical verifier.
+governing decision and provider-specific documentation. Regenerate the lockfile
+through the offline npm command. Preserve the other direct provider and the four
+blocked OAuth request records. Removing both must restore the providerless
+command result and prove the remaining five workspaces through the canonical verifier.
 
 ## Update or remove executable startup
 
@@ -537,7 +538,7 @@ form one executable contract. Preserve no-argument startup, exact `--help` and
 terminal restoration. The npm link is explicit operator state and must never be
 created by install lifecycle scripts.
 
-OpenCode Go removal deletes only its prompt and composition. The `agent` binary,
+OpenCode Zen removal deletes only its prompt and composition. The `agent` binary,
 providerless startup, and npm link remain. To remove the command from one
 machine, run `npm unlink --global agent-workspace`. To remove the feature from
 source, delete the root `bin` and installation script, argument parser, prompt,

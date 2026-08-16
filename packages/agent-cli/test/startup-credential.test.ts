@@ -4,7 +4,7 @@ import test from "node:test";
 import { err, ok } from "@agent/core";
 
 import { HiddenCredentialPromptError } from "../dist/hidden-credential-prompt.js";
-import { acquireOpenCodeGoCredential } from "../dist/startup-credential.js";
+import { acquireProviderCredential } from "../dist/startup-credential.js";
 
 const TERMINATED = Object.freeze({ kind: "terminated" });
 
@@ -29,11 +29,11 @@ test("keeps configured and non-interactive startup free of prompting", async () 
   };
 
   assert.equal(
-    await acquireOpenCodeGoCredential("configured", true, prompt, terminate),
+    await acquireProviderCredential("configured", true, prompt, terminate),
     "configured",
   );
   assert.equal(
-    await acquireOpenCodeGoCredential(undefined, false, prompt, terminate),
+    await acquireProviderCredential(undefined, false, prompt, terminate),
     undefined,
   );
   assert.equal(promptCount, 0);
@@ -45,7 +45,7 @@ test("returns only an explicitly provided interactive credential", async () => {
   };
 
   assert.equal(
-    await acquireOpenCodeGoCredential(
+    await acquireProviderCredential(
       undefined,
       true,
       () =>
@@ -57,7 +57,7 @@ test("returns only an explicitly provided interactive credential", async () => {
     "provided",
   );
   assert.equal(
-    await acquireOpenCodeGoCredential(
+    await acquireProviderCredential(
       undefined,
       true,
       () => Promise.resolve(ok(Object.freeze({ kind: "skipped" as const }))),
@@ -75,7 +75,7 @@ test("makes prompt failures and cancellation terminal without retaining causes",
   };
 
   await expectTermination(
-    acquireOpenCodeGoCredential(
+    acquireProviderCredential(
       undefined,
       true,
       () => Promise.resolve(err(new HiddenCredentialPromptError("input"))),
@@ -83,7 +83,7 @@ test("makes prompt failures and cancellation terminal without retaining causes",
     ),
   );
   await expectTermination(
-    acquireOpenCodeGoCredential(
+    acquireProviderCredential(
       undefined,
       true,
       () => Promise.reject(new Error("private prompt cause")),
@@ -91,7 +91,7 @@ test("makes prompt failures and cancellation terminal without retaining causes",
     ),
   );
   await expectTermination(
-    acquireOpenCodeGoCredential(
+    acquireProviderCredential(
       undefined,
       true,
       () => Promise.resolve(ok(Object.freeze({ kind: "cancelled" as const }))),

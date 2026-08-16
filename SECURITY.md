@@ -60,7 +60,7 @@ Compact `Read`, `List`, `Search`, `Write`, `Manage`, and `Run` activity labels
 are display-only closed data. They cannot dispatch a tool, select a permission,
 or replace the canonical tool name and risk validation.
 
-OpenCode Go requests one tool call per model response so the next model decision
+Both OpenCode adapters request one tool call per model response so the next model decision
 observes the previous checkpointed result before authoring another effect. This
 is a convergence boundary, not an authority change: schemas, permissions,
 effect plans, committers, and process containment remain exact. A service-returned
@@ -113,10 +113,11 @@ Native root, content-mutation, namespace-mutation, and clipboard helpers have
 hard operation and post-kill cleanup deadlines; late events cannot change
 settled content-free results.
 
-The project enables one exact outbound HTTPS path for an operator-configured
-OpenCode Go API key. The owned startup prompt disables echo, bounds input, and
-restores terminal state before TUI startup. It enables no provider OAuth login,
-arbitrary network
+The project enables two exact outbound HTTPS paths, one for each independently
+configured OpenCode Go or OpenCode Zen API key. The selected adapter can reach
+only its registered path, never copies credentials, and never falls back to the
+other backend. The owned startup prompts disable echo, bound input, and restore
+terminal state before TUI startup. They enable no provider OAuth login, arbitrary network
 transport, persistent credential or session store, or redirect policy. The
 single `run_process` capability admits only an exactly approved bounded `node`
 invocation resolved by the CLI-owned closed program registry and launched
