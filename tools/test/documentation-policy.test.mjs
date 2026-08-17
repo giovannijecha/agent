@@ -316,11 +316,18 @@ test("routes completed durable design history to stable decision records", () =>
     "the central map does not register durable design history",
   );
   assert.equal(
-    context.files[policy.index].includes(
-      "The completed lossless\nreduction is preserved in",
-    ),
+    context.files[policy.index]
+      .replace(/\s+/gu, " ")
+      .includes("The completed lossless reduction is preserved in"),
     true,
     "the central map still describes the reduction as active",
+  );
+  assert.equal(
+    context.files[policy.migrationLedger].includes(
+      "| Topic | Current sources | Canonical owner | Status |",
+    ),
+    true,
+    "the completed ledger still labels canonical owners as future",
   );
   assert.equal(
     context.files[policy.migrationLedger].startsWith(
