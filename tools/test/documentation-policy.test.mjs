@@ -191,6 +191,11 @@ test("rejects historical decision status and core-section drift", () => {
       "- Status: accepted",
       "- Status: superseded by decision 0071",
     ],
+    [
+      "docs/decisions/0001-owned-zero-dependency-rust.md",
+      "- Status: superseded by decision 0002",
+      "- Status: superseded by decision 0019",
+    ],
   ]) {
     const context = currentContext();
     context.files[file] = context.files[file].replace(before, after);
@@ -266,6 +271,10 @@ test("rejects decision relationship drift", () => {
       "| [0017](0017-owned-opencode-go-provider.md) | superseded | providers | superseded by 0072 |",
       "| [0017](0017-owned-opencode-go-provider.md) | superseded | providers | superseded by 0071 |",
     ],
+    [
+      "| [0001](0001-owned-zero-dependency-rust.md) | superseded | foundation | superseded by 0002 |",
+      "| [0001](0001-owned-zero-dependency-rust.md) | superseded | foundation | superseded by 0019 |",
+    ],
   ]) {
     const context = currentContext();
     context.files[policy.decisionIndex] = context.files[
@@ -311,6 +320,10 @@ test("rejects incomplete documentation migration state", () => {
     [
       "| Durable design history | decision files and [decision index](decisions/README.md) | [Decision index](decisions/README.md) and stable records | complete |",
       "| Durable design history | decision files and [decision index](decisions/README.md) | [Decision index](decisions/README.md) and stable records | active |",
+    ],
+    [
+      "| Durable design history | decision files and [decision index](decisions/README.md) | [Decision index](decisions/README.md) and stable records | complete |\n",
+      "",
     ],
   ]) {
     const context = currentContext();
