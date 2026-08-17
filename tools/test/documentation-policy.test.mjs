@@ -7,6 +7,7 @@ import {
   DocumentationPolicyError,
   validateDocumentationPolicy,
 } from "../lib/documentation-policy.mjs";
+import { EVALUATION_LIMITS } from "../lib/evaluation-suite.mjs";
 import { projectRoot } from "../lib/project.mjs";
 
 const policy = JSON.parse(
@@ -462,9 +463,13 @@ test("routes completed evaluation operation to the evaluation guide", () => {
   const normalizedGuide = guide.replace(/\s+/gu, " ");
   for (const marker of [
     "It is an evaluation corpus, not product runtime, training data, or a claim of model quality.",
+    "`list` prints the eight registered task identifiers. The corpus spans C, documentation, JavaScript, TypeScript, and web work.",
     "node tools/evaluate.mjs prepare javascript-collapse-whitespace run-01",
     "Start `agent --evaluation-receipt` from the emitted `workspace` directory",
     "node tools/evaluate.mjs grade javascript-collapse-whitespace run-01",
+    "Copy the receipt's five metric values into adjacent `record.json`; its schema version is present.",
+    "set the closed outcome, artifact, and primary constraint",
+    "`manualCorrections` and `riskyActions` as bounded counts. Add no fields beyond the template:",
     "node tools/evaluate.mjs validate-record javascript-collapse-whitespace run-01",
     "The evaluator has no reset or delete command",
     "snapshot path limits apply after the canonical task prefix is removed.",
@@ -482,6 +487,14 @@ test("routes completed evaluation operation to the evaluation guide", () => {
       "evaluation operation contract is missing: " + marker,
     );
   }
+  const guideBytes = readFileSync(
+    path.join(projectRoot, "evaluations/README.md"),
+  ).byteLength;
+  assert.ok(
+    guideBytes <= EVALUATION_LIMITS.taskBytes,
+    "evaluation guide exceeds its corpus bound: " + guideBytes + "/" +
+      EVALUATION_LIMITS.taskBytes,
+  );
 
   const row = context.files[policy.migrationLedger]
     .split("\n")
