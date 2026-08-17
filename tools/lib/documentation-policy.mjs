@@ -264,9 +264,39 @@ function validateDocumentationMap(policy, context, ownedPaths) {
 }
 
 function parseDecisionRows(text) {
+  const normalized = text.replaceAll("\r\n", "\n");
+  const marker = "\n## Complete ledger\n";
+  const start = normalized.indexOf(marker);
+  if (
+    start < 0 ||
+    normalized.indexOf(marker, start + marker.length) >= 0 ||
+    !normalized.endsWith("\n")
+  ) {
+    fail("complete decision ledger section is malformed");
+  }
+  const lines = normalized
+    .slice(start + marker.length, -1)
+    .split("\n");
+  same(
+    lines.slice(0, 3),
+    [
+      "",
+      "| Decision | Status | Domain | Relationship |",
+      "| --- | --- | --- | --- |",
+    ],
+    "complete decision ledger header",
+  );
+  const rowLines = lines.slice(3);
+  if (rowLines.length === 0) {
+    fail("complete decision ledger is empty");
+  }
   const rows = [];
-  const expression = /^\| \[([0-9]{4})\]\(([^)]+)\) \| ([a-z]+) \| ([a-z]+) \| ([^|\r\n]+) \|$/gmu;
-  for (const match of text.matchAll(expression)) {
+  const expression = /^\| \[([0-9]{4})\]\(([^)]+)\) \| ([a-z]+) \| ([a-z]+) \| ([^|\r\n]+) \|$/u;
+  for (const line of rowLines) {
+    const match = expression.exec(line);
+    if (match === null) {
+      fail("decision ledger row is malformed");
+    }
     const id = match.at(1);
     const link = match.at(2);
     const status = match.at(3);
@@ -428,6 +458,20 @@ function validateDecisionRecords(policy, context, rows) {
   const decisionIds = new Set(rows.map((row) => row.id));
   const rowsById = new Map(rows.map((row) => [row.id, row]));
   const relationships = new Map();
+  const historicalSupersedesFields = new Set(
+    policy.historicalDecisionRelationshipFields.supersedes,
+  );
+  const historicalSupersededByFields = new Set(
+    policy.historicalDecisionRelationshipFields.supersededBy,
+  );
+  for (const id of new Set([
+    ...historicalSupersedesFields,
+    ...historicalSupersededByFields,
+  ])) {
+    if (!rowsById.has(id)) {
+      fail("historical decision relationship field is unregistered: " + id);
+    }
+  }
   if (!isRecord(policy.historicalDecisionStatusExceptions)) {
     fail("historical decision status exceptions must be an object");
   }
@@ -481,8 +525,11 @@ function validateDecisionRecords(policy, context, rows) {
       Number(row.id) < policy.prospectiveDecisionMetadataFrom &&
       recordStatusText !== undefined
     ) {
+      const statusHasReplacement = /^superseded by decisions? /u.test(
+        recordStatusText,
+      );
       const replacementMetadata = [];
-      if (/^superseded by decisions? /u.test(recordStatusText)) {
+      if (statusHasReplacement) {
         replacementMetadata.push(recordStatusText);
       }
       const supersessionFields = [
@@ -494,6 +541,12 @@ function validateDecisionRecords(policy, context, rows) {
       const supersessionField = supersessionFields.at(0);
       if (supersessionField !== undefined) {
         replacementMetadata.push(supersessionField);
+      }
+      if (
+        historicalSupersededByFields.has(row.id) !==
+        (supersessionField !== undefined)
+      ) {
+        fail("historical superseded-by field inventory mismatch: " + file);
       }
       for (const metadata of replacementMetadata) {
         if (relationship.supersededBy.length === 0) {
@@ -508,6 +561,44 @@ function validateDecisionRecords(policy, context, rows) {
             file,
           ),
           "historical decision replacement: " + row.id,
+        );
+      }
+      if (
+        row.status === "superseded" &&
+        policy.historicalDecisionStatusExceptions[row.id] === undefined &&
+        !statusHasReplacement &&
+        supersessionField === undefined
+      ) {
+        fail("historical decision replacement metadata is missing: " + file);
+      }
+      const supersedesFields = [
+        ...text.matchAll(/^- Supersedes: ([^\r\n]+)$/gmu),
+      ].map((match) => match.at(1));
+      if (supersedesFields.length > 1) {
+        fail("historical decision supersedes metadata is invalid: " + file);
+      }
+      const supersedesField = supersedesFields.at(0);
+      const directSupersedesField =
+        supersedesField !== undefined &&
+        /^decisions? /u.test(supersedesField)
+          ? supersedesField
+          : undefined;
+      if (
+        historicalSupersedesFields.has(row.id) !==
+        (directSupersedesField !== undefined)
+      ) {
+        fail("historical supersedes field inventory mismatch: " + file);
+      }
+      if (directSupersedesField !== undefined) {
+        same(
+          relationship.supersedes,
+          historicalReplacementReferences(
+            directSupersedesField,
+            decisionIds,
+            row.id,
+            file,
+          ),
+          "historical supersedes relationship: " + row.id,
         );
       }
     }
@@ -747,6 +838,7 @@ export function validateDocumentationPolicy(policy, context) {
       "repositoryInstructions",
       "prospectiveDecisionMetadataFrom",
       "historicalDecisionStatusExceptions",
+      "historicalDecisionRelationshipFields",
       "decisionRelationshipEdges",
       "decisionDomainMembers",
       "currentDecisionAuthorities",
@@ -758,7 +850,7 @@ export function validateDocumentationPolicy(policy, context) {
     ],
     "documentation policy",
   );
-  if (policy.schemaVersion !== 7 || !isRecord(context)) {
+  if (policy.schemaVersion !== 8 || !isRecord(context)) {
     fail("unsupported documentation policy schema or context");
   }
   for (const [label, file] of [
@@ -774,6 +866,28 @@ export function validateDocumentationPolicy(policy, context) {
     policy.prospectiveDecisionMetadataFrom > 9999
   ) {
     fail("prospective decision metadata boundary is invalid");
+  }
+  exactKeys(
+    policy.historicalDecisionRelationshipFields,
+    ["supersedes", "supersededBy"],
+    "historical decision relationship fields",
+  );
+  for (const [direction, decisionIds] of Object.entries(
+    policy.historicalDecisionRelationshipFields,
+  )) {
+    validateUniqueStrings(
+      decisionIds,
+      "historical decision relationship fields: " + direction,
+    );
+    if (
+      decisionIds.some(
+        (id) =>
+          !/^[0-9]{4}$/u.test(id) ||
+          Number(id) >= policy.prospectiveDecisionMetadataFrom,
+      )
+    ) {
+      fail("historical decision relationship field identifier is invalid");
+    }
   }
   if (
     !Array.isArray(policy.decisionRelationshipEdges) ||
