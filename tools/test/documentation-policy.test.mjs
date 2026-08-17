@@ -356,13 +356,27 @@ test("rejects malformed current decision authority table structure", () => {
   );
 });
 
+test("rejects removal of the decision lifecycle contract", () => {
+  const context = currentContext();
+  context.files[policy.decisionIndex] = context.files[
+    policy.decisionIndex
+  ].replace(
+    "The ledger records incoming and outgoing replacement edges independently. A\nrecord with both uses `supersedes ...; superseded by ...` so later replacement\ndoes not erase the history it had already consolidated. The offline verifier\nalso binds the complete canonical edge inventory and rejects replacement cycles;\nchanging that acyclic graph requires updating the policy in the same decision\nchange.\n\n",
+    "",
+  );
+  assert.throws(
+    () => validateDocumentationPolicy(policy, context),
+    DocumentationPolicyError,
+  );
+});
+
 test("scopes current decision authority parsing to its section", () => {
   const context = currentContext();
   context.files[policy.decisionIndex] = context.files[
     policy.decisionIndex
   ].replace(
-    "Create a decision only for a durable",
-    "| note | retained historical context |\n\nCreate a decision only for a durable",
+    "current authority by domain and to see whether a record has been superseded.\n\n",
+    "current authority by domain and to see whether a record has been superseded.\n\n| note | retained historical context |\n\n",
   );
   assert.doesNotThrow(() => validateDocumentationPolicy(policy, context));
 });

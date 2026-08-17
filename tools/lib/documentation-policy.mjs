@@ -817,11 +817,30 @@ function expectedDecisionDomains(policy) {
   return domainsById;
 }
 
+function validateDecisionLifecycle(policy, text) {
+  const normalized = text.replaceAll("\r\n", "\n");
+  const marker = "\n## Lifecycle\n";
+  const nextMarker = "\n## Current authority by domain\n";
+  const start = normalized.indexOf(marker);
+  const bodyStart = start + marker.length;
+  const end = normalized.indexOf(nextMarker, bodyStart);
+  if (start < 0 || end < 0 || normalized.indexOf(marker, bodyStart) >= 0) {
+    fail("decision lifecycle section is missing");
+  }
+  const digest = createHash("sha256")
+    .update(normalized.slice(bodyStart, end), "utf8")
+    .digest("hex");
+  if (digest !== policy.decisionIndexLifecycleDigest.value) {
+    fail("decision lifecycle contract mismatch");
+  }
+}
+
 function validateDecisionIndex(policy, context, ownedPaths) {
   const text = textFor(context, policy.decisionIndex);
   if (!text.startsWith("# Architecture decision records\n")) {
     fail("decision index heading mismatch");
   }
+  validateDecisionLifecycle(policy, text);
   localLinkTargets(policy.decisionIndex, text, ownedPaths);
   const rows = parseDecisionRows(text);
   const expected = context.decisionPaths;
@@ -964,6 +983,7 @@ export function validateDocumentationPolicy(policy, context) {
       "schemaVersion",
       "index",
       "decisionIndex",
+      "decisionIndexLifecycleDigest",
       "migrationLedger",
       "migrationMapStatusMarkers",
       "repositoryInstructions",
@@ -983,7 +1003,7 @@ export function validateDocumentationPolicy(policy, context) {
     ],
     "documentation policy",
   );
-  if (policy.schemaVersion !== 12 || !isRecord(context)) {
+  if (policy.schemaVersion !== 13 || !isRecord(context)) {
     fail("unsupported documentation policy schema or context");
   }
   for (const [label, file] of [
@@ -992,6 +1012,17 @@ export function validateDocumentationPolicy(policy, context) {
     ["migration ledger", policy.migrationLedger],
   ]) {
     assertRepositoryPath(file, label);
+  }
+  exactKeys(
+    policy.decisionIndexLifecycleDigest,
+    ["algorithm", "value"],
+    "decision index lifecycle digest",
+  );
+  if (
+    policy.decisionIndexLifecycleDigest.algorithm !== "sha256" ||
+    !/^[a-f0-9]{64}$/u.test(policy.decisionIndexLifecycleDigest.value)
+  ) {
+    fail("decision index lifecycle digest is invalid");
   }
   exactKeys(
     policy.migrationMapStatusMarkers,
