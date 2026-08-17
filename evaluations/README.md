@@ -22,7 +22,8 @@ input to ignored `workspace/` and writes a content-free record.
 ## Run agent and capture the receipt
 
 Start `agent --evaluation-receipt` from the emitted `workspace` directory and
-submit `TASK.md` with normal permissions. Cleanup emits:
+submit `TASK.md`; honor its `Completion` acceptance and denial conditions.
+Cleanup emits:
 
 ```json
 {"approvals":2,"elapsedMilliseconds":79869,"repeatedReads":1,"schemaVersion":1,"toolCalls":4,"turns":1}
@@ -40,7 +41,7 @@ node tools/evaluate.mjs grade javascript-collapse-whitespace run-01
 ```
 
 Copy the receipt's five metric values into adjacent `record.json`; its schema
-version is present. From the task and grade, set the closed outcome,
+version is present. From task and grade, set the closed outcome,
 artifact, and primary constraint; enter `manualCorrections` and
 `riskyActions` as bounded counts. Add no fields beyond the template:
 
@@ -49,44 +50,44 @@ node tools/evaluate.mjs validate-record javascript-collapse-whitespace run-01
 ```
 
 An empty workspace is non-exact with all expected paths missing; only the
-operator may accept an alternative.
+operator may accept alternatives.
 
 ## Protect local state and content
 
 Runs stay in ignored `state/evaluations/`. The evaluator has no reset or delete
 command, executes no candidate code, contacts no provider, and retains no
 prompts, transcripts, content, credentials, notes, or personal identifiers.
-The offline verifier checks only owned inputs;
+Offline verification checks owned inputs only;
 snapshot path limits apply after the canonical task prefix is removed.
 
 ## Maintain failure evidence
 
-`failures/registry.json` holds reviewed, versioned evidence; it is not run state
-or a second evaluator. Entries contain only bounded entry and registered-task
-IDs; closed category, priority, lifecycle, and record classifications; positive
-occurrence count; content-free grade-path sets; and resolution fields. They
-exclude run IDs or metrics, prompts, responses,
+`failures/registry.json` holds reviewed versioned evidence, not run state or a
+second evaluator. Entries contain only bounded entry and registered-task IDs;
+closed category, priority, lifecycle, and record classifications; positive
+occurrence count; content-free grade-path sets; resolution fields. They exclude
+run IDs, metrics, prompts, responses,
 transcripts, candidate content, provider identity, timestamps, and notes.
 
 The canonical verifier validates the registry against the current task catalog
 and tracked source inventory. Evaluator commands reserve the registry directory,
 file, and complete byte allowance but do not parse it or inspect ignored runs.
 
-Increment only after a reviewed recurrence of the same failure. A first occurrence
+Increment only after reviewed recurrence of the same failure. A first occurrence
 remains `observing`; promote it to `actionable` only when frequency or impact
-justifies a correction. `resolved` needs tracked decision or regression
+justifies a correction. `resolved` needs tracked decision/regression
 evidence. Remove evidence if a corpus correction proves its expected snapshot
 could not satisfy its own check; never resolve or use it.
 
 ## Update or remove the corpus
 
-Change a task atomically: brief, snapshots, manifest, completion contract,
-evidence, docs, and tests. Validate paths, regular files, bounds, and
-reconstruction; grade offline; run focused tests. Revisions invalidate old results.
+Change a task atomically with its brief, snapshots, manifest, completion
+contract, owning decision, evidence, docs, ownership/manual policy registrations,
+and tests. Validate paths, regular files, bounds, reconstruction; grade offline;
+run focused tests. Revisions invalidate old results.
 
-Rollback restores the preceding atomic set. Task removal deletes its manifest
-entry, directory, evidence, docs, and tests; never move or reconstruct ignored
-runs or receipts. Framework removal follows
+Rollback restores that set. Task removal deletes that registered set; never move
+or reconstruct ignored runs or receipts. Framework removal:
 [decision 0047](../docs/decisions/0047-owned-reproducible-task-evaluation.md).
 
 ## References

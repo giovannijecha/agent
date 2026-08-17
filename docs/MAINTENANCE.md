@@ -281,6 +281,8 @@ the same change.
 **Owners:** the [evaluation guide](../evaluations/README.md) for operation;
 `tools/evaluate.mjs`, `tools/lib/evaluation-suite.mjs`, and
 `tools/lib/evaluation-failure-registry.mjs`,
+`tools/test/evaluation-suite.test.mjs`,
+`tools/test/evaluation-failure-registry.test.mjs`,
 `packages/agent-cli/src/evaluation-receipt.ts`, and
 `packages/agent-cli/test/evaluation-receipt.test.ts` for implementation; and
 `evaluations/tasks/`, `tools/evaluation-policy.json`, and
@@ -288,6 +290,9 @@ the same change.
 [Decision 0047](decisions/0047-owned-reproducible-task-evaluation.md),
 [0048](decisions/0048-owned-content-free-evaluation-receipt.md), and
 [0049](decisions/0049-owned-evaluation-failure-registry.md) retain rationale.
+[0064](decisions/0064-owned-self-verifying-typescript-evaluation.md),
+[0065](decisions/0065-owned-red-green-tool-recovery-evaluation.md), and
+[0066](decisions/0066-owned-namespace-directory-evaluation.md) own task design.
 
 `evaluations/README.md` is corpus input: keep canonical UTF-8, LF-only text with
 a final LF, no trailing whitespace, and at most 4,096 bytes
