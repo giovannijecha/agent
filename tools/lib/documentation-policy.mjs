@@ -359,6 +359,17 @@ function validateDecisionRecords(policy, context, rows) {
         fail("decision section is missing: " + file);
       }
     }
+    const recordStatuses = [
+      ...text.matchAll(/^- Status: ([^\r\n]+)$/gmu),
+    ].map((match) => match.at(1));
+    const recordStatus = recordStatuses
+      .at(0)
+      ?.toLowerCase()
+      .split(" ", 1)
+      .at(0);
+    if (recordStatuses.length !== 1 || recordStatus !== row.status) {
+      fail("decision status does not match its ledger: " + file);
+    }
 
     if (row.relationship === "current") {
       if (row.status !== "accepted") {
@@ -395,8 +406,16 @@ function validateCurrentAuthorities(policy, text, rows) {
     rows.map((row) => [resolveLocalLink(policy.decisionIndex, row.link), row]),
   );
   const authorityRows = [];
+  const marker = "\n## Current authority by domain\n";
+  const start = text.indexOf(marker);
+  const bodyStart = start + marker.length;
+  const end = text.indexOf("\n## ", bodyStart);
+  if (start < 0 || end < 0) {
+    fail("current decision authority section is missing");
+  }
+  const authorityText = text.slice(bodyStart, end);
   const expression = /^\| ([a-z]+) \| ([^|\r\n]+) \|$/gmu;
-  for (const match of text.matchAll(expression)) {
+  for (const match of authorityText.matchAll(expression)) {
     const domain = match.at(1);
     const entryPoints = match.at(2);
     if (domain === undefined || entryPoints === undefined) {
@@ -480,8 +499,12 @@ function validateMigrationLedger(policy, context, ownedPaths) {
   const statuses = [...text.matchAll(/^- Status: ([a-z]+)$/gmu)].map(
     (match) => match.at(1),
   );
-  if (statuses.length !== 1 || statuses.at(0) !== "complete") {
-    fail("documentation migration status is not complete");
+  const migrationStatus = statuses.at(0);
+  if (
+    statuses.length !== 1 ||
+    (migrationStatus !== "active" && migrationStatus !== "complete")
+  ) {
+    fail("documentation migration status is invalid");
   }
   const topics = new Set();
   const rows = [
@@ -499,11 +522,18 @@ function validateMigrationLedger(policy, context, ownedPaths) {
       topic === undefined ||
       topic.length === 0 ||
       topics.has(topic) ||
-      (status !== "complete" && status !== "retained")
+      (status !== "active" && status !== "complete" && status !== "retained")
     ) {
       fail("documentation migration ledger row is incomplete");
     }
     topics.add(topic);
+  }
+  const hasActiveRow = rows.some((row) => row.at(4) === "active");
+  if (
+    (migrationStatus === "complete" && hasActiveRow) ||
+    (migrationStatus === "active" && !hasActiveRow)
+  ) {
+    fail("documentation migration status contradicts its ledger rows");
   }
   const targets = new Set(
     localLinkTargets(policy.migrationLedger, text, ownedPaths),

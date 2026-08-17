@@ -174,32 +174,82 @@ test("rejects historical decision identity drift", () => {
   );
 });
 
+test("rejects historical decision status and core-section drift", () => {
+  for (const [file, before, after] of [
+    [
+      "docs/decisions/0001-owned-zero-dependency-rust.md",
+      "- Status: superseded by decision 0002",
+      "- Status: accepted",
+    ],
+    [
+      "docs/decisions/0002-owned-zero-dependency-typescript.md",
+      "## Context",
+      "## Background",
+    ],
+  ]) {
+    const context = currentContext();
+    context.files[file] = context.files[file].replace(before, after);
+    assert.throws(
+      () => validateDocumentationPolicy(policy, context),
+      DocumentationPolicyError,
+    );
+  }
+});
+
 test("rejects invalid current decision authority routes", () => {
+  for (const [before, after] of [
+    [
+      "[0002 TypeScript foundation](0002-owned-zero-dependency-typescript.md)",
+      "[0001 Rust foundation](0001-owned-zero-dependency-rust.md)",
+    ],
+    [
+      "[0036 process execution](0036-owned-structured-process-execution.md)",
+      "[0003 provider authentication](0003-owned-provider-authentication.md)",
+    ],
+    [
+      "| architecture | [0013 single-agent execution](0013-single-agent-execution.md), [0052 checkpointed failures](0052-owned-checkpointed-turn-failure-classification.md), [0061 convergent turns](0061-owned-convergent-tool-turns.md) |\n",
+      "",
+    ],
+  ]) {
+    const context = currentContext();
+    context.files[policy.decisionIndex] = context.files[
+      policy.decisionIndex
+    ].replace(before, after);
+    assert.throws(
+      () => validateDocumentationPolicy(policy, context),
+      DocumentationPolicyError,
+    );
+  }
+});
+
+test("scopes current decision authority parsing to its section", () => {
   const context = currentContext();
   context.files[policy.decisionIndex] = context.files[
     policy.decisionIndex
   ].replace(
-    "[0002 TypeScript foundation](0002-owned-zero-dependency-typescript.md)",
-    "[0001 Rust foundation](0001-owned-zero-dependency-rust.md)",
+    "Create a decision only for a durable",
+    "| note | retained historical context |\n\nCreate a decision only for a durable",
   );
-  assert.throws(
-    () => validateDocumentationPolicy(policy, context),
-    DocumentationPolicyError,
-  );
+  assert.doesNotThrow(() => validateDocumentationPolicy(policy, context));
 });
 
 test("rejects decision relationship drift", () => {
-  const context = currentContext();
-  context.files[policy.decisionIndex] = context.files[
-    policy.decisionIndex
-  ].replace(
-    "| [0002](0002-owned-zero-dependency-typescript.md) | accepted | foundation | current |",
-    "| [0002](0002-owned-zero-dependency-typescript.md) | accepted | foundation | superseded by 0001 |",
-  );
-  assert.throws(
-    () => validateDocumentationPolicy(policy, context),
-    DocumentationPolicyError,
-  );
+  for (const [before, after] of [
+    [
+      "| [0003](0003-owned-provider-authentication.md) | accepted | providers | current |",
+      "| [0003](0003-owned-provider-authentication.md) | accepted | providers | superseded by 0001 |",
+    ],
+    ["superseded by 0002 |", "superseded by 9999 |"],
+  ]) {
+    const context = currentContext();
+    context.files[policy.decisionIndex] = context.files[
+      policy.decisionIndex
+    ].replace(before, after);
+    assert.throws(
+      () => validateDocumentationPolicy(policy, context),
+      DocumentationPolicyError,
+    );
+  }
 });
 
 test("rejects prospective decision metadata drift", () => {
@@ -234,6 +284,19 @@ test("rejects incomplete documentation migration state", () => {
   }
 });
 
+test("permits a coherently reopened documentation migration", () => {
+  const context = currentContext();
+  context.files[policy.migrationLedger] = context.files[
+    policy.migrationLedger
+  ]
+    .replace("- Status: complete", "- Status: active")
+    .replace(
+      "| Durable design history | decision files and [decision index](decisions/README.md) | [Decision index](decisions/README.md) and stable records | complete |",
+      "| Durable design history | decision files and [decision index](decisions/README.md) | [Decision index](decisions/README.md) and stable records | active |",
+    );
+  assert.doesNotThrow(() => validateDocumentationPolicy(policy, context));
+});
+
 test("routes completed durable design history to stable decision records", () => {
   const context = currentContext();
   const structure = policy.documentStructures.find(
@@ -251,6 +314,13 @@ test("routes completed durable design history to stable decision records", () =>
     ),
     true,
     "the central map does not register durable design history",
+  );
+  assert.equal(
+    context.files[policy.index].includes(
+      "The completed lossless\nreduction is preserved in",
+    ),
+    true,
+    "the central map still describes the reduction as active",
   );
   assert.equal(
     context.files[policy.migrationLedger].startsWith(
