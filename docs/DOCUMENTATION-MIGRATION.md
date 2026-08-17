@@ -19,9 +19,13 @@ the change.
 
 ## Current delivery
 
-The public README now covers installation, first-run use, capability
-orientation, safety, verification, and authoritative links. The manual uses
-registered task-specific contracts instead of one repeated chapter template.
+Public purpose, repository identity, installation, and first-run use now have
+one current owner in `README.md`. It covers capability orientation, safety,
+verification, and authoritative links, and its exact structure and critical
+entry-point contracts are verified. The brand guide retains visual identity,
+asset, and presentation authority and routes public users to the README. The
+manual uses registered task-specific contracts instead of one repeated chapter
+template.
 The repository instructions now retain only the cross-cutting change contract,
 essential invariants, canonical commands, and an exact task router; subsystem
 details remain in their registered living documents and stable decisions. The
@@ -62,7 +66,7 @@ dossier.
 
 | Topic | Current sources | Future canonical owner | Status |
 | --- | --- | --- | --- |
-| Public purpose, identity, installation, and first run | [Public README](../README.md), [brand guide](BRAND.md) | [Public README](../README.md) | active |
+| Public purpose, identity, installation, and first run | [Public README](../README.md), [brand guide](BRAND.md) | [Public README](../README.md) | complete |
 | Repository-wide change constraints and routing | [Repository instructions](../AGENTS.md), [architecture](ARCHITECTURE.md), [engineering guide](ENGINEERING.md) | [Repository instructions](../AGENTS.md) | complete |
 | Contribution workflow | [Repository instructions](../AGENTS.md), [contributing guide](../CONTRIBUTING.md), [engineering guide](ENGINEERING.md), [maintenance guide](MAINTENANCE.md), [publishing chapter](manual/07-publishing-and-governance.md) | [Contributing guide](../CONTRIBUTING.md) | complete |
 | License terms | [License](../LICENSE) | [License](../LICENSE) | retained |

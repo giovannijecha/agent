@@ -52,6 +52,20 @@
   ],
   "documentStructures": [
     {
+      "path": "README.md",
+      "headings": [
+        "# agent",
+        "## Capabilities",
+        "## Quick start",
+        "## Daily use",
+        "## Safety model",
+        "## Verification",
+        "## Task evaluation",
+        "## Documentation",
+        "## Public identity"
+      ]
+    },
+    {
       "path": "CONTRIBUTING.md",
       "headings": [
         "# Contributing to agent",

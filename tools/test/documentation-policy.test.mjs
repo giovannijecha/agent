@@ -71,6 +71,7 @@ test("accepts the canonical documentation information architecture", () => {
 
 test("rejects canonical document structure drift", () => {
   for (const [file, before, after] of [
+    ["README.md", "## Quick start", "## Getting started"],
     [
       "CONTRIBUTING.md",
       "## Prepare a maintainer change",
@@ -219,6 +220,42 @@ test("rejects broken local links in registered living documents", () => {
   assert.throws(
     () => validateDocumentationPolicy(policy, context),
     DocumentationPolicyError,
+  );
+});
+
+test("routes the completed public entry point to the public README", () => {
+  const context = currentContext();
+
+  assert.equal(
+    context.files["docs/BRAND.md"].includes("(../README.md)"),
+    true,
+    "brand guidance does not route public users to the README",
+  );
+
+  const structure = policy.documentStructures.find(
+    (entry) => entry.path === "README.md",
+  );
+  assert.deepEqual(structure?.headings, [
+    "# agent",
+    "## Capabilities",
+    "## Quick start",
+    "## Daily use",
+    "## Safety model",
+    "## Verification",
+    "## Task evaluation",
+    "## Documentation",
+    "## Public identity",
+  ]);
+
+  const row = context.files[policy.migrationLedger]
+    .split("\n")
+    .find((line) =>
+      line.startsWith("| Public purpose, identity, installation, and first run |"),
+    );
+  assert.equal(
+    row?.endsWith("| complete |"),
+    true,
+    "public-entry-point migration is not complete",
   );
 });
 
