@@ -52,6 +52,16 @@
   ],
   "documentStructures": [
     {
+      "path": "CONTRIBUTING.md",
+      "headings": [
+        "# Contributing to agent",
+        "## Current contribution boundary",
+        "## Report an issue",
+        "## Prepare a maintainer change",
+        "## Authorship and licensing"
+      ]
+    },
+    {
       "path": "docs/ARCHITECTURE.md",
       "headings": [
         "# Architecture",

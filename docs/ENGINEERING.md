@@ -6,7 +6,8 @@ This document defines how repository changes are designed, implemented, and
 proved. It is the development standard, not a second architecture description
 or an operational runbook.
 
-Use [architecture](ARCHITECTURE.md) for current boundaries,
+Use the [contributing guide](../CONTRIBUTING.md) for participation and issue
+intake, [architecture](ARCHITECTURE.md) for current boundaries,
 [maintenance](MAINTENANCE.md) for update and rollback procedures, and
 [decisions](decisions/README.md) for accepted rationale.
 

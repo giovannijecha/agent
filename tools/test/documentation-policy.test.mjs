@@ -69,6 +69,11 @@ test("accepts the canonical documentation information architecture", () => {
 test("rejects canonical document structure drift", () => {
   for (const [file, before, after] of [
     [
+      "CONTRIBUTING.md",
+      "## Prepare a maintainer change",
+      "## Submit a change",
+    ],
+    [
       "docs/ARCHITECTURE.md",
       "## Single-agent execution model",
       "## Product execution model",
@@ -172,6 +177,18 @@ test("rejects broken local links in registered structured documents", () => {
   );
 });
 
+test("rejects broken local links in registered living documents", () => {
+  const context = currentContext();
+  context.files["CONTRIBUTING.md"] = context.files["CONTRIBUTING.md"].replace(
+    "(SECURITY.md)",
+    "(missing-security-policy.md)",
+  );
+  assert.throws(
+    () => validateDocumentationPolicy(policy, context),
+    DocumentationPolicyError,
+  );
+});
+
 test("keeps canonical maintenance repository references owned", () => {
   const context = currentContext();
   const text = context.files["docs/MAINTENANCE.md"];
@@ -190,6 +207,26 @@ test("keeps canonical maintenance repository references owned", () => {
       "maintenance document is missing canonical reference: " + reference,
     );
   }
+});
+
+test("routes the completed contribution workflow to its canonical owner", () => {
+  const context = currentContext();
+  for (const source of ["docs/ENGINEERING.md", "docs/MAINTENANCE.md"]) {
+    assert.equal(
+      context.files[source].includes("(../CONTRIBUTING.md)"),
+      true,
+      "contribution route is missing: " + source,
+    );
+  }
+
+  const row = context.files[policy.migrationLedger]
+    .split("\n")
+    .find((line) => line.startsWith("| Contribution workflow |"));
+  assert.equal(
+    row?.endsWith("| complete |"),
+    true,
+    "contribution migration is not complete",
+  );
 });
 
 test("rejects incomplete migration coverage", () => {

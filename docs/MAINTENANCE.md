@@ -310,8 +310,8 @@ For documentation:
 
 For publication, keep repository identity, package metadata, license, security,
 privacy, contributing guidance, brand manifest, and public descriptions
-consistent. External code pull requests remain closed during the initial
-maintainer-only clean-room phase.
+consistent. The [contributing guide](../CONTRIBUTING.md) owns participation,
+issue intake, authorship, licensing, and the current external-code boundary.
 
 Rollback restores prose, routes, policy, and ledger status together. A removed
 document must leave no registered route or dangling link.

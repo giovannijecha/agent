@@ -30,6 +30,8 @@ the linked owner is where the complete contract lives.
 
 - To use Agent, begin with the [public README](../README.md), then open the
   [operator manual](manual/README.md).
+- To participate or report a problem, begin with the
+  [contributing guide](../CONTRIBUTING.md).
 - To change Agent, read [AGENTS.md](../AGENTS.md), then the
   [architecture](ARCHITECTURE.md) and [engineering guide](ENGINEERING.md).
 - To operate releases or diagnose repository gates, use the
