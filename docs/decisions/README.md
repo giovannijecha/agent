@@ -29,7 +29,8 @@ prose-qualified partial supersessions that do not create a complete ledger
 edge. Prospective decision dates have an exact inventory. The complete
 normalized record set, including every durable protocol, verification,
 consequence, and rollback section, is bound to the policy digest; an intentional
-amendment updates that digest in the same decision change.
+amendment updates that digest in the same decision change. This Lifecycle body
+is itself bound to a separate policy digest.
 
 Create a decision only for a durable architectural, authority, security,
 provider, toolchain, product-behavior, or documentation-governance contract.
