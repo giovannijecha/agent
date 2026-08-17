@@ -49,5 +49,5 @@ touching runtime packages.
 - Dependency and ownership boundaries: `docs/ARCHITECTURE.md`
 - Implementation standard: `docs/ENGINEERING.md`
 - Update and rollback procedures: `docs/MAINTENANCE.md`
-- Provenance record: `docs/OWNERSHIP.md`
+- Provenance record: [docs/OWNERSHIP.md](../OWNERSHIP.md)
 - Subscription eligibility: `docs/PROVIDERS.md`

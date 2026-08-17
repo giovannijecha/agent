@@ -35,6 +35,8 @@ the linked owner is where the complete contract lives.
 - To report a vulnerability, use the [security policy](../SECURITY.md).
 - To understand data handling, retention, and process-only secrets, use the
   [privacy policy](../PRIVACY.md).
+- To inspect a reference project or audit clean-room provenance, use the
+  [ownership record](OWNERSHIP.md).
 - To change Agent, read [AGENTS.md](../AGENTS.md), then the
   [architecture](ARCHITECTURE.md) and [engineering guide](ENGINEERING.md).
 - To operate releases or diagnose repository gates, use the

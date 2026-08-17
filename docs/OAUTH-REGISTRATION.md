@@ -79,9 +79,10 @@ unverified capabilities or commit personal account data.
 
 Store provider correspondence outside the repository if it contains personal or
 confidential material. Record only a dated, non-secret authorization conclusion
-in `docs/PROVIDERS.md` and `docs/OWNERSHIP.md`. Then replace the blocking
-decision and machine policy in the same change as the first adapter, threat
-model, offline contract tests, revocation path, rollback, and removal procedure.
+in `docs/PROVIDERS.md` and the [ownership record](OWNERSHIP.md). Then replace the
+blocking decision and machine policy in the same change as the first adapter,
+threat model, offline contract tests, revocation path, rollback, and removal
+procedure.
 
 No registration means no adapter, placeholder auth package, network capability,
 or simulated login screen.

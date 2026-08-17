@@ -11,8 +11,9 @@ automatic tool attribution.
 1. Confirm the public identity is `agent`, the namespace is
    `giovannijecha/agent`, and the maintainer is Giovanni Jecha.
 2. Read the [license](../../LICENSE), [privacy policy](../../PRIVACY.md),
-   [security policy](../../SECURITY.md), and
-   [contribution policy](../../CONTRIBUTING.md).
+   [security policy](../../SECURITY.md),
+   [contribution policy](../../CONTRIBUTING.md), and
+   [ownership record](../OWNERSHIP.md).
 3. Run the release gate and resolve every failure.
 4. Only on explicit instruction, initialize Git and create the remote repository.
 5. Configure commits with the maintainer's real Git identity. Do not add a
@@ -76,6 +77,7 @@ publish any required security notice.
 - Security reporting: [SECURITY.md](../../SECURITY.md)
 - Privacy posture: [PRIVACY.md](../../PRIVACY.md)
 - Contribution boundary: [CONTRIBUTING.md](../../CONTRIBUTING.md)
+- Clean-room provenance: [OWNERSHIP.md](../OWNERSHIP.md)
 - Public identity decision: `docs/decisions/0010-public-project-identity.md`
 - OAuth application dossier: `docs/OAUTH-REGISTRATION.md`
 - Publication registry: `tools/publication-policy.json`

@@ -25,6 +25,7 @@ const EXPECTED_DOCUMENTS = Object.freeze([
   "README.md",
   "SECURITY.md",
   "docs/OAUTH-REGISTRATION.md",
+  "docs/OWNERSHIP.md",
   "docs/PROVIDER-APPLICATIONS.md",
   "docs/decisions/0010-public-project-identity.md",
   "docs/ARCHITECTURE.md",
@@ -200,6 +201,7 @@ function validatePublicDocuments(context) {
     [
       "# 07 - Publishing and governance",
       "(../../CONTRIBUTING.md)",
+      "(../OWNERSHIP.md)",
       "(../../PRIVACY.md)",
       "(../../SECURITY.md)",
       "Enable GitHub private vulnerability reporting before the first release.",
@@ -296,6 +298,20 @@ function validatePublicDocuments(context) {
       "automated tool signatures",
     ],
     "contribution policy",
+  );
+  requireMarkers(
+    textFor(context, "docs/OWNERSHIP.md"),
+    [
+      "# Ownership and provenance",
+      "We do not copy, translate, port, adapt,\nvendor, or regenerate project code from third parties.",
+      "External documentation or current public source may establish observable\nbehavior or a protocol. Record the commit, material, and allowed facts below\nbefore implementation.",
+      "Never reuse registered\nidentifiers, prompts, fixtures, headers that assert foreign identity, or source\nstructure.",
+      "| Date | Reference | Material inspected | Allowed influence | Code copied |",
+      "Later TUI comparison remains restricted to observable outcomes and does not\nadmit a foreign hierarchy, module boundary, name, style literal, animation\ntiming, redraw algorithm, or source structure.",
+      "Development tools may assist repository work, but every accepted artifact is\nreviewed against this project's rules, tests, and provenance contract.",
+      "Stop the change if provenance is uncertain.",
+    ],
+    "ownership and provenance policy",
   );
   requireMarkers(
     textFor(context, "docs/OAUTH-REGISTRATION.md"),

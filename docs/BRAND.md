@@ -50,7 +50,8 @@ and this contract atomically.
 ## Updating the system
 
 1. Obtain replacement originals directly from the maintainer.
-2. Record their provenance and archive digest in `docs/OWNERSHIP.md`.
+2. Record their provenance and archive digest in the
+   [ownership record](OWNERSHIP.md).
 3. Update `assets/brand/manifest.json` with exact filenames, dimensions, and
    SHA-256 digests.
 4. Update the brand validator and its tests only when the documented contract

@@ -305,6 +305,52 @@ test("rejects a missing privacy publication route", () => {
   );
 });
 
+test("rejects clean-room provenance contract drift", () => {
+  const ownership = readFileSync(
+    path.join(projectRoot, "docs/OWNERSHIP.md"),
+    "utf8",
+  );
+  for (const marker of [
+    "We do not copy, translate, port, adapt,\nvendor, or regenerate project code from third parties.",
+    "External documentation or current public source may establish observable\nbehavior or a protocol. Record the commit, material, and allowed facts below\nbefore implementation.",
+    "Never reuse registered\nidentifiers, prompts, fixtures, headers that assert foreign identity, or source\nstructure.",
+    "| Date | Reference | Material inspected | Allowed influence | Code copied |",
+    "Later TUI comparison remains restricted to observable outcomes and does not\nadmit a foreign hierarchy, module boundary, name, style literal, animation\ntiming, redraw algorithm, or source structure.",
+    "Development tools may assist repository work, but every accepted artifact is\nreviewed against this project's rules, tests, and provenance contract.",
+    "Stop the change if provenance is uncertain.",
+  ]) {
+    const context = currentContext();
+    context.files["docs/OWNERSHIP.md"] = ownership.replaceAll(
+      marker,
+      "removed clean-room provenance contract",
+    );
+    assert.notEqual(context.files["docs/OWNERSHIP.md"], ownership, marker);
+    assert.throws(
+      () => validatePublicationPolicy(policy, context),
+      PublicationPolicyError,
+      marker,
+    );
+  }
+});
+
+test("rejects a missing ownership publication route", () => {
+  const context = currentContext();
+  const maintained = context.files[
+    "docs/manual/07-publishing-and-governance.md"
+  ];
+  context.files["docs/manual/07-publishing-and-governance.md"] = context.files[
+    "docs/manual/07-publishing-and-governance.md"
+  ].replaceAll("(../OWNERSHIP.md)", "(missing-ownership-record.md)");
+  assert.notEqual(
+    context.files["docs/manual/07-publishing-and-governance.md"],
+    maintained,
+  );
+  assert.throws(
+    () => validatePublicationPolicy(policy, context),
+    PublicationPolicyError,
+  );
+});
+
 test("rejects modified license terms", () => {
   const context = currentContext();
   context.files.LICENSE = context.files.LICENSE.replace(
