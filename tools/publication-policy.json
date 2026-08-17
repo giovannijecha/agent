@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "project": {
     "name": "agent",
     "repository": "giovannijecha/agent",
@@ -19,6 +19,11 @@
   "licenseFile": {
     "path": "LICENSE",
     "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+  },
+  "provenanceLog": {
+    "path": "docs/OWNERSHIP.md",
+    "entryCount": 32,
+    "sha256": "853ee58945ac91e02f3bf28c14cc24871f4c4e4a94e13d3dfcdfb1eeb95eaa6d"
   },
   "documents": [
     ".gitattributes",

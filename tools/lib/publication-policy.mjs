@@ -121,6 +121,55 @@ function validateLicense(policy, context) {
   );
 }
 
+function validateProvenanceLog(policy, context) {
+  exactKeys(
+    policy.provenanceLog,
+    ["path", "entryCount", "sha256"],
+    "publication provenance log",
+  );
+  if (
+    policy.provenanceLog.path !== "docs/OWNERSHIP.md" ||
+    !Number.isSafeInteger(policy.provenanceLog.entryCount) ||
+    policy.provenanceLog.entryCount <= 0 ||
+    !/^[a-f0-9]{64}$/u.test(policy.provenanceLog.sha256)
+  ) {
+    fail("publication provenance log contract is invalid");
+  }
+
+  const lines = textFor(context, policy.provenanceLog.path).split("\n");
+  const header =
+    "| Date | Reference | Material inspected | Allowed influence | Code copied |";
+  const headerIndex = lines.indexOf(header);
+  if (
+    headerIndex < 0 ||
+    lines.at(headerIndex + 1) !== "|---|---|---|---|---|"
+  ) {
+    fail("provenance log table is invalid");
+  }
+
+  const entries = [];
+  for (let index = headerIndex + 2; index < lines.length; index += 1) {
+    const line = lines.at(index);
+    if (line === undefined || !line.startsWith("|")) {
+      break;
+    }
+    if (!/^\| [0-9]{4}-[0-9]{2}-[0-9]{2} \|/u.test(line)) {
+      fail("provenance log entry is invalid");
+    }
+    entries.push(line);
+  }
+
+  if (entries.length !== policy.provenanceLog.entryCount) {
+    fail("provenance log entry inventory drifted");
+  }
+  const digest = createHash("sha256")
+    .update(entries.join("\n") + "\n", "utf8")
+    .digest("hex");
+  if (digest !== policy.provenanceLog.sha256) {
+    fail("provenance log entries drifted");
+  }
+}
+
 function validatePublicDocuments(context) {
   if (textFor(context, ".gitattributes") !== "* text=auto eol=lf\n") {
     fail("Git line-ending policy must preserve canonical LF text");
@@ -367,10 +416,17 @@ function rejectAuthorshipMisrepresentation(context) {
 export function validatePublicationPolicy(policy, context) {
   exactKeys(
     policy,
-    ["schemaVersion", "project", "posture", "licenseFile", "documents"],
+    [
+      "schemaVersion",
+      "project",
+      "posture",
+      "licenseFile",
+      "provenanceLog",
+      "documents",
+    ],
     "publication policy",
   );
-  if (policy.schemaVersion !== 4 || !isRecord(context)) {
+  if (policy.schemaVersion !== 5 || !isRecord(context)) {
     fail("unsupported publication policy schema or context");
   }
   exactKeys(policy.project, Object.keys(EXPECTED_PROJECT), "publication project");
@@ -382,6 +438,7 @@ export function validatePublicationPolicy(policy, context) {
     textFor(context, document);
   }
   validateLicense(policy, context);
+  validateProvenanceLog(policy, context);
   validatePublicDocuments(context);
   rejectAuthorshipMisrepresentation(context);
 }
