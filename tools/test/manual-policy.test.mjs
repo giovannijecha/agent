@@ -106,6 +106,37 @@ test("binds each chapter to its declared task-specific sections", () => {
   );
 });
 
+test("uses task-specific reading and publishing contracts", () => {
+  assert.deepEqual(currentPolicy.chapters.at(0).sections, [
+    "Choose a task",
+    "Follow the authority chain",
+    "Verify the manual",
+    "Maintain or remove the manual",
+    "References",
+  ]);
+  assert.deepEqual(currentPolicy.chapters.at(7).sections, [
+    "Prepare publication",
+    "Preserve identity and attribution",
+    "Protect runtime and provider boundaries",
+    "Verify the release",
+    "Handle publication failures",
+    "Roll back or remove publication",
+    "References",
+  ]);
+
+  const context = currentContext();
+  for (const chapter of [
+    "docs/manual/00-reading-this-manual.md",
+    "docs/manual/07-publishing-and-governance.md",
+  ]) {
+    assert.equal(
+      context.files[chapter].includes("## Evidence"),
+      false,
+      chapter + " still exposes the legacy evidence inventory",
+    );
+  }
+});
+
 test("rejects command and tool source drift", () => {
   const commandContext = currentContext();
   commandContext.files["packages/agent-cli/src/commands.ts"] +=

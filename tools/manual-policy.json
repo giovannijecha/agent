@@ -6,12 +6,11 @@
       "path": "docs/manual/00-reading-this-manual.md",
       "title": "00 - Reading this manual",
       "sections": [
-        "Purpose",
-        "Operator workflow",
-        "Guarantees and limits",
-        "Failure behavior",
-        "Maintenance and removal",
-        "Evidence"
+        "Choose a task",
+        "Follow the authority chain",
+        "Verify the manual",
+        "Maintain or remove the manual",
+        "References"
       ]
     },
     {
@@ -94,12 +93,13 @@
       "path": "docs/manual/07-publishing-and-governance.md",
       "title": "07 - Publishing and governance",
       "sections": [
-        "Purpose",
-        "Operator workflow",
-        "Guarantees and limits",
-        "Failure behavior",
-        "Maintenance and removal",
-        "Evidence"
+        "Prepare publication",
+        "Preserve identity and attribution",
+        "Protect runtime and provider boundaries",
+        "Verify the release",
+        "Handle publication failures",
+        "Roll back or remove publication",
+        "References"
       ]
     }
   ],

@@ -375,6 +375,33 @@ test("routes completed product operation to the operator manual", () => {
   );
 });
 
+test("completes the task-oriented operator-manual migration", () => {
+  const context = currentContext();
+  const decision = context.files[
+    "docs/decisions/0071-owned-task-oriented-operator-manual.md"
+  ];
+  assert.equal(
+    decision.includes(
+      "All registered chapters now use task-specific section contracts.",
+    ),
+    true,
+    "the task-oriented manual decision does not record completed convergence",
+  );
+
+  const row = context.files[policy.migrationLedger]
+    .split("\n")
+    .find((line) =>
+      line.startsWith(
+        "| Operator-manual structure and repository evidence routing |",
+      ),
+    );
+  assert.equal(
+    row?.endsWith("| complete |"),
+    true,
+    "operator-manual structure migration is not complete",
+  );
+});
+
 test("keeps canonical maintenance repository references owned", () => {
   const context = currentContext();
   const text = context.files["docs/MAINTENANCE.md"];
