@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "index": "docs/README.md",
   "decisionIndex": "docs/decisions/README.md",
   "migrationLedger": "docs/DOCUMENTATION-MIGRATION.md",
@@ -36,6 +36,16 @@
   "prospectiveDecisionMetadataFrom": 70,
   "historicalDecisionStatusExceptions": {
     "0009": "accepted"
+  },
+  "historicalDecisionRelationshipFields": {
+    "supersedes": [
+      "0002"
+    ],
+    "supersededBy": [
+      "0017",
+      "0067",
+      "0068"
+    ]
   },
   "decisionRelationshipEdges": [
     {

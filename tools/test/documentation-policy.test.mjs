@@ -161,6 +161,19 @@ test("rejects duplicate decision ledger entries", () => {
   );
 });
 
+test("rejects unparsed rows in the complete decision ledger", () => {
+  const context = currentContext();
+  const row =
+    "| [0001](0001-owned-zero-dependency-rust.md) | superseded | foundation | superseded by 0002 |";
+  context.files[policy.decisionIndex] = context.files[
+    policy.decisionIndex
+  ].replace(row, row + "\n" + row + " unexpected |");
+  assert.throws(
+    () => validateDocumentationPolicy(policy, context),
+    DocumentationPolicyError,
+  );
+});
+
 test("rejects historical decision identity drift", () => {
   const context = currentContext();
   const file = "docs/decisions/0001-owned-zero-dependency-rust.md";
@@ -221,6 +234,26 @@ test("rejects invalid historical decision status exceptions", () => {
       DocumentationPolicyError,
     );
   }
+});
+
+test("rejects unregistered historical relationship field owners", () => {
+  assert.throws(
+    () =>
+      validateDocumentationPolicy(
+        {
+          ...policy,
+          historicalDecisionRelationshipFields: {
+            ...policy.historicalDecisionRelationshipFields,
+            supersedes: [
+              ...policy.historicalDecisionRelationshipFields.supersedes,
+              "0000",
+            ],
+          },
+        },
+        currentContext(),
+      ),
+    DocumentationPolicyError,
+  );
 });
 
 test("rejects invalid current decision authority routes", () => {
@@ -298,9 +331,24 @@ test("rejects decision relationship drift", () => {
 test("rejects historical supersession metadata drift", () => {
   for (const [file, before, after] of [
     [
+      "docs/decisions/0002-owned-zero-dependency-typescript.md",
+      "- Supersedes: decision 0001",
+      "- Supersedes: decision 0019",
+    ],
+    [
+      "docs/decisions/0002-owned-zero-dependency-typescript.md",
+      "- Supersedes: decision 0001",
+      "- Historical replacement: decision 0001",
+    ],
+    [
       "docs/decisions/0017-owned-opencode-go-provider.md",
       "- Superseded: 2026-08-16 by decision 0072",
       "- Superseded: 2026-08-16 by decision 0071",
+    ],
+    [
+      "docs/decisions/0017-owned-opencode-go-provider.md",
+      "- Superseded: 2026-08-16 by decision 0072",
+      "- Historical replacement: decision 0072",
     ],
     [
       "docs/decisions/0067-owned-opencode-provider-selection.md",
