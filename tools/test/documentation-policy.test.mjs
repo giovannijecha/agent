@@ -79,6 +79,11 @@ test("rejects canonical document structure drift", () => {
       "## Report a security problem",
     ],
     [
+      "PRIVACY.md",
+      "## Future local sessions",
+      "## Future session storage",
+    ],
+    [
       "docs/ARCHITECTURE.md",
       "## Single-agent execution model",
       "## Product execution model",
@@ -275,6 +280,53 @@ test("routes completed vulnerability reporting to the security policy", () => {
     row?.endsWith("| complete |"),
     true,
     "vulnerability-reporting migration is not complete",
+  );
+});
+
+test("routes completed privacy and memory-only secrets to the privacy policy", () => {
+  const context = currentContext();
+  for (const [source, route] of [
+    ["AGENTS.md", "(PRIVACY.md)"],
+    ["docs/README.md", "(../PRIVACY.md)"],
+    ["docs/PROVIDERS.md", "(../PRIVACY.md)"],
+    ["docs/manual/README.md", "(../../PRIVACY.md)"],
+  ]) {
+    assert.equal(
+      context.files[source].includes(route),
+      true,
+      "privacy-policy route is missing: " + source,
+    );
+  }
+
+  const structure = policy.documentStructures.find(
+    (entry) => entry.path === "PRIVACY.md",
+  );
+  assert.deepEqual(structure?.headings, [
+    "# Privacy policy",
+    "## Current product",
+    "## Local tools",
+    "## Terminal selection and links",
+    "## Ollama Cloud connection",
+    "## Future local sessions",
+    "## Local task evaluation",
+    "## Removal",
+  ]);
+
+  assert.equal(
+    context.files["PRIVACY.md"].includes(
+      "An approved `run_process` invocation is lifecycle-contained but not filesystem-\nor network-sandboxed; its Node code retains the launching user's authority.",
+    ),
+    true,
+    "privacy policy lost the process-isolation warning",
+  );
+
+  const row = context.files[policy.migrationLedger]
+    .split("\n")
+    .find((line) => line.startsWith("| Privacy and memory-only secrets |"));
+  assert.equal(
+    row?.endsWith("| complete |"),
+    true,
+    "privacy migration is not complete",
   );
 });
 
