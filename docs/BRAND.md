@@ -10,7 +10,7 @@ The [public README](../README.md) owns the public purpose, repository identity,
 installation, and first-run path. This guide owns the visual identity,
 registered assets, and presentation constraints.
 
-The canonical palette is black, white, and `#0B0D10`. Brand assets are
+The canonical palette is `#FFFFFF` and `#0B0D10`. Brand assets are
 maintainer-provided original work and remain independent from provider,
 terminal, and model identities.
 
@@ -19,15 +19,16 @@ terminal, and model identities.
 `assets/brand/manifest.json` is the machine-verified source of truth for asset
 roles, dimensions, digests, provenance, and palette values.
 
-| Role | Preferred asset | Constrained-host fallback |
+| Role | Controlled-scaling asset | Stable published asset |
 | --- | --- | --- |
 | Authentication mark | `agent-auth-logo.svg` | 256, 512, or 1024 px PNG |
 | Wordmark on dark surfaces | `agent-wordmark-dark.svg` | `agent-wordmark-dark.png` |
 | Wordmark on transparent surfaces | `agent-wordmark-transparent.svg` | `agent-wordmark-transparent.png` |
 
-Use SVG where the host supports safe vector assets. Use the registered PNG
-variant when a host requires a fixed raster size. Never regenerate one format
-from another during a build.
+Use the registered PNG files for stable published rendering. Use SVG only for
+controlled scaling where the host supports safe vector assets; SVG text uses a
+system font and can render differently across environments. Never regenerate
+one format from another during a build.
 
 Canonical SVG updates pass a fail-closed capability check before their digest
 is admitted. Scriptable elements, event-handler attributes, animation,
