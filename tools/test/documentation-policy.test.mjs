@@ -355,7 +355,12 @@ test("permits a coherently reopened documentation migration", () => {
       "| Durable design history | decision files and [decision index](decisions/README.md) | [Decision index](decisions/README.md) and stable records | complete |",
       "| Durable design history | decision files and [decision index](decisions/README.md) | [Decision index](decisions/README.md) and stable records | active |",
     );
-  assert.doesNotThrow(() => validateDocumentationPolicy(policy, context));
+  const migrationRows = policy.migrationRows.map((row) =>
+    row.topic === "Durable design history" ? { ...row, status: "active" } : row,
+  );
+  assert.doesNotThrow(() =>
+    validateDocumentationPolicy({ ...policy, migrationRows }, context),
+  );
 });
 
 test("routes completed durable design history to stable decision records", () => {
@@ -423,6 +428,10 @@ test("rejects unknown decision status and domain classifications", () => {
   for (const [before, after] of [
     ["| accepted | documentation | current |", "| retired | documentation | current |"],
     ["| accepted | documentation | current |", "| accepted | miscellaneous | current |"],
+    [
+      "| [0003](0003-owned-provider-authentication.md) | accepted | providers | current |",
+      "| [0003](0003-owned-provider-authentication.md) | accepted | tools | current |",
+    ],
   ]) {
     const context = currentContext();
     context.files[policy.decisionIndex] = context.files[policy.decisionIndex].replace(
@@ -1254,14 +1263,22 @@ test("routes completed OAuth registration status to the OAuth dossier", () => {
 });
 
 test("rejects incomplete migration coverage", () => {
-  const context = currentContext();
-  context.files[policy.migrationLedger] = context.files[
-    policy.migrationLedger
-  ].replaceAll("[Security policy](../SECURITY.md)", "Security policy");
-  assert.throws(
-    () => validateDocumentationPolicy(policy, context),
-    DocumentationPolicyError,
-  );
+  for (const [before, after] of [
+    ["[Security policy](../SECURITY.md)", "Security policy"],
+    [
+      "[Decision index](decisions/README.md) and stable records | complete |",
+      "[Public README](../README.md) | complete |",
+    ],
+  ]) {
+    const context = currentContext();
+    context.files[policy.migrationLedger] = context.files[
+      policy.migrationLedger
+    ].replaceAll(before, after);
+    assert.throws(
+      () => validateDocumentationPolicy(policy, context),
+      DocumentationPolicyError,
+    );
+  }
 });
 
 test("rejects repository instruction heading drift", () => {
