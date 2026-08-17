@@ -12,6 +12,9 @@ import { projectRoot } from "../lib/project.mjs";
 const policy = JSON.parse(
   readFileSync(path.join(projectRoot, "tools/documentation-policy.json"), "utf8"),
 );
+const providerPolicy = JSON.parse(
+  readFileSync(path.join(projectRoot, "tools/provider-policy.json"), "utf8"),
+);
 
 function collectFiles(directory = projectRoot) {
   const files = [];
@@ -536,6 +539,15 @@ test("routes completed OAuth registration status to the OAuth dossier", () => {
 
   const oauthText = context.files["docs/OAUTH-REGISTRATION.md"];
   const providerText = context.files["docs/PROVIDERS.md"];
+  const registrationProviders = oauthText
+    .split("\n")
+    .filter((line) => /^\| (?!Provider\b|---)/u.test(line))
+    .map((line) => line.split("|").at(1)?.trim());
+  assert.deepEqual(
+    registrationProviders,
+    providerPolicy.providers.map((provider) => provider.displayName),
+    "OAuth conclusion inventory diverges from the machine provider registry",
+  );
   for (const reference of [
     "https://developers.openai.com/codex/auth/",
     "https://developers.openai.com/codex/app-server/",

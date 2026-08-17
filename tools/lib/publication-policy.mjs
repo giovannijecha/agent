@@ -39,6 +39,12 @@ const EXPECTED_DOCUMENTS = Object.freeze([
   "docs/decisions/0037-canonical-agent-brand.md",
   "docs/decisions/0038-owned-deterministic-tui-motion.md",
 ]);
+const OAUTH_REGISTRATION_ROWS = Object.freeze([
+  "| ChatGPT Plus/Pro | OpenAI documents subscription login for its Codex clients and managed browser or device login through Codex App Server. | App Server is a foreign executable; no accepted process registers `agent` as a direct independent client. |",
+  "| Claude Pro/Max | Anthropic documents subscription login for Claude Code and subscription-backed third-party use through the Claude Agent SDK. | Claude Code and Agent SDK are foreign runtimes; no accepted direct independent-client registration is recorded for `agent`. |",
+  "| Kimi Code | Kimi documents device OAuth for Kimi Code CLI and subscription-backed API keys for third-party development tools. | Public OAuth for third-party clients is unavailable according to the [recorded provider response](PROVIDER-APPLICATIONS.md#kimi-code); credential-only login does not satisfy this registration gate. |",
+  "| Grok subscription | xAI documents browser and device login for Grok Build plus headless and ACP integration, while its direct API has a separate key path. | Grok Build and ACP are foreign executables; no accepted process registers `agent` for direct subscription OAuth. |",
+]);
 const FALSE_AUTHORSHIP_MARKERS = [
   /100% human(?:-written)?/iu,
   /entirely human(?:-written)?/iu,
@@ -386,6 +392,8 @@ function validatePublicDocuments(context) {
       "Maintainer: Giovanni Jecha",
       "Canonical repository: [github.com/giovannijecha/agent]",
       "Registration state: `blocked`.",
+      ...OAUTH_REGISTRATION_ROWS,
+      "Offline contract tests must cover cancellation, expiry, concurrency,\nmalformed responses, secret leakage, rollback, and removal.",
       "No registration means no adapter",
     ],
     "OAuth registration dossier",
