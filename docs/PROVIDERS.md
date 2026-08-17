@@ -3,6 +3,13 @@
 This reference separates direct API-key access from subscription OAuth client
 registration. Status is current as of 2026-08-16.
 
+This document owns provider admission, exact network and wire boundaries, and
+provider-specific account and credential constraints. Use the
+[operator chapter](manual/05-providers-and-authentication.md) for connection and
+recovery steps, [architecture](ARCHITECTURE.md#provider-boundary) for current
+composition, and [maintenance](MAINTENANCE.md#ollama-cloud) for update, rollback,
+and removal.
+
 ## Enabled direct provider
 
 Ollama Cloud is the sole enabled provider. Ollama issues the operator API key

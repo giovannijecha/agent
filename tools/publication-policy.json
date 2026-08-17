@@ -36,6 +36,7 @@
     "docs/OAUTH-REGISTRATION.md",
     "docs/OWNERSHIP.md",
     "docs/PROVIDER-APPLICATIONS.md",
+    "docs/PROVIDERS.md",
     "docs/decisions/0010-public-project-identity.md",
     "docs/ARCHITECTURE.md",
     "docs/ENGINEERING.md",

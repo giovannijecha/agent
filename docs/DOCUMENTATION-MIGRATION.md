@@ -44,6 +44,10 @@ Clean-room provenance and reference inspection now have one current owner in
 `docs/OWNERSHIP.md`; its structure and critical clean-room contracts are
 verified, while repository, provider, brand, maintenance, OAuth, and operator
 documents retain only their scoped instructions and route to that owner.
+Direct provider admission and operation now have one current owner in
+`docs/PROVIDERS.md`; its structure and critical direct-provider contracts are
+verified, while repository, architecture, maintenance, public, and operator
+documents retain only their scoped summaries and route to that owner.
 
 ## Content ledger
 
@@ -60,7 +64,7 @@ documents retain only their scoped instructions and route to that owner.
 | Maintainer diagnostics, releases, and rollback | [Engineering guide](ENGINEERING.md), [maintenance guide](MAINTENANCE.md) | [Maintenance guide](MAINTENANCE.md) | complete |
 | Brand identity and registered assets | [Public README](../README.md), [brand guide](BRAND.md), [brand assets](../assets/brand/README.md) | [Brand guide](BRAND.md) | active |
 | Clean-room provenance and inspections | [Repository instructions](../AGENTS.md), [ownership record](OWNERSHIP.md) | [Ownership record](OWNERSHIP.md) | complete |
-| Direct provider admission and operation | [Repository instructions](../AGENTS.md), [provider policy](PROVIDERS.md), [operator manual](manual/README.md) | [Provider policy](PROVIDERS.md) | active |
+| Direct provider admission and operation | [Repository instructions](../AGENTS.md), [provider policy](PROVIDERS.md), [operator manual](manual/README.md) | [Provider policy](PROVIDERS.md) | complete |
 | Provider registration requests | [Provider applications](PROVIDER-APPLICATIONS.md), [provider policy](PROVIDERS.md) | [Provider applications](PROVIDER-APPLICATIONS.md) | queued |
 | OAuth registration status | [OAuth registration](OAUTH-REGISTRATION.md), [provider policy](PROVIDERS.md) | [OAuth registration](OAUTH-REGISTRATION.md) | queued |
 | Product operation | [Public README](../README.md), [operator manual](manual/README.md), [maintenance guide](MAINTENANCE.md) | [Operator manual](manual/README.md) | active |

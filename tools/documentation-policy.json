@@ -95,6 +95,18 @@
       ]
     },
     {
+      "path": "docs/PROVIDERS.md",
+      "headings": [
+        "# Provider eligibility",
+        "## Enabled direct provider",
+        "## Blocked subscription OAuth providers",
+        "## Machine gate",
+        "## Research rule",
+        "## Account and secret boundary",
+        "## Primary references"
+      ]
+    },
+    {
       "path": "docs/ARCHITECTURE.md",
       "headings": [
         "# Architecture",
