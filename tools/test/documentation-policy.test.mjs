@@ -322,6 +322,44 @@ test("rejects prospective decision metadata drift", () => {
   }
 });
 
+test("preserves both directions when a consolidation is superseded", () => {
+  const context = currentContext();
+  context.files[policy.decisionIndex] = context.files[policy.decisionIndex]
+    .replace(
+      "| documentation | [0070 information architecture](0070-owned-documentation-information-architecture.md), [0071 task-oriented operator manual](0071-owned-task-oriented-operator-manual.md) |",
+      "| documentation | [0070 information architecture](0070-owned-documentation-information-architecture.md) |",
+    )
+    .replace(
+      "| [0070](0070-owned-documentation-information-architecture.md) | accepted | documentation | current |",
+      "| [0070](0070-owned-documentation-information-architecture.md) | accepted | documentation | supersedes 0071 |",
+    )
+    .replace(
+      "| [0071](0071-owned-task-oriented-operator-manual.md) | accepted | documentation | supersedes 0009 |",
+      "| [0071](0071-owned-task-oriented-operator-manual.md) | superseded | documentation | supersedes 0009; superseded by 0070 |",
+    );
+  context.files[
+    "docs/decisions/0070-owned-documentation-information-architecture.md"
+  ] = context.files[
+    "docs/decisions/0070-owned-documentation-information-architecture.md"
+  ].replace("- Supersedes: none", "- Supersedes: 0071");
+  context.files["docs/decisions/0071-owned-task-oriented-operator-manual.md"] =
+    context.files[
+      "docs/decisions/0071-owned-task-oriented-operator-manual.md"
+    ]
+      .replace("- Status: accepted", "- Status: superseded")
+      .replace("- Superseded by: none", "- Superseded by: 0070");
+  const currentDecisionAuthorities = {
+    ...policy.currentDecisionAuthorities,
+    documentation: ["0070"],
+  };
+  assert.doesNotThrow(() =>
+    validateDocumentationPolicy(
+      { ...policy, currentDecisionAuthorities },
+      context,
+    ),
+  );
+});
+
 test("rejects incomplete documentation migration state", () => {
   for (const [before, after] of [
     ["- Status: complete", "- Status: active"],

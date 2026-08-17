@@ -296,9 +296,9 @@ function metadataValue(text, name, file) {
   return values.at(0);
 }
 
-function validateRelationshipMetadata(value, decisionIds, decisionId, file) {
+function validateDecisionReferences(value, decisionIds, decisionId, label) {
   if (value.length > 160 || /[\u0000-\u001f\u007f]/u.test(value)) {
-    fail("prospective decision relationship metadata is invalid: " + file);
+    fail("decision relationship metadata is invalid: " + label);
   }
   if (value === "none") {
     return [];
@@ -306,7 +306,7 @@ function validateRelationshipMetadata(value, decisionIds, decisionId, file) {
   if (
     !/^[0-9]{4}(?:, [0-9]{4})*(?:,? and [0-9]{4})?$/u.test(value)
   ) {
-    fail("prospective decision relationship metadata is invalid: " + file);
+    fail("decision relationship metadata is invalid: " + label);
   }
   const references = [...value.matchAll(/\b[0-9]{4}\b/gu)].map((match) => match.at(0));
   if (
@@ -314,7 +314,7 @@ function validateRelationshipMetadata(value, decisionIds, decisionId, file) {
     new Set(references).size !== references.length ||
     references.some((id) => id === decisionId || !decisionIds.has(id))
   ) {
-    fail("prospective decision relationship reference is invalid: " + file);
+    fail("decision relationship reference is invalid: " + label);
   }
   return references;
 }
@@ -345,13 +345,13 @@ function validateProspectiveMetadata(policy, context, rows, relationships) {
     ) {
       fail("prospective decision metadata does not match its ledger: " + file);
     }
-    const supersedesReferences = validateRelationshipMetadata(
+    const supersedesReferences = validateDecisionReferences(
       supersedes,
       decisionIds,
       row.id,
       file,
     );
-    const supersededByReferences = validateRelationshipMetadata(
+    const supersededByReferences = validateDecisionReferences(
       supersededBy,
       decisionIds,
       row.id,
@@ -361,33 +361,16 @@ function validateProspectiveMetadata(policy, context, rows, relationships) {
     if (relationship === undefined) {
       fail("prospective decision relationship is missing: " + file);
     }
-    if (row.status === "accepted") {
-      if (supersededByReferences.length !== 0) {
-        fail("accepted decision has a superseding record: " + file);
-      }
-      const expectedDirection =
-        supersedesReferences.length === 0 ? "current" : "supersedes";
-      if (relationship.direction !== expectedDirection) {
-        fail("prospective decision relationship does not match its ledger: " + file);
-      }
-      same(
-        relationship.references,
-        supersedesReferences,
-        "prospective supersedes relationship: " + row.id,
-      );
-    } else {
-      if (
-        supersededByReferences.length === 0 ||
-        relationship.direction !== "superseded by"
-      ) {
-        fail("prospective decision relationship does not match its ledger: " + file);
-      }
-      same(
-        relationship.references,
-        supersededByReferences,
-        "prospective superseded-by relationship: " + row.id,
-      );
-    }
+    same(
+      relationship.supersedes,
+      supersedesReferences,
+      "prospective supersedes relationship: " + row.id,
+    );
+    same(
+      relationship.supersededBy,
+      supersededByReferences,
+      "prospective superseded-by relationship: " + row.id,
+    );
   }
 }
 
@@ -396,33 +379,33 @@ function validateDecisionRelationship(row, decisionIds) {
     if (row.status !== "accepted") {
       fail("decision relationship contradicts status: " + row.id);
     }
-    return { direction: "current", references: [] };
+    return { supersedes: [], supersededBy: [] };
   }
-  const relationship = /^(supersedes|superseded by) ([0-9]{4}(?:, [0-9]{4})*(?:,? and [0-9]{4})?)$/u.exec(
+  const relationship = /^(?:supersedes ([0-9]{4}(?:, [0-9]{4})*(?:,? and [0-9]{4})?)(?:; superseded by ([0-9]{4}(?:, [0-9]{4})*(?:,? and [0-9]{4})?))?|superseded by ([0-9]{4}(?:, [0-9]{4})*(?:,? and [0-9]{4})?))$/u.exec(
     row.relationship,
   );
+  if (relationship === null) {
+    fail("decision relationship contradicts status: " + row.id);
+  }
+  const supersedes = validateDecisionReferences(
+    relationship.at(1) ?? "none",
+    decisionIds,
+    row.id,
+    "ledger supersedes " + row.id,
+  );
+  const supersededBy = validateDecisionReferences(
+    relationship.at(2) ?? relationship.at(3) ?? "none",
+    decisionIds,
+    row.id,
+    "ledger superseded-by " + row.id,
+  );
   if (
-    relationship === null ||
-    (relationship.at(1) === "supersedes" && row.status !== "accepted") ||
-    (relationship.at(1) === "superseded by" && row.status !== "superseded")
+    (row.status === "accepted" && supersededBy.length !== 0) ||
+    (row.status === "superseded" && supersededBy.length === 0)
   ) {
     fail("decision relationship contradicts status: " + row.id);
   }
-  const direction = relationship.at(1);
-  if (direction === undefined) {
-    fail("decision relationship direction is missing: " + row.id);
-  }
-  const references = [
-    ...row.relationship.matchAll(/\b[0-9]{4}\b/gu),
-  ].map((match) => match.at(0));
-  if (
-    references.length === 0 ||
-    new Set(references).size !== references.length ||
-    references.some((id) => id === row.id || !decisionIds.has(id))
-  ) {
-    fail("decision relationship reference is invalid: " + row.id);
-  }
-  return { direction, references };
+  return { supersedes, supersededBy };
 }
 
 function validateDecisionRecords(policy, context, rows) {
@@ -441,8 +424,7 @@ function validateDecisionRecords(policy, context, rows) {
       row === undefined ||
       Number(id) >= policy.prospectiveDecisionMetadataFrom ||
       status !== "accepted" ||
-      row.status !== "superseded" ||
-      !row.relationship.startsWith("superseded by ")
+      row.status !== "superseded"
     ) {
       fail("historical decision status exception is invalid: " + id);
     }
@@ -487,11 +469,11 @@ function validateDecisionRecords(policy, context, rows) {
         ...recordStatusText.matchAll(/\b[0-9]{4}\b/gu),
       ].map((match) => match.at(0));
       if (recordReferences.length !== 0) {
-        if (relationship.direction !== "superseded by") {
+        if (relationship.supersededBy.length === 0) {
           fail("historical decision replacement contradicts its ledger: " + file);
         }
         same(
-          relationship.references,
+          relationship.supersededBy,
           recordReferences,
           "historical decision replacement: " + row.id,
         );
@@ -500,18 +482,18 @@ function validateDecisionRecords(policy, context, rows) {
     relationships.set(row.id, relationship);
   }
   for (const [id, relationship] of relationships) {
-    if (relationship.direction === "current") {
-      continue;
-    }
-    const reciprocalDirection =
-      relationship.direction === "supersedes" ? "superseded by" : "supersedes";
-    for (const reference of relationship.references) {
+    for (const reference of relationship.supersedes) {
       const reciprocal = relationships.get(reference);
       if (
         reciprocal === undefined ||
-        reciprocal.direction !== reciprocalDirection ||
-        !reciprocal.references.includes(id)
+        !reciprocal.supersededBy.includes(id)
       ) {
+        fail("decision relationship is not reciprocal: " + id);
+      }
+    }
+    for (const reference of relationship.supersededBy) {
+      const reciprocal = relationships.get(reference);
+      if (reciprocal === undefined || !reciprocal.supersedes.includes(id)) {
         fail("decision relationship is not reciprocal: " + id);
       }
     }
