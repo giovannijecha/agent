@@ -385,6 +385,7 @@ function validatePublicDocuments(context) {
       "Application name: `agent`",
       "Maintainer: Giovanni Jecha",
       "Canonical repository: [github.com/giovannijecha/agent]",
+      "Registration state: `blocked`.",
       "No registration means no adapter",
     ],
     "OAuth registration dossier",

@@ -1,9 +1,30 @@
 # OAuth client registration dossier
 
-This document is the provider-neutral application dossier for requesting a
-direct public-client registration for `agent`. It is not proof that any provider
-has approved the project, and it contains no endpoint, scope, client identifier,
+This document owns current subscription OAuth registration conclusions, the
+provider-neutral application dossier, and the evidence required before an
+adapter can enter admission review. It is not proof that any provider has
+approved the project, and it contains no endpoint, scope, client identifier,
 secret, or credential.
+
+## Current registration status
+
+- Status reviewed through: `2026-08-16`
+- Registration state: `blocked`.
+- Accepted direct subscription OAuth registrations: `none`
+
+No requested subscription provider has registered or authorized `agent` as a
+direct independent OAuth public client.
+
+| Provider | Recorded public route | Registration conclusion |
+| --- | --- | --- |
+| ChatGPT Plus/Pro | OpenAI documents subscription login for its Codex clients and managed browser or device login through Codex App Server. | App Server is a foreign executable; no accepted process registers `agent` as a direct independent client. |
+| Claude Pro/Max | Anthropic documents subscription login for Claude Code and subscription-backed third-party use through the Claude Agent SDK. | Claude Code and Agent SDK are foreign runtimes; no accepted direct independent-client registration is recorded for `agent`. |
+| Kimi Code | Kimi documents device OAuth for Kimi Code CLI and subscription-backed API keys for third-party development tools. | Public OAuth for third-party clients is unavailable according to the [recorded provider response](PROVIDER-APPLICATIONS.md#kimi-code); credential-only login does not satisfy this registration gate. |
+| Grok subscription | xAI documents browser and device login for Grok Build plus headless and ACP integration, while its direct API has a separate key path. | Grok Build and ACP are foreign executables; no accepted process registers `agent` for direct subscription OAuth. |
+
+The [provider request ledger](PROVIDER-APPLICATIONS.md) owns submission and
+response lifecycle metadata. The [provider policy](PROVIDERS.md) owns runtime
+admission and remains fail-closed regardless of request activity.
 
 ## Public application identity
 
@@ -42,9 +63,10 @@ directly to the selected provider. Responses return directly to the local
 process. No `agent` backend proxies or stores this traffic. The project performs
 no analytics, advertising, or silent synchronization.
 
-## Authorization requested from each provider
+## Registration requirements
 
-Before implementation, the provider must document all of the following:
+Before a registration conclusion can change, the provider must document all of
+the following:
 
 1. Independent native clients may use the relevant paid subscription.
 2. The registration is issued to `agent`, or a public identity is expressly
@@ -54,10 +76,8 @@ Before implementation, the provider must document all of the following:
 4. The client may identify itself truthfully as `agent`.
 5. Provider terms permit open-source distribution of the independent client.
 
-Current targets are ChatGPT Plus/Pro, Claude Pro/Max, Kimi Code, and Grok
-subscription. Each remains blocked until its own written evidence satisfies the
-complete list. The [provider request ledger](PROVIDER-APPLICATIONS.md) owns
-submission and response state. Approval by one provider does not authorize
+Each provider remains registration-blocked until its own written evidence
+satisfies the complete list. Approval by one provider does not authorize
 another.
 
 ## Provider submission summary
@@ -79,11 +99,38 @@ capabilities or commit personal account data.
 ## Evidence and implementation gate
 
 Store provider correspondence outside the repository if it contains personal or
-confidential material. Record only a dated, non-secret authorization conclusion
-in `docs/PROVIDERS.md` and the [ownership record](OWNERSHIP.md). Then replace the
-blocking decision and machine policy in the same change as the first adapter,
-threat model, offline contract tests, revocation path, rollback, and removal
-procedure.
+confidential material. Record only a dated, non-secret registration conclusion
+here, request lifecycle metadata in the
+[provider request ledger](PROVIDER-APPLICATIONS.md), and an external-source
+inspection in the [ownership record](OWNERSHIP.md) when required. Complete
+registration evidence does not enable product code by itself. Replace the
+blocking decision and [provider policy](PROVIDERS.md) in the same change as the
+machine gate, first adapter, threat model, offline contract tests, revocation
+path, rollback, and removal procedure.
 
 No registration means no adapter, placeholder auth package, network capability,
 or simulated login screen.
+
+## Primary registration references
+
+- [OpenAI Codex authentication](https://developers.openai.com/codex/auth/)
+- [OpenAI Codex App Server](https://developers.openai.com/codex/app-server/)
+- [Anthropic authentication](https://code.claude.com/docs/en/authentication)
+- [Anthropic subscription use in third-party Agent SDK apps](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan)
+- [Kimi Code overview and third-party authentication](https://www.kimi.com/code/docs/en/)
+- [xAI Grok Build overview](https://docs.x.ai/build/overview)
+- [xAI Grok Build authentication](https://docs.x.ai/build/enterprise)
+
+## Maintenance and removal
+
+Recheck the primary references before changing a registration conclusion. Keep
+this status, the request ledger's lifecycle metadata, and the provider policy's
+admission result synchronized without copying one document's owned fields into
+another. A reply that does not satisfy every registration requirement leaves
+the provider blocked.
+
+Remove this dossier only after subscription OAuth registration is deliberately
+abandoned or every remaining provider has its own accepted admission decision.
+Update the public and operator routes, documentation and publication policies,
+tests, and migration ledger in the same change. Preserve stable decisions and
+ownership history.

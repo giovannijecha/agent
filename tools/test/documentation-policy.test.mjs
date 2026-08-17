@@ -99,6 +99,11 @@ test("rejects canonical document structure drift", () => {
       "## Request rules",
     ],
     [
+      "docs/OAUTH-REGISTRATION.md",
+      "## Current registration status",
+      "## Provider registration status",
+    ],
+    [
       "docs/ARCHITECTURE.md",
       "## Single-agent execution model",
       "## Product execution model",
@@ -485,6 +490,109 @@ test("routes completed provider registration requests to the request ledger", ()
     row?.endsWith("| complete |"),
     true,
     "provider-request migration is not complete",
+  );
+});
+
+test("routes completed OAuth registration status to the OAuth dossier", () => {
+  const context = currentContext();
+  for (const [source, route] of [
+    ["README.md", "(docs/OAUTH-REGISTRATION.md)"],
+    ["docs/README.md", "(OAUTH-REGISTRATION.md)"],
+    ["docs/PROVIDERS.md", "(OAUTH-REGISTRATION.md)"],
+    ["docs/PROVIDER-APPLICATIONS.md", "(OAUTH-REGISTRATION.md)"],
+  ]) {
+    assert.equal(
+      context.files[source].includes(route),
+      true,
+      "OAuth-registration route is missing: " + source,
+    );
+  }
+
+  const operatorText = readFileSync(
+    path.join(projectRoot, "docs/manual/05-providers-and-authentication.md"),
+    "utf8",
+  );
+  assert.equal(
+    operatorText.includes("(../OAUTH-REGISTRATION.md)"),
+    true,
+    "operator OAuth-registration route is missing",
+  );
+
+  const structure = policy.documentStructures.find(
+    (entry) => entry.path === "docs/OAUTH-REGISTRATION.md",
+  );
+  assert.deepEqual(structure?.headings, [
+    "# OAuth client registration dossier",
+    "## Current registration status",
+    "## Public application identity",
+    "## Requested authorization model",
+    "## Data flow",
+    "## Registration requirements",
+    "## Provider submission summary",
+    "## Evidence and implementation gate",
+    "## Primary registration references",
+    "## Maintenance and removal",
+  ]);
+
+  const oauthText = context.files["docs/OAUTH-REGISTRATION.md"];
+  const providerText = context.files["docs/PROVIDERS.md"];
+  for (const reference of [
+    "https://developers.openai.com/codex/auth/",
+    "https://developers.openai.com/codex/app-server/",
+    "https://code.claude.com/docs/en/authentication",
+    "https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan",
+    "https://www.kimi.com/code/docs/en/",
+    "https://docs.x.ai/build/overview",
+    "https://docs.x.ai/build/enterprise",
+  ]) {
+    assert.equal(
+      oauthText.includes(reference),
+      true,
+      "OAuth dossier is missing registration reference: " + reference,
+    );
+    assert.equal(
+      providerText.includes(reference),
+      false,
+      "provider policy retains OAuth registration reference: " + reference,
+    );
+  }
+
+  for (const routeSummary of [
+    "OpenAI documents subscription login for its Codex clients and managed browser or device login through Codex App Server.",
+    "Anthropic documents subscription login for Claude Code and subscription-backed third-party use through the Claude Agent SDK.",
+    "Kimi documents device OAuth for Kimi Code CLI and subscription-backed API keys for third-party development tools.",
+    "xAI documents browser and device login for Grok Build plus headless and ACP integration, while its direct API has a separate key path.",
+  ]) {
+    assert.equal(
+      oauthText.includes(routeSummary),
+      true,
+      "OAuth dossier is missing a recorded public route",
+    );
+    assert.equal(
+      providerText.includes(routeSummary),
+      false,
+      "provider policy retains a recorded OAuth route",
+    );
+  }
+
+  assert.equal(
+    providerText.includes("| Provider | Current official route |"),
+    false,
+    "provider policy retains the OAuth status table",
+  );
+  assert.equal(
+    providerText.includes("Kimi Code Team confirmed in writing"),
+    false,
+    "provider policy retains a provider-specific registration conclusion",
+  );
+
+  const row = context.files[policy.migrationLedger]
+    .split("\n")
+    .find((line) => line.startsWith("| OAuth registration status |"));
+  assert.equal(
+    row?.endsWith("| complete |"),
+    true,
+    "OAuth-registration migration is not complete",
   );
 });
 
