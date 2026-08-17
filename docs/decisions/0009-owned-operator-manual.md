@@ -1,7 +1,11 @@
 # 0009: Owned verified operator manual
 
-- Status: accepted
+- Status: superseded by decision 0071
 - Date: 2026-08-08
+
+[Decision 0071](0071-owned-task-oriented-operator-manual.md) supersedes this
+record's universal section template and prose-evidence requirements. This file
+remains the historical rationale for establishing the owned operator manual.
 
 ## Context
 

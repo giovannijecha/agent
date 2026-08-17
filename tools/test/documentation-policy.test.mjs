@@ -377,6 +377,22 @@ test("routes completed product operation to the operator manual", () => {
 
 test("completes the task-oriented operator-manual migration", () => {
   const context = currentContext();
+  const legacyDecision = context.files[
+    "docs/decisions/0009-owned-operator-manual.md"
+  ];
+  assert.equal(
+    legacyDecision.includes("- Status: superseded by decision 0071"),
+    true,
+    "the legacy manual decision still advertises an accepted contract",
+  );
+  assert.equal(
+    legacyDecision.includes(
+      "(0071-owned-task-oriented-operator-manual.md)",
+    ),
+    true,
+    "the legacy manual decision does not route to its successor",
+  );
+
   const decision = context.files[
     "docs/decisions/0071-owned-task-oriented-operator-manual.md"
   ];

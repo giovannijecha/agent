@@ -10,9 +10,10 @@ automatic tool attribution.
    [security policy](../../SECURITY.md),
    [contribution policy](../../CONTRIBUTING.md), and
    [ownership record](../OWNERSHIP.md).
-2. Confirm publication is explicitly authorized. Only on explicit instruction,
+2. Run the canonical release gate and resolve every failure.
+3. Confirm publication is explicitly authorized. Only on explicit instruction,
    initialize Git or create a remote repository.
-3. Enable GitHub private vulnerability reporting before the first release.
+4. Enable GitHub private vulnerability reporting before the first release.
 
 ## Preserve identity and attribution
 
@@ -54,9 +55,8 @@ eligible.
 
 ## Verify the release
 
-1. Run the canonical release gate and resolve every failure.
-2. Scan the complete history for secrets and inspect the rendered public files.
-3. Require the owned `verify` job only after it has completed successfully on
+1. Scan the complete history for secrets and inspect the rendered public files.
+2. Require the owned `verify` job only after it has completed successfully on
    GitHub; never require a status name that has not run.
 
 ## Handle publication failures
