@@ -754,21 +754,28 @@ function validateCurrentAuthorities(policy, text, rows) {
   );
   for (const authority of authorityRows) {
     const links = [
-      ...authority.entryPoints.matchAll(/\[[^\]\r\n]+\]\(([^)\r\n]+)\)/gu),
-    ].map((match) => match.at(1));
-    if (links.length === 0 || new Set(links).size !== links.length) {
+      ...authority.entryPoints.matchAll(/\[([^\]\r\n]+)\]\(([^)\r\n]+)\)/gu),
+    ].map((match) => ({ label: match.at(1), link: match.at(2) }));
+    const linkTargets = links.map((entry) => entry.link);
+    if (
+      links.length === 0 ||
+      new Set(linkTargets).size !== linkTargets.length
+    ) {
       fail("current decision authority entry points are invalid: " + authority.domain);
     }
     const decisionIds = [];
-    for (const link of links) {
-      if (link === undefined) {
+    for (const entry of links) {
+      if (entry.label === undefined || entry.link === undefined) {
         fail("current decision authority link is missing");
       }
-      const file = resolveLocalLink(policy.decisionIndex, link);
+      const label = /^([0-9]{4}) [^\r\n]+$/u.exec(entry.label);
+      const file = resolveLocalLink(policy.decisionIndex, entry.link);
       const row = rowsByPath.get(file);
       if (
+        label === null ||
         file === undefined ||
         row === undefined ||
+        label.at(1) !== row.id ||
         row.status !== "accepted" ||
         row.domain !== authority.domain
       ) {
