@@ -482,6 +482,34 @@ function decisionSectionBody(text, heading, file) {
   return body;
 }
 
+function validateDecisionRelationshipAcyclic(relationships) {
+  const visiting = new Set();
+  const visited = new Set();
+
+  function visit(id) {
+    if (visiting.has(id)) {
+      fail("decision relationship cycle: " + id);
+    }
+    if (visited.has(id)) {
+      return;
+    }
+    visiting.add(id);
+    const relationship = relationships.get(id);
+    if (relationship === undefined) {
+      fail("decision relationship is missing: " + id);
+    }
+    for (const superseded of relationship.supersedes) {
+      visit(superseded);
+    }
+    visiting.delete(id);
+    visited.add(id);
+  }
+
+  for (const id of relationships.keys()) {
+    visit(id);
+  }
+}
+
 function validateDecisionRecords(policy, context, rows) {
   const decisionIds = new Set(rows.map((row) => row.id));
   const rowsById = new Map(rows.map((row) => [row.id, row]));
@@ -662,6 +690,7 @@ function validateDecisionRecords(policy, context, rows) {
       }
     }
   }
+  validateDecisionRelationshipAcyclic(relationships);
   const relationshipEdges = [];
   for (const [superseder, relationship] of relationships) {
     for (const superseded of relationship.supersedes) {

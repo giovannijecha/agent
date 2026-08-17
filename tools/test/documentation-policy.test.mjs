@@ -517,6 +517,73 @@ test("preserves both directions when a consolidation is superseded", () => {
   );
 });
 
+test("rejects cycles in the decision supersession graph", () => {
+  const context = currentContext();
+  context.files[policy.decisionIndex] = context.files[policy.decisionIndex]
+    .replace(
+      "[0023 Markdown](0023-owned-bounded-markdown.md), ",
+      "",
+    )
+    .replace(
+      "| [0019](0019-owned-semantic-terminal-tones.md) | superseded | terminal | superseded by 0023, 0027, and 0031 |",
+      "| [0019](0019-owned-semantic-terminal-tones.md) | superseded | terminal | supersedes 0023; superseded by 0023, 0027, and 0031 |",
+    )
+    .replace(
+      "| [0023](0023-owned-bounded-markdown.md) | accepted | terminal | supersedes 0019 |",
+      "| [0023](0023-owned-bounded-markdown.md) | superseded | terminal | supersedes 0019; superseded by 0019 |",
+    );
+  context.files["docs/decisions/0019-owned-semantic-terminal-tones.md"] =
+    context.files["docs/decisions/0019-owned-semantic-terminal-tones.md"].replace(
+      "- Date: 2026-08-09",
+      "- Date: 2026-08-09\n- Supersedes: decision 0023",
+    );
+  context.files["docs/decisions/0023-owned-bounded-markdown.md"] =
+    context.files["docs/decisions/0023-owned-bounded-markdown.md"].replace(
+      "- Status: accepted",
+      "- Status: superseded by decision 0019",
+    );
+  const historicalDecisionRelationshipFields = {
+    ...policy.historicalDecisionRelationshipFields,
+    supersedes: {
+      ...policy.historicalDecisionRelationshipFields.supersedes,
+      "0019": "decision 0023",
+    },
+  };
+  const decisionRelationshipEdges = policy.decisionRelationshipEdges.flatMap(
+    (edge) =>
+      edge.superseder === "0023" && edge.superseded === "0019"
+        ? [{ superseder: "0019", superseded: "0023" }, edge]
+        : [edge],
+  );
+  const currentDecisionAuthorities = {
+    ...policy.currentDecisionAuthorities,
+    terminal: policy.currentDecisionAuthorities.terminal.filter(
+      (id) => id !== "0023",
+    ),
+  };
+  const decisionRecordDigest = {
+    ...policy.decisionRecordDigest,
+    value: recordDigestFor(context),
+  };
+  assert.throws(
+    () =>
+      validateDocumentationPolicy(
+        {
+          ...policy,
+          historicalDecisionRelationshipFields,
+          decisionRelationshipEdges,
+          currentDecisionAuthorities,
+          decisionRecordDigest,
+        },
+        context,
+      ),
+    {
+      name: "DocumentationPolicyError",
+      message: /decision relationship cycle/u,
+    },
+  );
+});
+
 test("rejects coherent rewrites of canonical decision relationship edges", () => {
   const context = currentContext();
   context.files[policy.decisionIndex] = context.files[policy.decisionIndex]
