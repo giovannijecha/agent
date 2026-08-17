@@ -80,9 +80,9 @@ defined by the evaluation guide.
 ## References
 
 - [Engineering definition of done](../ENGINEERING.md#definition-of-done)
-- [Engineering verification policy](../ENGINEERING.md#verification-policy)
-- [Continuous-verification maintenance](../MAINTENANCE.md#update-or-remove-continuous-verification)
-- [Task-evaluation maintenance](../MAINTENANCE.md#update-or-remove-task-evaluation)
+- [Engineering verification policy](../ENGINEERING.md#verification)
+- [Continuous-verification maintenance](../MAINTENANCE.md#continuous-verification)
+- [Task-evaluation maintenance](../MAINTENANCE.md#task-evaluation)
 - [Release gate](../MAINTENANCE.md#release-gate)
 - [Evaluation guide](../../evaluations/README.md)
 - [Current authority by domain](../decisions/README.md#current-authority-by-domain)

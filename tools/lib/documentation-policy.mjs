@@ -156,6 +156,48 @@ function validateLivingDocuments(policy, context, ownedPaths) {
   }
 }
 
+function validateDocumentStructures(policy, context) {
+  if (
+    !Array.isArray(policy.documentStructures) ||
+    policy.documentStructures.length === 0
+  ) {
+    fail("document structure registry must be nonempty");
+  }
+
+  const livingPaths = new Set(
+    policy.livingDocuments.map((entry) => entry.path),
+  );
+  const paths = new Set();
+
+  for (const entry of policy.documentStructures) {
+    exactKeys(entry, ["path", "headings"], "document structure");
+    assertRepositoryPath(entry.path, "document structure path");
+    validateUniqueStrings(entry.headings, "document structure headings");
+
+    if (paths.has(entry.path) || !livingPaths.has(entry.path)) {
+      fail(
+        "document structure path must identify one registered living document",
+      );
+    }
+    paths.add(entry.path);
+
+    for (const heading of entry.headings) {
+      if (!/^#{1,2} [^\r\n]+$/u.test(heading)) {
+        fail("document structure heading must be level one or two");
+      }
+    }
+
+    const headings = [
+      ...textFor(context, entry.path).matchAll(/^#{1,2} [^\r\n]+$/gmu),
+    ].map((match) => match.at(0));
+    same(
+      headings,
+      entry.headings,
+      "document structure headings: " + entry.path,
+    );
+  }
+}
+
 function validateRepositoryInstructions(policy, context, ownedPaths) {
   const instructions = policy.repositoryInstructions;
   exactKeys(
@@ -359,11 +401,12 @@ export function validateDocumentationPolicy(policy, context) {
       "prospectiveDecisionMetadataFrom",
       "decisionStatuses",
       "decisionDomains",
+      "documentStructures",
       "livingDocuments",
     ],
     "documentation policy",
   );
-  if (policy.schemaVersion !== 2 || !isRecord(context)) {
+  if (policy.schemaVersion !== 3 || !isRecord(context)) {
     fail("unsupported documentation policy schema or context");
   }
   for (const [label, file] of [
@@ -387,6 +430,7 @@ export function validateDocumentationPolicy(policy, context) {
   }
   const ownedPaths = new Set(context.ownedPaths);
   validateLivingDocuments(policy, context, ownedPaths);
+  validateDocumentStructures(policy, context);
   validateRepositoryInstructions(policy, context, ownedPaths);
   validateDocumentationMap(policy, context, ownedPaths);
   validateDecisionIndex(policy, context, ownedPaths);

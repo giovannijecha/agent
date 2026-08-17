@@ -88,8 +88,8 @@ fall back to another endpoint after a catalog or chat failure.
 
 - [Provider eligibility and exact network boundary](../PROVIDERS.md)
 - [Privacy and process-only secret handling](../../PRIVACY.md)
-- [Current provider architecture](../ARCHITECTURE.md#provider-eligibility-boundary)
-- [Provider update and removal procedure](../MAINTENANCE.md#update-or-remove-ollama-cloud)
+- [Current provider architecture](../ARCHITECTURE.md#provider-boundary)
+- [Provider update and removal procedure](../MAINTENANCE.md#ollama-cloud)
 - [Current authority by domain](../decisions/README.md#current-authority-by-domain)
 - [Ollama Cloud provider decision](../decisions/0072-owned-ollama-cloud-provider.md)
 - [Ephemeral provider and model selection decision](../decisions/0068-owned-ephemeral-provider-and-model-selection.md)

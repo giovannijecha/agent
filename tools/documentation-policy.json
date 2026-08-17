@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "index": "docs/README.md",
   "decisionIndex": "docs/decisions/README.md",
   "migrationLedger": "docs/DOCUMENTATION-MIGRATION.md",
@@ -49,6 +49,53 @@
     "security",
     "terminal",
     "tools"
+  ],
+  "documentStructures": [
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "headings": [
+        "# Architecture",
+        "## Scope",
+        "## Single-agent execution model",
+        "## Dependency graph",
+        "## Package boundaries",
+        "## Composition and turn lifecycle",
+        "## Capability surface",
+        "## Provider boundary",
+        "## Terminal boundary",
+        "## Platform and security boundary",
+        "## Repository control plane",
+        "## Authority routes"
+      ]
+    },
+    {
+      "path": "docs/ENGINEERING.md",
+      "headings": [
+        "# Engineering",
+        "## Scope",
+        "## Definition of done",
+        "## Change workflow",
+        "## Source rules",
+        "## Evidence by change type",
+        "## Verification",
+        "## Regression and failure policy",
+        "## Documentation changes",
+        "## Review checklist"
+      ]
+    },
+    {
+      "path": "docs/MAINTENANCE.md",
+      "headings": [
+        "# Maintenance",
+        "## Scope",
+        "## Canonical registries",
+        "## Standard runbook",
+        "## Diagnosis and rollback",
+        "## Subsystem runbooks",
+        "## Derived artifacts",
+        "## Release gate"
+      ]
+    }
   ],
   "livingDocuments": [
     {
