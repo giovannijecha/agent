@@ -99,10 +99,10 @@ policy entry, adapter, tests, documentation, and independent removal path.
 
 Public documentation can lag deployed behavior. When it does, inspect current
 public source only with an explicit reason and at a pinned commit, then record
-observable facts and risks in `docs/OWNERSHIP.md`. Never copy, translate, or
-adapt source, tests, prompts, registered identifiers, protocol fixtures, user
-agents, or product identity. Independently derive the contract before writing
-implementation code.
+observable facts and risks in the [ownership record](OWNERSHIP.md). Never copy,
+translate, or adapt source, tests, prompts, registered identifiers, protocol
+fixtures, user agents, or product identity. Independently derive the contract
+before writing implementation code.
 
 ## Account and secret boundary
 

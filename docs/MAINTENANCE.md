@@ -24,7 +24,7 @@ Start maintenance from the owning registry rather than from generated output.
 | publication metadata | `tools/publication-policy.json` |
 | task corpus and metrics | `tools/evaluation-policy.json` |
 | maintained evaluation failures | `evaluations/failures/registry.json` |
-| clean-room inspection evidence | `tools/ownership-policy.json`, `docs/OWNERSHIP.md` |
+| clean-room inspection evidence | `tools/ownership-policy.json`, [docs/OWNERSHIP.md](OWNERSHIP.md) |
 | brand assets and digests | `assets/brand/manifest.json` |
 | native source and build registration | `packages/agent-cli/native/`, `tools/build-native.mjs` |
 

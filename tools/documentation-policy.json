@@ -85,6 +85,16 @@
       ]
     },
     {
+      "path": "docs/OWNERSHIP.md",
+      "headings": [
+        "# Ownership and provenance",
+        "## Meaning of “ours”",
+        "## Forbidden inputs",
+        "## Provenance log",
+        "## Review checklist"
+      ]
+    },
+    {
       "path": "docs/ARCHITECTURE.md",
       "headings": [
         "# Architecture",

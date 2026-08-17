@@ -84,6 +84,11 @@ test("rejects canonical document structure drift", () => {
       "## Future session storage",
     ],
     [
+      "docs/OWNERSHIP.md",
+      "## Provenance log",
+      "## Inspection history",
+    ],
+    [
       "docs/ARCHITECTURE.md",
       "## Single-agent execution model",
       "## Product execution model",
@@ -327,6 +332,47 @@ test("routes completed privacy and memory-only secrets to the privacy policy", (
     row?.endsWith("| complete |"),
     true,
     "privacy migration is not complete",
+  );
+});
+
+test("routes completed clean-room provenance to the ownership record", () => {
+  const context = currentContext();
+  for (const [source, route] of [
+    ["AGENTS.md", "(docs/OWNERSHIP.md)"],
+    ["README.md", "(docs/OWNERSHIP.md)"],
+    ["CONTRIBUTING.md", "(docs/OWNERSHIP.md)"],
+    ["docs/README.md", "(OWNERSHIP.md)"],
+    ["docs/ARCHITECTURE.md", "(OWNERSHIP.md)"],
+    ["docs/BRAND.md", "(OWNERSHIP.md)"],
+    ["docs/MAINTENANCE.md", "(OWNERSHIP.md)"],
+    ["docs/OAUTH-REGISTRATION.md", "(OWNERSHIP.md)"],
+    ["docs/PROVIDERS.md", "(OWNERSHIP.md)"],
+  ]) {
+    assert.equal(
+      context.files[source].includes(route),
+      true,
+      "ownership route is missing: " + source,
+    );
+  }
+
+  const structure = policy.documentStructures.find(
+    (entry) => entry.path === "docs/OWNERSHIP.md",
+  );
+  assert.deepEqual(structure?.headings, [
+    "# Ownership and provenance",
+    "## Meaning of “ours”",
+    "## Forbidden inputs",
+    "## Provenance log",
+    "## Review checklist",
+  ]);
+
+  const row = context.files[policy.migrationLedger]
+    .split("\n")
+    .find((line) => line.startsWith("| Clean-room provenance and inspections |"));
+  assert.equal(
+    row?.endsWith("| complete |"),
+    true,
+    "clean-room provenance migration is not complete",
   );
 });
 

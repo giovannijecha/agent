@@ -117,8 +117,8 @@ that domain; a summary here never overrides its canonical owner.
   repository root. All built-in tools consume that same boundary and read policy.
 - Reference-project source may be inspected only when public documentation is
   stale. Never copy, translate, adapt, or reuse its implementation, tests,
-  prompts, identifiers, or product identity. Pin each inspection in
-  `docs/OWNERSHIP.md`.
+  prompts, identifiers, or product identity. Pin each inspection in the
+  [ownership policy](docs/OWNERSHIP.md).
 - TUI reference inspection is limited to observable outcomes; foreign component
   structures, identifiers, style literals, timings, redraw algorithms, and
   source organization are forbidden.

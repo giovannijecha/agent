@@ -29,6 +29,7 @@
     "README.md",
     "SECURITY.md",
     "docs/OAUTH-REGISTRATION.md",
+    "docs/OWNERSHIP.md",
     "docs/PROVIDER-APPLICATIONS.md",
     "docs/decisions/0010-public-project-identity.md",
     "docs/ARCHITECTURE.md",
