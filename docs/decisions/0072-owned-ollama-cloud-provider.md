@@ -90,9 +90,12 @@ objects,
 unsupported completion, cancellation, cleanup, and every bound. Catalog tests
 cover the fixed authenticated request, exact JSON media type, equal model names,
 Ollama identifier syntax, duplicates, deadlines, destruction, and inert late
-events. Session and CLI tests cover concealed configuration, authenticated
-catalog selection, no implicit default, reconfiguration invalidation, and
-secret-free projections.
+events. Chat transport tests prove that its independent wall-clock deadline
+spans the complete response stream, cannot be extended by continuing chunks,
+cancels on every terminal settlement, fails closed when it cannot arm, and
+leaves late timer and transport events inert. Session and CLI tests cover
+concealed configuration, authenticated catalog selection, no implicit default,
+reconfiguration invalidation, and secret-free projections.
 
 The canonical verifier uses only synthetic credentials and transports. It does
 not contact Ollama, read a real key, enumerate a live account, or persist

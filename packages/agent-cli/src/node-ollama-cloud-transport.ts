@@ -16,9 +16,12 @@ import {
 } from "@agent/provider-ollama-cloud";
 import type { CancellationSignal } from "@agent/runtime";
 
+import { NodeTimerClock } from "./node-timer-clock.js";
 import { isValidOllamaCloudCredential } from "./provider-configuration.js";
+import type { ScheduledTimer, TimerClock } from "./timer-clock.js";
 
 export const OLLAMA_CLOUD_TRANSPORT_LIMITS = Object.freeze({
+  deadlineMilliseconds: 600_000,
   headerBytes: 16_384,
   inactivityMilliseconds: 120_000,
   responseChunkBytes: 65_536,
@@ -61,20 +64,27 @@ function contentType(response: HttpsResponse): string | undefined {
 
 class NodeOllamaCloudStream implements OllamaCloudTransportStream {
   readonly contentType: string | undefined;
+  readonly #onTerminal: () => void;
   readonly #response: HttpsResponse;
   readonly statusCode: number;
   #closed = false;
   #ended = false;
   #failure: OllamaCloudTransportError | undefined;
+  #terminalSettled = false;
   #pending:
     | ((result: Result<Uint8Array | null, OllamaCloudTransportError>) => void)
     | undefined;
   #queued: Uint8Array | undefined;
 
-  constructor(response: HttpsResponse, statusCode: number) {
+  constructor(
+    response: HttpsResponse,
+    statusCode: number,
+    onTerminal: () => void,
+  ) {
     this.#response = response;
     this.statusCode = statusCode;
     this.contentType = contentType(response);
+    this.#onTerminal = onTerminal;
     response.on("aborted", this.#onAborted);
     response.on("data", this.#onData);
     response.on("end", this.#onEnd);
@@ -107,6 +117,7 @@ class NodeOllamaCloudStream implements OllamaCloudTransportStream {
     if (this.#closed) return Promise.resolve(ok(undefined));
     this.#closed = true;
     this.#detach();
+    this.#settleTerminal();
     const pending = this.#pending;
     this.#pending = undefined;
     this.#queued = undefined;
@@ -150,7 +161,10 @@ class NodeOllamaCloudStream implements OllamaCloudTransportStream {
   };
 
   readonly #onEnd = (): void => {
+    if (this.#closed || this.#failure !== undefined || this.#ended) return;
     this.#ended = true;
+    this.#detach();
+    this.#settleTerminal();
     const pending = this.#pending;
     if (pending !== undefined) {
       this.#pending = undefined;
@@ -161,11 +175,12 @@ class NodeOllamaCloudStream implements OllamaCloudTransportStream {
   readonly #onError = (_cause: unknown): void => this.#fail("connection");
 
   #fail(kind: OllamaCloudTransportErrorKind): void {
-    if (this.#closed || this.#failure !== undefined) return;
+    if (this.#closed || this.#ended || this.#failure !== undefined) return;
     this.#response.pause();
     this.#failure = failure(kind);
     this.#queued = undefined;
     this.#detach();
+    this.#settleTerminal();
     const pending = this.#pending;
     if (pending !== undefined) {
       this.#pending = undefined;
@@ -175,6 +190,16 @@ class NodeOllamaCloudStream implements OllamaCloudTransportStream {
       this.#response.destroy();
     } catch (_cause: unknown) {
       // The original typed failure remains authoritative.
+    }
+  }
+
+  #settleTerminal(): void {
+    if (this.#terminalSettled) return;
+    this.#terminalSettled = true;
+    try {
+      this.#onTerminal();
+    } catch (_cause: unknown) {
+      // Terminal stream state remains authoritative.
     }
   }
 
@@ -208,22 +233,32 @@ function exactOptions(credential: string): RequestOptions {
 export class NodeOllamaCloudTransport implements OllamaCloudTransport {
   readonly #credential: string;
   readonly #requestHttps: RequestHttps;
+  readonly #schedule: TimerClock["schedule"];
 
-  private constructor(credential: string, requestHttps: RequestHttps) {
+  private constructor(
+    credential: string,
+    requestHttps: RequestHttps,
+    schedule: TimerClock["schedule"],
+  ) {
     this.#credential = credential;
     this.#requestHttps = requestHttps;
+    this.#schedule = schedule;
   }
 
   static create(
     credential: unknown,
     client: HttpsClient = NODE_HTTPS_CLIENT,
+    clock: TimerClock = new NodeTimerClock(),
   ): Result<NodeOllamaCloudTransport, NodeOllamaCloudTransportCreateError> {
     try {
       if (
         !isValidOllamaCloudCredential(credential) ||
         client === null ||
         typeof client !== "object" ||
-        typeof client.request !== "function"
+        typeof client.request !== "function" ||
+        clock === null ||
+        typeof clock !== "object" ||
+        typeof clock.schedule !== "function"
       ) {
         return err(Object.freeze({ kind: "invalidConfiguration" as const }));
       }
@@ -231,6 +266,7 @@ export class NodeOllamaCloudTransport implements OllamaCloudTransport {
         new NodeOllamaCloudTransport(
           credential,
           client.request.bind(client) as RequestHttps,
+          clock.schedule.bind(clock) as TimerClock["schedule"],
         ),
       );
     } catch (_cause: unknown) {
@@ -266,22 +302,82 @@ export class NodeOllamaCloudTransport implements OllamaCloudTransport {
       return Promise.resolve(err(failure("cancelled")));
     }
     let settled = false;
+    let lifecycleSettled = false;
     let activeRequest: HttpsRequest | undefined;
     let activeStream: NodeOllamaCloudStream | undefined;
+    let deadline: ScheduledTimer | undefined;
     const operation = new Promise<
       Result<OllamaCloudTransportStream, OllamaCloudTransportError>
     >((resolve) => {
+      const cancelDeadline = (): void => {
+        const retained = deadline;
+        deadline = undefined;
+        if (retained === undefined) return;
+        try {
+          retained.cancel();
+        } catch (_cause: unknown) {
+          // Cleared timer authority remains authoritative.
+        }
+      };
+      const settleLifecycle = (): void => {
+        if (lifecycleSettled) return;
+        lifecycleSettled = true;
+        cancelDeadline();
+      };
       const settle = (
         result: Result<OllamaCloudTransportStream, OllamaCloudTransportError>,
       ): void => {
         if (!settled) {
           settled = true;
+          if (!result.ok) settleLifecycle();
           resolve(result);
         }
       };
       const onError = (_cause: unknown): void => {
         settle(err(failure("connection")));
       };
+      let scheduled: ScheduledTimer;
+      let arming = true;
+      let firedSynchronously = false;
+      try {
+        scheduled = this.#schedule(
+          OLLAMA_CLOUD_TRANSPORT_LIMITS.deadlineMilliseconds,
+          () => {
+            if (arming) {
+              firedSynchronously = true;
+              return;
+            }
+            if (lifecycleSettled || deadline !== scheduled) return;
+            deadline = undefined;
+            lifecycleSettled = true;
+            if (activeStream === undefined) {
+              settle(err(failure("timeout")));
+            } else {
+              activeStream.timeout();
+            }
+            try {
+              activeRequest?.destroy();
+            } catch (_cause: unknown) {
+              // The wall-clock timeout remains authoritative.
+            }
+          },
+        );
+      } catch (_cause: unknown) {
+        settle(err(failure("timeout")));
+        return;
+      } finally {
+        arming = false;
+      }
+      if (firedSynchronously) {
+        try {
+          scheduled.cancel();
+        } catch (_cause: unknown) {
+          // The synchronous timeout remains authoritative.
+        }
+        settle(err(failure("timeout")));
+        return;
+      }
+      deadline = scheduled;
       try {
         activeRequest = this.#requestHttps(exactOptions(this.#credential), (response) => {
           if (settled) {
@@ -300,7 +396,11 @@ export class NodeOllamaCloudTransport implements OllamaCloudTransport {
               response.destroy();
               return;
             }
-            activeStream = new NodeOllamaCloudStream(response, statusCode);
+            activeStream = new NodeOllamaCloudStream(
+              response,
+              statusCode,
+              settleLifecycle,
+            );
             settle(ok(activeStream));
           } catch (_cause: unknown) {
             settle(err(failure("protocol")));
@@ -315,6 +415,7 @@ export class NodeOllamaCloudTransport implements OllamaCloudTransport {
         activeRequest.setTimeout(
           OLLAMA_CLOUD_TRANSPORT_LIMITS.inactivityMilliseconds,
           () => {
+            if (lifecycleSettled) return;
             if (activeStream === undefined) {
               settle(err(failure("timeout")));
             } else {
