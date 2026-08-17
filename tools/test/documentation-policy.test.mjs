@@ -352,11 +352,45 @@ test("preserves both directions when a consolidation is superseded", () => {
     ...policy.currentDecisionAuthorities,
     documentation: ["0070"],
   };
+  const decisionRelationshipEdges = policy.decisionRelationshipEdges.flatMap(
+    (edge) =>
+      edge.superseder === "0071"
+        ? [{ superseder: "0070", superseded: "0071" }, edge]
+        : [edge],
+  );
   assert.doesNotThrow(() =>
     validateDocumentationPolicy(
-      { ...policy, currentDecisionAuthorities },
+      { ...policy, currentDecisionAuthorities, decisionRelationshipEdges },
       context,
     ),
+  );
+});
+
+test("rejects coherent rewrites of canonical decision relationship edges", () => {
+  const context = currentContext();
+  context.files[policy.decisionIndex] = context.files[policy.decisionIndex]
+    .replace(
+      "| [0003](0003-owned-provider-authentication.md) | accepted | providers | current |",
+      "| [0003](0003-owned-provider-authentication.md) | accepted | providers | supersedes 0017 |",
+    )
+    .replace(
+      "| [0017](0017-owned-opencode-go-provider.md) | superseded | providers | superseded by 0072 |",
+      "| [0017](0017-owned-opencode-go-provider.md) | superseded | providers | superseded by 0003 |",
+    )
+    .replace(
+      "| [0072](0072-owned-ollama-cloud-provider.md) | accepted | providers | supersedes 0017, 0067, and 0068 |",
+      "| [0072](0072-owned-ollama-cloud-provider.md) | accepted | providers | supersedes 0067 and 0068 |",
+    );
+  context.files["docs/decisions/0072-owned-ollama-cloud-provider.md"] =
+    context.files[
+      "docs/decisions/0072-owned-ollama-cloud-provider.md"
+    ].replace(
+      "- Supersedes: 0017, 0067, and 0068",
+      "- Supersedes: 0067 and 0068",
+    );
+  assert.throws(
+    () => validateDocumentationPolicy(policy, context),
+    DocumentationPolicyError,
   );
 });
 

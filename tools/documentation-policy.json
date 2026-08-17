@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "index": "docs/README.md",
   "decisionIndex": "docs/decisions/README.md",
   "migrationLedger": "docs/DOCUMENTATION-MIGRATION.md",
@@ -37,6 +37,40 @@
   "historicalDecisionStatusExceptions": {
     "0009": "accepted"
   },
+  "decisionRelationshipEdges": [
+    {
+      "superseder": "0002",
+      "superseded": "0001"
+    },
+    {
+      "superseder": "0023",
+      "superseded": "0019"
+    },
+    {
+      "superseder": "0027",
+      "superseded": "0019"
+    },
+    {
+      "superseder": "0031",
+      "superseded": "0019"
+    },
+    {
+      "superseder": "0071",
+      "superseded": "0009"
+    },
+    {
+      "superseder": "0072",
+      "superseded": "0017"
+    },
+    {
+      "superseder": "0072",
+      "superseded": "0067"
+    },
+    {
+      "superseder": "0072",
+      "superseded": "0068"
+    }
+  ],
   "decisionDomainMembers": {
     "architecture": [
       "0005",

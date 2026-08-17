@@ -498,6 +498,17 @@ function validateDecisionRecords(policy, context, rows) {
       }
     }
   }
+  const relationshipEdges = [];
+  for (const [superseder, relationship] of relationships) {
+    for (const superseded of relationship.supersedes) {
+      relationshipEdges.push({ superseder, superseded });
+    }
+  }
+  same(
+    relationshipEdges,
+    policy.decisionRelationshipEdges,
+    "decision relationship edges",
+  );
   return relationships;
 }
 
@@ -704,6 +715,7 @@ export function validateDocumentationPolicy(policy, context) {
       "repositoryInstructions",
       "prospectiveDecisionMetadataFrom",
       "historicalDecisionStatusExceptions",
+      "decisionRelationshipEdges",
       "decisionDomainMembers",
       "currentDecisionAuthorities",
       "migrationRows",
@@ -714,7 +726,7 @@ export function validateDocumentationPolicy(policy, context) {
     ],
     "documentation policy",
   );
-  if (policy.schemaVersion !== 6 || !isRecord(context)) {
+  if (policy.schemaVersion !== 7 || !isRecord(context)) {
     fail("unsupported documentation policy schema or context");
   }
   for (const [label, file] of [
@@ -730,6 +742,30 @@ export function validateDocumentationPolicy(policy, context) {
     policy.prospectiveDecisionMetadataFrom > 9999
   ) {
     fail("prospective decision metadata boundary is invalid");
+  }
+  if (
+    !Array.isArray(policy.decisionRelationshipEdges) ||
+    policy.decisionRelationshipEdges.length === 0
+  ) {
+    fail("decision relationship edges must be a nonempty array");
+  }
+  const edgeKeys = new Set();
+  for (const edge of policy.decisionRelationshipEdges) {
+    exactKeys(
+      edge,
+      ["superseder", "superseded"],
+      "decision relationship edge",
+    );
+    const edgeKey = edge.superseder + ":" + edge.superseded;
+    if (
+      !/^[0-9]{4}$/u.test(edge.superseder) ||
+      !/^[0-9]{4}$/u.test(edge.superseded) ||
+      edge.superseder === edge.superseded ||
+      edgeKeys.has(edgeKey)
+    ) {
+      fail("decision relationship edge is invalid");
+    }
+    edgeKeys.add(edgeKey);
   }
   same(policy.decisionStatuses, EXPECTED_STATUSES, "decision statuses");
   same(policy.decisionDomains, EXPECTED_DOMAINS, "decision domains");
