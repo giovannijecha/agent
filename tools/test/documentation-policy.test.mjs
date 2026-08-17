@@ -487,10 +487,13 @@ test("routes completed evaluation operation to the evaluation guide", () => {
     true,
     "evaluation manifest contains an undocumented project kind",
   );
+  const sortedProjectKinds = [...projectKinds].sort((left, right) =>
+    left.localeCompare(right, "en")
+  );
   assert.equal(
     normalizedGuide.includes(
-      "The corpus spans " + projectKinds.slice(0, -1).join(", ") +
-        ", and " + projectKinds.at(-1) + " work.",
+      "The corpus spans " + sortedProjectKinds.slice(0, -1).join(", ") +
+        ", and " + sortedProjectKinds.at(-1) + " work.",
     ),
     true,
     "evaluation guide project kinds do not match the manifest",
@@ -605,6 +608,9 @@ test("routes completed evaluation operation to the evaluation guide", () => {
     "`packages/agent-cli/test/runtime-integration.test.ts`",
     "`packages/agent-cli/src/builtin-tools.ts`",
     "`packages/agent-cli/test/builtin-tools.test.ts`",
+    "`tools/evaluation-policy.json`",
+    "`evaluations/failures/registry.json`",
+    "`evaluations/tasks/`",
     "[Decision 0047](decisions/0047-owned-reproducible-task-evaluation.md)",
     "[0048](decisions/0048-owned-content-free-evaluation-receipt.md)",
     "[0049](decisions/0049-owned-evaluation-failure-registry.md)",
