@@ -135,6 +135,30 @@ test("uses task-specific reading and publishing contracts", () => {
       chapter + " still exposes the legacy evidence inventory",
     );
   }
+
+  const publishing = context.files[
+    "docs/manual/07-publishing-and-governance.md"
+  ];
+  for (const marker of [
+    "Run the canonical release gate and resolve every failure.",
+    "Scan the complete history for secrets and inspect the rendered public files.",
+    "never require a status name that has not run.",
+    "Keep the version on `0.x` until one direct provider integration is complete",
+    "Do not add a generated-by banner, automated tool signature,\nor tool co-author trailer.",
+  ]) {
+    assert.equal(
+      publishing.includes(marker),
+      true,
+      "publishing operation contract is missing: " + marker,
+    );
+  }
+  assert.equal(
+    publishing.indexOf(
+      "Run the canonical release gate and resolve every failure.",
+    ) < publishing.indexOf("initialize Git or create a remote repository."),
+    true,
+    "publication can initialize repository state before the release gate passes",
+  );
 });
 
 test("rejects command and tool source drift", () => {
