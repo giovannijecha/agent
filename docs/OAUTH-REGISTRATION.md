@@ -105,8 +105,9 @@ here, request lifecycle metadata in the
 inspection in the [ownership record](OWNERSHIP.md) when required. Complete
 registration evidence does not enable product code by itself. Replace the
 blocking decision and [provider policy](PROVIDERS.md) in the same change as the
-machine gate, first adapter, threat model, offline contract tests, revocation
-path, rollback, and removal procedure.
+machine gate, first adapter, threat model, revocation path, rollback, and removal
+procedure. Offline contract tests must cover cancellation, expiry, concurrency,
+malformed responses, secret leakage, rollback, and removal.
 
 No registration means no adapter, placeholder auth package, network capability,
 or simulated login screen.
