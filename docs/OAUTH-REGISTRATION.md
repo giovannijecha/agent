@@ -56,9 +56,9 @@ Before implementation, the provider must document all of the following:
 
 Current targets are ChatGPT Plus/Pro, Claude Pro/Max, Kimi Code, and Grok
 subscription. Each remains blocked until its own written evidence satisfies the
-complete list. Kimi Code confirmed on 2026-08-11 that it does not currently
-offer public OAuth for third-party clients; the other three requests remain
-pending. Approval by one provider does not authorize another.
+complete list. The [provider request ledger](PROVIDER-APPLICATIONS.md) owns
+submission and response state. Approval by one provider does not authorize
+another.
 
 ## Provider submission summary
 
@@ -70,10 +70,11 @@ pending. Approval by one provider does not authorize another.
 > local process and the provider. The project does not reuse another product's
 > client identity or distribute a client secret.
 
-The summary is project-authored application text. The four provider-specific,
-ready-to-submit requests live in `docs/PROVIDER-APPLICATIONS.md`. Adapt only
-factual provider labels and provider-required private form fields; do not add
-unverified capabilities or commit personal account data.
+The summary is project-authored application text. The four provider-specific
+requests and their current lifecycle state live in the
+[provider request ledger](PROVIDER-APPLICATIONS.md). Adapt only factual provider
+labels and provider-required private form fields; do not add unverified
+capabilities or commit personal account data.
 
 ## Evidence and implementation gate
 
