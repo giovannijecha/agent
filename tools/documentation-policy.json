@@ -72,6 +72,19 @@
       ]
     },
     {
+      "path": "PRIVACY.md",
+      "headings": [
+        "# Privacy policy",
+        "## Current product",
+        "## Local tools",
+        "## Terminal selection and links",
+        "## Ollama Cloud connection",
+        "## Future local sessions",
+        "## Local task evaluation",
+        "## Removal"
+      ]
+    },
+    {
       "path": "docs/ARCHITECTURE.md",
       "headings": [
         "# Architecture",

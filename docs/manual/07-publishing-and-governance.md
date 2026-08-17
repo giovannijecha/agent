@@ -74,7 +74,7 @@ publish any required security notice.
 - Public entry point: `README.md`
 - License terms: `LICENSE`
 - Security reporting: [SECURITY.md](../../SECURITY.md)
-- Privacy posture: `PRIVACY.md`
+- Privacy posture: [PRIVACY.md](../../PRIVACY.md)
 - Contribution boundary: [CONTRIBUTING.md](../../CONTRIBUTING.md)
 - Public identity decision: `docs/decisions/0010-public-project-identity.md`
 - OAuth application dossier: `docs/OAUTH-REGISTRATION.md`

@@ -106,6 +106,10 @@ implementation code.
 
 ## Account and secret boundary
 
+The [privacy policy](../PRIVACY.md) owns project-wide retention, personal-
+content, and removal guarantees. This section retains provider-specific account
+and credential constraints.
+
 `agent` never creates provider accounts, purchases plans, or asks for passwords,
 one-time codes, recovery codes, cookies, or payment details. The Ollama API key
 may never enter source, tests, logs, errors, documentation values, process

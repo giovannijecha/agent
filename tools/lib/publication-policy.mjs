@@ -200,6 +200,7 @@ function validatePublicDocuments(context) {
     [
       "# 07 - Publishing and governance",
       "(../../CONTRIBUTING.md)",
+      "(../../PRIVACY.md)",
       "(../../SECURITY.md)",
       "Enable GitHub private vulnerability reporting before the first release.",
       "The product is single-agent",
@@ -268,7 +269,17 @@ function validatePublicDocuments(context) {
   );
   requireMarkers(
     textFor(context, "PRIVACY.md"),
-    ["# Privacy policy", "no project\ncloud service", "telemetry", "process memory"],
+    [
+      "# Privacy policy",
+      "`agent` is local-first software maintained by Giovanni Jecha. It has no project\ncloud service, analytics, advertising, crash-reporting endpoint, or telemetry.",
+      "persists no chat session, credential, catalog, or selection.",
+      "The policy is never persisted or sent to a provider.",
+      "An approved `run_process` invocation is lifecycle-contained but not filesystem-\nor network-sandboxed; its Node code retains the launching user's authority.",
+      "The Ollama API key is accepted only through the\nzero-projection TUI credential context or `AGENT_OLLAMA_API_KEY` and remains in\nprocess memory.",
+      "Persistent storage requires a separate accepted\noperating-system vault design.",
+      "Local session persistence is disabled.",
+      "Closing the current process releases its in-memory conversation, display state,\nselection state, and key reference.",
+    ],
     "privacy policy",
   );
   requireMarkers(

@@ -249,6 +249,62 @@ test("rejects an unsanitized vulnerability report", () => {
   );
 });
 
+test("rejects privacy and memory-only retention drift", () => {
+  for (const marker of [
+    "persists no chat session, credential, catalog, or selection.",
+    "The policy is never persisted or sent to a provider.",
+    "The Ollama API key is accepted only through the\nzero-projection TUI credential context or `AGENT_OLLAMA_API_KEY` and remains in\nprocess memory.",
+    "Persistent storage requires a separate accepted\noperating-system vault design.",
+    "Local session persistence is disabled.",
+    "Closing the current process releases its in-memory conversation, display state,\nselection state, and key reference.",
+  ]) {
+    const context = currentContext();
+    const maintained = context.files["PRIVACY.md"];
+    context.files["PRIVACY.md"] = context.files["PRIVACY.md"].replaceAll(
+      marker,
+      "removed privacy and retention contract",
+    );
+    assert.notEqual(context.files["PRIVACY.md"], maintained, marker);
+    assert.throws(
+      () => validatePublicationPolicy(policy, context),
+      PublicationPolicyError,
+      marker,
+    );
+  }
+});
+
+test("rejects a weakened process-isolation privacy warning", () => {
+  const context = currentContext();
+  const maintained = context.files["PRIVACY.md"];
+  context.files["PRIVACY.md"] = context.files["PRIVACY.md"].replace(
+    "An approved `run_process` invocation is lifecycle-contained but not filesystem-\nor network-sandboxed; its Node code retains the launching user's authority.",
+    "An approved `run_process` invocation is fully sandboxed.",
+  );
+  assert.notEqual(context.files["PRIVACY.md"], maintained);
+  assert.throws(
+    () => validatePublicationPolicy(policy, context),
+    PublicationPolicyError,
+  );
+});
+
+test("rejects a missing privacy publication route", () => {
+  const context = currentContext();
+  const maintained = context.files[
+    "docs/manual/07-publishing-and-governance.md"
+  ];
+  context.files["docs/manual/07-publishing-and-governance.md"] = context.files[
+    "docs/manual/07-publishing-and-governance.md"
+  ].replaceAll("(../../PRIVACY.md)", "(missing-privacy-policy.md)");
+  assert.notEqual(
+    context.files["docs/manual/07-publishing-and-governance.md"],
+    maintained,
+  );
+  assert.throws(
+    () => validatePublicationPolicy(policy, context),
+    PublicationPolicyError,
+  );
+});
+
 test("rejects modified license terms", () => {
   const context = currentContext();
   context.files.LICENSE = context.files.LICENSE.replace(

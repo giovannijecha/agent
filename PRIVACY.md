@@ -76,6 +76,7 @@ These rules protect only automatic built-in disclosure; they do not scan file
 contents or alter approved writes. Start `agent` from the narrowest intended
 directory and keep credentials outside it whenever possible.
 An approved `run_process` invocation is lifecycle-contained but not filesystem-
+or network-sandboxed; its Node code retains the launching user's authority.
 
 ## Terminal selection and links
 

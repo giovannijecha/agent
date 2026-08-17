@@ -36,6 +36,10 @@ repeating that contract. Vulnerability reporting now has one current owner in
 `SECURITY.md`; its structure and critical publication contracts are verified,
 maintenance routes there, and the publishing chapter retains only the
 pre-release operator action for enabling the private reporting channel.
+Privacy and memory-only secret handling now has one current owner in
+`PRIVACY.md`; its structure, retention, isolation, and removal contracts are
+verified, while provider and operator documents retain only their specific
+technical and task-facing responsibilities and route to that owner.
 
 ## Content ledger
 
@@ -46,7 +50,7 @@ pre-release operator action for enabling the private reporting channel.
 | Contribution workflow | [Repository instructions](../AGENTS.md), [contributing guide](../CONTRIBUTING.md), [engineering guide](ENGINEERING.md), [maintenance guide](MAINTENANCE.md), [publishing chapter](manual/07-publishing-and-governance.md) | [Contributing guide](../CONTRIBUTING.md) | complete |
 | License terms | [License](../LICENSE) | [License](../LICENSE) | retained |
 | Vulnerability reporting | [Security policy](../SECURITY.md), [maintenance guide](MAINTENANCE.md) | [Security policy](../SECURITY.md) | complete |
-| Privacy and memory-only secrets | [Privacy policy](../PRIVACY.md), [provider policy](PROVIDERS.md), [operator manual](manual/README.md) | [Privacy policy](../PRIVACY.md) | queued |
+| Privacy and memory-only secrets | [Privacy policy](../PRIVACY.md), [provider policy](PROVIDERS.md), [operator manual](manual/README.md) | [Privacy policy](../PRIVACY.md) | complete |
 | Current package and runtime architecture | [Repository instructions](../AGENTS.md), [architecture](ARCHITECTURE.md), [engineering guide](ENGINEERING.md) | [Architecture](ARCHITECTURE.md) | complete |
 | Development and verification practice | [Repository instructions](../AGENTS.md), [engineering guide](ENGINEERING.md), [maintenance guide](MAINTENANCE.md) | [Engineering guide](ENGINEERING.md) | complete |
 | Maintainer diagnostics, releases, and rollback | [Engineering guide](ENGINEERING.md), [maintenance guide](MAINTENANCE.md) | [Maintenance guide](MAINTENANCE.md) | complete |
