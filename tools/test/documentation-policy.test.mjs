@@ -234,6 +234,10 @@ test("rejects invalid current decision authority routes", () => {
       "[0003 provider authentication](0003-owned-provider-authentication.md)",
     ],
     [
+      "[0072 Ollama Cloud](0072-owned-ollama-cloud-provider.md), ",
+      "",
+    ],
+    [
       "| architecture | [0013 single-agent execution](0013-single-agent-execution.md), [0052 checkpointed failures](0052-owned-checkpointed-turn-failure-classification.md), [0061 convergent turns](0061-owned-convergent-tool-turns.md) |\n",
       "",
     ],
@@ -274,6 +278,10 @@ test("rejects decision relationship drift", () => {
     [
       "| [0001](0001-owned-zero-dependency-rust.md) | superseded | foundation | superseded by 0002 |",
       "| [0001](0001-owned-zero-dependency-rust.md) | superseded | foundation | superseded by 0019 |",
+    ],
+    [
+      "| [0003](0003-owned-provider-authentication.md) | accepted | providers | current |",
+      "| [0003](0003-owned-provider-authentication.md) | accepted | providers | supersedes 0017 |",
     ],
   ]) {
     const context = currentContext();

@@ -62,15 +62,15 @@ belong here.
 | [0020](0020-owned-scrollable-screen-foundation.md) | accepted | terminal | current |
 | [0021](0021-owned-structured-terminal-rows.md) | accepted | terminal | current |
 | [0022](0022-owned-tool-activity-surface.md) | accepted | tools | current |
-| [0023](0023-owned-bounded-markdown.md) | accepted | terminal | current |
+| [0023](0023-owned-bounded-markdown.md) | accepted | terminal | supersedes 0019 |
 | [0024](0024-owned-transcript-navigation.md) | accepted | terminal | current |
 | [0025](0025-owned-word-aware-display-layout.md) | accepted | terminal | current |
 | [0026](0026-owned-responsive-conversation-shell.md) | accepted | terminal | current |
-| [0027](0027-owned-semantic-state-chrome.md) | accepted | terminal | current |
+| [0027](0027-owned-semantic-state-chrome.md) | accepted | terminal | supersedes 0019 |
 | [0028](0028-owned-conversation-visual-grammar.md) | accepted | terminal | current |
 | [0029](0029-canonical-tool-call-batches.md) | accepted | tools | current |
 | [0030](0030-owned-structured-markdown-surfaces.md) | accepted | terminal | current |
-| [0031](0031-owned-terminal-palette-and-code-highlighting.md) | accepted | terminal | current |
+| [0031](0031-owned-terminal-palette-and-code-highlighting.md) | accepted | terminal | supersedes 0019 |
 | [0032](0032-owned-transcript-visual-refinement.md) | accepted | terminal | current |
 | [0033](0033-owned-semantic-activity-surfaces.md) | accepted | tools | current |
 | [0034](0034-owned-slash-command-completion.md) | accepted | terminal | current |
