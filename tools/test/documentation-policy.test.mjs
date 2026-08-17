@@ -701,8 +701,8 @@ test("permits a coherently reopened documentation migration", () => {
       "| Durable design history | decision files and [decision index](decisions/README.md) | [Decision index](decisions/README.md) and stable records | active |",
     );
   context.files[policy.index] = context.files[policy.index].replace(
-    "The completed lossless\nreduction is preserved in",
-    "The active lossless\nreduction is tracked in",
+    "The\ncompleted lossless reduction is preserved in",
+    "The active lossless reduction is tracked in",
   );
   const migrationRows = policy.migrationRows.map((row) =>
     row.topic === "Durable design history" ? { ...row, status: "active" } : row,
@@ -762,15 +762,20 @@ test("routes completed durable design history to stable decision records", () =>
 });
 
 test("rejects documentation authority row drift", () => {
-  const context = currentContext();
-  context.files[policy.index] = context.files[policy.index].replace(
-    "public product introduction",
-    "general project notes",
-  );
-  assert.throws(
-    () => validateDocumentationPolicy(policy, context),
-    DocumentationPolicyError,
-  );
+  for (const [before, after] of [
+    ["public product introduction", "general project notes"],
+    ["[Decision index](decisions/README.md)", "[Evaluation manual](decisions/README.md)"],
+  ]) {
+    const context = currentContext();
+    context.files[policy.index] = context.files[policy.index].replace(
+      before,
+      after,
+    );
+    assert.throws(
+      () => validateDocumentationPolicy(policy, context),
+      DocumentationPolicyError,
+    );
+  }
 });
 
 test("rejects unknown decision status and domain classifications", () => {
