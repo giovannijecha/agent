@@ -134,22 +134,34 @@ function validateLivingDocuments(policy, context, ownedPaths) {
     fail("living document registry must be nonempty");
   }
   const paths = new Set();
+  const labels = new Set();
   const authorities = new Set();
   for (const entry of policy.livingDocuments) {
-    exactKeys(entry, ["path", "audience", "authority"], "living document");
+    exactKeys(
+      entry,
+      ["path", "label", "audience", "authority"],
+      "living document",
+    );
     assertRepositoryPath(entry.path, "living document path");
     if (
+      typeof entry.label !== "string" ||
+      entry.label.length === 0 ||
       typeof entry.audience !== "string" ||
       entry.audience.length === 0 ||
       typeof entry.authority !== "string" ||
       entry.authority.length === 0
     ) {
-      fail("living document audience and authority must be nonempty");
+      fail("living document label, audience, and authority must be nonempty");
     }
-    if (paths.has(entry.path) || authorities.has(entry.authority)) {
-      fail("living document path or authority is duplicated");
+    if (
+      paths.has(entry.path) ||
+      labels.has(entry.label) ||
+      authorities.has(entry.authority)
+    ) {
+      fail("living document path, label, or authority is duplicated");
     }
     paths.add(entry.path);
+    labels.add(entry.label);
     authorities.add(entry.authority);
     if (!ownedPaths.has(entry.path)) {
       fail("living document is not owned: " + entry.path);
@@ -252,8 +264,17 @@ function validateDocumentationMap(policy, context, ownedPaths) {
   const targets = new Set(localLinkTargets(policy.index, text, ownedPaths));
   for (const entry of policy.livingDocuments) {
     const link = relativeLink(policy.index, entry.path);
-    const rowTail = "](" + link + ") | " + entry.audience + " | " + entry.authority + " |";
-    if (!text.includes(rowTail) || !targets.has(entry.path)) {
+    const row =
+      "| [" +
+      entry.label +
+      "](" +
+      link +
+      ") | " +
+      entry.audience +
+      " | " +
+      entry.authority +
+      " |";
+    if (!text.includes(row) || !targets.has(entry.path)) {
       fail("documentation map authority row mismatch: " + entry.path);
     }
   }
@@ -1003,7 +1024,7 @@ export function validateDocumentationPolicy(policy, context) {
     ],
     "documentation policy",
   );
-  if (policy.schemaVersion !== 13 || !isRecord(context)) {
+  if (policy.schemaVersion !== 14 || !isRecord(context)) {
     fail("unsupported documentation policy schema or context");
   }
   for (const [label, file] of [
