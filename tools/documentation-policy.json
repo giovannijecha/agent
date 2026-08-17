@@ -62,6 +62,16 @@
       ]
     },
     {
+      "path": "SECURITY.md",
+      "headings": [
+        "# Security policy",
+        "## Supported versions",
+        "## Report a vulnerability",
+        "## Security scope",
+        "## Disclosure"
+      ]
+    },
+    {
       "path": "docs/ARCHITECTURE.md",
       "headings": [
         "# Architecture",

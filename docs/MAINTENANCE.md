@@ -310,8 +310,10 @@ For documentation:
 
 For publication, keep repository identity, package metadata, license, security,
 privacy, contributing guidance, brand manifest, and public descriptions
-consistent. The [contributing guide](../CONTRIBUTING.md) owns participation,
-issue intake, authorship, licensing, and the current external-code boundary.
+consistent. The [security policy](../SECURITY.md) owns supported versions,
+vulnerability intake, safe report contents, and disclosure. The
+[contributing guide](../CONTRIBUTING.md) owns participation, issue intake,
+authorship, licensing, and the current external-code boundary.
 
 Rollback restores prose, routes, policy, and ledger status together. A removed
 document must leave no registered route or dangling link.

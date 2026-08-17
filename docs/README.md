@@ -32,6 +32,7 @@ the linked owner is where the complete contract lives.
   [operator manual](manual/README.md).
 - To participate or report a problem, begin with the
   [contributing guide](../CONTRIBUTING.md).
+- To report a vulnerability, use the [security policy](../SECURITY.md).
 - To change Agent, read [AGENTS.md](../AGENTS.md), then the
   [architecture](ARCHITECTURE.md) and [engineering guide](ENGINEERING.md).
 - To operate releases or diagnose repository gates, use the

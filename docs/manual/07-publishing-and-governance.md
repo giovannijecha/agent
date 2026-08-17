@@ -73,7 +73,7 @@ publish any required security notice.
 
 - Public entry point: `README.md`
 - License terms: `LICENSE`
-- Security reporting: `SECURITY.md`
+- Security reporting: [SECURITY.md](../../SECURITY.md)
 - Privacy posture: `PRIVACY.md`
 - Contribution boundary: [CONTRIBUTING.md](../../CONTRIBUTING.md)
 - Public identity decision: `docs/decisions/0010-public-project-identity.md`

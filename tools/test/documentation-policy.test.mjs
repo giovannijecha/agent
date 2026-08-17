@@ -74,6 +74,11 @@ test("rejects canonical document structure drift", () => {
       "## Submit a change",
     ],
     [
+      "SECURITY.md",
+      "## Report a vulnerability",
+      "## Report a security problem",
+    ],
+    [
       "docs/ARCHITECTURE.md",
       "## Single-agent execution model",
       "## Product execution model",
@@ -234,6 +239,42 @@ test("routes the completed contribution workflow to its canonical owner", () => 
     ),
     true,
     "engineering workflow lost the protected-branch requirement",
+  );
+});
+
+test("routes completed vulnerability reporting to the security policy", () => {
+  const context = currentContext();
+  for (const [source, route] of [
+    ["AGENTS.md", "(SECURITY.md)"],
+    ["CONTRIBUTING.md", "(SECURITY.md)"],
+    ["docs/README.md", "(../SECURITY.md)"],
+    ["docs/MAINTENANCE.md", "(../SECURITY.md)"],
+  ]) {
+    assert.equal(
+      context.files[source].includes(route),
+      true,
+      "security-policy route is missing: " + source,
+    );
+  }
+
+  const structure = policy.documentStructures.find(
+    (entry) => entry.path === "SECURITY.md",
+  );
+  assert.deepEqual(structure?.headings, [
+    "# Security policy",
+    "## Supported versions",
+    "## Report a vulnerability",
+    "## Security scope",
+    "## Disclosure",
+  ]);
+
+  const row = context.files[policy.migrationLedger]
+    .split("\n")
+    .find((line) => line.startsWith("| Vulnerability reporting |"));
+  assert.equal(
+    row?.endsWith("| complete |"),
+    true,
+    "vulnerability-reporting migration is not complete",
   );
 });
 

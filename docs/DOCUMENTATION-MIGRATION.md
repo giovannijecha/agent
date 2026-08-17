@@ -32,7 +32,10 @@ structures against editorial drift. The contribution workflow now owns
 participation, issue intake, authorship, and licensing in `CONTRIBUTING.md`;
 its registered structure and local links are verified, while repository,
 engineering, maintenance, and publishing guidance route there without
-repeating that contract.
+repeating that contract. Vulnerability reporting now has one current owner in
+`SECURITY.md`; its structure and critical publication contracts are verified,
+maintenance routes there, and the publishing chapter retains only the
+pre-release operator action for enabling the private reporting channel.
 
 ## Content ledger
 
@@ -42,7 +45,7 @@ repeating that contract.
 | Repository-wide change constraints and routing | [Repository instructions](../AGENTS.md), [architecture](ARCHITECTURE.md), [engineering guide](ENGINEERING.md) | [Repository instructions](../AGENTS.md) | complete |
 | Contribution workflow | [Repository instructions](../AGENTS.md), [contributing guide](../CONTRIBUTING.md), [engineering guide](ENGINEERING.md), [maintenance guide](MAINTENANCE.md), [publishing chapter](manual/07-publishing-and-governance.md) | [Contributing guide](../CONTRIBUTING.md) | complete |
 | License terms | [License](../LICENSE) | [License](../LICENSE) | retained |
-| Vulnerability reporting | [Security policy](../SECURITY.md), [maintenance guide](MAINTENANCE.md) | [Security policy](../SECURITY.md) | queued |
+| Vulnerability reporting | [Security policy](../SECURITY.md), [maintenance guide](MAINTENANCE.md) | [Security policy](../SECURITY.md) | complete |
 | Privacy and memory-only secrets | [Privacy policy](../PRIVACY.md), [provider policy](PROVIDERS.md), [operator manual](manual/README.md) | [Privacy policy](../PRIVACY.md) | queued |
 | Current package and runtime architecture | [Repository instructions](../AGENTS.md), [architecture](ARCHITECTURE.md), [engineering guide](ENGINEERING.md) | [Architecture](ARCHITECTURE.md) | complete |
 | Development and verification practice | [Repository instructions](../AGENTS.md), [engineering guide](ENGINEERING.md), [maintenance guide](MAINTENANCE.md) | [Engineering guide](ENGINEERING.md) | complete |
