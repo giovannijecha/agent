@@ -333,6 +333,32 @@ test("rejects clean-room provenance contract drift", () => {
   }
 });
 
+test("rejects removal or modification of maintained provenance entries", () => {
+  const maintained = currentContext().files["docs/OWNERSHIP.md"];
+  const entries = maintained
+    .split("\n")
+    .filter((line) => /^\| [0-9]{4}-[0-9]{2}-[0-9]{2} \|/u.test(line));
+  const firstEntry = entries.at(0);
+  assert.equal(typeof firstEntry, "string");
+
+  for (const changed of [
+    maintained
+      .split("\n")
+      .filter((line) => !/^\| [0-9]{4}-[0-9]{2}-[0-9]{2} \|/u.test(line))
+      .join("\n"),
+    maintained.replace(firstEntry + "\n", ""),
+    maintained.replace(firstEntry, firstEntry + " altered"),
+  ]) {
+    const context = currentContext();
+    context.files["docs/OWNERSHIP.md"] = changed;
+    assert.notEqual(context.files["docs/OWNERSHIP.md"], maintained);
+    assert.throws(
+      () => validatePublicationPolicy(policy, context),
+      PublicationPolicyError,
+    );
+  }
+});
+
 test("rejects a missing ownership publication route", () => {
   const context = currentContext();
   const maintained = context.files[
