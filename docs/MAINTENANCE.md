@@ -283,12 +283,20 @@ the same change.
 `tools/lib/evaluation-failure-registry.mjs` for implementation; and
 `evaluations/tasks/`, `tools/evaluation-policy.json`, and
 `evaluations/failures/registry.json` for canonical inputs.
+[Decision 0047](decisions/0047-owned-reproducible-task-evaluation.md),
+[0048](decisions/0048-owned-content-free-evaluation-receipt.md), and
+[0049](decisions/0049-owned-evaluation-failure-registry.md) retain rationale.
+
+`evaluations/README.md` is corpus input: keep canonical UTF-8, LF-only text with
+a final LF, no trailing whitespace, and at most 4,096 bytes
+(`EVALUATION_LIMITS.taskBytes`).
 
 Follow the guide's atomic task-change, evidence-invalidation, rollback, and
-removal sequence. Run the focused corpus and failure-registry tests before the
-canonical verifier. Ignored run state and manual receipts are not canonical
-repository evidence; never recreate a lost receipt or carry one across a task
-revision.
+removal sequence. Roll back a task by restoring its manifest entry, brief, input
+and expected snapshots, affected evidence, documentation, and tests together.
+Run the focused corpus and failure-registry tests before the canonical verifier.
+Ignored run state and manual receipts are not canonical repository evidence;
+never recreate a lost receipt or carry one across a task revision.
 
 ### Documentation and publication
 

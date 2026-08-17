@@ -6,7 +6,7 @@
 It is an evaluation corpus, not product runtime, training data, or a claim of
 model quality. Prepared workspaces exclude expected snapshots.
 
-`list` prints the eight registered task identifiers. The corpus spans C,
+`list` prints all 8 registered task identifiers. The corpus spans C,
 documentation, JavaScript, TypeScript, and web work.
 
 ## List and prepare a run
@@ -54,17 +54,18 @@ operator may accept an alternative.
 ## Protect local state and content
 
 Runs stay in ignored `state/evaluations/`. The evaluator has no reset or delete
-command; it neither executes candidate code nor contacts a provider, and retains
-no prompts, transcripts, content, credentials, notes, or personal identifiers.
+command, executes no candidate code, contacts no provider, and retains no
+prompts, transcripts, content, credentials, notes, or personal identifiers.
 The offline verifier checks only owned inputs;
 snapshot path limits apply after the canonical task prefix is removed.
 
 ## Maintain failure evidence
 
 `failures/registry.json` holds reviewed, versioned evidence; it is not run state
-or a second evaluator. Entries contain only closed task,
-classification, priority, positive occurrence count, grade-path, lifecycle, and
-resolution fields; they exclude run IDs or metrics, prompts, responses,
+or a second evaluator. Entries contain only bounded entry and registered-task
+IDs; closed category, priority, lifecycle, and record classifications; positive
+occurrence count; content-free grade-path sets; and resolution fields. They
+exclude run IDs or metrics, prompts, responses,
 transcripts, candidate content, provider identity, timestamps, and notes.
 
 The canonical verifier validates the registry against the current task catalog
@@ -83,9 +84,9 @@ Change a task atomically: brief, snapshots, manifest, completion contract,
 evidence, docs, and tests. Validate paths, regular files, bounds, and
 reconstruction; grade offline; run focused tests. Revisions invalidate old results.
 
-Rollback restores the set. Task removal deletes its manifest entry, directory,
-evidence, docs, and tests; never move or reconstruct ignored runs or receipts.
-Framework removal follows
+Rollback restores the preceding atomic set. Task removal deletes its manifest
+entry, directory, evidence, docs, and tests; never move or reconstruct ignored
+runs or receipts. Framework removal follows
 [decision 0047](../docs/decisions/0047-owned-reproducible-task-evaluation.md).
 
 ## References
