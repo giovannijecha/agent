@@ -20,7 +20,9 @@ updating the policy in the same decision change.
 The complete ledger classifies every stable record. The current-authority view
 routes each closed domain only to accepted entry points. Every record retains
 its numeric heading plus its `Context` and `Decision`; the verifier preserves
-historical pre-0070 formats instead of normalizing them retroactively.
+historical pre-0070 formats instead of normalizing them retroactively and binds
+the normalized section bodies to the policy digest. An intentional amendment
+updates that digest in the same decision change.
 
 Create a decision only for a durable architectural, authority, security,
 provider, toolchain, product-behavior, or documentation-governance contract.
