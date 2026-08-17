@@ -323,6 +323,10 @@ test("rejects invalid current decision authority routes", () => {
       "[0069 tool interoperability](0072-owned-ollama-cloud-provider.md)",
     ],
     [
+      "[0013 single-agent execution](0013-single-agent-execution.md), [0052 checkpointed failures](0052-owned-checkpointed-turn-failure-classification.md)",
+      "[0013 single-agent execution](0013-single-agent-execution.md), unregistered authority, [0052 checkpointed failures](0052-owned-checkpointed-turn-failure-classification.md)",
+    ],
+    [
       "| architecture | [0013 single-agent execution](0013-single-agent-execution.md), [0052 checkpointed failures](0052-owned-checkpointed-turn-failure-classification.md), [0061 convergent turns](0061-owned-convergent-tool-turns.md) |\n",
       "",
     ],

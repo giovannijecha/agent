@@ -20,7 +20,8 @@ change.
 
 The complete ledger classifies every stable record. The current-authority view
 routes each closed domain only to accepted entry points and binds every visible
-decision ID to its stable record destination. Every record retains its numeric
+decision ID to its stable record destination. Each authority cell contains only
+those links and their canonical separators. Every record retains its numeric
 heading plus its `Context` and `Decision`; the verifier preserves
 historical pre-0070 formats instead of normalizing them retroactively and binds
 each historical relationship field to its exact policy value. This includes

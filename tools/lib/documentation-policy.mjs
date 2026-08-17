@@ -755,11 +755,16 @@ function validateCurrentAuthorities(policy, text, rows) {
   for (const authority of authorityRows) {
     const links = [
       ...authority.entryPoints.matchAll(/\[([^\]\r\n]+)\]\(([^)\r\n]+)\)/gu),
-    ].map((match) => ({ label: match.at(1), link: match.at(2) }));
+    ].map((match) => ({
+      source: match.at(0),
+      label: match.at(1),
+      link: match.at(2),
+    }));
     const linkTargets = links.map((entry) => entry.link);
     if (
       links.length === 0 ||
-      new Set(linkTargets).size !== linkTargets.length
+      new Set(linkTargets).size !== linkTargets.length ||
+      links.map((entry) => entry.source).join(", ") !== authority.entryPoints
     ) {
       fail("current decision authority entry points are invalid: " + authority.domain);
     }
