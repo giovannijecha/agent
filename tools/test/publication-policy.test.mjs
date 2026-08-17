@@ -406,6 +406,20 @@ test("rejects direct provider admission contract drift", () => {
   }
 });
 
+test("rejects OAuth registration status drift", () => {
+  const context = currentContext();
+  const maintained = context.files["docs/OAUTH-REGISTRATION.md"];
+  context.files["docs/OAUTH-REGISTRATION.md"] = maintained.replace(
+    "Registration state: `blocked`.",
+    "Registration state: `approved`.",
+  );
+  assert.notEqual(context.files["docs/OAUTH-REGISTRATION.md"], maintained);
+  assert.throws(
+    () => validatePublicationPolicy(policy, context),
+    PublicationPolicyError,
+  );
+});
+
 test("rejects modified license terms", () => {
   const context = currentContext();
   context.files.LICENSE = context.files.LICENSE.replace(

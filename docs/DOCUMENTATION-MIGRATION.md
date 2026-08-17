@@ -52,6 +52,11 @@ Provider registration requests now have one current owner in
 `docs/PROVIDER-APPLICATIONS.md`; its structure, request lifecycle, routes, and
 public or content-free references are verified, while the provider policy
 retains only eligibility and routes to that ledger.
+Subscription OAuth registration status now has one current owner in
+`docs/OAUTH-REGISTRATION.md`; its structure, registration conclusions, evidence
+gate, primary references, and incoming routes are verified, while the provider
+policy retains only the runtime admission consequence and routes to that
+dossier.
 
 ## Content ledger
 
@@ -70,7 +75,7 @@ retains only eligibility and routes to that ledger.
 | Clean-room provenance and inspections | [Repository instructions](../AGENTS.md), [ownership record](OWNERSHIP.md) | [Ownership record](OWNERSHIP.md) | complete |
 | Direct provider admission and operation | [Repository instructions](../AGENTS.md), [provider policy](PROVIDERS.md), [operator manual](manual/README.md) | [Provider policy](PROVIDERS.md) | complete |
 | Provider registration requests | [Provider applications](PROVIDER-APPLICATIONS.md), [provider policy](PROVIDERS.md) | [Provider applications](PROVIDER-APPLICATIONS.md) | complete |
-| OAuth registration status | [OAuth registration](OAUTH-REGISTRATION.md), [provider policy](PROVIDERS.md) | [OAuth registration](OAUTH-REGISTRATION.md) | queued |
+| OAuth registration status | [OAuth registration](OAUTH-REGISTRATION.md), [provider policy](PROVIDERS.md) | [OAuth registration](OAUTH-REGISTRATION.md) | complete |
 | Product operation | [Public README](../README.md), [operator manual](manual/README.md), [maintenance guide](MAINTENANCE.md) | [Operator manual](manual/README.md) | active |
 | Operator-manual structure and repository evidence routing | [decision 0009](decisions/0009-owned-operator-manual.md), [manual chapters](manual/README.md), [manual policy](../tools/manual-policy.json) | [decision 0071](decisions/0071-owned-task-oriented-operator-manual.md) and task-specific manual chapters | active |
 | Turn operation, runtime bounds, checkpoints, and failure recovery | [turn-lifecycle manual](manual/02-turn-lifecycle.md), [architecture](ARCHITECTURE.md), [maintenance guide](MAINTENANCE.md), [checkpoint decisions](decisions/0029-canonical-tool-call-batches.md) | [turn-lifecycle manual](manual/02-turn-lifecycle.md) for operator flow, [architecture](ARCHITECTURE.md) for current runtime contracts, [maintenance guide](MAINTENANCE.md) for change procedure, and stable decisions for rationale | complete |

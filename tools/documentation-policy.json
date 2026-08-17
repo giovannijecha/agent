@@ -119,6 +119,21 @@
       ]
     },
     {
+      "path": "docs/OAUTH-REGISTRATION.md",
+      "headings": [
+        "# OAuth client registration dossier",
+        "## Current registration status",
+        "## Public application identity",
+        "## Requested authorization model",
+        "## Data flow",
+        "## Registration requirements",
+        "## Provider submission summary",
+        "## Evidence and implementation gate",
+        "## Primary registration references",
+        "## Maintenance and removal"
+      ]
+    },
+    {
       "path": "docs/ARCHITECTURE.md",
       "headings": [
         "# Architecture",

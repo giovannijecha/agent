@@ -60,8 +60,10 @@ personal data, or confidential content unless Ollama's current terms are
 acceptable. Provider availability, pricing, retention, and data use can change
 and are outside Agent's guarantees.
 
-Subscription OAuth integrations remain blocked until the independent-client
-requirements in the [provider policy](../PROVIDERS.md) are satisfied.
+Subscription OAuth integrations remain blocked. The
+[OAuth registration dossier](../OAUTH-REGISTRATION.md) owns their current
+registration status, while the [provider policy](../PROVIDERS.md) owns runtime
+admission.
 
 ## Recover from provider failures
 
