@@ -137,3 +137,7 @@ The migration is complete when every row is `complete` or deliberately
 valid, and no policy requires repeated prose merely to prove consistency. A
 later decision may then retire this temporary ledger while preserving the
 central map, decision index, and offline validation.
+
+If later work reopens any row, the ledger status returns to `active` and the
+central map describes the active reduction as tracked in this ledger in the
+same change. Completion wording returns only when no row remains active.

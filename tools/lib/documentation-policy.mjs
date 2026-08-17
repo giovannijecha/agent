@@ -836,6 +836,14 @@ function validateMigrationLedger(policy, context, ownedPaths) {
   ) {
     fail("documentation migration status is invalid");
   }
+  const mapText = textFor(context, policy.index).replace(/\s+/gu, " ");
+  for (const [status, marker] of Object.entries(
+    policy.migrationMapStatusMarkers,
+  )) {
+    if ((status === migrationStatus) !== mapText.includes(marker)) {
+      fail("documentation map migration status mismatch");
+    }
+  }
   const topics = new Set();
   const migrationRows = [];
   const normalized = text.replaceAll("\r\n", "\n");
@@ -916,6 +924,7 @@ export function validateDocumentationPolicy(policy, context) {
       "index",
       "decisionIndex",
       "migrationLedger",
+      "migrationMapStatusMarkers",
       "repositoryInstructions",
       "prospectiveDecisionMetadataFrom",
       "prospectiveDecisionDates",
@@ -933,7 +942,7 @@ export function validateDocumentationPolicy(policy, context) {
     ],
     "documentation policy",
   );
-  if (policy.schemaVersion !== 11 || !isRecord(context)) {
+  if (policy.schemaVersion !== 12 || !isRecord(context)) {
     fail("unsupported documentation policy schema or context");
   }
   for (const [label, file] of [
@@ -943,6 +952,15 @@ export function validateDocumentationPolicy(policy, context) {
   ]) {
     assertRepositoryPath(file, label);
   }
+  exactKeys(
+    policy.migrationMapStatusMarkers,
+    ["active", "complete"],
+    "documentation migration map status markers",
+  );
+  validateUniqueStrings(
+    Object.values(policy.migrationMapStatusMarkers),
+    "documentation migration map status markers",
+  );
   if (
     !Number.isSafeInteger(policy.prospectiveDecisionMetadataFrom) ||
     policy.prospectiveDecisionMetadataFrom < 1 ||

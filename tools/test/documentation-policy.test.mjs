@@ -582,6 +582,25 @@ test("rejects malformed documentation migration table structure", () => {
   );
 });
 
+test("rejects a reopened migration with completed map wording", () => {
+  const context = currentContext();
+  context.files[policy.migrationLedger] = context.files[
+    policy.migrationLedger
+  ]
+    .replace("- Status: complete", "- Status: active")
+    .replace(
+      "| Durable design history | decision files and [decision index](decisions/README.md) | [Decision index](decisions/README.md) and stable records | complete |",
+      "| Durable design history | decision files and [decision index](decisions/README.md) | [Decision index](decisions/README.md) and stable records | active |",
+    );
+  const migrationRows = policy.migrationRows.map((row) =>
+    row.topic === "Durable design history" ? { ...row, status: "active" } : row,
+  );
+  assert.throws(
+    () => validateDocumentationPolicy({ ...policy, migrationRows }, context),
+    DocumentationPolicyError,
+  );
+});
+
 test("permits a coherently reopened documentation migration", () => {
   const context = currentContext();
   context.files[policy.migrationLedger] = context.files[
@@ -592,6 +611,10 @@ test("permits a coherently reopened documentation migration", () => {
       "| Durable design history | decision files and [decision index](decisions/README.md) | [Decision index](decisions/README.md) and stable records | complete |",
       "| Durable design history | decision files and [decision index](decisions/README.md) | [Decision index](decisions/README.md) and stable records | active |",
     );
+  context.files[policy.index] = context.files[policy.index].replace(
+    "The completed lossless\nreduction is preserved in",
+    "The active lossless\nreduction is tracked in",
+  );
   const migrationRows = policy.migrationRows.map((row) =>
     row.topic === "Durable design history" ? { ...row, status: "active" } : row,
   );

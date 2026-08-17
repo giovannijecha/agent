@@ -1,8 +1,12 @@
 {
-  "schemaVersion": 11,
+  "schemaVersion": 12,
   "index": "docs/README.md",
   "decisionIndex": "docs/decisions/README.md",
   "migrationLedger": "docs/DOCUMENTATION-MIGRATION.md",
+  "migrationMapStatusMarkers": {
+    "active": "The active lossless reduction is tracked in",
+    "complete": "The completed lossless reduction is preserved in"
+  },
   "repositoryInstructions": {
     "path": "AGENTS.md",
     "requiredHeadings": [
