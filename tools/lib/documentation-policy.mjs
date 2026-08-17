@@ -408,6 +408,22 @@ function validateDecisionRelationship(row, decisionIds) {
   return { supersedes, supersededBy };
 }
 
+function historicalReplacementReferences(value, decisionIds, decisionId, file) {
+  const match = /(?:^| by )decisions? ([0-9]{4}(?:, [0-9]{4})*(?:,? and [0-9]{4})?)$/u.exec(
+    value,
+  );
+  const references = match?.at(1);
+  if (references === undefined) {
+    fail("historical decision replacement metadata is invalid: " + file);
+  }
+  return validateDecisionReferences(
+    references,
+    decisionIds,
+    decisionId,
+    "historical replacement " + decisionId,
+  );
+}
+
 function validateDecisionRecords(policy, context, rows) {
   const decisionIds = new Set(rows.map((row) => row.id));
   const rowsById = new Map(rows.map((row) => [row.id, row]));
@@ -465,16 +481,32 @@ function validateDecisionRecords(policy, context, rows) {
       Number(row.id) < policy.prospectiveDecisionMetadataFrom &&
       recordStatusText !== undefined
     ) {
-      const recordReferences = [
-        ...recordStatusText.matchAll(/\b[0-9]{4}\b/gu),
-      ].map((match) => match.at(0));
-      if (recordReferences.length !== 0) {
+      const replacementMetadata = [];
+      if (/^superseded by decisions? /u.test(recordStatusText)) {
+        replacementMetadata.push(recordStatusText);
+      }
+      const supersessionFields = [
+        ...text.matchAll(/^- Superseded(?: by)?: ([^\r\n]+)$/gmu),
+      ].map((match) => match.at(1));
+      if (supersessionFields.length > 1) {
+        fail("historical decision replacement metadata is invalid: " + file);
+      }
+      const supersessionField = supersessionFields.at(0);
+      if (supersessionField !== undefined) {
+        replacementMetadata.push(supersessionField);
+      }
+      for (const metadata of replacementMetadata) {
         if (relationship.supersededBy.length === 0) {
           fail("historical decision replacement contradicts its ledger: " + file);
         }
         same(
           relationship.supersededBy,
-          recordReferences,
+          historicalReplacementReferences(
+            metadata,
+            decisionIds,
+            row.id,
+            file,
+          ),
           "historical decision replacement: " + row.id,
         );
       }
