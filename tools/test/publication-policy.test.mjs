@@ -195,7 +195,6 @@ test("rejects vulnerability-reporting contract drift", () => {
     "Only the latest published `0.x` release is\nsupported.",
     "Do not open a public\nissue, discussion, or pull request",
     "Private reporting must be enabled before the first public release.",
-    "Include the affected version, platform, reproducible boundary, impact",
     "Keep a report private until a fix, regression test, affected-version statement,\nand release plan exist.",
   ]) {
     const context = currentContext();
@@ -224,6 +223,30 @@ test("rejects vulnerability-reporting contract drift", () => {
       marker,
     );
   }
+});
+
+test("rejects an unsafe vulnerability reproduction", () => {
+  const context = currentContext();
+  context.files["SECURITY.md"] = context.files["SECURITY.md"].replace(
+    "Include the affected version, platform, reproducible boundary, impact, and the\nsmallest safe reproduction.",
+    "Include the affected version, platform, reproducible boundary, impact.",
+  );
+  assert.throws(
+    () => validatePublicationPolicy(policy, context),
+    PublicationPolicyError,
+  );
+});
+
+test("rejects an unsanitized vulnerability report", () => {
+  const context = currentContext();
+  context.files["SECURITY.md"] = context.files["SECURITY.md"].replace(
+    "Replace all secrets and personal content with inert\nsentinels.",
+    "Include live secrets and personal content.",
+  );
+  assert.throws(
+    () => validatePublicationPolicy(policy, context),
+    PublicationPolicyError,
+  );
 });
 
 test("rejects modified license terms", () => {
