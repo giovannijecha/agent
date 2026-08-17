@@ -28,7 +28,11 @@ details remain in their registered living documents and stable decisions. The
 offline documentation policy verifies those headings and routes. Current
 architecture, change evidence, and operational procedure now have separate
 canonical owners, and the policy gate locks their level-one and level-two
-structures against editorial drift.
+structures against editorial drift. The contribution workflow now owns
+participation, issue intake, authorship, and licensing in `CONTRIBUTING.md`;
+its registered structure and local links are verified, while repository,
+engineering, maintenance, and publishing guidance route there without
+repeating that contract.
 
 ## Content ledger
 
@@ -36,7 +40,7 @@ structures against editorial drift.
 | --- | --- | --- | --- |
 | Public purpose, identity, installation, and first run | [Public README](../README.md), [brand guide](BRAND.md) | [Public README](../README.md) | active |
 | Repository-wide change constraints and routing | [Repository instructions](../AGENTS.md), [architecture](ARCHITECTURE.md), [engineering guide](ENGINEERING.md) | [Repository instructions](../AGENTS.md) | complete |
-| Contribution workflow | [Contributing guide](../CONTRIBUTING.md), [engineering guide](ENGINEERING.md) | [Contributing guide](../CONTRIBUTING.md) | queued |
+| Contribution workflow | [Repository instructions](../AGENTS.md), [contributing guide](../CONTRIBUTING.md), [engineering guide](ENGINEERING.md), [maintenance guide](MAINTENANCE.md), [publishing chapter](manual/07-publishing-and-governance.md) | [Contributing guide](../CONTRIBUTING.md) | complete |
 | License terms | [License](../LICENSE) | [License](../LICENSE) | retained |
 | Vulnerability reporting | [Security policy](../SECURITY.md), [maintenance guide](MAINTENANCE.md) | [Security policy](../SECURITY.md) | queued |
 | Privacy and memory-only secrets | [Privacy policy](../PRIVACY.md), [provider policy](PROVIDERS.md), [operator manual](manual/README.md) | [Privacy policy](../PRIVACY.md) | queued |

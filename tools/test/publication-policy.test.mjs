@@ -144,6 +144,40 @@ test("rejects public README entry-point drift", () => {
   }
 });
 
+test("rejects contribution workflow drift", () => {
+  for (const marker of [
+    "(AGENTS.md)",
+    "(SECURITY.md)",
+    "(docs/ENGINEERING.md)",
+    "(docs/MAINTENANCE.md)",
+    "(docs/OWNERSHIP.md)",
+    "External code pull\nrequests are not accepted",
+    "Apache License 2.0",
+  ]) {
+    const context = currentContext();
+    context.files["CONTRIBUTING.md"] = context.files["CONTRIBUTING.md"].replaceAll(
+      marker,
+      "removed contribution contract",
+    );
+    assert.throws(
+      () => validatePublicationPolicy(policy, context),
+      PublicationPolicyError,
+      marker,
+    );
+  }
+
+  const manualRoute = currentContext();
+  manualRoute.files["docs/manual/07-publishing-and-governance.md"] =
+    manualRoute.files["docs/manual/07-publishing-and-governance.md"].replaceAll(
+      "(../../CONTRIBUTING.md)",
+      "(missing-contribution-policy.md)",
+    );
+  assert.throws(
+    () => validatePublicationPolicy(policy, manualRoute),
+    PublicationPolicyError,
+  );
+});
+
 test("rejects modified license terms", () => {
   const context = currentContext();
   context.files.LICENSE = context.files.LICENSE.replace(

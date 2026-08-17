@@ -198,6 +198,7 @@ function validatePublicDocuments(context) {
     textFor(context, "docs/manual/07-publishing-and-governance.md"),
     [
       "# 07 - Publishing and governance",
+      "(../../CONTRIBUTING.md)",
       "The product is single-agent",
       "Current runtime remains sequential",
     ],
@@ -261,7 +262,13 @@ function validatePublicDocuments(context) {
     textFor(context, "CONTRIBUTING.md"),
     [
       "# Contributing to agent",
+      "(AGENTS.md)",
+      "(SECURITY.md)",
+      "(docs/ENGINEERING.md)",
+      "(docs/MAINTENANCE.md)",
+      "(docs/OWNERSHIP.md)",
       "External code pull\nrequests are not accepted",
+      "Apache License 2.0",
       "automated tool signatures",
     ],
     "contribution policy",
