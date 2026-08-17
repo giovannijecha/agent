@@ -489,7 +489,10 @@ test("enforces task, snapshot, and path bounds", () => {
   const oversizedGuide = canonicalContext();
   oversizedGuide.files.set(
     "README.md",
-    Buffer.alloc(EVALUATION_LIMITS.taskBytes + 1, 65),
+    Buffer.concat([
+      Buffer.alloc(EVALUATION_LIMITS.taskBytes, 65),
+      Buffer.from("\n"),
+    ]),
   );
   assert.throws(
     () => validateEvaluationSuite(policy, oversizedGuide),
