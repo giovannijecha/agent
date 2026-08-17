@@ -482,14 +482,14 @@ function validateDecisionRecords(policy, context, rows) {
   const rowsById = new Map(rows.map((row) => [row.id, row]));
   const relationships = new Map();
   const decisionSections = [];
-  const historicalSupersedesFields = new Set(
-    policy.historicalDecisionRelationshipFields.supersedes,
+  const historicalSupersedesFields = new Map(
+    Object.entries(policy.historicalDecisionRelationshipFields.supersedes),
   );
   const historicalSupersededByFields = new Set(
     policy.historicalDecisionRelationshipFields.supersededBy,
   );
   for (const id of new Set([
-    ...historicalSupersedesFields,
+    ...historicalSupersedesFields.keys(),
     ...historicalSupersededByFields,
   ])) {
     if (!rowsById.has(id)) {
@@ -602,22 +602,27 @@ function validateDecisionRecords(policy, context, rows) {
         fail("historical decision supersedes metadata is invalid: " + file);
       }
       const supersedesField = supersedesFields.at(0);
-      const directSupersedesField =
-        supersedesField !== undefined &&
-        /^decisions? /u.test(supersedesField)
-          ? supersedesField
-          : undefined;
+      const expectedSupersedesField = historicalSupersedesFields.get(row.id);
       if (
-        historicalSupersedesFields.has(row.id) !==
-        (directSupersedesField !== undefined)
+        (expectedSupersedesField !== undefined) !==
+        (supersedesField !== undefined)
       ) {
         fail("historical supersedes field inventory mismatch: " + file);
       }
-      if (directSupersedesField !== undefined) {
+      if (
+        supersedesField !== undefined &&
+        supersedesField !== expectedSupersedesField
+      ) {
+        fail("historical supersedes field value mismatch: " + file);
+      }
+      if (
+        supersedesField !== undefined &&
+        relationship.supersedes.length !== 0
+      ) {
         same(
           relationship.supersedes,
           historicalReplacementReferences(
-            directSupersedesField,
+            supersedesField,
             decisionIds,
             row.id,
             file,
@@ -827,15 +832,38 @@ function validateMigrationLedger(policy, context, ownedPaths) {
   }
   const topics = new Set();
   const migrationRows = [];
-  const rows = [
-    ...text.matchAll(
-      /^\| ([^|\r\n]+) \| ([^|\r\n]+) \| ([^|\r\n]+) \| ([a-z]+) \|$/gmu,
-    ),
-  ];
-  if (rows.length === 0) {
-    fail("documentation migration ledger is empty");
+  const normalized = text.replaceAll("\r\n", "\n");
+  const marker = "\n## Content ledger\n";
+  const start = normalized.indexOf(marker);
+  const bodyStart = start + marker.length;
+  const end = normalized.indexOf("\n## ", bodyStart);
+  if (
+    start < 0 ||
+    end < 0 ||
+    normalized.indexOf(marker, bodyStart) >= 0
+  ) {
+    fail("documentation migration content ledger section is missing");
   }
-  for (const row of rows) {
+  const lines = normalized.slice(bodyStart, end).split("\n");
+  same(
+    lines.slice(0, 3),
+    [
+      "",
+      "| Topic | Current sources | Canonical owner | Status |",
+      "| --- | --- | --- | --- |",
+    ],
+    "documentation migration content ledger header",
+  );
+  if (lines.at(-1) !== "") {
+    fail("documentation migration content ledger table is malformed");
+  }
+  const expression =
+    /^\| ([^|\r\n]+) \| ([^|\r\n]+) \| ([^|\r\n]+) \| ([a-z]+) \|$/u;
+  for (const line of lines.slice(3, -1)) {
+    const row = expression.exec(line);
+    if (row === null) {
+      fail("documentation migration content ledger row is malformed");
+    }
     const topic = row.at(1)?.trim();
     const currentSources = row.at(2)?.trim();
     const canonicalOwner = row.at(3)?.trim();
@@ -898,7 +926,7 @@ export function validateDocumentationPolicy(policy, context) {
     ],
     "documentation policy",
   );
-  if (policy.schemaVersion !== 9 || !isRecord(context)) {
+  if (policy.schemaVersion !== 10 || !isRecord(context)) {
     fail("unsupported documentation policy schema or context");
   }
   for (const [label, file] of [
@@ -920,22 +948,38 @@ export function validateDocumentationPolicy(policy, context) {
     ["supersedes", "supersededBy"],
     "historical decision relationship fields",
   );
-  for (const [direction, decisionIds] of Object.entries(
-    policy.historicalDecisionRelationshipFields,
-  )) {
-    validateUniqueStrings(
-      decisionIds,
-      "historical decision relationship fields: " + direction,
-    );
+  const historicalSupersedes =
+    policy.historicalDecisionRelationshipFields.supersedes;
+  if (
+    !isRecord(historicalSupersedes) ||
+    Object.keys(historicalSupersedes).length === 0
+  ) {
+    fail("historical supersedes fields must be a nonempty object");
+  }
+  for (const [id, value] of Object.entries(historicalSupersedes)) {
     if (
-      decisionIds.some(
-        (id) =>
-          !/^[0-9]{4}$/u.test(id) ||
-          Number(id) >= policy.prospectiveDecisionMetadataFrom,
-      )
+      !/^[0-9]{4}$/u.test(id) ||
+      Number(id) >= policy.prospectiveDecisionMetadataFrom ||
+      typeof value !== "string" ||
+      value.length === 0
     ) {
       fail("historical decision relationship field identifier is invalid");
     }
+  }
+  const historicalSupersededBy =
+    policy.historicalDecisionRelationshipFields.supersededBy;
+  validateUniqueStrings(
+    historicalSupersededBy,
+    "historical decision relationship fields: supersededBy",
+  );
+  if (
+    historicalSupersededBy.some(
+      (id) =>
+        !/^[0-9]{4}$/u.test(id) ||
+        Number(id) >= policy.prospectiveDecisionMetadataFrom,
+    )
+  ) {
+    fail("historical decision relationship field identifier is invalid");
   }
   exactKeys(
     policy.decisionSectionDigest,

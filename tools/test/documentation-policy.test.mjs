@@ -268,10 +268,10 @@ test("rejects unregistered historical relationship field owners", () => {
           ...policy,
           historicalDecisionRelationshipFields: {
             ...policy.historicalDecisionRelationshipFields,
-            supersedes: [
+            supersedes: {
               ...policy.historicalDecisionRelationshipFields.supersedes,
-              "0000",
-            ],
+              "0000": "decision 0001",
+            },
           },
         },
         currentContext(),
@@ -392,6 +392,11 @@ test("rejects historical supersession metadata drift", () => {
       "docs/decisions/0067-owned-opencode-provider-selection.md",
       "- Superseded by: decision 0072",
       "- Superseded by: decision 0071",
+    ],
+    [
+      "docs/decisions/0068-owned-ephemeral-provider-and-model-selection.md",
+      "- Supersedes: the startup credential and fixed-model selection parts of decision 0067",
+      "- Supersedes: the startup credential and fixed-model selection parts of decision 0066",
     ],
   ]) {
     const context = currentContext();
@@ -523,6 +528,20 @@ test("rejects incomplete documentation migration state", () => {
       DocumentationPolicyError,
     );
   }
+});
+
+test("rejects malformed documentation migration table structure", () => {
+  const context = currentContext();
+  context.files[policy.migrationLedger] = context.files[
+    policy.migrationLedger
+  ].replace(
+    "| Topic | Current sources | Canonical owner | Status |\n| --- | --- | --- | --- |\n",
+    "",
+  );
+  assert.throws(
+    () => validateDocumentationPolicy(policy, context),
+    DocumentationPolicyError,
+  );
 });
 
 test("permits a coherently reopened documentation migration", () => {
