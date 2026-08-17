@@ -593,6 +593,7 @@ test("routes completed evaluation operation to the evaluation guide", () => {
     );
   }
   for (const owner of [
+    "[evaluation guide](../evaluations/README.md)",
     "`tools/evaluate.mjs`",
     "`tools/lib/evaluation-suite.mjs`",
     "`tools/lib/evaluation-failure-registry.mjs`",
