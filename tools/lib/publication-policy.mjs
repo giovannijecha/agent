@@ -287,7 +287,14 @@ function validatePublicDocuments(context) {
   );
   requireMarkers(
     textFor(context, "assets/brand/README.md"),
-    ["# Brand assets", "visual wordmark only", "manifest.json"],
+    [
+      "# Brand assets",
+      "visual wordmark only",
+      "manifest.json",
+      "Do not silently convert, redraw,\nrecolor, crop, decorate, or add missing variants.",
+      "The canonical verifier rejects unregistered\nfiles, byte drift, unsafe SVG content, and dimension drift.",
+      "(../../docs/BRAND.md)",
+    ],
     "brand asset registry",
   );
   requireMarkers(
@@ -297,6 +304,14 @@ function validatePublicDocuments(context) {
       "The canonical product identity is `agent`.",
       "visual signature",
       "(../README.md)",
+      "The canonical palette is black, white, and `#0B0D10`.",
+      "`assets/brand/manifest.json` is the machine-verified source of truth",
+      "Never regenerate one format\nfrom another during a build.",
+      "Do not add a persistent brand banner, welcome screen, dashboard, or decorative\n  header to the terminal interface.",
+      "Keep brand assets outside `@agent/tui`",
+      "(OWNERSHIP.md)",
+      "Brand assets are never silently optimized, reformatted, or normalized.",
+      "Retiring the complete\nbrand system additionally requires an accepted identity decision",
     ],
     "brand contract",
   );

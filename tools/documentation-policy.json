@@ -66,6 +66,17 @@
       ]
     },
     {
+      "path": "docs/BRAND.md",
+      "headings": [
+        "# Brand system",
+        "## Identity",
+        "## Asset registry",
+        "## Usage rules",
+        "## Updating the system",
+        "## Removal"
+      ]
+    },
+    {
       "path": "CONTRIBUTING.md",
       "headings": [
         "# Contributing to agent",

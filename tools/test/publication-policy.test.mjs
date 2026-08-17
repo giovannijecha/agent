@@ -151,6 +151,53 @@ test("rejects public README entry-point drift", () => {
   }
 });
 
+test("rejects brand documentation contract drift", () => {
+  const cases = [
+    ["docs/BRAND.md", "The canonical palette is black, white, and `#0B0D10`."],
+    [
+      "docs/BRAND.md",
+      "`assets/brand/manifest.json` is the machine-verified source of truth",
+    ],
+    ["docs/BRAND.md", "Never regenerate one format\nfrom another during a build."],
+    [
+      "docs/BRAND.md",
+      "Do not add a persistent brand banner, welcome screen, dashboard, or decorative\n  header to the terminal interface.",
+    ],
+    ["docs/BRAND.md", "Keep brand assets outside `@agent/tui`"],
+    ["docs/BRAND.md", "(OWNERSHIP.md)"],
+    [
+      "docs/BRAND.md",
+      "Brand assets are never silently optimized, reformatted, or normalized.",
+    ],
+    [
+      "docs/BRAND.md",
+      "Retiring the complete\nbrand system additionally requires an accepted identity decision",
+    ],
+    [
+      "assets/brand/README.md",
+      "Do not silently convert, redraw,\nrecolor, crop, decorate, or add missing variants.",
+    ],
+    [
+      "assets/brand/README.md",
+      "The canonical verifier rejects unregistered\nfiles, byte drift, unsafe SVG content, and dimension drift.",
+    ],
+    ["assets/brand/README.md", "(../../docs/BRAND.md)"],
+  ];
+
+  for (const [file, marker] of cases) {
+    const context = currentContext();
+    context.files[file] = context.files[file].replace(
+      marker,
+      "removed brand contract",
+    );
+    assert.throws(
+      () => validatePublicationPolicy(policy, context),
+      PublicationPolicyError,
+      marker,
+    );
+  }
+});
+
 test("rejects contribution workflow drift", () => {
   for (const marker of [
     "(AGENTS.md)",

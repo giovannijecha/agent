@@ -72,6 +72,7 @@ test("accepts the canonical documentation information architecture", () => {
 test("rejects canonical document structure drift", () => {
   for (const [file, before, after] of [
     ["README.md", "## Quick start", "## Getting started"],
+    ["docs/BRAND.md", "## Asset registry", "## Asset inventory"],
     [
       "CONTRIBUTING.md",
       "## Prepare a maintainer change",
@@ -256,6 +257,45 @@ test("routes the completed public entry point to the public README", () => {
     row?.endsWith("| complete |"),
     true,
     "public-entry-point migration is not complete",
+  );
+});
+
+test("routes completed brand identity to the brand guide", () => {
+  const context = currentContext();
+
+  for (const [file, route] of [
+    ["README.md", "(docs/BRAND.md)"],
+    ["assets/brand/README.md", "(../../docs/BRAND.md)"],
+    ["docs/BRAND.md", "(OWNERSHIP.md)"],
+  ]) {
+    assert.equal(
+      context.files[file].includes(route),
+      true,
+      file + " does not route to the brand authority chain",
+    );
+  }
+
+  const structure = policy.documentStructures.find(
+    (entry) => entry.path === "docs/BRAND.md",
+  );
+  assert.deepEqual(structure?.headings, [
+    "# Brand system",
+    "## Identity",
+    "## Asset registry",
+    "## Usage rules",
+    "## Updating the system",
+    "## Removal",
+  ]);
+
+  const row = context.files[policy.migrationLedger]
+    .split("\n")
+    .find((line) =>
+      line.startsWith("| Brand identity and registered assets |"),
+    );
+  assert.equal(
+    row?.endsWith("| complete |"),
+    true,
+    "brand-identity migration is not complete",
   );
 });
 

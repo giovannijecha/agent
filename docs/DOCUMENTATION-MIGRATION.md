@@ -61,6 +61,11 @@ Subscription OAuth registration status now has one current owner in
 gate, primary references, and incoming routes are verified, while the provider
 policy retains only the runtime admission consequence and routes to that
 dossier.
+Brand identity and registered assets now have one current owner in
+`docs/BRAND.md`; its structure, incoming routes, identity, usage, update,
+removal, and asset-registry contracts are verified, while public and asset entry
+points retain scoped summaries and route there. Registered asset bytes and
+manifest metadata are unchanged.
 
 ## Content ledger
 
@@ -75,7 +80,7 @@ dossier.
 | Current package and runtime architecture | [Repository instructions](../AGENTS.md), [architecture](ARCHITECTURE.md), [engineering guide](ENGINEERING.md) | [Architecture](ARCHITECTURE.md) | complete |
 | Development and verification practice | [Repository instructions](../AGENTS.md), [engineering guide](ENGINEERING.md), [maintenance guide](MAINTENANCE.md) | [Engineering guide](ENGINEERING.md) | complete |
 | Maintainer diagnostics, releases, and rollback | [Engineering guide](ENGINEERING.md), [maintenance guide](MAINTENANCE.md) | [Maintenance guide](MAINTENANCE.md) | complete |
-| Brand identity and registered assets | [Public README](../README.md), [brand guide](BRAND.md), [brand assets](../assets/brand/README.md) | [Brand guide](BRAND.md) | active |
+| Brand identity and registered assets | [Public README](../README.md), [brand guide](BRAND.md), [brand assets](../assets/brand/README.md) | [Brand guide](BRAND.md) | complete |
 | Clean-room provenance and inspections | [Repository instructions](../AGENTS.md), [ownership record](OWNERSHIP.md) | [Ownership record](OWNERSHIP.md) | complete |
 | Direct provider admission and operation | [Repository instructions](../AGENTS.md), [provider policy](PROVIDERS.md), [operator manual](manual/README.md) | [Provider policy](PROVIDERS.md) | complete |
 | Provider registration requests | [Provider applications](PROVIDER-APPLICATIONS.md), [provider policy](PROVIDERS.md) | [Provider applications](PROVIDER-APPLICATIONS.md) | complete |
