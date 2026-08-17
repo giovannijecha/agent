@@ -107,6 +107,18 @@
       ]
     },
     {
+      "path": "docs/PROVIDER-APPLICATIONS.md",
+      "headings": [
+        "# Provider registration requests",
+        "## Submission rules",
+        "## ChatGPT Plus/Pro",
+        "## Claude Pro/Max",
+        "## Kimi Code",
+        "## Grok subscription",
+        "## Maintenance and removal"
+      ]
+    },
+    {
       "path": "docs/ARCHITECTURE.md",
       "headings": [
         "# Architecture",

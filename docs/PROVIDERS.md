@@ -63,11 +63,11 @@ vendor client's registration, identity, approval, or entitlement to `agent`.
 | Kimi Code | Kimi documents device OAuth for Kimi Code CLI and subscription-backed API keys for third-party development tools. | Blocked for credential-only login | Kimi Code Team confirmed in writing that no public OAuth flow is currently offered for third-party clients. The CLI identity and ACP bridge remain foreign. |
 | Grok subscription | xAI documents browser and device login for Grok Build plus headless and ACP integration, while its direct API has a separate key path. | Blocked | Grok Build and ACP are foreign executables; no public process registers `agent` for direct subscription OAuth. |
 
-All four independent-client inquiries are submitted. Kimi Code returned a
-written negative answer on 2026-08-11; the other three requests remain pending.
-Neither submission nor a negative response grants authorization. A blocked
-entry can be enabled only after all of the following are recorded in a
-replacing decision:
+The [provider request ledger](PROVIDER-APPLICATIONS.md) owns submission and
+response state for the four independent-client inquiries. A submission,
+silence, or negative response does not grant authorization. A blocked entry can
+be enabled only after all of the following are recorded in a replacing
+decision:
 
 1. The provider authorizes independent clients to use the subscription.
 2. The provider registers `agent` or expressly designates a reusable public
@@ -79,9 +79,10 @@ replacing decision:
 5. Offline contract tests cover cancellation, expiry, concurrency, malformed
    responses, secret leakage, rollback, and removal.
 
-Use `docs/OAUTH-REGISTRATION.md` as the provider-neutral dossier and
-`docs/PROVIDER-APPLICATIONS.md` as the four submission packets. Personal fields
-and confidential correspondence stay outside Git.
+Use the [OAuth registration dossier](OAUTH-REGISTRATION.md) for the
+provider-neutral requirements and the
+[provider request ledger](PROVIDER-APPLICATIONS.md) for the four submission
+packets. Personal fields and confidential correspondence stay outside Git.
 
 ## Machine gate
 

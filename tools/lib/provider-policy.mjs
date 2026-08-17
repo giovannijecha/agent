@@ -120,11 +120,11 @@ const PUBLIC_ATTACHMENT_URLS = [
   "https://github.com/giovannijecha/agent/blob/main/PRIVACY.md",
   "https://github.com/giovannijecha/agent/blob/main/SECURITY.md",
 ];
-const OFFICIAL_ROUTE_URLS = Object.freeze({
+const OFFICIAL_ROUTE_MARKERS = Object.freeze({
   chatgpt: "https://community.openai.com/",
   claude: "https://support.claude.com/en/articles/9015913-how-to-get-support",
-  kimi: "mailto:code@moonshot.ai",
-  grok: "mailto:support@x.ai",
+  kimi: "code@moonshot.ai",
+  grok: "support@x.ai",
 });
 const OFFICIAL_EVIDENCE_URLS = Object.freeze({
   chatgpt: [
@@ -414,7 +414,7 @@ function validateApplicationDocument(policy, text) {
     }
     requestBody(section, provider);
     const route = markdownSubsection(section, "Official route", "Subject");
-    if (!route.includes(OFFICIAL_ROUTE_URLS[provider.id])) {
+    if (!route.includes(OFFICIAL_ROUTE_MARKERS[provider.id])) {
       fail(provider.id + " request official route is incomplete");
     }
     const attachments = markdownSubsection(
