@@ -522,6 +522,17 @@ test("routes completed evaluation operation to the evaluation guide", () => {
     "owned-evaluation-operation migration is not complete",
   );
 
+  const evaluationAuthority = context.files["docs/decisions/README.md"]
+    .split("\n")
+    .find((line) => line.startsWith("| evaluation |"));
+  for (const decision of ["[0064 ", "[0065 ", "[0066 "]) {
+    assert.equal(
+      evaluationAuthority?.includes(decision),
+      true,
+      "evaluation authority omits task decision: " + decision.trim(),
+    );
+  }
+
   const maintenance = context.files["docs/MAINTENANCE.md"];
   const taskEvaluation = maintenance
     .slice(
@@ -533,10 +544,14 @@ test("routes completed evaluation operation to the evaluation guide", () => {
     "`tools/evaluate.mjs`",
     "`tools/lib/evaluation-suite.mjs`",
     "`tools/lib/evaluation-failure-registry.mjs`",
+    "`packages/agent-cli/src/evaluation-receipt.ts`",
+    "`packages/agent-cli/test/evaluation-receipt.test.ts`",
     "[Decision 0047](decisions/0047-owned-reproducible-task-evaluation.md)",
     "[0048](decisions/0048-owned-content-free-evaluation-receipt.md)",
     "[0049](decisions/0049-owned-evaluation-failure-registry.md)",
-    "at most 4,096 bytes (`EVALUATION_LIMITS.taskBytes`)",
+    "at most " + new Intl.NumberFormat("en-US").format(
+      EVALUATION_LIMITS.taskBytes,
+    ) + " bytes (`EVALUATION_LIMITS.taskBytes`)",
     "Roll back a task by restoring its manifest entry, brief, input and expected snapshots, affected evidence, documentation, and tests together.",
   ]) {
     assert.equal(

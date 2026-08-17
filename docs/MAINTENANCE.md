@@ -280,7 +280,9 @@ the same change.
 
 **Owners:** the [evaluation guide](../evaluations/README.md) for operation;
 `tools/evaluate.mjs`, `tools/lib/evaluation-suite.mjs`, and
-`tools/lib/evaluation-failure-registry.mjs` for implementation; and
+`tools/lib/evaluation-failure-registry.mjs`,
+`packages/agent-cli/src/evaluation-receipt.ts`, and
+`packages/agent-cli/test/evaluation-receipt.test.ts` for implementation; and
 `evaluations/tasks/`, `tools/evaluation-policy.json`, and
 `evaluations/failures/registry.json` for canonical inputs.
 [Decision 0047](decisions/0047-owned-reproducible-task-evaluation.md),
