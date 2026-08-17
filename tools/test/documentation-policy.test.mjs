@@ -161,6 +161,17 @@ test("rejects broken local links", () => {
   );
 });
 
+test("rejects broken local links in registered structured documents", () => {
+  const context = currentContext();
+  context.files["docs/ARCHITECTURE.md"] = context.files[
+    "docs/ARCHITECTURE.md"
+  ].replace("(PROVIDERS.md)", "(missing-provider.md)");
+  assert.throws(
+    () => validateDocumentationPolicy(policy, context),
+    DocumentationPolicyError,
+  );
+});
+
 test("rejects incomplete migration coverage", () => {
   const context = currentContext();
   context.files[policy.migrationLedger] = context.files[

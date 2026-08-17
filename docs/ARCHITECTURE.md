@@ -179,7 +179,8 @@ the product boundary only through closed content-free failure families.
 Credentials and catalog content never enter the transcript, logs, fixtures, or
 documentation.
 
-See [providers and privacy](PROVIDERS-AND-PRIVACY.md) for the public contract.
+See [providers](PROVIDERS.md) and [privacy](../PRIVACY.md) for the public
+contract.
 
 ## Terminal boundary
 
@@ -265,6 +266,6 @@ smoke path without contacting a provider or reading credentials.
 | How must a change be developed and proved? | [engineering](ENGINEERING.md) |
 | How is a subsystem updated, rolled back, or removed? | [maintenance](MAINTENANCE.md) |
 | Why was a lasting boundary accepted? | [decisions](decisions/README.md) |
-| Which provider and privacy guarantees are public? | [providers and privacy](PROVIDERS-AND-PRIVACY.md) |
+| Which provider and privacy guarantees are public? | [providers](PROVIDERS.md) and [privacy](../PRIVACY.md) |
 | Which external material was inspected? | [ownership](OWNERSHIP.md) |
-| How are maintained tasks evaluated? | [evaluation](EVALUATION.md) |
+| How are maintained tasks evaluated? | [evaluation](../evaluations/README.md) |

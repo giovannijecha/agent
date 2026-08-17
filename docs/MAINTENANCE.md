@@ -224,8 +224,8 @@ Delete its export, tests, documentation, and renderer branches together.
 ### Ollama Cloud
 
 **Owners:** `@agent/provider-ollama-cloud`, CLI HTTPS transport and catalog
-transport, `tools/provider-policy.json`, decision 0072, and
-[providers and privacy](PROVIDERS-AND-PRIVACY.md).
+transport, `tools/provider-policy.json`, decision 0072,
+[providers](PROVIDERS.md), and [privacy](../PRIVACY.md).
 
 For an adapter or transport change:
 
