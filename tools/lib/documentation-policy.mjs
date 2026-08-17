@@ -581,6 +581,27 @@ function validateCurrentAuthorities(policy, text, rows) {
   }
 }
 
+function expectedDecisionDomains(policy) {
+  exactKeys(
+    policy.decisionDomainMembers,
+    policy.decisionDomains,
+    "decision domain members",
+  );
+  const domainsById = new Map();
+  for (const [domain, decisionIds] of Object.entries(
+    policy.decisionDomainMembers,
+  )) {
+    validateUniqueStrings(decisionIds, "decision domain members: " + domain);
+    for (const id of decisionIds) {
+      if (!/^[0-9]{4}$/u.test(id) || domainsById.has(id)) {
+        fail("decision domain member is invalid: " + domain);
+      }
+      domainsById.set(id, domain);
+    }
+  }
+  return domainsById;
+}
+
 function validateDecisionIndex(policy, context, ownedPaths) {
   const text = textFor(context, policy.decisionIndex);
   if (!text.startsWith("# Architecture decision records\n")) {
@@ -594,6 +615,7 @@ function validateDecisionIndex(policy, context, ownedPaths) {
   }
   const actualPaths = [];
   const ids = new Set();
+  const domainsById = expectedDecisionDomains(policy);
   for (const row of rows) {
     const resolved = resolveLocalLink(policy.decisionIndex, row.link);
     if (
@@ -601,7 +623,8 @@ function validateDecisionIndex(policy, context, ownedPaths) {
       row.id !== path.posix.basename(resolved).slice(0, 4) ||
       ids.has(row.id) ||
       !policy.decisionStatuses.includes(row.status) ||
-      !policy.decisionDomains.includes(row.domain)
+      !policy.decisionDomains.includes(row.domain) ||
+      domainsById.get(row.id) !== row.domain
     ) {
       fail("decision ledger classification or identity mismatch");
     }
@@ -609,6 +632,11 @@ function validateDecisionIndex(policy, context, ownedPaths) {
     actualPaths.push(resolved);
   }
   same(actualPaths, expected, "complete decision ledger");
+  same(
+    [...domainsById.keys()].sort(),
+    [...ids].sort(),
+    "complete decision domain membership",
+  );
   const relationships = validateDecisionRecords(policy, context, rows);
   validateCurrentAuthorities(policy, text, rows);
   validateProspectiveMetadata(policy, context, rows, relationships);
@@ -635,6 +663,7 @@ function validateMigrationLedger(policy, context, ownedPaths) {
     fail("documentation migration status is invalid");
   }
   const topics = new Set();
+  const migrationRows = [];
   const rows = [
     ...text.matchAll(
       /^\| ([^|\r\n]+) \| ([^|\r\n]+) \| ([^|\r\n]+) \| ([a-z]+) \|$/gmu,
@@ -645,19 +674,26 @@ function validateMigrationLedger(policy, context, ownedPaths) {
   }
   for (const row of rows) {
     const topic = row.at(1)?.trim();
+    const currentSources = row.at(2)?.trim();
+    const canonicalOwner = row.at(3)?.trim();
     const status = row.at(4);
     if (
       topic === undefined ||
       topic.length === 0 ||
+      currentSources === undefined ||
+      currentSources.length === 0 ||
+      canonicalOwner === undefined ||
+      canonicalOwner.length === 0 ||
       topics.has(topic) ||
       (status !== "active" && status !== "complete" && status !== "retained")
     ) {
       fail("documentation migration ledger row is incomplete");
     }
     topics.add(topic);
+    migrationRows.push({ topic, currentSources, canonicalOwner, status });
   }
-  same([...topics], policy.migrationTopics, "documentation migration topics");
-  const hasActiveRow = rows.some((row) => row.at(4) === "active");
+  same(migrationRows, policy.migrationRows, "documentation migration rows");
+  const hasActiveRow = migrationRows.some((row) => row.status === "active");
   if (
     (migrationStatus === "complete" && hasActiveRow) ||
     (migrationStatus === "active" && !hasActiveRow)
@@ -686,8 +722,9 @@ export function validateDocumentationPolicy(policy, context) {
       "repositoryInstructions",
       "prospectiveDecisionMetadataFrom",
       "historicalDecisionStatusExceptions",
+      "decisionDomainMembers",
       "currentDecisionAuthorities",
-      "migrationTopics",
+      "migrationRows",
       "decisionStatuses",
       "decisionDomains",
       "documentStructures",
@@ -695,7 +732,7 @@ export function validateDocumentationPolicy(policy, context) {
     ],
     "documentation policy",
   );
-  if (policy.schemaVersion !== 5 || !isRecord(context)) {
+  if (policy.schemaVersion !== 6 || !isRecord(context)) {
     fail("unsupported documentation policy schema or context");
   }
   for (const [label, file] of [
@@ -727,7 +764,29 @@ export function validateDocumentationPolicy(policy, context) {
       fail("current decision authority identifier is invalid: " + domain);
     }
   }
-  validateUniqueStrings(policy.migrationTopics, "documentation migration topics");
+  if (!Array.isArray(policy.migrationRows) || policy.migrationRows.length === 0) {
+    fail("documentation migration rows must be a nonempty array");
+  }
+  for (const row of policy.migrationRows) {
+    exactKeys(
+      row,
+      ["topic", "currentSources", "canonicalOwner", "status"],
+      "documentation migration row",
+    );
+    if (
+      typeof row.topic !== "string" ||
+      row.topic.length === 0 ||
+      typeof row.currentSources !== "string" ||
+      row.currentSources.length === 0 ||
+      typeof row.canonicalOwner !== "string" ||
+      row.canonicalOwner.length === 0 ||
+      (row.status !== "active" &&
+        row.status !== "complete" &&
+        row.status !== "retained")
+    ) {
+      fail("documentation migration row is invalid");
+    }
+  }
   if (!Array.isArray(context.ownedPaths)) {
     fail("owned path inventory is missing");
   }
