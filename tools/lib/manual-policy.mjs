@@ -4,14 +4,6 @@ const INDEX_PATH = "docs/manual/README.md";
 const COMMAND_SOURCE = "packages/agent-cli/src/commands.ts";
 const TOOL_SOURCE = "packages/agent-cli/src/builtin-tools.ts";
 const PRODUCT_SOURCE = /^packages\/[a-z0-9-]+\/src\/[a-z0-9-]+\.ts$/u;
-const CHAPTER_SECTIONS = Object.freeze([
-  "Purpose",
-  "Operator workflow",
-  "Guarantees and limits",
-  "Failure behavior",
-  "Maintenance and removal",
-  "Evidence",
-]);
 
 export class ManualPolicyError extends Error {
   constructor(message) {
@@ -90,6 +82,24 @@ function stringList(value, label, pattern) {
   }
   unique(value, label);
   same(value, sorted(value), label + " order");
+  return value;
+}
+
+function sectionList(value) {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 16) {
+    fail("manual chapter sections must be a bounded non-empty array");
+  }
+  for (const section of value) {
+    if (
+      typeof section !== "string" ||
+      section.length === 0 ||
+      section.length > 80 ||
+      /[\r\n\u0000-\u001f\u007f]/u.test(section)
+    ) {
+      fail("manual chapter section is invalid");
+    }
+  }
+  unique(value, "manual chapter sections");
   return value;
 }
 
@@ -241,7 +251,7 @@ function verifyRemovalSchemaGuidance(policy, context) {
 }
 
 function verifyChapter(chapter, index, context) {
-  exactKeys(chapter, ["path", "title"], "manual chapter");
+  exactKeys(chapter, ["path", "sections", "title"], "manual chapter");
   const expectedPrefix = String(index).padStart(2, "0");
   if (
     typeof chapter.path !== "string" ||
@@ -266,7 +276,7 @@ function verifyChapter(chapter, index, context) {
   const headings = [...text.matchAll(/^## ([^\r\n]+)$/gmu)].map(
     (match) => match.at(1),
   );
-  same(headings, CHAPTER_SECTIONS, "manual chapter section order");
+  same(headings, sectionList(chapter.sections), "manual chapter section order");
   return text;
 }
 
@@ -331,11 +341,11 @@ export function validateManualPolicy(policy, context) {
       "chapters",
       "commands",
       "toolSurface",
-      "requiredPaths",
+      "referencePaths",
     ],
     "manual policy",
   );
-  if (policy.schemaVersion !== 9 || policy.index !== INDEX_PATH) {
+  if (policy.schemaVersion !== 10 || policy.index !== INDEX_PATH) {
     fail("unsupported manual policy schema or index");
   }
   if (!isRecord(context) || !Array.isArray(context.manualPaths) || !Array.isArray(context.ownedPaths)) {
@@ -369,23 +379,17 @@ export function validateManualPolicy(policy, context) {
   );
   verifyToolConvergence(tools, context);
 
-  if (!Array.isArray(policy.requiredPaths) || policy.requiredPaths.length === 0) {
-    fail("manual evidence paths must be a non-empty array");
+  if (!Array.isArray(policy.referencePaths) || policy.referencePaths.length === 0) {
+    fail("manual reference paths must be a non-empty array");
   }
-  for (const requiredPath of policy.requiredPaths) {
-    ownedPath(requiredPath, "manual evidence path");
+  for (const referencePath of policy.referencePaths) {
+    ownedPath(referencePath, "manual reference path");
   }
-  unique(policy.requiredPaths, "manual evidence paths");
+  unique(policy.referencePaths, "manual reference paths");
   const owned = new Set(context.ownedPaths);
-  const evidence = chapterTexts
-    .map((text) => text.slice(text.indexOf("## Evidence\n")))
-    .join("\n");
-  for (const requiredPath of policy.requiredPaths) {
-    if (!owned.has(requiredPath)) {
-      fail("manual evidence path does not exist");
-    }
-    if (!evidence.includes("`" + requiredPath + "`")) {
-      fail("manual evidence path is not cited");
+  for (const referencePath of policy.referencePaths) {
+    if (!owned.has(referencePath)) {
+      fail("manual reference path does not exist");
     }
   }
 

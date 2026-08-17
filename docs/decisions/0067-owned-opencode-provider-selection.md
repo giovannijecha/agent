@@ -1,9 +1,10 @@
 # 0067: Owned OpenCode provider selection
 
-- Status: accepted
+- Status: superseded
 - Date: 2026-08-16
 - Amends: decisions 0017, 0018, 0029, and 0061
 - Amended by: decision 0068
+- Superseded by: decision 0072
 
 Decision 0068 supersedes the fixed-model and automatic initial-selection
 clauses below with exact public catalog intersection, owned per-provider model

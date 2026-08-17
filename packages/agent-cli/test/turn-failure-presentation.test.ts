@@ -65,7 +65,7 @@ test("explains a classified provider-open failure without exposing its identity"
     {
       error: Object.freeze({
         cleanupFailed: false,
-        kind: "openCodeGo" as const,
+        kind: "ollamaCloud" as const,
         operation: "open" as const,
         reason: "status" as const,
       }),
@@ -79,7 +79,7 @@ test("explains a classified provider-open failure without exposing its identity"
     projected.notice,
     "The turn failed (model/open/rejected); the provider did not open a usable response stream; no tools ran and no conversation changes were committed.",
   );
-  assert.equal(projected.notice.includes("OpenCode Go"), false);
+  assert.equal(projected.notice.includes("Ollama Cloud"), false);
   assert.equal(projected.notice.includes("status"), false);
 });
 
@@ -88,7 +88,7 @@ test("retains completed tool truth in a classified continuation failure", () => 
     {
       error: Object.freeze({
         cleanupFailed: false,
-        kind: "openCodeZen" as const,
+        kind: "ollamaCloud" as const,
         operation: "open" as const,
         reason: "transportTimeout" as const,
       }),

@@ -14,8 +14,7 @@
     "packages/agent-core",
     "packages/agent-tools",
     "packages/agent-runtime",
-    "packages/agent-provider-opencode-go",
-    "packages/agent-provider-opencode-zen",
+    "packages/agent-provider-ollama-cloud",
     "packages/agent-tui",
     "packages/agent-cli"
   ],

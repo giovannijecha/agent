@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 2,
+  "index": "docs/README.md",
+  "decisionIndex": "docs/decisions/README.md",
+  "migrationLedger": "docs/DOCUMENTATION-MIGRATION.md",
+  "repositoryInstructions": {
+    "path": "AGENTS.md",
+    "requiredHeadings": [
+      "# Agent project",
+      "## Mission",
+      "## Read by task",
+      "## Repository invariants",
+      "## Change discipline",
+      "## Canonical commands",
+      "## Scope boundaries"
+    ],
+    "requiredRoutes": [
+      "docs/README.md",
+      "docs/ARCHITECTURE.md",
+      "docs/ENGINEERING.md",
+      "docs/MAINTENANCE.md",
+      "docs/manual/README.md",
+      "docs/PROVIDERS.md",
+      "PRIVACY.md",
+      "docs/decisions/0072-owned-ollama-cloud-provider.md",
+      "SECURITY.md",
+      "docs/OWNERSHIP.md",
+      "docs/BRAND.md",
+      "evaluations/README.md",
+      "docs/decisions/README.md",
+      "docs/decisions/0070-owned-documentation-information-architecture.md",
+      "docs/DOCUMENTATION-MIGRATION.md",
+      "CONTRIBUTING.md"
+    ]
+  },
+  "prospectiveDecisionMetadataFrom": 70,
+  "decisionStatuses": [
+    "accepted",
+    "superseded"
+  ],
+  "decisionDomains": [
+    "architecture",
+    "documentation",
+    "engineering",
+    "evaluation",
+    "foundation",
+    "governance",
+    "providers",
+    "security",
+    "terminal",
+    "tools"
+  ],
+  "livingDocuments": [
+    {
+      "path": "README.md",
+      "audience": "public users",
+      "authority": "public product introduction"
+    },
+    {
+      "path": "AGENTS.md",
+      "audience": "contributors and coding agents",
+      "authority": "repository change contract"
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "audience": "contributors",
+      "authority": "contribution workflow"
+    },
+    {
+      "path": "LICENSE",
+      "audience": "users and contributors",
+      "authority": "license terms"
+    },
+    {
+      "path": "SECURITY.md",
+      "audience": "users and reporters",
+      "authority": "vulnerability reporting policy"
+    },
+    {
+      "path": "PRIVACY.md",
+      "audience": "users and operators",
+      "authority": "privacy contract"
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "audience": "maintainers and contributors",
+      "authority": "current product architecture"
+    },
+    {
+      "path": "docs/ENGINEERING.md",
+      "audience": "contributors",
+      "authority": "development and verification practice"
+    },
+    {
+      "path": "docs/MAINTENANCE.md",
+      "audience": "maintainers",
+      "authority": "operational maintenance runbooks"
+    },
+    {
+      "path": "docs/BRAND.md",
+      "audience": "maintainers and contributors",
+      "authority": "public identity and presentation contract"
+    },
+    {
+      "path": "docs/OWNERSHIP.md",
+      "audience": "maintainers and auditors",
+      "authority": "clean-room ownership evidence"
+    },
+    {
+      "path": "docs/PROVIDERS.md",
+      "audience": "maintainers and integrators",
+      "authority": "admitted provider architecture"
+    },
+    {
+      "path": "docs/PROVIDER-APPLICATIONS.md",
+      "audience": "maintainers",
+      "authority": "provider registration request ledger"
+    },
+    {
+      "path": "docs/OAUTH-REGISTRATION.md",
+      "audience": "maintainers",
+      "authority": "subscription adapter registration status"
+    },
+    {
+      "path": "docs/manual/README.md",
+      "audience": "operators",
+      "authority": "task-oriented product operation"
+    },
+    {
+      "path": "evaluations/README.md",
+      "audience": "maintainers",
+      "authority": "owned task-evaluation operation"
+    },
+    {
+      "path": "assets/brand/README.md",
+      "audience": "maintainers and distributors",
+      "authority": "canonical asset usage"
+    }
+  ]
+}

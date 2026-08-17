@@ -6,10 +6,16 @@
 - Amended: 2026-08-16 by decision 0067 for two independent provider prompts
 - Amended: 2026-08-16 by decision 0068 for immediate TUI startup and
   process-only in-application credential selection
+- Amended: 2026-08-16 by decision 0072 for the sole Ollama Cloud credential
 
 Decision 0068 supersedes the pre-TUI credential prompts below. Environment
 variables may preload credentials, while `/providers` owns interactive entry
 and no provider or model is selected automatically.
+
+Decision 0072 replaces both historical OpenCode credential variables with the
+single `AGENT_OLLAMA_API_KEY` input. The provider-specific prompt behavior below
+is retained only as historical context; interactive entry remains inside the
+TUI.
 
 ## Context
 

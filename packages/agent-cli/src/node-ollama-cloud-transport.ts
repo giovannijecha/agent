@@ -7,25 +7,25 @@ import {
 
 import { err, ok, type Result } from "@agent/core";
 import {
-  OPENCODE_GO_LIMITS,
-  type OpenCodeGoTransport,
-  type OpenCodeGoTransportError,
-  type OpenCodeGoTransportErrorKind,
-  type OpenCodeGoTransportRequest,
-  type OpenCodeGoTransportStream,
-} from "@agent/provider-opencode-go";
+  OLLAMA_CLOUD_LIMITS,
+  type OllamaCloudTransport,
+  type OllamaCloudTransportError,
+  type OllamaCloudTransportErrorKind,
+  type OllamaCloudTransportRequest,
+  type OllamaCloudTransportStream,
+} from "@agent/provider-ollama-cloud";
 import type { CancellationSignal } from "@agent/runtime";
 
-import { isValidOpenCodeGoCredential } from "./provider-configuration.js";
+import { isValidOllamaCloudCredential } from "./provider-configuration.js";
 
-export const OPENCODE_GO_TRANSPORT_LIMITS = Object.freeze({
+export const OLLAMA_CLOUD_TRANSPORT_LIMITS = Object.freeze({
   headerBytes: 16_384,
   inactivityMilliseconds: 120_000,
   responseChunkBytes: 65_536,
 });
 
-export const OPENCODE_GO_ORIGIN = "https://opencode.ai";
-export const OPENCODE_GO_CHAT_PATH = "/zen/go/v1/chat/completions";
+export const OLLAMA_CLOUD_ORIGIN = "https://ollama.com";
+export const OLLAMA_CLOUD_CHAT_PATH = "/api/chat";
 
 type HttpsResponse = IncomingMessage;
 type HttpsRequest = ClientRequest;
@@ -38,7 +38,7 @@ export interface HttpsClient {
   ): HttpsRequest;
 }
 
-export type NodeOpenCodeGoTransportCreateError = Readonly<{
+export type NodeOllamaCloudTransportCreateError = Readonly<{
   kind: "invalidConfiguration";
 }>;
 
@@ -47,31 +47,27 @@ const NODE_HTTPS_CLIENT: HttpsClient = Object.freeze({
 });
 
 function failure(
-  kind: OpenCodeGoTransportErrorKind,
-): OpenCodeGoTransportError {
+  kind: OllamaCloudTransportErrorKind,
+): OllamaCloudTransportError {
   return Object.freeze({ kind });
 }
 
 function contentType(response: HttpsResponse): string | undefined {
   const value = response.headers["content-type"];
-  if (typeof value === "string") {
-    return value;
-  }
-  if (Array.isArray(value) && value.length === 1) {
-    return value.at(0);
-  }
+  if (typeof value === "string") return value;
+  if (Array.isArray(value) && value.length === 1) return value.at(0);
   return undefined;
 }
 
-class NodeOpenCodeGoStream implements OpenCodeGoTransportStream {
+class NodeOllamaCloudStream implements OllamaCloudTransportStream {
   readonly contentType: string | undefined;
   readonly #response: HttpsResponse;
   readonly statusCode: number;
   #closed = false;
   #ended = false;
-  #failure: OpenCodeGoTransportError | undefined;
+  #failure: OllamaCloudTransportError | undefined;
   #pending:
-    | ((result: Result<Uint8Array | null, OpenCodeGoTransportError>) => void)
+    | ((result: Result<Uint8Array | null, OllamaCloudTransportError>) => void)
     | undefined;
   #queued: Uint8Array | undefined;
 
@@ -86,37 +82,29 @@ class NodeOpenCodeGoStream implements OpenCodeGoTransportStream {
     response.pause();
   }
 
-  read(): Promise<Result<Uint8Array | null, OpenCodeGoTransportError>> {
-    if (this.#closed) {
-      return Promise.resolve(err(failure("closed")));
-    }
+  read(): Promise<Result<Uint8Array | null, OllamaCloudTransportError>> {
+    if (this.#closed) return Promise.resolve(err(failure("closed")));
     if (this.#pending !== undefined) {
       return Promise.resolve(err(failure("concurrentRead")));
     }
-    if (this.#failure !== undefined) {
-      return Promise.resolve(err(this.#failure));
-    }
+    if (this.#failure !== undefined) return Promise.resolve(err(this.#failure));
     if (this.#queued !== undefined) {
       const chunk = this.#queued;
       this.#queued = undefined;
       return Promise.resolve(ok(chunk));
     }
-    if (this.#ended) {
-      return Promise.resolve(ok(null));
-    }
-    const operation = new Promise<Result<Uint8Array | null, OpenCodeGoTransportError>>(
-      (resolve) => {
-        this.#pending = resolve;
-      },
-    );
+    if (this.#ended) return Promise.resolve(ok(null));
+    const operation = new Promise<
+      Result<Uint8Array | null, OllamaCloudTransportError>
+    >((resolve) => {
+      this.#pending = resolve;
+    });
     this.#response.resume();
     return operation;
   }
 
-  close(): Promise<Result<void, OpenCodeGoTransportError>> {
-    if (this.#closed) {
-      return Promise.resolve(ok(undefined));
-    }
+  close(): Promise<Result<void, OllamaCloudTransportError>> {
+    if (this.#closed) return Promise.resolve(ok(undefined));
     this.#closed = true;
     this.#detach();
     const pending = this.#pending;
@@ -135,16 +123,14 @@ class NodeOpenCodeGoStream implements OpenCodeGoTransportStream {
     this.#fail("timeout");
   }
 
-  readonly #onAborted = (): void => {
-    this.#fail("connection");
-  };
+  readonly #onAborted = (): void => this.#fail("connection");
 
   readonly #onData = (chunk: Uint8Array): void => {
     this.#response.pause();
     if (
       !(chunk instanceof Uint8Array) ||
       chunk.length === 0 ||
-      chunk.length > OPENCODE_GO_TRANSPORT_LIMITS.responseChunkBytes
+      chunk.length > OLLAMA_CLOUD_TRANSPORT_LIMITS.responseChunkBytes
     ) {
       this.#fail("limit");
       return;
@@ -172,14 +158,10 @@ class NodeOpenCodeGoStream implements OpenCodeGoTransportStream {
     }
   };
 
-  readonly #onError = (_cause: unknown): void => {
-    this.#fail("connection");
-  };
+  readonly #onError = (_cause: unknown): void => this.#fail("connection");
 
-  #fail(kind: OpenCodeGoTransportErrorKind): void {
-    if (this.#closed || this.#failure !== undefined) {
-      return;
-    }
+  #fail(kind: OllamaCloudTransportErrorKind): void {
+    if (this.#closed || this.#failure !== undefined) return;
     this.#response.pause();
     this.#failure = failure(kind);
     this.#queued = undefined;
@@ -208,22 +190,22 @@ function exactOptions(credential: string): RequestOptions {
   return Object.freeze({
     agent: false as const,
     headers: Object.freeze({
-      accept: "text/event-stream",
+      accept: "application/json",
       authorization: "Bearer " + credential,
       "content-type": "application/json",
       "user-agent": "agent/0.1.0",
     }),
-    hostname: "opencode.ai",
-    maxHeaderSize: OPENCODE_GO_TRANSPORT_LIMITS.headerBytes,
+    hostname: "ollama.com",
+    maxHeaderSize: OLLAMA_CLOUD_TRANSPORT_LIMITS.headerBytes,
     method: "POST" as const,
-    path: OPENCODE_GO_CHAT_PATH,
+    path: OLLAMA_CLOUD_CHAT_PATH,
     port: 443 as const,
     protocol: "https:" as const,
   });
 }
 
-/** Exact Node HTTPS boundary for the admitted OpenCode Go origin. */
-export class NodeOpenCodeGoTransport implements OpenCodeGoTransport {
+/** Exact Node HTTPS boundary for the admitted Ollama Cloud origin. */
+export class NodeOllamaCloudTransport implements OllamaCloudTransport {
   readonly #credential: string;
   readonly #requestHttps: RequestHttps;
 
@@ -235,19 +217,20 @@ export class NodeOpenCodeGoTransport implements OpenCodeGoTransport {
   static create(
     credential: unknown,
     client: HttpsClient = NODE_HTTPS_CLIENT,
-  ): Result<NodeOpenCodeGoTransport, NodeOpenCodeGoTransportCreateError> {
+  ): Result<NodeOllamaCloudTransport, NodeOllamaCloudTransportCreateError> {
     try {
-      if (!isValidOpenCodeGoCredential(credential) || client === null || typeof client !== "object") {
-        return err(Object.freeze({ kind: "invalidConfiguration" as const }));
-      }
-      const requestHttps = client.request;
-      if (typeof requestHttps !== "function") {
+      if (
+        !isValidOllamaCloudCredential(credential) ||
+        client === null ||
+        typeof client !== "object" ||
+        typeof client.request !== "function"
+      ) {
         return err(Object.freeze({ kind: "invalidConfiguration" as const }));
       }
       return ok(
-        new NodeOpenCodeGoTransport(
+        new NodeOllamaCloudTransport(
           credential,
-          requestHttps.bind(client) as RequestHttps,
+          client.request.bind(client) as RequestHttps,
         ),
       );
     } catch (_cause: unknown) {
@@ -256,9 +239,9 @@ export class NodeOpenCodeGoTransport implements OpenCodeGoTransport {
   }
 
   open(
-    request: OpenCodeGoTransportRequest,
+    request: OllamaCloudTransportRequest,
     cancellation: CancellationSignal,
-  ): Promise<Result<OpenCodeGoTransportStream, OpenCodeGoTransportError>> {
+  ): Promise<Result<OllamaCloudTransportStream, OllamaCloudTransportError>> {
     let body: string;
     let cancellationRequested: boolean;
     let whenCancellationRequested: () => Promise<void>;
@@ -269,7 +252,7 @@ export class NodeOpenCodeGoTransport implements OpenCodeGoTransport {
       if (
         typeof body !== "string" ||
         body.length < 1 ||
-        body.length > OPENCODE_GO_LIMITS.requestCodeUnits ||
+        body.length > OLLAMA_CLOUD_LIMITS.requestCodeUnits ||
         typeof cancellationRequested !== "boolean" ||
         typeof whenRequested !== "function"
       ) {
@@ -284,12 +267,12 @@ export class NodeOpenCodeGoTransport implements OpenCodeGoTransport {
     }
     let settled = false;
     let activeRequest: HttpsRequest | undefined;
-    let activeStream: NodeOpenCodeGoStream | undefined;
+    let activeStream: NodeOllamaCloudStream | undefined;
     const operation = new Promise<
-      Result<OpenCodeGoTransportStream, OpenCodeGoTransportError>
+      Result<OllamaCloudTransportStream, OllamaCloudTransportError>
     >((resolve) => {
       const settle = (
-        result: Result<OpenCodeGoTransportStream, OpenCodeGoTransportError>,
+        result: Result<OllamaCloudTransportStream, OllamaCloudTransportError>,
       ): void => {
         if (!settled) {
           settled = true;
@@ -302,11 +285,7 @@ export class NodeOpenCodeGoTransport implements OpenCodeGoTransport {
       try {
         activeRequest = this.#requestHttps(exactOptions(this.#credential), (response) => {
           if (settled) {
-            try {
-              response.destroy();
-            } catch (_cause: unknown) {
-              return;
-            }
+            response.destroy();
             return;
           }
           try {
@@ -321,20 +300,20 @@ export class NodeOpenCodeGoTransport implements OpenCodeGoTransport {
               response.destroy();
               return;
             }
-            activeStream = new NodeOpenCodeGoStream(response, statusCode);
+            activeStream = new NodeOllamaCloudStream(response, statusCode);
             settle(ok(activeStream));
           } catch (_cause: unknown) {
             settle(err(failure("protocol")));
             try {
               response.destroy();
             } catch (_destroyCause: unknown) {
-              return;
+              // The typed protocol failure remains authoritative.
             }
           }
         });
         activeRequest.on("error", onError);
         activeRequest.setTimeout(
-          OPENCODE_GO_TRANSPORT_LIMITS.inactivityMilliseconds,
+          OLLAMA_CLOUD_TRANSPORT_LIMITS.inactivityMilliseconds,
           () => {
             if (activeStream === undefined) {
               settle(err(failure("timeout")));
@@ -344,7 +323,7 @@ export class NodeOpenCodeGoTransport implements OpenCodeGoTransport {
             try {
               activeRequest?.destroy();
             } catch (_cause: unknown) {
-              return;
+              // The timeout remains authoritative.
             }
           },
         );
@@ -355,7 +334,7 @@ export class NodeOpenCodeGoTransport implements OpenCodeGoTransport {
         try {
           activeRequest?.destroy();
         } catch (_destroyCause: unknown) {
-          return;
+          // The connection failure remains authoritative.
         }
       }
       let requested: Promise<void>;
@@ -367,19 +346,15 @@ export class NodeOpenCodeGoTransport implements OpenCodeGoTransport {
       }
       void requested.then(
         () => {
-          if (settled) {
-            return;
-          }
+          if (settled) return;
           settle(err(failure("cancelled")));
           try {
             activeRequest?.destroy();
           } catch (_cause: unknown) {
-            return;
+            // Cancellation remains authoritative.
           }
         },
-        () => {
-          settle(err(failure("protocol")));
-        },
+        () => settle(err(failure("protocol"))),
       );
     });
     return operation;

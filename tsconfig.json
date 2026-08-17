@@ -11,10 +11,7 @@
       "path": "packages/agent-runtime"
     },
     {
-      "path": "packages/agent-provider-opencode-go"
-    },
-    {
-      "path": "packages/agent-provider-opencode-zen"
+      "path": "packages/agent-provider-ollama-cloud"
     },
     {
       "path": "packages/agent-tui"

@@ -19,8 +19,7 @@ const emptyContext = {
     "@agent/core",
     "@agent/tools",
     "@agent/runtime",
-    "@agent/provider-opencode-go",
-    "@agent/provider-opencode-zen",
+    "@agent/provider-ollama-cloud",
     "@agent/tui",
     "@agent/cli",
   ],
@@ -36,7 +35,7 @@ test("accepts the canonical blocked and direct provider registry", () => {
   );
   assert.deepEqual(
     currentPolicy.directProviders.map((provider) => provider.id),
-    ["opencode-go", "opencode-zen"],
+    ["ollama-cloud"],
   );
 });
 
@@ -65,7 +64,7 @@ test("rejects credential and endpoint fields for blocked providers", () => {
   );
 });
 
-test("rejects drift in either admitted direct provider", () => {
+test("rejects drift in the admitted direct provider", () => {
   for (let index = 0; index < currentPolicy.directProviders.length; index += 1) {
     for (const [field, value] of [
       ["chatEndpoint", "https://example.com/v1"],
@@ -82,18 +81,16 @@ test("rejects drift in either admitted direct provider", () => {
     }
   }
 
-  for (let index = 0; index < currentPolicy.directProviders.length; index += 1) {
-    const driftedId = structuredClone(currentPolicy);
-    driftedId.directProviders[index].models[0].id = "unreviewed-model";
+  for (const [field, value] of [
+    ["catalogAuthentication", "anonymous"],
+    ["modelAuthority", "static-repository-list"],
+    ["modelCost", "free"],
+    ["transport", "chat-completions-sse"],
+  ]) {
+    const drifted = structuredClone(currentPolicy);
+    drifted.directProviders[0][field] = value;
     assert.throws(
-      () => validateProviderPolicy(driftedId, emptyContext),
-      ProviderPolicyError,
-    );
-
-    const driftedCost = structuredClone(currentPolicy);
-    driftedCost.directProviders[index].models[0].cost = "unreviewed-cost";
-    assert.throws(
-      () => validateProviderPolicy(driftedCost, emptyContext),
+      () => validateProviderPolicy(drifted, emptyContext),
       ProviderPolicyError,
     );
   }
@@ -339,19 +336,11 @@ test("rejects every provider or auth workspace that was not admitted", () => {
 test("allows only the reviewed direct-provider literals in their exact files", () => {
   const admitted = [
     {
-      path: "packages/agent-provider-opencode-go/src/models.ts",
-      text: "export const model = 'kimi-k2.7-code';\n",
-    },
-    {
-      path: "packages/agent-cli/src/node-opencode-go-transport.ts",
+      path: "packages/agent-cli/src/node-ollama-cloud-transport.ts",
       text: "const authorization = 'Bearer ' + credential;\n",
     },
     {
-      path: "packages/agent-provider-opencode-zen/src/models.ts",
-      text: "export const model = 'deepseek-v4-flash-free';\n",
-    },
-    {
-      path: "packages/agent-cli/src/node-opencode-zen-transport.ts",
+      path: "packages/agent-cli/src/node-ollama-model-catalog.ts",
       text: "const authorization = 'Bearer ' + credential;\n",
     },
   ];

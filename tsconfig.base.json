@@ -17,11 +17,8 @@
       "@agent/runtime": [
         "packages/agent-runtime/src/index.ts"
       ],
-      "@agent/provider-opencode-go": [
-        "packages/agent-provider-opencode-go/src/index.ts"
-      ],
-      "@agent/provider-opencode-zen": [
-        "packages/agent-provider-opencode-zen/src/index.ts"
+      "@agent/provider-ollama-cloud": [
+        "packages/agent-provider-ollama-cloud/src/index.ts"
       ],
       "@agent/tui": [
         "packages/agent-tui/src/index.ts"

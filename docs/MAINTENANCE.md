@@ -19,15 +19,15 @@ ownership policy. The verifier rejects missing, extra, or inconsistent files,
 manifests, links, declarations, generated formats, and registry entries.
 
 Provider eligibility is a separate canonical input in
-`tools/provider-policy.json`. Version 6 keeps the four subscription OAuth
-providers blocked and admits exactly two direct API-key providers, OpenCode Go
-and OpenCode Zen. It pins each provider's chat and public catalog endpoints,
-complete model allowlist and cost classes, transport, environment variable,
-memory-only persistence, evidence date, and exact workspace. It additionally
+`tools/provider-policy.json`. Version 7 keeps the four subscription OAuth
+providers blocked and admits exactly one direct API-key provider, Ollama Cloud.
+It pins the provider's chat and authenticated catalog endpoints, dynamic model
+authority, cloud cost class, transport, environment variable, memory-only
+persistence, evidence date, and exact workspace. It additionally
 pins each authorization request's lifecycle state, official route, visibility,
 research date, submission date, and public or content-free private reference.
 That metadata cannot change blocked eligibility. The verifier pins the exact
-seven-workspace graph, including both providers, runtime, and tool engine. It denies
+six-workspace graph, including the provider, runtime, and tool engine. It denies
 ambient network and provider escape paths while admitting only reviewed direct
 provider literals in their exact files. Filesystem and HTTPS APIs remain
 explicitly allowlisted only at the CLI edge.
@@ -97,17 +97,18 @@ that only state newer than the last checkpoint may be discarded. Update
 decision 0029 with any batch order, planning, limit, output-budget, cancellation,
 or checkpoint change.
 
-The OpenCode model-turn barrier follows decisions 0061 and 0067. Preserve the exact
-one-call request field, bounded owned instruction, complete result checkpoint,
-provider/runtime integration regression, and defensive batch path together.
-Changing that barrier requires task-convergence evidence and updates to
-decisions 0017, 0029, and 0061. Never substitute concurrent handlers, a blind
-retry, or implicit replay of a completed effect.
+The convergence instruction follows decision 0061, while Ollama Cloud tool-call
+interoperability follows decisions 0069 and 0072. Preserve the bounded one-call
+instruction, complete result checkpoint, provider/runtime integration
+regression, and defensive ordered-batch path together. Changing that barrier
+requires task-convergence evidence and updates to decisions 0029, 0061, 0069,
+and 0072. Never substitute concurrent handlers, a blind retry, or implicit
+replay of a completed effect.
 
 Checkpointed failure-presentation changes follow decision 0052. Update the
 closed pure classifier, reducer regressions, turn-lifecycle manual,
 architecture, and engineering guidance together. Keep provider normalization
-in its separate pure module and require both admitted provider identities to
+in its separate pure module and require the admitted provider identity to
 produce the same adapter-neutral families. A new runtime failure variant
 must receive one content-free code before publication. Never add provider
 identities, raw reasons, statuses, response text, tool payloads, paths, content,
@@ -177,7 +178,7 @@ unrelated changes. Shared engine primitives remain only when another admitted
 tool uses them.
 
 To remove tools, stop descriptor advertisement and restore the runtime text-only
-   path. In that same change, replace manual-policy schema 9 with a schema that
+   path. In that same change, replace manual-policy schema 10 with a schema that
 removes the advertised tool inventory. Remove decisions 0008, 0014, 0015, 0016,
 and 0036 only after their admitted surfaces and proof infrastructure are gone,
 together with their ownership, required-path, and manual-evidence entries.
@@ -193,7 +194,7 @@ each stage.
 
 Treat `packages/agent-cli/src/tool-permissions.ts`, `/permissions`, application
 selection state, the exact runtime decision method, contextual presentation,
-tests, manual-policy schema 9, and decision 0055 as one authority contract.
+tests, manual-policy schema 10, and decision 0055 as one authority contract.
 Preserve the exact six names and risks, read `Allow` defaults, write/execute
 `Ask` defaults, memory-only lifetime, unknown-name and risk-drift rejection,
 non-wrapping mode changes, one exact turn-and-call runtime decision, structured
@@ -513,15 +514,16 @@ and its export/tests, decision 0034, and its policy/manual evidence. Transcript
 navigation, line editing, composer, commands, activity, and renderer must remain
 independently buildable.
 
-## Update or remove an OpenCode provider
+## Update or remove Ollama Cloud
 
-Each admitted provider has two owners. Its `@agent/provider-opencode-*` workspace owns the
-Node-free request, UTF-8, SSE, response, and tool-call contract. CLI owns the
-exact environment variable, HTTPS origins and paths, public catalog decoding,
-response backpressure, timeout, composition, and provider/model presentation.
-Do not move process or socket access
-into the provider package and do not leak provider vocabulary into runtime,
-tools, core, or TUI.
+The admitted provider has two owners. `@agent/provider-ollama-cloud` owns the
+Node-free request, UTF-8, line-delimited JSON object response, and native
+tool-call contract under the exact `application/json` media type. CLI
+owns the exact environment variable, HTTPS origin and paths, bearer-authenticated
+catalog transport, response backpressure, timeouts, composition, and
+provider/model presentation. Do not move process or socket access into the
+provider package and do not leak provider vocabulary into runtime, tools, core,
+or TUI.
 
 Catalog transport retains two distinct bounds: Node's socket inactivity timeout
 and one CLI-owned monotonic absolute deadline armed once per request. Maintain
@@ -529,41 +531,42 @@ deterministic tests proving that periodic response traffic cannot extend the
 absolute deadline, every settlement cancels retained timer work, failed timer
 registration fails closed, and late callbacks cannot change the result.
 
-An endpoint, catalog, model allowlist, cost class, header, privacy, limit,
-request-selection, instruction, or
-wire change requires current official evidence, updates to decisions 0017,
-0061, 0067, and 0068 as applicable, exact provider-policy changes, provider and CLI
-contract tests, manual/privacy/security updates, and the full offline release
-gate. Public catalog discovery remains fixed-origin, credential-free, bounded,
-absolutely time-bounded, and intersected with the owned allowlist. Never add redirects, aliases, retries,
-fallbacks, arbitrary base URLs, or persistent key storage as a compatibility
-shortcut.
+An endpoint, catalog, dynamic model rule, cost class, header, privacy, limit,
+request-selection, instruction, or wire change requires current official
+evidence, updates to decisions 0061, 0068, 0069, and 0072 as applicable, exact
+provider-policy changes, provider and CLI contract tests,
+manual/privacy/security updates, and the full offline release gate.
+Authenticated catalog discovery remains fixed-origin, bearer-authenticated,
+bounded, absolutely time-bounded, and restricted to exact non-empty entries
+whose `name` equals `model`. Never add redirects, aliases, retries, fallbacks,
+arbitrary base URLs, local-daemon discovery, or persistent key storage as a
+compatibility shortcut.
 
-To roll back or remove one provider, first remove its composition from
-`main.ts` and retain the remaining exact provider selection. Then remove its CLI
-chat and catalog transport entries, configuration, model allowlist, selection
-presentation, and instructions modules; the provider workspace and
-all npm/TypeScript/ownership edges; the `node:https` declaration and allowlist
-if unused; the exact direct-provider policy entry and source-literal exceptions;
-governing decision and provider-specific documentation. Regenerate the lockfile
-through the offline npm command. Preserve the other direct provider and the four
-blocked OAuth request records. Removing both must retain immediate TUI startup
-with no selected provider or model and prove the remaining five workspaces
-through the canonical verifier.
+To roll back or remove Ollama Cloud, first remove its composition from `main.ts`.
+Then remove the CLI chat and catalog transports, configuration, selection
+presentation, and provider instructions; the provider workspace and all
+npm/TypeScript/ownership edges; the `node:https` declaration and allowlist if
+unused; the exact direct-provider policy entry and source-literal exceptions;
+and the current provider documentation. Regenerate the lockfile through the
+offline npm command. Preserve the four blocked OAuth request records and the
+historical superseded decisions. Removing the sole direct provider must retain
+immediate TUI startup with no selected provider or model and prove the remaining
+five workspaces through the canonical verifier.
 
 ## Update or remove executable startup
 
 The root `bin` metadata, exact root scripts, CLI shebang, argument parser,
-TUI credential context, manual chapters, decisions 0018 and 0068, lockfile, and manifest verifier
+TUI credential context, manual chapters, decisions 0018, 0068, and 0072,
+lockfile, and manifest verifier
 form one executable contract. Preserve no-argument startup, exact `--help` and
 `--version`, secret-free arguments, non-TTY silence, bounded zero-projection
 input, and
 terminal restoration. The npm link is explicit operator state and must never be
 created by install lifecycle scripts.
 
-OpenCode Zen removal deletes only its credential slot, catalog and chat
-composition, allowlist, and selection entry. The `agent` binary, unselected
-startup, and npm link remain. To remove the command from one
+Removing Ollama Cloud deletes only its credential slot, catalog and chat
+composition, dynamic model selection, and provider entry. The `agent` binary,
+unselected startup, and npm link remain. To remove the command from one
 machine, run `npm unlink --global agent-workspace`. To remove the feature from
 source, delete the root `bin` and installation script, argument parser,
 credential context,

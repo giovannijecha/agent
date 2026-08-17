@@ -1,9 +1,10 @@
 # 0068: Owned ephemeral provider and model selection
 
-- Status: accepted
+- Status: superseded
 - Date: 2026-08-16
 - Supersedes: the startup credential and fixed-model selection parts of decision 0067
 - Amends: decisions 0017, 0018, 0029, 0034, 0042, and 0061
+- Superseded by: decision 0072
 
 ## Context
 

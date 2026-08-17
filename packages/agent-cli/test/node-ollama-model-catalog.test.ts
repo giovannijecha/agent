@@ -9,11 +9,11 @@ import type {
 
 import {
   type HttpsClient,
-  NodeOpenCodeModelCatalog,
-  OPENCODE_GO_MODELS_PATH,
-  OPENCODE_MODEL_CATALOG_LIMITS,
-  OPENCODE_ZEN_MODELS_PATH,
-} from "../dist/node-opencode-model-catalog.js";
+  NodeOllamaModelCatalog,
+  OLLAMA_CLOUD_MODELS_ORIGIN,
+  OLLAMA_CLOUD_MODELS_PATH,
+  OLLAMA_MODEL_CATALOG_LIMITS,
+} from "../dist/node-ollama-model-catalog.js";
 import type {
   ScheduledTimer,
   TimerClock,
@@ -169,53 +169,56 @@ function ascii(value: string): Uint8Array {
 }
 
 async function complete(
-  provider: "opencodeGo" | "opencodeZen",
   client: FakeClient,
   clock: TimerClock = new ManualClock(),
 ) {
-  const pending = new NodeOpenCodeModelCatalog(client, clock).list(provider);
+  const pending = new NodeOllamaModelCatalog(client, clock).list(
+    "ollamaCloud",
+    "valid-value",
+  );
   client.response.emit("data", ascii(JSON.stringify({
-    data: [{ id: "deepseek-v4-flash-free", object: "model" }],
-    object: "list",
+    models: [{ model: "qwen3-coder:480b-cloud", name: "qwen3-coder:480b-cloud" }],
   })));
   client.response.emit("end");
   return pending;
 }
 
-test("uses exact public Go and Zen catalog requests without authorization", async () => {
-  for (const [provider, path] of [
-    ["opencodeGo", OPENCODE_GO_MODELS_PATH],
-    ["opencodeZen", OPENCODE_ZEN_MODELS_PATH],
-  ] as const) {
-    const client = new FakeClient(new FakeResponse());
-    const listed = await complete(provider, client);
-    assert.ok(listed.ok);
-    assert.equal(client.options?.hostname, "opencode.ai");
-    assert.equal(client.options?.path, path);
-    assert.equal(client.options?.method, "GET");
-    assert.equal(client.options?.protocol, "https:");
-    assert.equal(client.options?.port, 443);
-    assert.equal(client.options?.agent, false);
-    assert.equal(client.options?.maxHeaderSize, OPENCODE_MODEL_CATALOG_LIMITS.headerBytes);
-    const headers = client.options?.headers as Readonly<Record<string, string>>;
-    assert.equal(headers.accept, "application/json");
-    assert.equal("authorization" in headers, false);
-    assert.equal(client.requestValue?.timeoutMilliseconds, 30_000);
-    assert.equal(client.response.resumes, 1);
-  }
+test("uses the exact authenticated Ollama Cloud catalog request", async () => {
+  const client = new FakeClient(new FakeResponse());
+  const listed = await complete(client);
+  assert.ok(listed.ok);
+  assert.equal(OLLAMA_CLOUD_MODELS_ORIGIN, "https://ollama.com");
+  assert.equal(client.options?.hostname, "ollama.com");
+  assert.equal(client.options?.path, OLLAMA_CLOUD_MODELS_PATH);
+  assert.equal(client.options?.method, "GET");
+  assert.equal(client.options?.protocol, "https:");
+  assert.equal(client.options?.port, 443);
+  assert.equal(client.options?.agent, false);
+  assert.equal(client.options?.maxHeaderSize, OLLAMA_MODEL_CATALOG_LIMITS.headerBytes);
+  const headers = client.options?.headers as Readonly<Record<string, string>>;
+  assert.equal(headers.accept, "application/json");
+  assert.equal(headers.authorization, "Bearer valid-value");
+  assert.equal(client.requestValue?.timeoutMilliseconds, 30_000);
+  assert.equal(client.response.resumes, 1);
 });
 
 test("enforces one absolute deadline despite continuing response data", async () => {
   const response = new FakeResponse();
   const client = new FakeClient(response);
   const clock = new ManualClock();
-  const pending = new NodeOpenCodeModelCatalog(client, clock).list("opencodeGo");
+  const pending = new NodeOllamaModelCatalog(client, clock).list(
+    "ollamaCloud",
+    "valid-value",
+  );
 
   assert.deepEqual(clock.delays, [
-    OPENCODE_MODEL_CATALOG_LIMITS.deadlineMilliseconds,
+    OLLAMA_MODEL_CATALOG_LIMITS.deadlineMilliseconds,
   ]);
-  response.emit("data", ascii('{"data":['));
-  response.emit("data", ascii('{"id":"deepseek-v4-flash-free"}'));
+  response.emit("data", ascii('{"models":['));
+  response.emit(
+    "data",
+    ascii('{"name":"example:cloud","model":"example:cloud"}'),
+  );
   clock.registrations.at(0)?.fire();
 
   assert.deepEqual(await pending, { error: { kind: "timeout" }, ok: false });
@@ -234,7 +237,7 @@ test("cancels the absolute deadline on success and rejects its late callback", a
   const client = new FakeClient(response);
   const clock = new ManualClock();
 
-  const result = await complete("opencodeZen", client, clock);
+  const result = await complete(client, clock);
   assert.ok(result.ok);
   assert.equal(clock.registrations.at(0)?.cancelled, true);
 
@@ -251,8 +254,9 @@ test("fails closed before transport when the absolute deadline cannot arm", asyn
     },
   });
 
-  const result = await new NodeOpenCodeModelCatalog(client, clock).list(
-    "opencodeGo",
+  const result = await new NodeOllamaModelCatalog(client, clock).list(
+    "ollamaCloud",
+    "valid-value",
   );
 
   assert.deepEqual(result, { error: { kind: "timeout" }, ok: false });
@@ -269,8 +273,9 @@ test("contains a synchronously fired absolute deadline before transport", async 
     },
   });
 
-  const result = await new NodeOpenCodeModelCatalog(client, clock).list(
-    "opencodeZen",
+  const result = await new NodeOllamaModelCatalog(client, clock).list(
+    "ollamaCloud",
+    "valid-value",
   );
 
   assert.deepEqual(result, { error: { kind: "timeout" }, ok: false });
@@ -284,16 +289,22 @@ test("fails closed on status, content type, and oversized response chunks", asyn
     new FakeResponse(200, "text/plain"),
   ]) {
     const client = new FakeClient(response);
-    const result = await new NodeOpenCodeModelCatalog(client).list("opencodeGo");
+    const result = await new NodeOllamaModelCatalog(client).list(
+      "ollamaCloud",
+      "valid-value",
+    );
     assert.equal(result.ok, false);
   }
 
   const response = new FakeResponse();
   const client = new FakeClient(response);
-  const pending = new NodeOpenCodeModelCatalog(client).list("opencodeZen");
+  const pending = new NodeOllamaModelCatalog(client).list(
+    "ollamaCloud",
+    "valid-value",
+  );
   response.emit(
     "data",
-    new Uint8Array(OPENCODE_MODEL_CATALOG_LIMITS.responseChunkBytes + 1),
+    new Uint8Array(OLLAMA_MODEL_CATALOG_LIMITS.responseChunkBytes + 1),
   );
   assert.equal((await pending).ok, false);
   assert.equal(response.destroyed, 1);
@@ -301,8 +312,20 @@ test("fails closed on status, content type, and oversized response chunks", asyn
 
 test("rejects a forged provider identity before opening a request", async () => {
   const client = new FakeClient(new FakeResponse());
-  const result = await new NodeOpenCodeModelCatalog(client).list(
+  const result = await new NodeOllamaModelCatalog(client).list(
     "private-provider" as never,
+    "valid-value",
+  );
+
+  assert.deepEqual(result, { error: { kind: "protocol" }, ok: false });
+  assert.equal(client.options, undefined);
+});
+
+test("rejects missing credentials before opening a request", async () => {
+  const client = new FakeClient(new FakeResponse());
+  const result = await new NodeOllamaModelCatalog(client).list(
+    "ollamaCloud",
+    "",
   );
 
   assert.deepEqual(result, { error: { kind: "protocol" }, ok: false });

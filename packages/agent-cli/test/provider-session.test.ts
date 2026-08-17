@@ -46,96 +46,94 @@ class Cancellation implements CancellationSignal {
 }
 
 class Catalog implements ProviderModelCatalog {
-  readonly calls: string[] = [];
-  readonly #ids: Readonly<Record<"opencodeGo" | "opencodeZen", readonly string[]>>;
+  readonly calls: Readonly<{ credential: string; provider: string }>[] = [];
+  readonly #ids: readonly string[];
 
-  constructor(
-    ids: Readonly<Record<"opencodeGo" | "opencodeZen", readonly string[]>> = {
-      opencodeGo: Object.freeze(["go-current", "remote-only"]),
-      opencodeZen: Object.freeze(["zen-free"]),
-    },
-  ) {
+  constructor(ids: readonly string[] = Object.freeze([
+    "qwen3-coder:480b-cloud",
+    "glm-4.7:cloud",
+  ])) {
     this.#ids = ids;
   }
 
-  list(provider: "opencodeGo" | "opencodeZen") {
-    this.calls.push(provider);
-    return Promise.resolve(ok(this.#ids[provider]));
+  list(provider: "ollamaCloud", credential: string) {
+    this.calls.push(Object.freeze({ credential, provider }));
+    return Promise.resolve(ok(this.#ids));
   }
 }
 
 function definition(
-  id: "opencodeGo" | "opencodeZen",
   models: Readonly<Record<string, RecordingModel>>,
 ): ProviderDefinition<TestError> {
   return Object.freeze({
+    acceptsModel: (id: string) => Object.hasOwn(models, id),
     createModel: (_credential: string, model: string) => models[model],
-    id,
-    models: Object.freeze(
-      Object.keys(models).map((model) =>
-        Object.freeze({
-          cost: model.endsWith("-free") ? "free" as const : "goPlan" as const,
-          id: model,
-        }),
-      ),
-    ),
+    id: "ollamaCloud" as const,
     presentation: Object.freeze({
       authentication: "memory-only API key",
-      displayName: id === "opencodeGo" ? "OpenCode Go" : "OpenCode Zen",
+      displayName: "Ollama Cloud",
     }),
   });
 }
 
-test("provider session configures, catalogs, and delegates only after exact selection", async () => {
-  const go = new RecordingModel();
-  const zen = new RecordingModel();
+test("provider session configures, catalogs, and delegates after exact selection", async () => {
+  const selectedModel = new RecordingModel();
+  const hiddenModel = new RecordingModel();
   const catalog = new Catalog();
   const created = ProviderSession.create(
-    [
-      definition("opencodeZen", { "zen-free": zen }),
-      definition("opencodeGo", { "go-current": go, "go-hidden": go }),
-    ],
+    [definition({
+      "glm-4.7:cloud": selectedModel,
+      "hidden-local-model": hiddenModel,
+      "qwen3-coder:480b-cloud": selectedModel,
+    })],
     catalog,
   );
   assert.equal(created.ok, true);
   if (!created.ok) return;
 
   assert.equal(created.value.ready(), false);
+  assert.deepEqual(created.value.snapshots(), [
+    {
+      configured: false,
+      id: "ollamaCloud",
+      presentation: {
+        authentication: "memory-only API key",
+        displayName: "Ollama Cloud",
+        model: undefined,
+      },
+      ready: false,
+      selected: false,
+    },
+  ]);
   assert.deepEqual(
-    created.value.snapshots().map((entry) => [
-      entry.id,
-      entry.configured,
-      entry.selected,
-      entry.presentation.model,
-    ]),
-    [
-      ["opencodeZen", false, false, undefined],
-      ["opencodeGo", false, false, undefined],
-    ],
-  );
-  assert.deepEqual(
-    created.value.configure("opencodeGo", "go-key"),
+    created.value.configure("ollamaCloud", "fixture-token"),
     ok(undefined),
   );
-  assert.equal(created.value.ready(), false);
-  assert.deepEqual(created.value.select("opencodeGo"), ok(undefined));
+  assert.deepEqual(created.value.select("ollamaCloud"), ok(undefined));
+
   const listed = await created.value.listModels();
   assert.ok(listed.ok);
   if (!listed.ok) return;
   assert.deepEqual(listed.value, [
-    { cost: "goPlan", id: "go-current", selected: false },
+    { cost: "cloud", id: "qwen3-coder:480b-cloud", selected: false },
+    { cost: "cloud", id: "glm-4.7:cloud", selected: false },
   ]);
-  assert.deepEqual(created.value.selectModel("go-current"), ok(undefined));
+  assert.deepEqual(
+    created.value.selectModel("glm-4.7:cloud"),
+    ok(undefined),
+  );
   assert.equal(created.value.ready(), true);
 
   await created.value.open(Conversation.empty(), new Cancellation(), []);
-  assert.equal(go.calls, 1);
-  assert.equal(zen.calls, 0);
-  assert.deepEqual(catalog.calls, ["opencodeGo"]);
+  assert.equal(selectedModel.calls, 1);
+  assert.equal(hiddenModel.calls, 0);
+  assert.deepEqual(catalog.calls, [
+    { credential: "fixture-token", provider: "ollamaCloud" },
+  ]);
 
   created.value.clear();
   assert.equal(created.value.ready(), false);
-  assert.equal(created.value.snapshots().some((entry) => entry.configured), false);
+  assert.equal(created.value.snapshots().at(0)?.configured, false);
 });
 
 test("provider session rejects invalid topology and selection order", async () => {
@@ -146,44 +144,34 @@ test("provider session rejects invalid topology and selection order", async () =
   if (!empty.ok) assert.equal(empty.error.kind, "invalidProviderCount");
 
   const duplicate = ProviderSession.create(
-    [
-      definition("opencodeGo", { "go-current": model }),
-      definition("opencodeGo", { "go-current": model }),
-    ],
+    [definition({ "qwen3-coder:480b-cloud": model }), definition({
+      "qwen3-coder:480b-cloud": model,
+    })],
     catalog,
   );
   assert.equal(duplicate.ok, false);
-  if (!duplicate.ok) assert.equal(duplicate.error.kind, "duplicateProvider");
+  if (!duplicate.ok) assert.equal(duplicate.error.kind, "invalidProviderCount");
 
   const invalid = ProviderSession.create(
-    [
-      definition("opencodeGo", { "go-current": model }),
-      {
-        ...definition("opencodeZen", { "zen-free": model }),
-        id: "unregisteredProvider",
-      },
-    ] as never,
+    [{ ...definition({ "qwen3-coder:480b-cloud": model }), id: "other" }] as never,
     catalog,
   );
   assert.equal(invalid.ok, false);
   if (!invalid.ok) assert.equal(invalid.error.kind, "invalidProvider");
 
   const created = ProviderSession.create(
-    [definition("opencodeGo", { "go-current": model })],
-    new Catalog({
-      opencodeGo: Object.freeze(["remote-only"]),
-      opencodeZen: Object.freeze([]),
-    }),
+    [definition({ "qwen3-coder:480b-cloud": model })],
+    new Catalog(Object.freeze(["remote-only:cloud"])),
   );
   assert.ok(created.ok);
   if (!created.ok) return;
-  const beforeConfiguration = created.value.select("opencodeGo");
+  const beforeConfiguration = created.value.select("ollamaCloud");
   assert.equal(beforeConfiguration.ok, false);
   if (!beforeConfiguration.ok) {
     assert.equal(beforeConfiguration.error.kind, "providerNotConfigured");
   }
-  assert.ok(created.value.configure("opencodeGo", "go-key").ok);
-  assert.ok(created.value.select("opencodeGo").ok);
+  assert.ok(created.value.configure("ollamaCloud", "fixture-token").ok);
+  assert.ok(created.value.select("ollamaCloud").ok);
   const unavailable = await created.value.listModels();
   assert.equal(unavailable.ok, false);
   if (!unavailable.ok) assert.equal(unavailable.error.kind, "session");
@@ -196,13 +184,11 @@ test("provider session rejects hostile registration getters without retaining th
     },
   });
   const catalogResult = ProviderSession.create<TestError>(
-    [definition("opencodeGo", { "go-current": new RecordingModel() })],
+    [definition({ "qwen3-coder:480b-cloud": new RecordingModel() })],
     hostileCatalog as ProviderModelCatalog,
   );
   assert.equal(catalogResult.ok, false);
-  if (!catalogResult.ok) {
-    assert.equal(catalogResult.error.kind, "invalidProvider");
-  }
+  if (!catalogResult.ok) assert.equal(catalogResult.error.kind, "invalidProvider");
 
   const hostileDefinition = Object.defineProperty({}, "id", {
     get(): never {

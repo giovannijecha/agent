@@ -26,22 +26,20 @@ const REASONS = [
   ["transportProtocol", "protocol"],
 ] as const satisfies readonly (readonly [string, ProviderFailureFamily])[];
 
-test("maps both admitted providers into one shared failure vocabulary", () => {
-  for (const kind of ["openCodeGo", "openCodeZen"] as const) {
-    for (const [reason, expected] of REASONS) {
-      assert.equal(
-        classifyProviderFailure(
-          Object.freeze({
-            cleanupFailed: false,
-            kind,
-            operation: "open" as const,
-            reason,
-          }),
-          "open",
-        ),
-        expected,
-      );
-    }
+test("maps the admitted provider into one shared failure vocabulary", () => {
+  for (const [reason, expected] of REASONS) {
+    assert.equal(
+      classifyProviderFailure(
+        Object.freeze({
+          cleanupFailed: false,
+          kind: "ollamaCloud" as const,
+          operation: "open" as const,
+          reason,
+        }),
+        "open",
+      ),
+      expected,
+    );
   }
 });
 
@@ -56,19 +54,19 @@ test("rejects unknown, malformed, and operation-mismatched values", () => {
     }),
     Object.freeze({
       cleanupFailed: "no",
-      kind: "openCodeGo",
+      kind: "ollamaCloud",
       operation: "open",
       reason: "status",
     }),
     Object.freeze({
       cleanupFailed: false,
-      kind: "openCodeZen",
+      kind: "ollamaCloud",
       operation: "read",
       reason: "status",
     }),
     Object.freeze({
       cleanupFailed: false,
-      kind: "openCodeGo",
+      kind: "ollamaCloud",
       operation: "open",
       reason: "PRIVATE_SECRET",
     }),

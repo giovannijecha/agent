@@ -1,490 +1,127 @@
 # 03 - Terminal interface
 
-## Purpose
+## Write and edit
 
-Use this chapter to operate the owned terminal UI and understand its editing,
-layout, rendering, input, and cleanup boundaries.
+Type printable text in the composer. Left and Right move one code point;
+Ctrl+Left and Ctrl+Right move by whitespace-delimited words. Backspace and
+Delete remove one code point. Ctrl+Backspace, Ctrl+W, and Ctrl+Delete remove one
+word. Home and End move to the draft boundaries. Enter submits a nonblank
+draft.
 
-The contracts in this chapter are the accepted stable TUI baseline. Future
-visual work extends or replaces the registered generic components and their
-decisions; it must not introduce a parallel composer, transcript, activity, or
-rendering path.
-
-## Operator workflow
-
-Start with `agent` in a terminal after the one-time command installation, or use
-`npm run dev` while developing. Type printable text into the bounded multiline
-composer. Left and Right move one code point. Ctrl+Left and Ctrl+Right move one
-whitespace-delimited word. Backspace and Delete remove one code point;
-Ctrl+Backspace, Ctrl+W, and Ctrl+Delete remove one word. Home and End move to the
-draft boundaries. Enter submits. `/providers` configures or selects one
-provider, `/models` loads and selects one admitted model, `/permissions` edits
-the current session tool policy, and `/exit` closes the application.
-
-A bracketed paste is inserted as one atomic draft edit. Line feeds and tabs
-remain draft content, control-looking bytes inside the paste are not interpreted
-as keys or commands, and only a separately typed Enter submits the result.
-
-In an interactive alternate screen, left-drag selects visible conversation or
-composer text and copies it on release. A second press on the same logical
-character within 500 milliseconds selects its complete whitespace or non-
-whitespace run; release copies that word. Keep the second press held and drag to
-extend the range through complete word runs before release. In the composer,
-typing, paste, Backspace, Delete, and word deletion replace or remove the active
-range through the same editor path. If a terminal delivers pointer and editor
-input together, `agent` preserves their decoded order, so later input uses the
-new caret or selection.
-
-Copied logical text excludes soft wrapping and surface padding while preserving
-source line breaks and message order. Windows x64 shows `Copied!` only after its
-owned native clipboard boundary succeeds within its two-second operation and
-250-millisecond post-kill cleanup deadlines. Other platforms show `Copy
-requested!` after the bounded OSC 52 request is written; the terminal may still
-reject or ignore it. Failure shows `Copy failed!` without closing `agent`. These
-short statuses use the composer's right edge and expire normally. They reserve
-no row or draft width and collapse when they cannot fit, so copying never moves
-the transcript, composer, or caret. Copy is bounded to 65,536 UTF-16 code units;
-a larger range remains selected and shows a warning instead of being truncated.
-Clicking or dragging in the composer dismisses the current status immediately;
-conversation selection and scrolling leave it until replacement or expiry.
-If an OSC 8 link or OSC 52 copy write is interrupted, the next serialized
-renderer operation first closes the possible terminal string and hyperlink.
-Rendering and terminal cleanup do not continue until that recovery write
-succeeds.
-
-The mouse wheel over the transcript reuses its normal scroll state. A settled
-logical selection survives scrolling, so a long message can be reviewed without
-turning the range into screen coordinates. Resize clears transcript and composer
-selection because the wrapped geometry has changed. Any intervening keyboard
-input breaks a pending double-click sequence. Hold Shift when pressing or
-dragging for the terminal's optional native selection behavior. This is an
-escape hatch, not the application copy path. Ctrl+C remains cancellation during
+The composer grows from one to six visible rows and keeps the caret in view.
+Typing or deleting replaces an active composer selection. Ctrl+C cancels
 active work and exits while idle; it is not a copy shortcut.
-If Ctrl+C and `/exit` or EOF arrive in one terminal chunk, cancellation remains
-ordered before one exit request; an idle chunk never emits duplicate exits.
 
-Exact visible ASCII text beginning with `https://` is exposed as a terminal
-hyperlink with the same visible destination. The terminal chooses the click or
-modifier gesture, confirmation, browser, and security UI. `agent` does not
-launch a browser. Markdown link labels, hidden targets, non-HTTPS schemes, and
-credentials are not admitted as hyperlink destinations.
+## Paste text
 
-Type `/` or a non-exact command prefix to open completion above the composer.
-The list contains only the four exact commands. While it is visible, Up and Down
-move the selection without wrapping and do not move the transcript. The current
-row uses the restrained steel-blue accent shared by every generic selection
-list; other rows retain their neutral hierarchy. Tab copies
-the selected command into the composer and moves the caret to its end; it does
-not execute anything. Enter runs the highlighted exact command immediately
-through the normal command dispatcher and clears the draft. Exact commands,
-whitespace, case mismatches, unknown prefixes, `/help`, and `/quit` show no
-completion. The menu renders no passive keyboard hint; selection, insertion,
-and execution remain the complete interaction contract at every viewport size.
+A bracketed paste is one atomic edit. Newlines and tabs remain draft content,
+and control-looking bytes inside the paste are not interpreted as commands or
+keys. Paste never submits: type Enter separately after reviewing the draft.
 
-Command feedback appears as one transparent line group below current tool
-activity and above completion or the composer. New feedback replaces old
-feedback. `/providers` and `/models` use the same transparent generic selection
-list; an unknown command shows one short warning. The current notice
-disappears after five seconds or immediately when editor interaction resumes.
-It never enters transcript history.
+An incomplete, malformed, or oversized paste is discarded as a whole. It
+cannot leave a partial draft or start a turn.
 
-`/providers` always lists the two admitted provider identities. Enter on an
-unconfigured row opens the existing bounded editor in a credential context.
-The editor retains the key in memory but projects zero text and zero caret
-offset, so neither key nor mask characters enter the frame. The one-line
-transparent context says `Connect <provider>` and `process only`; the generic
-composer trailing status says `Enter API key · Ctrl+C cancels`. Enter
-configures the exact provider; Ctrl+C cancels and clears the credential draft.
-Enter on a configured row selects it. `/models` is available only for the selected
-configured provider and loads its bounded public catalog. It shows only remote
-IDs also present in the owned provider allowlist, with the maintained cost
-class at the right. Enter selects one exact model. Neither selector can change
-an active turn, and no provider or model is selected automatically.
+## Run commands
 
-`/permissions` opens one transparent six-row session editor above the composer.
-Up and Down select a tool without wrapping, Left and Right change its exact
-`Deny`, `Ask`, or `Allow` mode without wrapping, and Enter closes the editor.
-Editing composer text also closes it before that same edit is applied. A pending
-tool decision takes precedence and shows exactly `Allow once`, `Allow for
-session`, and `Deny`; Up and Down select, and Enter resolves the exact pending
-call. In both selectors, the exact current row uses the same restrained
-steel-blue accent as command completion. Neither selector enters the transcript.
+Type `/` or a partial exact command name to open completion. The maintained
+commands are `/providers`, `/models`, `/permissions`, and `/exit`.
 
-Use Up and Down to move the transcript by one row. Use Page Up and Page Down to
-move by the visible transcript height minus one row, so adjacent pages retain
-one line of context. Reaching the newest row resumes automatic follow. Starting
-a new turn also returns to the newest content. Home and End remain editor keys,
-and transcript navigation never changes the draft or caret. Detaching from
-follow-end changes reducer-owned navigation state without adding footer
-telemetry. The low-priority footer row stays geometrically stable during page movement and collapses
-behind tool activity, required prompt, and transcript rows on constrained
-terminals. This maintained manual is the operator reference; the TUI does not
-duplicate it.
+While completion is visible:
 
-## Guarantees and limits
+- Up and Down move the selected row without wrapping;
+- Tab places the selected command in the composer without running it; and
+- Enter runs the selected exact command through the normal dispatcher.
 
-Input decoding is incremental across fragmented terminal chunks. The editor is
-bounded and Unicode-code-point aware. Its word operations use one rule: spaces,
-tabs, and line feeds delimit words. The composer grows from one through six
-content rows and retains the caret-visible window after reaching its cap. The vertical framework allocates one
-  dominant document, contextual activity, one latest ephemeral notice, a
-stage-wide ruled composer, and compact footer without product logic entering
-the generic TUI package. `Panel` decorates one decision boundary,
-`SplitLine` composes two independently retained text groups, `ThreeColumnLine`
-anchors left, physical-center, and right groups, `HorizontalInset` centers a
-bounded child, `HorizontalRules` frames transparent content between paired
-rules, `SideRail` adds a solid one-cell guide, `Surface` paints one
-bounded borderless region, and `Spacer` owns vertical rhythm.
-Untrusted text is normalized and
-sanitized before the frame performs a final control-character check. Rendering
-is serialized, differential, and commits its snapshot only after a complete
-successful write. For every changed row, the renderer first paints each maximal
-contiguous non-transparent surface run across its exact logical cell extent
-with surface-colored ASCII spaces and then writes the structured content from
-column zero. Inset runs are covered without painting transparent gaps or
-combining different surfaces. This keeps physical edges rectangular without
-changing the shared cell-width rules or the displayed text.
+Unknown commands produce a short warning. Command feedback is contextual and
+does not enter the transcript.
 
-Cell measurement is shared by the editor, composer, transcript, Markdown,
-tables, surfaces, clipping, caret, and renderer. Printable ASCII, interface
-glyphs, and the maintained precomposed Latin prose profile occupy one cell;
-unknown non-ASCII text remains conservatively two cells. This keeps accents and
-typographic quotes physically aligned after paste without claiming complete
-Unicode grapheme support or changing retained text.
-Decision [0044](../decisions/0044-owned-latin-prose-cell-width.md) defines the
-exact admitted profile, fallback, verification, and removal contract.
+## Use selectors
 
-The shell is conversation-first rather than a permanent dashboard. An empty
-session contains no welcome, suggestions, provider prompt, or embedded help.
-Only the composer and factual footer remain. Contextual activity, notice, and completion
-consume no rows when absent. One shared optional blank row separates every
-adjacent lower-shell region: transcript, activity, notice, completion,
-composer, and footer. Each instance collapses before required content on a
-short terminal.
+`/providers` and `/models` use the same list controls: Up and Down move without
+wrapping, and Enter selects the current row. Selecting an unconfigured provider
+opens a concealed credential editor. Its context identifies the provider and
+marks the credential as process-only; the composer prompt reads
+`Enter API key · Ctrl+C cancels`. Enter accepts the key and Ctrl+C cancels the
+credential edit. See [Providers and authentication](05-providers-and-authentication.md)
+for provider and model rules.
 
-On a wide terminal every shell region uses one CLI-owned conversation stage
-that fills the terminal except for one technical outer column per side when
-space permits.
-Transcript, activity, notice, completion, and composer use that projection;
-resizing recomputes it without changing transcript, draft, or model state and
-clears only geometry-dependent selection. The footer uses the
-same projection so the pulse ends exactly with the composer frame. User requests
-compose one stage-wide transparent generic `Surface` with the shared one-cell
-content inset, zero vertical padding, and italic steel-blue `accent` base prose.
-Registered Markdown roles retain their semantic tones on their exact spans. No
-rail, marker, border, or background is added, and the first user text cell still
-aligns with assistant prose and composer text and caret. Assistant responses keep
-`plain` base prose and remain unboxed when they are ordinary prose. Fenced code and strict pipe tables
-use one content-fit transparent technical region. Complete fences with one or two
-visible logical rows use zero horizontal padding; larger fences and tables use
-one cell. Roles
-remain structured internally, but the transcript does not repeat `you` or
-`agent` labels. User and structured-content surfaces have no border or
-background. The shared inset drops before required content on a viewport too
-narrow to fit both, while structured content stays content-fit.
-One blank row separates adjacent turns.
-The composer is one stage-wide generic `HorizontalRules` frame around the
-prompt-free `InputArea`; it owns no second editor or submission path. Its
-content stays transparent with one cell of horizontal padding, and one
-full-width light-blue `accent` rule sits above and below the draft. Both rule
-rows collapse before content when fewer than three rows are available. The area
-wraps the draft, grows from one through six rows, and follows the caret. The
-draft stays plain and one optional rhythm row separates the composer from the
-footer. The composer survives first, followed by
-permission-sensitive state and document content; the footer collapses before
-required interaction.
+`/permissions` lists the six tools. Up and Down choose a tool, Left and Right
+change its `Deny`, `Ask`, or `Allow` mode, and Enter closes the editor. A pending
+tool decision instead shows `Allow once`, `Allow for session`, and `Deny`; Up
+and Down choose an action and Enter resolves it. See
+[Tools and permissions](04-tools-and-approval.md) for the authority each choice
+grants.
 
-During an interactive session the renderer requests bracketed-paste mode, DEC
-button-event tracking, SGR mouse reports, and a steady vertical bar caret. This
-is terminal chrome, not a character in the draft. A terminal that ignores the
-standard shape command keeps its native caret. On exit or cleanup retry, agent
-disables both mouse modes and bracketed-paste mode, then restores the terminal-
-default cursor style
-before restoring visibility and the previous screen.
+## Navigate and copy
 
-The visual language is deliberately small. Ordinary conversation, tool names,
-scope, and the draft remain neutral. Dim text marks passive structure, bold
-default text marks document emphasis, green marks successful tool completion,
-yellow marks active or permission-sensitive state, and red marks
-failure, denial, or cancellation. Restrained steel blue marks parser-recognized
-inline code, fenced language labels, user base prose, and the exact selected row
-of a generic list, never model-selected state. Recognized
-code may use lighter code-only blues, sand, sage, and quiet-green syntax roles for scan
-hierarchy; these roles never represent lifecycle truth. Accented italic prose
-distinguishes user input; the composer remains transparent between
-its two light-blue accent rules. Tool activity remains transparent; restrained
-green, ochre, and red foregrounds on its mark and written state express
-authoritative lifecycle truth. Exact patch additions use a separate non-bold
-green diff role and removals a separate non-bold red diff role; their visible
-`+ ` and `- ` prefixes remain authoritative. The compact footer shows the working folder
-at the left edge and provider/model at the physical center. Its right edge shows
-only a constant-width active-work pulse whose final cell coincides with the
-composer frame's final cell, and otherwise remains empty. Lifecycle
-and navigation words stay on their owning interaction surfaces. On narrow
-terminals it retains the right group first, the center group second, and the
-working folder last. The footer displays only authoritative composition-root or
-application facts. Empty spans are removed, adjacent equal roles are merged,
-and each row is bounded before composition. These are semantic
-roles, not model-controlled colors. Only the renderer creates ANSI sequences
-from one fixed closed 24-bit palette; unsupported terminals may degrade color
-without changing text or geometry. The renderer performs no palette detection
-and resets style after each emphasized span and before terminal ownership is
-returned.
+Use Up and Down to scroll the transcript by one row. Page Up and Page Down move
+by one visible page with one row of overlap. Reaching the newest row restores
+automatic follow; submitting a new task also returns there. Transcript
+navigation never changes the draft or caret.
 
-While autonomous work is generating, running a tool, or cancelling, the footer
-shows one constant-width three-cell pulse as its only right-edge content. Idle
-and permission waiting leave that edge empty. Six deterministic phases move one
-ochre head through a neutral leading and trailing step at eight frames per
-second in interactive terminals. Terminal input, runtime
-events, permissions, cancellation, and shutdown take priority over motion. Slow
-output cannot accumulate ticks because the scheduler re-arms only after a
-successful frame. Only an event that actually redraws rebases pending motion;
-retained input fragments do not stop it, and notice expiry discards a cached
-tick without resetting the current phase. Non-TTY output and Phase 0 remain
-static.
+In an interactive terminal, left-drag selects conversation or composer text
+and copies it on release. Double-click selects one whitespace or non-whitespace
+word; holding the second press and dragging extends the selection by whole word
+runs. Copied text omits soft wrapping and layout padding while preserving
+source line breaks and message order. Selection is bounded to 65,536 UTF-16
+code units; a larger range remains selected and produces a warning instead of
+being truncated.
 
-Conversation text accepts one original bounded Markdown subset: headings with
-one through six `#` markers, one-level `- ` or numbered list items, one-level
-`> ` quotes, matched triple-backtick code fences, same-line backtick code,
-same-line `*italic*` emphasis, same-line `**strong**` text, and an exact `---`
-horizontal separator. It also accepts a strict pipe table: one header with
-at least two non-empty cells, a same-width delimiter row made from optional
-colons and at least three hyphens per cell, then same-width non-empty body rows.
-The compiler measures every retained header and body cell before painting and
-pads each column to one shared visible width. One quiet divider of that exact
-width separates the emphasized header from the body inside the same transparent
-content-fit region. Tables do not draw an outer box or a full grid.
-Headings, strong text, and table headers use bold default text. Single-asterisk
-emphasis retains the surrounding foreground and uses the closed italic slant.
-Inline code and fenced language labels use the parser-owned restrained
-steel-blue accent. List markers, quote rails, table separators, and the
-responsive horizontal separator are dim. Shorter, longer, or spaced
-horizontal-rule variants remain literal. A complete recognized code fence may
-highlight keywords, names, strings, literals, and comments through the bounded
-owned line scanner. The registered profiles cover HTML/XML/SVG, JavaScript and
-TypeScript, JSON, CSS/SCSS, and common shell dialects; empty or unknown labels
-remain plain. Inline code is recognized before strong text, and strong text
-before italic emphasis. Inline delimiters must be exact and cannot be part of a
-longer run. Missing closing delimiters,
-longer delimiter runs, malformed tables, and every unsupported construct stay
-visible literally. Markdown link syntax, images, rendered HTML, escaped pipes,
-task lists, and extensions are not interpreted. Exact visible HTTPS text may
-carry only the terminal interaction described above. Code highlighting is lexical display assistance,
-not compiler semantics, execution, language discovery, or an extension system.
-Markdown shares the plain-text sanitizer, Unicode cell
-measurement, wrapping, anchoring, padding, structured rows, and final renderer;
-it has no second screen or arbitrary style path.
-Each structured conversation entry is a separate parser document. Up to
-512 documents share the existing total text bound, with one blank row between
-them; a fence or delimiter can never continue into the next message.
+Windows x64 reports `Copied!` only after the owned clipboard transfer succeeds.
+Other platforms report `Copy requested!` after writing a bounded terminal copy
+request, which the terminal may still ignore. `Copy failed!` is nonfatal. Hold
+Shift while selecting to use the terminal's optional native selection path.
+Resizing clears selection because wrapping geometry changed.
 
-Ordinary text wraps at the last space that fits instead of splitting a normal
-word. A token wider than the available row still falls back to deterministic
-cell wrapping. Wrapped list items use a hanging marker-width indent, quotes
-repeat their rail, and fenced code keeps literal cell wrapping inside its
-declared zero- or one-cell surface padding. The exact horizontal separator is
-expanded only after the available width is known. The layout performs no
-language-specific hyphenation or URL rewriting.
+Exact visible ASCII text beginning with `https://` may be exposed as a terminal
+hyperlink to that same address. The terminal controls the activation gesture
+and confirmation; Agent never launches a browser.
 
-Tool activity uses one generic document builder for every registered tool. At
-most the latest activity remains beside the composer while its turn is active.
-Permission, execution, and terminal outcome update that one surface. The next
-tool replaces it, and turn settlement removes it. Tool activity never enters
-the scrollable conversation. The view derives from the same bounded log.
-Every state uses one borderless transparent surface. Its status mark and written
-state use restrained green, ochre, or red foregrounds for success, active or
-permission, and negative terminal truth. A display-only action label identifies the operation as
-`Read`, `List`, `Search`, `Write`, `Manage`, or `Run`; it is never a command or
-tool alias. One compact split line places the status mark, action, and optional
-useful safe subject on the left and the written state on the right. Canonical
-tool name and risk validate the closed projection but do not repeat in the
-visible head. The surface has one horizontal padding cell and no vertical
-padding. Non-permission states occupy exactly that line. Pending patch permission
-may append the exact bounded human-readable changed `- ` and `+ ` diff rows,
-with exact complete context shared by both sides of one hunk omitted from
-display, followed by the separate transparent contextual decision list. In a
-short viewport, display
-action, written state, and decision actions survive before subject or preview
-detail. Queued, running,
-cancelling, and terminal
-snapshots never replay the preview; the lifecycle log still retains it. No activity rail,
-border, private panel, or empty activity document is rendered.
-Call identifiers, raw arguments, output, provider data, credentials, and
-failure causes are never displayed.
+## Read the interface
 
-## Failure behavior
+The transcript is the dominant region. User requests use italic steel-blue
+text, assistant prose is neutral, and neither carries a role label or box. The
+composer remains fixed between two light-blue rules. The footer shows the
+workspace and selected provider/model; its right edge contains a small moving
+pulse only while autonomous work advances. Permission waiting is not active
+motion.
 
-Unsupported or oversized input produces one warning notice in the shared
-ephemeral slot. It replaces prior feedback and is dismissed after five seconds
-or the next editor interaction. An incomplete,
-malformed, or oversized paste is discarded atomically and cannot submit a
-partial turn. Invalid display text,
-layout failure, viewport failure, and output failure stop through typed
-boundaries. On every exit path the host restores cooked input, the renderer
-restores cursor and screen state, and cleanup failures remain separate. At idle,
-Ctrl+C exits; during an active turn it requests cancellation instead.
+Only the latest tool activity appears near the composer during an active turn.
+Its mark and written state carry success, attention, or failure color. Pending
+patch permission may show bounded red removed rows and green added rows. Tool
+activity disappears when the turn settles and never becomes transcript
+history. Details and approval behavior are documented in
+[Tools and permissions](04-tools-and-approval.md).
 
-## Maintenance and removal
+The latest informational or warning notice appears contextually and is replaced
+by newer feedback. It expires after five seconds or on the next editor
+interaction. Empty sessions do not add a welcome panel or embedded help.
 
-Keep terminal decoding, components, renderer, Node host, application view, and
-lifecycle tests separated by their package ownership. A TUI feature is complete
-only when bounds, controls, resize, one-row viewports, failures, cleanup, update,
-and removal are documented. Follow [decision 0006](../decisions/0006-owned-vertical-tui-framework.md)
-for framework changes and [decision 0019](../decisions/0019-owned-semantic-terminal-tones.md)
-for visual emphasis changes. Decision
-[0020](../decisions/0020-owned-scrollable-screen-foundation.md) governs
-synchronized redraw and the reusable scroll foundation. Decision
-[0024](../decisions/0024-owned-transcript-navigation.md) governs product
-navigation, planned geometry, follow recovery, visual review, and removal.
-Decision
-[0021](../decisions/0021-owned-structured-terminal-rows.md) governs the one
-canonical structured-row representation, its bounds, clipping, and removal.
-Decision [0022](../decisions/0022-owned-tool-activity-surface.md) governs the
-generic component stack and the CLI-owned activity surface.
-Decision [0023](../decisions/0023-owned-bounded-markdown.md) governs the closed
-Markdown syntax, document-emphasis tone, fallback, tests, and removal path.
-Decision [0030](../decisions/0030-owned-structured-markdown-surfaces.md)
-governs unboxed assistant prose, structured code and table surfaces, the exact
-parser-owned accent mapping, responsive padding, tests, and removal.
-Decision [0031](../decisions/0031-owned-terminal-palette-and-code-highlighting.md)
-governs the steel-blue accent, closed syntax roles,
-bounded language profiles, fallback, tests, and removal.
-Decision [0032](../decisions/0032-owned-transcript-visual-refinement.md)
-governs the responsive separator, compact fence density, navigation state,
-restrained reference accent, tests, and removal.
-Decision [0025](../decisions/0025-owned-word-aware-display-layout.md) governs
-word boundaries, literal-code wrapping, continuation prefixes, tests, and
-removal.
-Decision [0026](../decisions/0026-owned-responsive-conversation-shell.md)
-governs the conversation-first shell, generic panel, split-line,
-horizontal-inset, and side-rail primitives, responsive priorities, truthful
-footer, visual review, rollback, and removal.
-Decision [0027](../decisions/0027-owned-semantic-state-chrome.md) governs the
-header-free shell, quiet composer treatment, semantic state colors, transcript
-spacing, tests, rollback, and removal.
-Decision [0028](../decisions/0028-owned-conversation-visual-grammar.md) governs
-the empty state, role markers, ephemeral latest-tool activity,
-composer frame, cursor lifecycle, reusable rhythm
-primitives, tests,
-rollback, and removal.
-Decision [0033](../decisions/0033-owned-semantic-activity-surfaces.md) governs
-the shared borderless activity lifecycle and permission hierarchy. Decision
-[0057](../decisions/0057-owned-transparent-human-tool-activity.md) governs its
-transparent truth treatment, non-redundant head, human patch diff, tests,
-rollback, and removal.
-Decision [0034](../decisions/0034-owned-slash-command-completion.md) governs
-the canonical command catalog, contextual keys, Tab-without-submit behavior,
-generic selection list, contrast refinement, tests, rollback, and removal.
-Decision [0068](../decisions/0068-owned-ephemeral-provider-and-model-selection.md)
-governs the concealed credential context, provider and model selectors, public
-catalog projection, process-only state, tests, rollback, and removal.
-Decision [0035](../decisions/0035-owned-multiline-composer-and-paste.md) governs
-multiline composition, atomic bracketed paste, semantic word editing, bounds,
-terminal lifecycle, tests, rollback, and removal.
-Decision [0045](../decisions/0045-owned-terminal-interaction.md) governs mouse
-lifecycle and decoding, logical selection, composer routing, scrolling, exact
-visible HTTPS links, bounded clipboard copy, Shift fallback, tests, rollback,
-and removal.
-Decision [0038](../decisions/0038-owned-deterministic-tui-motion.md) records
-deterministic phase ownership, scheduler bounds, terminal-event priority,
-the generating pulse, static Phase 0, tests, rollback, and removal.
-Decision [0039](../decisions/0039-owned-responsive-conversation-stage.md)
-governs the shared fluid stage, stage-wide user projection, tests, rollback, and
-removal. Decision [0040](../decisions/0040-owned-quiet-conversation-rhythm.md)
-governs quiet input treatment, transparent technical regions, compact completion, uniform
-lower-shell rhythm, physical pulse alignment, tests, rollback, and removal.
-Decision [0043](../decisions/0043-owned-conversation-density.md) governs the
-frozen CLI density record, compact activity surfaces,
-action/state-first clipping, focused composer rule rows, reference viewport matrix,
-tests, rollback, and removal.
-Decision [0059](../decisions/0059-owned-accented-conversation-focus.md) governs
-rail-free accented user prose and the generic selected-row focus shared by
-completion and permission lists.
-Decision [0060](../decisions/0060-owned-semantic-patch-diff-foregrounds.md)
-governs the closed non-bold direction tones for validated patch preview rows.
-Decision [0062](../decisions/0062-owned-changed-only-patch-preview.md) governs
-exact per-hunk context compaction without changing the authorized patch.
-Decision [0056](../decisions/0056-owned-compact-tool-activity-line.md) governs
-the exact display labels, status marks, one-line hierarchy, responsive retention,
-preview expansion, tests, rollback, and removal.
+Conversation text recognizes a bounded Markdown subset: headings, one-level
+lists and quotes, matched code fences, same-line code and emphasis, strict pipe
+tables, and an exact `---` separator. Unsupported or malformed syntax remains
+literal. Recognized fenced languages may receive bounded lexical highlighting;
+display styling never executes code or changes model text.
 
-## Evidence
+## Recover from terminal problems
 
-- Input protocol: `packages/agent-tui/src/input-decoder.ts`
-- Bounded editor: `packages/agent-tui/src/line-editor.ts`
-- Generic multiline input: `packages/agent-tui/src/input-area.ts`
-- Generic horizontal rules: `packages/agent-tui/src/horizontal-rules.ts`
-- Generic layout: `packages/agent-tui/src/vertical-layout.ts`
-- Generic component stack: `packages/agent-tui/src/component-stack.ts`
-- Generic panel: `packages/agent-tui/src/panel.ts`
-- Generic split line: `packages/agent-tui/src/split-line.ts`
-- Generic three-column line: `packages/agent-tui/src/three-column-line.ts`
-- Generic horizontal inset: `packages/agent-tui/src/horizontal-inset.ts`
-- Conversation-stage projection: `packages/agent-cli/src/conversation-stage.ts`
-- Conversation-stage tests: `packages/agent-cli/test/conversation-stage.test.ts`
-- Generic side rail: `packages/agent-tui/src/side-rail.ts`
-- Shared display layout: `packages/agent-tui/src/display-text.ts`
-- Interactive Markdown projection: `packages/agent-tui/src/interactive-markdown.ts`
-- Logical text interaction: `packages/agent-tui/src/text-interaction.ts`
-- Planned-frame hit testing: `packages/agent-tui/src/text-hit.ts`
-- Bounded terminal clipboard encoding: `packages/agent-tui/src/clipboard.ts`
-- Platform clipboard port: `packages/agent-cli/src/platform-clipboard.ts`
-- Platform clipboard protocol: `packages/agent-cli/src/platform-clipboard-protocol.ts`
-- Owned native clipboard broker: `packages/agent-cli/native/clipboard`
-- Bounded Markdown component: `packages/agent-tui/src/markdown-block.ts`
-- Bounded Markdown parser: `packages/agent-tui/src/markdown-parser.ts`
-- Bounded code highlighter: `packages/agent-tui/src/syntax-highlighter.ts`
-- Semantic tones: `packages/agent-tui/src/tone.ts`
-- Structured rows: `packages/agent-tui/src/rich-row.ts`
-- Shared cell-width policy: `packages/agent-tui/src/cell-width.ts`
-- Pure motion phases: `packages/agent-tui/src/motion.ts`
-- Tone contract: `docs/decisions/0019-owned-semantic-terminal-tones.md`
-- Scroll contract: `docs/decisions/0020-owned-scrollable-screen-foundation.md`
-- Structured-row contract: `docs/decisions/0021-owned-structured-terminal-rows.md`
-- Motion decision: `docs/decisions/0038-owned-deterministic-tui-motion.md`
-- Motion scheduler: `packages/agent-cli/src/motion-scheduler.ts`
-- Generic timer port: `packages/agent-cli/src/timer-clock.ts`
-- Node timer adapter: `packages/agent-cli/src/node-timer-clock.ts`
-- Ephemeral-notice decision: `docs/decisions/0041-owned-ephemeral-contextual-notices.md`
-- Notice scheduler: `packages/agent-cli/src/notice-scheduler.ts`
-- Tool-activity contract: `docs/decisions/0022-owned-tool-activity-surface.md`
-- Markdown contract: `docs/decisions/0023-owned-bounded-markdown.md`
-- Transcript-navigation contract: `docs/decisions/0024-owned-transcript-navigation.md`
-- Display-wrapping contract: `docs/decisions/0025-owned-word-aware-display-layout.md`
-- Conversation-shell contract: `docs/decisions/0026-owned-responsive-conversation-shell.md`
-- Semantic-state contract: `docs/decisions/0027-owned-semantic-state-chrome.md`
-- Conversation visual grammar: `docs/decisions/0028-owned-conversation-visual-grammar.md`
-- Structured Markdown surfaces: `docs/decisions/0030-owned-structured-markdown-surfaces.md`
-- Terminal palette and code highlighting: `docs/decisions/0031-owned-terminal-palette-and-code-highlighting.md`
-- Transcript visual refinement: `docs/decisions/0032-owned-transcript-visual-refinement.md`
-- Semantic activity surfaces: `docs/decisions/0033-owned-semantic-activity-surfaces.md`
-- Compact tool activity line: `docs/decisions/0056-owned-compact-tool-activity-line.md`
-- Transparent human tool activity: `docs/decisions/0057-owned-transparent-human-tool-activity.md`
-- Slash-command completion: `docs/decisions/0034-owned-slash-command-completion.md`
-- Quiet conversation rhythm: `docs/decisions/0040-owned-quiet-conversation-rhythm.md`
-- Conversation density: `docs/decisions/0043-owned-conversation-density.md`
-- Accented conversation focus: `docs/decisions/0059-owned-accented-conversation-focus.md`
-- Semantic patch diff foregrounds: `docs/decisions/0060-owned-semantic-patch-diff-foregrounds.md`
-- Changed-only patch preview: `docs/decisions/0062-owned-changed-only-patch-preview.md`
-- Latin prose cell width: `docs/decisions/0044-owned-latin-prose-cell-width.md`
-- Owned terminal interaction: `docs/decisions/0045-owned-terminal-interaction.md`
-- Multiline composer, paste, and word editing: `docs/decisions/0035-owned-multiline-composer-and-paste.md`
-- Generic surface: `packages/agent-tui/src/surface.ts`
-- Composable text styles: `packages/agent-tui/src/text-style.ts`
-- Generic spacer: `packages/agent-tui/src/spacer.ts`
-- Final renderer: `packages/agent-tui/src/renderer.ts`
-- Scroll state: `packages/agent-tui/src/scroll-state.ts`
-- Generic scroll view: `packages/agent-tui/src/scroll-view.ts`
-- Terminal host: `packages/agent-cli/src/node-terminal-host.ts`
-- Product view composition: `packages/agent-cli/src/chat-view.ts`
-- Product pointer routing: `packages/agent-cli/src/application.ts`
-- Pointer gesture state: `packages/agent-cli/src/terminal-interaction.ts`
-- Terminal-interaction regressions: `packages/agent-cli/test/terminal-interaction.test.ts`
-- Product density policy: `packages/agent-cli/src/conversation-density.ts`
-- Conversation document composition: `packages/agent-cli/src/conversation-view.ts`
-- Activity document composition: `packages/agent-cli/src/activity-view.ts`
-- Pure activity projection: `packages/agent-cli/src/tool-activity-presentation.ts`
-- Command completion composition: `packages/agent-cli/src/command-completion-view.ts`
-- Tool-activity lifecycle: `packages/agent-cli/src/tool-activity-log.ts`
-- Slash-command classifier: `packages/agent-cli/src/commands.ts`
-- Generic selection list: `packages/agent-tui/src/selection-list.ts`
+- A copy warning or failure does not close Agent; retry with a smaller range or
+  use Shift with the terminal's native selection.
+- If input and output stop matching after a resize, release the pointer and
+  create a new selection from the current layout.
+- During active work, Ctrl+C requests cancellation and keeps Agent open. At
+  idle, Ctrl+C exits. `/exit`, Ctrl+D, or EOF also closes the application.
+- Display, layout, or output failures stop through a bounded failure path.
+  Shutdown still attempts to restore raw input, mouse and paste modes, cursor
+  style and visibility, and the previous screen.
+
+## References
+
+- [Current TUI and CLI architecture](../ARCHITECTURE.md#package-contracts)
+- [Interactive terminal maintenance](../MAINTENANCE.md#update-or-remove-the-interactive-terminal)
+- [Vertical TUI maintenance](../MAINTENANCE.md#update-or-remove-the-vertical-tui-framework)
+- [Current terminal authority](../decisions/README.md#current-authority-by-domain)
+- [Slash completion decision](../decisions/0034-owned-slash-command-completion.md)
+- [Composer and paste decision](../decisions/0035-owned-multiline-composer-and-paste.md)
+- [Terminal interaction decision](../decisions/0045-owned-terminal-interaction.md)
+- [Conversation focus decision](../decisions/0059-owned-accented-conversation-focus.md)

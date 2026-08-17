@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "applicationDocument": "docs/PROVIDER-APPLICATIONS.md",
   "researchedOn": "2026-08-08",
   "providers": [
@@ -71,153 +71,19 @@
   ],
   "directProviders": [
     {
-      "id": "opencode-go",
-      "displayName": "OpenCode Go",
+      "id": "ollama-cloud",
+      "displayName": "Ollama Cloud",
       "eligibility": "enabled",
       "authorization": "direct-api-key",
-      "credentialVariable": "AGENT_OPENCODE_GO_API_KEY",
+      "credentialVariable": "AGENT_OLLAMA_API_KEY",
       "credentialPersistence": "memory-only",
-      "chatEndpoint": "https://opencode.ai/zen/go/v1/chat/completions",
-      "catalogEndpoint": "https://opencode.ai/zen/go/v1/models",
-      "models": [
-        {
-          "id": "glm-5.3",
-          "cost": "goPlan"
-        },
-        {
-          "id": "glm-5.2",
-          "cost": "goPlan"
-        },
-        {
-          "id": "glm-5.1",
-          "cost": "goPlan"
-        },
-        {
-          "id": "kimi-k3",
-          "cost": "goPlan"
-        },
-        {
-          "id": "kimi-k2.7-code",
-          "cost": "goPlan"
-        },
-        {
-          "id": "kimi-k2.6",
-          "cost": "goPlan"
-        },
-        {
-          "id": "deepseek-v4-pro",
-          "cost": "goPlan"
-        },
-        {
-          "id": "deepseek-v4-flash",
-          "cost": "goPlan"
-        },
-        {
-          "id": "mimo-v2.5",
-          "cost": "goPlan"
-        },
-        {
-          "id": "mimo-v2.5-pro",
-          "cost": "goPlan"
-        },
-        {
-          "id": "hy3",
-          "cost": "goPlan"
-        }
-      ],
-      "transport": "chat-completions-sse",
-      "evidence": "https://opencode.ai/docs/go/",
-      "researchedOn": "2026-08-16"
-    },
-    {
-      "id": "opencode-zen",
-      "displayName": "OpenCode Zen",
-      "eligibility": "enabled",
-      "authorization": "direct-api-key",
-      "credentialVariable": "AGENT_OPENCODE_ZEN_API_KEY",
-      "credentialPersistence": "memory-only",
-      "chatEndpoint": "https://opencode.ai/zen/v1/chat/completions",
-      "catalogEndpoint": "https://opencode.ai/zen/v1/models",
-      "models": [
-        {
-          "id": "deepseek-v4-pro",
-          "cost": "zenBalance"
-        },
-        {
-          "id": "deepseek-v4-flash",
-          "cost": "zenBalance"
-        },
-        {
-          "id": "minimax-m3",
-          "cost": "zenBalance"
-        },
-        {
-          "id": "minimax-m2.7",
-          "cost": "zenBalance"
-        },
-        {
-          "id": "minimax-m2.5",
-          "cost": "zenBalance"
-        },
-        {
-          "id": "glm-5.2",
-          "cost": "zenBalance"
-        },
-        {
-          "id": "glm-5.1",
-          "cost": "zenBalance"
-        },
-        {
-          "id": "glm-5",
-          "cost": "zenBalance"
-        },
-        {
-          "id": "kimi-k2.5",
-          "cost": "zenBalance"
-        },
-        {
-          "id": "kimi-k2.6",
-          "cost": "zenBalance"
-        },
-        {
-          "id": "kimi-k2.7-code",
-          "cost": "zenBalance"
-        },
-        {
-          "id": "kimi-k3",
-          "cost": "zenBalance"
-        },
-        {
-          "id": "big-pickle",
-          "cost": "zenBalance"
-        },
-        {
-          "id": "mimo-v2.5-free",
-          "cost": "free"
-        },
-        {
-          "id": "hy3-free",
-          "cost": "free"
-        },
-        {
-          "id": "laguna-s-2.1-free",
-          "cost": "free"
-        },
-        {
-          "id": "nemotron-3-ultra-free",
-          "cost": "free"
-        },
-        {
-          "id": "nemotron-3.5-lightning-free",
-          "cost": "free"
-        },
-        {
-          "id": "deepseek-v4-flash-free",
-          "cost": "free"
-        }
-      ],
-      "transport": "chat-completions-sse",
-      "evidence": "https://opencode.ai/docs/zen/",
+      "chatEndpoint": "https://ollama.com/api/chat",
+      "catalogEndpoint": "https://ollama.com/api/tags",
+      "catalogAuthentication": "bearer-api-key",
+      "modelAuthority": "authenticated-catalog",
+      "modelCost": "cloud",
+      "transport": "ollama-chat-application-json-stream",
+      "evidence": "https://docs.ollama.com/cloud",
       "researchedOn": "2026-08-16"
     }
   ]

@@ -14,6 +14,9 @@
     "docs/OWNERSHIP.md",
     "docs/PROVIDER-APPLICATIONS.md",
     "docs/PROVIDERS.md",
+    "docs/README.md",
+    "docs/DOCUMENTATION-MIGRATION.md",
+    "docs/decisions/README.md",
     "docs/decisions/0001-owned-zero-dependency-rust.md",
     "docs/decisions/0002-owned-zero-dependency-typescript.md",
     "docs/decisions/0003-owned-provider-authentication.md",
@@ -83,6 +86,11 @@
     "docs/decisions/0065-owned-red-green-tool-recovery-evaluation.md",
     "docs/decisions/0066-owned-namespace-directory-evaluation.md",
     "docs/decisions/0067-owned-opencode-provider-selection.md",
+    "docs/decisions/0068-owned-ephemeral-provider-and-model-selection.md",
+    "docs/decisions/0069-owned-tool-call-interoperability.md",
+    "docs/decisions/0070-owned-documentation-information-architecture.md",
+    "docs/decisions/0071-owned-task-oriented-operator-manual.md",
+    "docs/decisions/0072-owned-ollama-cloud-provider.md",
     "evaluations/README.md"
   ],
   "workspaces": [
@@ -107,17 +115,8 @@
       }
     },
     {
-      "path": "packages/agent-provider-opencode-go",
-      "name": "@agent/provider-opencode-go",
-      "dependencies": {
-        "@agent/core": "0.1.0",
-        "@agent/runtime": "0.1.0",
-        "@agent/tools": "0.1.0"
-      }
-    },
-    {
-      "path": "packages/agent-provider-opencode-zen",
-      "name": "@agent/provider-opencode-zen",
+      "path": "packages/agent-provider-ollama-cloud",
+      "name": "@agent/provider-ollama-cloud",
       "dependencies": {
         "@agent/core": "0.1.0",
         "@agent/runtime": "0.1.0",
@@ -134,8 +133,7 @@
       "name": "@agent/cli",
       "dependencies": {
         "@agent/core": "0.1.0",
-        "@agent/provider-opencode-go": "0.1.0",
-        "@agent/provider-opencode-zen": "0.1.0",
+        "@agent/provider-ollama-cloud": "0.1.0",
         "@agent/runtime": "0.1.0",
         "@agent/tools": "0.1.0",
         "@agent/tui": "0.1.0"

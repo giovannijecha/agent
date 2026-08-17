@@ -10,11 +10,11 @@ import type { CancellationSignal } from "@agent/runtime";
 
 import {
   type HttpsClient,
-  NodeOpenCodeZenTransport,
-  OPENCODE_ZEN_CHAT_PATH,
-  OPENCODE_ZEN_ORIGIN,
-  OPENCODE_ZEN_TRANSPORT_LIMITS,
-} from "../dist/node-opencode-zen-transport.js";
+  NodeOllamaCloudTransport,
+  OLLAMA_CLOUD_CHAT_PATH,
+  OLLAMA_CLOUD_ORIGIN,
+  OLLAMA_CLOUD_TRANSPORT_LIMITS,
+} from "../dist/node-ollama-cloud-transport.js";
 
 class FakeCancellation implements CancellationSignal {
   #resolve: () => void = () => undefined;
@@ -47,7 +47,7 @@ class FakeResponse implements IncomingMessage {
   pauses = 0;
   resumes = 0;
 
-  constructor(statusCode = 200, contentType = "text/event-stream") {
+  constructor(statusCode = 200, contentType = "application/json") {
     this.statusCode = statusCode;
     this.headers = Object.freeze({ "content-type": contentType });
   }
@@ -169,21 +169,21 @@ class FakeClient implements HttpsClient {
   }
 }
 
-function createTransport(client: HttpsClient): NodeOpenCodeZenTransport {
-  const created = NodeOpenCodeZenTransport.create("valid-value", client);
+function createTransport(client: HttpsClient): NodeOllamaCloudTransport {
+  const created = NodeOllamaCloudTransport.create("valid-value", client);
   assert.ok(created.ok);
   return created.value;
 }
 
 test("rejects invalid credentials and hostile HTTPS clients without throwing", () => {
-  assert.equal(NodeOpenCodeZenTransport.create("", new FakeClient()).ok, false);
+  assert.equal(NodeOllamaCloudTransport.create("", new FakeClient()).ok, false);
   const hostile = Object.create(null) as { request?: unknown };
   Object.defineProperty(hostile, "request", {
     get: () => {
       throw new Error("private cause");
     },
   });
-  assert.deepEqual(NodeOpenCodeZenTransport.create("valid-value", hostile as never), {
+  assert.deepEqual(NodeOllamaCloudTransport.create("valid-value", hostile as never), {
     error: { kind: "invalidConfiguration" },
     ok: false,
   });
@@ -198,19 +198,20 @@ test("uses only the admitted HTTPS origin, path, headers, and request body", asy
   );
 
   assert.ok(opened.ok);
-  assert.equal(OPENCODE_ZEN_ORIGIN, "https://opencode.ai");
-  assert.equal(client.options?.hostname, "opencode.ai");
-  assert.equal(client.options?.path, OPENCODE_ZEN_CHAT_PATH);
+  assert.equal(OLLAMA_CLOUD_ORIGIN, "https://ollama.com");
+  assert.equal(client.options?.hostname, "ollama.com");
+  assert.equal(client.options?.path, OLLAMA_CLOUD_CHAT_PATH);
   assert.equal(client.options?.method, "POST");
   assert.equal(client.options?.protocol, "https:");
   assert.equal(client.options?.port, 443);
   assert.equal(client.options?.agent, false);
-  assert.equal(client.options?.maxHeaderSize, OPENCODE_ZEN_TRANSPORT_LIMITS.headerBytes);
+  assert.equal(client.options?.maxHeaderSize, OLLAMA_CLOUD_TRANSPORT_LIMITS.headerBytes);
+  assert.equal(client.options?.headers.accept, "application/json");
   assert.equal(client.options?.headers.authorization, "Bearer valid-value");
   assert.deepEqual(client.requestValue?.bodies, ["{\"stream\":true}"]);
   assert.equal(client.requestValue?.timeoutMilliseconds, 120_000);
   assert.equal(opened.value.statusCode, 200);
-  assert.equal(opened.value.contentType, "text/event-stream");
+  assert.equal(opened.value.contentType, "application/json");
 });
 
 test("delivers one owned chunk per pull and ends deterministically", async () => {
@@ -250,7 +251,7 @@ test("rejects concurrent reads and oversized response chunks", async () => {
   });
   response.emit(
     "data",
-    new Uint8Array(OPENCODE_ZEN_TRANSPORT_LIMITS.responseChunkBytes + 1),
+    new Uint8Array(OLLAMA_CLOUD_TRANSPORT_LIMITS.responseChunkBytes + 1),
   );
   assert.deepEqual(await first, { error: { kind: "limit" }, ok: false });
 });

@@ -68,12 +68,41 @@ test("rejects missing or reordered chapter contract sections", () => {
   const context = currentContext();
   const chapter = currentPolicy.chapters.at(2).path;
   context.files[chapter] = context.files[chapter].replace(
-    "## Failure behavior",
-    "## Failure handling",
+    "## Tool checkpoints",
+    "## Tool progress",
   );
   assert.throws(
     () => validateManualPolicy(currentPolicy, context),
     ManualPolicyError,
+  );
+});
+
+test("rejects terminal-interface task contract drift", () => {
+  const context = currentContext();
+  const chapter = currentPolicy.chapters.at(3).path;
+  context.files[chapter] = context.files[chapter].replace(
+    "## Navigate and copy",
+    "## Copy text",
+  );
+  assert.throws(
+    () => validateManualPolicy(currentPolicy, context),
+    ManualPolicyError,
+  );
+});
+
+test("binds each chapter to its declared task-specific sections", () => {
+  const policy = structuredClone(currentPolicy);
+  policy.chapters.at(1).sections = [
+    ...policy.chapters.at(1).sections.slice(0, 2),
+    "Legacy universal section",
+    ...policy.chapters.at(1).sections.slice(2),
+  ];
+  assert.throws(
+    () => validateManualPolicy(policy, currentContext()),
+    {
+      message: "manual chapter section order mismatch",
+      name: "ManualPolicyError",
+    },
   );
 });
 
@@ -205,6 +234,54 @@ test("rejects an incomplete lean harness inventory", () => {
   );
 });
 
+test("rejects tools-and-permissions task contract drift", () => {
+  const context = currentContext();
+  const chapter = "docs/manual/04-tools-and-approval.md";
+  context.files[chapter] = context.files[chapter].replace(
+    "## Decide a request",
+    "## Approve a request",
+  );
+  assert.throws(
+    () => validateManualPolicy(currentPolicy, context),
+    {
+      message: "manual chapter section order mismatch",
+      name: "ManualPolicyError",
+    },
+  );
+});
+
+test("rejects providers-and-authentication task contract drift", () => {
+  const context = currentContext();
+  const chapter = "docs/manual/05-providers-and-authentication.md";
+  context.files[chapter] = context.files[chapter].replace(
+    "## Choose a model",
+    "## Select a model",
+  );
+  assert.throws(
+    () => validateManualPolicy(currentPolicy, context),
+    {
+      message: "manual chapter section order mismatch",
+      name: "ManualPolicyError",
+    },
+  );
+});
+
+test("rejects verification-and-diagnostics task contract drift", () => {
+  const context = currentContext();
+  const chapter = "docs/manual/06-verification-and-diagnostics.md";
+  context.files[chapter] = context.files[chapter].replace(
+    "## Diagnose the first failure",
+    "## Inspect a failure",
+  );
+  assert.throws(
+    () => validateManualPolicy(currentPolicy, context),
+    {
+      message: "manual chapter section order mismatch",
+      name: "ManualPolicyError",
+    },
+  );
+});
+
 test("rejects tool convergence documentation drift", () => {
   const countContext = currentContext();
   countContext.files["PRIVACY.md"] = countContext.files["PRIVACY.md"].replace(
@@ -261,7 +338,7 @@ test("rejects stale manual removal schema guidance", () => {
   const maintainedGuidance = context.files["docs/MAINTENANCE.md"];
   context.files["docs/MAINTENANCE.md"] = context.files[
     "docs/MAINTENANCE.md"
-  ].replace("manual-policy schema 9", "manual-policy schema 8");
+  ].replace("manual-policy schema 10", "manual-policy schema 9");
   assert.notEqual(context.files["docs/MAINTENANCE.md"], maintainedGuidance);
   assert.throws(
     () => validateManualPolicy(currentPolicy, context),
@@ -288,7 +365,7 @@ test("rejects an unregistered chapter or broken local link", () => {
   );
 });
 
-test("rejects missing or uncited evidence", () => {
+test("rejects missing registered references without requiring prose citations", () => {
   const missingContext = currentContext();
   missingContext.ownedPaths = missingContext.ownedPaths.filter(
     (file) => file !== "tools/verify.ps1",
@@ -298,17 +375,15 @@ test("rejects missing or uncited evidence", () => {
     ManualPolicyError,
   );
 
-  const uncitedContext = currentContext();
+  const proseIndependentContext = currentContext();
   const chapter = currentPolicy.chapters.find((candidate) =>
-    uncitedContext.files[candidate.path].includes("`tools/verify.ps1`"),
+    proseIndependentContext.files[candidate.path].includes("tools/verify.ps1"),
   )?.path;
   assert.equal(typeof chapter, "string");
-  uncitedContext.files[chapter] = uncitedContext.files[chapter].replace(
-    "`tools/verify.ps1`",
-    "the release script",
-  );
-  assert.throws(
-    () => validateManualPolicy(currentPolicy, uncitedContext),
-    ManualPolicyError,
+  proseIndependentContext.files[chapter] = proseIndependentContext.files[
+    chapter
+  ].replace("tools/verify.ps1", "the canonical release gate");
+  assert.doesNotThrow(
+    () => validateManualPolicy(currentPolicy, proseIndependentContext),
   );
 });

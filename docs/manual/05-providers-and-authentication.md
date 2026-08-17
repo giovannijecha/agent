@@ -1,157 +1,96 @@
 # 05 - Providers and authentication
 
-## Purpose
+Agent starts without a provider or model. Provider configuration and model
+selection are explicit, process-local operator actions.
 
-Use this chapter to configure the admitted OpenCode Go and OpenCode Zen
-adapters inside one running `agent` process, select one provider and one model,
-and understand why the four requested subscription OAuth providers remain
-blocked.
+## Connect a provider
 
-## Operator workflow
+Run `/providers` while the application is idle. Ollama Cloud is the sole
+admitted choice. Enter its API key in the concealed composer and press Enter;
+Ctrl+C cancels without changing the session. The editor shows only the prompt
+`Enter API key · Ctrl+C cancels`, projects no credential characters, and stores
+no value or length in the transcript.
 
-Create OpenCode API keys only on the provider's official site. Start `agent` in
-the exact workspace directory. The terminal UI opens immediately and does not
-ask for credentials before it owns the screen.
+`AGENT_OLLAMA_API_KEY` may preload the same process-only credential for
+automation. Preloading does not select the provider or a model. A key that
+contains whitespace, control characters, or exceeds the fixed bound is rejected
+before any network request.
 
-Run `/providers`. The transparent selection list always contains OpenCode Go
-and OpenCode Zen. Up and Down move without wrapping. Enter on an unconfigured
-provider opens one concealed credential editor inside the TUI; paste the exact
-provider key and press Enter. Its one-line transparent context says `Connect`
-plus the provider name and `process only`; the composer says `Enter API key ·
-Ctrl+C cancels`. No key, mask character, length, or validation detail is
-projected. Ctrl+C cancels credential entry and clears the draft. Enter on a configured provider
-selects it. Configuration alone does not select a provider, and selection does
-not create a usable model.
+The key lives only in the active `agent` process. Exiting releases it. Agent
+does not create a credential file, update the environment, read Ollama
+configuration, or use a local Ollama installation.
 
-Run `/models` after selecting a configured provider. `agent` performs one
-public unauthenticated model-catalog request, intersects the returned IDs with
-the provider adapter's owned Chat Completions allowlist, and shows only that
-intersection. Up and Down move without wrapping; Enter selects and constructs
-the exact model. The row also states `Go plan`, `Zen balance`, or `free` from
-the maintained registry. Treat that label as routing guidance, not a billing or
-retention guarantee. A normal prompt is accepted only after provider and model
-selection are both complete.
+## Choose a model
 
-All keys, catalog results, provider selection, and model selection live only in
-the current `agent` process. `/exit` releases them. Controlled automation may
-preload either exact documented environment variable before starting. A
-preloaded key marks only that provider configured; it never auto-selects a
-provider or model and never changes the interactive selection contract.
+After connecting Ollama Cloud, run `/models`. Agent sends one bearer-
+authenticated `GET` request to exactly `https://ollama.com/api/tags`. The
+catalog request sends no conversation, workspace path, file content, tool
+schema, or tool result.
 
-## Guarantees and limits
+The selector lists only bounded catalog records whose exact non-empty `name`
+equals `model`. Model identifiers are dynamic provider authority, not a local
+allowlist or alias. Selecting one sets the active process-local model with the
+`cloud` cost label. A stale previous catalog cannot authorize a later selection.
 
-Keys are accepted only through the zero-projection TUI credential editor or the
-exact `AGENT_OPENCODE_GO_API_KEY` and `AGENT_OPENCODE_ZEN_API_KEY` environment
-variables. They are never accepted as command-line arguments, written by
-`agent`, copied between provider slots, or sent with a model-catalog request.
+## Switch the session
 
-The fixed public catalog endpoints are
-`https://opencode.ai/zen/go/v1/models` and
-`https://opencode.ai/zen/v1/models`. Model discovery accepts one bounded strict
-OpenAI-style JSON list and fails closed on unknown shape, duplicate or hostile
-IDs, invalid UTF-8, status, content type, timeout, or size. A remote ID alone
-cannot become executable authority: it must also exist in the matching owned
-allowlist registered in `tools/provider-policy.json`.
-The request has both a socket inactivity timeout and an independent absolute
-deadline. Continued response traffic cannot keep `/models` pending beyond that
-deadline, and settlement discards the timer with the rest of the process-only
-catalog state.
+Run `/models` again to refresh the authenticated catalog and select another
+current Ollama Cloud model. Run `/providers` to return to the provider selector
+or enter the provider credential when it is not configured. Provider and model
+commands are unavailable during generation, tool execution, cancellation, or a
+pending permission decision.
 
-Selected Go model requests go only to
-`https://opencode.ai/zen/go/v1/chat/completions`; selected Zen model requests go
-only to `https://opencode.ai/zen/v1/chat/completions`. There is no arbitrary
-endpoint or model alias, automatic router, default selection, fallback
-provider, shared credential slot, SDK, OpenCode executable, credential-file
-reader, redirect, cookie, or telemetry path.
+Changing a selection affects later turns only. It does not rewrite committed
+conversation history, replay completed tools, copy credentials, or retry a
+failed request. Starting a new process returns to no selected provider and no
+selected model unless the credential environment variable is present; selection
+still remains explicit.
 
-When ready, each turn sends the lean system instruction, bounded conversation,
-current owned tool schemas, user input, and required checkpointed tool calls
-and results to the selected provider and model. The API key is sent only in that
-adapter's fixed Chat Completions request authorization header. The OpenCode Go
-page currently states zero-day retention and no training for Kimi K2.7 Code.
-OpenCode documents Zen models as hosted in the United States and temporary free
-models as eligible for data collection used to improve the model. Do not submit
-secrets, personal data, or confidential content to a free model. Provider terms
-can change and remain outside `agent`'s guarantees.
+## Protect credentials and content
 
-Both adapters request at most one tool call per model response. After a result
-is checkpointed, the next bounded request asks the same selected model to
-reassess the unfinished goal. The decoder still accepts one complete bounded
-batch if a compatible service returns one, but handlers remain sequential and
-completed effects are never retried implicitly.
+Agent accepts the Ollama key only through the concealed editor or
+`AGENT_OLLAMA_API_KEY`. It never accepts the key as a CLI argument, writes it to
+files or logs, projects its value or length, or exposes it in errors.
 
-ChatGPT Plus/Pro, Claude Pro/Max, Kimi Code credential login, and Grok
-subscription OAuth remain blocked. Kimi Code Team confirmed on 2026-08-11 that
-it does not currently offer a public OAuth flow for third-party clients; the
-other three submitted inquiries remain pending. Neither state authorizes
-product code.
+The authenticated catalog request necessarily sends the key to Ollama Cloud,
+but no task content. Each chat turn sends the bounded conversation, current user
+input, lean system instruction, current tool schemas, and checkpointed tool
+results to exactly `https://ollama.com/api/chat`. Do not submit secrets,
+personal data, or confidential content unless Ollama's current terms are
+acceptable. Provider availability, pricing, retention, and data use can change
+and are outside Agent's guarantees.
 
-## Failure behavior
+Subscription OAuth integrations remain blocked until the independent-client
+requirements in the [provider policy](../PROVIDERS.md) are satisfied.
 
-Without one configured provider, selected provider, and selected model, normal
-text is discarded after one generic notice and never enters transcript or
-conversation state. Invalid credentials remain content-free failures and leave
-the provider unconfigured. A catalog failure clears prior catalog authority, so
-a stale list cannot authorize a later model selection.
+## Recover from provider failures
 
-DNS, TLS, connection, timeout, HTTP status, content type, UTF-8, JSON, SSE,
-stream-shape, finish-reason, tool-call, and size failures terminate only the
-affected operation or active turn through bounded errors. Underlying causes,
-response bodies, keys, prompts, and model content are never printed as
-diagnostics. An admitted provider failure may refine `model/open` or
-`model/read` with one shared content-free family: `cancelled`, `connectivity`,
-`lifecycle`, `limit`, `protocol`, `rejected`, `request`, or `timeout`. An
-uncheckpointed open failure also states that no usable response stream opened
-and no tool ran. These families never reveal provider identity, HTTP status,
-response text, or provider-specific reason names. Cancellation closes the active stream. Neither catalog nor model
-transport retries or switches provider automatically. Canonical verification
-uses injected deterministic transports and never consumes an account or makes
-a live request.
+- A credential rejected during entry failed local bounded-format validation;
+  re-enter the exact key without whitespace or control characters.
+- `Models could not be loaded` means no fresh catalog authority was created.
+  Check the key, connectivity, account state, and Ollama availability, then run
+  `/models` again.
+- A prompt rejected before opening a turn means provider or model selection is
+  incomplete; use `/providers` and `/models` first.
+- `model/open` means no usable response stream opened. No tool ran and the
+  attempted exchange was not committed.
+- `model/read` means an opened stream failed while being consumed. If a tool
+  checkpoint had already completed, that tool truth remains committed; do not
+  repeat the effect implicitly.
+- `cancelled`, `connectivity`, `lifecycle`, `limit`, `protocol`, `rejected`,
+  `request`, and `timeout` are intentionally content-free failure families.
 
-## Maintenance and removal
+Agent does not print response bodies, provider-specific causes, credentials,
+prompts, or model content as diagnostics. It does not retry, change models, or
+fall back to another endpoint after a catalog or chat failure.
 
-Recheck the corresponding official OpenCode pages before changing an origin,
-catalog path, model allowlist, cost class, privacy statement, limit, or wire
-behavior. Update decisions 0017, 0067, and 0068 as applicable, the provider
-registry and scanner allowlists, adapter and CLI contract tests,
-privacy/security documents, ownership evidence, and this chapter together.
-Never broaden an origin or place a second backend behind either registered
-provider identity.
+## References
 
-To remove one integration, remove its CLI composition, fixed HTTPS transports,
-credential slot, model definitions, provider workspace and dependency edges,
-policy admission, source allowlists, governing decision references, and
-documentation. Preserve the other provider in `/providers`. Removing both
-leaves the immediate provider-unconfigured TUI path. Keep the four blocked OAuth
-records unchanged and prove the remaining graph offline.
-
-## Evidence
-
-- Eligibility and official references: `docs/PROVIDERS.md`
-- Go provider decision: `docs/decisions/0017-owned-opencode-go-provider.md`
-- Provider selection and Zen decision: `docs/decisions/0067-owned-opencode-provider-selection.md`
-- Ephemeral provider and model selection: `docs/decisions/0068-owned-ephemeral-provider-and-model-selection.md`
-- Convergent tool-turn decision: `docs/decisions/0061-owned-convergent-tool-turns.md`
-- Provider authentication boundary: `docs/decisions/0003-owned-provider-authentication.md`
-- Registration-request decision: `docs/decisions/0011-verified-provider-registration-requests.md`
-- Go provider adapter: `packages/agent-provider-opencode-go/src/index.ts`
-- Go model allowlist: `packages/agent-provider-opencode-go/src/models.ts`
-- Zen provider adapter: `packages/agent-provider-opencode-zen/src/index.ts`
-- Zen model allowlist: `packages/agent-provider-opencode-zen/src/models.ts`
-- Go Chat Completions boundary: `packages/agent-cli/src/node-opencode-go-transport.ts`
-- Zen Chat Completions boundary: `packages/agent-cli/src/node-opencode-zen-transport.ts`
-- Public catalog boundary: `packages/agent-cli/src/node-opencode-model-catalog.ts`
-- Strict catalog decoder: `packages/agent-cli/src/provider-model-catalog.ts`
-- Provider identities: `packages/agent-cli/src/provider-identity.ts`
-- Session selector: `packages/agent-cli/src/provider-session.ts`
-- Provider presentation: `packages/agent-cli/src/providers-view.ts`
-- Model presentation: `packages/agent-cli/src/models-view.ts`
-- Concealed credential presentation: `packages/agent-cli/src/provider-credential-view.ts`
-- Credential validation: `packages/agent-cli/src/provider-configuration.ts`
-- Executable startup decision: `docs/decisions/0018-owned-executable-startup.md`
-- Composition root: `packages/agent-cli/src/main.ts`
-- Machine-readable gate: `tools/provider-policy.json`
-- Gate implementation: `tools/lib/provider-policy.mjs`
-- Gate regression tests: `tools/test/provider-policy.test.mjs`
-- Registration dossier: `docs/OAUTH-REGISTRATION.md`
-- Submitted subscription requests: `docs/PROVIDER-APPLICATIONS.md`
+- [Provider eligibility and exact network boundary](../PROVIDERS.md)
+- [Privacy and process-only secret handling](../../PRIVACY.md)
+- [Current provider architecture](../ARCHITECTURE.md#provider-eligibility-boundary)
+- [Provider update and removal procedure](../MAINTENANCE.md#update-or-remove-ollama-cloud)
+- [Current authority by domain](../decisions/README.md#current-authority-by-domain)
+- [Ollama Cloud provider decision](../decisions/0072-owned-ollama-cloud-provider.md)
+- [Ephemeral provider and model selection decision](../decisions/0068-owned-ephemeral-provider-and-model-selection.md)
+- [Tool-call interoperability decision](../decisions/0069-owned-tool-call-interoperability.md)

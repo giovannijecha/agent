@@ -12,41 +12,14 @@ function configuredProviders() {
   return Object.freeze([
     Object.freeze({
       configured: true,
-      id: "opencodeZen" as const,
+      id: "ollamaCloud" as const,
       presentation: Object.freeze({
         authentication: "memory-only API key",
-        displayName: "OpenCode Zen",
-        model: "configured-model",
+        displayName: "Ollama Cloud",
+        model: "qwen3-coder:480b-cloud",
       }),
       ready: true,
       selected: true,
-    }),
-  ]);
-}
-
-function configuredDualProviders() {
-  return Object.freeze([
-    Object.freeze({
-      configured: true,
-      id: "opencodeGo" as const,
-      presentation: Object.freeze({
-        authentication: "memory-only API key",
-        displayName: "OpenCode Go",
-        model: "go-model",
-      }),
-      ready: true,
-      selected: true,
-    }),
-    Object.freeze({
-      configured: true,
-      id: "opencodeZen" as const,
-      presentation: Object.freeze({
-        authentication: "memory-only API key",
-        displayName: "OpenCode Zen",
-        model: "zen-model",
-      }),
-      ready: true,
-      selected: false,
     }),
   ]);
 }
@@ -55,21 +28,10 @@ function unconfiguredProviders() {
   return Object.freeze([
     Object.freeze({
       configured: false,
-      id: "opencodeGo" as const,
+      id: "ollamaCloud" as const,
       presentation: Object.freeze({
         authentication: "memory-only API key",
-        displayName: "OpenCode Go",
-        model: undefined,
-      }),
-      ready: false,
-      selected: false,
-    }),
-    Object.freeze({
-      configured: false,
-      id: "opencodeZen" as const,
-      presentation: Object.freeze({
-        authentication: "memory-only API key",
-        displayName: "OpenCode Zen",
+        displayName: "Ollama Cloud",
         model: undefined,
       }),
       ready: false,
@@ -123,10 +85,10 @@ test("never presents a provider without an executable runtime", () => {
   assert.ok(application.noticeToken !== undefined);
 });
 
-test("selects one configured provider only after router confirmation", () => {
-  const application = new ApplicationController(true, configuredDualProviders());
+test("presents the sole configured provider without a redundant switch", () => {
+  const application = new ApplicationController(true, configuredProviders());
 
-  assert.equal(application.provider?.displayName, "OpenCode Go");
+  assert.equal(application.provider?.displayName, "Ollama Cloud");
   const opened = reduceInput(application, "/providers\r");
   assert.deepEqual(opened.effects, []);
   assert.deepEqual(
@@ -134,41 +96,13 @@ test("selects one configured provider only after router confirmation", () => {
       provider.id,
       provider.selected,
     ]),
-    [
-      ["opencodeGo", true],
-      ["opencodeZen", false],
-    ],
+    [["ollamaCloud", true]],
   );
 
-  const requested = reduceInput(application, "\u001B[B\r");
-  assert.deepEqual(requested.effects, [
-    { id: "opencodeZen", kind: "selectProvider" },
-  ]);
-  assert.equal(application.provider?.displayName, "OpenCode Go");
+  const confirmed = reduceInput(application, "\r");
+  assert.deepEqual(confirmed.effects, []);
+  assert.equal(application.provider?.displayName, "Ollama Cloud");
   assert.equal(application.projectProviderMenu(), undefined);
-
-  const switched = configuredDualProviders().map((provider) => ({
-    ...provider,
-    selected: provider.id === "opencodeZen",
-  }));
-  const confirmed = application.providerSelected(switched, "opencodeZen");
-  assert.ok(confirmed.ok);
-  assert.equal(application.provider?.displayName, "OpenCode Zen");
-  assert.deepEqual(application.notice, [
-    "OpenCode Zen selected for this process.",
-  ]);
-
-  reduceInput(application, "/providers\r");
-  assert.deepEqual(
-    application.projectProviderMenu()?.items.map((provider) => [
-      provider.id,
-      provider.selected,
-    ]),
-    [
-      ["opencodeGo", false],
-      ["opencodeZen", true],
-    ],
-  );
 });
 
 test("conceals provider credentials and requires an explicit model selection", () => {
@@ -183,7 +117,7 @@ test("conceals provider credentials and requires an explicit model selection", (
   const opened = reduceInput(application, "\r");
   assert.deepEqual(opened.effects, []);
   assert.deepEqual(application.projectProviderCredential(), {
-    providerName: "OpenCode Go",
+    providerName: "Ollama Cloud",
   });
 
   const typed = reduceInput(application, "ephemeral-key");
@@ -200,44 +134,45 @@ test("conceals provider credentials and requires an explicit model selection", (
   assert.deepEqual(submitted.effects, [
     {
       credential: "ephemeral-key",
-      id: "opencodeGo",
+      id: "ollamaCloud",
       kind: "configureProvider",
     },
   ]);
   assert.equal(application.projectProviderCredential(), undefined);
 
-  const configured = unconfiguredProviders().map((provider) =>
-    provider.id === "opencodeGo"
-      ? { ...provider, configured: true, selected: true }
-      : provider,
-  );
-  assert.ok(application.providerConfigured(configured, "opencodeGo").ok);
+  const configured = unconfiguredProviders().map((provider) => ({
+    ...provider,
+    configured: true,
+    selected: true,
+  }));
+  assert.ok(application.providerConfigured(configured, "ollamaCloud").ok);
   const models = reduceInput(application, "/models\r");
   assert.deepEqual(models.effects, [{ kind: "loadModels" }]);
   assert.ok(
     application.modelsLoaded([
-      { cost: "goPlan", id: "go-model", selected: false },
+      { cost: "cloud", id: "library/qwen3-coder:480b-cloud", selected: false },
     ]).ok,
   );
   assert.deepEqual(application.projectModelMenu(), {
-    items: [{ cost: "goPlan", id: "go-model", selected: false }],
-    providerName: "OpenCode Go",
+    items: [{ cost: "cloud", id: "library/qwen3-coder:480b-cloud", selected: false }],
+    providerName: "Ollama Cloud",
     selectedIndex: 0,
   });
   assert.deepEqual(reduceInput(application, "\r").effects, [
-    { id: "go-model", kind: "selectModel" },
+    { id: "library/qwen3-coder:480b-cloud", kind: "selectModel" },
   ]);
-  const ready = configured.map((provider) =>
-    provider.id === "opencodeGo"
-      ? {
-          ...provider,
-          presentation: { ...provider.presentation, model: "go-model" },
-          ready: true,
-        }
-      : provider,
+  const ready = configured.map((provider) => ({
+    ...provider,
+    presentation: {
+      ...provider.presentation,
+      model: "library/qwen3-coder:480b-cloud",
+    },
+    ready: true,
+  }));
+  assert.ok(
+    application.modelSelected(ready, "library/qwen3-coder:480b-cloud").ok,
   );
-  assert.ok(application.modelSelected(ready, "go-model").ok);
-  assert.equal(application.provider?.model, "go-model");
+  assert.equal(application.provider?.model, "library/qwen3-coder:480b-cloud");
   assert.equal(reduceInput(application, "private task\r").effects.at(0)?.kind, "startTurn");
 });
 
@@ -260,11 +195,11 @@ test("credential entry treats slash text as secret and Ctrl+C clears it", () => 
 });
 
 test("rejects invalid configured provider snapshots", () => {
-  const go = configuredDualProviders().at(0);
-  assert.ok(go !== undefined);
+  const provider = configuredProviders().at(0);
+  assert.ok(provider !== undefined);
   for (const create of [
-    () => new ApplicationController(true, [go, go]),
-    () => new ApplicationController(true, [{ ...go, configured: false }]),
+    () => new ApplicationController(true, [provider, provider]),
+    () => new ApplicationController(true, [{ ...provider, configured: false }]),
   ]) {
     let caught: unknown;
     try {

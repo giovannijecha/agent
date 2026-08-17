@@ -16,8 +16,8 @@ Use this manual to run, understand, and maintain the behavior that exists today.
 ## Current product boundary
 
 - The executable owns its CLI, TUI, runtime composition, and local tools.
-- OpenCode Go and OpenCode Zen are optional process-local backends. Startup
-  enters the TUI with neither provider nor model selected.
+- Ollama Cloud is the sole optional process-local backend. Startup enters the
+  TUI with neither provider nor model selected.
 - Credentials and sessions are not persisted. Subscription OAuth remains
   blocked without an eligible independent-client identity.
 - Process execution is limited to the documented `run_process` contract: the
@@ -30,8 +30,13 @@ Use this manual to run, understand, and maintain the behavior that exists today.
 
 ## Documentation contract
 
-Every numbered chapter follows the same workflow, guarantees, failure,
-maintenance, and evidence structure. The release gate checks its links,
-commands, tools, risks, and source evidence against `tools/manual-policy.json`.
-Architecture, engineering rules, and decision records remain the deeper change
-contract.
+Each numbered chapter follows the task-specific section order registered in
+`tools/manual-policy.json`. A chapter contains only the guidance needed for its
+operator task; it links to the canonical engineering or decision owner instead
+of repeating repository-wide evidence inventories.
+
+The release gate checks the exact chapter set, declared section order, local
+links, command and tool inventories, and the existence of registered reference
+paths. The [documentation map](../README.md) owns document roles, and
+[decision 0071](../decisions/0071-owned-task-oriented-operator-manual.md) owns
+this manual contract.

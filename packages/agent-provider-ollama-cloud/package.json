@@ -1,9 +1,9 @@
 {
-  "name": "@agent/provider-opencode-zen",
+  "name": "@agent/provider-ollama-cloud",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Owned OpenCode Zen streaming model adapter for agent.",
+  "description": "Owned Ollama Cloud streaming model adapter for agent.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {

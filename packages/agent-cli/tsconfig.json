@@ -17,10 +17,7 @@
       "path": "../agent-core"
     },
     {
-      "path": "../agent-provider-opencode-go"
-    },
-    {
-      "path": "../agent-provider-opencode-zen"
+      "path": "../agent-provider-ollama-cloud"
     },
     {
       "path": "../agent-runtime"

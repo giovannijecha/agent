@@ -3,43 +3,43 @@
 This reference separates direct API-key access from subscription OAuth client
 registration. Status is current as of 2026-08-16.
 
-## Enabled direct providers
+## Enabled direct provider
 
-OpenCode Go and OpenCode Zen are the two enabled providers. OpenCode issues the
-operator direct API keys and publishes the Chat Completions and public model
-catalog endpoints used by independent clients. Decisions 0017, 0067, and 0068
-admit exactly:
+Ollama Cloud is the sole enabled provider. Ollama issues the operator API key
+and publishes the native chat and authenticated model-catalog contracts used by
+independent clients. Decision 0072 admits exactly:
 
-| Field | OpenCode Go | OpenCode Zen |
-|---|---|---|
-| Authentication | Direct API key supplied by the operator | Direct API key supplied by the operator |
-| Credential input | `AGENT_OPENCODE_GO_API_KEY` | `AGENT_OPENCODE_ZEN_API_KEY` |
-| Persistence | Process memory only | Process memory only |
-| Origin | `https://opencode.ai` | `https://opencode.ai` |
-| Chat path | `/zen/go/v1/chat/completions` | `/zen/v1/chat/completions` |
-| Public catalog path | `/zen/go/v1/models` | `/zen/v1/models` |
-| Admitted models | Remote catalog intersection with the owned Go allowlist | Remote catalog intersection with the owned Zen allowlist |
-| Wire mode | Streaming Chat Completions over SSE | Streaming Chat Completions over SSE |
-| Tool selection | One call requested per response; bounded batches decoded defensively | One call requested per response; bounded batches decoded defensively |
+| Field | Ollama Cloud |
+|---|---|
+| Authentication | Bearer API key supplied by the operator |
+| Credential input | `AGENT_OLLAMA_API_KEY` or the concealed TUI editor |
+| Persistence | Process memory only |
+| Origin | `https://ollama.com` |
+| Chat path | `/api/chat` |
+| Authenticated catalog path | `/api/tags` |
+| Model authority | Current bounded catalog entries whose exact non-empty `name` equals `model` |
+| Cost class | `cloud` |
+| Wire mode | Native Ollama `application/json` stream of line-delimited JSON objects |
+| Tool selection | One call requested by the owned instruction; bounded ordered native batches decoded defensively |
 
-The implementation is independent. It does not install or invoke OpenCode,
-read OpenCode configuration, use an OpenCode SDK, reuse another application's
-identity, discover origins, follow model aliases, or persist the key. The CLI
-owns the fixed HTTPS boundaries; the provider workspace is Node-free and sees
-only bounded response bytes and metadata. Public catalog requests carry no
-credential. A returned ID is selectable only if it also appears in the exact
-owned model registry. Credentials are independent and selection never copies a
-key, changes an endpoint, or falls back after failure. `/providers` configures
-or selects a backend and `/models` selects one admitted current model, only
-while the application is idle. Neither selection has a default.
+The implementation is independent. It does not install or invoke Ollama, use an
+Ollama SDK or CLI, contact a local daemon, read Ollama configuration, discover
+origins, follow model aliases, or persist the key. The CLI owns the fixed HTTPS
+boundary and bearer header. The provider workspace is Node-free and sees only
+bounded response bytes and metadata.
 
-The OpenCode Go page currently states that Kimi K2.7 Code has zero-day retention
-and is not used for training. OpenCode documents Zen models as hosted in the
-United States and identifies `deepseek-v4-flash-free` as a temporary free model
-whose collected data may be used to improve the model. These are provider terms,
-not guarantees made by `agent`, and may change. Do not submit secrets, personal
-data, or confidential content to the free Zen model, and recheck the official
-pages before sending sensitive material.
+`/providers` enters or selects the process-local Ollama Cloud credential.
+`/models` performs one authenticated fixed-origin catalog request and exposes
+only the exact current model identifiers that pass the bounded decoder. Neither
+provider nor model has an automatic default. Environment input may preload the
+credential but never selects the provider or model.
+
+Catalog discovery sends the API key to Ollama Cloud but sends no conversation,
+workspace path, file content, tool schema, or tool result. Chat requests send
+the selected conversation and advertised tools to the exact `/api/chat` path.
+Provider availability, model availability, pricing, retention, and data use are
+Ollama terms rather than `agent` guarantees and may change. Recheck the official
+terms before submitting sensitive material.
 
 ## Blocked subscription OAuth providers
 
@@ -78,18 +78,22 @@ and confidential correspondence stay outside Git.
 
 ## Machine gate
 
-`tools/provider-policy.json` schema version 6 records the four blocked OAuth
-providers and the two exact enabled direct providers, fixed chat and catalog
-endpoints, complete model allowlists, and maintained cost classes. Canonical verification
+`tools/provider-policy.json` schema version 7 records the four blocked OAuth
+providers and the one exact enabled direct provider. It pins the fixed chat and
+authenticated catalog endpoints, bearer authentication, dynamic catalog
+authority, cloud cost class, native `application/json` streaming transport,
+line-delimited object contract, environment variable,
+memory-only persistence, and exact provider workspace. Canonical verification
 rejects unregistered provider workspaces, OAuth identifiers, subscription
 endpoints, ambient network capabilities, foreign credential stores, borrowed
-product identity, endpoint drift, model or cost drift, and credential-persistence drift.
-The reviewed direct literals are admitted only in their exact source files.
+product identity, endpoint drift, model-authority drift, and credential-
+persistence drift. Reviewed provider literals are admitted only in their exact
+source files.
 
-Two concrete providers do not authorize a generic provider framework, arbitrary
-base URL, unregistered model selector, key store, or additional integration. Each new trust
-boundary requires its own decision, policy entry, adapter, tests, documentation,
-and independent removal path.
+One concrete provider does not authorize a generic provider framework,
+arbitrary base URL, unregistered model selector, key store, local-server mode,
+or additional integration. Each new trust boundary requires its own decision,
+policy entry, adapter, tests, documentation, and independent removal path.
 
 ## Research rule
 
@@ -103,19 +107,21 @@ implementation code.
 ## Account and secret boundary
 
 `agent` never creates provider accounts, purchases plans, or asks for passwords,
-one-time codes, recovery codes, cookies, or payment details. Neither OpenCode
-key may enter source, tests, logs, errors, documentation values, process
-arguments, or command history. Each is read from only its exact environment
-variable or the zero-projection TUI credential editor, remains in its own memory
-slot, and is released with the process. Environment variables preload
-configuration but never select a provider or model. Persistent storage requires
-a separate accepted operating-system vault design.
+one-time codes, recovery codes, cookies, or payment details. The Ollama API key
+may never enter source, tests, logs, errors, documentation values, process
+arguments, or command history. It is read only from
+`AGENT_OLLAMA_API_KEY` or the zero-projection TUI credential editor, remains in
+one memory slot, and is released with the process. Persistent storage requires a
+separate accepted operating-system vault design.
 
 ## Primary references
 
-- [OpenCode Go](https://opencode.ai/docs/go/)
-- [OpenCode Zen](https://opencode.ai/docs/zen/)
-- [OpenAI Chat Completions create contract](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create)
+- [Ollama Cloud](https://docs.ollama.com/cloud)
+- [Ollama API authentication](https://docs.ollama.com/api/authentication)
+- [Ollama chat API](https://docs.ollama.com/api/chat)
+- [Ollama model catalog API](https://docs.ollama.com/api/tags)
+- [Ollama tool calling](https://docs.ollama.com/capabilities/tool-calling)
+- [Ollama streaming](https://docs.ollama.com/api/streaming)
 - [OpenAI Codex authentication](https://developers.openai.com/codex/auth/)
 - [OpenAI Codex App Server](https://developers.openai.com/codex/app-server/)
 - [Anthropic authentication](https://code.claude.com/docs/en/authentication)

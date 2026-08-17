@@ -74,77 +74,21 @@ const EXPECTED_PROVIDERS = [
   },
 ];
 
-const GO_MODELS = Object.freeze([
-  "glm-5.3",
-  "glm-5.2",
-  "glm-5.1",
-  "kimi-k3",
-  "kimi-k2.7-code",
-  "kimi-k2.6",
-  "deepseek-v4-pro",
-  "deepseek-v4-flash",
-  "mimo-v2.5",
-  "mimo-v2.5-pro",
-  "hy3",
-]);
-const ZEN_MODELS = Object.freeze([
-  "deepseek-v4-pro",
-  "deepseek-v4-flash",
-  "minimax-m3",
-  "minimax-m2.7",
-  "minimax-m2.5",
-  "glm-5.2",
-  "glm-5.1",
-  "glm-5",
-  "kimi-k2.5",
-  "kimi-k2.6",
-  "kimi-k2.7-code",
-  "kimi-k3",
-  "big-pickle",
-  "mimo-v2.5-free",
-  "hy3-free",
-  "laguna-s-2.1-free",
-  "nemotron-3-ultra-free",
-  "nemotron-3.5-lightning-free",
-  "deepseek-v4-flash-free",
-]);
-const GO_MODEL_RECORDS = Object.freeze(
-  GO_MODELS.map((id) => Object.freeze({ id, cost: "goPlan" })),
-);
-const ZEN_MODEL_RECORDS = Object.freeze(
-  ZEN_MODELS.map((id) => Object.freeze({
-    id,
-    cost: id.endsWith("-free") ? "free" : "zenBalance",
-  })),
-);
-
 const EXPECTED_DIRECT_PROVIDERS = [
   {
-    id: "opencode-go",
-    displayName: "OpenCode Go",
+    id: "ollama-cloud",
+    displayName: "Ollama Cloud",
     eligibility: "enabled",
     authorization: "direct-api-key",
-    credentialVariable: "AGENT_OPENCODE_GO_API_KEY",
+    credentialVariable: "AGENT_OLLAMA_API_KEY",
     credentialPersistence: "memory-only",
-    chatEndpoint: "https://opencode.ai/zen/go/v1/chat/completions",
-    catalogEndpoint: "https://opencode.ai/zen/go/v1/models",
-    models: GO_MODEL_RECORDS,
-    transport: "chat-completions-sse",
-    evidence: "https://opencode.ai/docs/go/",
-    researchedOn: "2026-08-16",
-  },
-  {
-    id: "opencode-zen",
-    displayName: "OpenCode Zen",
-    eligibility: "enabled",
-    authorization: "direct-api-key",
-    credentialVariable: "AGENT_OPENCODE_ZEN_API_KEY",
-    credentialPersistence: "memory-only",
-    chatEndpoint: "https://opencode.ai/zen/v1/chat/completions",
-    catalogEndpoint: "https://opencode.ai/zen/v1/models",
-    models: ZEN_MODEL_RECORDS,
-    transport: "chat-completions-sse",
-    evidence: "https://opencode.ai/docs/zen/",
+    chatEndpoint: "https://ollama.com/api/chat",
+    catalogEndpoint: "https://ollama.com/api/tags",
+    catalogAuthentication: "bearer-api-key",
+    modelAuthority: "authenticated-catalog",
+    modelCost: "cloud",
+    transport: "ollama-chat-application-json-stream",
+    evidence: "https://docs.ollama.com/cloud",
     researchedOn: "2026-08-16",
   },
 ];
@@ -208,26 +152,16 @@ const EXPECTED_WORKSPACES = [
   "@agent/core",
   "@agent/tools",
   "@agent/runtime",
-  "@agent/provider-opencode-go",
-  "@agent/provider-opencode-zen",
+  "@agent/provider-ollama-cloud",
   "@agent/tui",
   "@agent/cli",
 ];
 
 const APPROVED_SOURCE_LITERALS = Object.freeze({
-  "packages/agent-provider-opencode-go/src/models.ts": GO_MODELS,
-  "packages/agent-provider-opencode-go/test/model.test.ts": GO_MODELS,
-  "packages/agent-provider-opencode-zen/src/models.ts": ZEN_MODELS,
-  "packages/agent-provider-opencode-zen/test/model.test.ts": ZEN_MODELS,
-  "packages/agent-cli/test/node-opencode-model-catalog.test.ts": ZEN_MODELS,
-  "packages/agent-cli/test/provider-model-catalog.test.ts": Object.freeze([
-    ...GO_MODELS,
-    ...ZEN_MODELS,
-  ]),
-  "packages/agent-cli/src/node-opencode-go-transport.ts": ["Bearer "],
-  "packages/agent-cli/test/node-opencode-go-transport.test.ts": ["Bearer "],
-  "packages/agent-cli/src/node-opencode-zen-transport.ts": ["Bearer "],
-  "packages/agent-cli/test/node-opencode-zen-transport.test.ts": ["Bearer "],
+  "packages/agent-cli/src/node-ollama-cloud-transport.ts": ["Bearer "],
+  "packages/agent-cli/test/node-ollama-cloud-transport.test.ts": ["Bearer "],
+  "packages/agent-cli/src/node-ollama-model-catalog.ts": ["Bearer "],
+  "packages/agent-cli/test/node-ollama-model-catalog.test.ts": ["Bearer "],
 });
 
 const FORBIDDEN_SOURCE_MARKERS = [
@@ -235,6 +169,7 @@ const FORBIDDEN_SOURCE_MARKERS = [
   [/(?:claude\.ai\/oauth|platform\.claude\.com\/v1\/oauth)/iu, "Claude subscription endpoint"],
   [/(?:auth\.kimi\.com|api\.kimi\.com\/coding)/iu, "Kimi subscription endpoint"],
   [/(?:auth\.x\.ai|api\.x\.ai\/v1)/iu, "xAI subscription endpoint"],
+  [/(?:opencode\.ai\/zen|AGENT_OPENCODE_(?:GO|ZEN)_API_KEY)/u, "retired OpenCode provider boundary"],
   [/\b(?:fetch|WebSocket|EventSource|XMLHttpRequest)\b/u, "ambient network capability"],
   [/\b(?:oauth|pkce|CLIENT_ID|clientId|client_id)\b/iu, "OAuth client protocol"],
   [/\b(?:accessToken|access_token|refreshToken|refresh_token|deviceCode|device_code)\b/iu, "OAuth credential protocol"],
@@ -520,7 +455,7 @@ function validateRegistry(policy) {
     ],
     "provider policy",
   );
-  if (policy.schemaVersion !== 6) {
+  if (policy.schemaVersion !== 7) {
     fail("unsupported provider policy schema");
   }
   if (!Array.isArray(policy.providers)) {
@@ -570,7 +505,7 @@ function validateRegistry(policy) {
     !Array.isArray(policy.directProviders) ||
     policy.directProviders.length !== EXPECTED_DIRECT_PROVIDERS.length
   ) {
-    fail("provider policy must contain exactly two admitted direct providers");
+    fail("provider policy must contain exactly one admitted direct provider");
   }
   for (let index = 0; index < policy.directProviders.length; index += 1) {
     const provider = policy.directProviders[index];
@@ -585,23 +520,15 @@ function validateRegistry(policy) {
         "credentialPersistence",
         "chatEndpoint",
         "catalogEndpoint",
-        "models",
+        "catalogAuthentication",
+        "modelAuthority",
+        "modelCost",
         "transport",
         "evidence",
         "researchedOn",
       ],
       "direct provider at index " + String(index),
     );
-    if (!Array.isArray(provider.models)) {
-      fail("direct provider models at index " + String(index) + " must be an array");
-    }
-    for (let modelIndex = 0; modelIndex < provider.models.length; modelIndex += 1) {
-      assertExactKeys(
-        provider.models[modelIndex],
-        ["id", "cost"],
-        "direct provider model at index " + String(index) + ":" + String(modelIndex),
-      );
-    }
     if (
       JSON.stringify(provider) !==
       JSON.stringify(EXPECTED_DIRECT_PROVIDERS[index])

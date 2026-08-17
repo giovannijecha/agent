@@ -23,15 +23,12 @@ export class Utf8Decoder {
     let index = 0;
     while (index < input.length) {
       const first = input.at(index);
-      if (first === undefined) {
-        return err(FAILURE);
-      }
+      if (first === undefined) return err(FAILURE);
       if (first <= 0x7f) {
         output.push(String.fromCodePoint(first));
         index += 1;
         continue;
       }
-
       let length: number;
       let minimum: number;
       let codePoint: number;
@@ -50,11 +47,8 @@ export class Utf8Decoder {
       } else {
         return err(FAILURE);
       }
-
       if (index + length > input.length) {
-        if (final) {
-          return err(FAILURE);
-        }
+        if (final) return err(FAILURE);
         this.#pending = input.slice(index);
         return ok(output.join(""));
       }

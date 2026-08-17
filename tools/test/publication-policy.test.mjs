@@ -55,7 +55,6 @@ test("rejects single-agent execution posture drift", () => {
 
 test("rejects single-agent public contract drift", () => {
   const cases = [
-    ["README.md", "Future controller-internal mechanical concurrency"],
     ["AGENTS.md", "Current runtime remains sequential"],
     ["docs/ARCHITECTURE.md", "Any mutation excludes concurrent mechanics"],
     ["docs/ENGINEERING.md", "Current runtime remains sequential"],
@@ -99,18 +98,43 @@ test("rejects deterministic motion public contract drift", () => {
   );
 });
 
-test("rejects rail-free public terminal contract drift", () => {
+test("rejects canonical terminal presentation contract drift", () => {
   const cases = [
-    ["rail-free transparent", "muted exact-height left rail"],
-    ["removed rows in restrained red", "removed rows without color"],
-    ["foreground for the selected row", "weight for the selected row"],
+    [
+      "User entries compose one stage-wide transparent `Surface` with the shared\none-cell content inset and no rail, marker, border, or background",
+      "User entries use a private boxed surface",
+    ],
+    ["`diffRemoved` red foreground", "one neutral diff foreground"],
+    ["selected-row `accent` foreground", "private selected-row styling"],
   ];
 
   for (const [marker, replacement] of cases) {
     const context = currentContext();
-    context.files["README.md"] = context.files["README.md"].replace(
+    context.files["docs/ARCHITECTURE.md"] = context.files[
+      "docs/ARCHITECTURE.md"
+    ].replace(marker, replacement);
+    assert.throws(
+      () => validatePublicationPolicy(policy, context),
+      PublicationPolicyError,
       marker,
-      replacement,
+    );
+  }
+});
+
+test("rejects public README entry-point drift", () => {
+  const cases = [
+    "An owned, zero-dependency personal coding agent.",
+    "(docs/README.md)",
+    "(docs/manual/README.md)",
+    "`/providers`",
+    "`/models`",
+  ];
+
+  for (const marker of cases) {
+    const context = currentContext();
+    context.files["README.md"] = context.files["README.md"].replaceAll(
+      marker,
+      "removed public entry point",
     );
     assert.throws(
       () => validatePublicationPolicy(policy, context),
@@ -143,7 +167,7 @@ test("rejects a Git checkout policy that can alter verified text", () => {
 
 test("rejects missing public links and automated attribution", () => {
   const missingLink = currentContext();
-  missingLink.files["README.md"] = missingLink.files["README.md"].replace(
+  missingLink.files["README.md"] = missingLink.files["README.md"].replaceAll(
     "(PRIVACY.md)",
     "(missing.md)",
   );

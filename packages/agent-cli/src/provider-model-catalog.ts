@@ -1,4 +1,5 @@
 import { err, ok, type Result } from "@agent/core";
+import { isOllamaCloudModelId } from "@agent/provider-ollama-cloud";
 
 import type { ProviderId } from "./provider-identity.js";
 import { decodeUtf8Text } from "./utf8-text.js";
@@ -25,6 +26,7 @@ export type ProviderModelCatalogError = Readonly<{
 export interface ProviderModelCatalog {
   list(
     provider: ProviderId,
+    credential: string,
   ): Promise<Result<readonly string[], ProviderModelCatalogError>>;
 }
 
@@ -38,7 +40,7 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-/** Decodes one bounded public model-list response. */
+/** Decodes one bounded authenticated Ollama model-list response. */
 export function decodeProviderModelCatalog(
   bytes: unknown,
 ): Result<readonly string[], ProviderModelCatalogError> {
@@ -59,31 +61,28 @@ export function decodeProviderModelCatalog(
   } catch (_cause: unknown) {
     return err(failure("protocol"));
   }
-  if (!isRecord(value) || value.object !== "list" || !Array.isArray(value.data)) {
+  if (!isRecord(value) || !Array.isArray(value.models)) {
     return err(failure("protocol"));
   }
   if (
-    value.data.length < 1 ||
-    value.data.length > PROVIDER_MODEL_CATALOG_LIMITS.models
+    value.models.length < 1 ||
+    value.models.length > PROVIDER_MODEL_CATALOG_LIMITS.models
   ) {
     return err(failure("limit"));
   }
   const identifiers: string[] = [];
   const seen = new Set<string>();
-  for (const entry of value.data) {
+  for (const entry of value.models) {
     if (
       !isRecord(entry) ||
-      entry.object !== "model" ||
-      typeof entry.id !== "string" ||
-      entry.id.length < 1 ||
-      entry.id.length > PROVIDER_MODEL_CATALOG_LIMITS.identifierCodeUnits ||
-      !/^[a-z0-9][a-z0-9._-]*$/u.test(entry.id) ||
-      seen.has(entry.id)
+      !isOllamaCloudModelId(entry.name) ||
+      entry.model !== entry.name ||
+      seen.has(entry.name)
     ) {
       return err(failure("protocol"));
     }
-    seen.add(entry.id);
-    identifiers.push(entry.id);
+    seen.add(entry.name);
+    identifiers.push(entry.name);
   }
   return ok(Object.freeze(identifiers));
 }

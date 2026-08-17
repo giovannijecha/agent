@@ -22,41 +22,14 @@ function configuredProviders() {
   return Object.freeze([
     Object.freeze({
       configured: true,
-      id: "opencodeZen" as const,
+      id: "ollamaCloud" as const,
       presentation: Object.freeze({
         authentication: "memory-only API key",
-        displayName: "OpenCode Zen",
-        model: "configured-model",
+        displayName: "Ollama Cloud",
+        model: "qwen3-coder:480b-cloud",
       }),
       ready: true,
       selected: true,
-    }),
-  ]);
-}
-
-function configuredDualProviders() {
-  return Object.freeze([
-    Object.freeze({
-      configured: true,
-      id: "opencodeGo" as const,
-      presentation: Object.freeze({
-        authentication: "memory-only API key",
-        displayName: "OpenCode Go",
-        model: "go-model",
-      }),
-      ready: true,
-      selected: true,
-    }),
-    Object.freeze({
-      configured: true,
-      id: "opencodeZen" as const,
-      presentation: Object.freeze({
-        authentication: "memory-only API key",
-        displayName: "OpenCode Zen",
-        model: "zen-model",
-      }),
-      ready: true,
-      selected: false,
     }),
   ]);
 }
@@ -65,21 +38,10 @@ function unconfiguredProviders() {
   return Object.freeze([
     Object.freeze({
       configured: false,
-      id: "opencodeGo" as const,
+      id: "ollamaCloud" as const,
       presentation: Object.freeze({
         authentication: "memory-only API key",
-        displayName: "OpenCode Go",
-        model: undefined,
-      }),
-      ready: false,
-      selected: false,
-    }),
-    Object.freeze({
-      configured: false,
-      id: "opencodeZen" as const,
-      presentation: Object.freeze({
-        authentication: "memory-only API key",
-        displayName: "OpenCode Zen",
+        displayName: "Ollama Cloud",
         model: undefined,
       }),
       ready: false,
@@ -259,7 +221,7 @@ test("renders one ruled composer and the exact canonical workspace root", () => 
   );
   application.feed("draft");
 
-  const rendered = frame(application, 72, 18);
+  const rendered = frame(application, 96, 18);
   assert.ok(rendered.ok);
   const rows = rendered.value.rows;
   const composer = rows.find((row) => row.text.includes("draft"));
@@ -291,19 +253,19 @@ test("renders one ruled composer and the exact canonical workspace root", () => 
   assert.equal(rows.at(-1)?.text.includes(canonicalWorkspaceRoot), true);
   assert.equal(rows.at(-1)?.text.indexOf(canonicalWorkspaceRoot), 1);
   assert.equal(
-    rows.at(-1)?.text.includes("OpenCode Zen \u00b7 configured-model"),
+    rows.at(-1)?.text.includes("Ollama Cloud \u00b7 qwen3-coder:480b-cloud"),
     true,
   );
   assert.equal(
-    rows.at(-1)?.text.indexOf("OpenCode Zen \u00b7 configured-model"),
+    rows.at(-1)?.text.indexOf("Ollama Cloud \u00b7 qwen3-coder:480b-cloud"),
     (() => {
-      const name = TextSpan.create("OpenCode Zen", "plain");
-      const model = TextSpan.create(" \u00b7 configured-model", "muted");
+      const name = TextSpan.create("Ollama Cloud", "plain");
+      const model = TextSpan.create(" \u00b7 qwen3-coder:480b-cloud", "muted");
       assert.ok(name.ok);
       assert.ok(model.ok);
       const center = RichRow.create([name.value, model.value]);
       assert.ok(center.ok);
-      return Math.floor((72 - center.value.cellWidth) / 2);
+      return Math.floor((96 - center.value.cellWidth) / 2);
     })(),
   );
   assert.equal(rows.at(-1)?.text.includes("ready"), false);
@@ -1239,21 +1201,19 @@ test("renders bounded slash completion above the composer", () => {
 });
 
 test("renders the current-session provider selector without a box", () => {
-  const application = new ApplicationController(true, configuredDualProviders());
-  application.feed("/providers\r\u001B[B");
+  const application = new ApplicationController(true, configuredProviders());
+  application.feed("/providers\r");
 
   const rendered = frame(application, 72, 16);
   assert.ok(rendered.ok);
   const rows = rendered.value.rows;
-  const go = rows.find((row) => row.text.includes("OpenCode Go"));
-  const zen = rows.find((row) => row.text.includes("OpenCode Zen"));
+  const provider = rows.find((row) => row.text.includes("Ollama Cloud"));
 
   assert.equal(rows.some((row) => row.text.includes("Providers")), true);
-  assert.equal(go?.text.includes("go-model"), true);
-  assert.equal(go?.text.includes("active"), true);
-  assert.equal(zen?.text.includes("zen-model"), true);
+  assert.equal(provider?.text.includes("qwen3-coder:480b-cloud"), true);
+  assert.equal(provider?.text.includes("active"), true);
   assert.equal(
-    zen?.spans
+    provider?.spans
       .filter((span) => span.text.trim().length > 0)
       .every((span) => span.tone === "accent"),
     true,
@@ -1268,46 +1228,41 @@ test("renders the current-session provider selector without a box", () => {
 });
 
 test("renders concealed credential entry guidance inside the composer", () => {
-  for (const navigation of ["", "\u001B[B"]) {
-    const application = new ApplicationController(
-      true,
-      unconfiguredProviders(),
-    );
-    application.feed("/providers\r" + navigation + "\r");
+  const application = new ApplicationController(
+    true,
+    unconfiguredProviders(),
+  );
+  application.feed("/providers\r\r");
 
-    const rendered = frame(application, 72, 16);
-    assert.ok(rendered.ok);
-    const rows = rendered.value.rows;
-    const providerName = navigation.length === 0
-      ? "OpenCode Go"
-      : "OpenCode Zen";
+  const rendered = frame(application, 72, 16);
+  assert.ok(rendered.ok);
+  const rows = rendered.value.rows;
 
-    assert.equal(
-      rows.some((row) => row.text.includes("Connect " + providerName)),
-      true,
-    );
-    assert.equal(rows.some((row) => row.text.includes("process only")), true);
-    assert.equal(
-      rows.some((row) =>
-        row.text.includes("API key is concealed and discarded on exit.")),
-      false,
-    );
-    assert.equal(
-      rows.some((row) => row.text.includes("Enter confirms; Ctrl+C cancels.")),
-      false,
-    );
-    const guidance = rows.find((row) =>
-      row.text.includes("Enter API key · Ctrl+C cancels"));
-    assert.ok(guidance !== undefined);
-    assert.equal(
-      guidance.spans.some((span) =>
-        span.text === "Enter API key · Ctrl+C cancels" &&
-        span.tone === "muted" &&
-        span.surface === "none"),
-      true,
-    );
-    assert.equal(rendered.value.caret?.column, 2);
-  }
+  assert.equal(
+    rows.some((row) => row.text.includes("Connect Ollama Cloud")),
+    true,
+  );
+  assert.equal(rows.some((row) => row.text.includes("process only")), true);
+  assert.equal(
+    rows.some((row) =>
+      row.text.includes("API key is concealed and discarded on exit.")),
+    false,
+  );
+  assert.equal(
+    rows.some((row) => row.text.includes("Enter confirms; Ctrl+C cancels.")),
+    false,
+  );
+  const guidance = rows.find((row) =>
+    row.text.includes("Enter API key · Ctrl+C cancels"));
+  assert.ok(guidance !== undefined);
+  assert.equal(
+    guidance.spans.some((span) =>
+      span.text === "Enter API key · Ctrl+C cancels" &&
+      span.tone === "muted" &&
+      span.surface === "none"),
+    true,
+  );
+  assert.equal(rendered.value.caret?.column, 2);
 });
 
 test("renders the transient six-tool session permission editor without a box", () => {
