@@ -81,8 +81,10 @@ The public [README](../../README.md), [license](../../LICENSE),
 [security policy](../../SECURITY.md), [privacy policy](../../PRIVACY.md),
 [contribution policy](../../CONTRIBUTING.md), and
 [ownership record](../OWNERSHIP.md) own their respective public contracts.
-Publication mechanics remain in the repository publication policy and its
-offline validator. Lasting identity, verification, single-agent, brand, and
-motion rationale remains in the [decision index](../decisions/README.md); OAuth
-registration conclusions remain in the
+Release mechanics remain in the [maintenance guide](../MAINTENANCE.md). The
+repository [publication policy](../../tools/lib/publication-policy.mjs) and its
+[offline regressions](../../tools/test/publication-policy.test.mjs) verify
+publication metadata and documentation markers. Lasting identity, verification,
+single-agent, brand, and motion rationale remains in the
+[decision index](../decisions/README.md); OAuth registration conclusions remain in the
 [OAuth registration dossier](../OAUTH-REGISTRATION.md).

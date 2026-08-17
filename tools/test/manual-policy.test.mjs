@@ -145,6 +145,9 @@ test("uses task-specific reading and publishing contracts", () => {
     "never require a status name that has not run.",
     "Keep the version on `0.x` until one direct provider integration is complete",
     "Do not add a generated-by banner, automated tool signature,\nor tool co-author trailer.",
+    "Release mechanics remain in the [maintenance guide](../MAINTENANCE.md).",
+    "[publication policy](../../tools/lib/publication-policy.mjs)",
+    "[offline regressions](../../tools/test/publication-policy.test.mjs)",
   ]) {
     assert.equal(
       publishing.includes(marker),
