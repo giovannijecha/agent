@@ -156,7 +156,7 @@ function validateLivingDocuments(policy, context, ownedPaths) {
   }
 }
 
-function validateDocumentStructures(policy, context) {
+function validateDocumentStructures(policy, context, ownedPaths) {
   if (
     !Array.isArray(policy.documentStructures) ||
     policy.documentStructures.length === 0
@@ -187,14 +187,16 @@ function validateDocumentStructures(policy, context) {
       }
     }
 
-    const headings = [
-      ...textFor(context, entry.path).matchAll(/^#{1,2} [^\r\n]+$/gmu),
-    ].map((match) => match.at(0));
+    const text = textFor(context, entry.path);
+    const headings = [...text.matchAll(/^#{1,2} [^\r\n]+$/gmu)].map(
+      (match) => match.at(0),
+    );
     same(
       headings,
       entry.headings,
       "document structure headings: " + entry.path,
     );
+    localLinkTargets(entry.path, text, ownedPaths);
   }
 }
 
@@ -430,7 +432,7 @@ export function validateDocumentationPolicy(policy, context) {
   }
   const ownedPaths = new Set(context.ownedPaths);
   validateLivingDocuments(policy, context, ownedPaths);
-  validateDocumentStructures(policy, context);
+  validateDocumentStructures(policy, context, ownedPaths);
   validateRepositoryInstructions(policy, context, ownedPaths);
   validateDocumentationMap(policy, context, ownedPaths);
   validateDecisionIndex(policy, context, ownedPaths);
