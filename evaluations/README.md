@@ -6,12 +6,8 @@
 It is an evaluation corpus, not product runtime, training data, or a claim of
 model quality. Expected snapshots never enter a prepared workspace.
 
-The registered tasks span five project kinds. `web-compound-page-edit` and
-`web-extract-script` cover same- and multi-file
-convergence. `javascript-red-green-recovery` requires the same Node test to fail
-then pass; `typescript-inclusive-range` uses one tracked `.ts` import. For
-`web-extract-stylesheet`, approve `manage_path(create_directory)`, reject
-alternatives, then permit `apply_patch`.
+`list` reports five project kinds. Each task brief owns its exact completion,
+red-green, and permission contract.
 
 ## List and prepare a run
 
@@ -61,15 +57,19 @@ Runs live under ignored `state/evaluations/`.
 The evaluator has no reset or delete command. It never executes candidate code,
 contacts a provider, or retains prompts, transcripts, content, credentials,
 notes, or personal identifiers. The offline verifier checks only owned inputs;
-snapshot limits apply after the canonical task prefix.
+snapshot path limits apply after the canonical task prefix is removed.
 
 ## Maintain failure evidence
 
 Reviewed negative results may enter `failures/registry.json`. It is versioned
 evidence, not run state or a second evaluator. Entries contain only closed task,
-classification, count, grade-path, lifecycle, and resolution fields; they
-exclude run IDs or metrics, prompts, responses, transcripts, candidate content,
-provider identity, timestamps, and notes.
+classification, priority, positive occurrence count, grade-path, lifecycle, and
+resolution fields; they exclude run IDs or metrics, prompts, responses,
+transcripts, candidate content, provider identity, timestamps, and notes.
+
+The canonical verifier validates the registry against the current task catalog
+and tracked source inventory. Evaluator commands reserve the registry directory,
+file, and complete byte allowance but do not parse it or inspect ignored runs.
 
 Add an occurrence only after another reviewed run shows the same failure. A
 first occurrence remains `observing`; promote it to `actionable` only when
@@ -87,8 +87,8 @@ focused tests. A revision invalidates older results.
 
 Rollback restores that set. Removal deletes its manifest entry, task directory,
 evidence, documentation, and tests; ignored runs and receipts are never moved or
-reconstructed. Remove the framework through the
-[maintenance guide](../docs/MAINTENANCE.md#task-evaluation) and decision 0047.
+reconstructed. Remove the framework only through
+[decision 0047](../docs/decisions/0047-owned-reproducible-task-evaluation.md).
 
 ## References
 
