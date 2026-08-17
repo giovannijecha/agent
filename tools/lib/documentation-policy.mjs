@@ -388,26 +388,6 @@ function validateProspectiveMetadata(policy, context, rows, relationships) {
         "prospective superseded-by relationship: " + row.id,
       );
     }
-    for (const reference of supersedesReferences) {
-      const referencedRelationship = relationships.get(reference);
-      if (
-        referencedRelationship === undefined ||
-        referencedRelationship.direction !== "superseded by" ||
-        !referencedRelationship.references.includes(row.id)
-      ) {
-        fail("superseded decision does not reference its replacement: " + reference);
-      }
-    }
-    for (const reference of supersededByReferences) {
-      const referencedRelationship = relationships.get(reference);
-      if (
-        referencedRelationship === undefined ||
-        referencedRelationship.direction !== "supersedes" ||
-        !referencedRelationship.references.includes(row.id)
-      ) {
-        fail("superseding decision does not reference its predecessor: " + reference);
-      }
-    }
   }
 }
 
@@ -519,12 +499,32 @@ function validateDecisionRecords(policy, context, rows) {
     }
     relationships.set(row.id, relationship);
   }
+  for (const [id, relationship] of relationships) {
+    if (relationship.direction === "current") {
+      continue;
+    }
+    const reciprocalDirection =
+      relationship.direction === "supersedes" ? "superseded by" : "supersedes";
+    for (const reference of relationship.references) {
+      const reciprocal = relationships.get(reference);
+      if (
+        reciprocal === undefined ||
+        reciprocal.direction !== reciprocalDirection ||
+        !reciprocal.references.includes(id)
+      ) {
+        fail("decision relationship is not reciprocal: " + id);
+      }
+    }
+  }
   return relationships;
 }
 
 function validateCurrentAuthorities(policy, text, rows) {
   const rowsByPath = new Map(
     rows.map((row) => [resolveLocalLink(policy.decisionIndex, row.link), row]),
+  );
+  const expectedByDomain = new Map(
+    Object.entries(policy.currentDecisionAuthorities),
   );
   const authorityRows = [];
   const marker = "\n## Current authority by domain\n";
@@ -556,6 +556,7 @@ function validateCurrentAuthorities(policy, text, rows) {
     if (links.length === 0 || new Set(links).size !== links.length) {
       fail("current decision authority entry points are invalid: " + authority.domain);
     }
+    const decisionIds = [];
     for (const link of links) {
       if (link === undefined) {
         fail("current decision authority link is missing");
@@ -570,7 +571,13 @@ function validateCurrentAuthorities(policy, text, rows) {
       ) {
         fail("current decision authority route is invalid: " + authority.domain);
       }
+      decisionIds.push(row.id);
     }
+    same(
+      decisionIds,
+      expectedByDomain.get(authority.domain),
+      "current decision authority entry points: " + authority.domain,
+    );
   }
 }
 
@@ -679,6 +686,7 @@ export function validateDocumentationPolicy(policy, context) {
       "repositoryInstructions",
       "prospectiveDecisionMetadataFrom",
       "historicalDecisionStatusExceptions",
+      "currentDecisionAuthorities",
       "migrationTopics",
       "decisionStatuses",
       "decisionDomains",
@@ -687,7 +695,7 @@ export function validateDocumentationPolicy(policy, context) {
     ],
     "documentation policy",
   );
-  if (policy.schemaVersion !== 4 || !isRecord(context)) {
+  if (policy.schemaVersion !== 5 || !isRecord(context)) {
     fail("unsupported documentation policy schema or context");
   }
   for (const [label, file] of [
@@ -706,6 +714,19 @@ export function validateDocumentationPolicy(policy, context) {
   }
   same(policy.decisionStatuses, EXPECTED_STATUSES, "decision statuses");
   same(policy.decisionDomains, EXPECTED_DOMAINS, "decision domains");
+  exactKeys(
+    policy.currentDecisionAuthorities,
+    policy.decisionDomains,
+    "current decision authorities",
+  );
+  for (const [domain, decisionIds] of Object.entries(
+    policy.currentDecisionAuthorities,
+  )) {
+    validateUniqueStrings(decisionIds, "current decision authorities: " + domain);
+    if (decisionIds.some((id) => !/^[0-9]{4}$/u.test(id))) {
+      fail("current decision authority identifier is invalid: " + domain);
+    }
+  }
   validateUniqueStrings(policy.migrationTopics, "documentation migration topics");
   if (!Array.isArray(context.ownedPaths)) {
     fail("owned path inventory is missing");

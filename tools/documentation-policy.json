@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "index": "docs/README.md",
   "decisionIndex": "docs/decisions/README.md",
   "migrationLedger": "docs/DOCUMENTATION-MIGRATION.md",
@@ -36,6 +36,56 @@
   "prospectiveDecisionMetadataFrom": 70,
   "historicalDecisionStatusExceptions": {
     "0009": "accepted"
+  },
+  "currentDecisionAuthorities": {
+    "architecture": [
+      "0013",
+      "0052",
+      "0061"
+    ],
+    "documentation": [
+      "0070",
+      "0071"
+    ],
+    "engineering": [
+      "0012"
+    ],
+    "evaluation": [
+      "0047",
+      "0048",
+      "0049",
+      "0064",
+      "0065",
+      "0066"
+    ],
+    "foundation": [
+      "0002"
+    ],
+    "governance": [
+      "0010",
+      "0037"
+    ],
+    "providers": [
+      "0072",
+      "0069"
+    ],
+    "security": [
+      "0016",
+      "0042",
+      "0058"
+    ],
+    "terminal": [
+      "0023",
+      "0045",
+      "0059"
+    ],
+    "tools": [
+      "0036",
+      "0050",
+      "0053",
+      "0054",
+      "0055"
+    ]
   },
   "migrationTopics": [
     "Public purpose, identity, installation, and first run",
