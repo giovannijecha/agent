@@ -69,6 +69,6 @@ Brand assets are never silently optimized, reformatted, or normalized.
 
 Removing an individual format requires removing every reference, its manifest
 entry, and its validator expectation in the same change. Retiring the complete
-brand system additionally requires an accepted identity decision, removal of
+brand system additionally requires a superseding identity decision, removal of
 the publication and ownership registrations, and verification that no shipped
 surface retains the visual signature.

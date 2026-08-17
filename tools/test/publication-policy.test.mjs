@@ -186,7 +186,7 @@ test("rejects brand documentation contract drift", () => {
     ],
     [
       "docs/BRAND.md",
-      "Retiring the complete\nbrand system additionally requires an accepted identity decision",
+      "Retiring the complete\nbrand system additionally requires a superseding identity decision",
     ],
     [
       "assets/brand/README.md",
@@ -209,6 +209,27 @@ test("rejects brand documentation contract drift", () => {
       () => validatePublicationPolicy(policy, context),
       PublicationPolicyError,
       marker,
+    );
+  }
+});
+
+test("rejects wordmark identity and brand-retirement decision drift", () => {
+  for (const [before, after] of [
+    [
+      "The exact lowercase `.agent` wordmark is a visual signature",
+      "The exact lowercase `.assistant` wordmark is a visual signature",
+    ],
+    ["a superseding identity decision", "an accepted identity decision"],
+  ]) {
+    const context = currentContext();
+    context.files["docs/BRAND.md"] = context.files["docs/BRAND.md"].replace(
+      before,
+      after,
+    );
+    assert.throws(
+      () => validatePublicationPolicy(policy, context),
+      PublicationPolicyError,
+      before,
     );
   }
 });

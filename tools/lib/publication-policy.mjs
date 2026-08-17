@@ -302,7 +302,7 @@ function validatePublicDocuments(context) {
     [
       "# Brand system",
       "The canonical product identity is `agent`.",
-      "visual signature",
+      "The exact lowercase `.agent` wordmark is a visual signature",
       "(../README.md)",
       "The canonical palette is `#FFFFFF` and `#0B0D10`.",
       "`assets/brand/manifest.json` is the machine-verified source of truth",
@@ -314,7 +314,7 @@ function validatePublicDocuments(context) {
       "Keep brand assets outside `@agent/tui`",
       "(OWNERSHIP.md)",
       "Brand assets are never silently optimized, reformatted, or normalized.",
-      "Retiring the complete\nbrand system additionally requires an accepted identity decision",
+      "Retiring the complete\nbrand system additionally requires a superseding identity decision",
     ],
     "brand contract",
   );
