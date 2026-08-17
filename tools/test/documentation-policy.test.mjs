@@ -375,34 +375,38 @@ test("routes completed product operation to the operator manual", () => {
   );
 });
 
-test("completes the task-oriented operator-manual migration", () => {
+test("completes the task-oriented operator-manual migration without rewriting accepted decisions", () => {
   const context = currentContext();
   const legacyDecision = context.files[
     "docs/decisions/0009-owned-operator-manual.md"
   ];
   assert.equal(
-    legacyDecision.includes("- Status: superseded by decision 0071"),
+    legacyDecision.includes("- Status: accepted"),
     true,
-    "the legacy manual decision still advertises an accepted contract",
+    "the historical manual decision status was rewritten",
   );
   assert.equal(
     legacyDecision.includes(
-      "(0071-owned-task-oriented-operator-manual.md)",
+      "Every chapter\nuses the same ordered contract:",
     ),
     true,
-    "the legacy manual decision does not route to its successor",
+    "the historical manual decision contract was rewritten",
   );
 
   const decision = context.files[
     "docs/decisions/0071-owned-task-oriented-operator-manual.md"
   ];
-  assert.equal(
-    decision.includes(
-      "All registered chapters now use task-specific section contracts.",
-    ),
-    true,
-    "the task-oriented manual decision does not record completed convergence",
-  );
+  for (const marker of [
+    "The first migrated task is `01-running-agent.md`.",
+    "The manual may temporarily contain both migrated task-specific chapters and\nlegacy six-section chapters.",
+    "the active migration ledger.",
+  ]) {
+    assert.equal(
+      decision.includes(marker),
+      true,
+      "the accepted task-oriented manual decision was rewritten: " + marker,
+    );
+  }
 
   const row = context.files[policy.migrationLedger]
     .split("\n")
