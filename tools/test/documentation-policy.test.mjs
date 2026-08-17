@@ -350,6 +350,7 @@ test("routes completed product operation to the operator manual", () => {
     "utf8",
   );
   for (const marker of [
+    "Agent requires Node.js `>=22.19.0`, npm `11.16.0`, TypeScript `5.9.3`, and\nClang `>=18` installed outside this repository.",
     "npm ci --offline --ignore-scripts --no-audit --no-fund\nnpm run build\nnpm run install:command",
     "Run `agent` from the directory that should become the workspace.",
     "An ordinary session starts without a selected provider or model.",

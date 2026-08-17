@@ -2,8 +2,8 @@
 
 ## Install
 
-Agent requires Node.js `>=22.19.0`, npm `11.16.0`, and TypeScript `5.9.3`
-installed outside this repository. From the repository root:
+Agent requires Node.js `>=22.19.0`, npm `11.16.0`, TypeScript `5.9.3`, and
+Clang `>=18` installed outside this repository. From the repository root:
 
 ```powershell
 npm ci --offline --ignore-scripts --no-audit --no-fund
