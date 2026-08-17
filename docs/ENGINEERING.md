@@ -9,7 +9,9 @@ or an operational runbook.
 Use the [contributing guide](../CONTRIBUTING.md) for participation and issue
 intake, [architecture](ARCHITECTURE.md) for current boundaries,
 [maintenance](MAINTENANCE.md) for update and rollback procedures, and
-[decisions](decisions/README.md) for accepted rationale.
+[decisions](decisions/README.md) for accepted rationale. Use the
+[evaluation guide](../evaluations/README.md) for task-corpus operation and the
+maintained evidence lifecycle.
 
 All integrations preserve the single-agent execution model.
 Any mutation excludes concurrent mechanics. Current runtime remains sequential.

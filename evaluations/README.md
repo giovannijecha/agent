@@ -1,85 +1,96 @@
 # Owned task evaluations
 
-This directory contains small original workspaces for repeatable `agent` usage.
+## Scope
+
+`evaluations/` contains original workspaces for repeatable `agent` tasks.
 It is an evaluation corpus, not product runtime, training data, or a claim of
-model quality. The expected snapshots never enter a prepared workspace.
+model quality. Expected snapshots never enter a prepared workspace.
 
-The eight-task corpus spans C, documentation, JavaScript, TypeScript, and
-browser work. `web-compound-page-edit` and `web-extract-script` cover same-file
-and multi-file convergence. For `web-extract-stylesheet`, approve
-`manage_path(create_directory)`, reject alternate directory creation, then
-permit `apply_patch` to create its nested stylesheet.
-`javascript-red-green-recovery` requires the same Node test to fail before its
-bounded edit and pass afterward.
-`typescript-inclusive-range` directly proves its input assertion failure and
-expected success through one tracked `.ts` import.
+The registered tasks span five project kinds. `web-compound-page-edit` and
+`web-extract-script` cover same- and multi-file
+convergence. `javascript-red-green-recovery` requires the same Node test to fail
+then pass; `typescript-inclusive-range` uses one tracked `.ts` import. For
+`web-extract-stylesheet`, approve `manage_path(create_directory)`, reject
+alternatives, then permit `apply_patch`.
 
-List the registered tasks:
+## List and prepare a run
 
 ```powershell
 node tools/evaluate.mjs list
-```
-
-Prepare one new run using a lowercase run identifier that is not a Windows
-reserved device name:
-
-```powershell
 node tools/evaluate.mjs prepare javascript-collapse-whitespace run-01
 ```
 
+Use a new lowercase, non-Windows-device run identifier. Preparation copies only
+the input into an ignored `workspace/` and writes its content-free record.
+
+## Run agent and capture the receipt
+
 Start `agent --evaluation-receipt` from the emitted `workspace` directory and
-submit the task's `TASK.md` brief. The product runs normally. After terminal
-cleanup it emits one JSON line such as:
+submit the task's `TASK.md` brief. Use normal permissions. After cleanup it
+emits one JSON line:
 
 ```json
 {"approvals":2,"elapsedMilliseconds":79869,"repeatedReads":1,"schemaVersion":1,"toolCalls":4,"turns":1}
 ```
 
-The receipt is content-free and remains outside the run. It measures only the
-five mechanical values shown; do not infer semantic quality from them. After
-the turn is complete, compare the workspace with the canonical artifact:
+These values are content-free mechanics, not semantic, tool, risk, or
+alternative evidence. The option requires TTY input and output and cannot be
+combined. If its receipt fails or is lost, preserve the result and leave the
+record pending. Never reconstruct values from screenshots, transcripts, provider
+output, or tool activity.
+
+## Grade and validate the record
 
 ```powershell
 node tools/evaluate.mjs grade javascript-collapse-whitespace run-01
 ```
 
-Copy the five receipt values into the adjacent `record.json`. Complete outcome,
-artifact status, manual corrections, risky actions, and primary constraint by
-reviewing the task and grade. Use only the closed fields already in the
-template, then validate it:
+Copy the receipt into adjacent `record.json`. Review the task and grade to fill
+the remaining closed outcome, artifact, correction, risk, and constraint fields:
 
 ```powershell
 node tools/evaluate.mjs validate-record javascript-collapse-whitespace run-01
 ```
 
-Runs live under ignored `state/evaluations/`. The evaluator has no reset or
-delete command, never executes candidate code, never contacts a provider, and
-does not retain prompts, transcripts, file contents, credentials, free-form
-notes, or personal identifiers. Snapshot path limits apply after the canonical
-task prefix is removed. An empty candidate workspace is graded as a non-exact
-tree with every expected path missing. A non-exact tree is a review signal;
-only the operator may classify it as an accepted alternative.
+An empty workspace is non-exact with every expected path missing. Only the
+operator may accept an alternative.
 
-If a receipt fails or is lost, preserve the product result and leave its record
-pending. Never reconstruct values from screenshots, transcripts, provider
-output, or tool activity. The option requires TTY input and output; it cannot be
-redirected or combined with another launch option.
+## Protect local state and content
 
-## Failure evidence
+Runs live under ignored `state/evaluations/`.
+The evaluator has no reset or delete command. It never executes candidate code,
+contacts a provider, or retains prompts, transcripts, content, credentials,
+notes, or personal identifiers. The offline verifier checks only owned inputs;
+snapshot limits apply after the canonical task prefix.
 
-Reviewed negative results may be retained in `failures/registry.json`. The
-registry is versioned evidence, not ignored run state or a second evaluator. An
-entry binds one maintained task to a closed category, priority, lifecycle,
-positive occurrence count, record classifications, and content-free grade path
-sets. It contains no run identifier, metric sample, prompt, response,
-transcript, candidate content, provider identity, timestamp, or free-form note.
+## Maintain failure evidence
 
-Add one occurrence only after reviewing another run that exhibits the same
-failure. The validator requires a first occurrence to remain `observing`;
-promote it to `actionable` only when frequency or impact justifies a correction.
-A `resolved` entry must point to tracked decision or regression evidence. The
-canonical verifier validates the registry against the current task catalog and
-tracked source inventory. Evaluator commands reserve the registry directory,
-file, and complete byte allowance but do not parse it or inspect ignored runs.
-Remove evidence if a corpus correction proves its expected snapshot could not
-satisfy its own check; do not resolve or use that evidence.
+Reviewed negative results may enter `failures/registry.json`. It is versioned
+evidence, not run state or a second evaluator. Entries contain only closed task,
+classification, count, grade-path, lifecycle, and resolution fields; they
+exclude run IDs or metrics, prompts, responses, transcripts, candidate content,
+provider identity, timestamps, and notes.
+
+Add an occurrence only after another reviewed run shows the same failure. A
+first occurrence remains `observing`; promote it to `actionable` only when
+frequency or impact justifies a correction. `resolved` requires tracked
+decision or regression evidence. Remove evidence if a corpus correction proves
+its expected snapshot could not satisfy its own check; do not resolve or use
+that evidence.
+
+## Update or remove the corpus
+
+Change a task by updating its brief, snapshots, manifest, completion contract,
+affected evidence, documentation, and tests together. Validate paths,
+regular-file trees, bounds, and reconstruction; keep grading offline and run
+focused tests. A revision invalidates older results.
+
+Rollback restores that set. Removal deletes its manifest entry, task directory,
+evidence, documentation, and tests; ignored runs and receipts are never moved or
+reconstructed. Remove the framework through the
+[maintenance guide](../docs/MAINTENANCE.md#task-evaluation) and decision 0047.
+
+## References
+
+See [privacy](../PRIVACY.md#local-task-evaluation) and
+[evaluation decisions](../docs/decisions/README.md#current-authority-by-domain).
