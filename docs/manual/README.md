@@ -16,12 +16,12 @@ Use this manual to run, understand, and maintain the behavior that exists today.
 ## Current product boundary
 
 - The executable owns its CLI, TUI, runtime composition, and local tools.
-- Ollama Cloud is the sole optional process-local backend. Startup enters the
-  TUI with neither provider nor model selected.
+- The [provider policy](../PROVIDERS.md) owns admission, exact network
+  boundaries, and subscription eligibility. Ollama Cloud is the sole optional
+  process-local backend; startup enters the TUI with neither provider nor model
+  selected.
 - Credentials and sessions are not persisted. The
   [privacy policy](../../PRIVACY.md) owns retention and removal guarantees.
-  Subscription OAuth remains blocked without an eligible independent-client
-  identity.
 - Process execution is limited to the documented `run_process` contract: the
   CLI-registered `node` token, session permission, fixed bounds, and native
   containment.

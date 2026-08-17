@@ -95,10 +95,11 @@ that domain; a summary here never overrides its canonical owner.
 
 ### Providers and secrets
 
-- Ollama Cloud is the sole admitted direct API-key provider under decision 0072.
-  Do not add another provider, origin, compatibility endpoint, SDK, CLI, local
-  daemon, alias, redirect, retry, router, or fallback without a new accepted
-  decision and complete contract evidence.
+- Ollama Cloud is the sole admitted direct API-key provider under the
+  [provider policy](docs/PROVIDERS.md) and decision 0072. Do not add another
+  provider, origin, compatibility endpoint, SDK, CLI, local daemon, alias,
+  redirect, retry, router, or fallback without a new accepted decision and
+  complete contract evidence.
 - Provider credentials, catalog results, provider selection, and model selection
   are process-only. `agent` starts without a backend.
 - `/providers` is the only interactive credential and provider selection path.

@@ -27,6 +27,7 @@ const EXPECTED_DOCUMENTS = Object.freeze([
   "docs/OAUTH-REGISTRATION.md",
   "docs/OWNERSHIP.md",
   "docs/PROVIDER-APPLICATIONS.md",
+  "docs/PROVIDERS.md",
   "docs/decisions/0010-public-project-identity.md",
   "docs/ARCHITECTURE.md",
   "docs/ENGINEERING.md",
@@ -361,6 +362,21 @@ function validatePublicDocuments(context) {
       "Stop the change if provenance is uncertain.",
     ],
     "ownership and provenance policy",
+  );
+  requireMarkers(
+    textFor(context, "docs/PROVIDERS.md"),
+    [
+      "# Provider eligibility",
+      "Ollama Cloud is the sole enabled provider.",
+      "| Origin | `https://ollama.com` |",
+      "| Chat path | `/api/chat` |",
+      "| Authenticated catalog path | `/api/tags` |",
+      "The implementation is independent. It does not install or invoke Ollama, use an\nOllama SDK or CLI, contact a local daemon, read Ollama configuration, discover\norigins, follow model aliases, or persist the key.",
+      "Neither\nprovider nor model has an automatic default.",
+      "One concrete provider does not authorize a generic provider framework,\narbitrary base URL, unregistered model selector, key store, local-server mode,\nor additional integration.",
+      "The Ollama API key\nmay never enter source, tests, logs, errors, documentation values, process\narguments, or command history.",
+    ],
+    "direct provider policy",
   );
   requireMarkers(
     textFor(context, "docs/OAUTH-REGISTRATION.md"),

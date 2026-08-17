@@ -377,6 +377,35 @@ test("rejects a missing ownership publication route", () => {
   );
 });
 
+test("rejects direct provider admission contract drift", () => {
+  const providers = readFileSync(
+    path.join(projectRoot, "docs/PROVIDERS.md"),
+    "utf8",
+  );
+  for (const marker of [
+    "Ollama Cloud is the sole enabled provider.",
+    "| Origin | `https://ollama.com` |",
+    "| Chat path | `/api/chat` |",
+    "| Authenticated catalog path | `/api/tags` |",
+    "The implementation is independent. It does not install or invoke Ollama, use an\nOllama SDK or CLI, contact a local daemon, read Ollama configuration, discover\norigins, follow model aliases, or persist the key.",
+    "Neither\nprovider nor model has an automatic default.",
+    "One concrete provider does not authorize a generic provider framework,\narbitrary base URL, unregistered model selector, key store, local-server mode,\nor additional integration.",
+    "The Ollama API key\nmay never enter source, tests, logs, errors, documentation values, process\narguments, or command history.",
+  ]) {
+    const context = currentContext();
+    context.files["docs/PROVIDERS.md"] = providers.replaceAll(
+      marker,
+      "removed direct provider contract",
+    );
+    assert.notEqual(context.files["docs/PROVIDERS.md"], providers, marker);
+    assert.throws(
+      () => validatePublicationPolicy(policy, context),
+      PublicationPolicyError,
+      marker,
+    );
+  }
+});
+
 test("rejects modified license terms", () => {
   const context = currentContext();
   context.files.LICENSE = context.files.LICENSE.replace(

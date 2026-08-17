@@ -89,6 +89,11 @@ test("rejects canonical document structure drift", () => {
       "## Inspection history",
     ],
     [
+      "docs/PROVIDERS.md",
+      "## Enabled direct provider",
+      "## Enabled provider",
+    ],
+    [
       "docs/ARCHITECTURE.md",
       "## Single-agent execution model",
       "## Product execution model",
@@ -373,6 +378,46 @@ test("routes completed clean-room provenance to the ownership record", () => {
     row?.endsWith("| complete |"),
     true,
     "clean-room provenance migration is not complete",
+  );
+});
+
+test("routes completed direct provider admission to the provider policy", () => {
+  const context = currentContext();
+  for (const [source, route] of [
+    ["AGENTS.md", "(docs/PROVIDERS.md)"],
+    ["README.md", "(docs/PROVIDERS.md)"],
+    ["docs/README.md", "(PROVIDERS.md)"],
+    ["docs/ARCHITECTURE.md", "(PROVIDERS.md)"],
+    ["docs/MAINTENANCE.md", "(PROVIDERS.md)"],
+    ["docs/manual/README.md", "(../PROVIDERS.md)"],
+  ]) {
+    assert.equal(
+      context.files[source].includes(route),
+      true,
+      "provider-policy route is missing: " + source,
+    );
+  }
+
+  const structure = policy.documentStructures.find(
+    (entry) => entry.path === "docs/PROVIDERS.md",
+  );
+  assert.deepEqual(structure?.headings, [
+    "# Provider eligibility",
+    "## Enabled direct provider",
+    "## Blocked subscription OAuth providers",
+    "## Machine gate",
+    "## Research rule",
+    "## Account and secret boundary",
+    "## Primary references",
+  ]);
+
+  const row = context.files[policy.migrationLedger]
+    .split("\n")
+    .find((line) => line.startsWith("| Direct provider admission and operation |"));
+  assert.equal(
+    row?.endsWith("| complete |"),
+    true,
+    "direct-provider migration is not complete",
   );
 });
 
