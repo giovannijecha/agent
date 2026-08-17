@@ -24,7 +24,7 @@ the linked owner is where the complete contract lives.
 | [OAuth registration](OAUTH-REGISTRATION.md) | maintainers | subscription adapter registration status |
 | [Operator manual](manual/README.md) | operators | task-oriented product operation |
 | [Evaluation manual](../evaluations/README.md) | maintainers | owned task-evaluation operation |
-| [Brand assets](../assets/brand/README.md) | maintainers and distributors | canonical asset usage |
+| [Brand assets](../assets/brand/README.md) | maintainers and distributors | registered asset distribution entry point |
 
 ## Reading paths
 

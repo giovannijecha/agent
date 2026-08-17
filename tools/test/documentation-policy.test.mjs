@@ -263,6 +263,22 @@ test("routes the completed public entry point to the public README", () => {
 test("routes completed brand identity to the brand guide", () => {
   const context = currentContext();
 
+  const assetEntryPoint = policy.livingDocuments.find(
+    (entry) => entry.path === "assets/brand/README.md",
+  );
+  assert.equal(
+    assetEntryPoint?.authority,
+    "registered asset distribution entry point",
+    "the asset README is still classified as a second brand authority",
+  );
+  assert.equal(
+    context.files["assets/brand/README.md"].includes(
+      "This directory is the scoped distribution entry point",
+    ),
+    true,
+    "the asset README does not declare its scoped role",
+  );
+
   for (const [file, route] of [
     ["README.md", "(docs/BRAND.md)"],
     ["assets/brand/README.md", "(../../docs/BRAND.md)"],

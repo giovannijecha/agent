@@ -167,6 +167,18 @@ test("rejects brand documentation contract drift", () => {
     ],
     [
       "docs/BRAND.md",
+      "| Authentication mark | `agent-auth-logo.svg` | 256, 512, or 1024 px PNG |",
+    ],
+    [
+      "docs/BRAND.md",
+      "| Wordmark on dark surfaces | `agent-wordmark-dark.svg` | `agent-wordmark-dark.png` |",
+    ],
+    [
+      "docs/BRAND.md",
+      "| Wordmark on transparent surfaces | `agent-wordmark-transparent.svg` | `agent-wordmark-transparent.png` |",
+    ],
+    [
+      "docs/BRAND.md",
       "Use the registered PNG files for stable published rendering.",
     ],
     [
@@ -187,6 +199,10 @@ test("rejects brand documentation contract drift", () => {
     [
       "docs/BRAND.md",
       "Retiring the complete\nbrand system additionally requires a superseding identity decision",
+    ],
+    [
+      "assets/brand/README.md",
+      "This directory is the scoped distribution entry point",
     ],
     [
       "assets/brand/README.md",
