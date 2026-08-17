@@ -19,8 +19,9 @@ changing that acyclic graph requires updating the policy in the same decision
 change.
 
 The complete ledger classifies every stable record. The current-authority view
-routes each closed domain only to accepted entry points. Every record retains
-its numeric heading plus its `Context` and `Decision`; the verifier preserves
+routes each closed domain only to accepted entry points and binds every visible
+decision ID to its stable record destination. Every record retains its numeric
+heading plus its `Context` and `Decision`; the verifier preserves
 historical pre-0070 formats instead of normalizing them retroactively and binds
 each historical relationship field to its exact policy value. This includes
 prose-qualified partial supersessions that do not create a complete ledger
