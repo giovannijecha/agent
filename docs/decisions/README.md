@@ -23,8 +23,10 @@ its numeric heading plus its `Context` and `Decision`; the verifier preserves
 historical pre-0070 formats instead of normalizing them retroactively and binds
 each historical relationship field to its exact policy value. This includes
 prose-qualified partial supersessions that do not create a complete ledger
-edge. The normalized section bodies are bound to the policy digest; an
-intentional amendment updates that digest in the same decision change.
+edge. Prospective decision dates have an exact inventory. The complete
+normalized record set, including every durable protocol, verification,
+consequence, and rollback section, is bound to the policy digest; an intentional
+amendment updates that digest in the same decision change.
 
 Create a decision only for a durable architectural, authority, security,
 provider, toolchain, product-behavior, or documentation-governance contract.

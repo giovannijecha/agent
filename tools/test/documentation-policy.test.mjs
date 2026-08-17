@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
@@ -67,6 +68,16 @@ function currentContext() {
     decisionPaths,
     ownedPaths,
   };
+}
+
+function recordDigestFor(context) {
+  const records = context.decisionPaths.map((file) => ({
+    id: path.posix.basename(file).slice(0, 4),
+    record: context.files[file].replaceAll("\r\n", "\n"),
+  }));
+  return createHash("sha256")
+    .update(JSON.stringify(records), "utf8")
+    .digest("hex");
 }
 
 test("accepts the canonical documentation information architecture", () => {
@@ -209,6 +220,19 @@ test("rejects empty or truncated decision section bodies", () => {
       DocumentationPolicyError,
     );
   }
+});
+
+test("rejects removal of any durable decision section", () => {
+  const context = currentContext();
+  const file = "docs/decisions/0016-owned-native-process-containment.md";
+  context.files[file] = context.files[file].replace(
+    /\n## Controller protocol\n[\s\S]*?(?=\n## Windows backend\n)/u,
+    "",
+  );
+  assert.throws(
+    () => validateDocumentationPolicy(policy, context),
+    DocumentationPolicyError,
+  );
 });
 
 test("rejects historical decision status and core-section drift", () => {
@@ -425,6 +449,11 @@ test("rejects prospective decision metadata drift", () => {
       "- Supersedes: 0017, 0067, and 0068",
       "- Supersedes: 0017, 0067, and 0069",
     ],
+    [
+      "docs/decisions/0072-owned-ollama-cloud-provider.md",
+      "- Date: 2026-08-16",
+      "- Date: 1999-01-01",
+    ],
   ]) {
     const context = currentContext();
     context.files[file] = context.files[file].replace(before, after);
@@ -471,9 +500,18 @@ test("preserves both directions when a consolidation is superseded", () => {
         ? [{ superseder: "0070", superseded: "0071" }, edge]
         : [edge],
   );
+  const decisionRecordDigest = {
+    ...policy.decisionRecordDigest,
+    value: recordDigestFor(context),
+  };
   assert.doesNotThrow(() =>
     validateDocumentationPolicy(
-      { ...policy, currentDecisionAuthorities, decisionRelationshipEdges },
+      {
+        ...policy,
+        currentDecisionAuthorities,
+        decisionRelationshipEdges,
+        decisionRecordDigest,
+      },
       context,
     ),
   );

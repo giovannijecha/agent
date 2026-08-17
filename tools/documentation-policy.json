@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 10,
+  "schemaVersion": 11,
   "index": "docs/README.md",
   "decisionIndex": "docs/decisions/README.md",
   "migrationLedger": "docs/DOCUMENTATION-MIGRATION.md",
@@ -34,6 +34,11 @@
     ]
   },
   "prospectiveDecisionMetadataFrom": 70,
+  "prospectiveDecisionDates": {
+    "0070": "2026-08-16",
+    "0071": "2026-08-16",
+    "0072": "2026-08-16"
+  },
   "historicalDecisionStatusExceptions": {
     "0009": "accepted"
   },
@@ -82,9 +87,9 @@
       "superseded": "0068"
     }
   ],
-  "decisionSectionDigest": {
+  "decisionRecordDigest": {
     "algorithm": "sha256",
-    "value": "b14686de09ad8c8d7a70cb8fca85bf6d54013fad60cbbc8ae55238a7f2a12b1e"
+    "value": "ea4f80668895ccdc782374b6f8aac6a76750809a81a5c54a83a6a6721edee39e"
   },
   "decisionDomainMembers": {
     "architecture": [
