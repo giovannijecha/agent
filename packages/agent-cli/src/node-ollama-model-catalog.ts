@@ -7,10 +7,7 @@ import {
 
 import { err, type Result } from "@agent/core";
 
-import {
-  isProviderId,
-  type ProviderId,
-} from "./provider-identity.js";
+import { isValidOllamaCloudCredential } from "./provider-configuration.js";
 import {
   decodeProviderModelCatalog,
   PROVIDER_MODEL_CATALOG_LIMITS,
@@ -21,15 +18,15 @@ import {
 import { NodeTimerClock } from "./node-timer-clock.js";
 import type { ScheduledTimer, TimerClock } from "./timer-clock.js";
 
-export const OPENCODE_MODEL_CATALOG_LIMITS = Object.freeze({
+export const OLLAMA_MODEL_CATALOG_LIMITS = Object.freeze({
   deadlineMilliseconds: 30_000,
   headerBytes: 16_384,
   inactivityMilliseconds: 30_000,
   responseChunkBytes: 65_536,
 });
 
-export const OPENCODE_GO_MODELS_PATH = "/zen/go/v1/models";
-export const OPENCODE_ZEN_MODELS_PATH = "/zen/v1/models";
+export const OLLAMA_CLOUD_MODELS_ORIGIN = "https://ollama.com";
+export const OLLAMA_CLOUD_MODELS_PATH = "/api/tags";
 
 type HttpsResponse = IncomingMessage;
 type HttpsRequest = ClientRequest;
@@ -70,26 +67,25 @@ function validJsonContentType(value: string | undefined): boolean {
   );
 }
 
-function exactOptions(provider: ProviderId): RequestOptions {
+function exactOptions(credential: string): RequestOptions {
   return Object.freeze({
     agent: false as const,
     headers: Object.freeze({
       accept: "application/json",
+      authorization: "Bearer " + credential,
       "user-agent": "agent/0.1.0",
     }),
-    hostname: "opencode.ai",
-    maxHeaderSize: OPENCODE_MODEL_CATALOG_LIMITS.headerBytes,
+    hostname: "ollama.com",
+    maxHeaderSize: OLLAMA_MODEL_CATALOG_LIMITS.headerBytes,
     method: "GET" as const,
-    path: provider === "opencodeGo"
-      ? OPENCODE_GO_MODELS_PATH
-      : OPENCODE_ZEN_MODELS_PATH,
+    path: OLLAMA_CLOUD_MODELS_PATH,
     port: 443 as const,
     protocol: "https:" as const,
   });
 }
 
-/** Fixed-origin public OpenCode model catalog with bounded response capture. */
-export class NodeOpenCodeModelCatalog implements ProviderModelCatalog {
+/** Exact-origin authenticated Ollama Cloud catalog with bounded capture. */
+export class NodeOllamaModelCatalog implements ProviderModelCatalog {
   readonly #clock: TimerClock;
   readonly #requestHttps: RequestHttps;
 
@@ -102,9 +98,13 @@ export class NodeOpenCodeModelCatalog implements ProviderModelCatalog {
   }
 
   list(
-    provider: ProviderId,
+    provider: "ollamaCloud",
+    credential: string,
   ): Promise<Result<readonly string[], ProviderModelCatalogError>> {
-    if (!isProviderId(provider)) {
+    if (
+      provider !== "ollamaCloud" ||
+      !isValidOllamaCloudCredential(credential)
+    ) {
       return Promise.resolve(err(failure("protocol")));
     }
     let settled = false;
@@ -166,7 +166,7 @@ export class NodeOpenCodeModelCatalog implements ProviderModelCatalog {
         if (
           !(chunk instanceof Uint8Array) ||
           chunk.length < 1 ||
-          chunk.length > OPENCODE_MODEL_CATALOG_LIMITS.responseChunkBytes ||
+          chunk.length > OLLAMA_MODEL_CATALOG_LIMITS.responseChunkBytes ||
           bytes + chunk.length > PROVIDER_MODEL_CATALOG_LIMITS.bodyBytes
         ) {
           fail("limit");
@@ -189,7 +189,7 @@ export class NodeOpenCodeModelCatalog implements ProviderModelCatalog {
       let firedSynchronously = false;
       try {
         scheduled = this.#clock.schedule(
-          OPENCODE_MODEL_CATALOG_LIMITS.deadlineMilliseconds,
+          OLLAMA_MODEL_CATALOG_LIMITS.deadlineMilliseconds,
           () => {
             if (deadline === undefined) {
               firedSynchronously = true;
@@ -218,30 +218,33 @@ export class NodeOpenCodeModelCatalog implements ProviderModelCatalog {
       deadline = scheduled;
 
       try {
-        activeRequest = this.#requestHttps(exactOptions(provider), (response) => {
-          if (settled) {
-            response.destroy();
-            return;
-          }
-          activeResponse = response;
-          const status = response.statusCode;
-          if (status !== 200) {
-            fail("status");
-            return;
-          }
-          if (!validJsonContentType(contentType(response))) {
-            fail("contentType");
-            return;
-          }
-          response.on("aborted", onAborted);
-          response.on("data", onData);
-          response.on("end", onEnd);
-          response.on("error", onResponseError);
-          response.resume();
-        });
+        activeRequest = this.#requestHttps(
+          exactOptions(credential),
+          (response) => {
+            if (settled) {
+              response.destroy();
+              return;
+            }
+            activeResponse = response;
+            const status = response.statusCode;
+            if (status !== 200) {
+              fail("status");
+              return;
+            }
+            if (!validJsonContentType(contentType(response))) {
+              fail("contentType");
+              return;
+            }
+            response.on("aborted", onAborted);
+            response.on("data", onData);
+            response.on("end", onEnd);
+            response.on("error", onResponseError);
+            response.resume();
+          },
+        );
         activeRequest.on("error", onRequestError);
         activeRequest.setTimeout(
-          OPENCODE_MODEL_CATALOG_LIMITS.inactivityMilliseconds,
+          OLLAMA_MODEL_CATALOG_LIMITS.inactivityMilliseconds,
           () => fail("timeout"),
         );
         activeRequest.end();

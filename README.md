@@ -9,34 +9,28 @@
 
 An owned, zero-dependency personal coding agent.
 
-`agent` is an original CLI and terminal UI built entirely in this repository.
-It keeps product code, protocols, tools, prompts, tests, and rendering under one
-maintainer-controlled workspace without third-party runtime packages.
+`agent` is an original CLI and terminal UI authored in this repository. It
+keeps the coding loop, local tools, permissions, provider adapters, and terminal
+experience under one maintainer-controlled implementation without third-party
+runtime packages.
 
-## What it does
+## Capabilities
 
-- Streams one model turn into a conversation-first terminal interface.
-- Runs bounded local coding tools through explicit schemas and risk classes.
-- Applies one session-scoped `Allow`, `Ask`, or `Deny` policy to every tool.
-- Advances tools through checkpointed model-turn barriers until the task settles.
-- Filters automatic reads through an owned deny-only workspace privacy policy.
-- Contains the admitted `node` process token through an owned native broker.
-- Verifies source, ownership, build, tests, and CLI behavior offline.
-- Provides a small owned corpus for reproducible, content-free task evaluation.
-- Can emit one opt-in content-free interaction receipt after an evaluation run.
-- Retains bounded recurring evaluation failures in a versioned closed registry.
+- Inspect and search one bounded local workspace.
+- Apply exact text patches, manage paths, and run the registered `node` process.
+- Ask for one explicit permission decision for every planned write or execution.
+- Connect Ollama Cloud and select an available cloud model for the current process.
+- Stream one checkpointed model-and-tool loop through a conversation-first TUI.
+- Verify the complete repository and grade maintained task fixtures offline.
 
-The current direct providers are OpenCode Go and OpenCode Zen. `agent` opens the
-TUI without a selected backend. `/providers` configures or selects either one;
-`/models` loads its public catalog and exposes only IDs admitted by the owned
-Chat Completions allowlist. Credentials, catalog results, provider selection,
-and model selection stay in process memory and are never persisted. No provider
-or model is selected automatically, and no fallback crosses provider slots.
+The single-agent execution model has one identity, one controller, one active
+runtime session, and one model decision loop. Providers are interchangeable
+backends, not additional agents.
 
 ## Quick start
 
 Requirements: Node.js `>=22.19.0`, npm `11.16.0`, external TypeScript `5.9.3`,
-and Clang `>=18`. TypeScript and Clang must remain outside the workspace.
+and Clang `>=18`. TypeScript and Clang stay outside the workspace.
 
 ```powershell
 npm ci --offline --ignore-scripts --no-audit --no-fund
@@ -44,177 +38,69 @@ npm run build
 npm run dev
 ```
 
-To install the local command once:
+To install and open the local command:
 
 ```powershell
 npm run install:command
 agent
 ```
 
-The exact current directory becomes the coding-tool workspace boundary. Startup
-canonicalizes it once, shows that absolute path in the footer, and rejects a
-volume root, the user home, or the shared temporary directory before reading a
-credential. The protected home and temporary roots come from the operating
-system through an owned native resolver, not from inherited environment
-variables. Startup never widens the selection to a parent Git repository.
-It then loads built-in sensitive-path denials plus an optional bounded root
-`.agentignore` before credentials or tools. Malformed policy fails startup;
-policy changes take effect only after restart.
-Inside the TUI, use `/providers` to enter a key through the zero-projection
-credential editor, then `/models` to choose one compatible model. See
+The directory in which `agent` starts becomes its immutable workspace boundary.
+Volume roots, the exact user home, and the shared temporary directory are
+rejected. An optional root `.agentignore` adds deny-only read exclusions.
+
+Inside the TUI, run `/providers` to enter an Ollama Cloud API key and select the
+provider, then `/models` to load the authenticated catalog and choose one
+available model. Credentials, provider state, model catalogs, and selections
+remain in process memory and disappear on exit. See
 [providers and authentication](docs/manual/05-providers-and-authentication.md)
-for the exact interactive and controlled environment-variable paths.
+for the complete workflow and failure contract.
 
-## Terminal interface
-
-The transcript stays dominant. User turns compose one rail-free transparent
-stage-wide surface with italic restrained steel-blue prose and the shared
-content inset. Their first text cell aligns with assistant prose and composer
-text and caret on one canonical column. The composer keeps its content
-transparent between two full-width light-blue rules. Code, tables, and completion stay
-transparent. Tool activity is transparent too: its marker and written state use
-restrained success, attention, or failure foregrounds. One shared rhythm separates every lower-shell
-region. Transcript entries and activity surfaces follow their content height
-without synthetic padding, and the focused
-composer retains one rule row on each side when the viewport permits. Exact
-bounded mutation or execution previews appear only while permission is pending;
-every other activity state stays on one compact line with a status mark, readable
-action, optional useful subject, and right-aligned written state. Patch permission
-shows the path and bounded human-readable removed rows in restrained red and
-inserted rows in restrained green instead of internal digests or tuple metadata.
-Exact complete context rows retained on both sides of one hunk are omitted from
-display, while the untrimmed patch remains bound to authorization and commit.
-Opaque structured rows are repainted from their
-semantic surface before content. The footer keeps workspace and provider
-facts quiet while a soft active-work pulse aligns with the composer frame's
-right edge. Slash completion and permission lists use the same restrained blue
-foreground for the selected row. Command feedback appears as one transparent contextual notice below any
-tool activity; it is replaced by newer feedback, disappears after five seconds,
-and closes immediately when editing resumes. Provider, model, permission, and
-completion selection reuse one compact transparent list, while invalid commands
-use one short warning.
-
-If a turn fails after a completed tool checkpoint, the completed tool truth is
-retained and the transcript plus notice expose one closed content-free failure
-code such as `model/read` or `tool/limit`. Provider causes and tool payloads are
-never rendered, and a successful tool is not relabeled as failed because model
-continuation stopped later.
-
-The exact command surface is:
+## Daily use
 
 | Command | Action |
 | --- | --- |
-| `/providers` | Configure or select a provider |
+| `/providers` | Configure or select a session provider |
 | `/models` | Load and select an admitted provider model |
-| `/permissions` | Set current-session tool permissions |
+| `/permissions` | Edit session-only tool permissions |
 | `/exit` | Close `agent` |
 
-The permission editor covers the exact six built-in tools and stays in memory
-only. Reads start as `Allow`; writes and execution start as `Ask`. A pending
-`Ask` offers `Allow once`, `Allow for session`, and `Deny` through a contextual
-selection list rather than another slash command.
+The advertised tools are exactly `read_file`, `list_directory`, `search_text`,
+`apply_patch`, `manage_path`, and `run_process`. Reads default to `Allow`; writes
+and execution default to `Ask`. Pending requests offer `Allow once`, `Allow for
+session`, and `Deny`.
 
-Typing a command prefix opens compact completion above the composer. Up and
-Down select, Tab inserts without submitting, and Enter dispatches through the
-same exact command path. The menu has no passive help row.
+The transcript remains the main surface. Tool activity is contextual and
+temporary, patch approvals show bounded human-readable changes, and provider,
+model, permission, and command choices reuse one compact selection path. The
+[terminal-interface manual](docs/manual/03-terminal-interface.md) owns the full
+editing, layout, pointer, color, motion, and failure behavior.
 
-Editing, multiline paste, transcript navigation, permission behavior, colors,
-motion, and failure handling are documented in the
-[terminal-interface manual](docs/manual/03-terminal-interface.md).
+## Safety model
 
-Inside the alternate screen, `agent` owns pointer interaction on Windows and
-Linux through the same terminal protocol. Drag to select conversation or
-composer text and copy on release. Double-click and release copies one
-whitespace-delimited word; hold the second press and drag to extend by complete
-words. The wheel moves the transcript's existing scroll position without
-losing a settled selection. Windows x64 confirms copies through the owned native
-clipboard boundary; other platforms issue a bounded OSC 52 request and say so
-without claiming host success. A short result appears inside the composer's
-right edge without adding a row or moving the conversation.
-Exact visible `https://` text is exposed as a terminal hyperlink; the terminal
-chooses its activation gesture and security UI. Shift remains an optional
-terminal-native selection path, while Ctrl+C remains the agent interrupt.
+- Every tool call is schema-validated, planned just in time, authorized, and
+  executed sequentially in provider order.
+- Automatic reads share the built-in sensitive-path policy and root
+  `.agentignore`; denied content never enters model-visible tool output.
+- File and namespace mutations bind approval to observed filesystem state and
+  use owned platform committers without a weaker pathname fallback.
+- `run_process` accepts only the registered `node` token, literal arguments,
+  one relative working directory, fixed limits, and owned descendant cleanup.
+- Secrets stay memory-only and never enter source, fixtures, logs, transcripts,
+  or documentation.
+- A completed tool checkpoint remains conversation truth if a later model
+  continuation fails; completed effects are not retried implicitly.
 
-## Safety boundaries
-
-- Both OpenCode adapters request at most one tool call per model response, checkpoint its
-  result, and lets the next model decision reassess the remaining user goal.
-- A defensive bounded batch returned despite that request is validated before
-  observation, then planned just in time and invoked sequentially; handlers
-  never run concurrently and completed effects are never retried implicitly.
-- Read tools default to `Allow`; writes and execution default to `Ask`. Every
-  successfully planned request receives one exact runtime permission decision.
-- `apply_patch` creates or updates one file through ordered exact-text hunks,
-  reserves its bounded target path inside one concrete effect preview, and
-  commits the approved state through one owned handle-relative Windows/Linux
-  broker. Invalid path projections or aggregate hunk batches fail complete
-  preflight before observation; ambiguous anchors, overlap, reordering, no-op
-  hunks, or changed identity, absence, path, or content fail as conflicts. Its
-  preview shows changed logical rows only; exact complete shared context remains
-  bound to the effect but does not repeat as a removal and insertion. A
-  terminal-separator-only change remains visible as one exact inline escape.
-- `manage_path` creates one directory, moves one file or directory to an absent
-  destination, or removes one file or empty directory. Every effect has one
-  exact authorization and one owned namespace-committer invocation; every
-  successful effect is one handle-relative namespace commit. Overwrite, merge,
-  recursive removal, nonempty-directory removal, and self-descendant moves fail
-  closed. Windows supports all three operations. Linux supports directory
-  creation; its planner returns `unsupported` for move or remove before
-  path-specific planning, namespace observation, or authorization, and its
-  native broker retains the same final guard. The admitted Linux APIs cannot
-  bind the approved source identity atomically to those mutations.
-- `read_file`, `list_directory`, and `search_text` share one immutable built-in
-  plus `.agentignore` disclosure policy; denied targets never enter tool output.
-- `read_file` optionally returns an exact bounded logical-line range with
-  explicit start, returned-line, total-line, and continuation metadata. A
-  path-only request still returns the complete bounded file.
-- `run_process` accepts only the CLI-registered `node` token, literal arguments,
-  and one workspace-relative directory. It accepts no shell, executable path,
-  PATH lookup, stdin, inherited environment, or model-selected limit.
-- Model turns, tools, permissions, mutations, process execution, and terminal
-  output remain serialized.
-- Content and namespace mutation commits have no portable pathname fallback.
-  Unsupported native exclusion, publication, or namespace primitives fail
-  closed rather than weakening an approved effect.
-- Secrets, raw tool arguments, call identifiers, and failure causes do not enter
-  the contextual UI.
-
-The single-agent execution model is deliberate: one identity, one application
-controller, one active runtime session, and one model decision loop. Providers
-are interchangeable backends, not additional agents. Current runtime remains sequential.
-
-Future controller-internal mechanical concurrency may overlap only bounded
-independent mechanics over immutable snapshots during a read-only phase. It
-cannot enter the tool engine or overlap a mutation, and its results return to
-the sole controller for deterministic reduction.
-
-## Repository map
-
-| Path | Responsibility |
-| --- | --- |
-| `packages/agent-core` | Immutable messages, values, conversations, and results |
-| `packages/agent-tools` | Schemas, registry, risk, validation, and execution boundary |
-| `packages/agent-runtime` | Streaming turns, cancellation, tools, and checkpoints |
-| `packages/agent-provider-opencode-go` | Node-free OpenCode Go wire adapter |
-| `packages/agent-provider-opencode-zen` | Node-free OpenCode Zen wire adapter |
-| `packages/agent-tui` | Generic input, layout, Markdown, frames, and renderer |
-| `packages/agent-cli` | Commands, chat, tools, terminal, Node I/O, and composition |
-| `packages/agent-cli/native` | Private platform roots, content and namespace mutation commits, clipboard, and process containment |
-| `evaluations` | Original reproducible task briefs, input snapshots, and expected snapshots |
-| `types` | Minimal owned Node declarations |
-| `tools` | Build, ownership, evaluation, test, policy, and smoke verification |
-| `docs` | Operator manual, architecture, decisions, and provenance |
-
-Dependencies point inward: tools depend on core; runtime depends on core and
-tools; the provider implements the runtime port; CLI is the sole composition
-and platform boundary. Core and TUI remain independent. See the
-[architecture](docs/ARCHITECTURE.md) for the complete graph and contracts.
+The complete package, authority, and runtime contracts live in
+[Architecture](docs/ARCHITECTURE.md). Operator guarantees and recovery paths
+live in the [manual](docs/manual/README.md); disclosure and reporting policies
+live in [Privacy](PRIVACY.md) and [Security](SECURITY.md).
 
 ## Verification
 
-The verifier is the definition of done. It checks the toolchain, documents,
-manifests, lockfile, imports, source hygiene, native containment, build, tests,
-and CLI smoke behavior.
+The canonical gate checks toolchain versions, documentation, manifests,
+ownership, imports, source hygiene, native boundaries, build, tests, and CLI
+smoke behavior.
 
 Windows:
 
@@ -228,63 +114,34 @@ Linux:
 bash tools/verify.sh
 ```
 
-The owned GitHub workflow runs the same gate on pull requests and `main` without
-imported actions or repository secrets.
+The owned GitHub workflow runs the same offline gate on pull requests and
+`main`, without imported actions or repository secrets.
 
 ## Task evaluation
 
-The repository includes eight small original coding tasks spanning C,
-documentation, JavaScript, TypeScript, and browser code, including separate
-same-file compound, multi-file browser, portable namespace-directory, and
-controlled red-green recovery work.
-The offline evaluator prepares an isolated input workspace and grades its
-regular-file tree without executing candidate code or contacting a provider:
+Maintainer tooling includes a versioned original task corpus and an offline
+tree grader. List the maintained tasks with:
 
 ```powershell
 node tools/evaluate.mjs list
 ```
 
-The maintained TypeScript endpoint fixture is self-verifying with the approved
-Node runtime: its input reaches the intended assertion failure and its expected
-snapshot passes. Repository tests execute only those immutable versioned
-fixtures, never a prepared candidate workspace.
-The JavaScript recovery fixture additionally requires `node --test` to fail
-before the correction and the exact same command to pass afterward. One
-negative live run remains observational until it recurs on that task revision.
-
-For a maintained run, start `agent --evaluation-receipt` inside the prepared
-workspace. After terminal cleanup it prints one JSON line containing only
-elapsed milliseconds and accepted turn, tool-call, approval, and repeated-read
-counts. Copy those five values into the run record; semantic outcome, artifact,
-correction, risk, and constraint fields remain operator judgments.
-If the receipt is lost, its values are not reconstructed; the ignored record
-remains pending and a later evaluation starts as a new run.
-
-Runs stay under ignored `state/evaluations/`. Exact equality is a reproducible
-artifact signal, not a universal quality score. See the
-[evaluation guide](evaluations/README.md) for the bounded workflow.
-
-Reviewed negative results may enter the versioned failure registry using only
-closed task, category, priority, frequency, grade, and lifecycle fields. The
-canonical gate binds grade paths to each task's current expected snapshot. The
-registry stores no run identifier, prompt, response, transcript, candidate
-content, provider identity, or free-form diagnosis. One occurrence remains an
-observation and does not by itself admit a new tool or product change.
-Evidence from a task whose expected snapshot cannot satisfy its own completion
-check is invalid corpus evidence and is removed rather than resolved.
+Interactive runs may opt into `agent --evaluation-receipt`, which emits only
+bounded mechanical counts after terminal cleanup. The
+[evaluation guide](evaluations/README.md) owns preparation, operator grading,
+receipts, failure evidence, and cleanup.
 
 ## Documentation
 
-- [Operator manual](docs/manual/README.md) — installation, interface, tools,
-  providers, diagnostics, and governance.
-- [Architecture](docs/ARCHITECTURE.md) — package ownership and runtime flows.
-- [Engineering standard](docs/ENGINEERING.md) — implementation constraints.
-- [Maintenance runbook](docs/MAINTENANCE.md) — updates, rollback, and removal.
-- [Ownership policy](docs/OWNERSHIP.md) — clean-room and provenance rules.
-- [Provider eligibility](docs/PROVIDERS.md) and
-  [provider request packets](docs/PROVIDER-APPLICATIONS.md) — blocked and
-  admitted integration paths.
-- [Brand contract](docs/BRAND.md) — canonical identity and registered assets.
+- [Documentation map](docs/README.md): shortest route to each maintained authority.
+- [Operator manual](docs/manual/README.md): installation and product operation.
+- [Architecture](docs/ARCHITECTURE.md): package ownership and runtime flows.
+- [Engineering guide](docs/ENGINEERING.md): implementation and verification rules.
+- [Maintenance guide](docs/MAINTENANCE.md): diagnostics, updates, and rollback.
+- [Decision index](docs/decisions/README.md): durable design history by domain and status.
+- [Ownership record](docs/OWNERSHIP.md): clean-room provenance and inspections.
+- [Provider policy](docs/PROVIDERS.md): admitted provider architecture.
+- [Brand guide](docs/BRAND.md): canonical identity and registered assets.
 
 ## Public identity
 

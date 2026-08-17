@@ -29,6 +29,7 @@ const EXPECTED_DOCUMENTS = Object.freeze([
   "docs/decisions/0010-public-project-identity.md",
   "docs/ARCHITECTURE.md",
   "docs/ENGINEERING.md",
+  "docs/manual/03-terminal-interface.md",
   "docs/manual/07-publishing-and-governance.md",
   "docs/decisions/0013-single-agent-execution.md",
   "assets/brand/README.md",
@@ -136,13 +137,12 @@ function validatePublicDocuments(context) {
       "(CONTRIBUTING.md)",
       "(docs/OAUTH-REGISTRATION.md)",
       "(docs/PROVIDER-APPLICATIONS.md)",
+      "An owned, zero-dependency personal coding agent.",
       "single-agent execution model",
-      "Future controller-internal mechanical concurrency",
-      "Current runtime remains sequential",
-      "overlap a mutation",
-      "rail-free transparent",
-      "removed rows in restrained red",
-      "foreground for the selected row",
+      "(docs/README.md)",
+      "(docs/manual/README.md)",
+      "`/providers`",
+      "`/models`",
     ],
     "README",
   );
@@ -183,6 +183,16 @@ function validatePublicDocuments(context) {
       "Current runtime remains sequential",
     ],
     "engineering policy",
+  );
+  requireMarkers(
+    textFor(context, "docs/ARCHITECTURE.md"),
+    [
+      "User entries compose one stage-wide transparent `Surface` with the shared\none-cell content inset and no rail, marker, border, or background",
+      "selected-row `accent` foreground",
+      "`diffRemoved` red foreground",
+      "`diffAdded` green foreground",
+    ],
+    "terminal presentation architecture",
   );
   requireMarkers(
     textFor(context, "docs/manual/07-publishing-and-governance.md"),
@@ -313,7 +323,7 @@ export function validatePublicationPolicy(policy, context) {
     ["schemaVersion", "project", "posture", "licenseFile", "documents"],
     "publication policy",
   );
-  if (policy.schemaVersion !== 3 || !isRecord(context)) {
+  if (policy.schemaVersion !== 4 || !isRecord(context)) {
     fail("unsupported publication policy schema or context");
   }
   exactKeys(policy.project, Object.keys(EXPECTED_PROJECT), "publication project");

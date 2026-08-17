@@ -11,10 +11,7 @@
       "path": "packages/agent-runtime/tsconfig.test.json"
     },
     {
-      "path": "packages/agent-provider-opencode-go/tsconfig.test.json"
-    },
-    {
-      "path": "packages/agent-provider-opencode-zen/tsconfig.test.json"
+      "path": "packages/agent-provider-ollama-cloud/tsconfig.test.json"
     },
     {
       "path": "packages/agent-tui/tsconfig.test.json"

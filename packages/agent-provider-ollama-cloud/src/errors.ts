@@ -1,5 +1,5 @@
-export type OpenCodeGoFailureOperation = "close" | "open" | "read";
-export type OpenCodeGoFailureReason =
+export type OllamaCloudFailureOperation = "close" | "open" | "read";
+export type OllamaCloudFailureReason =
   | "cancelled"
   | "closed"
   | "concurrentRead"
@@ -19,19 +19,19 @@ export type OpenCodeGoFailureReason =
   | "transportTimeout";
 
 /** Stable content-free model failure exposed to the runtime. */
-export type OpenCodeGoError = Readonly<{
+export type OllamaCloudError = Readonly<{
   cleanupFailed: boolean;
-  kind: "openCodeGo";
-  operation: OpenCodeGoFailureOperation;
-  reason: OpenCodeGoFailureReason;
+  kind: "ollamaCloud";
+  operation: OllamaCloudFailureOperation;
+  reason: OllamaCloudFailureReason;
 }>;
 
-export type OpenCodeGoCreateErrorKind =
+export type OllamaCloudCreateErrorKind =
   | "invalidInstructions"
   | "invalidModel"
   | "invalidTransport";
 
-/** Content-free construction failure for a provider adapter. */
-export type OpenCodeGoCreateError = Readonly<{
-  kind: OpenCodeGoCreateErrorKind;
+/** Content-free construction failure for the provider adapter. */
+export type OllamaCloudCreateError = Readonly<{
+  kind: OllamaCloudCreateErrorKind;
 }>;

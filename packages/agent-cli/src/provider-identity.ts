@@ -1,8 +1,9 @@
-export type ProviderId = "opencodeGo" | "opencodeZen";
+import { isOllamaCloudModelId } from "@agent/provider-ollama-cloud";
+
+export type ProviderId = "ollamaCloud";
 
 export const PROVIDER_IDS: readonly ProviderId[] = Object.freeze([
-  "opencodeGo",
-  "opencodeZen",
+  "ollamaCloud",
 ]);
 
 export function isProviderId(value: unknown): value is ProviderId {
@@ -10,4 +11,9 @@ export function isProviderId(value: unknown): value is ProviderId {
     typeof value === "string" &&
     PROVIDER_IDS.some((provider) => provider === value)
   );
+}
+
+/** Validates one provider-owned model identifier without duplicating its grammar. */
+export function isProviderModelId(value: unknown): value is string {
+  return isOllamaCloudModelId(value);
 }

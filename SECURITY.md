@@ -60,12 +60,12 @@ Compact `Read`, `List`, `Search`, `Write`, `Manage`, and `Run` activity labels
 are display-only closed data. They cannot dispatch a tool, select a permission,
 or replace the canonical tool name and risk validation.
 
-Both OpenCode adapters request one tool call per model response so the next model decision
-observes the previous checkpointed result before authoring another effect. This
-is a convergence boundary, not an authority change: schemas, permissions,
-effect plans, committers, and process containment remain exact. A service-returned
-bounded batch is still validated completely and executed sequentially. Tool
-handlers never overlap, and a completed effect is never retried implicitly.
+The Ollama Cloud adapter admits one bounded ordered native tool-call batch per
+model response. The runtime validates the complete batch, executes calls
+sequentially, and checkpoints their results before the next model decision.
+This is a convergence boundary, not an authority change: schemas, permissions,
+effect plans, committers, and process containment remain exact. Tool handlers
+never overlap, and a completed effect is never retried implicitly.
 
 Write calls are schema-validated with the complete batch before observation,
 then planned just in time. `apply_patch` binds each authorized plan to one canonical target,
@@ -113,15 +113,17 @@ Native root, content-mutation, namespace-mutation, and clipboard helpers have
 hard operation and post-kill cleanup deadlines; late events cannot change
 settled content-free results.
 
-The project enables two exact public catalog paths and two exact Chat
-Completions paths for OpenCode Go and OpenCode Zen. Catalog GET requests are
-credential-free and their bounded IDs are intersected with an owned allowlist
-before model selection. The selected adapter can reach only its registered
-chat path, never copies credentials, and never falls back to the other backend.
-The TUI credential context reuses the bounded editor while projecting zero
-secret text and zero secret caret offset. It enables no provider OAuth login,
-arbitrary network transport, persistent credential, catalog, or session store,
-automatic provider or model selection, or redirect policy. The
+The project enables exactly `https://ollama.com/api/tags` and
+`https://ollama.com/api/chat`. Both requests use bearer authentication through
+one process-memory credential. Catalog rows are bounded and selectable only
+when their `name` and `model` fields are equal; catalog content cannot change
+the registered origin, paths, authentication, chat protocol, or tool schemas.
+The adapter never follows redirects, discovers an origin, retries, aliases a
+model, or falls back to another backend. The TUI credential context reuses the
+bounded editor while projecting zero secret text and zero secret caret offset.
+It enables no provider OAuth login, arbitrary network transport, local Ollama
+daemon, persistent credential, catalog, or session store, or automatic
+provider or model selection. The
 single `run_process` capability admits only an exactly approved bounded `node`
 invocation resolved by the CLI-owned closed program registry and launched
 through owned descendant-tree containment. That containment is not a

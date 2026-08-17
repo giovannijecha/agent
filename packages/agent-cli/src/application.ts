@@ -28,7 +28,7 @@ import {
   type NoticePlacement,
   type NoticeToken,
 } from "./notice.js";
-import { isProviderId } from "./provider-identity.js";
+import { isProviderId, isProviderModelId } from "./provider-identity.js";
 import type {
   ProviderId,
   ProviderModelSnapshot,
@@ -143,7 +143,7 @@ function validNotice(lines: readonly string[]): boolean {
 function copyProviderSnapshots(
   providers: readonly ProviderSelectionSnapshot[],
 ): readonly ProviderSelectionSnapshot[] | undefined {
-  if (!Array.isArray(providers) || providers.length > 2) {
+  if (!Array.isArray(providers) || providers.length > 1) {
     return undefined;
   }
   const copied: ProviderSelectionSnapshot[] = [];
@@ -166,8 +166,7 @@ function copyProviderSnapshots(
       presentation.displayName.length < 1 ||
       presentation.displayName.length > 128 ||
       (presentation.model !== undefined &&
-        (typeof presentation.model !== "string" ||
-          !/^[a-z0-9][a-z0-9._-]{0,127}$/u.test(presentation.model))) ||
+        !isProviderModelId(presentation.model)) ||
       provider.ready !== (presentation.model !== undefined) ||
       (provider.selected && !provider.configured) ||
       (!provider.configured && provider.ready)
@@ -1038,12 +1037,9 @@ export class ApplicationController
       if (
         model === null ||
         typeof model !== "object" ||
-        typeof model.id !== "string" ||
-        !/^[a-z0-9][a-z0-9._-]{0,127}$/u.test(model.id) ||
+        !isProviderModelId(model.id) ||
         copied.some((entry) => entry.id === model.id) ||
-        (model.cost !== "free" &&
-          model.cost !== "goPlan" &&
-          model.cost !== "zenBalance") ||
+        model.cost !== "cloud" ||
         typeof model.selected !== "boolean"
       ) {
         return err(new ApplicationError("providerInvariant"));
@@ -1067,7 +1063,7 @@ export class ApplicationController
     id: string,
   ): Result<ApplicationUpdate, ApplicationError> {
     if (
-      !/^[a-z0-9][a-z0-9._-]{0,127}$/u.test(id) ||
+      !isProviderModelId(id) ||
       !this.#models.some((model) => model.id === id)
     ) {
       return err(new ApplicationError("providerInvariant"));

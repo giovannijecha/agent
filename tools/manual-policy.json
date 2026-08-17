@@ -1,38 +1,106 @@
 {
-  "schemaVersion": 9,
+  "schemaVersion": 10,
   "index": "docs/manual/README.md",
   "chapters": [
     {
       "path": "docs/manual/00-reading-this-manual.md",
-      "title": "00 - Reading this manual"
+      "title": "00 - Reading this manual",
+      "sections": [
+        "Purpose",
+        "Operator workflow",
+        "Guarantees and limits",
+        "Failure behavior",
+        "Maintenance and removal",
+        "Evidence"
+      ]
     },
     {
       "path": "docs/manual/01-running-agent.md",
-      "title": "01 - Running agent"
+      "title": "01 - Running agent",
+      "sections": [
+        "Install",
+        "Choose a workspace",
+        "Configure the session",
+        "Exit",
+        "Evaluation mode",
+        "Failures",
+        "References"
+      ]
     },
     {
       "path": "docs/manual/02-turn-lifecycle.md",
-      "title": "02 - Turn lifecycle"
+      "title": "02 - Turn lifecycle",
+      "sections": [
+        "Submit a task",
+        "Follow progress",
+        "Tool checkpoints",
+        "Complete or continue",
+        "Cancel or exit",
+        "Failures",
+        "References"
+      ]
     },
     {
       "path": "docs/manual/03-terminal-interface.md",
-      "title": "03 - Terminal interface"
+      "title": "03 - Terminal interface",
+      "sections": [
+        "Write and edit",
+        "Paste text",
+        "Run commands",
+        "Use selectors",
+        "Navigate and copy",
+        "Read the interface",
+        "Recover from terminal problems",
+        "References"
+      ]
     },
     {
       "path": "docs/manual/04-tools-and-approval.md",
-      "title": "04 - Tools and permissions"
+      "title": "04 - Tools and permissions",
+      "sections": [
+        "Review permissions",
+        "Decide a request",
+        "Know the tools",
+        "Read previews and activity",
+        "Handle failures",
+        "References"
+      ]
     },
     {
       "path": "docs/manual/05-providers-and-authentication.md",
-      "title": "05 - Providers and authentication"
+      "title": "05 - Providers and authentication",
+      "sections": [
+        "Connect a provider",
+        "Choose a model",
+        "Switch the session",
+        "Protect credentials and content",
+        "Recover from provider failures",
+        "References"
+      ]
     },
     {
       "path": "docs/manual/06-verification-and-diagnostics.md",
-      "title": "06 - Verification and diagnostics"
+      "title": "06 - Verification and diagnostics",
+      "sections": [
+        "Verify a change",
+        "Diagnose the first failure",
+        "Use focused checks",
+        "Run an evaluation",
+        "Handle evaluation evidence",
+        "References"
+      ]
     },
     {
       "path": "docs/manual/07-publishing-and-governance.md",
-      "title": "07 - Publishing and governance"
+      "title": "07 - Publishing and governance",
+      "sections": [
+        "Purpose",
+        "Operator workflow",
+        "Guarantees and limits",
+        "Failure behavior",
+        "Maintenance and removal",
+        "Evidence"
+      ]
     }
   ],
   "commands": [
@@ -81,7 +149,7 @@
       }
     ]
   },
-  "requiredPaths": [
+  "referencePaths": [
     ".gitattributes",
     "AGENTS.md",
     "CONTRIBUTING.md",
@@ -96,8 +164,11 @@
     "docs/OWNERSHIP.md",
     "docs/PROVIDER-APPLICATIONS.md",
     "docs/PROVIDERS.md",
+    "docs/DOCUMENTATION-MIGRATION.md",
+    "docs/README.md",
     "docs/decisions/0003-owned-provider-authentication.md",
     "docs/decisions/0008-owned-tool-execution.md",
+    "docs/decisions/0009-owned-operator-manual.md",
     "docs/decisions/0010-public-project-identity.md",
     "docs/decisions/0011-verified-provider-registration-requests.md",
     "docs/decisions/0012-owned-continuous-verification.md",
@@ -151,6 +222,9 @@
     "docs/decisions/0067-owned-opencode-provider-selection.md",
     "docs/decisions/0068-owned-ephemeral-provider-and-model-selection.md",
     "docs/decisions/0069-owned-tool-call-interoperability.md",
+    "docs/decisions/0070-owned-documentation-information-architecture.md",
+    "docs/decisions/0071-owned-task-oriented-operator-manual.md",
+    "docs/decisions/0072-owned-ollama-cloud-provider.md",
     "evaluations/README.md",
     "evaluations/failures/registry.json",
     "assets/brand/README.md",
@@ -187,9 +261,8 @@
     "packages/agent-cli/src/main.ts",
     "packages/agent-cli/src/launch-command.ts",
     "packages/agent-cli/src/models-view.ts",
-    "packages/agent-cli/src/node-opencode-go-transport.ts",
-    "packages/agent-cli/src/node-opencode-model-catalog.ts",
-    "packages/agent-cli/src/node-opencode-zen-transport.ts",
+    "packages/agent-cli/src/node-ollama-cloud-transport.ts",
+    "packages/agent-cli/src/node-ollama-model-catalog.ts",
     "packages/agent-cli/src/node-process-runner.ts",
     "packages/agent-cli/src/node-terminal-host.ts",
     "packages/agent-cli/src/process-broker-protocol.ts",
@@ -220,12 +293,9 @@
     "packages/agent-cli/src/workspace-boundary.ts",
     "packages/agent-cli/src/workspace-ignore.ts",
     "packages/agent-cli/src/workspace-read-policy.ts",
-    "packages/agent-provider-opencode-go/src/index.ts",
-    "packages/agent-provider-opencode-go/src/models.ts",
-    "packages/agent-provider-opencode-go/src/wire.ts",
-    "packages/agent-provider-opencode-zen/src/index.ts",
-    "packages/agent-provider-opencode-zen/src/models.ts",
-    "packages/agent-provider-opencode-zen/src/wire.ts",
+    "packages/agent-provider-ollama-cloud/src/index.ts",
+    "packages/agent-provider-ollama-cloud/src/models.ts",
+    "packages/agent-provider-ollama-cloud/src/wire.ts",
     "packages/agent-cli/native/process-broker/backend-linux.c",
     "packages/agent-cli/native/process-broker/backend-windows.c",
     "packages/agent-cli/native/process-broker/broker.h",

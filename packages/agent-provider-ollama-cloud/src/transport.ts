@@ -1,7 +1,7 @@
 import type { Result } from "@agent/core";
 import type { CancellationSignal } from "@agent/runtime";
 
-export type OpenCodeZenTransportErrorKind =
+export type OllamaCloudTransportErrorKind =
   | "cancelled"
   | "closed"
   | "concurrentRead"
@@ -11,26 +11,26 @@ export type OpenCodeZenTransportErrorKind =
   | "timeout";
 
 /** Content-free failure from the injected provider-specific byte transport. */
-export type OpenCodeZenTransportError = Readonly<{
-  kind: OpenCodeZenTransportErrorKind;
+export type OllamaCloudTransportError = Readonly<{
+  kind: OllamaCloudTransportErrorKind;
 }>;
 
-export type OpenCodeZenTransportRequest = Readonly<{
+export type OllamaCloudTransportRequest = Readonly<{
   body: string;
 }>;
 
 /** Pull-based HTTPS response owned by the CLI platform adapter. */
-export interface OpenCodeZenTransportStream {
+export interface OllamaCloudTransportStream {
   readonly contentType: string | undefined;
   readonly statusCode: number;
-  read(): Promise<Result<Uint8Array | null, OpenCodeZenTransportError>>;
-  close(): Promise<Result<void, OpenCodeZenTransportError>>;
+  read(): Promise<Result<Uint8Array | null, OllamaCloudTransportError>>;
+  close(): Promise<Result<void, OllamaCloudTransportError>>;
 }
 
 /** Exact transport capability required by the Node-free provider adapter. */
-export interface OpenCodeZenTransport {
+export interface OllamaCloudTransport {
   open(
-    request: OpenCodeZenTransportRequest,
+    request: OllamaCloudTransportRequest,
     cancellation: CancellationSignal,
-  ): Promise<Result<OpenCodeZenTransportStream, OpenCodeZenTransportError>>;
+  ): Promise<Result<OllamaCloudTransportStream, OllamaCloudTransportError>>;
 }

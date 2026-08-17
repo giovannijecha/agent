@@ -1,111 +1,84 @@
 # 01 - Running agent
 
-## Purpose
+## Install
 
-Use this chapter to install only local workspace links, build owned source, start
-the terminal application, and exit without leaving terminal state behind.
-
-## Operator workflow
-
-From the repository root in PowerShell:
+Agent requires Node.js `>=22.19.0`, npm `11.16.0`, and TypeScript `5.9.3`
+installed outside this repository. From the repository root:
 
 ```powershell
 npm ci --offline --ignore-scripts --no-audit --no-fund
 npm run build
 npm run install:command
-agent
 ```
 
-The installation command performs one explicit local npm link and installs no
-dependency. It is needed only once per clone or after unlinking. Run `agent`
-from the exact directory that should become the coding-tool workspace. Startup
-canonicalizes that directory once and does not walk upward to a Git root. The
-footer shows the resulting absolute path. A filesystem volume root, the exact
-user home, and the exact shared temporary directory are deliberately rejected
-as over-broad roots. An owned native resolver obtains the protected home and
-temporary roots directly from the operating system, so inherited `HOME`,
-`USERPROFILE`, `TMPDIR`, `TMP`, and `TEMP` values cannot move the protections.
-The resolver has a five-second operation deadline and a 250-millisecond
-post-kill cleanup deadline; startup fails closed even if the native child never
-reports `close`.
-Startup then loads mandatory sensitive-path denials and one optional root
-`.agentignore` before preloading credentials or constructing tools. The file may
-only add denials through the bounded grammar in chapter 04. Its compiled value
-is fixed until restart, so edit it before starting the session.
-Maintainers can instead use `npm run dev` from the repository root to rebuild
-and start, or `npm start` to start an existing build.
+`npm run install:command` creates the local command link. It is needed once per
+clone and again after unlinking. Maintainers can use `npm run dev` to rebuild
+and start, or `npm start` to run an existing build. Use `agent --help` for the
+accepted launch forms and `agent --version` for the installed version.
 
-Use `agent --help` for executable help and `agent --version` for the exact
-version. Unknown or combined arguments fail; credentials are never accepted on
-the command line. Interactive startup enters the TUI immediately. Use
-`/providers` to configure or select OpenCode Go or OpenCode Zen through the
-same application, then `/models` to load and select one admitted model. The
-concealed credential editor projects neither the key nor mask characters.
-Its one-line transparent context identifies the provider and states `process
-only`; the composer shows `Enter API key · Ctrl+C cancels`, and the draft is
-discarded on exit.
+## Choose a workspace
 
-Use the exact `agent --evaluation-receipt` form only for one maintained
-interactive task evaluation. It requires TTY input and output, runs the same
-agent with unchanged tools and approvals, and prints one content-free JSON line
-after terminal restoration. The line contains only elapsed milliseconds and
-accepted turn, tool-call, approval, and repeated-read counts; it is not written
-to the workspace. Combined or duplicated options fail closed.
+Run `agent` from the directory that should become the workspace. Agent
+canonicalizes that exact directory once; it does not search upward for a Git
+root. The accepted absolute path appears in the footer and is shared by every
+built-in tool.
 
-The required toolchain is Node.js `>=22.19.0`, npm `11.16.0`, and TypeScript
-`5.9.3` available on `PATH` but installed outside this workspace. This manual
-is the command reference. In an interactive terminal, use `/exit` to close.
+A volume root, the exact user home, and the shared temporary directory are
+rejected before credentials, providers, tools, or terminal ownership. Startup
+then loads the built-in sensitive-path denials and the optional root
+`.agentignore`. Its deny-only grammar is documented in
+[Tools and permissions](04-tools-and-approval.md). The policy remains fixed
+until restart.
 
-## Guarantees and limits
+## Configure the session
 
-The lockfile contains only local workspace topology. Installation is offline,
-ignores lifecycle scripts, and cannot fetch a package. Interactive mode requires
-both TTY input and TTY output. Redirected execution prints a short plain status
-without ANSI sequences. Production starts with no provider or model selected,
-including when exact OpenCode environment variables preload valid keys. Normal
-text is discarded after a generic notice until `/providers` and `/models`
-complete the selection, and never becomes transcript or conversation state.
-Workspace rejection occurs before a credential is preloaded, a provider or
-tool is constructed, or the terminal enters interactive mode.
-Workspace privacy-policy rejection has the same ordering.
-Chapter 05 owns provider setup and data-flow details.
+An ordinary session starts without a selected provider or model. Use
+`/providers` to enter a process-only Ollama Cloud credential. Then use
+`/models` to load and select one exact model exposed by the provider's
+authenticated catalog. The key is concealed, never enters the transcript, and
+is discarded on exit.
 
-## Failure behavior
+Provider eligibility, model discovery, and failure behavior are covered in
+[Providers and authentication](05-providers-and-authentication.md). Tool modes
+can be changed with `/permissions`.
 
-A missing build means neither the linked command nor npm start can execute. A
-missing or mismatched toolchain causes verification to fail. Credential,
-startup,
-viewport, input, rendering, or cleanup failures return a nonzero process status
-and a short category label; private causes, keys, and submitted content are not
-printed. An unavailable platform-root resolver or an invalid, inaccessible,
-non-directory, or over-broad workspace emits only
-`agent rejected the workspace root` and exits nonzero. The shutdown path still
-attempts terminal and renderer cleanup independently. A linked, non-regular,
-inaccessible, malformed, detectably changed, or oversized `.agentignore` emits
-only `agent rejected the workspace privacy policy` and exits nonzero.
+## Exit
 
-## Maintenance and removal
+Use `/exit`, Ctrl+D, or terminal EOF. Shutdown restores terminal modes and
+attempts cleanup even when another operation has failed.
 
-Keep root binary metadata, scripts, engine pins, lock topology, setup prose, and
-the verifier in sync. Never add TypeScript or runtime dependencies to a
-manifest. Remove the global link with `npm unlink --global agent-workspace`.
-To replace the entry point, preserve plain-mode behavior, credential cleanup,
-terminal restoration, and the exact offline build path until the new
-composition is verified.
+Interactive mode requires TTY input and output. Redirected execution prints a
+short plain status without ANSI. Unknown, duplicated, or combined launch
+options fail; credentials are never accepted as command-line arguments.
 
-## Evidence
+## Evaluation mode
 
-- Root scripts and workspace registry: `package.json`
-- Local-only install topology: `package-lock.json`
-- Executable edge: `packages/agent-cli/src/main.ts`
-- Executable decision: `docs/decisions/0018-owned-executable-startup.md`
-- Workspace boundary: `packages/agent-cli/src/workspace-boundary.ts`
-- Workspace-ignore grammar: `packages/agent-cli/src/workspace-ignore.ts`
-- Workspace read-policy loader: `packages/agent-cli/src/workspace-read-policy.ts`
-- Workspace decision: `docs/decisions/0042-owned-workspace-trust-boundary.md`
-- Concealed credential presentation: `packages/agent-cli/src/provider-credential-view.ts`
-- Exact argument parser: `packages/agent-cli/src/launch-command.ts`
-- Evaluation receipt: `packages/agent-cli/src/evaluation-receipt.ts`
-- Evaluation receipt decision: `docs/decisions/0048-owned-content-free-evaluation-receipt.md`
-- Application lifecycle: `packages/agent-cli/src/run.ts`
-- Toolchain contract: `tools/toolchain.json`
+Use the exact `agent --evaluation-receipt` launch form only for a maintained
+interactive evaluation. It runs the same product with unchanged tools and
+permissions. After terminal cleanup it prints one content-free JSON line with
+elapsed time and accepted turn, tool-call, approval, and repeated-read counts.
+It writes no evaluation state to the workspace.
+
+The evaluation workflow and interpretation rules live in
+[Verification and diagnostics](06-verification-and-diagnostics.md) and the
+[evaluation guide](../../evaluations/README.md).
+
+## Failures
+
+- A missing build or command link prevents startup; rebuild and reinstall the
+  link from the repository root.
+- An invalid, inaccessible, non-directory, or over-broad root prints
+  `agent rejected the workspace root` and exits nonzero.
+- An invalid, linked, inaccessible, changed, or oversized `.agentignore`
+  prints `agent rejected the workspace privacy policy` and exits nonzero.
+- Credential, provider, input, rendering, and cleanup failures expose only a
+  short content-safe classification and return a nonzero status when startup
+  or shutdown cannot complete.
+
+## References
+
+- [Executable lifecycle decision](../decisions/0018-owned-executable-startup.md)
+- [Workspace trust-boundary decision](../decisions/0042-owned-workspace-trust-boundary.md)
+- [Evaluation-receipt decision](../decisions/0048-owned-content-free-evaluation-receipt.md)
+- [Architecture](../ARCHITECTURE.md)
+- [Maintenance and removal](../MAINTENANCE.md)

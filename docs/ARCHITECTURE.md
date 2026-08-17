@@ -25,22 +25,21 @@ one-way dependencies, not speculative packages.
 | terminal UI|
 +------------+
 
-@agent/cli -> @agent/provider-opencode-go  -> @agent/runtime
-           -> @agent/provider-opencode-zen -> @agent/runtime
-                                               |----> @agent/tools
-                                               +----> @agent/core
+@agent/cli -> @agent/provider-ollama-cloud -> @agent/runtime
+                                              |----> @agent/tools
+                                              +----> @agent/core
 ```
 
 The diagram's direct edges are `cli -> runtime`, `cli -> tools`, `cli -> core`,
-`cli -> tui`, `cli -> provider-opencode-go`, `cli -> provider-opencode-zen`,
-each provider adapter to `runtime`, `tools`, and `core`,
+`cli -> tui`, `cli -> provider-ollama-cloud`, the provider adapter to `runtime`,
+`tools`, and `core`,
 `runtime -> tools`, `runtime -> core`, and `tools -> core`.
 
 Runtime is a concrete independent foundation exercised by deterministic tests.
 CLI has a real optional runtime composition edge exercised by deterministic
 integration sessions. The production entry point builds one bounded provider
-session from only the OpenCode Go and OpenCode Zen backends. Environment
-variables may preload independent memory-only credentials, but the entry point
+session from only the Ollama Cloud backend. `AGENT_OLLAMA_API_KEY` may preload
+one memory-only credential, but the entry point
 never selects a provider or model. The generic terminal host takes ownership
 before the CLI-owned `/providers` credential and selection flow and `/models`
 catalog flow. Until both selections settle, normal text follows the no-model
@@ -93,7 +92,7 @@ replacement architecture defined by decision 0013, including new identity,
 authority, scheduling, cancellation, privacy, migration, and removal contracts.
 
 Decision 0061 adds a provider-side convergence boundary without changing that
-generic runtime shape. Both OpenCode adapters request at most one call per response, so
+generic runtime shape. The Ollama Cloud adapter requests at most one call per response, so
 the model observes each checkpointed result before it authors the next call and
 can reassess every remaining part of the same user goal. If the compatible
 service nevertheless returns a bounded batch, the decoder and runtime retain
@@ -140,18 +139,29 @@ failure and cancellation receipts remain until application acknowledgement or
 runtime stop, preserving cleanup failures across buffered-event shutdown races.
 Runtime is Node-free and imports only core and tools.
 
-### `@agent/provider-opencode-go` and `@agent/provider-opencode-zen`
+The runtime enforces these fixed product limits:
 
-Owns the strict provider wire contract: closed validated model selection, request
-serialization, incremental UTF-8 and SSE decoding, streamed text and indexed
-tool-call batch assembly, protocol bounds, a one-call request policy, and
-content-free failures. Each implements
-the existing streaming-model port through an injected pull-based byte transport.
-It owns no socket, environment access, API key, terminal, application state,
-tool policy, or second agent identity. Each imports only core, runtime, and tools.
-The CLI-owned provider session delegates one open to exactly the selected
-backend; it does not retain a second runtime, retry through the other adapter,
-or merge credential slots.
+| Boundary | Limit |
+| --- | ---: |
+| User input | 4,096 Unicode code points |
+| One streamed delta | 16,384 UTF-16 code units |
+| One response | 262,144 UTF-16 code units |
+| One stream | 4,096 events |
+| Conversation | 256 messages and 1,048,576 UTF-16 code units |
+| One turn | 32 tool steps |
+
+### `@agent/provider-ollama-cloud`
+
+Owns the strict native Ollama wire contract: validated dynamic model selection,
+request serialization, incremental UTF-8 and line-delimited JSON object decoding
+under the exact `application/json` response contract, streamed text,
+ordered native tool-call batch assembly, protocol bounds, `think: false`, and
+content-free failures. It implements the existing streaming-model port through
+an injected pull-based byte transport. It owns no socket, environment access,
+API key, terminal, application state, tool policy, local daemon, or second agent
+identity. It imports only core, runtime, and tools. The CLI-owned provider
+session delegates one open to the selected model and never discovers another
+origin, retries, redirects, or falls back.
 
 ### `@agent/tui`
 
@@ -311,16 +321,16 @@ exposes no overwrite, merge, recursive removal, implicit parent creation,
 self-descendant move, or portable pathname fallback. Missing namespace
 primitives and stale state fail closed.
 
-CLI also owns the exact OpenCode HTTPS adapters, public catalog adapter, and
-session configuration. They admit only `opencode.ai:443` and the registered Go
-or Zen catalog and Chat Completions paths, never follow an
-application-selected origin, keep each API key in its independent memory slot,
-and expose only bytes and response metadata to the corresponding Node-free
-provider package. Public catalog GETs carry no credential. Their bounded strict
-IDs are intersected with the matching owned allowlist before adapter creation.
-Each catalog operation owns one monotonic absolute deadline in addition to its
-socket inactivity timeout; traffic cannot extend that deadline, settlement
-cancels it, and late transport or timer events are inert.
+CLI also owns the exact Ollama Cloud HTTPS transport, authenticated catalog
+adapter, and session configuration. They admit only `ollama.com:443`,
+`/api/tags`, and `/api/chat`, never follow an application-selected origin or
+redirect, keep the API key in one memory slot, and expose only bytes and
+response metadata to the Node-free provider package. Catalog GETs use the same
+bearer credential as chat requests. Their bounded rows are selectable only when
+`name` and `model` are equal. Each catalog operation owns one monotonic absolute
+deadline in addition to its socket inactivity timeout; traffic cannot extend
+that deadline, settlement cancels it, and late transport or timer events are
+inert.
 Decision 0036 admits one model-facing execute capability, `run_process`, through
 the CLI-owned C17 broker proven by decisions 0015 and 0016. The structured tool
 accepts one registered program token, literal arguments, and a rooted working
@@ -737,13 +747,14 @@ must each be removable without changing unrelated domain rules.
 `tools/provider-policy.json` is the fail-closed registry for subscription and
 direct integrations. A technically observed OAuth flow is not eligible until
 the project has independent-client authorization and an owned or expressly reusable
-registration. Schema version 6 binds the four provider-specific
+registration. Schema version 7 binds the four provider-specific
 authorization inquiries in `docs/PROVIDER-APPLICATIONS.md` to their research
 date, official route, visibility, lifecycle state, submission date, and public
 or content-free private reference. Request metadata cannot change eligibility.
-It also binds the two admitted direct providers to exact chat and public catalog
-endpoints, credential slots, complete model allowlists, cost classes, and
-process-only persistence. Verification pins the exact workspace set and scans
+It also binds the sole admitted Ollama Cloud provider to exact native chat and
+authenticated catalog endpoints, one credential slot, dynamic catalog model
+authority, the cloud cost class, and process-only persistence. Verification
+pins the exact workspace set and scans
 product source, tests, and declarations for ambient network access,
 subscription endpoints, OAuth identifiers, foreign credential storage, broad
 process access, borrowed product identity, and provider-literal drift.
@@ -813,7 +824,7 @@ process access remain unavailable unless the CLI composes an explicit capability
   text-only runtime steps, and deleting CLI permission/activity composition. Remove
   the runtime tool dependency, then the tools workspace and structured tool
   entries only when no consumer remains. In the same removal change, replace
-  manual-policy schema 9 so it removes the advertised inventory; unregister
+  manual-policy schema 10 so it removes the advertised inventory; unregister
   decisions 0008, 0014, 0015, 0016, and 0036 only when their admitted surfaces
   and proof infrastructure are gone; and remove their ownership, required-path,
   and manual-evidence registrations. Core text chat and provider-independent

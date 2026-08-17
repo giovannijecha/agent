@@ -112,44 +112,38 @@ The terminal owns activation and any security prompt. Holding Shift retains the
 terminal's optional native selection route while application mouse reporting is
 active. Ctrl+C remains the agent interrupt and is not a copy shortcut.
 
-## OpenCode provider connections
+## Ollama Cloud connection
 
-When the operator selects OpenCode Go or OpenCode Zen, `/models` first sends one
-credential-free GET request to that provider's fixed public catalog path. The
-strict bounded response is intersected with the owned allowlist and retained
-only for the process session. Catalog requests contain no key, conversation,
-workspace data, or tool data.
+When the operator selects Ollama Cloud, `/models` sends one bearer-authenticated
+GET request to `https://ollama.com/api/tags`. The request contains the API key
+but no conversation, workspace data, tool schema, or tool result. The strict
+bounded response admits only rows whose `name` and `model` identifiers are
+equal, and the resulting catalog snapshot remains only for the current process.
 
-After the operator selects an admitted model and submits a turn, `agent` sends
-the system instruction, bounded conversation, owned tool schemas, user input,
-and necessary checkpointed tool calls and results directly to the selected
-fixed Chat Completions endpoint. Go uses
-`https://opencode.ai/zen/go/v1/chat/completions`; Zen uses
-`https://opencode.ai/zen/v1/chat/completions`. Requests never pass through a
-project-owned backend. The official Go page currently states zero-day retention
-and no training for Kimi K2.7 Code. OpenCode documents Zen models as hosted in
-the United States and identifies `deepseek-v4-flash-free` as a temporary free
-model whose collected data may be used to improve the model. Do not submit
-secrets, personal data, or confidential content to that free model. Provider
-terms can change and are not guarantees made by this project.
+After the operator selects one available model and submits a turn, `agent`
+sends the system instruction, bounded conversation, owned tool schemas, user
+input, and necessary checkpointed tool calls and results directly to
+`https://ollama.com/api/chat`. Requests use Ollama's native chat contract with
+streaming enabled and reasoning output disabled. They never pass through a
+project-owned backend, local Ollama daemon, SDK, CLI, compatibility endpoint,
+or alternate origin.
 
-The request disables parallel tool selection. A multi-part task may therefore
-send additional bounded model requests as each structured tool result is
-checkpointed and the remaining goal is reassessed. This changes request timing,
-not the categories of transmitted content, credential handling, retention, or
-the exact selected provider destination above. Selecting a provider or model never
-retries or falls back to the other backend. No tool handler is executed
-concurrently.
+One response may contain one bounded ordered tool-call batch. The runtime
+validates the complete batch, executes each accepted call sequentially, and
+checkpoints its result before another model decision. Selecting a provider or
+model never redirects, retries, aliases, routes, or falls back to another
+backend. No tool handler is executed concurrently.
 
 `agent` never asks for provider passwords, cookies, recovery codes, payment
-details, or one-time codes. Each API key is accepted only through its own
-zero-projection TUI credential context or exact environment variable and
-remains in process memory. A key is never copied into the other provider slot.
-The credential context writes no key or mask characters into the frame, notice,
-transcript, or terminal history. Environment preloading never selects a
-provider or model.
-Persistent storage requires a separate accepted operating-system vault design.
-The four subscription OAuth connections remain disabled.
+details, or one-time codes. The Ollama API key is accepted only through the
+zero-projection TUI credential context or `AGENT_OLLAMA_API_KEY` and remains in
+process memory. The credential context writes no key, mask, or length into the
+frame, notice, transcript, or terminal history. Environment preloading never
+selects a provider or model. Persistent storage requires a separate accepted
+operating-system vault design. Provider data-use, retention, billing, quota,
+and model availability terms can change and are not guarantees made by this
+project; review the current Ollama terms before sending sensitive content. The
+four subscription OAuth connections remain disabled.
 
 ## Future local sessions
 

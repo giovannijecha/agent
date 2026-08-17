@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 import { analyzeModule } from "./lib/module-specifiers.mjs";
 import { validateBrandPolicy } from "./lib/brand-policy.mjs";
 import { validateCiPolicy } from "./lib/ci-policy.mjs";
+import { validateDocumentationPolicy } from "./lib/documentation-policy.mjs";
 import {
   EVALUATION_FAILURE_LIMITS,
   parseEvaluationFailureRegistry,
@@ -38,6 +39,7 @@ if (
 const requireGenerated = arguments_[0] === "--require-generated";
 const brandManifest = readJson("assets/brand/manifest.json");
 const ciPolicy = readJson("tools/ci-policy.json");
+const documentationPolicy = readJson("tools/documentation-policy.json");
 const evaluationPolicy = readJson("tools/evaluation-policy.json");
 const policy = readJson("tools/ownership-policy.json");
 const manualPolicy = readJson("tools/manual-policy.json");
@@ -290,6 +292,29 @@ function verifyBrandPolicy() {
     files: Object.fromEntries(
       ownedPaths.map((file) => [file, readFileSync(absolute(file))]),
     ),
+    ownedPaths,
+  });
+}
+
+function verifyDocumentation() {
+  const ownedPaths = listFiles(".");
+  const decisionPaths = ownedPaths
+    .filter((file) =>
+      /^docs\/decisions\/[0-9]{4}-[a-z0-9-]+\.md$/u.test(file),
+    )
+    .sort();
+  const inputs = new Set([
+    documentationPolicy.index,
+    documentationPolicy.decisionIndex,
+    documentationPolicy.migrationLedger,
+    ...documentationPolicy.livingDocuments.map((entry) => entry.path),
+    ...decisionPaths,
+  ]);
+  validateDocumentationPolicy(documentationPolicy, {
+    files: Object.fromEntries(
+      [...inputs].map((file) => [file, readText(file)]),
+    ),
+    decisionPaths,
     ownedPaths,
   });
 }
@@ -803,11 +828,8 @@ function verifyTypeScriptPolicy() {
       "@agent/core": ["packages/agent-core/src/index.ts"],
       "@agent/tools": ["packages/agent-tools/src/index.ts"],
       "@agent/runtime": ["packages/agent-runtime/src/index.ts"],
-      "@agent/provider-opencode-go": [
-        "packages/agent-provider-opencode-go/src/index.ts",
-      ],
-      "@agent/provider-opencode-zen": [
-        "packages/agent-provider-opencode-zen/src/index.ts",
+      "@agent/provider-ollama-cloud": [
+        "packages/agent-provider-ollama-cloud/src/index.ts",
       ],
       "@agent/tui": ["packages/agent-tui/src/index.ts"],
     },
@@ -1073,6 +1095,7 @@ verifyToolchain();
 verifyDocuments();
 verifyCiPolicy();
 verifyBrandPolicy();
+verifyDocumentation();
 verifyEvaluationPolicy();
 verifyManual();
 verifyProviderPolicy();
@@ -1089,5 +1112,5 @@ verifyImports();
 verifyNodeModules();
 
 process.stdout.write(
-  "Ownership verification passed: toolchain, CI, brand, evaluation, manual, publication, manifests, lockfile, source, imports, and workspace links.\n",
+  "Ownership verification passed: toolchain, CI, brand, documentation, evaluation, manual, publication, manifests, lockfile, source, imports, and workspace links.\n",
 );

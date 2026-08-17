@@ -152,7 +152,8 @@ touches workspace links and after TypeScript emits JavaScript. It enforces:
 - escape-aware provider checks whose low-entropy identity and credential markers
   are context-bound rather than arbitrary compacted substrings;
 - valid UTF-8, LF, final newlines, and canonical JSON;
-- registered manual chapters, fixed section order, local links, and evidence
+- registered manual chapters, declared per-chapter section order, local links,
+  and reference-path ownership
   paths, plus exact source-bound tool names and risk classes, unique capability
   identifiers, and unique necessity records;
 - the exact bounded evaluation manifest and corpus inventory, strict fixture
@@ -524,8 +525,8 @@ optional, infer a default, add an alias, or repair a provider request. Preserve
 the exact content-free preparation reason through runtime settlement so an
 operator can distinguish invalid name, input, and identity without observing
 the rejected payload.
-Both OpenCode adapters request at most one call per response under decisions
-0061 and 0067. Keep the
+The Ollama Cloud adapter requests at most one call per response under decisions
+0061, 0069, and 0072. Keep the
 owned instruction, exact request field, provider/runtime integration regression,
 and defensive batch decoder aligned. After every checkpointed result the same
 model must reassess the remaining goal. Consolidate currently known same-file

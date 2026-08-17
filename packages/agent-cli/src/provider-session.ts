@@ -7,10 +7,7 @@ import type { Conversation, Result } from "@agent/core";
 import { err, ok } from "@agent/core";
 import type { ToolDescriptor } from "@agent/tools";
 
-import {
-  isValidOpenCodeGoCredential,
-  isValidOpenCodeZenCredential,
-} from "./provider-configuration.js";
+import { isValidOllamaCloudCredential } from "./provider-configuration.js";
 import {
   isProviderId,
   type ProviderId,
@@ -22,12 +19,7 @@ import type {
 
 export type { ProviderId } from "./provider-identity.js";
 
-export type ProviderModelCost = "free" | "goPlan" | "zenBalance";
-
-export type ProviderModelDefinition = Readonly<{
-  cost: ProviderModelCost;
-  id: string;
-}>;
+export type ProviderModelCost = "cloud";
 
 export type ProviderPresentation = Readonly<{
   authentication: string;
@@ -36,12 +28,12 @@ export type ProviderPresentation = Readonly<{
 }>;
 
 export type ProviderDefinition<E> = Readonly<{
+  acceptsModel(id: string): boolean;
   createModel(
     credential: string,
     model: string,
   ): StreamingModel<E> | undefined;
   id: ProviderId;
-  models: readonly ProviderModelDefinition[];
   presentation: Readonly<{
     authentication: string;
     displayName: string;
@@ -78,8 +70,6 @@ export type ProviderSelectionPort = Readonly<{
 }>;
 
 export type ProviderSessionErrorKind =
-  | "duplicateModel"
-  | "duplicateProvider"
   | "invalidCredential"
   | "invalidModel"
   | "invalidProvider"
@@ -110,6 +100,7 @@ export class ProviderSessionError {
 }
 
 type RetainedProvider<E> = {
+  acceptsModel(id: string): boolean;
   catalog: readonly string[] | undefined;
   createModel(
     credential: string,
@@ -119,29 +110,14 @@ type RetainedProvider<E> = {
   id: ProviderId;
   model: StreamingModel<E> | undefined;
   modelId: string | undefined;
-  models: readonly ProviderModelDefinition[];
   presentation: Readonly<{
     authentication: string;
     displayName: string;
   }>;
 };
 
-function validModelDefinition(value: ProviderModelDefinition): boolean {
-  return (
-    typeof value.id === "string" &&
-    value.id.length >= 1 &&
-    value.id.length <= 128 &&
-    /^[a-z0-9][a-z0-9._-]*$/u.test(value.id) &&
-    (value.cost === "free" ||
-      value.cost === "goPlan" ||
-      value.cost === "zenBalance")
-  );
-}
-
 function credentialValid(id: ProviderId, credential: string): boolean {
-  return id === "opencodeGo"
-    ? isValidOpenCodeGoCredential(credential)
-    : isValidOpenCodeZenCredential(credential);
+  return id === "ollamaCloud" && isValidOllamaCloudCredential(credential);
 }
 
 function sessionModelsError(
@@ -154,7 +130,7 @@ function sessionModelsError(
 }
 
 /**
- * Owns two ephemeral provider credentials and one active model port.
+ * Owns one ephemeral provider credential and one active model port.
  * Configuration, catalogs, selections, and adapters are released on clear.
  */
 export class ProviderSession<E> implements StreamingModel<E> {
@@ -176,7 +152,7 @@ export class ProviderSession<E> implements StreamingModel<E> {
     catalog: ProviderModelCatalog,
   ): Result<ProviderSession<E>, ProviderSessionError> {
     try {
-      if (definitions.length < 1 || definitions.length > 2) {
+      if (definitions.length !== 1) {
         return err(new ProviderSessionError("invalidProviderCount"));
       }
       if (
@@ -190,44 +166,26 @@ export class ProviderSession<E> implements StreamingModel<E> {
       const copied: RetainedProvider<E>[] = [];
       for (const definition of definitions) {
         const id = definition.id;
-        const duplicate = isProviderId(id) &&
-          copied.some((entry) => entry.id === id);
+        const acceptsModel = definition.acceptsModel;
         const createModel = definition.createModel;
-        const modelDefinitions = definition.models;
         const presentation = definition.presentation;
         if (
           !isProviderId(id) ||
-          duplicate ||
+          typeof acceptsModel !== "function" ||
           typeof createModel !== "function" ||
-          !Array.isArray(modelDefinitions) ||
-          modelDefinitions.length < 1 ||
           typeof presentation?.authentication !== "string" ||
           typeof presentation.displayName !== "string"
         ) {
-          return err(
-            new ProviderSessionError(
-              duplicate ? "duplicateProvider" : "invalidProvider",
-            ),
-          );
-        }
-        const models: ProviderModelDefinition[] = [];
-        for (const model of modelDefinitions) {
-          if (!validModelDefinition(model)) {
-            return err(new ProviderSessionError("invalidModel"));
-          }
-          if (models.some((entry) => entry.id === model.id)) {
-            return err(new ProviderSessionError("duplicateModel"));
-          }
-          models.push(Object.freeze({ cost: model.cost, id: model.id }));
+          return err(new ProviderSessionError("invalidProvider"));
         }
         copied.push({
+          acceptsModel: acceptsModel.bind(definition) as (id: string) => boolean,
           catalog: undefined,
           createModel,
           credential: undefined,
           id,
           model: undefined,
           modelId: undefined,
-          models: Object.freeze(models),
           presentation: Object.freeze({
             authentication: presentation.authentication,
             displayName: presentation.displayName,
@@ -319,27 +277,34 @@ export class ProviderSession<E> implements StreamingModel<E> {
     provider.catalog = undefined;
     let listed: Result<readonly string[], ProviderModelCatalogError>;
     try {
-      listed = await this.#listModels(provider.id);
+      listed = await this.#listModels(provider.id, provider.credential);
     } catch (_cause: unknown) {
       return err(sessionModelsError("modelNotAvailable"));
     }
     if (!listed.ok) {
       return err(Object.freeze({ kind: "catalog" as const, error: listed.error }));
     }
-    const remote = new Set(listed.value);
-    const available = provider.models.filter((model) => remote.has(model.id));
+    let available: readonly string[];
+    try {
+      available = Object.freeze(
+        listed.value.filter((model) => provider.acceptsModel(model)),
+      );
+    } catch (_cause: unknown) {
+      provider.catalog = undefined;
+      return err(sessionModelsError("modelNotAvailable"));
+    }
     if (available.length === 0) {
       provider.catalog = undefined;
       return err(sessionModelsError("modelNotAvailable"));
     }
-    provider.catalog = Object.freeze(available.map((model) => model.id));
+    provider.catalog = available;
     return ok(
       Object.freeze(
         available.map((model) =>
           Object.freeze({
-            cost: model.cost,
-            id: model.id,
-            selected: model.id === provider.modelId,
+            cost: "cloud" as const,
+            id: model,
+            selected: model === provider.modelId,
           }),
         ),
       ),
@@ -357,13 +322,18 @@ export class ProviderSession<E> implements StreamingModel<E> {
     if (provider.catalog === undefined || !provider.catalog.includes(id)) {
       return err(new ProviderSessionError("modelNotAvailable"));
     }
-    const definition = provider.models.find((model) => model.id === id);
-    if (definition === undefined) {
+    let accepted = false;
+    try {
+      accepted = provider.acceptsModel(id);
+    } catch (_cause: unknown) {
+      accepted = false;
+    }
+    if (!accepted) {
       return err(new ProviderSessionError("invalidModel"));
     }
     let model: StreamingModel<E> | undefined;
     try {
-      model = provider.createModel(provider.credential, definition.id);
+      model = provider.createModel(provider.credential, id);
     } catch (_cause: unknown) {
       model = undefined;
     }
@@ -371,7 +341,7 @@ export class ProviderSession<E> implements StreamingModel<E> {
       return err(new ProviderSessionError("modelCreationFailed"));
     }
     provider.model = model;
-    provider.modelId = definition.id;
+    provider.modelId = id;
     return ok(undefined);
   }
 

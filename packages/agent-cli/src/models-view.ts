@@ -19,11 +19,7 @@ export type ModelMenuProjection = Readonly<{
 }>;
 
 function costLabel(cost: ProviderModelSnapshot["cost"]): string {
-  return cost === "free"
-    ? "free"
-    : cost === "goPlan"
-      ? "Go plan"
-      : "Zen balance";
+  return cost === "cloud" ? "cloud" : "";
 }
 
 /** Projects one bounded provider-owned remote model selection. */

@@ -389,7 +389,7 @@ class ControlledProviders implements ProviderSelectionPort {
   readonly configurations: Readonly<{ credential: string; id: ProviderId }>[] = [];
   readonly modelSelections: string[] = [];
   readonly selections: ProviderId[] = [];
-  #selected: ProviderId = "opencodeGo";
+  #model = "qwen3-coder:480b-cloud";
 
   clear(): void {}
 
@@ -400,8 +400,16 @@ class ControlledProviders implements ProviderSelectionPort {
 
   listModels() {
     return Promise.resolve(ok(Object.freeze([
-      Object.freeze({ cost: "goPlan" as const, id: "go-model", selected: false }),
-      Object.freeze({ cost: "free" as const, id: "zen-model", selected: true }),
+      Object.freeze({
+        cost: "cloud" as const,
+        id: "qwen3-coder:480b-cloud",
+        selected: this.#model === "qwen3-coder:480b-cloud",
+      }),
+      Object.freeze({
+        cost: "cloud" as const,
+        id: "glm-4.7:cloud",
+        selected: this.#model === "glm-4.7:cloud",
+      }),
     ])));
   }
 
@@ -411,33 +419,28 @@ class ControlledProviders implements ProviderSelectionPort {
 
   select(id: ProviderId) {
     this.selections.push(id);
-    this.#selected = id;
     return ok(undefined);
   }
 
   snapshots() {
-    return Object.freeze(
-      ([
-        ["opencodeGo", "OpenCode Go", "go-model"],
-        ["opencodeZen", "OpenCode Zen", "zen-model"],
-      ] as const).map(([id, displayName, model]) =>
-        Object.freeze({
-          configured: true,
-          id,
-          presentation: Object.freeze({
-            authentication: "memory-only API key",
-            displayName,
-            model,
-          }),
-          ready: true,
-          selected: id === this.#selected,
-        })
-      ),
-    );
+    return Object.freeze([
+      Object.freeze({
+        configured: true,
+        id: "ollamaCloud" as const,
+        presentation: Object.freeze({
+          authentication: "memory-only API key",
+          displayName: "Ollama Cloud",
+          model: this.#model,
+        }),
+        ready: true,
+        selected: true,
+      }),
+    ]);
   }
 
   selectModel(id: string) {
     this.modelSelections.push(id);
+    this.#model = id;
     return ok(undefined);
   }
 }
@@ -669,7 +672,7 @@ test("streams one runtime turn into chat and exits only on later idle Ctrl+C", a
   assert.equal(host.writes.join("").includes("answer"), true);
 });
 
-test("routes an idle provider selection through the configured session port", async () => {
+test("keeps the sole configured provider active without a redundant selection", async () => {
   const host = new ControlledHost();
   const runtime = new ControlledRuntime();
   const providers = new ControlledProviders();
@@ -679,15 +682,18 @@ test("routes an idle provider selection through the configured session port", as
 
   host.emit(input("/providers\r"));
   await host.waitForWrites(2);
-  host.emit(input("\u001B[B\r"));
+  host.emit(input("\r"));
   await host.waitForWrites(3);
   host.emit(input("\u0003"));
   const result = await running;
 
   assert.ok(result.ok);
-  assert.deepEqual(providers.selections, ["opencodeZen"]);
-  assert.equal(host.writes.join("").includes("OpenCode Zen"), true);
-  assert.equal(host.writes.join("").includes("zen-model"), true);
+  assert.deepEqual(providers.selections, []);
+  assert.equal(host.writes.join("").includes("Ollama Cloud"), true);
+  assert.equal(
+    host.writes.join("").includes("qwen3-coder:480b-cloud"),
+    true,
+  );
   assert.equal(runtime.startCalls, 0);
 });
 

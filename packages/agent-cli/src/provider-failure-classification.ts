@@ -1,11 +1,7 @@
 import type {
-  OpenCodeGoError,
-  OpenCodeGoFailureReason,
-} from "@agent/provider-opencode-go";
-import type {
-  OpenCodeZenError,
-  OpenCodeZenFailureReason,
-} from "@agent/provider-opencode-zen";
+  OllamaCloudError,
+  OllamaCloudFailureReason,
+} from "@agent/provider-ollama-cloud";
 
 export type ProviderFailureFamily =
   | "cancelled"
@@ -17,12 +13,10 @@ export type ProviderFailureFamily =
   | "request"
   | "timeout";
 
-export type ProviderModelFailure = OpenCodeGoError | OpenCodeZenError;
+export type ProviderModelFailure = OllamaCloudError;
 
 type ProviderFailureOperation = ProviderModelFailure["operation"];
-type ProviderFailureReason =
-  | OpenCodeGoFailureReason
-  | OpenCodeZenFailureReason;
+type ProviderFailureReason = OllamaCloudFailureReason;
 
 function classifyReason(
   reason: ProviderFailureReason,
@@ -83,7 +77,7 @@ export function classifyProviderFailure(
     reason?: unknown;
   }>;
   if (
-    (candidate.kind !== "openCodeGo" && candidate.kind !== "openCodeZen") ||
+    candidate.kind !== "ollamaCloud" ||
     typeof candidate.cleanupFailed !== "boolean" ||
     candidate.operation !== operation ||
     !isProviderFailureReason(candidate.reason)
