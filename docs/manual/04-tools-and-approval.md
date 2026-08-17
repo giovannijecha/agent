@@ -122,10 +122,10 @@ settled effect is not repeated.
 
 ## References
 
-- [Current tool and permission architecture](../ARCHITECTURE.md#lean-tool-harness)
-- [Interactive permission flow](../ARCHITECTURE.md#interactive-terminal-flow)
-- [Tool-engine maintenance](../MAINTENANCE.md#update-or-remove-the-tool-engine)
-- [Permission maintenance](../MAINTENANCE.md#update-or-remove-session-tool-permissions)
+- [Current tool and permission architecture](../ARCHITECTURE.md#capability-surface)
+- [Interactive permission flow](../ARCHITECTURE.md#capability-surface)
+- [Tool-engine maintenance](../MAINTENANCE.md#tool-engine)
+- [Permission maintenance](../MAINTENANCE.md#session-tool-permissions)
 - [Privacy policy](../../PRIVACY.md)
 - [Current authority by domain](../decisions/README.md#current-authority-by-domain)
 - [Minimal capability decision](../decisions/0050-owned-minimal-coding-capability-surface.md)

@@ -5,7 +5,7 @@
 Enter one nonblank request in the composer. Agent accepts one active turn at a
 time and keeps the submitted text and streamed answer provisional until the turn
 settles. The fixed runtime limits are listed in
-[Architecture](../ARCHITECTURE.md#agentruntime).
+[Architecture](../ARCHITECTURE.md#composition-and-turn-lifecycle).
 
 ## Follow progress
 
@@ -57,8 +57,8 @@ Cleanup failures remain separate from the primary failure.
 
 ## References
 
-- [Current runtime architecture](../ARCHITECTURE.md#agentruntime)
-- [Runtime and application maintenance](../MAINTENANCE.md#update-or-remove-the-streaming-runtime)
+- [Current runtime architecture](../ARCHITECTURE.md#composition-and-turn-lifecycle)
+- [Runtime and application maintenance](../MAINTENANCE.md#streaming-runtime)
 - [Tool-call batch decision](../decisions/0029-canonical-tool-call-batches.md)
 - [Checkpointed failure decision](../decisions/0052-owned-checkpointed-turn-failure-classification.md)
 - [Convergent turn decision](../decisions/0061-owned-convergent-tool-turns.md)

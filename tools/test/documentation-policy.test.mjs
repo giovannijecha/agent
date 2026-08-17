@@ -47,6 +47,7 @@ function currentContext() {
     policy.repositoryInstructions.path,
     ...policy.repositoryInstructions.requiredRoutes,
     ...policy.livingDocuments.map((entry) => entry.path),
+    ...policy.documentStructures.map((entry) => entry.path),
     ...decisionPaths,
   ]);
   return {
@@ -63,6 +64,25 @@ function currentContext() {
 
 test("accepts the canonical documentation information architecture", () => {
   assert.doesNotThrow(() => validateDocumentationPolicy(policy, currentContext()));
+});
+
+test("rejects canonical document structure drift", () => {
+  for (const [file, before, after] of [
+    [
+      "docs/ARCHITECTURE.md",
+      "## Single-agent execution model",
+      "## Product execution model",
+    ],
+    ["docs/ENGINEERING.md", "## Change workflow", "## Delivery workflow"],
+    ["docs/MAINTENANCE.md", "## Standard runbook", "## Operations"],
+  ]) {
+    const context = currentContext();
+    context.files[file] = context.files[file].replace(before, after);
+    assert.throws(
+      () => validateDocumentationPolicy(policy, context),
+      DocumentationPolicyError,
+    );
+  }
 });
 
 test("rejects an unindexed decision record", () => {

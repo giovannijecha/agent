@@ -1,642 +1,194 @@
-# Engineering standard
+# Engineering
+
+## Scope
+
+This document defines how repository changes are designed, implemented, and
+proved. It is the development standard, not a second architecture description
+or an operational runbook.
+
+Use [architecture](ARCHITECTURE.md) for current boundaries,
+[maintenance](MAINTENANCE.md) for update and rollback procedures, and
+[decisions](decisions/README.md) for accepted rationale.
+
+All integrations preserve the single-agent execution model.
+Any mutation excludes concurrent mechanics. Current runtime remains sequential.
 
 ## Definition of done
 
 A change is complete only when:
 
-1. its scope, owner, and affected contract are explicit;
-2. implementation stays inside the owning package;
-3. public behavior, invariants, errors, side effects, and security are documented;
-4. focused tests cover success, failure, and boundary conditions;
-5. update, rollback, replacement, and removal remain localized;
-6. The platform entry point (`tools/verify.ps1` on Windows or `tools/verify.sh`
-   on Linux) passes from a clean offline workspace.
+1. its authority domain and canonical owner are explicit;
+2. the smallest complete implementation is in owned source;
+3. package boundaries and public exports remain valid;
+4. failures are explicit and bounded;
+5. a bug has a regression test or an integration has contract tests;
+6. visible behavior and maintainer guidance change in the same commit;
+7. removal and rollback remain possible without unrelated rewrites;
+8. focused checks pass;
+9. the canonical verifier passes from source;
+10. generated output, credentials, and unrelated work are absent.
 
-An owned engine or framework is not complete with only its happy path. Its
-accepted contract includes lifecycle, bounds, concurrency, failures, security,
-tests, update and rollback procedures, and an independent removal path.
+Passing compilation alone is not completion.
+
+## Change workflow
+
+Follow this order:
+
+1. **Route the change.** Read the owning living document and accepted decision.
+   If no owner exists, establish one before implementation.
+2. **Record lasting design first.** Add a decision when the change introduces
+   or replaces a durable boundary, authority, tool, provider, protocol, or
+   toolchain contract.
+3. **Define the failure contract.** State bounds, invalid inputs, cancellation,
+   stale-state behavior, cleanup, and removal before adding the happy path.
+4. **Change one authority domain.** Do not retain overlapping names, adapters,
+   commands, tools, or compatibility paths after a replacement.
+5. **Add evidence with the source.** Tests must fail for the missing behavior
+   and pass for the implemented behavior.
+6. **Update documentation and policy.** Change the canonical living document,
+   manual, policy registry, and migration ledger entries that actually moved.
+7. **Verify in layers.** Run the narrowest relevant checks, then the canonical
+   verifier.
+8. **Inspect the final diff.** Confirm scope, generated-artifact hygiene, and
+   clean removal of obsolete authority.
+
+Do not widen the task because an adjacent cleanup is attractive. Record a
+separate follow-up unless the adjacent change is necessary for correctness.
 
 ## Source rules
 
-- Use strict TypeScript and ESM with explicit `.js` relative import suffixes.
-- Native platform primitives use original C17 split into common contract and
-  operating-system backend modules. Compile with registered external Clang,
-  warnings as errors, no third-party headers or libraries, and no committed
-  binaries. A native backend is evidence only on its matching operating system.
-- Use explicit collection operations such as `.at()` for runtime indexing in
-  shipped modules. Computed member names must be statically proven safe.
-- Import other workspaces only through their declared public package names.
-- Use the `node:` prefix for an explicitly approved built-in.
-- Keep runtime state private and return frozen values or defensive snapshots.
-- Keep I/O at the CLI edge and domain behavior deterministic.
-- Resolve terminal writes from their platform completion callback and serialize
-  input, resize, render, and cleanup operations; never redraw reentrantly.
-- Retain one read per asynchronous source across races; never issue a replacement
-  until the previous result is consumed, and reduce all events through one writer.
-- Retain unacknowledged terminal receipts behind their source so closing an
-  arbiter cannot erase independently observable cleanup failures.
-- Keep an output-error listener active for the complete lifetime of every write,
-  including non-TTY output and writes performed after input teardown.
-- Keep executable arguments secret-free. A pre-TUI credential prompt must bound
-  input, disable echo, and restore raw mode and listeners on every terminal path.
-- Return discriminated results for expected failures; translate them in the CLI.
-- Decode foreign results, stream capabilities, and events into owned snapshots
-  before mutation; reflective access and hostile getters must remain contained.
-- Treat model tool calls as hostile structured data. Bound and validate a
-  complete ordered batch against the closed advertised schemas before effects,
-  execute its calls sequentially, and never infer permission from prose, a prefix,
-  a prior call, another batch member, or a risk category.
-- Escape non-printing and directional Unicode in exact permission-preview
-  fields before display, then reject any unescaped unsafe scalar at the
-  application boundary.
-- Treat warnings, stale documentation, skipped tests, and suppressed type errors
-  as failures.
-- Delete obsolete paths completely; never retain dormant compatibility code.
-- Never expose a private platform proof to the model until its adapter, schema,
-  approval, privacy, cancellation, checkpoint, and removal contracts are
-  accepted and tested independently.
+- Use Node.js `>=22.19.0`, npm workspaces, ESM, ES2022, external TypeScript
+  `5.9.3`, and original C17 for private native primitives.
+- Keep third-party source, npm packages, SDKs, frameworks, snippets, vendored
+  code, foreign generated code, and `@types/node` out of the repository.
+- Keep TypeScript external. Every package dependency is an exact edge to a
+  registered local workspace.
+- Use local imports and explicitly allowlisted `node:` built-ins. Do not use
+  bare built-in names, dynamic imports, `require`, loaders, `npx`, or
+  `npm exec`.
+- Access runtime-selected collection members through explicit APIs such as
+  `.at()`; shipped modules admit only statically proven computed names.
+- Put minimal Node declarations in `types/` from authoritative runtime
+  contracts.
+- Cross package boundaries only through `src/index.ts`.
+- Keep core, tools, runtime, provider, and TUI Node-free. Platform I/O belongs
+  to the CLI.
+- Never edit or commit generated `dist/`, `.test-dist/`, or native
+  binaries.
+- Preserve user changes in a dirty worktree and keep unrelated edits out of the
+  patch.
 
-## Brand and motion rules
+## Evidence by change type
 
-- Keep `agent` as the product, repository, executable, and package identity.
-  Use exact lowercase `.agent` only as a visual signature.
-- Change a canonical brand asset only with its manifest record, digest,
-  documentation, decision record, and validator tests in the same change.
-- Reference inspection may establish only observable user outcomes. Do not
-  inherit foreign component structure, identifiers, styles, timings, or redraw
-  algorithms.
-- Animation phases are pure TUI inputs; scheduling remains at the CLI platform
-  boundary. TUI code never reads wall-clock time. The owned CLI scheduler uses
-  the platform clock, retains at most one pending tick, runs at eight frames per
-  second, re-arms only after a successful render, and yields to terminal and
-  runtime events.
-- Motion must preserve row count, cell width, and caret geometry across phases.
-  Phase 0 is the deterministic static baseline.
-- Route every width decision through `cell-width.ts`. Keep its printable ASCII,
-  structural glyph, and decision-0044 Latin prose registrations closed and
-  explicit; unregistered non-ASCII scalars remain two cells. Do not patch
-  `Surface`, composer, Markdown, table, clipping, or caret geometry privately,
-  and do not assign combining marks zero width without an owned grapheme
-  contract.
-- The footer pulse is the only right-edge footer content. Show it only for
-  autonomous progress (`generating`, `runningTool`, or `cancelling`); leave the
-  edge empty while idle or awaiting permission. Its final cell coincides with the
-  composer's final frame cell. Keep the six-phase neutral-lead, ochre-head,
-  neutral-trail sequence pure and constant-width. Keep its owned bullet in the
-  exact single-cell structural-glyph set together with the footer's owned middle
-  dot separator.
+| Change | Required evidence |
+| --- | --- |
+| bug fix | a focused regression that fails without the fix |
+| new or replaced integration | contract tests for lifecycle, bounds, failures, cleanup, and removal |
+| public or visible behavior | focused state/presentation tests plus operator-manual update |
+| schema or policy change | validator tests for acceptance and fail-closed rejection |
+| provider change | offline request/stream contract tests; no live network in canonical verification |
+| native boundary | focused native tests on each admitted platform plus canonical Linux and Windows gates |
+| tool change | schema, planner, permission, handler, stale-state, and presentation coverage as applicable |
+| documentation topology | documentation-policy regression and link/route validation |
+| evaluation task | input and expected-tree validation without executing candidate workspaces |
 
-## Documentation rules
+Tests prove contracts at the narrowest owner. Avoid end-to-end tests for a
+condition that a pure library test can prove, but retain one composition smoke
+path for each shipped integration.
 
-Every public module states its responsibility and exclusions. Every public
-contract documents inputs, outputs, invariants, errors, side effects, and
-security assumptions. Operational documentation covers setup, verification,
-updates, rollback, and removal. Lasting tradeoffs belong in a decision record,
-not only in comments or chat history.
+## Verification
 
-## Integration lifecycle
+Canonical repository checks are:
 
-Define the owned contract and deterministic fake before an adapter. Implement
-public protocols from authoritative specifications without importing an SDK.
-Keep provider-specific values at the adapter boundary. Updates change the
-adapter and fixtures rather than leaking version checks into core. Removal
-deletes the adapter, composition entry, tests, and documentation while unrelated
-packages continue to compile.
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1
+```
 
-When provider documentation is stale, current public source may be inspected at
-a pinned commit. Record only observable facts and risks in the provenance log,
-derive a fresh contract, and never reuse implementation structure, registered
-identifiers, prompts, fixtures, or foreign product identity. Technical
-feasibility does not bypass the provider eligibility gate.
+```bash
+bash tools/verify.sh
+```
 
-An official integration bridge is not automatically owned substrate. Vendor
-SDKs, CLIs, app servers, ACP executables, and their stored identities remain
-foreign runtime dependencies. A direct subscription adapter requires an
-`agent`-owned registration or a provider-documented identity expressly reusable
-by independent clients.
+Both must validate the same owned source policy and product behavior. The
+verifier is offline: it never contacts a provider, reads credentials, creates
+an evaluation run, or executes model-authored candidate workspaces.
 
-A provider-published direct API-key contract is a separate eligibility class.
-It may be implemented only through an accepted provider-specific decision, an
-exact origin and credential variable, a CLI-owned transport, a Node-free wire
-adapter, content-free failures, offline adversarial tests, and documented
-privacy and removal behavior. One admitted key provider does not authorize a
-generic endpoint, remote-authoritative model selector, credential store, OAuth
-flow, SDK, or unreviewed provider adapter.
+Useful narrow checks include:
 
-All integrations preserve the single-agent execution model. A provider is one
-replaceable backend for the active runtime session; a tool is one bounded
-capability controlled by the same agent. The sole controller may overlap only
-bounded controller-internal mechanics over immutable snapshots during a
-read-only phase, and it must reduce their results in a deterministic order.
-Such work cannot enter the model, runtime, or tool engine or own context, plans,
-conversations, follow-up decisions, or authority. Any mutation excludes
-concurrent mechanics. Model turns, writes, process execution, permissions, and
-terminal output remain serialized. Current runtime remains sequential. Do not
-introduce worker identities, delegation, concurrent agent turns, or inter-agent
-state without a superseding architecture decision and its complete authority
-and lifecycle contracts.
+```powershell
+node --test tools/test/documentation-policy.test.mjs
+node --test tools/test/manual-policy.test.mjs
+node --test tools/test/provider-policy.test.mjs
+node tools/verify.mjs
+npm test
+npm run build
+```
 
-## Verification policy
+Run only checks relevant to the active change while iterating. Run the complete
+canonical verifier before publication. If a narrow command depends on compiled
+test output, use the repository build path rather than inventing a loader.
 
-The canonical PowerShell entry point performs two ownership passes: before npm
-touches workspace links and after TypeScript emits JavaScript. It enforces:
+Verification claims name the exact command and result. A substituted command
+does not prove a contract that names an exact invocation.
 
-- pinned external Node, npm, and TypeScript toolchain;
-- the exact owned GitHub workflow, read-only permissions, bounded concurrency
-  and timeout, pinned toolchain bootstrap, canonical command, and absence of
-  imported actions, secrets, or `pull_request_target`;
-- exact explicit workspace manifests and lockfile entries;
-- absence of external packages and legacy stack artifacts;
-- conservative import and dangerous-loader checks, including no-substitution
-  templates and fail-closed dynamic member access in shipped code;
-- escape-aware provider checks whose low-entropy identity and credential markers
-  are context-bound rather than arbitrary compacted substrings;
-- valid UTF-8, LF, final newlines, and canonical JSON;
-- registered manual chapters, declared per-chapter section order, local links,
-  and reference-path ownership
-  paths, plus exact source-bound tool names and risk classes, unique capability
-  identifiers, and unique necessity records;
-- the exact bounded evaluation manifest and corpus inventory, strict fixture
-  text and paths, distinct input and expected snapshots, and evaluator
-  regressions without creating or executing a run;
-- canonical public name, namespace, maintainer, governance posture, exact
-  Apache-2.0 terms, and absence of false or automatic authorship claims;
-- strict project-reference builds and owned declaration boundaries;
-- all compiled tests, verifier tests, and an exact CLI process smoke test.
+## Regression and failure policy
 
-The verifier fails closed on syntax it cannot safely analyze. Weakening or
-bypassing it requires an accepted replacing decision record.
+- Diagnose the first failed authority boundary, not the final generic symptom.
+- Never convert a parse, protocol, timeout, stale-state, or cleanup failure into
+  success.
+- Do not add a retry, redirect, alias, router, fallback, or broader permission
+  unless an accepted decision explicitly owns it.
+- A failed tool request must be corrected from returned truth or reported as
+  one blocker; it is never repeated blindly.
+- A completed tool checkpoint remains authoritative if a later model
+  continuation fails.
+- User-facing failures expose only the closed product classification. Provider
+  bodies, credentials, paths, call identifiers, and model payloads stay private.
+- One observed evaluation failure is evidence to investigate, not authority for
+  a product change.
+- Invalid evaluation fixtures are corrected or removed before their evidence is
+  used.
+- Every async owner has one settlement path. Late events are inert after
+  settlement and cleanup has a hard bound.
 
-Remote verification must call the same PowerShell entry point as local work.
-The workflow may use GitHub-hosted execution and network access only to fetch the
-public event revision and provision the already approved toolchain. Workspace
-installation, builds, tests, and smoke verification remain offline.
+## Documentation changes
 
-## Task evaluation policy
+Every durable topic has one canonical owner:
 
-Evaluation tasks are owned review evidence, not tests, training data, product
-tools, or a provider benchmark claim. Register every task once, keep its brief
-and both snapshots small and independently authored, and change the manifest,
-fixtures, focused tests, decision 0047, and maintenance guidance together.
-Never execute a candidate workspace from the evaluator or infer semantic
-equivalence from a different file tree. Only the operator may mark a reviewed
-alternative as accepted.
+- `README.md` is the short public entry;
+- `AGENTS.md` routes repository work and states concise invariants;
+- `docs/ARCHITECTURE.md` describes current product structure;
+- this document defines development and proof;
+- `docs/MAINTENANCE.md` owns runbooks, rollback, and removal;
+- `docs/manual/` owns operator behavior;
+- `docs/decisions/` preserves accepted rationale.
 
-If a task publishes a direct completion command, prove against immutable
-versioned fixtures that the input reaches the intended behavioral failure and
-the expected snapshot passes. Keep that focused proof separate from evaluator
-operations and never substitute a prepared candidate path. Under decision 0064,
-the TypeScript endpoint test imports its tracked `.ts` source directly and adds
-no build output, dependency, or loader.
+Do not copy a contract into several documents. State it once and link to it.
+When moving content:
 
-Under decision 0065, keep one JavaScript red-green task whose brief requires
-the normal product to run `node --test` before editing and again after the
-bounded correction. Prove both immutable fixture outcomes with the same fixed
-command and empty environment. Do not encode provider call counts, loosen
-`run_process`, or treat one negative run as an actionable product diagnosis.
+1. update the canonical owner;
+2. update incoming links and anchors;
+3. update the documentation policy if structure changed;
+4. mark only completed rows in
+   [the migration ledger](DOCUMENTATION-MIGRATION.md);
+5. keep stable decisions immutable except for status or index maintenance
+   explicitly allowed by their governance.
 
-Apply file-count, byte, segment, and path-byte limits to each snapshot-relative
-tree. Corpus traversal may add only the fixed registered task prefix before the
-same relative path is revalidated. Keep canonical input and expected snapshots
-non-empty, but grade an empty candidate workspace as an ordinary non-exact
-result. Reject Windows reserved device names in task and run identifiers before
-deriving filesystem state on every platform.
+New documents require a named audience, canonical route, update trigger, and
+removal condition. Temporary migration documents must state their completion
+condition.
 
-Prepared runs live outside version control. Record only the closed outcome,
-artifact, primary-constraint, and bounded count fields; do not add notes,
-prompts, responses, transcripts, file contents, credentials, personal
-identifiers, or ambient telemetry. Keep corpus and evaluator I/O separate from
-product packages so the offline framework remains removable without a runtime
-change. The decision 0048 CLI receipt is the only admitted product observer: it
-is exact-option, memory-only, content-free, bounded, transition-passive, and
-independently removable. Do not infer semantic fields from its mechanical
-counters or add general telemetry behind it.
+## Review checklist
 
-Retain durable negative evidence only through the decision 0049 failure
-registry. Bind each entry to one maintained task and store only closed
-taxonomy, priority, lifecycle, frequency, record classifications, and grader
-path sets. Derive expected-path membership from the validated task snapshot;
-do not maintain a parallel path inventory. Keep first occurrences observational,
-require tracked evidence for
-resolution, and never infer frequency from ignored runs. Do not add a tool or
-change product behavior from one isolated observation. Registry validation is
-part of the canonical gate, not the evaluator CLI or product runtime.
-Remove evidence if a task correction proves that its former expected snapshot
-could not satisfy its own completion check; that is invalid corpus evidence,
-not a resolved product failure.
+Before publishing, verify:
 
-## Terminal input policy
-
-Treat terminal input as untrusted bytes. Decode bounded fragments before editing,
-discard unknown control sequences, keep the prompt caret inside the validated
-viewport, and validate the complete frame before output. Without a runtime,
-  discard ordinary submitted personal text immediately. With a runtime, let only
-  the explicit prospective-turn contract retain it. Commit final text only after
-  application acknowledgement, checkpoint completed tool attempts before the
-  next model step, and never place personal payloads in notices, failures, logs,
-  fixtures, or persistence. Release display-only personal-content
-references synchronously before awaiting external shutdown. Aggregate limits
-must count queued payload size as well as event count.
-
-Pointer input follows decision 0045. Decode only bounded SGR 1006 reports into
-closed immutable events; coordinates, modifiers, button state, motion, wheel,
-and release never enter draft text. Route events only against the exact latest
-successful frame and its planned allocations. Keep transcript selection in
-stable document/offset space before wrapping, preserve that metadata through
-the shared display path, and reuse the existing scroll state for wheel input.
-Keep composer range ownership inside `LineEditor`, including hit resolution,
-whitespace word selection, word-wise extension, replacement, deletion, and
-paste. Settle simple drag and double-click gestures on release so the second
-press may extend by complete word runs before exactly one copy. An ordered non-
-pointer input event breaks double-click state, and resize clears selection. Do
-not add screen-coordinate archives or product hit calculations to generic
-components.
-Reduce every decoded terminal chunk in exact event order. Apply each pointer
-action to the application and shared editor before decoding may mutate that
-editor with later text, deletion, or paste from the same chunk. Do not queue
-only pointer events or add a replay buffer; use the one synchronous reducer
-boundary for interrupt, EOF, command, and exit actions as well. Preserve
-cancellation before shutdown and publish at most one exit effect per chunk.
-
-Only the renderer may enable or disable mouse modes, mark selected spans, emit
-exact visible HTTPS OSC 8 links, or send bounded OSC 52 clipboard requests.
-Keep destination equal to visible ASCII HTTPS text, cap clipboard input before
-encoding, and serialize copy with frame writes. Mark a terminal string as
-possibly active before either OSC write and, after failure, require ST plus one
-complete OSC 8 close before later render, copy, or cleanup output. The CLI's
-removable clipboard port may invoke only the exact owned Windows x64 C17 broker with its versioned
-UTF-16LE stdin frame, empty environment, two-second operation deadline,
-250-millisecond cleanup deadline, and no arguments, shell, PATH lookup, or
-retained process. Confirm success only after broker exit zero;
-an unsupported platform may request OSC 52, and no failure may claim success or
-exit the application. Route its short settlement through the one notice
-generation and generic `InputArea` trailing status; it must not add a layout
-slot, reserve editor columns, move the caret, or displace transcript content.
-Dismiss the current generation when that reducer applies a composer pointer
-action; do not dismiss it for transcript selection or scrolling.
-Treat Shift as the optional native-selection escape hatch and Ctrl+C as the agent interrupt. Use the same VT pointer contract on Windows
-and Linux; never add a global hook, browser launcher, foreign helper or library,
-terminal probe, or environment-selected fallback.
-
-Raw mode, listeners, and stream errors remain at the CLI edge. Generic decoding,
-editing, component layout, viewport, frame, and rendering behavior remains
-Node-free in the TUI. Runtime streaming and cancellation remain terminal-free.
-Every shutdown path independently attempts runtime, terminal, and renderer
-cleanup without allowing one failure to mask another.
-
-Treat visual emphasis as closed metadata, never as display text. Components and
-frames accept only normalized `TextSpan` and `RichRow` values under decision
-0021, and spans accept only the semantic tones registered by decisions 0019,
-0023, 0027, 0031, 0032, 0059, and 0060. The renderer alone maps them to fixed ANSI, redraws text- or tone-only
-changes, and resets terminal style after emphasized spans and during cleanup.
-Application code and untrusted content must never construct escape sequences or
-arbitrary color values. Bound span count before iteration, merge adjacent equal
-tones, and contain arrays, proxies, accessors, and subclasses at every public
-row boundary.
-
-Under decision 0059, user base prose and the exact selected row of every generic
-`SelectionList` use the existing closed `accent` tone. Keep user and list
-surfaces transparent, preserve Markdown overrides and all non-foreground span
-metadata, and do not reproduce focus styling in CLI presenters.
-
-Under decision 0060, only a validated owned `apply_patch` display projection
-may select `diffRemoved` or `diffAdded`. Apply the tone to the complete logical
-row and every wrapped continuation, keep the `- ` or `+ ` prefix explicit, and
-leave lifecycle truth, permission focus, other previews, and surfaces unchanged.
-
-Treat Markdown as one closed display grammar, not a compatibility target. Under
-decision 0023, parse only the registered line and inline forms, keep incomplete
-and unsupported constructs literal, and compile directly into the canonical
-structured rows. Recognize exact same-line inline code before strong text and
-strong text before single-asterisk italic emphasis. Carry the parser-selected
-closed slant beside tone, selection, and interaction metadata through the same
-display-run and wrapping path. Reuse the plain-text sanitizer, cell measurement,
-wrapping, anchoring, padding, fragment, frame, and renderer path. Under decision 0025,
-ordinary text wraps only through the shared word-aware policy, long tokens use
-its cell fallback, and literal code remains on its explicit cell policy. Keep
-structural and continuation prefixes in the logical-line contract; do not add a
-component-private wrapper. Under decision 0030, keep assistant prose unboxed
-and let only complete fenced code and strict pipe tables select the internal
-structured-region role. Under decision 0032, assign zero horizontal padding to
-complete fences with at most two visible logical rows and one cell to larger
-fences; tables keep one cell. Before painting a strict table, measure every
-accepted header and body cell and pad all rows to the same visible width per
-column. Derive one muted header rule from that exact measured total row extent
-and emit it in the same surface; never add a table-specific painter, outer box,
-or full row grid. Reserve the declared surface padding before wrapping,
-retain the region identity beside bounded visible rows, and reuse the generic
-surface painter.
-Inline code and fenced language labels may select `accent`; single-asterisk
-emphasis retains the prose tone and selects `italic`; table headers use
-`emphasis`; structural separators use `muted`. Parse only exact `---` as the
-semantic horizontal separator and expand it in shared display layout, never in
-the parser. Under decision 0031 as amended by 0032, complete recognized
-fences may select only the five closed syntax roles through the internal
-bounded line scanner, and unknown or unlabeled fences remain plain. Never infer
-operational state or arbitrary style from model content. Do not add rendered
-HTML, Markdown-supplied hidden links, images, arbitrary styles, parser callbacks, extensions, a
-syntax-highlighting dependency or registry, a retained AST, or a second
-rendering engine. Decision 0045 permits only a validated OSC 8 destination
-identical to exact visible ASCII HTTPS text. If inline role
-count exceeds the row bound, fall back to the complete sanitized literal line.
-Snapshot document collections before parsing, bound their count and total text,
-and restart syntax state at every document boundary. Conversation roles use
-separate documents so one message cannot style or consume another.
-
-Treat scrolling as immutable geometry, never as component-owned content or an
-event queue. Reconcile an explicit row offset against measured content and the
-assigned viewport through decision 0020. Moving away from the end disables
-follow mode; returning to the end reenables it. All scrollable product surfaces
-must use the same generic view. Renderer writes are synchronized terminal
-transactions, and a failed transaction must be explicitly ended before retry
-or cleanup.
-
-For product navigation, follow decision 0024. Obtain content and viewport rows
-from one immutable `VerticalLayoutPlan`; never repeat allocation math in CLI or
-mutate application state from a component callback. The application reducer
-alone owns scroll and observed geometry. Keep transcript keys out of the line
-editor, preserve draft and caret, and use one-row page overlap. Keep navigation
-truth in the reducer; do not expose it as footer telemetry.
-
-Compose the product shell through decisions 0026, 0027, 0028, and 0039. The CLI alone
-decides vertical order, slot priorities, product wording, semantic tones, and
-truthful status facts. `Panel`, `SplitLine`, `ThreeColumnLine`,
-`HorizontalInset`, `HorizontalRules`, `SideRail`, `Surface`, `SelectionList`, and `Spacer`
-remain Node-free, agent-agnostic
-component mechanics. A panel must render its complete border or delegate its
-entire viewport without a border; partial boxes are forbidden. Compose the
-composer from generic `HorizontalRules` and the prompt-free `InputArea`:
-retain transparent content, one cell of horizontal padding, and one full-width
-`accent` rule above and below it. Collapse the optional rule rows before
-content when fewer than three rows are assigned. Never create a second
-editor, decoder, draft, or submission path. Let the area grow from one to six
-content rows, wrap at word boundaries when possible, and keep the real terminal
-caret visible as the projection moves. Bracketed paste is one bounded atomic
-edit, never an implicit submission; only a distinct Enter event submits. The
-renderer owns enabling and disabling bracketed-paste mode with its other
-terminal lifecycle controls. Map admitted Ctrl word controls into semantic
-decoder events, and keep the whitespace-delimited movement and deletion rule
-inside the bounded editor. Never duplicate control decoding or word mutation in
-CLI state. Pointer selection must project and mutate this same editor range.
-Keep the draft neutral. Project one shared conversation stage in the
-CLI before composing the shell: transcript, activity, notice, completion, and
-composer use the same full usable width, retaining one technical outer column
-per side when the viewport permits it. Apply that stage to the footer and place
-the pulse on the composer's final frame cell. Do not let
-product components invent private shell widths or arbitrary reading-width caps.
-Under decision 0043, read the canonical content inset, flush offsets, composer
-rule rows, and external rhythm from the one frozen CLI-owned
-conversation-density record. Presenters and composer pointer projection consume
-that same record. User turns use one stage-wide transparent `Surface` with zero
-vertical padding and the shared content inset; italic `accent` prose
-distinguishes the role without a rail, marker, border, or background.
-Activity surfaces use zero vertical padding. Every state starts with one compact
-right-priority split line; pending permission alone may add a separately wrapped
-exact preview before one transparent contextual action list. The focused composer retains one
-full-width accent rule row above and below its transparent one-through-six
-content rows. Keep
-the external rhythm at one optional row and do not trade it for private surface
-padding.
-Project lower regions in authoritative order: transcript, activity, latest
-notice, contextual selection or completion, composer, and footer. A notice is transparent product
-feedback, not transcript or tool lifecycle. Give it one closed `info` or
-`warning` level, one content-free generation token, one-cell horizontal inset,
-and no private panel. Replace rather than accumulate notices, dismiss on editor
-interaction, and expire only the exact current token after 5,000 milliseconds.
-Route expiry through the CLI arbiter after terminal and runtime events and
-before cosmetic motion; a timer callback must never mutate the reducer, view,
-renderer, or terminal directly. Rebase pending cosmetic work only when a
-functional event or notice expiry actually produces an authoritative redraw.
-No-redraw input must not cancel the active motion schedule; notice expiry may
-preserve the current phase but must discard a cached tick before its own frame.
-Render the
-working folder left and provider/model at the physical center. Reserve the
-footer's right edge for the constant-width active-work pulse and leave it empty
-otherwise. When width is scarce, retain right, then center, then left. Do not add
-a static product header or duplicate lifecycle or navigation prose. Footer facts
-come only from the composition root or authoritative application state. Compose
-each stage-wide user transcript region as one generic transparent `Surface`;
-keep surface, slant, and foreground tone independent, closed, and
-renderer-owned. Use italic slant and the closed `accent` base tone for user role
-distinction, the shared content inset, and no rail, marker, border, or background.
-Its first text cell aligns with assistant prose and composer text and caret.
-Registered Markdown roles override
-the base tone only on their spans. Leave assistant base prose `plain` and
-direct, and reuse the content-fit transparent painter for registered
-structured Markdown regions.
-Keep composer content transparent between the generic light-blue accent rules.
-Keep tool activity transparent. Reserve success, attention, and failure
-foregrounds for its status mark and written authoritative state. Keep the action,
-optional safe subject, and ordinary previews neutral. Validated exact patch
-removals and insertions alone use the non-bold `diffRemoved` and `diffAdded`
-foregrounds under decision 0060. Under decision 0062, derive those rows only
-after exact complete shared logical context is compacted within each hunk; never
-alter the untrimmed authorized plan. Do not add permanent dashboards, empty metrics, speculative progress, or
-integration-specific cards. Future tools and integrations reuse the same
-split-line, three-column-line, inset, rail, marker, spacer, activity-stack, scroll, and
-vertical-layout paths. Keep role and content structured in the CLI, but do not
-prefix visible messages with redundant role labels. Separate adjacent role
-entries with one blank row and no leading or trailing decorative gap.
-The renderer owns the interactive steady vertical bar cursor command and restores the
-terminal-default style on every cleanup path. Keep cursor shape out of editor
-text, frame content, and product state.
-
-Keep slash discovery and dispatch on one immutable CLI catalog under decision
-0034. Completion accepts only exact prefixes without whitespace and disappears
-for an exact command. Let the session own its bounded selection index; intercept
-Up and Down only while completion is visible, and let Tab replace the draft
-without creating an action. While completion is visible, Enter clears the draft
-and dispatches the selected exact command through the same canonical submission
-path; do not add a menu-specific dispatcher. Map catalog rows through the generic
-one-row `SelectionList`; never teach the TUI package command names, aliases,
-execution, or provider policy. Compose command and description as one compact
-transparent inline row with a fixed two-cell gap. Do not add a passive keyboard
-hint or right-align the description.
-
-Keep session permission policy in one CLI-owned closed six-entry module. The
-generic TUI knows only `SelectionList`; it never receives tool names, modes, or
-authority. `/permissions` projects exact tool, risk, and mode rows; Up/Down move
-without wrapping, Left/Right change mode without wrapping, and Enter closes.
-Pending `Ask` uses the same generic selection primitive for exactly `Allow
-once`, `Allow for session`, and `Deny`. Give the pending decision precedence
-over the session editor, and never let legacy command text or composer input
-resolve it accidentally.
-
-Compose sequential component documents through the one bounded generic stack
-defined by decision 0022. Product lifecycle state never enters that component:
-the CLI owns one tool-activity log and maps every registered tool through the
-same pure closed presentation table under decisions 0056 and 0057. Keep its display labels
-separate from tool names and dispatch. Preserve the compact status mark and action on the left and
-the written state on the right before an optional useful safe subject or preview
-detail in short viewports by anchoring the shared stack at its head.
-Every state uses one generic borderless transparent `Surface`; success, attention,
-and failure are closed renderer-owned foregrounds selected for the status mark and
-written state from authoritative CLI state. Canonical name and risk validate the
-projection but do not repeat in the visible head. Do not add per-tool components,
-panels, rails, icons, colors, aliases, or state paths. Visible activity is
-derived from one bounded log: only the latest tool occupies the contextual slot
-while its turn is active. The next tool replaces it, turn settlement removes
-it, and no activity enters the scrollable conversation. Project the exact
-bounded human-readable effect preview only for `permission`; every other state occupies exactly
-the compact main line. Retain the preview in the bounded lifecycle log rather
-than deleting state or creating a terminal-summary model. Do not add a second
-archive or lifecycle model. Activity
-is limited to the current or most recently settled turn and is scrubbed during
-cleanup. Reuse one CLI-owned one-row rhythm through the generic `Spacer` before
-each non-empty activity or completion region, before the composer, and before
-the footer. Give every instance zero minimum height so constrained viewports
-discard rhythm before required interaction or activity content. Do not add
-component-private margins.
-When differential rendering redraws a row, prepaint every maximal contiguous
-nontransparent surface run across its exact measured start and width with ASCII
-spaces under that run's authoritative surface, return to column zero, and then
-emit its structured spans. Keep transparent gaps and differently surfaced runs
-separate. Do this only inside the renderer and only for rows already selected
-for redraw. Do not compensate in component text, add Unicode-specific width
-exceptions, or alter frame equality.
-Keep the empty session empty and keep
-operator guidance in the manual; do not recreate welcome suggestions or an
-embedded help document.
-
-## Tool execution policy
-
-Keep the harness lean. Before adding a model-facing tool, prove that its
-capability is distinct, necessary for a current operator task, and independently
-removable. Register one canonical name and one unique capability identifier in
-`tools/manual-policy.json`; aliases, deprecated compatibility names, and
-speculative convenience tools are forbidden. A rename removes the previous name
-atomically. Provider vocabulary is translated at the adapter boundary rather
-than expanding the runtime registry. Product descriptor construction stays in
-the registered CLI module; the generic tool engine owns mechanics only.
-
-Tool descriptors and schemas are immutable provider-neutral data. Keep one
-CLI-owned memory-only `Allow`, `Ask`, or `Deny` entry for every exact tool;
-reads default to `Allow`, writes and execution to `Ask`. Every valid runtime
-request waits for one exact turn-and-call decision. Pending `Ask` requests use
-only `Allow once`, `Allow for session`, and `Deny` through the contextual
-selection path; `/approve` and `/deny` are forbidden. A failed plan has no
-effect and must not prompt. One model response may select
-a bounded ordered batch. Pure complete-batch preflight precedes observation,
-then each call is planned just in time and invoked sequentially in provider
-order. Filesystem tools use no ambient network access.
-Required model-facing fields must remain explicit. Every built-in filesystem
-`path` description names `.` as the workspace root; do not make the field
-optional, infer a default, add an alias, or repair a provider request. Preserve
-the exact content-free preparation reason through runtime settlement so an
-operator can distinguish invalid name, input, and identity without observing
-the rejected payload.
-The Ollama Cloud adapter requests at most one call per response under decisions
-0061, 0069, and 0072. Keep the
-owned instruction, exact request field, provider/runtime integration regression,
-and defensive batch decoder aligned. After every checkpointed result the same
-model must reassess the remaining goal. Consolidate currently known same-file
-edits, correct or explain a failed request, and never add a blind handler retry,
-implicit effect replay, or concurrent tool execution.
-Decision 0036 admits only `run_process`, the registered `node` token, and the
-owned native whole-tree containment broker; no other process capability may be
-advertised.
-Construct the exact current token mapping through the CLI-owned
-`ProcessProgramRegistry`. Descriptor validation and handler execution must use
-that same registry authority; do not duplicate an executable mapping in a
-handler, adapter, provider, or prompt. A new entry needs one closed token,
-executable resolution, argument policy, platform policy, approval evidence,
-focused tests, maintained evaluation evidence, and decisions 0036 and 0050 in
-the same review. Reject unknown programs before approval. Do not reinterpret a
-rejected request as shell text.
-Keep the broker control-input error listener active from spawn through its
-first failure or close. Treat a synchronous or asynchronous launch/cancel write
-failure as one content-free adapter failure, preserving any earlier typed
-cause, and never settle successful cleanup before the broker closes.
-
-Resolve the exact startup directory once, before credential acquisition, into
-the immutable CLI-owned workspace boundary from decision 0042. Never walk
-upward to discover a Git root. Reject filesystem volume roots, the exact user
-home, and the exact shared temporary directory. Show the same canonical
-absolute root in the footer and pass that boundary to every built-in tool;
-handlers must not replace or independently recanonicalize it.
-
-Never source protected roots from `homedir()`, `tmpdir()`, or inherited home and
-temporary environment variables. Maintain the owned platform resolver as a
-separate CLI adapter: Linux queries the effective-user account database and
-uses `/tmp`; Windows queries Profile and Local AppData through the Known Folder
-API and derives its user `Temp` root. Keep its process environment empty, frame
-and path bounds exact, UTF-8 decoding strict, its five-second operation and
-250-millisecond cleanup deadlines fixed, late events inert, and failures
-content-free. Unsupported platforms fail closed.
-
-Load the workspace read policy immediately after accepting the boundary and
-before credentials, provider/runtime construction, tool registration, or
-terminal ownership. Keep `.agentignore` parsing pure, bounded, and deny-only;
-do not reuse `.gitignore`, add negation, infer locale collation, or let a
-workspace rule weaken the built-ins. Accept only strict scalar UTF-8 from one
-regular non-symlink root file, recheck its identity and metadata after reading,
-and keep the compiled snapshot immutable until restart. Startup failures remain
-content-free.
-
-All model-selected filesystem paths are workspace-relative. Resolve lexical and
-canonical containment beneath the accepted boundary, reject absolute paths,
-parent escape, symlinks, unsupported file kinds, and oversized input or output.
-Before observing a read target, normalize its lexical path through the injected
-policy. A denied `read_file` target returns `permission`; a denied listing or
-search root does the same. Filter listing children and prune search directories
-and files before canonicalization or content reads, while still counting every
-raw directory entry against the existing traversal bounds. Reapply that same
-policy after canonical resolution and at later identity checks. On Windows,
-reject DOS short-name components such as `~1` before observation because the
-runtime may preserve the alias spelling. Never copy this logic into schemas,
-runtime, TUI, or individual private matchers.
-
-Keep `read_file` line selection in the pure CLI-owned projection module. A
-path-only request must remain compatible with complete-text reads. Preserve
-source line terminators exactly, never add numbers or synthetic newlines, and
-return the closed metadata tuple `startLine`, `lineCount`, `totalLines`, and
-`hasMore`. Apply projection only after the shared policy, bounded read,
-cancellation, and post-read path checks. Different ranges remain observations
-of the same canonical read identity for evaluation receipts.
-New-file creation refuses overwrite;
-replacement requires exactly one old-text occurrence. Enumerate directories
-incrementally and bound directory entries, searched directories, aggregate
-entries, files, text, and matches. Expected I/O failures become content-free
-structured tool results. After handler invocation, contract corruption becomes
-a generic checkpointed failure before the runtime terminates the turn.
-
-Keep mutation observation and commit separate. A planner may read canonical
-state and construct one immutable preview, but after approval it must invoke
-the injected `WorkspaceMutationCommitter` exactly once. The committer request
-contains the accepted root, normalized relative path, approved parent or file
-identity, complete expected replacement bytes, and complete proposed bytes.
-Never add a Node `writeFile`, pathname revalidation, direct truncation, advisory
-lock, or platform fallback beside that port. The native protocol remains
-bounded and content-free on response; both platform backends change together.
-Windows retains a create only after complete flush and removal of its
-delete-pending state. Linux links only a complete unnamed file and requires a
-write lease for replacement. Unsupported primitives return `unsupported`.
-
-Do not describe process-tree containment as a filesystem or network sandbox.
-The broker bounds one approved terminating descendant tree; approved Node code
-still runs with the launching user's general operating-system authority.
-
-Checkpoint the structured call and result before the next model step. Later
-cancellation or failure must not erase the recorded truth of an attempted side
-effect. Render only descriptor-declared bounded projections or an owned bounded
-effect preview. A patch preview shows the canonical path and `- ` and `+ ` rows
-for changed logical text when they fit, or bounded excerpts with an explicit
-omitted-code-unit count. Remove only exact complete shared prefix and
-non-overlapping suffix rows inside one hunk; keep separator differences,
-partial-line changes, hunk order, and the untrimmed effect binding intact. Keep
-an otherwise ambiguous terminal separator visible as exact inline `\r\n`,
-`\r`, or `\n`, distinct from doubled source backslashes and without an empty
-diff row.
-Keep SHA-256 digests, identity, and tuple metadata inside the effect plan. Never put
-raw arguments, file content, outputs, call identifiers, or causes in notices,
-errors, transcripts, or logs. Project a checkpointed terminal failure only
-through the pure CLI-owned classifier from decision 0052. Keep the closed
-`model/...`, `tool/...`, or `runtime/failure` code identical in the transcript
-marker and notice. Map admitted provider errors only through the separate pure
-adapter-neutral classifier; unknown or operation-mismatched values retain the
-coarser model code. Never emit provider identity, raw reason spelling, status,
-or response text, and never reinterpret a successful tool as failed because a
-later model step stopped. Update decision 0008 whenever schemas, risk,
-approval, checkpoint, containment, or Node-tool safety changes. Update decision
-0014, the manual registry, necessity record, focused tests, and removal guidance
-whenever the advertised surface changes.
+- [ ] the change has one authority owner;
+- [ ] lasting design was recorded before implementation when required;
+- [ ] package edges and public exports remain exact;
+- [ ] bounds, cancellation, cleanup, and stale events fail closed;
+- [ ] no implicit retry, fallback, or widened permission was introduced;
+- [ ] regression or contract tests cover the changed behavior;
+- [ ] operator and maintainer documentation changed with behavior;
+- [ ] obsolete code, names, routes, and documentation were removed;
+- [ ] focused checks passed;
+- [ ] the canonical verifier passed;
+- [ ] `git diff --check` passed and the final diff is intentional.

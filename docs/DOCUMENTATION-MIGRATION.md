@@ -25,7 +25,10 @@ registered task-specific contracts instead of one repeated chapter template.
 The repository instructions now retain only the cross-cutting change contract,
 essential invariants, canonical commands, and an exact task router; subsystem
 details remain in their registered living documents and stable decisions. The
-offline documentation policy verifies those headings and routes.
+offline documentation policy verifies those headings and routes. Current
+architecture, change evidence, and operational procedure now have separate
+canonical owners, and the policy gate locks their level-one and level-two
+structures against editorial drift.
 
 ## Content ledger
 
@@ -37,9 +40,9 @@ offline documentation policy verifies those headings and routes.
 | License terms | [License](../LICENSE) | [License](../LICENSE) | retained |
 | Vulnerability reporting | [Security policy](../SECURITY.md), [maintenance guide](MAINTENANCE.md) | [Security policy](../SECURITY.md) | queued |
 | Privacy and memory-only secrets | [Privacy policy](../PRIVACY.md), [provider policy](PROVIDERS.md), [operator manual](manual/README.md) | [Privacy policy](../PRIVACY.md) | queued |
-| Current package and runtime architecture | [Repository instructions](../AGENTS.md), [architecture](ARCHITECTURE.md), [engineering guide](ENGINEERING.md) | [Architecture](ARCHITECTURE.md) | queued |
-| Development and verification practice | [Repository instructions](../AGENTS.md), [engineering guide](ENGINEERING.md), [maintenance guide](MAINTENANCE.md) | [Engineering guide](ENGINEERING.md) | queued |
-| Maintainer diagnostics, releases, and rollback | [Engineering guide](ENGINEERING.md), [maintenance guide](MAINTENANCE.md) | [Maintenance guide](MAINTENANCE.md) | queued |
+| Current package and runtime architecture | [Repository instructions](../AGENTS.md), [architecture](ARCHITECTURE.md), [engineering guide](ENGINEERING.md) | [Architecture](ARCHITECTURE.md) | complete |
+| Development and verification practice | [Repository instructions](../AGENTS.md), [engineering guide](ENGINEERING.md), [maintenance guide](MAINTENANCE.md) | [Engineering guide](ENGINEERING.md) | complete |
+| Maintainer diagnostics, releases, and rollback | [Engineering guide](ENGINEERING.md), [maintenance guide](MAINTENANCE.md) | [Maintenance guide](MAINTENANCE.md) | complete |
 | Brand identity and registered assets | [Public README](../README.md), [brand guide](BRAND.md), [brand assets](../assets/brand/README.md) | [Brand guide](BRAND.md) | active |
 | Clean-room provenance and inspections | [Repository instructions](../AGENTS.md), [ownership record](OWNERSHIP.md) | [Ownership record](OWNERSHIP.md) | queued |
 | Direct provider admission and operation | [Repository instructions](../AGENTS.md), [provider policy](PROVIDERS.md), [operator manual](manual/README.md) | [Provider policy](PROVIDERS.md) | active |

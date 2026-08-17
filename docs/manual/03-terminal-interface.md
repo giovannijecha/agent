@@ -117,9 +117,9 @@ display styling never executes code or changes model text.
 
 ## References
 
-- [Current TUI and CLI architecture](../ARCHITECTURE.md#package-contracts)
-- [Interactive terminal maintenance](../MAINTENANCE.md#update-or-remove-the-interactive-terminal)
-- [Vertical TUI maintenance](../MAINTENANCE.md#update-or-remove-the-vertical-tui-framework)
+- [Current TUI and CLI architecture](../ARCHITECTURE.md#terminal-boundary)
+- [Interactive terminal maintenance](../MAINTENANCE.md#interactive-terminal)
+- [Vertical TUI maintenance](../MAINTENANCE.md#vertical-tui-framework)
 - [Current terminal authority](../decisions/README.md#current-authority-by-domain)
 - [Slash completion decision](../decisions/0034-owned-slash-command-completion.md)
 - [Composer and paste decision](../decisions/0035-owned-multiline-composer-and-paste.md)
