@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "index": "docs/README.md",
   "decisionIndex": "docs/decisions/README.md",
   "migrationLedger": "docs/DOCUMENTATION-MIGRATION.md",
@@ -37,6 +37,31 @@
   "historicalDecisionStatusExceptions": {
     "0009": "accepted"
   },
+  "migrationTopics": [
+    "Public purpose, identity, installation, and first run",
+    "Repository-wide change constraints and routing",
+    "Contribution workflow",
+    "License terms",
+    "Vulnerability reporting",
+    "Privacy and memory-only secrets",
+    "Current package and runtime architecture",
+    "Development and verification practice",
+    "Maintainer diagnostics, releases, and rollback",
+    "Brand identity and registered assets",
+    "Clean-room provenance and inspections",
+    "Direct provider admission and operation",
+    "Provider registration requests",
+    "OAuth registration status",
+    "Product operation",
+    "Operator-manual structure and repository evidence routing",
+    "Turn operation, runtime bounds, checkpoints, and failure recovery",
+    "Terminal editing, navigation, selection, and presentation",
+    "Tool use, session permissions, previews, and operator recovery",
+    "Provider connection, model selection, process-only credentials, and operator recovery",
+    "Change verification, failure diagnosis, and evaluation routing",
+    "Owned evaluation operation",
+    "Durable design history"
+  ],
   "decisionStatuses": [
     "accepted",
     "superseded"

@@ -487,8 +487,8 @@ function validateDecisionRecords(policy, context, rows) {
     const recordStatuses = [
       ...text.matchAll(/^- Status: ([^\r\n]+)$/gmu),
     ].map((match) => match.at(1));
-    const recordStatus = recordStatuses
-      .at(0)
+    const recordStatusText = recordStatuses.at(0);
+    const recordStatus = recordStatusText
       ?.toLowerCase()
       .split(" ", 1)
       .at(0);
@@ -498,7 +498,26 @@ function validateDecisionRecords(policy, context, rows) {
       fail("decision status does not match its ledger: " + file);
     }
 
-    relationships.set(row.id, validateDecisionRelationship(row, decisionIds));
+    const relationship = validateDecisionRelationship(row, decisionIds);
+    if (
+      Number(row.id) < policy.prospectiveDecisionMetadataFrom &&
+      recordStatusText !== undefined
+    ) {
+      const recordReferences = [
+        ...recordStatusText.matchAll(/\b[0-9]{4}\b/gu),
+      ].map((match) => match.at(0));
+      if (recordReferences.length !== 0) {
+        if (relationship.direction !== "superseded by") {
+          fail("historical decision replacement contradicts its ledger: " + file);
+        }
+        same(
+          relationship.references,
+          recordReferences,
+          "historical decision replacement: " + row.id,
+        );
+      }
+    }
+    relationships.set(row.id, relationship);
   }
   return relationships;
 }
@@ -630,6 +649,7 @@ function validateMigrationLedger(policy, context, ownedPaths) {
     }
     topics.add(topic);
   }
+  same([...topics], policy.migrationTopics, "documentation migration topics");
   const hasActiveRow = rows.some((row) => row.at(4) === "active");
   if (
     (migrationStatus === "complete" && hasActiveRow) ||
@@ -659,6 +679,7 @@ export function validateDocumentationPolicy(policy, context) {
       "repositoryInstructions",
       "prospectiveDecisionMetadataFrom",
       "historicalDecisionStatusExceptions",
+      "migrationTopics",
       "decisionStatuses",
       "decisionDomains",
       "documentStructures",
@@ -666,7 +687,7 @@ export function validateDocumentationPolicy(policy, context) {
     ],
     "documentation policy",
   );
-  if (policy.schemaVersion !== 3 || !isRecord(context)) {
+  if (policy.schemaVersion !== 4 || !isRecord(context)) {
     fail("unsupported documentation policy schema or context");
   }
   for (const [label, file] of [
@@ -685,6 +706,7 @@ export function validateDocumentationPolicy(policy, context) {
   }
   same(policy.decisionStatuses, EXPECTED_STATUSES, "decision statuses");
   same(policy.decisionDomains, EXPECTED_DOMAINS, "decision domains");
+  validateUniqueStrings(policy.migrationTopics, "documentation migration topics");
   if (!Array.isArray(context.ownedPaths)) {
     fail("owned path inventory is missing");
   }
