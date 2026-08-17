@@ -467,9 +467,14 @@ test("routes completed evaluation operation to the evaluation guide", () => {
     "node tools/evaluate.mjs grade javascript-collapse-whitespace run-01",
     "node tools/evaluate.mjs validate-record javascript-collapse-whitespace run-01",
     "The evaluator has no reset or delete command",
+    "snapshot path limits apply after the canonical task prefix is removed.",
     "Never reconstruct values from screenshots, transcripts, provider output, or tool activity.",
+    "Entries contain only closed task, classification, priority, positive occurrence count, grade-path, lifecycle, and resolution fields",
     "promote it to `actionable` only when frequency or impact justifies a correction.",
+    "The canonical verifier validates the registry against the current task catalog and tracked source inventory.",
+    "Evaluator commands reserve the registry directory, file, and complete byte allowance but do not parse it or inspect ignored runs.",
     "Remove evidence if a corpus correction proves its expected snapshot could not satisfy its own check",
+    "[decision 0047](../docs/decisions/0047-owned-reproducible-task-evaluation.md)",
   ]) {
     assert.equal(
       normalizedGuide.includes(marker),
@@ -486,6 +491,23 @@ test("routes completed evaluation operation to the evaluation guide", () => {
     true,
     "owned-evaluation-operation migration is not complete",
   );
+
+  const maintenance = context.files["docs/MAINTENANCE.md"];
+  const taskEvaluation = maintenance.slice(
+    maintenance.indexOf("### Task evaluation"),
+    maintenance.indexOf("### Documentation and publication"),
+  );
+  for (const owner of [
+    "`tools/evaluate.mjs`",
+    "`tools/lib/evaluation-suite.mjs`",
+    "`tools/lib/evaluation-failure-registry.mjs`",
+  ]) {
+    assert.equal(
+      taskEvaluation.includes(owner),
+      true,
+      "task-evaluation implementation owner is missing: " + owner,
+    );
+  }
 });
 
 test("keeps canonical maintenance repository references owned", () => {

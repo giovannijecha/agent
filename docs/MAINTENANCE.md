@@ -278,10 +278,11 @@ the same change.
 
 ### Task evaluation
 
-**Owner:** the [evaluation guide](../evaluations/README.md), with versioned tasks
-under `evaluations/tasks/`, machine registration in
-`tools/evaluation-policy.json`, and maintained negative evidence in
-`evaluations/failures/registry.json`.
+**Owners:** the [evaluation guide](../evaluations/README.md) for operation;
+`tools/evaluate.mjs`, `tools/lib/evaluation-suite.mjs`, and
+`tools/lib/evaluation-failure-registry.mjs` for implementation; and
+`evaluations/tasks/`, `tools/evaluation-policy.json`, and
+`evaluations/failures/registry.json` for canonical inputs.
 
 Follow the guide's atomic task-change, evidence-invalidation, rollback, and
 removal sequence. Run the focused corpus and failure-registry tests before the
