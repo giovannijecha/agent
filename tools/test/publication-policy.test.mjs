@@ -176,6 +176,18 @@ test("rejects contribution workflow drift", () => {
     () => validatePublicationPolicy(policy, manualRoute),
     PublicationPolicyError,
   );
+
+  const protectedBranch = currentContext();
+  protectedBranch.files["docs/ENGINEERING.md"] = protectedBranch.files[
+    "docs/ENGINEERING.md"
+  ].replaceAll(
+    "Maintainer changes use a protected branch.",
+    "Maintainer changes may use any branch.",
+  );
+  assert.throws(
+    () => validatePublicationPolicy(policy, protectedBranch),
+    PublicationPolicyError,
+  );
 });
 
 test("rejects modified license terms", () => {

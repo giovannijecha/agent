@@ -227,6 +227,14 @@ test("routes the completed contribution workflow to its canonical owner", () => 
     true,
     "contribution migration is not complete",
   );
+
+  assert.equal(
+    context.files["docs/ENGINEERING.md"].includes(
+      "Maintainer changes use a protected branch.",
+    ),
+    true,
+    "engineering workflow lost the protected-branch requirement",
+  );
 });
 
 test("rejects incomplete migration coverage", () => {

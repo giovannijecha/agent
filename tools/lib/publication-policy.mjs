@@ -181,6 +181,7 @@ function validatePublicDocuments(context) {
       "All integrations preserve the single-agent execution model",
       "Any mutation excludes",
       "Current runtime remains sequential",
+      "Maintainer changes use a protected branch.",
     ],
     "engineering policy",
   );

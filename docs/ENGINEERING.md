@@ -33,6 +33,8 @@ Passing compilation alone is not completion.
 
 ## Change workflow
 
+Maintainer changes use a protected branch.
+
 Follow this order:
 
 1. **Route the change.** Read the owning living document and accepted decision.
