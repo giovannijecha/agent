@@ -41,7 +41,7 @@ belong here.
 | Decision | Status | Domain | Relationship |
 | --- | --- | --- | --- |
 | [0001](0001-owned-zero-dependency-rust.md) | superseded | foundation | superseded by 0002 |
-| [0002](0002-owned-zero-dependency-typescript.md) | accepted | foundation | current |
+| [0002](0002-owned-zero-dependency-typescript.md) | accepted | foundation | supersedes 0001 |
 | [0003](0003-owned-provider-authentication.md) | accepted | providers | current |
 | [0004](0004-owned-interactive-terminal.md) | accepted | terminal | current |
 | [0005](0005-owned-streaming-runtime.md) | accepted | architecture | current |

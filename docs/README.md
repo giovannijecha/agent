@@ -48,9 +48,9 @@ the linked owner is where the complete contract lives.
 ## Authority rule
 
 Every maintained topic has one canonical owner. Other documents keep only the
-context their audience needs and link to that owner. During the current
-lossless reduction, [the migration ledger](DOCUMENTATION-MIGRATION.md) records
-each duplicated topic before any source is shortened.
+context their audience needs and link to that owner. The completed lossless
+reduction is preserved in [the migration ledger](DOCUMENTATION-MIGRATION.md),
+which records each migrated topic and its canonical destination.
 
 ## Decisions
 
