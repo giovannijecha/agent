@@ -342,6 +342,25 @@ function validateProspectiveMetadata(policy, context, rows) {
 
 function validateDecisionRecords(policy, context, rows) {
   const decisionIds = new Set(rows.map((row) => row.id));
+  const rowsById = new Map(rows.map((row) => [row.id, row]));
+  if (!isRecord(policy.historicalDecisionStatusExceptions)) {
+    fail("historical decision status exceptions must be an object");
+  }
+  for (const [id, status] of Object.entries(
+    policy.historicalDecisionStatusExceptions,
+  )) {
+    const row = rowsById.get(id);
+    if (
+      !/^[0-9]{4}$/u.test(id) ||
+      row === undefined ||
+      Number(id) >= policy.prospectiveDecisionMetadataFrom ||
+      status !== "accepted" ||
+      row.status !== "superseded" ||
+      !row.relationship.startsWith("superseded by ")
+    ) {
+      fail("historical decision status exception is invalid: " + id);
+    }
+  }
   for (const row of rows) {
     const file = resolveLocalLink(policy.decisionIndex, row.link);
     if (file === undefined) {
@@ -367,7 +386,9 @@ function validateDecisionRecords(policy, context, rows) {
       ?.toLowerCase()
       .split(" ", 1)
       .at(0);
-    if (recordStatuses.length !== 1 || recordStatus !== row.status) {
+    const expectedRecordStatus =
+      policy.historicalDecisionStatusExceptions[row.id] ?? row.status;
+    if (recordStatuses.length !== 1 || recordStatus !== expectedRecordStatus) {
       fail("decision status does not match its ledger: " + file);
     }
 
@@ -556,6 +577,7 @@ export function validateDocumentationPolicy(policy, context) {
       "migrationLedger",
       "repositoryInstructions",
       "prospectiveDecisionMetadataFrom",
+      "historicalDecisionStatusExceptions",
       "decisionStatuses",
       "decisionDomains",
       "documentStructures",

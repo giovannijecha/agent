@@ -186,11 +186,33 @@ test("rejects historical decision status and core-section drift", () => {
       "## Context",
       "## Background",
     ],
+    [
+      "docs/decisions/0009-owned-operator-manual.md",
+      "- Status: accepted",
+      "- Status: superseded by decision 0071",
+    ],
   ]) {
     const context = currentContext();
     context.files[file] = context.files[file].replace(before, after);
     assert.throws(
       () => validateDocumentationPolicy(policy, context),
+      DocumentationPolicyError,
+    );
+  }
+});
+
+test("rejects invalid historical decision status exceptions", () => {
+  for (const exceptions of [
+    { "0009": "superseded" },
+    { "0070": "accepted" },
+    { "9999": "accepted" },
+  ]) {
+    assert.throws(
+      () =>
+        validateDocumentationPolicy(
+          { ...policy, historicalDecisionStatusExceptions: exceptions },
+          currentContext(),
+        ),
       DocumentationPolicyError,
     );
   }
