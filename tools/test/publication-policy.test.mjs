@@ -190,6 +190,42 @@ test("rejects contribution workflow drift", () => {
   );
 });
 
+test("rejects vulnerability-reporting contract drift", () => {
+  for (const marker of [
+    "Only the latest published `0.x` release is\nsupported.",
+    "Do not open a public\nissue, discussion, or pull request",
+    "Private reporting must be enabled before the first public release.",
+    "Include the affected version, platform, reproducible boundary, impact",
+    "Keep a report private until a fix, regression test, affected-version statement,\nand release plan exist.",
+  ]) {
+    const context = currentContext();
+    context.files["SECURITY.md"] = context.files["SECURITY.md"].replaceAll(
+      marker,
+      "removed vulnerability-reporting contract",
+    );
+    assert.throws(
+      () => validatePublicationPolicy(policy, context),
+      PublicationPolicyError,
+      marker,
+    );
+  }
+
+  for (const marker of [
+    "(../../SECURITY.md)",
+    "Enable GitHub private vulnerability reporting before the first release.",
+  ]) {
+    const context = currentContext();
+    context.files["docs/manual/07-publishing-and-governance.md"] = context.files[
+      "docs/manual/07-publishing-and-governance.md"
+    ].replaceAll(marker, "removed security publication route");
+    assert.throws(
+      () => validatePublicationPolicy(policy, context),
+      PublicationPolicyError,
+      marker,
+    );
+  }
+});
+
 test("rejects modified license terms", () => {
   const context = currentContext();
   context.files.LICENSE = context.files.LICENSE.replace(

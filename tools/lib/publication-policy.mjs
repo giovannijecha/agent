@@ -200,6 +200,8 @@ function validatePublicDocuments(context) {
     [
       "# 07 - Publishing and governance",
       "(../../CONTRIBUTING.md)",
+      "(../../SECURITY.md)",
+      "Enable GitHub private vulnerability reporting before the first release.",
       "The product is single-agent",
       "Current runtime remains sequential",
     ],
@@ -251,7 +253,16 @@ function validatePublicDocuments(context) {
 
   requireMarkers(
     textFor(context, "SECURITY.md"),
-    ["# Security policy", "private vulnerability reporting", "credentials"],
+    [
+      "# Security policy",
+      "Only the latest published `0.x` release is\nsupported.",
+      "private vulnerability reporting",
+      "Do not open a public\nissue, discussion, or pull request",
+      "Private reporting must be enabled before the first public release.",
+      "Include the affected version, platform, reproducible boundary, impact",
+      "credentials",
+      "Keep a report private until a fix, regression test, affected-version statement,\nand release plan exist.",
+    ],
     "security policy",
   );
   requireMarkers(
