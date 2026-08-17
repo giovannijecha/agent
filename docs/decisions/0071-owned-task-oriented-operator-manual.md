@@ -45,11 +45,16 @@ The offline manual policy continues to validate:
 - the existence of registered repository reference paths; and
 - the maintained removal guidance for the current policy schema.
 
-The first migrated task is `01-running-agent.md`. Installation, workspace
-selection, process-local provider and model setup, exit, evaluation mode, and
+Migration began with `01-running-agent.md`. Installation, workspace selection,
+process-local provider and model setup, exit, evaluation mode, and
 operator-visible failures remain there. Native resolver mechanics, exact
 deadlines, source inventories, and replacement procedure remain authoritative in
 architecture, maintenance, decisions, and evaluation documentation.
+
+All registered chapters now use task-specific section contracts. The reading
+chapter routes operators through the authority chain without reproducing the
+repository registry, and the publishing chapter retains publication actions and
+boundaries while routing policy details to their canonical owners.
 
 ## Consequences
 
@@ -58,9 +63,10 @@ governance template. Maintainers still have an offline contract for structure,
 capability drift, links, and owned reference existence. Historical evidence and
 deep technical guarantees remain available at stable canonical paths.
 
-The manual may temporarily contain both migrated task-specific chapters and
-legacy six-section chapters. That is deliberate: each later reduction is one
-reviewable authority-domain migration rather than a repository-wide rewrite.
+During migration, the manual temporarily contained both task-specific chapters
+and legacy six-section chapters. That preserved one reviewable authority domain
+per change. The registered manual now contains only task-specific contracts;
+future chapters must declare the sections required by their operator task.
 
 ## Verification
 
@@ -71,7 +77,7 @@ reviewable authority-domain migration rather than a repository-wide rewrite.
 - Existing command, tool, link, index, convergence, and removal tests remain
   authoritative.
 - The documentation policy verifies this decision, its index relationship, and
-  the active migration ledger.
+  the completed migration-ledger row.
 - The canonical verifier runs the complete document, policy, build, test, native,
   and CLI gates.
 

@@ -1,13 +1,11 @@
 # 00 - Reading this manual
 
-## Purpose
+## Choose a task
 
 Use this chapter to distinguish operator guidance from engineering contracts.
 The manual answers how to run and interpret the current product. It does not
 replace the project rules, architecture, accepted decisions, or maintenance
 runbook.
-
-## Operator workflow
 
 1. Read [Running agent](01-running-agent.md) before starting the executable.
 2. Read the chapter matching the task you are performing.
@@ -17,15 +15,20 @@ runbook.
    [Verification and diagnostics](06-verification-and-diagnostics.md) after a
    documentation or product change.
 
-## Guarantees and limits
+## Follow the authority chain
 
 The manual is English-only and repository-local. Numbered chapters are ordered,
 follow their registered task-specific section contracts, and describe
-implemented behavior only. The manual policy verifies all current slash
-commands and built-in tools are named. It does not prove prose completeness or
-replace focused behavioral tests.
+implemented behavior only. When behavior and documentation differ, follow the
+linked canonical owner and update the affected behavior, tests, and operator
+guidance together.
 
-## Failure behavior
+## Verify the manual
+
+The manual policy verifies the exact chapter set and section order, all current
+slash commands and built-in tools, local links, and registered repository
+references. It does not prove prose completeness or replace focused behavioral
+tests.
 
 A missing chapter, reordered registered section, stale capability inventory,
 broken local link, missing registered reference path, or absent README entry
@@ -33,7 +36,7 @@ makes canonical verification fail. An external web link can later become
 unavailable without breaking the offline gate; dated provider conclusions
 therefore live in the local eligibility reference.
 
-## Maintenance and removal
+## Maintain or remove the manual
 
 Update the relevant chapter in the same change as behavior. Add a chapter only
 for a distinct operator task and register it in `tools/manual-policy.json`.
@@ -42,12 +45,12 @@ Removal follows
 remove the documentation entry point and verification contract without
 touching runtime packages.
 
-## Evidence
+## References
 
-- Project rules: `AGENTS.md`
-- Product entry point: `README.md`
-- Dependency and ownership boundaries: `docs/ARCHITECTURE.md`
-- Implementation standard: `docs/ENGINEERING.md`
-- Update and rollback procedures: `docs/MAINTENANCE.md`
-- Provenance record: [docs/OWNERSHIP.md](../OWNERSHIP.md)
-- Subscription eligibility: `docs/PROVIDERS.md`
+For repository-wide rules and product orientation, start with the
+[repository instructions](../../AGENTS.md), [public entry point](../../README.md),
+and [documentation map](../README.md). Use the [architecture](../ARCHITECTURE.md),
+[engineering guide](../ENGINEERING.md), and [maintenance guide](../MAINTENANCE.md)
+for implementation and lifecycle contracts. Provenance remains in the
+[ownership record](../OWNERSHIP.md), and provider eligibility remains in the
+[provider policy](../PROVIDERS.md).
