@@ -14,8 +14,9 @@ but it links them rather than rewriting their history.
 The ledger records incoming and outgoing replacement edges independently. A
 record with both uses `supersedes ...; superseded by ...` so later replacement
 does not erase the history it had already consolidated. The offline verifier
-also binds the complete canonical edge inventory; changing that graph requires
-updating the policy in the same decision change.
+also binds the complete canonical edge inventory and rejects replacement cycles;
+changing that acyclic graph requires updating the policy in the same decision
+change.
 
 The complete ledger classifies every stable record. The current-authority view
 routes each closed domain only to accepted entry points. Every record retains
