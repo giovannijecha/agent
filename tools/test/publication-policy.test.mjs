@@ -153,12 +153,27 @@ test("rejects public README entry-point drift", () => {
 
 test("rejects brand documentation contract drift", () => {
   const cases = [
-    ["docs/BRAND.md", "The canonical palette is black, white, and `#0B0D10`."],
+    [
+      "docs/BRAND.md",
+      "The canonical palette is `#FFFFFF` and `#0B0D10`.",
+    ],
     [
       "docs/BRAND.md",
       "`assets/brand/manifest.json` is the machine-verified source of truth",
     ],
-    ["docs/BRAND.md", "Never regenerate one format\nfrom another during a build."],
+    [
+      "docs/BRAND.md",
+      "| Role | Controlled-scaling asset | Stable published asset |",
+    ],
+    [
+      "docs/BRAND.md",
+      "Use the registered PNG files for stable published rendering.",
+    ],
+    [
+      "docs/BRAND.md",
+      "Use SVG only for\ncontrolled scaling where the host supports safe vector assets; SVG text uses a\nsystem font and can render differently across environments.",
+    ],
+    ["docs/BRAND.md", "Never regenerate\none format from another during a build."],
     [
       "docs/BRAND.md",
       "Do not add a persistent brand banner, welcome screen, dashboard, or decorative\n  header to the terminal interface.",
