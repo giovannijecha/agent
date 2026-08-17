@@ -124,8 +124,15 @@ test("rejects canonical terminal presentation contract drift", () => {
 test("rejects public README entry-point drift", () => {
   const cases = [
     "An owned, zero-dependency personal coding agent.",
+    "original CLI and terminal UI authored in this repository",
+    "Requirements: Node.js `>=22.19.0`, npm `11.16.0`, external TypeScript `5.9.3`,\nand Clang `>=18`. TypeScript and Clang stay outside the workspace.",
+    "npm ci --offline --ignore-scripts --no-audit --no-fund\nnpm run build\nnpm run dev",
+    "npm run install:command\nagent",
+    "The directory in which `agent` starts becomes its immutable workspace boundary.",
+    "The project remains on the `0.x` release line.",
     "(docs/README.md)",
     "(docs/manual/README.md)",
+    "(docs/BRAND.md)",
     "`/providers`",
     "`/models`",
   ];
@@ -490,6 +497,17 @@ test("rejects a Git checkout policy that can alter verified text", () => {
 });
 
 test("rejects missing public links and automated attribution", () => {
+  const missingPublicReadmeRoute = currentContext();
+  missingPublicReadmeRoute.files["docs/BRAND.md"] =
+    missingPublicReadmeRoute.files["docs/BRAND.md"].replace(
+      "(../README.md)",
+      "(missing-public-readme.md)",
+    );
+  assert.throws(
+    () => validatePublicationPolicy(policy, missingPublicReadmeRoute),
+    PublicationPolicyError,
+  );
+
   const missingLink = currentContext();
   missingLink.files["README.md"] = missingLink.files["README.md"].replaceAll(
     "(PRIVACY.md)",

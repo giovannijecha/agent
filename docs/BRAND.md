@@ -6,6 +6,10 @@ The canonical product identity is `agent`.
 
 The exact lowercase `.agent` wordmark is a visual signature, not an alternate product, repository, package, or command name.
 
+The [public README](../README.md) owns the public purpose, repository identity,
+installation, and first-run path. This guide owns the visual identity,
+registered assets, and presentation constraints.
+
 The canonical palette is black, white, and `#0B0D10`. Brand assets are
 maintainer-provided original work and remain independent from provider,
 terminal, and model identities.
