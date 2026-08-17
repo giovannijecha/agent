@@ -86,6 +86,20 @@
       ]
     },
     {
+      "path": "evaluations/README.md",
+      "headings": [
+        "# Owned task evaluations",
+        "## Scope",
+        "## List and prepare a run",
+        "## Run agent and capture the receipt",
+        "## Grade and validate the record",
+        "## Protect local state and content",
+        "## Maintain failure evidence",
+        "## Update or remove the corpus",
+        "## References"
+      ]
+    },
+    {
       "path": "CONTRIBUTING.md",
       "headings": [
         "# Contributing to agent",

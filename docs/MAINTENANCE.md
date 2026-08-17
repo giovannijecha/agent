@@ -278,22 +278,16 @@ the same change.
 
 ### Task evaluation
 
-**Owners:** `evaluations/tasks/`, `tools/evaluation-policy.json`,
-evaluation preparation/grading tools, the failure registry, and decisions 0047
-through 0049.
+**Owner:** the [evaluation guide](../evaluations/README.md), with versioned tasks
+under `evaluations/tasks/`, machine registration in
+`tools/evaluation-policy.json`, and maintained negative evidence in
+`evaluations/failures/registry.json`.
 
-To change a task:
-
-1. update immutable versioned input, expected tree, manifest, and completion
-   contract;
-2. validate paths, regular-file trees, bounds, and canonical reconstruction;
-3. keep grading offline and never execute a candidate workspace;
-4. run focused corpus and failure-registry tests;
-5. invalidate evidence if the expected fixture cannot satisfy its own command.
-
-Ignored run state and manual receipts are not canonical repository evidence.
-Never recreate a lost receipt. Remove a task by deleting its corpus version,
-manifest entry, maintained failure evidence, documentation, and tests.
+Follow the guide's atomic task-change, evidence-invalidation, rollback, and
+removal sequence. Run the focused corpus and failure-registry tests before the
+canonical verifier. Ignored run state and manual receipts are not canonical
+repository evidence; never recreate a lost receipt or carry one across a task
+revision.
 
 ### Documentation and publication
 

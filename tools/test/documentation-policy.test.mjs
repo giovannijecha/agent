@@ -114,6 +114,11 @@ test("rejects canonical document structure drift", () => {
       "## Provider registration status",
     ],
     [
+      "evaluations/README.md",
+      "## List and prepare a run",
+      "## Prepare a run",
+    ],
+    [
       "docs/ARCHITECTURE.md",
       "## Single-agent execution model",
       "## Product execution model",
@@ -419,6 +424,67 @@ test("completes the task-oriented operator-manual migration without rewriting ac
     row?.endsWith("| complete |"),
     true,
     "operator-manual structure migration is not complete",
+  );
+});
+
+test("routes completed evaluation operation to the evaluation guide", () => {
+  const context = currentContext();
+  for (const [file, route] of [
+    ["AGENTS.md", "(evaluations/README.md)"],
+    ["README.md", "(evaluations/README.md)"],
+    ["docs/README.md", "(../evaluations/README.md)"],
+    ["docs/ENGINEERING.md", "(../evaluations/README.md)"],
+    ["docs/MAINTENANCE.md", "(../evaluations/README.md)"],
+  ]) {
+    assert.equal(
+      context.files[file].includes(route),
+      true,
+      file + " does not route evaluation operation to the evaluation guide",
+    );
+  }
+
+  const structure = policy.documentStructures.find(
+    (entry) => entry.path === "evaluations/README.md",
+  );
+  assert.deepEqual(structure?.headings, [
+    "# Owned task evaluations",
+    "## Scope",
+    "## List and prepare a run",
+    "## Run agent and capture the receipt",
+    "## Grade and validate the record",
+    "## Protect local state and content",
+    "## Maintain failure evidence",
+    "## Update or remove the corpus",
+    "## References",
+  ]);
+
+  const guide = context.files["evaluations/README.md"];
+  const normalizedGuide = guide.replace(/\s+/gu, " ");
+  for (const marker of [
+    "It is an evaluation corpus, not product runtime, training data, or a claim of model quality.",
+    "node tools/evaluate.mjs prepare javascript-collapse-whitespace run-01",
+    "Start `agent --evaluation-receipt` from the emitted `workspace` directory",
+    "node tools/evaluate.mjs grade javascript-collapse-whitespace run-01",
+    "node tools/evaluate.mjs validate-record javascript-collapse-whitespace run-01",
+    "The evaluator has no reset or delete command",
+    "Never reconstruct values from screenshots, transcripts, provider output, or tool activity.",
+    "promote it to `actionable` only when frequency or impact justifies a correction.",
+    "Remove evidence if a corpus correction proves its expected snapshot could not satisfy its own check",
+  ]) {
+    assert.equal(
+      normalizedGuide.includes(marker),
+      true,
+      "evaluation operation contract is missing: " + marker,
+    );
+  }
+
+  const row = context.files[policy.migrationLedger]
+    .split("\n")
+    .find((line) => line.startsWith("| Owned evaluation operation |"));
+  assert.equal(
+    row?.endsWith("| complete |"),
+    true,
+    "owned-evaluation-operation migration is not complete",
   );
 });
 
