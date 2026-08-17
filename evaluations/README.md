@@ -54,11 +54,12 @@ operator may accept alternatives.
 
 ## Protect local state and content
 
-Runs stay in ignored `state/evaluations/`. The evaluator has no reset or delete
-command, executes no candidate code, contacts no provider, and retains no
-prompts, transcripts, content, credentials, notes, or personal identifiers.
-Offline verification checks owned inputs only;
-snapshot path limits apply after the canonical task prefix is removed.
+Input and created/edited `workspace/` files persist in ignored
+`state/evaluations/` until removed. The evaluator cannot delete them, run
+candidate code, or contact a provider; it captures no prompt, transcript,
+provider output, or receipt line. Records retain admitted fields only. Keep
+sensitive content out. Offline verification uses owned inputs; snapshot path
+limits apply after the canonical task prefix is removed.
 
 ## Maintain failure evidence
 
