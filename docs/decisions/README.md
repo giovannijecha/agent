@@ -11,6 +11,10 @@ Beginning with decision 0070, every new record declares `Status`, `Date`,
 when superseded. A consolidation record may replace several older contracts,
 but it links them rather than rewriting their history.
 
+The ledger records incoming and outgoing replacement edges independently. A
+record with both uses `supersedes ...; superseded by ...` so later replacement
+does not erase the history it had already consolidated.
+
 The complete ledger classifies every stable record. The current-authority view
 routes each closed domain only to accepted entry points. Every record retains
 its numeric heading plus its `Context` and `Decision`; the verifier preserves
