@@ -187,6 +187,30 @@ test("rejects historical decision identity drift", () => {
   );
 });
 
+test("rejects empty or truncated decision section bodies", () => {
+  for (const mutate of [
+    (text) =>
+      text
+        .replace(
+          /(## Context\r?\n)[\s\S]*?(?=\r?\n## Decision)/u,
+          "$1",
+        )
+        .replace(
+          /(## Decision\r?\n)[\s\S]*?(?=\r?\n## Consequences)/u,
+          "$1",
+        ),
+    (text) => text.replace("The user wants", "The operator wants"),
+  ]) {
+    const context = currentContext();
+    const file = "docs/decisions/0003-owned-provider-authentication.md";
+    context.files[file] = mutate(context.files[file]);
+    assert.throws(
+      () => validateDocumentationPolicy(policy, context),
+      DocumentationPolicyError,
+    );
+  }
+});
+
 test("rejects historical decision status and core-section drift", () => {
   for (const [file, before, after] of [
     [
@@ -284,6 +308,20 @@ test("rejects invalid current decision authority routes", () => {
       DocumentationPolicyError,
     );
   }
+});
+
+test("rejects malformed current decision authority table structure", () => {
+  const context = currentContext();
+  context.files[policy.decisionIndex] = context.files[
+    policy.decisionIndex
+  ].replace(
+    "| Domain | Entry points |\n| --- | --- |",
+    "Current authority routes",
+  );
+  assert.throws(
+    () => validateDocumentationPolicy(policy, context),
+    DocumentationPolicyError,
+  );
 });
 
 test("scopes current decision authority parsing to its section", () => {

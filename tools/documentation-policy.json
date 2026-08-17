@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 8,
+  "schemaVersion": 9,
   "index": "docs/README.md",
   "decisionIndex": "docs/decisions/README.md",
   "migrationLedger": "docs/DOCUMENTATION-MIGRATION.md",
@@ -81,6 +81,10 @@
       "superseded": "0068"
     }
   ],
+  "decisionSectionDigest": {
+    "algorithm": "sha256",
+    "value": "b14686de09ad8c8d7a70cb8fca85bf6d54013fad60cbbc8ae55238a7f2a12b1e"
+  },
   "decisionDomainMembers": {
     "architecture": [
       "0005",

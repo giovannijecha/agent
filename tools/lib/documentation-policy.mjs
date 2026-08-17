@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import path from "node:path";
 
 const EXPECTED_STATUSES = Object.freeze(["accepted", "superseded"]);
@@ -454,10 +455,33 @@ function historicalReplacementReferences(value, decisionIds, decisionId, file) {
   );
 }
 
+function decisionSectionBody(text, heading, file) {
+  const normalized = text.replaceAll("\r\n", "\n");
+  const marker = "\n## " + heading + "\n";
+  const start = normalized.indexOf(marker);
+  const bodyStart = start + marker.length;
+  const end = normalized.indexOf("\n## ", bodyStart);
+  if (
+    start < 0 ||
+    normalized.indexOf(marker, bodyStart) >= 0
+  ) {
+    fail("decision section is missing or duplicated: " + file);
+  }
+  const body = normalized.slice(
+    bodyStart,
+    end < 0 ? normalized.length : end,
+  );
+  if (body.trim().length === 0) {
+    fail("decision section body is empty: " + file);
+  }
+  return body;
+}
+
 function validateDecisionRecords(policy, context, rows) {
   const decisionIds = new Set(rows.map((row) => row.id));
   const rowsById = new Map(rows.map((row) => [row.id, row]));
   const relationships = new Map();
+  const decisionSections = [];
   const historicalSupersedesFields = new Set(
     policy.historicalDecisionRelationshipFields.supersedes,
   );
@@ -501,11 +525,11 @@ function validateDecisionRecords(policy, context, rows) {
     ) {
       fail("decision heading mismatch: " + file);
     }
-    for (const heading of ["## Context", "## Decision"]) {
-      if (!text.includes("\n" + heading + "\n")) {
-        fail("decision section is missing: " + file);
-      }
-    }
+    decisionSections.push({
+      id: row.id,
+      context: decisionSectionBody(text, "Context", file),
+      decision: decisionSectionBody(text, "Decision", file),
+    });
     const recordStatuses = [
       ...text.matchAll(/^- Status: ([^\r\n]+)$/gmu),
     ].map((match) => match.at(1));
@@ -604,6 +628,12 @@ function validateDecisionRecords(policy, context, rows) {
     }
     relationships.set(row.id, relationship);
   }
+  const sectionDigest = createHash("sha256")
+    .update(JSON.stringify(decisionSections), "utf8")
+    .digest("hex");
+  if (sectionDigest !== policy.decisionSectionDigest.value) {
+    fail("decision section digest mismatch");
+  }
   for (const [id, relationship] of relationships) {
     for (const reference of relationship.supersedes) {
       const reciprocal = relationships.get(reference);
@@ -643,16 +673,33 @@ function validateCurrentAuthorities(policy, text, rows) {
     Object.entries(policy.currentDecisionAuthorities),
   );
   const authorityRows = [];
+  const normalized = text.replaceAll("\r\n", "\n");
   const marker = "\n## Current authority by domain\n";
-  const start = text.indexOf(marker);
+  const start = normalized.indexOf(marker);
   const bodyStart = start + marker.length;
-  const end = text.indexOf("\n## ", bodyStart);
-  if (start < 0 || end < 0) {
+  const end = normalized.indexOf("\n## ", bodyStart);
+  if (
+    start < 0 ||
+    end < 0 ||
+    normalized.indexOf(marker, bodyStart) >= 0
+  ) {
     fail("current decision authority section is missing");
   }
-  const authorityText = text.slice(bodyStart, end);
-  const expression = /^\| ([a-z]+) \| ([^|\r\n]+) \|$/gmu;
-  for (const match of authorityText.matchAll(expression)) {
+  const lines = normalized.slice(bodyStart, end).split("\n");
+  same(
+    lines.slice(0, 3),
+    ["", "| Domain | Entry points |", "| --- | --- |"],
+    "current decision authority header",
+  );
+  if (lines.at(-1) !== "") {
+    fail("current decision authority table is malformed");
+  }
+  const expression = /^\| ([a-z]+) \| ([^|\r\n]+) \|$/u;
+  for (const line of lines.slice(3, -1)) {
+    const match = expression.exec(line);
+    if (match === null) {
+      fail("current decision authority row is malformed");
+    }
     const domain = match.at(1);
     const entryPoints = match.at(2);
     if (domain === undefined || entryPoints === undefined) {
@@ -840,6 +887,7 @@ export function validateDocumentationPolicy(policy, context) {
       "historicalDecisionStatusExceptions",
       "historicalDecisionRelationshipFields",
       "decisionRelationshipEdges",
+      "decisionSectionDigest",
       "decisionDomainMembers",
       "currentDecisionAuthorities",
       "migrationRows",
@@ -850,7 +898,7 @@ export function validateDocumentationPolicy(policy, context) {
     ],
     "documentation policy",
   );
-  if (policy.schemaVersion !== 8 || !isRecord(context)) {
+  if (policy.schemaVersion !== 9 || !isRecord(context)) {
     fail("unsupported documentation policy schema or context");
   }
   for (const [label, file] of [
@@ -888,6 +936,17 @@ export function validateDocumentationPolicy(policy, context) {
     ) {
       fail("historical decision relationship field identifier is invalid");
     }
+  }
+  exactKeys(
+    policy.decisionSectionDigest,
+    ["algorithm", "value"],
+    "decision section digest",
+  );
+  if (
+    policy.decisionSectionDigest.algorithm !== "sha256" ||
+    !/^[a-f0-9]{64}$/u.test(policy.decisionSectionDigest.value)
+  ) {
+    fail("decision section digest is invalid");
   }
   if (
     !Array.isArray(policy.decisionRelationshipEdges) ||
