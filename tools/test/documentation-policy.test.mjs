@@ -16,6 +16,9 @@ const policy = JSON.parse(
 const providerPolicy = JSON.parse(
   readFileSync(path.join(projectRoot, "tools/provider-policy.json"), "utf8"),
 );
+const evaluationPolicy = JSON.parse(
+  readFileSync(path.join(projectRoot, "tools/evaluation-policy.json"), "utf8"),
+);
 
 function collectFiles(directory = projectRoot) {
   const files = [];
@@ -461,24 +464,38 @@ test("routes completed evaluation operation to the evaluation guide", () => {
 
   const guide = context.files["evaluations/README.md"];
   const normalizedGuide = guide.replace(/\s+/gu, " ");
+  assert.equal(
+    normalizedGuide.includes(
+      "`list` prints all " + evaluationPolicy.tasks.length +
+        " registered task identifiers.",
+    ),
+    true,
+    "evaluation guide task count does not match the manifest",
+  );
   for (const marker of [
     "It is an evaluation corpus, not product runtime, training data, or a claim of model quality.",
-    "`list` prints the eight registered task identifiers. The corpus spans C, documentation, JavaScript, TypeScript, and web work.",
+    "The corpus spans C, documentation, JavaScript, TypeScript, and web work.",
     "node tools/evaluate.mjs prepare javascript-collapse-whitespace run-01",
     "Start `agent --evaluation-receipt` from the emitted `workspace` directory",
+    "The TTY-only option cannot be combined.",
+    "On failure or loss, preserve the result and pending record.",
     "node tools/evaluate.mjs grade javascript-collapse-whitespace run-01",
     "Copy the receipt's five metric values into adjacent `record.json`; its schema version is present.",
     "set the closed outcome, artifact, and primary constraint",
     "`manualCorrections` and `riskyActions` as bounded counts. Add no fields beyond the template:",
     "node tools/evaluate.mjs validate-record javascript-collapse-whitespace run-01",
     "The evaluator has no reset or delete command",
+    "Runs stay in ignored `state/evaluations/`.",
+    "retains no prompts, transcripts, content, credentials, notes, or personal identifiers.",
     "snapshot path limits apply after the canonical task prefix is removed.",
     "Never reconstruct values from screenshots, transcripts, provider output, or tool activity.",
-    "Entries contain only closed task, classification, priority, positive occurrence count, grade-path, lifecycle, and resolution fields",
+    "Entries contain only bounded entry and registered-task IDs; closed category, priority, lifecycle, and record classifications; positive occurrence count; content-free grade-path sets; and resolution fields.",
     "promote it to `actionable` only when frequency or impact justifies a correction.",
     "The canonical verifier validates the registry against the current task catalog and tracked source inventory.",
     "Evaluator commands reserve the registry directory, file, and complete byte allowance but do not parse it or inspect ignored runs.",
     "Remove evidence if a corpus correction proves its expected snapshot could not satisfy its own check",
+    "Change a task atomically: brief, snapshots, manifest, completion contract, evidence, docs, and tests.",
+    "Task removal deletes its manifest entry, directory, evidence, docs, and tests; never move or reconstruct ignored runs or receipts.",
     "[decision 0047](../docs/decisions/0047-owned-reproducible-task-evaluation.md)",
   ]) {
     assert.equal(
@@ -506,14 +523,21 @@ test("routes completed evaluation operation to the evaluation guide", () => {
   );
 
   const maintenance = context.files["docs/MAINTENANCE.md"];
-  const taskEvaluation = maintenance.slice(
-    maintenance.indexOf("### Task evaluation"),
-    maintenance.indexOf("### Documentation and publication"),
-  );
+  const taskEvaluation = maintenance
+    .slice(
+      maintenance.indexOf("### Task evaluation"),
+      maintenance.indexOf("### Documentation and publication"),
+    )
+    .replace(/\s+/gu, " ");
   for (const owner of [
     "`tools/evaluate.mjs`",
     "`tools/lib/evaluation-suite.mjs`",
     "`tools/lib/evaluation-failure-registry.mjs`",
+    "[Decision 0047](decisions/0047-owned-reproducible-task-evaluation.md)",
+    "[0048](decisions/0048-owned-content-free-evaluation-receipt.md)",
+    "[0049](decisions/0049-owned-evaluation-failure-registry.md)",
+    "at most 4,096 bytes (`EVALUATION_LIMITS.taskBytes`)",
+    "Roll back a task by restoring its manifest entry, brief, input and expected snapshots, affected evidence, documentation, and tests together.",
   ]) {
     assert.equal(
       taskEvaluation.includes(owner),
