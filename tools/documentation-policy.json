@@ -77,6 +77,15 @@
       ]
     },
     {
+      "path": "docs/manual/README.md",
+      "headings": [
+        "# Agent operator manual",
+        "## Chapters",
+        "## Current product boundary",
+        "## Documentation contract"
+      ]
+    },
+    {
       "path": "CONTRIBUTING.md",
       "headings": [
         "# Contributing to agent",
