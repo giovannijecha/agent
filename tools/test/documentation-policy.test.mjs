@@ -295,6 +295,28 @@ test("rejects decision relationship drift", () => {
   }
 });
 
+test("rejects historical supersession metadata drift", () => {
+  for (const [file, before, after] of [
+    [
+      "docs/decisions/0017-owned-opencode-go-provider.md",
+      "- Superseded: 2026-08-16 by decision 0072",
+      "- Superseded: 2026-08-16 by decision 0071",
+    ],
+    [
+      "docs/decisions/0067-owned-opencode-provider-selection.md",
+      "- Superseded by: decision 0072",
+      "- Superseded by: decision 0071",
+    ],
+  ]) {
+    const context = currentContext();
+    context.files[file] = context.files[file].replace(before, after);
+    assert.throws(
+      () => validateDocumentationPolicy(policy, context),
+      DocumentationPolicyError,
+    );
+  }
+});
+
 test("rejects prospective decision metadata drift", () => {
   for (const [file, before, after] of [
     [
