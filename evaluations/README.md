@@ -22,8 +22,8 @@ input to ignored `workspace/` and writes a content-free record.
 ## Run agent and capture the receipt
 
 Start `agent --evaluation-receipt` from the emitted `workspace` directory and
-submit `TASK.md`; honor its `Completion` acceptance and denial conditions.
-Cleanup emits:
+submit the `task` brief emitted by `prepare`; honor its `Completion` acceptance
+and denial conditions. Cleanup emits:
 
 ```json
 {"approvals":2,"elapsedMilliseconds":79869,"repeatedReads":1,"schemaVersion":1,"toolCalls":4,"turns":1}
