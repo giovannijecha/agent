@@ -94,6 +94,11 @@ test("rejects canonical document structure drift", () => {
       "## Enabled provider",
     ],
     [
+      "docs/PROVIDER-APPLICATIONS.md",
+      "## Submission rules",
+      "## Request rules",
+    ],
+    [
       "docs/ARCHITECTURE.md",
       "## Single-agent execution model",
       "## Product execution model",
@@ -418,6 +423,53 @@ test("routes completed direct provider admission to the provider policy", () => 
     row?.endsWith("| complete |"),
     true,
     "direct-provider migration is not complete",
+  );
+});
+
+test("routes completed provider registration requests to the request ledger", () => {
+  const context = currentContext();
+  for (const [source, route] of [
+    ["README.md", "(docs/PROVIDER-APPLICATIONS.md)"],
+    ["docs/README.md", "(PROVIDER-APPLICATIONS.md)"],
+    ["docs/PROVIDERS.md", "(PROVIDER-APPLICATIONS.md)"],
+    ["docs/PROVIDER-APPLICATIONS.md", "(OAUTH-REGISTRATION.md)"],
+    ["docs/PROVIDER-APPLICATIONS.md", "(PROVIDERS.md)"],
+  ]) {
+    assert.equal(
+      context.files[source].includes(route),
+      true,
+      "provider-request route is missing: " + source,
+    );
+  }
+
+  const structure = policy.documentStructures.find(
+    (entry) => entry.path === "docs/PROVIDER-APPLICATIONS.md",
+  );
+  assert.deepEqual(structure?.headings, [
+    "# Provider registration requests",
+    "## Submission rules",
+    "## ChatGPT Plus/Pro",
+    "## Claude Pro/Max",
+    "## Kimi Code",
+    "## Grok subscription",
+    "## Maintenance and removal",
+  ]);
+
+  assert.equal(
+    context.files["docs/PROVIDERS.md"].includes(
+      "All four independent-client inquiries are submitted.",
+    ),
+    false,
+    "provider policy retains duplicated request state",
+  );
+
+  const row = context.files[policy.migrationLedger]
+    .split("\n")
+    .find((line) => line.startsWith("| Provider registration requests |"));
+  assert.equal(
+    row?.endsWith("| complete |"),
+    true,
+    "provider-request migration is not complete",
   );
 });
 

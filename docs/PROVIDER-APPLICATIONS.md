@@ -12,6 +12,13 @@ confirmed that it does not currently offer public OAuth for third-party
 clients. All four integrations remain blocked until the relevant provider gives
 a complete written authorization.
 
+This document owns the provider-specific request text, submission route,
+lifecycle, and recorded response metadata. The
+[OAuth registration dossier](OAUTH-REGISTRATION.md) owns provider-neutral
+registration requirements, while the [provider policy](PROVIDERS.md) owns
+eligibility and runtime admission. A request recorded here cannot change either
+authority by itself.
+
 ## Submission rules
 
 1. Recheck the linked official sources on the day of submission.
@@ -255,8 +262,8 @@ independent-client contract before this status can change.
 
 ### Official route
 
-The request was submitted to [Kimi Code support](mailto:code@moonshot.ai),
-which Kimi publishes as an official feedback channel. Kimi also lists its
+The request was submitted to Kimi Code support at `code@moonshot.ai`, which
+Kimi publishes as an official feedback channel. Kimi also lists its
 [GitHub issue tracker](https://github.com/MoonshotAI/kimi-code/issues), but the
 repository currently restricts new issue creation. The CLI `/feedback` route is
 not used because this independent project does not bundle or invoke Kimi Code.
@@ -352,10 +359,10 @@ only as ordinary private email metadata.
 
 ### Official route
 
-The request was submitted to [xAI Product Support](mailto:support@x.ai). xAI
-publishes that address in its developer documentation and also links product
-support from its official contact page. No public independent-client
-registration form was found.
+The request was submitted to xAI Product Support at `support@x.ai`. xAI publishes
+that address in its developer documentation and also links product support from
+its official contact page. No public independent-client registration form was
+found.
 
 ### Subject
 

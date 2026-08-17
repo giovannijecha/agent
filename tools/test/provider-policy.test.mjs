@@ -138,8 +138,8 @@ test("rejects incomplete or stale provider registration requests", () => {
   );
 
   const untrustedRoute = currentApplications.replace(
-    "mailto:code@moonshot.ai",
-    "mailto:unverified@example.com",
+    "code@moonshot.ai",
+    "unverified@example.com",
   );
   assert.throws(
     () =>
