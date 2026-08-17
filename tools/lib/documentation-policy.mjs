@@ -352,10 +352,15 @@ function validateDecisionReferences(value, decisionIds, decisionId, label) {
 
 function validateProspectiveMetadata(policy, context, rows, relationships) {
   const decisionIds = new Set(rows.map((row) => row.id));
-  for (const row of rows) {
-    if (Number(row.id) < policy.prospectiveDecisionMetadataFrom) {
-      continue;
-    }
+  const prospectiveRows = rows.filter(
+    (row) => Number(row.id) >= policy.prospectiveDecisionMetadataFrom,
+  );
+  same(
+    Object.keys(policy.prospectiveDecisionDates),
+    prospectiveRows.map((row) => row.id),
+    "prospective decision date inventory",
+  );
+  for (const row of prospectiveRows) {
     const file = resolveLocalLink(policy.decisionIndex, row.link);
     if (file === undefined) {
       fail("prospective decision path is not local");
@@ -372,7 +377,7 @@ function validateProspectiveMetadata(policy, context, rows, relationships) {
     if (
       status !== row.status ||
       domain !== row.domain ||
-      !/^\d{4}-\d{2}-\d{2}$/u.test(date)
+      date !== policy.prospectiveDecisionDates[row.id]
     ) {
       fail("prospective decision metadata does not match its ledger: " + file);
     }
@@ -481,7 +486,7 @@ function validateDecisionRecords(policy, context, rows) {
   const decisionIds = new Set(rows.map((row) => row.id));
   const rowsById = new Map(rows.map((row) => [row.id, row]));
   const relationships = new Map();
-  const decisionSections = [];
+  const decisionRecords = [];
   const historicalSupersedesFields = new Map(
     Object.entries(policy.historicalDecisionRelationshipFields.supersedes),
   );
@@ -525,11 +530,12 @@ function validateDecisionRecords(policy, context, rows) {
     ) {
       fail("decision heading mismatch: " + file);
     }
-    decisionSections.push({
+    decisionRecords.push({
       id: row.id,
-      context: decisionSectionBody(text, "Context", file),
-      decision: decisionSectionBody(text, "Decision", file),
+      record: text.replaceAll("\r\n", "\n"),
     });
+    decisionSectionBody(text, "Context", file);
+    decisionSectionBody(text, "Decision", file);
     const recordStatuses = [
       ...text.matchAll(/^- Status: ([^\r\n]+)$/gmu),
     ].map((match) => match.at(1));
@@ -633,11 +639,11 @@ function validateDecisionRecords(policy, context, rows) {
     }
     relationships.set(row.id, relationship);
   }
-  const sectionDigest = createHash("sha256")
-    .update(JSON.stringify(decisionSections), "utf8")
+  const recordDigest = createHash("sha256")
+    .update(JSON.stringify(decisionRecords), "utf8")
     .digest("hex");
-  if (sectionDigest !== policy.decisionSectionDigest.value) {
-    fail("decision section digest mismatch");
+  if (recordDigest !== policy.decisionRecordDigest.value) {
+    fail("decision record digest mismatch");
   }
   for (const [id, relationship] of relationships) {
     for (const reference of relationship.supersedes) {
@@ -912,10 +918,11 @@ export function validateDocumentationPolicy(policy, context) {
       "migrationLedger",
       "repositoryInstructions",
       "prospectiveDecisionMetadataFrom",
+      "prospectiveDecisionDates",
       "historicalDecisionStatusExceptions",
       "historicalDecisionRelationshipFields",
       "decisionRelationshipEdges",
-      "decisionSectionDigest",
+      "decisionRecordDigest",
       "decisionDomainMembers",
       "currentDecisionAuthorities",
       "migrationRows",
@@ -926,7 +933,7 @@ export function validateDocumentationPolicy(policy, context) {
     ],
     "documentation policy",
   );
-  if (policy.schemaVersion !== 10 || !isRecord(context)) {
+  if (policy.schemaVersion !== 11 || !isRecord(context)) {
     fail("unsupported documentation policy schema or context");
   }
   for (const [label, file] of [
@@ -942,6 +949,22 @@ export function validateDocumentationPolicy(policy, context) {
     policy.prospectiveDecisionMetadataFrom > 9999
   ) {
     fail("prospective decision metadata boundary is invalid");
+  }
+  if (
+    !isRecord(policy.prospectiveDecisionDates) ||
+    Object.keys(policy.prospectiveDecisionDates).length === 0
+  ) {
+    fail("prospective decision dates must be a nonempty object");
+  }
+  for (const [id, date] of Object.entries(policy.prospectiveDecisionDates)) {
+    if (
+      !/^[0-9]{4}$/u.test(id) ||
+      Number(id) < policy.prospectiveDecisionMetadataFrom ||
+      typeof date !== "string" ||
+      !/^\d{4}-\d{2}-\d{2}$/u.test(date)
+    ) {
+      fail("prospective decision date is invalid");
+    }
   }
   exactKeys(
     policy.historicalDecisionRelationshipFields,
@@ -982,15 +1005,15 @@ export function validateDocumentationPolicy(policy, context) {
     fail("historical decision relationship field identifier is invalid");
   }
   exactKeys(
-    policy.decisionSectionDigest,
+    policy.decisionRecordDigest,
     ["algorithm", "value"],
-    "decision section digest",
+    "decision record digest",
   );
   if (
-    policy.decisionSectionDigest.algorithm !== "sha256" ||
-    !/^[a-f0-9]{64}$/u.test(policy.decisionSectionDigest.value)
+    policy.decisionRecordDigest.algorithm !== "sha256" ||
+    !/^[a-f0-9]{64}$/u.test(policy.decisionRecordDigest.value)
   ) {
-    fail("decision section digest is invalid");
+    fail("decision record digest is invalid");
   }
   if (
     !Array.isArray(policy.decisionRelationshipEdges) ||
