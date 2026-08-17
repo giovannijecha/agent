@@ -431,6 +431,7 @@ test("routes completed provider registration requests to the request ledger", ()
   for (const [source, route] of [
     ["README.md", "(docs/PROVIDER-APPLICATIONS.md)"],
     ["docs/README.md", "(PROVIDER-APPLICATIONS.md)"],
+    ["docs/OAUTH-REGISTRATION.md", "(PROVIDER-APPLICATIONS.md)"],
     ["docs/PROVIDERS.md", "(PROVIDER-APPLICATIONS.md)"],
     ["docs/PROVIDER-APPLICATIONS.md", "(OAUTH-REGISTRATION.md)"],
     ["docs/PROVIDER-APPLICATIONS.md", "(PROVIDERS.md)"],
@@ -461,6 +462,20 @@ test("routes completed provider registration requests to the request ledger", ()
     ),
     false,
     "provider policy retains duplicated request state",
+  );
+  assert.equal(
+    context.files["docs/OAUTH-REGISTRATION.md"].includes(
+      "the other three requests remain\npending",
+    ),
+    false,
+    "OAuth dossier retains duplicated request status",
+  );
+  assert.equal(
+    context.files["docs/OAUTH-REGISTRATION.md"].includes(
+      "ready-to-submit requests",
+    ),
+    false,
+    "OAuth dossier retains obsolete request readiness",
   );
 
   const row = context.files[policy.migrationLedger]
