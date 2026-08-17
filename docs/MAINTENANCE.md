@@ -280,16 +280,24 @@ the same change.
 
 **Owners:** the [evaluation guide](../evaluations/README.md) for operation;
 `tools/evaluate.mjs`, `tools/lib/evaluation-suite.mjs`, and
-`tools/lib/evaluation-failure-registry.mjs`,
-`tools/test/evaluation-suite.test.mjs`,
-`tools/test/evaluation-failure-registry.test.mjs`,
-`packages/agent-cli/src/evaluation-receipt.ts`, and
-`packages/agent-cli/test/evaluation-receipt.test.ts` for implementation; and
+`tools/lib/evaluation-failure-registry.mjs` plus
+`tools/test/evaluation-suite.test.mjs` and
+`tools/test/evaluation-failure-registry.test.mjs` for evaluator implementation;
+`packages/agent-cli/src/evaluation-receipt.ts`,
+`packages/agent-cli/src/launch-command.ts`, `packages/agent-cli/src/main.ts`,
+`packages/agent-cli/src/run.ts`, and `packages/agent-cli/src/builtin-tools.ts`
+for receipt launch and instrumentation; their focused coverage in
+`packages/agent-cli/test/evaluation-receipt.test.ts`,
+`packages/agent-cli/test/launch-command.test.ts`,
+`packages/agent-cli/test/runtime-integration.test.ts`,
+`packages/agent-cli/test/builtin-tools.test.ts`, and `tools/smoke-cli.mjs`; and
 `evaluations/tasks/`, `tools/evaluation-policy.json`, and
 `evaluations/failures/registry.json` for canonical inputs.
-[Decision 0047](decisions/0047-owned-reproducible-task-evaluation.md),
-[0048](decisions/0048-owned-content-free-evaluation-receipt.md), and
-[0049](decisions/0049-owned-evaluation-failure-registry.md) retain rationale.
+[Decision 0047](decisions/0047-owned-reproducible-task-evaluation.md) owns
+framework rationale and task design without a dedicated decision;
+[0048](decisions/0048-owned-content-free-evaluation-receipt.md) and
+[0049](decisions/0049-owned-evaluation-failure-registry.md) retain receipt and
+registry rationale.
 [0064](decisions/0064-owned-self-verifying-typescript-evaluation.md),
 [0065](decisions/0065-owned-red-green-tool-recovery-evaluation.md), and
 [0066](decisions/0066-owned-namespace-directory-evaluation.md) own task design.
@@ -299,11 +307,10 @@ a final LF, no trailing whitespace, and at most 4,096 bytes
 (`EVALUATION_LIMITS.taskBytes`).
 
 Follow the guide's atomic task-change, evidence-invalidation, rollback, and
-removal sequence. Roll back a task by restoring its manifest entry, brief, input
-and expected snapshots, affected evidence, documentation, and tests together.
-Run the focused corpus and failure-registry tests before the canonical verifier.
-Ignored run state and manual receipts are not canonical repository evidence;
-never recreate a lost receipt or carry one across a task revision.
+removal sequence. Run the focused corpus and failure-registry tests before the
+canonical verifier. Ignored run state and manual receipts are not canonical
+repository evidence; never recreate a lost receipt or carry one across a task
+revision.
 
 ### Documentation and publication
 
