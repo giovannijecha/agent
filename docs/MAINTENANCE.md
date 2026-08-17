@@ -17,13 +17,13 @@ Start maintenance from the owning registry rather than from generated output.
 | Domain | Canonical source |
 | --- | --- |
 | workspace packages, dependencies, built-ins, and declarations | `package.json`, package manifests, TypeScript configs, `tools/ownership-policy.json` |
-| accepted architecture and protocol rationale | `docs/decisions/` and `docs/decisions/index.json` |
+| accepted architecture and protocol rationale | `docs/decisions/README.md` |
 | documentation routes and required structure | `tools/documentation-policy.json` |
 | operator-manual chapters and coverage | `tools/manual-policy.json` |
 | provider admission and direct origins | `tools/provider-policy.json` |
 | publication metadata | `tools/publication-policy.json` |
 | task corpus and metrics | `tools/evaluation-policy.json` |
-| maintained evaluation failures | `tools/evaluation-failures.json` |
+| maintained evaluation failures | `evaluations/failures/registry.json` |
 | clean-room inspection evidence | `tools/ownership-policy.json`, `docs/OWNERSHIP.md` |
 | brand assets and digests | `assets/brand/manifest.json` |
 | native source and build registration | `packages/agent-cli/native/`, `tools/build-native.mjs` |
@@ -278,7 +278,7 @@ the same change.
 
 ### Task evaluation
 
-**Owners:** `state/evaluations/corpus/`, `tools/evaluation-policy.json`,
+**Owners:** `evaluations/tasks/`, `tools/evaluation-policy.json`,
 evaluation preparation/grading tools, the failure registry, and decisions 0047
 through 0049.
 

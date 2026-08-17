@@ -172,6 +172,26 @@ test("rejects broken local links in registered structured documents", () => {
   );
 });
 
+test("keeps canonical maintenance repository references owned", () => {
+  const context = currentContext();
+  const text = context.files["docs/MAINTENANCE.md"];
+  for (const reference of [
+    "docs/decisions/README.md",
+    "evaluations/failures/registry.json",
+    "evaluations/tasks/",
+  ]) {
+    const isOwned = reference.endsWith("/")
+      ? context.ownedPaths.some((file) => file.startsWith(reference))
+      : context.ownedPaths.includes(reference);
+    assert.equal(isOwned, true, "maintenance reference is not owned: " + reference);
+    assert.equal(
+      text.includes("`" + reference + "`"),
+      true,
+      "maintenance document is missing canonical reference: " + reference,
+    );
+  }
+});
+
 test("rejects incomplete migration coverage", () => {
   const context = currentContext();
   context.files[policy.migrationLedger] = context.files[
