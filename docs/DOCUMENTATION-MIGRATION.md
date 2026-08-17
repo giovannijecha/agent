@@ -91,7 +91,7 @@ accepted current-authority route without rewriting pre-0070 formats.
 
 ## Content ledger
 
-| Topic | Current sources | Future canonical owner | Status |
+| Topic | Current sources | Canonical owner | Status |
 | --- | --- | --- | --- |
 | Public purpose, identity, installation, and first run | [Public README](../README.md), [brand guide](BRAND.md) | [Public README](../README.md) | complete |
 | Repository-wide change constraints and routing | [Repository instructions](../AGENTS.md), [architecture](ARCHITECTURE.md), [engineering guide](ENGINEERING.md) | [Repository instructions](../AGENTS.md) | complete |
