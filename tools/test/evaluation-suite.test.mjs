@@ -486,6 +486,16 @@ test("rejects unregistered, unsafe, malformed, and identical corpus states", () 
 });
 
 test("enforces task, snapshot, and path bounds", () => {
+  const oversizedGuide = canonicalContext();
+  oversizedGuide.files.set(
+    "README.md",
+    Buffer.alloc(EVALUATION_LIMITS.taskBytes + 1, 65),
+  );
+  assert.throws(
+    () => validateEvaluationSuite(policy, oversizedGuide),
+    expectCode("invalidCorpus"),
+  );
+
   const oversizedTask = canonicalContext();
   oversizedTask.files.set(
     "tasks/c-count-positive/TASK.md",

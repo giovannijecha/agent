@@ -472,9 +472,31 @@ test("routes completed evaluation operation to the evaluation guide", () => {
     true,
     "evaluation guide task count does not match the manifest",
   );
+  const projectKindLabels = new Map([
+    ["c", "C"],
+    ["documentation", "documentation"],
+    ["javascript", "JavaScript"],
+    ["typescript", "TypeScript"],
+    ["web", "web"],
+  ]);
+  const projectKinds = [...new Set(
+    evaluationPolicy.tasks.map((task) => task.projectKind),
+  )].map((projectKind) => projectKindLabels.get(projectKind));
+  assert.equal(
+    projectKinds.every((projectKind) => typeof projectKind === "string"),
+    true,
+    "evaluation manifest contains an undocumented project kind",
+  );
+  assert.equal(
+    normalizedGuide.includes(
+      "The corpus spans " + projectKinds.slice(0, -1).join(", ") +
+        ", and " + projectKinds.at(-1) + " work.",
+    ),
+    true,
+    "evaluation guide project kinds do not match the manifest",
+  );
   for (const marker of [
     "It is an evaluation corpus, not product runtime, training data, or a claim of model quality.",
-    "The corpus spans C, documentation, JavaScript, TypeScript, and web work.",
     "node tools/evaluate.mjs prepare javascript-collapse-whitespace run-01",
     "Start `agent --evaluation-receipt` from the emitted `workspace` directory",
     "submit the `task` brief emitted by `prepare`; honor its `Completion` acceptance and denial conditions.",
@@ -541,6 +563,32 @@ test("routes completed evaluation operation to the evaluation guide", () => {
       maintenance.indexOf("### Documentation and publication"),
     )
     .replace(/\s+/gu, " ");
+  for (const ownerPath of [
+    "evaluations/README.md",
+    "tools/evaluate.mjs",
+    "tools/lib/evaluation-suite.mjs",
+    "tools/lib/evaluation-failure-registry.mjs",
+    "tools/test/evaluation-suite.test.mjs",
+    "tools/test/evaluation-failure-registry.test.mjs",
+    "packages/agent-cli/src/evaluation-receipt.ts",
+    "packages/agent-cli/test/evaluation-receipt.test.ts",
+    "packages/agent-cli/src/launch-command.ts",
+    "packages/agent-cli/test/launch-command.test.ts",
+    "packages/agent-cli/src/main.ts",
+    "tools/smoke-cli.mjs",
+    "packages/agent-cli/src/run.ts",
+    "packages/agent-cli/test/runtime-integration.test.ts",
+    "packages/agent-cli/src/builtin-tools.ts",
+    "packages/agent-cli/test/builtin-tools.test.ts",
+    "tools/evaluation-policy.json",
+    "evaluations/failures/registry.json",
+  ]) {
+    assert.equal(
+      context.ownedPaths.includes(ownerPath),
+      true,
+      "task-evaluation owner path is not owned: " + ownerPath,
+    );
+  }
   for (const owner of [
     "`tools/evaluate.mjs`",
     "`tools/lib/evaluation-suite.mjs`",
