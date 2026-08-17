@@ -262,6 +262,10 @@ test("rejects decision relationship drift", () => {
       "| [0003](0003-owned-provider-authentication.md) | accepted | providers | superseded by 0001 |",
     ],
     ["superseded by 0002 |", "superseded by 9999 |"],
+    [
+      "| [0017](0017-owned-opencode-go-provider.md) | superseded | providers | superseded by 0072 |",
+      "| [0017](0017-owned-opencode-go-provider.md) | superseded | providers | superseded by 0071 |",
+    ],
   ]) {
     const context = currentContext();
     context.files[policy.decisionIndex] = context.files[
@@ -275,16 +279,30 @@ test("rejects decision relationship drift", () => {
 });
 
 test("rejects prospective decision metadata drift", () => {
-  const context = currentContext();
-  const file = "docs/decisions/0070-owned-documentation-information-architecture.md";
-  context.files[file] = context.files[file].replace(
-    "- Domain: documentation",
-    "- Domain: architecture",
-  );
-  assert.throws(
-    () => validateDocumentationPolicy(policy, context),
-    DocumentationPolicyError,
-  );
+  for (const [file, before, after] of [
+    [
+      "docs/decisions/0070-owned-documentation-information-architecture.md",
+      "- Domain: documentation",
+      "- Domain: architecture",
+    ],
+    [
+      "docs/decisions/0072-owned-ollama-cloud-provider.md",
+      "- Supersedes: 0017, 0067, and 0068",
+      "- Supersedes: none",
+    ],
+    [
+      "docs/decisions/0072-owned-ollama-cloud-provider.md",
+      "- Supersedes: 0017, 0067, and 0068",
+      "- Supersedes: 0017, 0067, and 0069",
+    ],
+  ]) {
+    const context = currentContext();
+    context.files[file] = context.files[file].replace(before, after);
+    assert.throws(
+      () => validateDocumentationPolicy(policy, context),
+      DocumentationPolicyError,
+    );
+  }
 });
 
 test("rejects incomplete documentation migration state", () => {
