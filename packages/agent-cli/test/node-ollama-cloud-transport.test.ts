@@ -15,6 +15,10 @@ import {
   OLLAMA_CLOUD_ORIGIN,
   OLLAMA_CLOUD_TRANSPORT_LIMITS,
 } from "../dist/node-ollama-cloud-transport.js";
+import type {
+  ScheduledTimer,
+  TimerClock,
+} from "../dist/timer-clock.js";
 
 class FakeCancellation implements CancellationSignal {
   #resolve: () => void = () => undefined;
@@ -169,8 +173,44 @@ class FakeClient implements HttpsClient {
   }
 }
 
-function createTransport(client: HttpsClient): NodeOllamaCloudTransport {
-  const created = NodeOllamaCloudTransport.create("valid-value", client);
+class ManualRegistration implements ScheduledTimer {
+  cancelled = false;
+  readonly listener: () => void;
+
+  constructor(listener: () => void) {
+    this.listener = listener;
+  }
+
+  cancel(): void {
+    this.cancelled = true;
+  }
+
+  fire(): void {
+    this.listener();
+  }
+}
+
+class ManualClock implements TimerClock {
+  readonly delays: number[] = [];
+  readonly registrations: ManualRegistration[] = [];
+
+  schedule(delayMilliseconds: number, listener: () => void): ScheduledTimer {
+    this.delays.push(delayMilliseconds);
+    const registration = new ManualRegistration(listener);
+    this.registrations.push(registration);
+    return registration;
+  }
+}
+
+function createTransport(
+  client: HttpsClient,
+  clock: TimerClock = new ManualClock(),
+): NodeOllamaCloudTransport {
+  const created = NodeOllamaCloudTransport.create(
+    "valid-value",
+    client,
+    clock,
+  );
   assert.ok(created.ok);
   return created.value;
 }
@@ -258,17 +298,20 @@ test("rejects concurrent reads and oversized response chunks", async () => {
 
 test("settles timeout and cancellation before transport destruction", async () => {
   const timeoutClient = new FakeClient();
-  const timeoutOpen = createTransport(timeoutClient).open(
+  const timeoutClock = new ManualClock();
+  const timeoutOpen = createTransport(timeoutClient, timeoutClock).open(
     Object.freeze({ body: "{}" }),
     new FakeCancellation(),
   );
   timeoutClient.requestValue?.timeoutListener?.();
   assert.deepEqual(await timeoutOpen, { error: { kind: "timeout" }, ok: false });
+  assert.equal(timeoutClock.registrations.at(0)?.cancelled, true);
   assert.equal(timeoutClient.requestValue?.destroyed, 1);
 
   const cancellation = new FakeCancellation();
   const cancelClient = new FakeClient();
-  const cancelOpen = createTransport(cancelClient).open(
+  const cancelClock = new ManualClock();
+  const cancelOpen = createTransport(cancelClient, cancelClock).open(
     Object.freeze({ body: "{}" }),
     cancellation,
   );
@@ -277,13 +320,15 @@ test("settles timeout and cancellation before transport destruction", async () =
     error: { kind: "cancelled" },
     ok: false,
   });
+  assert.equal(cancelClock.registrations.at(0)?.cancelled, true);
   assert.equal(cancelClient.requestValue?.destroyed, 1);
 });
 
 test("reports inactivity timeout after the response stream opens", async () => {
   const response = new FakeResponse();
   const client = new FakeClient(response);
-  const opened = await createTransport(client).open(
+  const clock = new ManualClock();
+  const opened = await createTransport(client, clock).open(
     Object.freeze({ body: "{}" }),
     new FakeCancellation(),
   );
@@ -293,8 +338,121 @@ test("reports inactivity timeout after the response stream opens", async () => {
   client.requestValue?.timeoutListener?.();
 
   assert.deepEqual(await pending, { error: { kind: "timeout" }, ok: false });
+  assert.equal(clock.registrations.at(0)?.cancelled, true);
   assert.equal(client.requestValue?.destroyed, 1);
   assert.equal(response.destroyed, 1);
+});
+
+test("enforces one wall-clock deadline despite continuing stream data", async () => {
+  const response = new FakeResponse();
+  const client = new FakeClient(response);
+  const clock = new ManualClock();
+  const opened = await createTransport(client, clock).open(
+    Object.freeze({ body: "{}" }),
+    new FakeCancellation(),
+  );
+  assert.ok(opened.ok);
+  assert.deepEqual(clock.delays, [
+    OLLAMA_CLOUD_TRANSPORT_LIMITS.deadlineMilliseconds,
+  ]);
+
+  const first = opened.value.read();
+  response.emit("data", new Uint8Array([1]));
+  assert.deepEqual(await first, { ok: true, value: new Uint8Array([1]) });
+  const second = opened.value.read();
+  response.emit("data", new Uint8Array([2]));
+  assert.deepEqual(await second, { ok: true, value: new Uint8Array([2]) });
+  const pending = opened.value.read();
+
+  clock.registrations.at(0)?.fire();
+
+  assert.deepEqual(await pending, { error: { kind: "timeout" }, ok: false });
+  assert.equal(client.requestValue?.destroyed, 1);
+  assert.equal(response.destroyed, 1);
+
+  response.emit("data", new Uint8Array([3]));
+  response.emit("end");
+  clock.registrations.at(0)?.fire();
+  client.requestValue?.timeoutListener?.();
+  assert.equal(client.requestValue?.destroyed, 1);
+  assert.equal(response.destroyed, 1);
+});
+
+test("cancels the wall-clock deadline at stream end and ignores late timers", async () => {
+  const response = new FakeResponse();
+  const client = new FakeClient(response);
+  const clock = new ManualClock();
+  const opened = await createTransport(client, clock).open(
+    Object.freeze({ body: "{}" }),
+    new FakeCancellation(),
+  );
+  assert.ok(opened.ok);
+
+  const pending = opened.value.read();
+  response.emit("end");
+
+  assert.deepEqual(await pending, { ok: true, value: null });
+  assert.equal(clock.registrations.at(0)?.cancelled, true);
+  clock.registrations.at(0)?.fire();
+  client.requestValue?.timeoutListener?.();
+  assert.equal(client.requestValue?.destroyed, 0);
+  assert.equal(response.destroyed, 0);
+});
+
+test("cancels the wall-clock deadline when the stream closes", async () => {
+  const response = new FakeResponse();
+  const client = new FakeClient(response);
+  const clock = new ManualClock();
+  const opened = await createTransport(client, clock).open(
+    Object.freeze({ body: "{}" }),
+    new FakeCancellation(),
+  );
+  assert.ok(opened.ok);
+
+  assert.deepEqual(await opened.value.close(), { ok: true, value: undefined });
+  assert.equal(clock.registrations.at(0)?.cancelled, true);
+  assert.equal(response.destroyed, 1);
+  clock.registrations.at(0)?.fire();
+  client.requestValue?.timeoutListener?.();
+  assert.equal(client.requestValue?.destroyed, 0);
+  assert.equal(response.destroyed, 1);
+});
+
+test("fails closed before transport when the wall-clock deadline cannot arm", async () => {
+  const client = new FakeClient(new FakeResponse());
+  const clock: TimerClock = Object.freeze({
+    schedule(): ScheduledTimer {
+      throw new Error("clock unavailable");
+    },
+  });
+
+  const result = await createTransport(client, clock).open(
+    Object.freeze({ body: "{}" }),
+    new FakeCancellation(),
+  );
+
+  assert.deepEqual(result, { error: { kind: "timeout" }, ok: false });
+  assert.equal(client.options, undefined);
+});
+
+test("contains a synchronously fired wall-clock deadline before transport", async () => {
+  const client = new FakeClient(new FakeResponse());
+  const registration = new ManualRegistration(() => undefined);
+  const clock: TimerClock = Object.freeze({
+    schedule(_delayMilliseconds: number, listener: () => void): ScheduledTimer {
+      listener();
+      return registration;
+    },
+  });
+
+  const result = await createTransport(client, clock).open(
+    Object.freeze({ body: "{}" }),
+    new FakeCancellation(),
+  );
+
+  assert.deepEqual(result, { error: { kind: "timeout" }, ok: false });
+  assert.equal(registration.cancelled, true);
+  assert.equal(client.options, undefined);
 });
 
 test("rejects malformed requests without retaining their content", async () => {

@@ -525,11 +525,16 @@ provider/model presentation. Do not move process or socket access into the
 provider package and do not leak provider vocabulary into runtime, tools, core,
 or TUI.
 
-Catalog transport retains two distinct bounds: Node's socket inactivity timeout
-and one CLI-owned monotonic absolute deadline armed once per request. Maintain
-deterministic tests proving that periodic response traffic cannot extend the
-absolute deadline, every settlement cancels retained timer work, failed timer
-registration fails closed, and late callbacks cannot change the result.
+Catalog and chat transports retain two distinct bounds: Node's socket
+inactivity timeout and one CLI-owned monotonic absolute deadline armed once per
+request. The chat deadline must remain live after headers open and through the
+complete response stream; only end, failure, or explicit close cancels it.
+Maintain deterministic tests proving that periodic response traffic cannot
+extend either absolute deadline, every terminal settlement cancels retained
+timer work, failed timer registration fails closed, and late callbacks cannot
+change the result. Removing the timer clock from either transport requires
+removing the corresponding provider path rather than weakening it to an
+inactivity-only request.
 
 An endpoint, catalog, dynamic model rule, cost class, header, privacy, limit,
 request-selection, instruction, or wire change requires current official

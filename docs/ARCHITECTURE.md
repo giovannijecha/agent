@@ -327,10 +327,12 @@ adapter, and session configuration. They admit only `ollama.com:443`,
 redirect, keep the API key in one memory slot, and expose only bytes and
 response metadata to the Node-free provider package. Catalog GETs use the same
 bearer credential as chat requests. Their bounded rows are selectable only when
-`name` and `model` are equal. Each catalog operation owns one monotonic absolute
-deadline in addition to its socket inactivity timeout; traffic cannot extend
-that deadline, settlement cancels it, and late transport or timer events are
-inert.
+`name` and `model` are equal. Every catalog and chat operation owns one
+monotonic absolute deadline in addition to its socket inactivity timeout.
+Catalog settlement cancels its deadline. A chat deadline spans header opening
+and the complete response stream, then cancels only at end, failure, or explicit
+close. Traffic cannot extend either deadline, and late transport or timer events
+are inert.
 Decision 0036 admits one model-facing execute capability, `run_process`, through
 the CLI-owned C17 broker proven by decisions 0015 and 0016. The structured tool
 accepts one registered program token, literal arguments, and a rooted working
