@@ -15,6 +15,7 @@ const EXPECTED_DOMAINS = Object.freeze([
 ]);
 const REQUIRED_MIGRATION_HEADINGS = Object.freeze([
   "## Guardrails",
+  "## Current delivery",
   "## Content ledger",
   "## Delivery sequence",
   "## Completion conditions",
@@ -339,6 +340,100 @@ function validateProspectiveMetadata(policy, context, rows) {
   }
 }
 
+function validateDecisionRecords(policy, context, rows) {
+  const decisionIds = new Set(rows.map((row) => row.id));
+  for (const row of rows) {
+    const file = resolveLocalLink(policy.decisionIndex, row.link);
+    if (file === undefined) {
+      fail("decision path is not local");
+    }
+    const text = textFor(context, file);
+    if (
+      !text.startsWith("# " + row.id + ": ") &&
+      !text.startsWith("# " + row.id + " — ")
+    ) {
+      fail("decision heading mismatch: " + file);
+    }
+    for (const heading of ["## Context", "## Decision"]) {
+      if (!text.includes("\n" + heading + "\n")) {
+        fail("decision section is missing: " + file);
+      }
+    }
+
+    if (row.relationship === "current") {
+      if (row.status !== "accepted") {
+        fail("decision relationship contradicts status: " + row.id);
+      }
+      continue;
+    }
+
+    const relationship = /^(supersedes|superseded by) ([0-9]{4}(?:, [0-9]{4})*(?:,? and [0-9]{4})?)$/u.exec(
+      row.relationship,
+    );
+    if (
+      relationship === null ||
+      (relationship.at(1) === "supersedes" && row.status !== "accepted") ||
+      (relationship.at(1) === "superseded by" && row.status !== "superseded")
+    ) {
+      fail("decision relationship contradicts status: " + row.id);
+    }
+    const references = [
+      ...row.relationship.matchAll(/\b[0-9]{4}\b/gu),
+    ].map((match) => match.at(0));
+    if (
+      references.length === 0 ||
+      new Set(references).size !== references.length ||
+      references.some((id) => id === row.id || !decisionIds.has(id))
+    ) {
+      fail("decision relationship reference is invalid: " + row.id);
+    }
+  }
+}
+
+function validateCurrentAuthorities(policy, text, rows) {
+  const rowsByPath = new Map(
+    rows.map((row) => [resolveLocalLink(policy.decisionIndex, row.link), row]),
+  );
+  const authorityRows = [];
+  const expression = /^\| ([a-z]+) \| ([^|\r\n]+) \|$/gmu;
+  for (const match of text.matchAll(expression)) {
+    const domain = match.at(1);
+    const entryPoints = match.at(2);
+    if (domain === undefined || entryPoints === undefined) {
+      fail("current decision authority row is malformed");
+    }
+    authorityRows.push({ domain, entryPoints });
+  }
+  same(
+    authorityRows.map((row) => row.domain),
+    policy.decisionDomains,
+    "current decision authority domains",
+  );
+  for (const authority of authorityRows) {
+    const links = [
+      ...authority.entryPoints.matchAll(/\[[^\]\r\n]+\]\(([^)\r\n]+)\)/gu),
+    ].map((match) => match.at(1));
+    if (links.length === 0 || new Set(links).size !== links.length) {
+      fail("current decision authority entry points are invalid: " + authority.domain);
+    }
+    for (const link of links) {
+      if (link === undefined) {
+        fail("current decision authority link is missing");
+      }
+      const file = resolveLocalLink(policy.decisionIndex, link);
+      const row = rowsByPath.get(file);
+      if (
+        file === undefined ||
+        row === undefined ||
+        row.status !== "accepted" ||
+        row.domain !== authority.domain
+      ) {
+        fail("current decision authority route is invalid: " + authority.domain);
+      }
+    }
+  }
+}
+
 function validateDecisionIndex(policy, context, ownedPaths) {
   const text = textFor(context, policy.decisionIndex);
   if (!text.startsWith("# Architecture decision records\n")) {
@@ -367,6 +462,8 @@ function validateDecisionIndex(policy, context, ownedPaths) {
     actualPaths.push(resolved);
   }
   same(actualPaths, expected, "complete decision ledger");
+  validateDecisionRecords(policy, context, rows);
+  validateCurrentAuthorities(policy, text, rows);
   validateProspectiveMetadata(policy, context, rows);
 }
 
@@ -379,6 +476,34 @@ function validateMigrationLedger(policy, context, ownedPaths) {
     if (!text.includes("\n" + heading + "\n")) {
       fail("documentation migration section is missing");
     }
+  }
+  const statuses = [...text.matchAll(/^- Status: ([a-z]+)$/gmu)].map(
+    (match) => match.at(1),
+  );
+  if (statuses.length !== 1 || statuses.at(0) !== "complete") {
+    fail("documentation migration status is not complete");
+  }
+  const topics = new Set();
+  const rows = [
+    ...text.matchAll(
+      /^\| ([^|\r\n]+) \| ([^|\r\n]+) \| ([^|\r\n]+) \| ([a-z]+) \|$/gmu,
+    ),
+  ];
+  if (rows.length === 0) {
+    fail("documentation migration ledger is empty");
+  }
+  for (const row of rows) {
+    const topic = row.at(1)?.trim();
+    const status = row.at(4);
+    if (
+      topic === undefined ||
+      topic.length === 0 ||
+      topics.has(topic) ||
+      (status !== "complete" && status !== "retained")
+    ) {
+      fail("documentation migration ledger row is incomplete");
+    }
+    topics.add(topic);
   }
   const targets = new Set(
     localLinkTargets(policy.migrationLedger, text, ownedPaths),

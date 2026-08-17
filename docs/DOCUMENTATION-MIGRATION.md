@@ -1,6 +1,6 @@
 # Documentation migration ledger
 
-- Status: active
+- Status: complete
 - Governing decision: [0070](decisions/0070-owned-documentation-information-architecture.md)
 
 This ledger makes the documentation reduction lossless. A row moves to
@@ -83,6 +83,11 @@ content-free receipt handling, grading and record lifecycle, privacy boundary,
 failure evidence, and task removal contracts are verified. Engineering retains
 proof requirements and Maintenance retains the repository runbook; both route
 to the evaluation guide instead of duplicating its complete operation.
+Durable design history now has one discoverable owner in
+`docs/decisions/README.md` and the stable decision records it indexes. The
+central map routes to that owner; the offline policy verifies every record,
+numeric identity, historical core sections, status, domain, relationship, and
+accepted current-authority route without rewriting pre-0070 formats.
 
 ## Content ledger
 
@@ -110,7 +115,7 @@ to the evaluation guide instead of duplicating its complete operation.
 | Provider connection, model selection, process-only credentials, and operator recovery | [providers-and-authentication manual](manual/05-providers-and-authentication.md), [provider policy](PROVIDERS.md), [privacy policy](../PRIVACY.md), [architecture](ARCHITECTURE.md), [maintenance guide](MAINTENANCE.md), and provider decisions | [providers-and-authentication manual](manual/05-providers-and-authentication.md) for operator flow, [provider policy](PROVIDERS.md) for eligibility and wire admission, [privacy policy](../PRIVACY.md) for secret and retention boundaries, [architecture](ARCHITECTURE.md) for current contracts, [maintenance guide](MAINTENANCE.md) for change and removal, and the [decision index](decisions/README.md) for rationale | complete |
 | Change verification, failure diagnosis, and evaluation routing | [verification-and-diagnostics manual](manual/06-verification-and-diagnostics.md), [engineering guide](ENGINEERING.md), [maintenance guide](MAINTENANCE.md), [evaluation guide](../evaluations/README.md), and verification and evaluation decisions | [verification-and-diagnostics manual](manual/06-verification-and-diagnostics.md) for operator flow, [engineering guide](ENGINEERING.md) for definition of done and verification policy, [maintenance guide](MAINTENANCE.md) for gate change and removal, [evaluation guide](../evaluations/README.md) for the evaluation lifecycle, and the [decision index](decisions/README.md) for rationale | complete |
 | Owned evaluation operation | [Evaluation manual](../evaluations/README.md), [engineering guide](ENGINEERING.md), [maintenance guide](MAINTENANCE.md) | [Evaluation manual](../evaluations/README.md) | complete |
-| Durable design history | decision files and [decision index](decisions/README.md) | [Decision index](decisions/README.md) and stable records | active |
+| Durable design history | decision files and [decision index](decisions/README.md) | [Decision index](decisions/README.md) and stable records | complete |
 
 ## Delivery sequence
 

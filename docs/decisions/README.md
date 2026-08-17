@@ -11,6 +11,11 @@ Beginning with decision 0070, every new record declares `Status`, `Date`,
 when superseded. A consolidation record may replace several older contracts,
 but it links them rather than rewriting their history.
 
+The complete ledger classifies every stable record. The current-authority view
+routes each closed domain only to accepted entry points. Every record retains
+its numeric heading plus its `Context` and `Decision`; the verifier preserves
+historical pre-0070 formats instead of normalizing them retroactively.
+
 Create a decision only for a durable architectural, authority, security,
 provider, toolchain, product-behavior, or documentation-governance contract.
 Routine implementation notes, transient incidents, and test evidence do not
