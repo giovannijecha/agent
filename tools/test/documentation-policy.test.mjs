@@ -74,6 +74,11 @@ test("rejects canonical document structure drift", () => {
     ["README.md", "## Quick start", "## Getting started"],
     ["docs/BRAND.md", "## Asset registry", "## Asset inventory"],
     [
+      "docs/manual/README.md",
+      "## Current product boundary",
+      "## Product boundary",
+    ],
+    [
       "CONTRIBUTING.md",
       "## Prepare a maintainer change",
       "## Submit a change",
@@ -312,6 +317,60 @@ test("routes completed brand identity to the brand guide", () => {
     row?.endsWith("| complete |"),
     true,
     "brand-identity migration is not complete",
+  );
+});
+
+test("routes completed product operation to the operator manual", () => {
+  const context = currentContext();
+
+  for (const [file, route] of [
+    ["README.md", "(docs/manual/README.md)"],
+    ["docs/README.md", "(manual/README.md)"],
+    ["docs/MAINTENANCE.md", "(manual/README.md)"],
+  ]) {
+    assert.equal(
+      context.files[file].includes(route),
+      true,
+      file + " does not route product operation to the manual",
+    );
+  }
+
+  const structure = policy.documentStructures.find(
+    (entry) => entry.path === "docs/manual/README.md",
+  );
+  assert.deepEqual(structure?.headings, [
+    "# Agent operator manual",
+    "## Chapters",
+    "## Current product boundary",
+    "## Documentation contract",
+  ]);
+
+  const runningAgent = readFileSync(
+    path.join(projectRoot, "docs/manual/01-running-agent.md"),
+    "utf8",
+  );
+  for (const marker of [
+    "npm ci --offline --ignore-scripts --no-audit --no-fund\nnpm run build\nnpm run install:command",
+    "Run `agent` from the directory that should become the workspace.",
+    "An ordinary session starts without a selected provider or model.",
+    "Use `/exit`, Ctrl+D, or terminal EOF.",
+    "Use the exact `agent --evaluation-receipt` launch form",
+    "`agent rejected the workspace root`",
+  ]) {
+    assert.equal(
+      runningAgent.includes(marker),
+      true,
+      "running-agent operation contract is missing: " + marker,
+    );
+  }
+
+  const row = context.files[policy.migrationLedger]
+    .split("\n")
+    .find((line) => line.startsWith("| Product operation |"));
+  assert.equal(
+    row?.endsWith("| complete |"),
+    true,
+    "product-operation migration is not complete",
   );
 });
 

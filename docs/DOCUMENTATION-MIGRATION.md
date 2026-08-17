@@ -66,6 +66,12 @@ Brand identity and registered assets now have one current owner in
 removal, and asset-registry contracts are verified, while public and asset entry
 points retain scoped summaries and route there. Registered asset bytes and
 manifest metadata are unchanged.
+Product operation now has one current owner in `docs/manual/README.md` and its
+registered task chapters. The index structure, incoming routes, running-agent
+workflow, chapter contracts, command and tool inventories, and local references
+are verified. The public README retains installation, first-run, and daily-use
+summaries, while the maintenance guide retains maintainer runbooks; both route
+to the operator manual.
 
 ## Content ledger
 
@@ -85,7 +91,7 @@ manifest metadata are unchanged.
 | Direct provider admission and operation | [Repository instructions](../AGENTS.md), [provider policy](PROVIDERS.md), [operator manual](manual/README.md) | [Provider policy](PROVIDERS.md) | complete |
 | Provider registration requests | [Provider applications](PROVIDER-APPLICATIONS.md), [provider policy](PROVIDERS.md) | [Provider applications](PROVIDER-APPLICATIONS.md) | complete |
 | OAuth registration status | [OAuth registration](OAUTH-REGISTRATION.md), [provider policy](PROVIDERS.md) | [OAuth registration](OAUTH-REGISTRATION.md) | complete |
-| Product operation | [Public README](../README.md), [operator manual](manual/README.md), [maintenance guide](MAINTENANCE.md) | [Operator manual](manual/README.md) | active |
+| Product operation | [Public README](../README.md), [operator manual](manual/README.md), [maintenance guide](MAINTENANCE.md) | [Operator manual](manual/README.md) | complete |
 | Operator-manual structure and repository evidence routing | [decision 0009](decisions/0009-owned-operator-manual.md), [manual chapters](manual/README.md), [manual policy](../tools/manual-policy.json) | [decision 0071](decisions/0071-owned-task-oriented-operator-manual.md) and task-specific manual chapters | active |
 | Turn operation, runtime bounds, checkpoints, and failure recovery | [turn-lifecycle manual](manual/02-turn-lifecycle.md), [architecture](ARCHITECTURE.md), [maintenance guide](MAINTENANCE.md), [checkpoint decisions](decisions/0029-canonical-tool-call-batches.md) | [turn-lifecycle manual](manual/02-turn-lifecycle.md) for operator flow, [architecture](ARCHITECTURE.md) for current runtime contracts, [maintenance guide](MAINTENANCE.md) for change procedure, and stable decisions for rationale | complete |
 | Terminal editing, navigation, selection, and presentation | [terminal-interface manual](manual/03-terminal-interface.md), [architecture](ARCHITECTURE.md), [engineering guide](ENGINEERING.md), [maintenance guide](MAINTENANCE.md), and terminal decisions | [terminal-interface manual](manual/03-terminal-interface.md) for operator controls, [architecture](ARCHITECTURE.md) for current TUI and CLI contracts, [maintenance guide](MAINTENANCE.md) for change procedure, and the [decision index](decisions/README.md) for rationale | complete |
