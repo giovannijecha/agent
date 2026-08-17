@@ -100,6 +100,15 @@
       ]
     },
     {
+      "path": "docs/decisions/README.md",
+      "headings": [
+        "# Architecture decision records",
+        "## Lifecycle",
+        "## Current authority by domain",
+        "## Complete ledger"
+      ]
+    },
+    {
       "path": "CONTRIBUTING.md",
       "headings": [
         "# Contributing to agent",
@@ -307,6 +316,11 @@
       "path": "evaluations/README.md",
       "audience": "maintainers",
       "authority": "owned task-evaluation operation"
+    },
+    {
+      "path": "docs/decisions/README.md",
+      "audience": "maintainers and auditors",
+      "authority": "durable design history"
     },
     {
       "path": "assets/brand/README.md",
