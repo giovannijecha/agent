@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 9,
+  "schemaVersion": 10,
   "index": "docs/README.md",
   "decisionIndex": "docs/decisions/README.md",
   "migrationLedger": "docs/DOCUMENTATION-MIGRATION.md",
@@ -38,9 +38,10 @@
     "0009": "accepted"
   },
   "historicalDecisionRelationshipFields": {
-    "supersedes": [
-      "0002"
-    ],
+    "supersedes": {
+      "0002": "decision 0001",
+      "0068": "the startup credential and fixed-model selection parts of decision 0067"
+    },
     "supersededBy": [
       "0017",
       "0067",
