@@ -289,6 +289,7 @@ function validatePublicDocuments(context) {
     textFor(context, "assets/brand/README.md"),
     [
       "# Brand assets",
+      "This directory is the scoped distribution entry point",
       "visual wordmark only",
       "manifest.json",
       "Do not silently convert, redraw,\nrecolor, crop, decorate, or add missing variants.",
@@ -307,6 +308,9 @@ function validatePublicDocuments(context) {
       "The canonical palette is `#FFFFFF` and `#0B0D10`.",
       "`assets/brand/manifest.json` is the machine-verified source of truth",
       "| Role | Controlled-scaling asset | Stable published asset |",
+      "| Authentication mark | `agent-auth-logo.svg` | 256, 512, or 1024 px PNG |",
+      "| Wordmark on dark surfaces | `agent-wordmark-dark.svg` | `agent-wordmark-dark.png` |",
+      "| Wordmark on transparent surfaces | `agent-wordmark-transparent.svg` | `agent-wordmark-transparent.png` |",
       "Use the registered PNG files for stable published rendering.",
       "Use SVG only for\ncontrolled scaling where the host supports safe vector assets; SVG text uses a\nsystem font and can render differently across environments.",
       "Never regenerate\none format from another during a build.",

@@ -288,7 +288,7 @@
     {
       "path": "assets/brand/README.md",
       "audience": "maintainers and distributors",
-      "authority": "canonical asset usage"
+      "authority": "registered asset distribution entry point"
     }
   ]
 }
