@@ -83,10 +83,11 @@ view regressions prove every contextual selector appears between the existing
 composer rules, never exposes a caret, keeps its selected row visible, and does
 not add a second contextual menu slot. Session and application regressions prove
 closing input is consumed, drafts remain unchanged, pointer events cannot reach
-the editor during selection focus, and editor focus returns after close or
-acceptance. Existing completion, credential, permission, timeline, terminal,
-layout, and renderer tests remain required. The canonical Windows and Linux
-verifier is the release gate.
+the editor during selection focus, transcript pointer selection and scrolling
+remain active, and editor focus returns after close or acceptance. Existing
+completion, credential, permission, timeline, terminal, layout, and renderer
+tests remain required. The canonical Windows and Linux verifier is the release
+gate.
 
 ## Update, rollback, and removal
 
