@@ -215,6 +215,7 @@ class ControlledRuntime implements RuntimeSession<string> {
     | undefined;
   #finishedTurnId: number | undefined;
   #readReject: ((cause: unknown) => void) | undefined;
+  readonly #readObservers = new Map<number, () => void>();
   #readWaiters: CountWaiter[] = [];
   #startWaiters: CountWaiter[] = [];
   cancelCalls = 0;
@@ -278,6 +279,7 @@ class ControlledRuntime implements RuntimeSession<string> {
   nextEvent(): Promise<Result<RuntimeEvent<string>, RuntimeSourceError>> {
     this.readCalls += 1;
     this.#notifyCount(this.#readWaiters, this.readCalls);
+    this.#readObservers.get(this.readCalls)?.();
     const queued = this.#events.shift();
     if (queued !== undefined) {
       return Promise.resolve(queued);
@@ -353,6 +355,10 @@ class ControlledRuntime implements RuntimeSession<string> {
 
   waitForReads(count: number): Promise<void> {
     return this.#waitForCount(this.#readWaiters, this.readCalls, count);
+  }
+
+  observeRead(count: number, observer: () => void): void {
+    this.#readObservers.set(count, observer);
   }
 
   waitForCancels(count: number): Promise<void> {
@@ -451,10 +457,12 @@ class ControlledMotion implements MotionController {
     | undefined;
   #frameWaiters: CountWaiter[] = [];
   #activeWaiters: CountWaiter[] = [];
+  #readWaiters: CountWaiter[] = [];
   activeCalls = 0;
   closeCalls = 0;
   discardCalls = 0;
   frameCalls = 0;
+  readCalls = 0;
   throwOnClose = false;
 
   setActive(active: boolean): void {
@@ -480,6 +488,8 @@ class ControlledMotion implements MotionController {
         err(Object.freeze({ kind: "concurrentRead" as const })),
       );
     }
+    this.readCalls += 1;
+    this.#notifyCount(this.#readWaiters, this.readCalls);
     return new Promise((resolve) => {
       this.#eventWaiter = resolve;
     });
@@ -515,6 +525,15 @@ class ControlledMotion implements MotionController {
 
   waitForFrameCalls(count: number): Promise<void> {
     return this.#waitForCount(this.#frameWaiters, this.frameCalls, count);
+  }
+
+  waitForReads(count: number): Promise<void> {
+    if (this.readCalls >= count) {
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      this.#readWaiters.push(Object.freeze({ count, resolve }));
+    });
   }
 
   #waitForCount(
@@ -798,6 +817,136 @@ test("observes accepted turns, tool requests, and affirmative contextual permiss
     toolCalls: 1,
     turns: 1,
   });
+});
+
+test("excludes terminal rendering while an admitted read cohort settles", async () => {
+  const host = new ControlledHost();
+  const runtime = new ControlledRuntime();
+  runtime.allowPermission = true;
+  const motion = new ControlledMotion();
+  let writesAtCohortLaunch = -1;
+  runtime.observeRead(5, () => {
+    writesAtCohortLaunch = host.writes.length;
+  });
+  const running = run(host, runtime, undefined, undefined, motion);
+  await host.started.promise;
+  await host.waitForWrites(1);
+
+  host.emit(input("inspect together\r"));
+  await runtime.waitForReads(1);
+  await host.waitForWrites(2);
+  for (const [event, readCount, writeCount] of [
+    [
+      Object.freeze({
+        approvalPreview: "",
+        approvalRequired: false,
+        callId: "read-a",
+        kind: "toolRequested" as const,
+        name: "read_file",
+        risk: "read" as const,
+        turnId: 1,
+      }),
+      2,
+      3,
+    ],
+    [
+      Object.freeze({
+        approvalPreview: "",
+        approvalRequired: false,
+        callId: "read-b",
+        kind: "toolRequested" as const,
+        name: "list_directory",
+        risk: "read" as const,
+        turnId: 1,
+      }),
+      3,
+      4,
+    ],
+    [
+      Object.freeze({
+        callId: "read-a",
+        kind: "toolStarted" as const,
+        name: "read_file",
+        risk: "read" as const,
+        turnId: 1,
+      }),
+      4,
+      5,
+    ],
+    [
+      Object.freeze({
+        callId: "read-b",
+        kind: "toolStarted" as const,
+        name: "list_directory",
+        risk: "read" as const,
+        turnId: 1,
+      }),
+      5,
+      6,
+    ],
+  ] as const) {
+    runtime.emit(event);
+    await runtime.waitForReads(readCount);
+    await host.waitForWrites(writeCount);
+  }
+
+  assert.equal(writesAtCohortLaunch, 6);
+  const writesDuringCohort = host.writes.length;
+  const motionReads = motion.readCalls;
+  motion.emitTick();
+  await motion.waitForReads(motionReads + 1);
+  assert.equal(host.writes.length, writesDuringCohort);
+  const terminalReads = host.readCalls;
+  host.emit(Object.freeze({ kind: "resize" as const }));
+  await host.waitForReads(terminalReads + 1);
+  assert.equal(host.writes.length, writesDuringCohort);
+
+  runtime.emit(
+    Object.freeze({
+      callId: "read-a",
+      kind: "toolFinished" as const,
+      name: "read_file",
+      risk: "read" as const,
+      status: "success" as const,
+      turnId: 1,
+    }),
+  );
+  await runtime.waitForReads(6);
+  await host.waitForWrites(writesDuringCohort + 1);
+  runtime.emit(
+    Object.freeze({
+      callId: "read-b",
+      kind: "toolFinished" as const,
+      name: "list_directory",
+      risk: "read" as const,
+      status: "success" as const,
+      turnId: 1,
+    }),
+  );
+  await runtime.waitForReads(7);
+  runtime.emit(delta(1, "done"));
+  await runtime.waitForReads(8);
+  runtime.emit(
+    Object.freeze({
+      assistant: Object.freeze({ content: "done" }),
+      checkpointed: true,
+      cleanup: Object.freeze([]),
+      kind: "turnPrepared" as const,
+      turnId: 1,
+    }) as unknown as RuntimeEvent<string>,
+  );
+  await host.waitForWrites(writesDuringCohort + 4);
+  host.emit(input("\u0003"));
+  const result = await running;
+
+  assert.ok(
+    result.ok,
+    result.ok
+      ? ""
+      : result.error.primary?.kind === "application"
+        ? result.error.primary.error.kind
+        : JSON.stringify(result.error),
+  );
 });
 
 test("routes cosmetic ticks through the serialized application loop", async () => {

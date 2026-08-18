@@ -70,6 +70,15 @@ fail closed. The conversation-first TUI continues to project only the most
 recent member as its contextual activity line; that presentation never replaces
 the controller's complete lifecycle state.
 
+After rendering the final allowed member's `toolStarted` state, the CLI enters
+one read-cohort terminal barrier before it arms the runtime read that launches
+the handlers. Motion is deactivated and terminal writes and clipboard work are
+deferred until that runtime read settles. Terminal input, resize observation,
+and cancellation remain serialized and responsive inside the barrier, but they
+cannot trigger a frame. The runtime settles that read only after every started
+handler has completed, so the first following runtime event releases the
+barrier before the accumulated authoritative state is rendered.
+
 The runtime awaits every started handler even after cancellation or a handler
 contract failure. It buffers settlements, then emits completion events and
 results in provider order. It constructs one complete ordered `ToolExchange`
@@ -128,6 +137,11 @@ CLI controller and activity-log regressions replay the complete cohort event
 sequence, including an `Ask` decision, multiple retained requests, ordered
 starts and finishes, cancellation of every open member, and fail-closed mixed,
 incomplete, duplicate, and oversized lifecycle state.
+
+The serialized application-loop regression observes the launch read directly:
+it proves the final started frame is written before launch, then processes both
+a cosmetic tick and a resize without a terminal write while settlement is
+pending, and resumes rendering only after the first ordered finish event.
 
 Instruction and documentation-policy tests bind the bounded sibling-read rule.
 The canonical Windows and Linux verifier remains the release gate.
