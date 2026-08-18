@@ -2,6 +2,7 @@ import {
   CLIPBOARD_CODE_UNIT_LIMIT,
   type Frame,
   hitTextPosition,
+  type InteractionDockFocus,
   markdownSelectionText,
   type PointerEvent,
   TextSelection,
@@ -18,6 +19,7 @@ const DOUBLE_CLICK_MILLISECONDS = 500;
 export type PointerProjection = Readonly<{
   composer: VerticalAllocation;
   frame: Frame;
+  interactionFocus: InteractionDockFocus;
   stageColumns: number;
   stageLeft: number;
   transcript: VerticalAllocation;
@@ -178,7 +180,6 @@ export class TerminalInteraction {
     projection: PointerProjection,
     entries: readonly TranscriptEntry[],
     editor: EditorInteractionPort,
-    composerEnabled: boolean,
   ): PointerInteractionUpdate {
     if (
       !Number.isSafeInteger(timeMilliseconds) ||
@@ -219,7 +220,7 @@ export class TerminalInteraction {
       composerColumn >= 0 &&
       composerColumn < composerColumns;
     if (
-      composerEnabled &&
+      projection.interactionFocus === "editor" &&
       !this.#transcriptDragging &&
       (inComposer || this.#composerDragging) &&
       event.button === "left" &&

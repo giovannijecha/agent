@@ -7,6 +7,7 @@ import {
   HorizontalRules,
   InputArea,
   InteractionDock,
+  type InteractionDockFocus,
   ok,
   type Result,
   ScrollView,
@@ -48,6 +49,7 @@ const CONVERSATION_RHYTHM_PRIORITY = 6;
 export type ChatRender = Readonly<{
   composer: VerticalAllocation;
   frame: Frame;
+  interactionFocus: InteractionDockFocus;
   stage: Readonly<{ columns: number; left: number }>;
   transcript: VerticalAllocation;
 }>;
@@ -371,6 +373,8 @@ export function createChatRender(
         Object.freeze({
           composer: composerGeometry.value,
           frame: frame.value,
+          interactionFocus:
+            contextualSelection === undefined ? "editor" : "selection",
           stage: projectConversationStage(viewport),
           transcript: documentGeometry.value,
         }),

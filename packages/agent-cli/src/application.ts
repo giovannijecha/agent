@@ -628,7 +628,6 @@ export class ApplicationController
         pointerProjection,
         this.#chat.transcriptEntries(),
         this.#session,
-        this.#inputContext() === "composer",
       );
       let redraw = interaction.redraw;
       if (interaction.composerInteraction && this.#notice.length > 0) {
