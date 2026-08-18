@@ -10,7 +10,7 @@ const EXPECTED_PROJECT = Object.freeze({
 const EXPECTED_POSTURE = Object.freeze({
   telemetry: "none",
   serviceBackend: "none",
-  sessionPersistence: "disabled",
+  sessionPersistence: "bounded-local",
   executionModel: "single-agent",
   mechanicalConcurrency: "bounded-independent-read-cohort",
   externalCodeContributions: "closed-initially",
@@ -36,6 +36,7 @@ const EXPECTED_DOCUMENTS = Object.freeze([
   "docs/decisions/0013-single-agent-execution.md",
   "docs/decisions/0074-owned-deterministic-read-overlap.md",
   "docs/decisions/0075-owned-branching-conversation-tree.md",
+  "docs/decisions/0076-owned-bounded-session-journal.md",
   "assets/brand/README.md",
   "docs/BRAND.md",
   "docs/decisions/0037-canonical-agent-brand.md",
@@ -300,6 +301,18 @@ function validatePublicDocuments(context) {
     "read overlap decision",
   );
   requireMarkers(
+    textFor(context, "docs/decisions/0076-owned-bounded-session-journal.md"),
+    [
+      "# 0076: Owned bounded session journal",
+      "`agent resume --latest` is the sole recovery",
+      "Streaming deltas, prospective\nturns, drafts",
+      "16,777,216 UTF-8 bytes",
+      "at most 32 validated session directories",
+      "A new schema version requires an accepted migration decision",
+    ],
+    "durable session decision",
+  );
+  requireMarkers(
     textFor(context, "assets/brand/README.md"),
     [
       "# Brand assets",
@@ -374,13 +387,15 @@ function validatePublicDocuments(context) {
     [
       "# Privacy policy",
       "`agent` is local-first software maintained by Giovanni Jecha. It has no project\ncloud service, analytics, advertising, crash-reporting endpoint, or telemetry.",
-      "persists no chat session, credential, catalog, or selection.",
+      "persists no credential, catalog, provider/model selection, or permission\npolicy.",
       "The policy is never persisted or sent to a provider.",
       "An approved `shell` invocation is lifecycle-contained but not filesystem- or\nnetwork-sandboxed; its command retains the launching user's authority.",
       "The Ollama API key is accepted only through the\nzero-projection TUI credential context or `AGENT_OLLAMA_API_KEY` and remains in\nprocess memory.",
       "Persistent storage requires a separate accepted\noperating-system vault design.",
-      "Local session persistence is disabled.",
-      "Closing the current process releases its in-memory conversation, display state,\nselection state, and key reference.",
+      "An explicit interactive `agent` launch creates a version-one local session\njournal outside the workspace.",
+      "`agent resume --latest` restores the newest\ninactive journal for the exact canonical workspace",
+      "It excludes provider credentials, catalogs, provider/model\nselection, permission policy, drafts, streamed or speculative output",
+      "Closing the current process releases its in-memory conversation, display state,\nselection state, key reference, and session lock.",
     ],
     "privacy policy",
   );

@@ -1,4 +1,5 @@
 import type {
+  RuntimeHistorySource,
   RuntimeCommandError,
   RuntimeSession,
   RuntimeSourceError,
@@ -36,6 +37,13 @@ import type { NoticeController } from "./notice-scheduler.js";
 import type { ClipboardPort } from "./platform-clipboard.js";
 import type { EvaluationReceiptRecorder } from "./evaluation-receipt.js";
 import type { ProviderSelectionPort } from "./provider-session.js";
+import {
+  SessionJournal,
+  type SessionJournalError,
+  type SessionTurnPresentation,
+} from "./session-journal.js";
+import type { RestoredChatState } from "./chat-state.js";
+import { projectTurnFailure } from "./turn-failure-presentation.js";
 
 export const PLAIN_STATUS =
   "agent\ninteractive terminal requires TTY input and output\n";
@@ -44,6 +52,11 @@ export type RunFailure<E> =
   | Readonly<{ kind: "application"; error: ApplicationError }>
   | Readonly<{ kind: "arbiter"; error: ArbiterError }>
   | Readonly<{ kind: "frame"; error: ComponentError }>
+  | Readonly<{
+      kind: "journal";
+      operation: "append" | "select";
+      error: SessionJournalError;
+    }>
   | Readonly<{
       kind: "runtime";
       operation:
@@ -68,6 +81,7 @@ export type RunFailure<E> =
       kind: "unexpected";
       operation:
         | "application"
+        | "journal"
         | "motion"
         | "notice"
         | "providerSelection"
@@ -81,6 +95,7 @@ export type RunFailure<E> =
     }>;
 
 export type CleanupFailure<E, RE> =
+  | Readonly<{ kind: "journal"; error: SessionJournalError }>
   | Readonly<{ kind: "renderer"; error: E }>
   | Readonly<{ kind: "runtime"; error: RuntimeStopError<RE> }>
   | Readonly<{ kind: "terminal"; error: E }>
@@ -89,6 +104,7 @@ export type CleanupFailure<E, RE> =
       operation:
         | "motion"
         | "notice"
+        | "journal"
         | "provider"
         | "renderer"
         | "runtime"
@@ -235,6 +251,46 @@ async function renderApplication<E>(
     : err(terminalFailure("output", rendered.error));
 }
 
+async function persistSettledTurn<E>(
+  historyNodeId: number,
+  presentation: SessionTurnPresentation,
+  historySource: RuntimeHistorySource | undefined,
+  journal: SessionJournal | undefined,
+): Promise<RunFailure<E> | undefined> {
+  if (journal === undefined) {
+    return undefined;
+  }
+  if (historySource === undefined) {
+    return Object.freeze({
+      kind: "unexpected" as const,
+      operation: "journal" as const,
+    });
+  }
+  try {
+    const turn = historySource.conversationTurn(historyNodeId);
+    if (!turn.ok) {
+      return Object.freeze({
+        error: turn.error,
+        kind: "runtime" as const,
+        operation: "history" as const,
+      });
+    }
+    const persisted = await journal.appendTurn(turn.value, presentation);
+    return persisted.ok
+      ? undefined
+      : Object.freeze({
+          error: persisted.error,
+          kind: "journal" as const,
+          operation: "append" as const,
+        });
+  } catch (_cause: unknown) {
+    return Object.freeze({
+      kind: "unexpected" as const,
+      operation: "journal" as const,
+    });
+  }
+}
+
 async function applyEffect<E, RE>(
   effect: ApplicationEffect,
   application: ApplicationController,
@@ -242,6 +298,8 @@ async function applyEffect<E, RE>(
   runtime: RuntimeSession<RE> | undefined,
   providers: ProviderSelectionPort | undefined,
   evaluation: EvaluationReceiptRecorder | undefined,
+  historySource: RuntimeHistorySource | undefined,
+  journal: SessionJournal | undefined,
 ): Promise<EffectOutcome<E>> {
   if (effect.kind === "exit") {
     return Object.freeze({ exit: true, failure: undefined, redraw: false });
@@ -519,6 +577,20 @@ async function applyEffect<E, RE>(
           redraw: false,
         });
       }
+      if (journal !== undefined) {
+        const persisted = await journal.select(effect.nodeId);
+        if (!persisted.ok) {
+          return Object.freeze({
+            exit: false,
+            failure: Object.freeze({
+              error: persisted.error,
+              kind: "journal" as const,
+              operation: "select" as const,
+            }),
+            redraw: false,
+          });
+        }
+      }
       const applied = application.conversationNodeSelected(effect.nodeId);
       return applied.ok
         ? Object.freeze({
@@ -574,13 +646,8 @@ async function applyEffect<E, RE>(
         effect.turnId,
         committed.value,
       );
-      return resolved.ok
-        ? Object.freeze({
-            exit: false,
-            failure: undefined,
-            redraw: resolved.value.redraw,
-          })
-        : Object.freeze({
+      if (!resolved.ok) {
+        return Object.freeze({
             exit: false,
             failure: Object.freeze({
               kind: "application" as const,
@@ -588,6 +655,32 @@ async function applyEffect<E, RE>(
             }),
             redraw: false,
           });
+      }
+      const historyNodeId = committed.value.historyNodeId;
+      if (historyNodeId !== undefined) {
+        const presentation: SessionTurnPresentation =
+          committed.value.kind === "committed"
+            ? Object.freeze({ kind: "completed" as const })
+            : Object.freeze({ kind: "cancelled" as const });
+        const persisted = await persistSettledTurn<E>(
+          historyNodeId,
+          presentation,
+          historySource,
+          journal,
+        );
+        if (persisted !== undefined) {
+          return Object.freeze({
+            exit: false,
+            failure: persisted,
+            redraw: false,
+          });
+        }
+      }
+      return Object.freeze({
+        exit: false,
+        failure: undefined,
+        redraw: resolved.value.redraw,
+      });
     } catch (_cause: unknown) {
       return Object.freeze({
         exit: false,
@@ -724,6 +817,8 @@ async function applyApplicationUpdate<E, RE>(
   runtime: RuntimeSession<RE> | undefined,
   providers: ProviderSelectionPort | undefined,
   evaluation: EvaluationReceiptRecorder | undefined,
+  historySource: RuntimeHistorySource | undefined,
+  journal: SessionJournal | undefined,
 ): Promise<EffectOutcome<E>> {
   let redraw = update.redraw;
   for (const effect of update.effects) {
@@ -734,6 +829,8 @@ async function applyApplicationUpdate<E, RE>(
       runtime,
       providers,
       evaluation,
+      historySource,
+      journal,
     );
     redraw = redraw || outcome.redraw;
     if (outcome.failure !== undefined || outcome.exit) {
@@ -755,6 +852,7 @@ async function cleanup<E, RE>(
   motion: MotionController | undefined,
   notices: NoticeController | undefined,
   providers: ProviderSelectionPort | undefined,
+  journal: SessionJournal | undefined,
 ): Promise<readonly CleanupFailure<E, RE>[]> {
   const failures = closeAuxiliaryControllers<E, RE>(motion, notices);
   try {
@@ -806,6 +904,23 @@ async function cleanup<E, RE>(
       failures.push(failure);
     }
   }
+  if (journal !== undefined) {
+    try {
+      const closed = await journal.close();
+      if (!closed.ok) {
+        failures.push(
+          Object.freeze({ kind: "journal" as const, error: closed.error }),
+        );
+      }
+    } catch (_cause: unknown) {
+      failures.push(
+        Object.freeze({
+          kind: "unexpected" as const,
+          operation: "journal" as const,
+        }),
+      );
+    }
+  }
   return Object.freeze(failures);
 }
 
@@ -839,16 +954,35 @@ function closeAuxiliaryControllers<E, RE>(
 
 async function cleanupPlainRuntime<RE>(
   runtime: RuntimeSession<RE> | undefined,
+  journal: SessionJournal | undefined,
 ): Promise<readonly CleanupFailure<never, RE>[]> {
   const stopped = beginRuntimeStop(runtime);
-  if (stopped === undefined) {
-    return Object.freeze([]);
+  const failures: CleanupFailure<never, RE>[] = [];
+  if (stopped !== undefined) {
+    const result = await stopped;
+    const failure = classifyRuntimeStop<never, RE>(result);
+    if (failure !== undefined) {
+      failures.push(failure);
+    }
   }
-  const result = await stopped;
-  const failure = classifyRuntimeStop<never, RE>(result);
-  return failure === undefined
-    ? Object.freeze([])
-    : Object.freeze([failure]);
+  if (journal !== undefined) {
+    try {
+      const closed = await journal.close();
+      if (!closed.ok) {
+        failures.push(
+          Object.freeze({ kind: "journal" as const, error: closed.error }),
+        );
+      }
+    } catch (_cause: unknown) {
+      failures.push(
+        Object.freeze({
+          kind: "unexpected" as const,
+          operation: "journal" as const,
+        }),
+      );
+    }
+  }
+  return Object.freeze(failures);
 }
 
 /** Runs plain output or one serialized terminal/runtime application session. */
@@ -861,6 +995,10 @@ export async function run<E, RE = never>(
   notices?: NoticeController,
   clipboard?: ClipboardPort,
   evaluation?: EvaluationReceiptRecorder,
+  historySource?: RuntimeHistorySource,
+  journal?: SessionJournal,
+  restoredChat?: RestoredChatState,
+  recoveredPrefix = false,
 ): Promise<Result<void, RunError<E, RE>>> {
   if (!host.interactive) {
     let primary: RunFailure<E> | undefined;
@@ -886,7 +1024,7 @@ export async function run<E, RE = never>(
         }),
       );
     }
-    const runtimeCleanup = await cleanupPlainRuntime(runtime);
+    const runtimeCleanup = await cleanupPlainRuntime(runtime, journal);
     cleanupFailures.push(
       ...(runtimeCleanup as readonly CleanupFailure<E, RE>[]),
     );
@@ -921,6 +1059,12 @@ export async function run<E, RE = never>(
         runtime !== undefined,
         providers?.snapshots(),
         workspace,
+        restoredChat,
+        recoveredPrefix
+          ? Object.freeze([
+              "Recovered the complete prefix of an interrupted session journal.",
+            ])
+          : undefined,
       );
       arbiter = new EventArbiter(host, runtime, motion, notices);
       const initial = await renderApplication(
@@ -1025,6 +1169,8 @@ export async function run<E, RE = never>(
               runtime,
               providers,
               evaluation,
+              historySource,
+              journal,
             );
             redraw = outcome.redraw;
             if (outcome.failure !== undefined) {
@@ -1063,6 +1209,32 @@ export async function run<E, RE = never>(
             });
             break;
           }
+          if (
+            runtimeEvent.kind === "turnFinished" &&
+            runtimeEvent.checkpointed &&
+            runtimeEvent.historyNodeId !== undefined
+          ) {
+            const presentation: SessionTurnPresentation =
+              runtimeEvent.outcome.kind === "cancelled"
+                ? Object.freeze({ kind: "cancelled" as const })
+                : Object.freeze({
+                    code: projectTurnFailure(
+                      runtimeEvent.outcome.failure,
+                      true,
+                    ).code,
+                    kind: "failed" as const,
+                  });
+            const persisted = await persistSettledTurn<E>(
+              runtimeEvent.historyNodeId,
+              presentation,
+              historySource,
+              journal,
+            );
+            if (persisted !== undefined) {
+              primary = persisted;
+              break;
+            }
+          }
           if (acceptedToolRequest) {
             evaluation?.requestedTool();
           }
@@ -1073,6 +1245,8 @@ export async function run<E, RE = never>(
             runtime,
             providers,
             evaluation,
+            historySource,
+            journal,
           );
           redraw = outcome.redraw;
           if (outcome.failure !== undefined) {
@@ -1227,6 +1401,7 @@ export async function run<E, RE = never>(
     motion,
     notices,
     providers,
+    journal,
   );
   return primary === undefined && cleanupFailures.length === 0
     ? ok(undefined)

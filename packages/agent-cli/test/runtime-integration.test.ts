@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import test from "node:test";
 
 import {
@@ -25,6 +28,7 @@ import {
 } from "@agent/tui";
 
 import { run } from "../dist/run.js";
+import { SessionJournal } from "../dist/session-journal.js";
 import { EvaluationReceiptRecorder } from "../dist/evaluation-receipt.js";
 import type {
   MotionController,
@@ -717,6 +721,67 @@ test("streams one runtime turn into chat and exits only on later idle Ctrl+C", a
   assert.equal(runtime.stopCalls, 1);
   assert.equal(host.writes.join("").includes("question"), true);
   assert.equal(host.writes.join("").includes("answer"), true);
+});
+
+test("publishes one settled runtime turn into the resumable CLI journal", async () => {
+  const stateRoot = await mkdtemp(path.join(tmpdir(), "agent-run-journal-"));
+  const workspace = path.join(stateRoot, "workspace");
+  const opened = await SessionJournal.create(stateRoot, workspace);
+  assert.equal(opened.ok, true);
+  if (!opened.ok) return;
+  let readStep = 0;
+  const runtime = new AgentRuntime<string>({
+    async open(): Promise<Result<ModelStream<string>, string>> {
+      return ok({
+        async close(): Promise<Result<void, string>> {
+          return ok(undefined);
+        },
+        async read(): Promise<Result<ModelStreamEvent, string>> {
+          readStep += 1;
+          return readStep === 1
+            ? ok(Object.freeze({ kind: "delta" as const, text: "answer" }))
+            : ok(Object.freeze({ kind: "done" as const }));
+        },
+      });
+    },
+  });
+  const host = new ControlledHost();
+  try {
+    const running = run(
+      host,
+      runtime,
+      undefined,
+      workspace,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      runtime,
+      opened.value.journal,
+      opened.value.chat,
+    );
+    await host.started.promise;
+    await host.waitForWrites(1);
+    host.emit(input("question\r"));
+    await host.waitForWrites(4);
+    host.emit(input("\u0003"));
+    assert.equal((await running).ok, true);
+
+    const resumed = await SessionJournal.resumeLatest(stateRoot, workspace);
+    assert.equal(resumed.ok, true);
+    if (resumed.ok) {
+      assert.equal(resumed.value.history.turns.length, 1);
+      assert.deepEqual(
+        resumed.value.history.conversation.entries.map((entry) =>
+          "content" in entry ? entry.content : "tool"
+        ),
+        ["question", "answer"],
+      );
+      assert.equal(await resumed.value.journal.close().then((value) => value.ok), true);
+    }
+  } finally {
+    await rm(stateRoot, { force: true, recursive: true });
+  }
 });
 
 test("keeps the sole configured provider active without a redundant selection", async () => {

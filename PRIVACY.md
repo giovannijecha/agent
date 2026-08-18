@@ -5,7 +5,9 @@
 `agent` is local-first software maintained by Giovanni Jecha. It has no project
 cloud service, analytics, advertising, crash-reporting endpoint, or telemetry.
 The production executable starts with no provider or model selected and
-persists no chat session, credential, catalog, or selection.
+persists no credential, catalog, provider/model selection, or permission
+policy. An explicit interactive launch keeps the bounded settled conversation
+journal described under [Local sessions](#local-sessions).
 
 Without a configured runtime, submitted text is discarded after a generic
 notice. It is not added to conversation state, displayed in the transcript,
@@ -152,14 +154,43 @@ and model availability terms can change and are not guarantees made by this
 project; review the current Ollama terms before sending sensitive content. The
 four subscription OAuth connections remain disabled.
 
-## Future local sessions
+## Local sessions
 
-The active path and retained alternate conversation branches exist only in
-bounded process memory. `/timeline` changes which retained path is sent to the
-model; it writes no session file and never uploads an inactive branch by
-itself. Local session persistence is disabled. If implemented, it must be opt-in,
-versioned, bounded, inspectable, removable, and documented before release. It
-must not silently upload or synchronize session data.
+An explicit interactive `agent` launch creates a version-one local session
+journal outside the workspace. `agent resume --latest` restores the newest
+inactive journal for the exact canonical workspace and creates a separate
+continuation. Resume never runs as a TUI command, never replays tools, never
+restores old filesystem state, and never uploads or synchronizes an inactive
+branch by itself. Non-TTY runs and `agent --evaluation-receipt` create no
+session journal.
+
+The journal contains the originating session identity, creation time, a SHA-256
+workspace key, complete settled user and assistant conversation entries,
+complete checkpointed tool calls and results, closed checkpoint settlement or
+failure classification, branch parent identities, and the selected node. It
+therefore contains personal content and source or tool output already admitted
+to conversation. It excludes provider credentials, catalogs, provider/model
+selection, permission policy, drafts, streamed or speculative output, active
+turn state, temporary activity, notices, foreign error causes, and evaluation
+receipts. A resumed process starts with no provider, model, credential, or
+permission grant.
+
+Windows stores sessions under `%LOCALAPPDATA%\agent\sessions`. POSIX systems
+use `${XDG_STATE_HOME}/agent/sessions` when set and otherwise
+`${HOME}/.local/state/agent/sessions`. Each canonical workspace has one hashed
+directory; its raw path is not stored in the journal. Directories request
+owner-only mode `0700` and files request `0600` where supported. This is local
+plain-text JSONL, not encryption or an operating-system vault. Other principals
+already authorized by the host, backups, or malware may still observe it.
+
+One journal is limited to 16,777,216 UTF-8 bytes and the conversation remains
+limited to 128 settled turns, 256 provider-message units, and 1,048,576 code
+units. At most 32 validated sessions are retained for one workspace and at most
+64 are scanned. Creating a new session removes the oldest unlocked exact
+session directories as needed; active or ambiguous sessions are never removed.
+Unknown versions and corruption fail closed. An interrupted final line alone
+may be discarded, with an explicit recovery notice, while its validated prefix
+is retained.
 
 ## Local task evaluation
 
@@ -208,10 +239,19 @@ a product diagnosis.
 ## Removal
 
 Closing the current process releases its in-memory conversation, display state,
-selection state, and key reference. The conversation release includes the
-active path and every retained alternate branch. Clipboard content accepted by the terminal
+selection state, key reference, and session lock. The settled local journal
+remains until bounded retirement or explicit removal. To remove all session
+content owned by Agent, first close every `agent` process and then delete the
+exact `%LOCALAPPDATA%\agent\sessions` directory on Windows or the exact
+`${XDG_STATE_HOME:-$HOME/.local/state}/agent/sessions` directory on POSIX.
+Removing only one hashed workspace directory removes all retained sessions for
+that workspace, but the digest is intentionally not reversible to a displayed
+path; inspect the versioned session headers before selective deletion.
+
+Clipboard content accepted by the terminal
 is external host state and must be cleared through that terminal or operating
 system. The operator must also remove the environment variable from
-any still-running parent shell. Removing the workspace removes all owned source and generated artifacts;
-installed toolchain software remains outside the project. Future persistence or
+any still-running parent shell. Removing the workspace removes all owned source
+and generated artifacts but does not remove the external hashed session
+directory. Installed toolchain software remains outside the project. Future
 credential features must add exact deletion instructions here before they ship.

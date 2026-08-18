@@ -2,6 +2,7 @@ import {
   CONVERSATION_TREE_LIMITS,
   Conversation,
   ConversationTree,
+  type ConversationTreeTurnSnapshot,
   type ConversationEntry,
   type ConversationTurnSettlement,
   err,
@@ -40,7 +41,7 @@ import type {
 } from "./events.js";
 import { RUNTIME_LIMITS } from "./limits.js";
 import type { ModelStreamEvent, ModelToolCall, StreamingModel } from "./model.js";
-import type { RuntimeSession } from "./session.js";
+import type { RuntimeHistorySource, RuntimeSession } from "./session.js";
 
 
 type Settled<T> =
@@ -329,12 +330,12 @@ function admitsParallelReads(
 }
 
 /** One-model, one-turn streaming runtime with atomic conversation commits. */
-export class AgentRuntime<E> implements RuntimeSession<E> {
+export class AgentRuntime<E> implements RuntimeHistorySource, RuntimeSession<E> {
   readonly #model: StreamingModel<E>;
   readonly #tools: ToolEngine | undefined;
   #closed = false;
-  #conversation = Conversation.empty();
-  #history = ConversationTree.empty();
+  #conversation: Conversation;
+  #history: ConversationTree;
   #finished:
     | Readonly<{
         cleanup: readonly RuntimeCleanupFailure<E>[];
@@ -348,9 +349,15 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
   #state: TurnState<E> | undefined;
   #stopOperation: Promise<Result<void, RuntimeStopError<E>>> | undefined;
 
-  constructor(model: StreamingModel<E>, tools?: ToolEngine) {
+  constructor(
+    model: StreamingModel<E>,
+    tools?: ToolEngine,
+    history: ConversationTree = ConversationTree.empty(),
+  ) {
     this.#model = model;
     this.#tools = tools;
+    this.#history = history;
+    this.#conversation = history.conversation;
   }
 
   /** Returns the last completely committed immutable conversation. */
@@ -361,6 +368,22 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
   /** Returns the active turn id, if a prospective turn exists. */
   get activeTurnId(): number | undefined {
     return this.#state?.turnId ?? this.#finished?.turnId;
+  }
+
+  /** Returns one immutable settled turn without changing active history. */
+  conversationTurn(
+    nodeId: number,
+  ): Result<ConversationTreeTurnSnapshot, RuntimeCommandError> {
+    if (this.#closed) {
+      return err(commandError("closed"));
+    }
+    if (!Number.isSafeInteger(nodeId) || nodeId < 1) {
+      return err(commandError("invalidHistoryNode"));
+    }
+    const turn = this.#history.turns.at(nodeId - 1);
+    return turn?.id === nodeId
+      ? ok(turn)
+      : err(commandError("invalidHistoryNode"));
   }
 
   /** Selects one existing process-memory branch while the runtime is idle. */

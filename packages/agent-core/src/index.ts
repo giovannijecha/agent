@@ -1,6 +1,15 @@
 /** Public immutable domain surface for agent. */
 
 export {
+  ConversationJournalError,
+  conversationJournalTurnFromUnknown,
+  conversationJournalTurnRecord,
+  restoreConversationJournal,
+  type ConversationJournalErrorKind,
+  type ConversationJournalTurn,
+  type ConversationJournalTurnRecord,
+} from "./conversation-journal.js";
+export {
   Conversation,
   conversationEntryCodeUnits,
   conversationEntryMessageUnits,
@@ -26,6 +35,7 @@ export {
   ConversationTreeError,
   type ConversationTreeErrorKind,
   type ConversationTreeNodeSnapshot,
+  type ConversationTreeTurnSnapshot,
   type ConversationTurnSettlement,
 } from "./conversation-tree.js";
 export { err, ok, type Result } from "./result.js";

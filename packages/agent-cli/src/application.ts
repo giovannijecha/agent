@@ -24,6 +24,8 @@ import {
 
 import {
   ChatState,
+  type RestoredChatState,
+  type RestoredChatTurn,
   type TimelineEntry,
   type TranscriptEntry,
 } from "./chat-state.js";
@@ -215,7 +217,7 @@ export class ApplicationController
   implements InputProjectionSource, InputAreaProjectionSource
 {
   readonly #activityLog = new ToolActivityLog();
-  readonly #chat = new ChatState();
+  readonly #chat: ChatState;
   #providers: readonly ProviderSelectionSnapshot[];
   readonly #permissions = new ToolPermissionPolicy();
   readonly #runtimeAvailable: boolean;
@@ -252,6 +254,8 @@ export class ApplicationController
     runtimeAvailable: boolean,
     providers: readonly ProviderSelectionSnapshot[] = [],
     workspace?: string,
+    restoredChat?: RestoredChatState,
+    initialNotice?: readonly string[],
   ) {
     const admitted = runtimeAvailable ? providers : [];
     const copied = copyProviderSnapshots(admitted);
@@ -259,6 +263,10 @@ export class ApplicationController
       throw new ApplicationError("providerInvariant");
     }
     this.#providers = copied;
+    this.#chat = new ChatState();
+    if (restoredChat !== undefined && !this.#chat.restore(restoredChat).ok) {
+      throw new ApplicationError("chatInvariant");
+    }
     const selectedIndex = this.#providers.findIndex(
       (provider) => provider.selected,
     );
@@ -268,6 +276,9 @@ export class ApplicationController
     this.#workspace = workspace;
     this.#session = new SessionController();
     this.#notice = Object.freeze([]);
+    if (initialNotice !== undefined) {
+      this.#setNotice(initialNotice);
+    }
   }
 
   get phase(): ApplicationPhase {
@@ -329,6 +340,11 @@ export class ApplicationController
 
   get hasTranscript(): boolean {
     return this.#chat.hasContent;
+  }
+
+  /** Returns one settled display turn after authoritative publication. */
+  settledChatTurn(nodeId: number): RestoredChatTurn | undefined {
+    return this.#chat.settledTurn(nodeId);
   }
 
   get transcriptScroll(): ScrollState {

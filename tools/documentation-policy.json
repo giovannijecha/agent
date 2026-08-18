@@ -77,7 +77,8 @@
     "docs/decisions/0072-owned-ollama-cloud-provider.md",
     "docs/decisions/0073-owned-capability-complete-shell-execution.md",
     "docs/decisions/0074-owned-deterministic-read-overlap.md",
-    "docs/decisions/0075-owned-branching-conversation-tree.md"
+    "docs/decisions/0075-owned-branching-conversation-tree.md",
+    "docs/decisions/0076-owned-bounded-session-journal.md"
   ],
   "decisionIndexLifecycleDigest": {
     "algorithm": "sha256",
@@ -125,7 +126,8 @@
     "0072": "2026-08-16",
     "0073": "2026-08-18",
     "0074": "2026-08-18",
-    "0075": "2026-08-18"
+    "0075": "2026-08-18",
+    "0076": "2026-08-18"
   },
   "historicalDecisionStatusExceptions": {
     "0009": "accepted"
@@ -182,7 +184,7 @@
   ],
   "decisionRecordDigest": {
     "algorithm": "sha256",
-    "value": "693fa6b0da407a2fbcb73e30b2e920a5a04ef9dfa9888f0db99781ac2e7fc5f8"
+    "value": "6fcff7f068a8dcf2dc7a7d3bc6dd42aa5bdc16099f8304fd054ba25c53b8759d"
   },
   "decisionDomainMembers": {
     "architecture": [
@@ -193,7 +195,8 @@
       "0052",
       "0061",
       "0074",
-      "0075"
+      "0075",
+      "0076"
     ],
     "documentation": [
       "0009",
@@ -283,6 +286,7 @@
   },
   "currentDecisionAuthorities": {
     "architecture": [
+      "0076",
       "0075",
       "0074",
       "0013",
@@ -439,7 +443,7 @@
         "## Local tools",
         "## Terminal selection and links",
         "## Ollama Cloud connection",
-        "## Future local sessions",
+        "## Local sessions",
         "## Local task evaluation",
         "## Removal"
       ]

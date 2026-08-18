@@ -67,6 +67,10 @@ test("rejects single-agent public contract drift", () => {
       "fixed maximum width of four",
     ],
     [
+      "docs/decisions/0076-owned-bounded-session-journal.md",
+      "`agent resume --latest` is the sole recovery",
+    ],
+    [
       "docs/decisions/0013-single-agent-execution.md",
       "Mechanical concurrency does not create another agent",
     ],
@@ -359,14 +363,16 @@ test("rejects an unsanitized vulnerability report", () => {
   );
 });
 
-test("rejects privacy and memory-only retention drift", () => {
+test("rejects privacy and bounded local retention drift", () => {
   for (const marker of [
-    "persists no chat session, credential, catalog, or selection.",
+    "persists no credential, catalog, provider/model selection, or permission\npolicy.",
     "The policy is never persisted or sent to a provider.",
     "The Ollama API key is accepted only through the\nzero-projection TUI credential context or `AGENT_OLLAMA_API_KEY` and remains in\nprocess memory.",
     "Persistent storage requires a separate accepted\noperating-system vault design.",
-    "Local session persistence is disabled.",
-    "Closing the current process releases its in-memory conversation, display state,\nselection state, and key reference.",
+    "An explicit interactive `agent` launch creates a version-one local session\njournal outside the workspace.",
+    "`agent resume --latest` restores the newest\ninactive journal for the exact canonical workspace",
+    "It excludes provider credentials, catalogs, provider/model\nselection, permission policy, drafts, streamed or speculative output",
+    "Closing the current process releases its in-memory conversation, display state,\nselection state, key reference, and session lock.",
   ]) {
     const context = currentContext();
     const maintained = context.files["PRIVACY.md"];
