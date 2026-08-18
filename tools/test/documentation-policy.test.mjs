@@ -162,6 +162,17 @@ test("rejects an unindexed decision record", () => {
   );
 });
 
+test("rejects noncanonical files in the flat decision directory", () => {
+  const context = currentContext();
+  const file = "docs/decisions/draft-notes.md";
+  context.ownedPaths.push(file);
+  context.files[file] = "# Draft notes\n";
+  assert.throws(
+    () => validateDocumentationPolicy(policy, context),
+    DocumentationPolicyError,
+  );
+});
+
 test("rejects duplicate decision ledger entries", () => {
   const context = currentContext();
   context.files[policy.decisionIndex] +=
@@ -486,6 +497,60 @@ test("rejects prospective decision metadata drift", () => {
   }
 });
 
+test("rejects impossible prospective decision dates", () => {
+  const file = "docs/decisions/0072-owned-ollama-cloud-provider.md";
+  for (const date of ["2026-02-30", "2026-00-15", "2025-02-29"]) {
+    const context = currentContext();
+    context.files[file] = context.files[file].replace(
+      "- Date: 2026-08-16",
+      "- Date: " + date,
+    );
+    const prospectiveDecisionDates = {
+      ...policy.prospectiveDecisionDates,
+      "0072": date,
+    };
+    const decisionRecordDigest = {
+      ...policy.decisionRecordDigest,
+      value: recordDigestFor(context),
+    };
+    assert.throws(
+      () =>
+        validateDocumentationPolicy(
+          {
+            ...policy,
+            prospectiveDecisionDates,
+            decisionRecordDigest,
+          },
+          context,
+        ),
+      DocumentationPolicyError,
+    );
+  }
+});
+
+test("permits valid prospective leap-day metadata", () => {
+  const context = currentContext();
+  const file = "docs/decisions/0072-owned-ollama-cloud-provider.md";
+  context.files[file] = context.files[file].replace(
+    "- Date: 2026-08-16",
+    "- Date: 2024-02-29",
+  );
+  const prospectiveDecisionDates = {
+    ...policy.prospectiveDecisionDates,
+    "0072": "2024-02-29",
+  };
+  const decisionRecordDigest = {
+    ...policy.decisionRecordDigest,
+    value: recordDigestFor(context),
+  };
+  assert.doesNotThrow(() =>
+    validateDocumentationPolicy(
+      { ...policy, prospectiveDecisionDates, decisionRecordDigest },
+      context,
+    ),
+  );
+});
+
 test("preserves both directions when a consolidation is superseded", () => {
   const context = currentContext();
   context.files[policy.decisionIndex] = context.files[policy.decisionIndex]
@@ -701,7 +766,7 @@ test("permits a coherently reopened documentation migration", () => {
       "| Durable design history | decision files and [decision index](decisions/README.md) | [Decision index](decisions/README.md) and stable records | active |",
     );
   context.files[policy.index] = context.files[policy.index].replace(
-    "The\ncompleted lossless reduction is preserved in",
+    "The completed lossless reduction is preserved in",
     "The active lossless reduction is tracked in",
   );
   const migrationRows = policy.migrationRows.map((row) =>
@@ -771,6 +836,44 @@ test("rejects documentation authority row drift", () => {
       before,
       after,
     );
+    assert.throws(
+      () => validateDocumentationPolicy(policy, context),
+      DocumentationPolicyError,
+    );
+  }
+});
+
+test("rejects documentation map table boundary drift", () => {
+  const publicRow =
+    "| [Public README](../README.md) | public users | public product introduction |";
+  const repositoryRow =
+    "| [Repository instructions](../AGENTS.md) | contributors and coding agents | repository change contract |";
+  const mutations = [
+    (text) =>
+      text.replace(
+        "| Document | Audience | Authority |\n| --- | --- | --- |",
+        "Registered documentation authorities",
+      ),
+    (text) =>
+      text.replace(
+        publicRow,
+        publicRow +
+          "\n| [Unregistered architecture](ARCHITECTURE.md) | readers | notes |",
+      ),
+    (text) =>
+      text.replace(
+        publicRow + "\n" + repositoryRow,
+        repositoryRow + "\n" + publicRow,
+      ),
+    (text) =>
+      text
+        .replace(publicRow + "\n", "")
+        .replace("## Reading paths\n", "## Reading paths\n\n" + publicRow + "\n"),
+  ];
+
+  for (const mutate of mutations) {
+    const context = currentContext();
+    context.files[policy.index] = mutate(context.files[policy.index]);
     assert.throws(
       () => validateDocumentationPolicy(policy, context),
       DocumentationPolicyError,

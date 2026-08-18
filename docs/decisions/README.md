@@ -18,16 +18,17 @@ also binds the complete canonical edge inventory and rejects replacement cycles;
 changing that acyclic graph requires updating the policy in the same decision
 change.
 
-The complete ledger classifies every stable record. The current-authority view
-routes each closed domain only to accepted entry points and binds every visible
-decision ID to its stable record destination. Each authority cell contains only
-those links and their canonical separators. Every record retains its numeric
-heading plus its `Context` and `Decision`; the verifier preserves
-historical pre-0070 formats instead of normalizing them retroactively and binds
-each historical relationship field to its exact policy value. This includes
-prose-qualified partial supersessions that do not create a complete ledger
-edge. Prospective decision dates have an exact inventory. The complete
-normalized record set, including every durable protocol, verification,
+The complete ledger classifies every stable record. The decision directory
+contains only this index and the registered flat numeric record paths. The
+current-authority view routes each closed domain only to accepted entry points
+and binds every visible decision ID to its stable record destination. Each
+authority cell contains only those links and their canonical separators. Every
+record retains its numeric heading plus its `Context` and `Decision`; the
+verifier preserves historical pre-0070 formats instead of normalizing them
+retroactively and binds each historical relationship field to its exact policy
+value. This includes prose-qualified partial supersessions that do not create a
+complete ledger edge. Prospective decision dates have an exact inventory. The
+complete normalized record set, including every durable protocol, verification,
 consequence, and rollback section, is bound to the policy digest; an intentional
 amendment updates that digest in the same decision change. This Lifecycle body
 is itself bound to a separate policy digest.

@@ -49,8 +49,9 @@ the linked owner is where the complete contract lives.
 
 Every maintained topic has one canonical owner. Other documents keep only the
 context their audience needs and link to that owner. The offline registry binds
-each map row's visible label, destination, audience, and authority. The
-completed lossless reduction is preserved in
+the `Start here` table to exactly the registered living-document rows, in
+registry order, including each visible label, destination, audience, and
+authority. The completed lossless reduction is preserved in
 [the migration ledger](DOCUMENTATION-MIGRATION.md), which records each migrated
 topic and its canonical destination.
 
