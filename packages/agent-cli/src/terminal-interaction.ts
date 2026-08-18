@@ -178,6 +178,7 @@ export class TerminalInteraction {
     projection: PointerProjection,
     entries: readonly TranscriptEntry[],
     editor: EditorInteractionPort,
+    composerEnabled: boolean,
   ): PointerInteractionUpdate {
     if (
       !Number.isSafeInteger(timeMilliseconds) ||
@@ -218,6 +219,7 @@ export class TerminalInteraction {
       composerColumn >= 0 &&
       composerColumn < composerColumns;
     if (
+      composerEnabled &&
       !this.#transcriptDragging &&
       (inComposer || this.#composerDragging) &&
       event.button === "left" &&

@@ -277,8 +277,9 @@ focus replaces that editor body with the provider, model, permission,
 pending-tool, or timeline list, retains at most one header plus five visible
 items, and admits no caret. The CLI chooses that focus, consumes the input that
 closes a selector, and prevents composer pointer effects until editor focus
-returns. Slash completion stays above the dock because it remains an
-editor-owned draft operation.
+returns while continuing to route transcript selection and scrolling. Slash
+completion stays above the dock because it remains an editor-owned draft
+operation.
 
 Tool activity never becomes transcript content. User and assistant messages
 remain structured role entries but render without redundant role labels.

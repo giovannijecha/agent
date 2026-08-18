@@ -619,10 +619,6 @@ export class ApplicationController
     pointerProjection?: PointerProjection,
   ): ApplicationUpdate {
     if (action.kind === "pointer") {
-      if (this.#inputContext() !== "composer") {
-        this.#terminalInteraction.reset();
-        return update(false);
-      }
       if (pointerProjection === undefined) {
         return update(false);
       }
@@ -632,6 +628,7 @@ export class ApplicationController
         pointerProjection,
         this.#chat.transcriptEntries(),
         this.#session,
+        this.#inputContext() === "composer",
       );
       let redraw = interaction.redraw;
       if (interaction.composerInteraction && this.#notice.length > 0) {

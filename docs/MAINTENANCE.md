@@ -304,9 +304,10 @@ The ruled interaction dock owns one body and one focus kind. Keep editor focus
 for the draft and concealed credential entry; keep provider, model, permission,
 pending-tool, and timeline lists in selection focus. Selection focus is capped
 at six content rows, has no caret, consumes a closing editor event, and blocks
-composer pointer effects. Change focus routing in the CLI reducer only after
-the generic dock tests cover header allocation, selected-row visibility,
-caret admission, narrow viewports, and hostile children.
+composer pointer effects without resetting or blocking transcript pointer
+selection and scrolling. Change focus routing in the CLI reducer only after the
+generic dock tests cover header allocation, selected-row visibility, caret
+admission, narrow viewports, and hostile children.
 
 Rollback must restore renderer and CLI event assumptions together. Removal of
 an interaction deletes its decoder event, reducer route, layout projection,

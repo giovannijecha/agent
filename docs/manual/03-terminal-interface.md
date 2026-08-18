@@ -44,7 +44,8 @@ rows: an optional header and up to five windowed choices. The current choice
 stays visible and accented; the composer caret is absent. The draft remains
 unchanged. An ordinary editor input closes a dismissible selector and is
 consumed, and pointer input cannot edit or copy the draft until editor focus
-returns.
+returns. Transcript selection, copying, and wheel scrolling remain available
+while a selector owns the dock.
 
 `/providers` and `/models` use the same list controls: Up and Down move without
 wrapping, and Enter selects the current row. Selecting an unconfigured provider

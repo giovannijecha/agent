@@ -354,7 +354,7 @@ test("routes composer double click, replacement, and resize through LineEditor",
   );
 });
 
-test("does not route pointer input to the retained draft during selection focus", () => {
+test("keeps transcript pointer input active without routing it to the retained draft during selection focus", () => {
   const application = new ApplicationController(true, [
     Object.freeze({
       configured: true,
@@ -368,23 +368,65 @@ test("does not route pointer input to the retained draft during selection focus"
       selected: true,
     }),
   ]);
+  const transcript = Array.from(
+    { length: 20 },
+    (_, index) =>
+      "line" + index.toString().padStart(2, "0") + " alpha beta",
+  ).join("\n");
+  assert.ok(application.turnAccepted(started(1, transcript)).ok);
+  assert.ok(application.applyRuntime(Object.freeze({
+    kind: "assistantDelta",
+    text: "settled",
+    turnId: 1,
+  }) as RuntimeEvent<string>).ok);
+  assert.ok(application.applyRuntime(Object.freeze({
+    assistant: Object.freeze({ content: "settled" }),
+    checkpointed: false,
+    cleanup: Object.freeze([]),
+    kind: "turnPrepared",
+    turnId: 1,
+  }) as unknown as RuntimeEvent<string>).ok);
+  assert.ok(
+    application.turnCommitResolved(1, {
+      historyNodeId: 1,
+      kind: "committed",
+    }).ok,
+  );
   application.feed("alpha beta");
-  const editorRender = render(application);
-  const editorArea = application.projectArea(36, 6);
+  const editorRender = render(application, 32, 12);
+  const editorArea = application.projectArea(32, 6);
   const beta = composerCellAt(editorRender, "alpha beta", 6);
   application.applySessionAction(Object.freeze({ kind: "openProviders" }));
+  const selectionRender = render(application, 32, 12);
+  const visible = selectionRender.frame.rows
+    .flatMap((row) => row.spans)
+    .find((span) => span.position?.document === 0);
+  assert.ok(visible?.position !== undefined);
+  const transcriptStart = cellFor(selectionRender, visible.position);
+  const transcriptEnd = cellFor(selectionRender, {
+    document: 0,
+    offset: visible.position.offset + Math.min(4, visible.text.length - 1),
+  });
+
+  pointer(application, selectionRender, transcriptStart, "press", 50);
+  pointer(application, selectionRender, transcriptEnd, "move", 60);
+  pointer(application, selectionRender, transcriptEnd, "release", 70);
+  assert.ok(application.takePendingCopy() !== undefined);
+  const oldOffset = application.transcriptScroll.offset;
+  assert.equal(wheel(application, selectionRender, "up"), true);
+  assert.equal(application.transcriptScroll.offset < oldOffset, true);
 
   pointer(application, editorRender, beta, "press", 100);
   pointer(application, editorRender, beta, "release", 110);
 
   assert.equal(application.project(36).text, "alpha beta");
-  assert.deepEqual(application.projectArea(36, 6), editorArea);
+  assert.deepEqual(application.projectArea(32, 6), editorArea);
   assert.equal(application.takePendingCopy(), undefined);
 
   application.applySessionAction(Object.freeze({ kind: "closeProviders" }));
   const restored = render(application);
   assert.equal(restored.frame.caret === undefined, false);
-  assert.deepEqual(application.projectArea(36, 6), editorArea);
+  assert.deepEqual(application.projectArea(32, 6), editorArea);
 });
 
 test("reduces coalesced composer pointer and editor events in decoder order", () => {
