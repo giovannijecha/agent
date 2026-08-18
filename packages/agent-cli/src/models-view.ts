@@ -10,7 +10,12 @@ import {
 
 import { CONVERSATION_DENSITY } from "./conversation-density.js";
 import type { ProviderModelSnapshot } from "./provider-session.js";
-import { createSpan, createStack } from "./view-components.js";
+import {
+  createInteractionHeader,
+  createSpan,
+  createStack,
+  type InteractionStatusProjection,
+} from "./view-components.js";
 
 export type ModelMenuProjection = Readonly<{
   items: readonly ProviderModelSnapshot[];
@@ -25,18 +30,16 @@ function costLabel(cost: ProviderModelSnapshot["cost"]): string {
 /** Projects one bounded provider-owned remote model selection. */
 export function createModelsDocument(
   projection: ModelMenuProjection | undefined,
+  status?: InteractionStatusProjection,
 ): Result<Component, ComponentError> {
   if (projection === undefined) {
     return createStack([]);
   }
-  const title = createSpan("Models", "emphasis");
-  const provider = createSpan(projection.providerName, "muted");
-  if (!title.ok) return title;
-  if (!provider.ok) return provider;
-  const header = SplitLine.create([title.value], [provider.value], {
-    gap: 2,
-    priority: "left",
-  });
+  const header = createInteractionHeader(
+    "Models",
+    projection.providerName,
+    status,
+  );
   if (!header.ok) return header;
 
   const rows: Component[] = [];

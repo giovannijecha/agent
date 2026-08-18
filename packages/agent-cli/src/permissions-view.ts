@@ -16,7 +16,12 @@ import type {
   ToolDecisionProjection,
   ToolPermissionMode,
 } from "./tool-permissions.js";
-import { createSpan, createStack } from "./view-components.js";
+import {
+  createInteractionHeader,
+  createSpan,
+  createStack,
+  type InteractionStatusProjection,
+} from "./view-components.js";
 
 function modeLabel(mode: ToolPermissionMode): string {
   return mode === "allow" ? "Allow" : mode === "ask" ? "Ask" : "Deny";
@@ -32,15 +37,13 @@ function actionLabel(action: ToolDecisionAction): string {
 
 function createPermissionMenu(
   projection: PermissionMenuProjection,
+  status: InteractionStatusProjection | undefined,
 ): Result<Component, ComponentError> {
-  const title = createSpan("Permissions", "emphasis");
-  const scope = createSpan("current session", "muted");
-  if (!title.ok) return title;
-  if (!scope.ok) return scope;
-  const header = SplitLine.create([title.value], [scope.value], {
-    gap: 2,
-    priority: "left",
-  });
+  const header = createInteractionHeader(
+    "Permissions",
+    "current session",
+    status,
+  );
   if (!header.ok) return header;
 
   const rows: Component[] = [];
@@ -76,6 +79,7 @@ function createPermissionMenu(
 
 function createToolDecision(
   projection: ToolDecisionProjection,
+  status: InteractionStatusProjection | undefined,
 ): Result<Component, ComponentError> {
   const rows: Component[] = [];
   for (let position = 0; position < projection.actions.length; position += 1) {
@@ -91,8 +95,13 @@ function createToolDecision(
   }
   const list = SelectionList.create(rows, projection.selectedIndex);
   if (!list.ok) return list;
+  const header = status === undefined
+    ? undefined
+    : createInteractionHeader(undefined, undefined, status);
+  if (header !== undefined && !header.ok) return header;
   return InteractionDock.create(list.value, {
     focus: "selection",
+    ...(header === undefined ? {} : { header: header.value }),
     maximumRows: CONVERSATION_DENSITY.interactionDockMaximumRows,
   });
 }
@@ -101,12 +110,15 @@ function createToolDecision(
 export function createPermissionsDocument(
   menu: PermissionMenuProjection | undefined,
   decision: ToolDecisionProjection | undefined,
+  status?: InteractionStatusProjection,
 ): Result<Component, ComponentError> {
   if (menu !== undefined && decision !== undefined) {
     return err(new ComponentError("invalidComponent", undefined));
   }
   if (decision !== undefined) {
-    return createToolDecision(decision);
+    return createToolDecision(decision, status);
   }
-  return menu === undefined ? createStack([]) : createPermissionMenu(menu);
+  return menu === undefined
+    ? createStack([])
+    : createPermissionMenu(menu, status);
 }
