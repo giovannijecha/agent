@@ -2,6 +2,41 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { NodeTerminalHost } from "../dist/node-terminal-host.js";
+import type {
+  ScheduledTimer,
+  TimerClock,
+} from "../dist/timer-clock.js";
+
+class ManualTimer implements ScheduledTimer {
+  readonly delayMilliseconds: number;
+  readonly listener: () => void;
+  cancelled = false;
+
+  constructor(delayMilliseconds: number, listener: () => void) {
+    this.delayMilliseconds = delayMilliseconds;
+    this.listener = listener;
+  }
+
+  cancel(): void {
+    this.cancelled = true;
+  }
+
+  fire(): void {
+    if (!this.cancelled) {
+      this.listener();
+    }
+  }
+}
+
+class ManualClock implements TimerClock {
+  readonly timers: ManualTimer[] = [];
+
+  schedule(delayMilliseconds: number, listener: () => void): ScheduledTimer {
+    const timer = new ManualTimer(delayMilliseconds, listener);
+    this.timers.push(timer);
+    return timer;
+  }
+}
 
 class FakeInput {
   readonly dataListeners: ((text: string) => void)[] = [];
@@ -73,6 +108,12 @@ class FakeInput {
   emitData(text: string): void {
     for (const listener of [...this.dataListeners]) {
       listener(text);
+    }
+  }
+
+  emitError(cause: unknown): void {
+    for (const listener of [...this.errorListeners]) {
+      listener(cause);
     }
   }
 }
@@ -164,6 +205,90 @@ test("owns raw mode and ordered input lifecycle", async () => {
   assert.equal(input.resumes, 1);
   assert.equal(input.pauses, 1);
   assert.equal(input.dataListeners.length, 0);
+});
+
+test("settles a lone Escape after one bounded terminal ambiguity window", async () => {
+  const input = new FakeInput();
+  const output = new FakeOutput();
+  const clock = new ManualClock();
+  const host = new NodeTerminalHost(input, output, clock);
+  await host.start();
+
+  input.emitData("\u001B");
+  assert.equal(clock.timers.length, 1);
+  assert.equal(clock.timers.at(0)?.delayMilliseconds, 30);
+  clock.timers.at(0)?.fire();
+
+  const event = await host.nextEvent();
+  assert.deepEqual(event.ok ? event.value : undefined, {
+    kind: "input",
+    monotonicMilliseconds:
+      event.ok && event.value.kind === "input"
+        ? event.value.monotonicMilliseconds
+        : -1,
+    settledEscape: true,
+    text: "\u001B",
+  });
+  await host.stop();
+});
+
+test("joins an Escape continuation without publishing a cancellation", async () => {
+  const input = new FakeInput();
+  const output = new FakeOutput();
+  const clock = new ManualClock();
+  const host = new NodeTerminalHost(input, output, clock);
+  await host.start();
+
+  input.emitData("\u001B");
+  input.emitData("[A");
+
+  const event = await host.nextEvent();
+  assert.equal(event.ok, true);
+  if (event.ok && event.value.kind === "input") {
+    assert.deepEqual(
+      {
+        settledEscape: event.value.settledEscape,
+        text: event.value.text,
+      },
+      { settledEscape: undefined, text: "\u001B[A" },
+    );
+  }
+  assert.equal(clock.timers.at(0)?.cancelled, true);
+  await host.stop();
+});
+
+test("cancels an unpublished Escape when terminal ownership stops", async () => {
+  const input = new FakeInput();
+  const output = new FakeOutput();
+  const clock = new ManualClock();
+  const host = new NodeTerminalHost(input, output, clock);
+  await host.start();
+
+  input.emitData("\u001B");
+  await host.stop();
+  clock.timers.at(0)?.fire();
+
+  assert.equal(clock.timers.at(0)?.cancelled, true);
+  assert.deepEqual(await host.nextEvent(), {
+    ok: true,
+    value: { kind: "end" },
+  });
+});
+
+test("cancels an unpublished Escape before reporting terminal failure", async () => {
+  const input = new FakeInput();
+  const output = new FakeOutput();
+  const clock = new ManualClock();
+  const host = new NodeTerminalHost(input, output, clock);
+  await host.start();
+
+  input.emitData("\u001B");
+  input.emitError("failed");
+
+  const event = await host.nextEvent();
+  assert.equal(event.ok, false);
+  assert.equal(clock.timers.at(0)?.cancelled, true);
+  await host.stop();
 });
 
 test("coalesces queued resize events without dropping input", async () => {

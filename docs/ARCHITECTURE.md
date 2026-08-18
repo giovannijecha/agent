@@ -287,8 +287,16 @@ concealed credential editor admit none while transcript selection and scrolling
 remain active. Slash completion stays above the dock because it remains an
 editor-owned draft operation. The immutable render projection carries both the
 visible dock focus and composer-pointer authority into pointer reduction; one
-coalesced input chunk never reclassifies stale geometry from newer application
-state.
+ coalesced input chunk never reclassifies stale geometry from newer application
+ state.
+Contextual provider, model, session-permission, and timeline selectors retain
+selection focus through ordinary text and editing keys. Up and Down navigate,
+Enter keeps the selector's acceptance meaning, Escape or Ctrl+C cancels, and
+every accepting or cancelling event is consumed without touching the retained
+draft. Page navigation and EOF remain global. The Node terminal host retains at
+most one trailing raw Escape byte for 30 milliseconds so fragmented terminal
+sequences stay ordered; an uncontinued byte returns through the same event queue
+as an explicitly settled Escape for the generic decoder.
 
 Tool activity never becomes transcript content. User and assistant messages
 remain structured role entries but render without redundant role labels.

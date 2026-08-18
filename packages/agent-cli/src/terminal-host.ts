@@ -6,6 +6,8 @@ export type HostEvent =
   | Readonly<{
       kind: "input";
       monotonicMilliseconds: number;
+      /** The terminal boundary has settled one exact bare Escape byte. */
+      settledEscape?: true;
       text: string;
     }>
   | Readonly<{ kind: "resize" }>;

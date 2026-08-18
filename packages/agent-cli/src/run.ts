@@ -1295,6 +1295,7 @@ export async function run<E, RE = never>(
                             stageLeft: lastRender.stage.left,
                             transcript: lastRender.transcript,
                           }),
+                      terminal.settledEscape === true,
                     );
             } catch (_cause: unknown) {
               primary = Object.freeze({

@@ -462,6 +462,10 @@ test("keeps transcript pointer input active without routing it to the retained d
     200,
     projection(coalescedRender),
   );
+  assert.equal(application.project(32).text, "alpha beta");
+
+  application.feed("\u001B", 210, projection(coalescedRender), true);
+  application.feed("owned", 220, projection(render(application, 32, 12)));
   assert.equal(application.project(32).text, "alpha betaowned");
 });
 

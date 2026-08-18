@@ -14,6 +14,7 @@ export type KeyEvent =
   | Readonly<{ kind: "end" }>
   | Readonly<{ kind: "enter" }>
   | Readonly<{ kind: "eof" }>
+  | Readonly<{ kind: "escape" }>
   | Readonly<{ kind: "home" }>
   | Readonly<{ kind: "interrupt" }>
   | Readonly<{ kind: "left" }>
@@ -54,6 +55,7 @@ const SIMPLE_EVENTS = Object.freeze({
   end: Object.freeze({ kind: "end" as const }),
   enter: Object.freeze({ kind: "enter" as const }),
   eof: Object.freeze({ kind: "eof" as const }),
+  escape: Object.freeze({ kind: "escape" as const }),
   home: Object.freeze({ kind: "home" as const }),
   interrupt: Object.freeze({ kind: "interrupt" as const }),
   left: Object.freeze({ kind: "left" as const }),
@@ -286,9 +288,14 @@ export class InputDecoder {
   /**
    * Decodes one bounded UTF-8 text chunk in order.
    * Incomplete escape and surrogate fragments remain private until the next call.
+   * A settled trailing Escape is admitted only after the terminal boundary has
+   * disambiguated it from a fragmented control sequence.
    */
-  feed(chunk: string): readonly KeyEvent[] {
-    if (chunk.length > MAX_CHUNK_CODE_UNITS) {
+  feed(chunk: string, settledTrailingEscape = false): readonly KeyEvent[] {
+    if (
+      chunk.length > MAX_CHUNK_CODE_UNITS ||
+      typeof settledTrailingEscape !== "boolean"
+    ) {
       this.#reset();
       return Object.freeze([SIMPLE_EVENTS.unsupported]);
     }
@@ -357,6 +364,12 @@ export class InputDecoder {
       }
       if (source.at(index) === ESCAPE) {
         const remaining = source.slice(index);
+        if (remaining.length === 1 && settledTrailingEscape) {
+          appendEvent(events, SIMPLE_EVENTS.escape);
+          index += 1;
+          this.#previousWasCarriageReturn = false;
+          continue;
+        }
         if (remaining.startsWith(BRACKETED_PASTE_START)) {
           this.#pasting = true;
           this.#pasteBuffer = "";

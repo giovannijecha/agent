@@ -80,7 +80,8 @@
     "docs/decisions/0075-owned-branching-conversation-tree.md",
     "docs/decisions/0076-owned-bounded-session-journal.md",
     "docs/decisions/0077-owned-terminal-blinking-block-cursor.md",
-    "docs/decisions/0078-owned-interaction-dock-focus.md"
+    "docs/decisions/0078-owned-interaction-dock-focus.md",
+    "docs/decisions/0079-owned-explicit-selector-dismissal.md"
   ],
   "decisionIndexLifecycleDigest": {
     "algorithm": "sha256",
@@ -131,7 +132,8 @@
     "0075": "2026-08-18",
     "0076": "2026-08-18",
     "0077": "2026-08-18",
-    "0078": "2026-08-18"
+    "0078": "2026-08-18",
+    "0079": "2026-08-18"
   },
   "historicalDecisionStatusExceptions": {
     "0009": "accepted"
@@ -188,7 +190,7 @@
   ],
   "decisionRecordDigest": {
     "algorithm": "sha256",
-    "value": "8117eda14c24b95dc017d362eef2d0887ff6831269424c2a5b5fd40aa0fc793a"
+    "value": "cb740dd9c30165b59c41ee24d6b93a2dab608f6a797083041b720363fb67a6ef"
   },
   "decisionDomainMembers": {
     "architecture": [
@@ -269,7 +271,8 @@
       "0060",
       "0063",
       "0077",
-      "0078"
+      "0078",
+      "0079"
     ],
     "tools": [
       "0008",
@@ -331,6 +334,7 @@
       "0058"
     ],
     "terminal": [
+      "0079",
       "0078",
       "0077",
       "0023",

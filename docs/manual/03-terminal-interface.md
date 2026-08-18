@@ -115,6 +115,13 @@ caret is absent and the terminal cursor remains hidden rather than moving onto
 the footer or another visible row. Agent does not simulate the blink, and a
 terminal that does not support shape selection may retain its native cursor
 shape while preserving the same visibility contract.
+When a provider, model, permission, or timeline menu occupies the dock, Up and
+Down move its selection and Enter accepts the current choice. Left and Right
+change the highlighted permission only in `/permissions`. Escape or Ctrl+C
+cancels the menu and restores the unchanged draft. Other typing and editing keys
+are ignored while the menu remains open, so an accidental character neither
+closes the menu nor disappears into the composer. Page Up and Page Down continue
+to navigate the transcript.
 The footer shows the workspace and selected provider/model; its right edge
 contains a small moving pulse only while autonomous work advances. Permission
 waiting is not active motion.
@@ -162,3 +169,4 @@ display styling never executes code or changes model text.
 - [Durable-session decision](../decisions/0076-owned-bounded-session-journal.md)
 - [Blinking-block cursor decision](../decisions/0077-owned-terminal-blinking-block-cursor.md)
 - [Interaction-dock focus decision](../decisions/0078-owned-interaction-dock-focus.md)
+- [Explicit-selector dismissal decision](../decisions/0079-owned-explicit-selector-dismissal.md)

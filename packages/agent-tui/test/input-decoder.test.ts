@@ -85,6 +85,15 @@ test("retains an escape sequence across every chunk split", () => {
   }
 });
 
+test("decodes a bare Escape only after the terminal settles its ambiguity", () => {
+  const pending = new InputDecoder();
+  const settled = new InputDecoder();
+
+  assert.deepEqual(pending.feed("\u001B"), []);
+  assert.deepEqual(kinds(pending.finish()), ["unsupported"]);
+  assert.deepEqual(kinds(settled.feed("\u001B", true)), ["escape"]);
+});
+
 test("decodes transcript navigation keys across CSI and SS3 forms", () => {
   const decoder = new InputDecoder();
 
