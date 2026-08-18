@@ -28,6 +28,19 @@ export type TimelineEntry = Readonly<{
   user: string;
 }>;
 
+export type RestoredChatTurn = Readonly<{
+  assistant: string;
+  historyNodeId: number;
+  historyParentNodeId: number;
+  settlement: "completed" | "checkpointed";
+  user: string;
+}>;
+
+export type RestoredChatState = Readonly<{
+  activeNodeId: number;
+  turns: readonly RestoredChatTurn[];
+}>;
+
 export type ChatStateErrorKind =
   | "activeTurn"
   | "deltaTooLong"
@@ -157,6 +170,87 @@ export class ChatState {
 
   get hasContent(): boolean {
     return this.#historyNodeId !== 0 || this.#active !== undefined;
+  }
+
+  /** Restores one validated display projection before interactive ownership. */
+  restore(snapshot: RestoredChatState): Result<void, ChatStateError> {
+    if (
+      this.#active !== undefined ||
+      this.#completed.length !== 0 ||
+      snapshot === null ||
+      typeof snapshot !== "object" ||
+      !Array.isArray(snapshot.turns) ||
+      snapshot.turns.length > CONVERSATION_TREE_LIMITS.turns ||
+      !Number.isSafeInteger(snapshot.activeNodeId) ||
+      snapshot.activeNodeId < 0
+    ) {
+      return err(new ChatStateError("invalidHistoryNode"));
+    }
+    const completed: CompletedTurn[] = [];
+    let displayCodeUnits = 0;
+    for (let index = 0; index < snapshot.turns.length; index += 1) {
+      const turn = snapshot.turns.at(index);
+      const historyNodeId = index + 1;
+      if (
+        turn === undefined ||
+        turn.historyNodeId !== historyNodeId ||
+        !Number.isSafeInteger(turn.historyParentNodeId) ||
+        turn.historyParentNodeId < 0 ||
+        turn.historyParentNodeId >= historyNodeId ||
+        (turn.settlement !== "completed" &&
+          turn.settlement !== "checkpointed") ||
+        typeof turn.user !== "string" ||
+        turn.user.trim().length === 0 ||
+        inputTooLong(turn.user) ||
+        typeof turn.assistant !== "string" ||
+        turn.assistant.trim().length === 0
+      ) {
+        return err(new ChatStateError("invalidHistoryNode"));
+      }
+      const turnCodeUnits = turn.user.length + turn.assistant.length;
+      displayCodeUnits += turnCodeUnits;
+      if (displayCodeUnits > MAX_COMPLETED_DISPLAY_CODE_UNITS) {
+        return err(new ChatStateError("invalidHistoryNode"));
+      }
+      completed.push(
+        Object.freeze({
+          assistant: turn.assistant,
+          assistantDocument: index * 2 + 1,
+          displayCodeUnits: turnCodeUnits,
+          historyNodeId,
+          historyParentNodeId: turn.historyParentNodeId,
+          settlement: turn.settlement,
+          user: turn.user,
+          userDocument: index * 2,
+        }),
+      );
+    }
+    if (
+      snapshot.activeNodeId !== 0 &&
+      completed.at(snapshot.activeNodeId - 1)?.historyNodeId !==
+        snapshot.activeNodeId
+    ) {
+      return err(new ChatStateError("invalidHistoryNode"));
+    }
+    this.#completed.push(...completed);
+    this.#completedDisplayCodeUnits = displayCodeUnits;
+    this.#historyNodeId = snapshot.activeNodeId;
+    this.#nextDocument = completed.length * 2;
+    return ok(undefined);
+  }
+
+  /** Returns one immutable settled display turn for durable projection. */
+  settledTurn(nodeId: number): RestoredChatTurn | undefined {
+    const turn = this.#completed.at(nodeId - 1);
+    return turn?.historyNodeId === nodeId
+      ? Object.freeze({
+          assistant: turn.assistant,
+          historyNodeId: turn.historyNodeId,
+          historyParentNodeId: turn.historyParentNodeId,
+          settlement: turn.settlement,
+          user: turn.user,
+        })
+      : undefined;
   }
 
   /** Starts one prospective display turn without publishing it to history. */

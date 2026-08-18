@@ -48,6 +48,9 @@ export type ConversationTreeNodeSnapshot = Readonly<{
   settlement: ConversationTurnSettlement;
 }>;
 
+export type ConversationTreeTurnSnapshot = ConversationTreeNodeSnapshot &
+  Readonly<{ entries: readonly ConversationEntry[] }>;
+
 type ConversationTreeNode = ConversationTreeNodeSnapshot &
   Readonly<{ entries: readonly ConversationEntry[] }>;
 
@@ -284,6 +287,23 @@ export class ConversationTree {
         Object.freeze({
           codeUnits: node.codeUnits,
           depth: node.depth,
+          id: node.id,
+          messageUnits: node.messageUnits,
+          parentId: node.parentId,
+          settlement: node.settlement,
+        }),
+      ),
+    );
+  }
+
+  /** Returns immutable settled turn deltas for owned persistence adapters. */
+  get turns(): readonly ConversationTreeTurnSnapshot[] {
+    return Object.freeze(
+      this.#nodes.map((node) =>
+        Object.freeze({
+          codeUnits: node.codeUnits,
+          depth: node.depth,
+          entries: node.entries,
           id: node.id,
           messageUnits: node.messageUnits,
           parentId: node.parentId,

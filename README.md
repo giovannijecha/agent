@@ -21,8 +21,8 @@ runtime packages.
 - Ask for one explicit permission decision for every planned write or execution.
 - Connect Ollama Cloud and select an available cloud model for the current process.
 - Stream one checkpointed model-and-tool loop through a conversation-first TUI.
-- Retain bounded alternate conversation branches in process memory and select
-  one active path.
+- Retain bounded alternate conversation branches in a local durable journal,
+  select one active path, and resume the latest workspace session.
 - Verify the complete repository and grade maintained task fixtures offline.
 
 The single-agent execution model has one identity, one controller, one active
@@ -45,6 +45,12 @@ To install and open the local command:
 ```powershell
 npm run install:command
 agent
+```
+
+To continue the newest inactive session for the same exact workspace:
+
+```powershell
+agent resume --latest
 ```
 
 The directory in which `agent` starts becomes its immutable workspace boundary.
@@ -79,10 +85,13 @@ model, permission, and command choices reuse one compact selection path. The
 [terminal-interface manual](docs/manual/03-terminal-interface.md) owns the full
 editing, layout, pointer, color, motion, and failure behavior.
 
-`/timeline` shows the process-memory root and settled turns. Selecting an older
+`/timeline` shows the retained root and settled turns. Selecting an older
 node changes the transcript and the context for the next task; appending then
 creates a sibling branch without deleting later nodes. It never replays tools,
-and all branches disappear when the process exits.
+and an accepted selection updates the local session head. Only settled turns
+are journaled; credentials, provider/model state, permissions, drafts, and
+provisional output remain process-only. See [Privacy](PRIVACY.md#local-sessions)
+for storage locations, bounds, and deletion.
 
 ## Safety model
 

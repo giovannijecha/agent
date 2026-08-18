@@ -84,12 +84,12 @@ Node and operating-system boundary.
 
 | Package | Owns |
 | --- | --- |
-| `@agent/core` | deterministic domain state, immutable conversation trees, and immutable results |
+| `@agent/core` | deterministic domain state, immutable conversation trees, journal codecs, and immutable results |
 | `@agent/tools` | tool schemas, risk classes, registry validation, and bounded handler execution |
 | `@agent/runtime` | bounded streaming turns, cancellation, tool checkpoints, conversation-tree selection, and commits |
 | `@agent/provider-ollama-cloud` | provider-neutral request translation and Ollama Cloud stream decoding |
 | `@agent/tui` | input decoding, editors, structured rows, Markdown, layout, viewports, and frame rendering |
-| `@agent/cli` | application state, commands, branch-aware transcript projection, provider/session state, built-in tools, terminal arbitration, filesystem/process access, and native brokers |
+| `@agent/cli` | application state, commands, durable session journals, branch-aware transcript projection, provider/session state, built-in tools, terminal arbitration, filesystem/process access, and native brokers |
 
 Dependencies point inward and public package access goes through each
 `src/index.ts`. Deep cross-package imports are not part of the architecture.
@@ -100,10 +100,11 @@ The CLI composition root performs startup in this order:
 
 1. resolve the exact startup directory into one immutable canonical workspace;
 2. load the built-in and optional root `.agentignore` read-denial policy;
-3. register the fixed tool inventory and session permission policy;
-4. acquire terminal ownership and enter the empty conversation-first TUI;
-5. accept an explicit provider and credential through `/providers`;
-6. accept a model returned by the authenticated `/models` catalog.
+3. create a new bounded local journal or restore the exact latest inactive one;
+4. register the fixed tool inventory and session permission policy;
+5. acquire terminal ownership and enter the conversation-first TUI;
+6. accept an explicit provider and credential through `/providers`;
+7. accept a model returned by the authenticated `/models` catalog.
 
 A submitted user message is prospective until the complete turn settles. One
 model response may contain one bounded ordered tool-call batch. The runtime:
@@ -129,13 +130,23 @@ Each other node owns one completed turn or one checkpointed incomplete turn and
 one parent identity. Runtime exposes exactly one selected root-to-node path as
 the linear conversation sent to the model. Selecting an earlier node while
 idle and submitting another task appends a child there without deleting any
-existing descendants. Alternate branches are inert process-memory data, not
+existing descendants. Alternate branches are inert retained data, not
 parallel conversations, and selection never replays a tool or effect.
 The core snapshots each public turn delta through its bounded indexed surface
 before validation, measurement, and storage; caller iteration is never used.
 The CLI mirror cannot reject an accepted tree transition because of its bounded
 checkpoint markers or separators, and `/timeline` keeps all retained identities
 navigable while projecting at most 32 insertion-ordered rows at once.
+
+Interactive `agent` creates one versioned per-user local journal outside the
+workspace. Only complete settled turns and the selected node identity cross
+that CLI-owned boundary. `agent resume --latest` validates the newest inactive
+journal for the exact workspace, rebuilds the immutable tree and transcript,
+and creates a separate continuation before providers, tools, or terminal
+ownership. Credentials, catalogs, provider/model selection, permissions,
+drafts, provisional turns, activity, and notices remain process-only. A final
+truncated line recovers only its complete prefix; every other corruption fails
+closed. Evaluation-receipt and non-TTY runs create no journal.
 
 The principal runtime bounds are fixed:
 
@@ -148,6 +159,8 @@ The principal runtime bounds are fixed:
 | one parallel read cohort | 2-4 calls |
 | one selected conversation path | 256 messages / 1,048,576 code units |
 | retained conversation tree | 128 settled turns / 256 messages / 1,048,576 code units |
+| one local session journal | 16,777,216 UTF-8 bytes |
+| retained sessions per workspace | 32 validated directories / 64 scanned |
 | one turn | 32 model/tool steps |
 
 ## Capability surface
@@ -225,7 +238,7 @@ regions projected from authoritative application state.
 
 `@agent/cli` owns product meaning:
 
-- transcript entries, `/timeline` branch selection, command dispatch, and provider/session state;
+- transcript entries, `/timeline` branch selection, durable journal settlement, command dispatch, and provider/session state;
 - one latest ephemeral activity or notice;
 - permission decisions and tool lifecycle projection;
 - terminal/runtime event serialization and cancellation;
@@ -257,9 +270,10 @@ Owned native C17 brokers provide:
 - object-bound namespace commits;
 - Windows clipboard transfer.
 
-Unsupported operating-system or filesystem primitives fail closed. These
-guarantees are not a filesystem sandbox, transaction, rollback system,
-durability guarantee, or crash-recovery protocol.
+Unsupported operating-system or filesystem primitives fail closed. Session
+records are synchronized and recover one interrupted final append, but these
+guarantees are not a filesystem sandbox, general transaction, rollback system,
+encrypted vault, or arbitrary crash-recovery protocol.
 
 The repository follows a clean-room ownership boundary. External runtime and
 platform documentation may define contracts; foreign source, prompts, tests,

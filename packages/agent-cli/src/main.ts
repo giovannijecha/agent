@@ -45,6 +45,12 @@ import { writeProcessText } from "./process-output.js";
 import { ShellExecutionPolicy } from "./shell-execution-policy.js";
 import { resolveOllamaCloudConfiguration } from "./provider-configuration.js";
 import {
+  resolveSessionJournalRoot,
+  SessionJournal,
+  type OpenedSessionJournal,
+  type SessionJournalErrorKind,
+} from "./session-journal.js";
+import {
   ProviderSession,
   type ProviderDefinition,
 } from "./provider-session.js";
@@ -62,6 +68,41 @@ async function writeAndExit(
 ): Promise<never> {
   await writeProcessText(output, text);
   exit(code);
+}
+
+async function closeSessionJournal(
+  opened: OpenedSessionJournal | undefined,
+): Promise<void> {
+  if (opened === undefined) {
+    return;
+  }
+  try {
+    await opened.journal.close();
+  } catch (_cause: unknown) {
+    // The pending content-free launch failure remains authoritative.
+  }
+}
+
+async function closeSessionAndExit(
+  opened: OpenedSessionJournal | undefined,
+  text: string,
+  code: number,
+): Promise<never> {
+  await closeSessionJournal(opened);
+  return writeAndExit(stderr, text, code);
+}
+
+function sessionJournalDiagnostic(kind: SessionJournalErrorKind): string {
+  if (kind === "missing") {
+    return "agent found no resumable session for this workspace\n";
+  }
+  if (kind === "active") {
+    return "agent refused to resume an active session\n";
+  }
+  if (kind === "limit") {
+    return "agent could not retain another bounded session\n";
+  }
+  return "agent could not open the session journal\n";
 }
 
 function monotonicMilliseconds(): number {
@@ -136,14 +177,18 @@ const launch = parseLaunchCommand(argv.slice(2));
 if (!launch.ok) {
   await writeAndExit(
     stderr,
-    "usage: agent [--evaluation-receipt | --help | --version]\n",
+    "usage: agent [--evaluation-receipt | --help | --version]\n" +
+      "       agent resume --latest\n",
     2,
   );
 } else if (launch.command === "help") {
   await writeAndExit(
     stdout,
     "agent - owned personal coding agent\n\n" +
-      "usage: agent [--evaluation-receipt | --help | --version]\n\n" +
+      "usage: agent [--evaluation-receipt | --help | --version]\n" +
+      "       agent resume --latest\n\n" +
+      "Use agent resume --latest to continue the newest settled session for " +
+      "the exact current workspace.\n\n" +
       "Use --evaluation-receipt only for one interactive owned task " +
       "evaluation; it prints bounded content-free counts after cleanup.\n\n" +
       "Use /providers to configure or select a memory-only provider, then " +
@@ -156,13 +201,15 @@ if (!launch.ok) {
 
 if (
   launch.ok &&
-  launch.command === "run" &&
-  launch.evaluationReceipt &&
+  ((launch.command === "run" && launch.evaluationReceipt) ||
+    launch.command === "resume") &&
   (stdin.isTTY !== true || stdout.isTTY !== true)
 ) {
   await writeAndExit(
     stderr,
-    "agent evaluation receipt requires TTY input and output\n",
+    launch.command === "resume"
+      ? "agent resume requires TTY input and output\n"
+      : "agent evaluation receipt requires TTY input and output\n",
     2,
   );
 }
@@ -188,9 +235,6 @@ const workspaceReadPolicy = workspaceReadPolicyResult.ok
       1,
     );
 
-const ollamaConfiguration = resolveOllamaCloudConfiguration(
-  env.AGENT_OLLAMA_API_KEY,
-);
 const terminalHost = new NodeTerminalHost();
 const timerClock = terminalHost.interactive ? new NodeTimerClock() : undefined;
 const motion = timerClock !== undefined
@@ -204,99 +248,167 @@ const evaluation =
   launch.ok && launch.command === "run" && launch.evaluationReceipt
     ? new EvaluationReceiptRecorder()
     : undefined;
-if (!ollamaConfiguration.ok) {
-  stderr.write("agent rejected the provider configuration\n", () => exit(1));
-} else {
-  const definitions: readonly ProviderDefinition<ProviderError>[] =
-    Object.freeze([
-      Object.freeze({
-        acceptsModel: isOllamaCloudModelId,
-        createModel: (credential: string, model: string) => {
-          if (!isOllamaCloudModelId(model)) return undefined;
-          const transport = NodeOllamaCloudTransport.create(credential);
-          if (!transport.ok) return undefined;
-          const created = OllamaCloudModel.create(
-            transport.value,
-            AGENT_INSTRUCTIONS,
-            model,
-          );
-          return created.ok ? created.value : undefined;
-        },
-        id: "ollamaCloud" as const,
-        presentation: Object.freeze({
-          authentication: "memory-only API key",
-          displayName: "Ollama Cloud",
-        }),
-      }),
-    ]);
-  const providerSession = ProviderSession.create(
-    definitions,
-    new NodeOllamaModelCatalog(),
-  );
-  const processRunner = NodeProcessRunner.create(platform, arch);
-  const shell = ShellExecutionPolicy.create(platform, env);
-  const mutationCommitter = PlatformWorkspaceMutationCommitter.create(
+let openedSession: OpenedSessionJournal | undefined;
+if (terminalHost.interactive && evaluation === undefined) {
+  const stateRoot = resolveSessionJournalRoot(
     platform,
-    arch,
+    env,
+    env.HOME ?? "",
   );
-  const namespaceCommitter = PlatformWorkspaceNamespaceCommitter.create(
-    platform,
-    arch,
-  );
-  if (
-    !providerSession.ok ||
-    !processRunner.ok ||
-    !shell.ok ||
-    !mutationCommitter.ok ||
-    !namespaceCommitter.ok
-  ) {
-    stderr.write("agent could not initialize the configured provider\n", () =>
-      exit(1),
-    );
-  } else {
-    const ollamaPreloaded = ollamaConfiguration.value.kind === "disabled" ||
-      providerSession.value.configure(
-        "ollamaCloud",
-        ollamaConfiguration.value.credential,
-      ).ok;
-    if (!ollamaPreloaded) {
-      stderr.write("agent rejected the provider configuration\n", () =>
-        exit(1),
+  const sessionRoot = stateRoot.ok
+    ? stateRoot.value
+    : await writeAndExit(
+        stderr,
+        sessionJournalDiagnostic(stateRoot.error.kind),
+        1,
       );
-    } else {
-      const tools = createBuiltinToolEngine(
-        workspaceBoundary,
-        workspaceReadPolicy,
-        {
-          mutationCommitter: mutationCommitter.value,
-          namespaceCommitter: namespaceCommitter.value,
-          processRunner: processRunner.value,
-          shell: shell.value,
-        },
-        evaluation,
+  const opened = launch.ok && launch.command === "resume"
+    ? await SessionJournal.resumeLatest(sessionRoot, workspaceRoot)
+    : await SessionJournal.create(sessionRoot, workspaceRoot);
+  openedSession = opened.ok
+    ? opened.value
+    : await writeAndExit(
+        stderr,
+        sessionJournalDiagnostic(opened.error.kind),
+        1,
       );
-      if (!tools.ok) {
-        stderr.write(
-          "agent could not initialize the configured provider\n",
-          () => exit(1),
-        );
-      } else {
-        await startEvaluation(evaluation);
-        const result = await run(
-          terminalHost,
-          new AgentRuntime(providerSession.value, tools.value),
-          providerSession.value,
-          workspaceRoot,
-          motion,
-          notices,
-          clipboard,
-          evaluation,
-        );
-        await settleEvaluationRun(
-          result.ok ? undefined : result.error.primary?.kind ?? "cleanup",
-          evaluation,
-        );
-      }
-    }
-  }
 }
+
+const ollamaConfiguration = resolveOllamaCloudConfiguration(
+  env.AGENT_OLLAMA_API_KEY,
+);
+const configuration = ollamaConfiguration.ok
+  ? ollamaConfiguration.value
+  : await closeSessionAndExit(
+      openedSession,
+      "agent rejected the provider configuration\n",
+      1,
+    );
+
+const definitions: readonly ProviderDefinition<ProviderError>[] = Object.freeze([
+  Object.freeze({
+    acceptsModel: isOllamaCloudModelId,
+    createModel: (credential: string, model: string) => {
+      if (!isOllamaCloudModelId(model)) return undefined;
+      const transport = NodeOllamaCloudTransport.create(credential);
+      if (!transport.ok) return undefined;
+      const created = OllamaCloudModel.create(
+        transport.value,
+        AGENT_INSTRUCTIONS,
+        model,
+      );
+      return created.ok ? created.value : undefined;
+    },
+    id: "ollamaCloud" as const,
+    presentation: Object.freeze({
+      authentication: "memory-only API key",
+      displayName: "Ollama Cloud",
+    }),
+  }),
+]);
+const providerSession = ProviderSession.create(
+  definitions,
+  new NodeOllamaModelCatalog(),
+);
+const processRunner = NodeProcessRunner.create(platform, arch);
+const shell = ShellExecutionPolicy.create(platform, env);
+const mutationCommitter = PlatformWorkspaceMutationCommitter.create(
+  platform,
+  arch,
+);
+const namespaceCommitter = PlatformWorkspaceNamespaceCommitter.create(
+  platform,
+  arch,
+);
+const initializedProviderSession = providerSession.ok
+  ? providerSession.value
+  : await closeSessionAndExit(
+      openedSession,
+      "agent could not initialize the configured provider\n",
+      1,
+    );
+const initializedProcessRunner = processRunner.ok
+  ? processRunner.value
+  : await closeSessionAndExit(
+      openedSession,
+      "agent could not initialize the configured provider\n",
+      1,
+    );
+const initializedShell = shell.ok
+  ? shell.value
+  : await closeSessionAndExit(
+      openedSession,
+      "agent could not initialize the configured provider\n",
+      1,
+    );
+const initializedMutationCommitter = mutationCommitter.ok
+  ? mutationCommitter.value
+  : await closeSessionAndExit(
+      openedSession,
+      "agent could not initialize the configured provider\n",
+      1,
+    );
+const initializedNamespaceCommitter = namespaceCommitter.ok
+  ? namespaceCommitter.value
+  : await closeSessionAndExit(
+      openedSession,
+      "agent could not initialize the configured provider\n",
+      1,
+    );
+
+const ollamaPreloaded = configuration.kind === "disabled" ||
+  initializedProviderSession.configure(
+    "ollamaCloud",
+    configuration.credential,
+  ).ok;
+if (!ollamaPreloaded) {
+  await closeSessionAndExit(
+    openedSession,
+    "agent rejected the provider configuration\n",
+    1,
+  );
+}
+
+const tools = createBuiltinToolEngine(
+  workspaceBoundary,
+  workspaceReadPolicy,
+  {
+    mutationCommitter: initializedMutationCommitter,
+    namespaceCommitter: initializedNamespaceCommitter,
+    processRunner: initializedProcessRunner,
+    shell: initializedShell,
+  },
+  evaluation,
+);
+const initializedTools = tools.ok
+  ? tools.value
+  : await closeSessionAndExit(
+      openedSession,
+      "agent could not initialize the configured provider\n",
+      1,
+    );
+
+await startEvaluation(evaluation);
+const runtime = new AgentRuntime(
+  initializedProviderSession,
+  initializedTools,
+  openedSession?.history,
+);
+const result = await run(
+  terminalHost,
+  runtime,
+  initializedProviderSession,
+  workspaceRoot,
+  motion,
+  notices,
+  clipboard,
+  evaluation,
+  runtime,
+  openedSession?.journal,
+  openedSession?.chat,
+  openedSession?.recoveredPrefix ?? false,
+);
+await settleEvaluationRun(
+  result.ok ? undefined : result.error.primary?.kind ?? "cleanup",
+  evaluation,
+);

@@ -131,7 +131,7 @@ the CLI must not absorb a second private runtime.
 
 **Owners:** `packages/agent-core/src/conversation-tree.ts`, runtime settlement
 and selection, CLI `ChatState`, `/timeline`, its generic selection projection,
-and decision 0075.
+and decisions 0075 and 0076.
 
 For a conversation-tree change:
 
@@ -150,8 +150,35 @@ Rollback removes `/timeline` and its projection first, restores a linear CLI
 transcript, then replaces the runtime tree with the selected linear path.
 Removal deletes the command, session route, display projection, runtime port,
 core type, tests, manual text, and decision registration together. Never add
-persistence, compaction, replay, branch deletion, or import/export as part of a
-tree maintenance change; each requires a separate accepted design.
+compaction, replay, branch deletion, or import/export as part of a tree
+maintenance change; each requires a separate accepted design.
+
+### Durable session journal
+
+**Owners:** the core journal codec, runtime settled-history projection, CLI
+`SessionJournal`, launch grammar, serialized settlement and selection wiring,
+restored `ChatState`, privacy and security policies, and decision 0076.
+
+For a journal change:
+
+1. change the versioned core codec and its exact rejection tests first;
+2. keep filesystem, platform state roots, locking, retention, and recovery in
+   the CLI; never move Node I/O into core, runtime, or TUI;
+3. append only after authoritative runtime and display settlement, update the
+   head only after runtime selection, and keep both in the sole controller;
+4. exclude credentials, provider/model state, permissions, drafts,
+   provisional output, activity, notices, foreign causes, and receipts;
+5. prove exact-workspace isolation, active and stale locks, truncated final
+   lines, interior corruption, bounds, cleanup, and one composition round trip;
+6. update the public retention and exact deletion instructions in the same
+   change.
+
+Rollback first removes `agent resume --latest` and disables new journal
+creation. Existing versioned directories remain untouched until the operator
+uses the privacy-policy deletion route. Then remove controller wiring, the CLI
+storage owner, runtime projection, core codec, display restoration, tests, and
+registries. Removal must never reinterpret an unknown schema, append to an old
+journal, or delete an active session.
 
 ### Tool engine
 

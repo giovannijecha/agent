@@ -57,8 +57,9 @@ retained settled turn in insertion order through a bounded moving window, with
 indentation for depth and markers for the active path tip, checkpoints, and
 alternate children. Up and Down move without wrapping and reveal earlier or
 later rows as needed, Enter selects, and Ctrl+C closes the selector. Selecting
-the root makes the next task a new root branch. Timeline state is process-only
-and is not session persistence.
+the root makes the next task a new root branch. An accepted selection updates
+the active-node pointer in the local session journal; it still does not rerun
+tools or restore old workspace state.
 
 ## Navigate and copy
 
@@ -134,3 +135,4 @@ display styling never executes code or changes model text.
 - [Terminal interaction decision](../decisions/0045-owned-terminal-interaction.md)
 - [Conversation focus decision](../decisions/0059-owned-accented-conversation-focus.md)
 - [Branching conversation-tree decision](../decisions/0075-owned-branching-conversation-tree.md)
+- [Durable-session decision](../decisions/0076-owned-bounded-session-journal.md)

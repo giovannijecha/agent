@@ -65,6 +65,64 @@ function failureCode<E>(failure: TurnFailure<E>): string {
   return "runtime/failure";
 }
 
+const FIXED_TURN_FAILURE_CODES = Object.freeze([
+  "model/empty-delta",
+  "model/empty-response",
+  "model/event-limit",
+  "model/open/invalid-result",
+  "model/open/invalid-stream",
+  "model/open/unexpected",
+  "model/read/invalid-event",
+  "model/read/invalid-result",
+  "model/read/unexpected",
+  "model/response-limit",
+  "runtime/failure",
+  "tool/engine",
+  "tool/invalid-call",
+  "tool/invalid-call/identity",
+  "tool/invalid-call/input",
+  "tool/invalid-call/name",
+  "tool/limit",
+  "tool/unavailable",
+]);
+
+const PROVIDER_FAILURE_FAMILIES = Object.freeze([
+  "cancelled",
+  "connectivity",
+  "lifecycle",
+  "limit",
+  "protocol",
+  "rejected",
+  "request",
+  "timeout",
+]);
+
+/** Validates the closed content-free failure vocabulary retained by a journal. */
+export function isTurnFailureCode(value: unknown): value is string {
+  if (typeof value !== "string") {
+    return false;
+  }
+  if (FIXED_TURN_FAILURE_CODES.includes(value)) {
+    return true;
+  }
+  if (value === "model/open" || value === "model/read") {
+    return true;
+  }
+  const family = value.startsWith("model/open/")
+    ? value.slice("model/open/".length)
+    : value.startsWith("model/read/")
+      ? value.slice("model/read/".length)
+      : undefined;
+  return family !== undefined && PROVIDER_FAILURE_FAMILIES.includes(family);
+}
+
+/** Rebuilds the exact bounded transcript marker from a validated code. */
+export function checkpointedFailureMarker(code: string): string | undefined {
+  return isTurnFailureCode(code)
+    ? "[turn failed (" + code + ") after completed tool activity]"
+    : undefined;
+}
+
 /** Projects one closed, content-free failed-turn classification for display. */
 export function projectTurnFailure<E>(
   failure: TurnFailure<E>,

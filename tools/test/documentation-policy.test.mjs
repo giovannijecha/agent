@@ -124,8 +124,8 @@ test("rejects canonical document structure drift", () => {
     ],
     [
       "PRIVACY.md",
-      "## Future local sessions",
-      "## Future session storage",
+      "## Local sessions",
+      "## Session storage",
     ],
     [
       "docs/OWNERSHIP.md",
@@ -381,7 +381,7 @@ test("rejects invalid current decision authority routes", () => {
       "[0013 single-agent execution](0013-single-agent-execution.md), unregistered authority, [0052 checkpointed failures](0052-owned-checkpointed-turn-failure-classification.md)",
     ],
     [
-      "| architecture | [0075 branching conversation tree](0075-owned-branching-conversation-tree.md), [0074 deterministic read overlap](0074-owned-deterministic-read-overlap.md), [0013 single-agent execution](0013-single-agent-execution.md), [0052 checkpointed failures](0052-owned-checkpointed-turn-failure-classification.md), [0061 convergent turns](0061-owned-convergent-tool-turns.md) |\n",
+      "| architecture | [0076 durable session journal](0076-owned-bounded-session-journal.md), [0075 branching conversation tree](0075-owned-branching-conversation-tree.md), [0074 deterministic read overlap](0074-owned-deterministic-read-overlap.md), [0013 single-agent execution](0013-single-agent-execution.md), [0052 checkpointed failures](0052-owned-checkpointed-turn-failure-classification.md), [0061 convergent turns](0061-owned-convergent-tool-turns.md) |\n",
       "",
     ],
   ]) {
@@ -1113,7 +1113,8 @@ test("routes completed product operation to the operator manual", () => {
     "Agent requires Node.js `>=22.19.0`, npm `11.16.0`, TypeScript `5.9.3`, and\nClang `>=18` installed outside this repository.",
     "npm ci --offline --ignore-scripts --no-audit --no-fund\nnpm run build\nnpm run install:command",
     "Run `agent` from the directory that should become the workspace.",
-    "An ordinary session starts without a selected provider or model.",
+    "Every new or resumed session starts without a selected provider or model.",
+    "Resume is a CLI launch form, not a TUI slash command.",
     "Use `/exit`, Ctrl+D, or terminal EOF.",
     "Use the exact `agent --evaluation-receipt` launch form",
     "`agent rejected the workspace root`",
@@ -1493,7 +1494,7 @@ test("routes completed privacy and memory-only secrets to the privacy policy", (
     "## Local tools",
     "## Terminal selection and links",
     "## Ollama Cloud connection",
-    "## Future local sessions",
+    "## Local sessions",
     "## Local task evaluation",
     "## Removal",
   ]);

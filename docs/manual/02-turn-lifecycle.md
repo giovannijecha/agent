@@ -34,8 +34,10 @@ remaining task. A final assistant response enters the transcript only after the
 runtime prepares it and the CLI acknowledges the commit. If no runtime is
 configured, submitted text is discarded and no turn starts.
 
-Every settled turn becomes one bounded process-memory timeline node. While
-idle, `/timeline` can select the root or an earlier settled node. The transcript
+Every settled turn becomes one bounded timeline node. After runtime and display
+settlement, the serialized controller appends that complete node to the local
+session journal. While idle, `/timeline` can select the root or an earlier
+settled node; an accepted selection also updates the durable head. The transcript
 then shows only that root-to-node path, and the next submitted task creates a
 new child there without deleting the former continuation. Selecting history
 does not rerun tools or restore old workspace state; mutations still plan and
@@ -74,3 +76,4 @@ Cleanup failures remain separate from the primary failure.
 - [Tool-call interoperability decision](../decisions/0069-owned-tool-call-interoperability.md)
 - [Deterministic read-overlap decision](../decisions/0074-owned-deterministic-read-overlap.md)
 - [Branching conversation-tree decision](../decisions/0075-owned-branching-conversation-tree.md)
+- [Durable-session decision](../decisions/0076-owned-bounded-session-journal.md)

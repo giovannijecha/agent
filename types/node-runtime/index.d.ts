@@ -36,6 +36,7 @@ declare module "node:process" {
   export const arch: string;
   export const execPath: string;
   export const hrtime: Readonly<{ bigint(): bigint }>;
+  export const pid: number;
   export const env: Readonly<{
     AGENT_OLLAMA_API_KEY?: string;
     APPDATA?: string;
@@ -52,9 +53,11 @@ declare module "node:process" {
     TMP?: string;
     TMPDIR?: string;
     USERPROFILE?: string;
+    XDG_STATE_HOME?: string;
   }>;
   export function cwd(): string;
   export function exit(code?: number): never;
+  export function kill(pid: number, signal: 0): true;
   export const platform: string;
 }
 
@@ -199,6 +202,8 @@ declare module "node:path" {
     relative(from: string, to: string): string;
     resolve(...paths: string[]): string;
     readonly sep: string;
+    readonly posix: PathApi;
+    readonly win32: PathApi;
   }
   const path: PathApi;
   export default path;
@@ -248,6 +253,7 @@ declare module "node:fs/promises" {
     readFile(options: { encoding: "utf8" }): Promise<string>;
     stat(options: { bigint: true }): Promise<BigIntStats>;
     stat(): Promise<Stats>;
+    sync(): Promise<void>;
     truncate(length?: number): Promise<void>;
     write(
       buffer: Uint8Array,
@@ -255,13 +261,27 @@ declare module "node:fs/promises" {
       length: number,
       position: number,
     ): Promise<{ bytesWritten: number }>;
+    writeFile(data: Uint8Array): Promise<void>;
+    writeFile(data: string, options: { encoding: "utf8" }): Promise<void>;
   }
 
   export function lstat(path: string, options: { bigint: true }): Promise<BigIntStats>;
   export function lstat(path: string): Promise<Stats>;
   export function mkdir(path: string): Promise<void>;
+  export function mkdir(
+    path: string,
+    options: { mode: number; recursive: true },
+  ): Promise<string | undefined>;
+  export function mkdir(
+    path: string,
+    options: { mode: number; recursive?: false },
+  ): Promise<void>;
   export function mkdtemp(prefix: string): Promise<string>;
-  export function open(path: string, flags: "r" | "r+"): Promise<FileHandle>;
+  export function open(
+    path: string,
+    flags: "a" | "r" | "r+" | "wx",
+    mode?: number,
+  ): Promise<FileHandle>;
   export function opendir(path: string): Promise<Dir>;
   export function readFile(path: string): Promise<Uint8Array>;
   export function readFile(path: string, options: { encoding: "utf8" }): Promise<string>;

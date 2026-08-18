@@ -1,4 +1,4 @@
-import type { Result } from "@agent/core";
+import type { ConversationTreeTurnSnapshot, Result } from "@agent/core";
 
 import type {
   CommitTurnResult,
@@ -34,4 +34,11 @@ export interface RuntimeSession<E> {
   nextEvent(): Promise<Result<RuntimeEvent<E>, RuntimeSourceError>>;
   /** Cancels and releases all active work idempotently. */
   stop(): Promise<Result<void, RuntimeStopError<E>>>;
+}
+
+/** Read-only settled-history projection used only by the CLI journal owner. */
+export interface RuntimeHistorySource {
+  conversationTurn(
+    nodeId: number,
+  ): Result<ConversationTreeTurnSnapshot, RuntimeCommandError>;
 }

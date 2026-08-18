@@ -125,8 +125,10 @@ The adapter never follows redirects, discovers an origin, retries, aliases a
 model, or falls back to another backend. The TUI credential context reuses the
 bounded editor while projecting zero secret text and zero secret caret offset.
 It enables no provider OAuth login, arbitrary network transport, local Ollama
-daemon, persistent credential, catalog, or session store, or automatic
-provider or model selection. The single `shell` capability admits one exactly
+daemon, persistent provider credential or catalog store, or automatic provider
+or model selection. The bounded session journal is a separate
+CLI-owned local state boundary and never stores those provider values. The
+single `shell` capability admits one exactly
 approved bounded command through the fixed profile-free platform shell, a
 controlled environment that excludes provider credentials, and owned
 descendant-tree containment. That containment is not a filesystem or network
@@ -134,12 +136,24 @@ sandbox; approved code retains the launching user's operating-system
 authority. Reports about provider traffic should identify the
 exact CLI transport, wire decoder, or configuration boundary involved.
 
-The process-memory conversation tree exposes only one selected root-to-node
-path to the model. Alternate branches cannot execute, request permission, or
-emit output. Selecting an older checkpoint does not replay its tool call or
-assert that its observation is current; any later mutation is planned and
-authorized again against current workspace state. Node selection is idle-only
-and accepts only an exact retained identity.
+The conversation tree exposes only one selected root-to-node path to the model.
+Alternate branches cannot execute, request permission, or emit output.
+Selecting an older checkpoint does not replay its tool call or assert that its
+observation is current; any later mutation is planned and authorized again
+against current workspace state. Node selection is idle-only and accepts only
+an exact retained identity.
+
+Interactive sessions append only complete settled nodes to one versioned
+per-user CLI journal outside the workspace. The state directory is selected
+from the platform-owned user-state base and an irreversible digest of the exact
+canonical workspace. Resume requires the newest journal to be inactive and
+valid before provider composition. Unknown versions, ambiguous locks, unsafe
+retirement targets, interior corruption, and all bound failures stop
+content-free. Only an incomplete final line may recover its validated prefix.
+The journal requests owner-only permissions but is not encrypted, tamper-proof,
+or protected from host-authorized principals. Credentials, provider/model
+state, permissions, drafts, provisional output, and foreign causes are never
+recorded.
 
 The maintainer-only task evaluator is a separate offline tooling boundary. It
 accepts only the registered strict-text corpus and regular-file run trees,
