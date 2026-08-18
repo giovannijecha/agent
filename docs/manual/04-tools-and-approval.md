@@ -90,9 +90,14 @@ Inspect the whole command before approval. The command and all descendants are
 bounded and cleaned up before settlement. Interactive programs, retained
 background services, and work that outlives the tool remain unsupported.
 
-Calls from one model decision are validated as a batch, planned just in time,
-and executed sequentially in provider order. Each valid plan receives its own
-permission decision and becomes a conversation checkpoint after settlement.
+Calls from one model decision are validated and planned in provider order. Each
+valid plan receives its own permission decision. Effects and dependent reads
+execute sequentially. Two to four independent sibling calls using only
+`read_file`, `list_directory`, and `search_text` may overlap after every
+permission settles. Agent awaits the complete cohort, reports results in
+provider order, and creates one conversation checkpoint. The cohort is not an
+atomic multi-file filesystem snapshot and never overlaps `apply_patch`,
+`manage_path`, or `shell`.
 
 ## Read previews and activity
 
@@ -143,4 +148,5 @@ settled effect is not repeated.
 - [Namespace decision](../decisions/0054-owned-workspace-namespace-management.md)
 - [Session-permission decision](../decisions/0055-owned-session-tool-permissions.md)
 - [Shell-execution decision](../decisions/0073-owned-capability-complete-shell-execution.md)
+- [Read-overlap decision](../decisions/0074-owned-deterministic-read-overlap.md)
 - [Linux namespace boundary](../decisions/0058-owned-linux-namespace-fail-closed-boundary.md)

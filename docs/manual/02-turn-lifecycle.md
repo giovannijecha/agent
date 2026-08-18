@@ -16,14 +16,16 @@ stops while Agent waits for a permission decision.
 
 ## Tool checkpoints
 
-Agent validates a model-selected tool request before planning or permission.
-Valid calls run in provider order, one at a time, and each planned call receives
-its own permission decision. See [Tools and permissions](04-tools-and-approval.md)
-for the available actions.
+Agent validates a complete model-selected tool batch before planning or
+permission. Each plan receives its own decision in provider order. Effects and
+dependent reads run one at a time. A batch of two to four independent sibling
+inspection calls may start together only after every permission settles; their
+completion is reported in provider order. See
+[Tools and permissions](04-tools-and-approval.md) for the available actions.
 
-After a tool attempt settles, its structured call and result become a truthful
-conversation checkpoint before the model continues. A later failure or
-cancellation cannot erase that completed effect.
+After one serial attempt or the complete read cohort settles, its ordered calls
+and results become one truthful conversation checkpoint before the model
+continues. A later failure or cancellation cannot erase that completed truth.
 
 ## Complete or continue
 
@@ -63,3 +65,4 @@ Cleanup failures remain separate from the primary failure.
 - [Checkpointed failure decision](../decisions/0052-owned-checkpointed-turn-failure-classification.md)
 - [Convergent turn decision](../decisions/0061-owned-convergent-tool-turns.md)
 - [Tool-call interoperability decision](../decisions/0069-owned-tool-call-interoperability.md)
+- [Deterministic read-overlap decision](../decisions/0074-owned-deterministic-read-overlap.md)

@@ -79,6 +79,83 @@ test("prepares, validates, and executes an immutable tool call", async () => {
   assert.equal(executed.value.contractFailure, false);
   assert.equal(executed.value.call.name, "read_file");
   assert.equal(engine.descriptors.at(0)?.risk, "read");
+  assert.equal(prepared.value.scheduling, "serial");
+  assert.equal(planned.scheduling, "serial");
+});
+
+test("admits only explicitly independent direct read handlers", async () => {
+  const engine = createEngine(async () => ok(ToolHandlerOutcome.success({})));
+  const descriptor = engine.descriptors.at(0);
+  assert.ok(descriptor !== undefined);
+  const handler = async () => ok(ToolHandlerOutcome.success({}));
+  const enrolled = ToolRegistry.create([
+    { descriptor, handler, scheduling: "independentRead" },
+  ]);
+  assert.ok(enrolled.ok);
+  const enrolledEngine = ToolEngine.create(enrolled.value);
+  assert.ok(enrolledEngine.ok);
+  const prepared = enrolledEngine.value.prepare(
+    "call-independent",
+    "read_file",
+    input(),
+  );
+  assert.ok(prepared.ok);
+  assert.equal(prepared.value.scheduling, "independentRead");
+  assert.equal(
+    (await plan(enrolledEngine.value, prepared.value)).scheduling,
+    "independentRead",
+  );
+
+  const writeDescriptor = ToolDescriptor.create(
+    "apply_patch",
+    "Apply one bounded patch.",
+    "write",
+    descriptor.input,
+    Object.freeze([
+      Object.freeze({ mode: "exact" as const, name: "path" }),
+    ]),
+  );
+  assert.ok(writeDescriptor.ok);
+  assert.deepEqual(
+    ToolRegistry.create([
+      {
+        descriptor: writeDescriptor.value,
+        handler,
+        scheduling: "independentRead",
+      },
+    ]),
+    { ok: false, error: { kind: "invalidScheduling" } },
+  );
+  assert.deepEqual(
+    ToolRegistry.create([
+      {
+        descriptor: writeDescriptor.value,
+        planner: async () =>
+          err(Object.freeze({ kind: "conflict" as const })),
+        scheduling: "independentRead",
+      },
+    ]),
+    { ok: false, error: { kind: "invalidScheduling" } },
+  );
+  assert.deepEqual(
+    ToolRegistry.create([
+      {
+        descriptor,
+        scheduling: "independentRead",
+      } as never,
+    ]),
+    { ok: false, error: { kind: "invalidHandler" } },
+  );
+  assert.deepEqual(
+    ToolRegistry.create([
+      {
+        descriptor,
+        handler,
+        scheduling: "parallel" as never,
+      },
+    ]),
+    { ok: false, error: { kind: "invalidScheduling" } },
+  );
 });
 
 test("turns expected handler failures and denial into structured results", async () => {

@@ -65,10 +65,11 @@ that domain; a summary here never overrides its canonical owner.
   one active runtime session and one active model loop. Providers are
   interchangeable backends, never agents. Do not add sub-agents, delegation,
   swarms, or concurrent conversations.
-- Model turns, permission decisions, tool handlers, writes, process execution,
-  and terminal output remain serialized. Current runtime remains sequential.
-  Read-only internal overlap requires a separate accepted design, cannot enter
-  the tool engine or overlap a mutation, and must return to the sole controller.
+- Model turns, permission decisions, writes, process execution, conversation
+  commits, and terminal output remain serialized. Two to four explicitly
+  registered independent read handlers may overlap as one bounded cohort only
+  after every permission settles. They never overlap an owned effect and their
+  results return to the sole controller in provider order.
 - Keep modules cohesive, independently testable, replaceable, and removable.
   Do not add speculative layers or overlapping authority.
 
@@ -78,13 +79,15 @@ that domain; a summary here never overrides its canonical owner.
   `search_text`, `apply_patch`, `manage_path`, and `shell`.
   Tool aliases and convenience overlaps are forbidden.
 - The provider-neutral boundary validates one bounded ordered batch, plans calls
-  just in time, requests one exact permission for each successfully planned
-  call, executes sequentially in provider order, checkpoints results, and
-  commits one complete exchange.
-- The owned instruction asks for at most one tool call per response and requires
-  reassessment after every checkpoint until the task is complete or one explicit
-  blocker remains. Never add implicit retry, replay, fallback, or concurrent
-  handlers.
+  in provider order, and requests one exact permission for each successfully
+  planned call. It either executes sequentially or admits one decision-0074
+  cohort of two to four independent registered reads, then emits results in
+  provider order, checkpoints them, and commits one complete exchange.
+- The owned instruction permits one batch of two to four independent sibling
+  inspection calls; every dependent read, write, or `shell` response contains
+  at most one call. It requires reassessment after every checkpoint until the
+  task is complete or one explicit blocker remains. Never add implicit retry,
+  replay, fallback, or unregistered concurrency.
 - `/permissions` is the sole session-only policy editor. Exact tools hold
   `Allow`, `Ask`, or `Deny`; reads default to `Allow`, writes and
   execution to `Ask`. `/approve` and `/deny` do not exist.

@@ -31,6 +31,7 @@ export {
   type ToolRegistryError,
   type ToolRegistryErrorKind,
   type ToolRisk,
+  type ToolScheduling,
 } from "./engine.js";
 export {
   BooleanSchema,

@@ -12,7 +12,7 @@ const EXPECTED_POSTURE = Object.freeze({
   serviceBackend: "none",
   sessionPersistence: "disabled",
   executionModel: "single-agent",
-  mechanicalConcurrency: "immutable-read-phase-only",
+  mechanicalConcurrency: "bounded-independent-read-cohort",
   externalCodeContributions: "closed-initially",
   automatedAttribution: "none",
 });
@@ -34,6 +34,7 @@ const EXPECTED_DOCUMENTS = Object.freeze([
   "docs/manual/03-terminal-interface.md",
   "docs/manual/07-publishing-and-governance.md",
   "docs/decisions/0013-single-agent-execution.md",
+  "docs/decisions/0074-owned-deterministic-read-overlap.md",
   "assets/brand/README.md",
   "docs/BRAND.md",
   "docs/decisions/0037-canonical-agent-brand.md",
@@ -220,8 +221,8 @@ function validatePublicDocuments(context) {
       "Do not add automated tool signatures",
       "single-agent product",
       "one active runtime session",
-      "overlap a mutation",
-      "Current runtime remains sequential",
+      "never overlap an owned effect",
+      "results return to the sole controller in provider order",
     ],
     "AGENTS.md",
   );
@@ -234,7 +235,7 @@ function validatePublicDocuments(context) {
       "one active runtime session",
       "Single-agent is an identity and authority contract",
       "Reduction is deterministic",
-      "Any mutation excludes concurrent mechanics",
+      "excludes every owned effect",
       "terminal output remain serialized",
     ],
     "architecture",
@@ -244,7 +245,7 @@ function validatePublicDocuments(context) {
     [
       "All integrations preserve the single-agent execution model",
       "Any mutation excludes",
-      "Current runtime remains sequential",
+      "independent read handlers may overlap",
       "Maintainer changes use a protected branch.",
     ],
     "engineering policy",
@@ -269,7 +270,7 @@ function validatePublicDocuments(context) {
       "(../../SECURITY.md)",
       "Enable GitHub private vulnerability reporting before the first release.",
       "The product is single-agent",
-      "Current runtime remains sequential",
+      "cannot overlap an owned effect",
     ],
     "publishing manual",
   );
@@ -284,6 +285,18 @@ function validatePublicDocuments(context) {
       "Current runtime remains sequential",
     ],
     "single-agent decision",
+  );
+  requireMarkers(
+    textFor(context, "docs/decisions/0074-owned-deterministic-read-overlap.md"),
+    [
+      "# 0074: Owned deterministic read overlap",
+      "between two and four calls",
+      "every permission settles",
+      "fixed maximum width of four",
+      "not an atomic multi-file filesystem snapshot",
+      "results in provider order",
+    ],
+    "read overlap decision",
   );
   requireMarkers(
     textFor(context, "assets/brand/README.md"),

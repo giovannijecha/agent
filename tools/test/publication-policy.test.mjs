@@ -55,12 +55,16 @@ test("rejects single-agent execution posture drift", () => {
 
 test("rejects single-agent public contract drift", () => {
   const cases = [
-    ["AGENTS.md", "Current runtime remains sequential"],
-    ["docs/ARCHITECTURE.md", "Any mutation excludes concurrent mechanics"],
-    ["docs/ENGINEERING.md", "Current runtime remains sequential"],
+    ["AGENTS.md", "never overlap an owned effect"],
+    ["docs/ARCHITECTURE.md", "excludes every owned effect"],
+    ["docs/ENGINEERING.md", "independent read handlers may overlap"],
     [
       "docs/manual/07-publishing-and-governance.md",
-      "Current runtime remains sequential",
+      "cannot overlap an owned effect",
+    ],
+    [
+      "docs/decisions/0074-owned-deterministic-read-overlap.md",
+      "fixed maximum width of four",
     ],
     [
       "docs/decisions/0013-single-agent-execution.md",

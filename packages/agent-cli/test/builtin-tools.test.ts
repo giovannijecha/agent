@@ -165,6 +165,60 @@ test("advertises the exact workspace-root path convention", async () => {
   });
 });
 
+test("enrolls only the three built-in inspection handlers for read overlap", async () => {
+  await withWorkspace(async (workspace) => {
+    const tools = await engine(workspace);
+    const cases = [
+      Object.freeze({
+        input: { path: "notes.txt" },
+        name: "read_file",
+        scheduling: "independentRead",
+      }),
+      Object.freeze({
+        input: { path: "." },
+        name: "list_directory",
+        scheduling: "independentRead",
+      }),
+      Object.freeze({
+        input: { path: ".", query: "owned" },
+        name: "search_text",
+        scheduling: "independentRead",
+      }),
+      Object.freeze({
+        input: {
+          hunks: [{ newText: "new", oldText: "old" }],
+          path: "notes.txt",
+        },
+        name: "apply_patch",
+        scheduling: "serial",
+      }),
+      Object.freeze({
+        input: {
+          request: { operation: "create_directory", path: "created" },
+        },
+        name: "manage_path",
+        scheduling: "serial",
+      }),
+      Object.freeze({
+        input: { command: "node --version", workingDirectory: "." },
+        name: "shell",
+        scheduling: "serial",
+      }),
+    ] as const;
+    for (const item of cases) {
+      const input = structuredValueFromUnknown(item.input);
+      assert.ok(input.ok && input.value instanceof StructuredObject);
+      const prepared = tools.prepare(
+        "call-" + item.name,
+        item.name,
+        input.value,
+      );
+      assert.ok(prepared.ok);
+      assert.equal(prepared.value.scheduling, item.scheduling);
+    }
+  });
+});
+
 test("runs one exact command through the fixed platform shell", async () => {
   await withWorkspace(async (workspace) => {
     let received: ProcessRunRequest | undefined;

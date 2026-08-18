@@ -14,6 +14,7 @@ import {
   type PlannedToolCall,
   TOOL_ENGINE_LIMITS,
   ToolEngine,
+  type ToolEngineError,
   type ToolExecution,
 } from "@agent/tools";
 
@@ -82,7 +83,8 @@ type PendingTool = {
   phase: "unannounced" | "requested" | "started";
 };
 
-type ActiveToolBatch = {
+type SequentialToolBatch = {
+  readonly kind: "sequential";
   readonly assistant: Message | undefined;
   readonly executions: ToolExecution[];
   readonly outputBudgets: readonly number[];
@@ -90,6 +92,34 @@ type ActiveToolBatch = {
   index: number;
   pending: PendingTool | undefined;
 };
+
+type ParallelReadCall = {
+  readonly planned: PlannedToolCall;
+  readonly outputCodeUnits: number;
+  decision: ToolDecision | undefined;
+  execution: ToolExecution | undefined;
+  settlement:
+    | Promise<Settled<Result<ToolExecution, ToolEngineError>>>
+    | undefined;
+};
+
+type ParallelReadBatch = {
+  readonly kind: "parallelRead";
+  readonly assistant: Message | undefined;
+  readonly calls: ParallelReadCall[];
+  finishIndex: number;
+  pending: PendingTool | undefined;
+  permissionIndex: number;
+  phase:
+    | "finishing"
+    | "launching"
+    | "permissions"
+    | "running"
+    | "starting";
+  startIndex: number;
+};
+
+type ActiveToolBatch = ParallelReadBatch | SequentialToolBatch;
 
 function countCodePoints(text: string): number {
   let count = 0;
@@ -271,6 +301,23 @@ function createPendingTool(
     planned,
     whenDecided,
   };
+}
+
+function admitsParallelReads(
+  prepared: readonly PreparedToolCall[],
+): boolean {
+  if (
+    prepared.length < 2 ||
+    prepared.length > RUNTIME_LIMITS.parallelReads
+  ) {
+    return false;
+  }
+  for (const call of prepared) {
+    if (call.scheduling !== "independentRead") {
+      return false;
+    }
+  }
+  return true;
 }
 
 /** One-model, one-turn streaming runtime with atomic conversation commits. */
@@ -513,6 +560,14 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
   async #advance(
     state: TurnState<E>,
   ): Promise<Result<RuntimeEvent<E>, RuntimeSourceError>> {
+    const activeBatch = state.toolBatch;
+    if (
+      activeBatch?.kind === "parallelRead" &&
+      (activeBatch.phase === "running" ||
+        activeBatch.phase === "finishing")
+    ) {
+      return this.#advanceParallelReadBatch(state, activeBatch);
+    }
     if (state.cancellation.requested) {
       if (state.toolBatch !== undefined) {
         return this.#cancelToolBatch(state, state.toolBatch);
@@ -844,6 +899,59 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
         ),
       );
     }
+    if (admitsParallelReads(prepared)) {
+      const calls: ParallelReadCall[] = [];
+      for (let index = 0; index < prepared.length; index += 1) {
+        const current = prepared.at(index);
+        const outputCodeUnits = outputBudgets.at(index);
+        if (current === undefined || outputCodeUnits === undefined) {
+          return this.#finish(
+            state,
+            failed(Object.freeze({ kind: "toolEngine" })),
+          );
+        }
+        const planned = await tools.plan(
+          current,
+          state.cancellation.signal,
+        );
+        if (state.cancellation.requested) {
+          return this.#finish(state, Object.freeze({ kind: "cancelled" }));
+        }
+        if (!planned.ok) {
+          return this.#finish(
+            state,
+            failed(Object.freeze({ kind: "toolEngine" })),
+          );
+        }
+        calls.push({
+          decision: undefined,
+          execution: undefined,
+          outputCodeUnits,
+          planned: planned.value,
+          settlement: undefined,
+        });
+      }
+      const firstCall = calls.at(0);
+      if (firstCall === undefined) {
+        return this.#finish(
+          state,
+          failed(Object.freeze({ kind: "toolEngine" })),
+        );
+      }
+      const pending = createPendingTool(firstCall.planned);
+      const batch: ParallelReadBatch = {
+        assistant,
+        calls,
+        finishIndex: 0,
+        kind: "parallelRead",
+        pending,
+        permissionIndex: 0,
+        phase: "permissions",
+        startIndex: 0,
+      };
+      state.toolBatch = batch;
+      return ok(this.#toolRequestedEvent(state, pending));
+    }
     const planned = await tools.plan(first, state.cancellation.signal);
     if (state.cancellation.requested) {
       return this.#finish(state, Object.freeze({ kind: "cancelled" }));
@@ -859,6 +967,7 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
       assistant,
       executions: [],
       index: 0,
+      kind: "sequential",
       outputBudgets,
       pending,
       prepared,
@@ -885,6 +994,15 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
   async #advanceToolBatch(
     state: TurnState<E>,
     batch: ActiveToolBatch,
+  ): Promise<Result<RuntimeEvent<E>, RuntimeSourceError>> {
+    return batch.kind === "parallelRead"
+      ? this.#advanceParallelReadBatch(state, batch)
+      : this.#advanceSequentialToolBatch(state, batch);
+  }
+
+  async #advanceSequentialToolBatch(
+    state: TurnState<E>,
+    batch: SequentialToolBatch,
   ): Promise<Result<RuntimeEvent<E>, RuntimeSourceError>> {
     const tools = this.#tools;
     if (tools === undefined) {
@@ -973,9 +1091,212 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
     return this.#settleToolExecution(state, batch, executed.value);
   }
 
+  async #advanceParallelReadBatch(
+    state: TurnState<E>,
+    batch: ParallelReadBatch,
+  ): Promise<Result<RuntimeEvent<E>, RuntimeSourceError>> {
+    const tools = this.#tools;
+    if (tools === undefined) {
+      return this.#finish(
+        state,
+        failed(Object.freeze({ kind: "toolUnavailable" })),
+      );
+    }
+    if (batch.phase === "permissions") {
+      const pending = batch.pending;
+      const call = batch.calls.at(batch.permissionIndex);
+      if (pending === undefined || call === undefined) {
+        return this.#finish(
+          state,
+          failed(Object.freeze({ kind: "toolEngine" })),
+        );
+      }
+      const decision =
+        pending.decision ??
+        (await Promise.race([
+          pending.whenDecided,
+          state.cancellation.whenRequested.then(
+            () => "cancelled" as const,
+          ),
+        ]));
+      if (decision === "cancelled" || state.cancellation.requested) {
+        return this.#cancelToolBatch(state, batch);
+      }
+      call.decision = decision;
+      if (decision === "denied") {
+        const denied = tools.deny(call.planned);
+        if (!denied.ok) {
+          return this.#finish(
+            state,
+            failed(Object.freeze({ kind: "toolEngine" })),
+          );
+        }
+        call.execution = denied.value;
+      }
+      const nextIndex = batch.permissionIndex + 1;
+      const next = batch.calls.at(nextIndex);
+      if (next !== undefined) {
+        batch.permissionIndex = nextIndex;
+        const nextPending = createPendingTool(next.planned);
+        batch.pending = nextPending;
+        return ok(this.#toolRequestedEvent(state, nextPending));
+      }
+      batch.pending = undefined;
+      batch.phase = "starting";
+    }
+
+    if (batch.phase === "starting") {
+      while (batch.startIndex < batch.calls.length) {
+        const call = batch.calls.at(batch.startIndex);
+        batch.startIndex += 1;
+        if (call === undefined || call.decision === undefined) {
+          return this.#finish(
+            state,
+            failed(Object.freeze({ kind: "toolEngine" })),
+          );
+        }
+        if (call.decision === "denied") {
+          continue;
+        }
+        let laterAllowed = false;
+        for (
+          let index = batch.startIndex;
+          index < batch.calls.length;
+          index += 1
+        ) {
+          if (batch.calls.at(index)?.decision === "allowed") {
+            laterAllowed = true;
+            break;
+          }
+        }
+        if (!laterAllowed) {
+          batch.phase = "launching";
+        }
+        return ok(
+          Object.freeze({
+            callId: call.planned.call.callId,
+            kind: "toolStarted" as const,
+            name: call.planned.call.name,
+            risk: call.planned.descriptor.risk,
+            turnId: state.turnId,
+          }),
+        );
+      }
+      batch.phase = "finishing";
+    }
+
+    if (batch.phase === "launching") {
+      if (!this.#startParallelReadCohort(state, batch, tools)) {
+        return this.#finish(
+          state,
+          failed(Object.freeze({ kind: "toolEngine" })),
+        );
+      }
+      batch.phase = "running";
+    }
+
+    if (batch.phase === "running") {
+      const pendingSettlements: Promise<
+        Settled<Result<ToolExecution, ToolEngineError>>
+      >[] = [];
+      for (const call of batch.calls) {
+        if (call.decision === "allowed") {
+          const settlement = call.settlement;
+          if (settlement === undefined) {
+            return this.#finish(
+              state,
+              failed(Object.freeze({ kind: "toolEngine" })),
+            );
+          }
+          pendingSettlements.push(settlement);
+        }
+      }
+      await Promise.all(pendingSettlements);
+      for (const call of batch.calls) {
+        if (call.decision !== "allowed") {
+          continue;
+        }
+        const settlement = call.settlement;
+        if (settlement === undefined) {
+          return this.#finish(
+            state,
+            failed(Object.freeze({ kind: "toolEngine" })),
+          );
+        }
+        const settled = await settlement;
+        if (settled.kind === "unexpected" || !settled.value.ok) {
+          return this.#finish(
+            state,
+            failed(Object.freeze({ kind: "toolEngine" })),
+          );
+        }
+        call.execution = settled.value.value;
+      }
+      batch.phase = "finishing";
+    }
+
+    const call = batch.calls.at(batch.finishIndex);
+    const executed = call?.execution;
+    if (call === undefined || executed === undefined) {
+      return this.#finish(
+        state,
+        failed(Object.freeze({ kind: "toolEngine" })),
+      );
+    }
+    batch.finishIndex += 1;
+    if (batch.finishIndex === batch.calls.length) {
+      let contractFailure = false;
+      for (const entry of batch.calls) {
+        if (entry.execution?.contractFailure === true) {
+          contractFailure = true;
+        }
+      }
+      if (!this.#checkpointToolBatch(state, batch)) {
+        return this.#terminalEvent(
+          state,
+          failed(Object.freeze({ kind: "toolLimit" })),
+          Object.freeze([...state.cleanup]),
+        );
+      }
+      state.toolFailurePending = contractFailure;
+    }
+    return ok(
+      Object.freeze({
+        callId: call.planned.call.callId,
+        kind: "toolFinished" as const,
+        name: call.planned.call.name,
+        risk: call.planned.descriptor.risk,
+        status: executed.result.status,
+        turnId: state.turnId,
+      }),
+    );
+  }
+
+  #startParallelReadCohort(
+    state: TurnState<E>,
+    batch: ParallelReadBatch,
+    tools: ToolEngine,
+  ): boolean {
+    for (const call of batch.calls) {
+      if (call.decision === "allowed") {
+        if (call.settlement !== undefined) {
+          return false;
+        }
+        call.settlement = settle(() =>
+          tools.execute(
+            call.planned,
+            state.cancellation.signal,
+            call.outputCodeUnits,
+          ),
+        );
+      }
+    }
+    return true;
+  }
+
   #settleToolExecution(
     state: TurnState<E>,
-    batch: ActiveToolBatch,
+    batch: SequentialToolBatch,
     executed: ToolExecution,
   ): Result<RuntimeEvent<E>, RuntimeSourceError> {
     const pending = batch.pending;
@@ -1035,7 +1356,7 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
   }
 
   #fillNotRun(
-    batch: ActiveToolBatch,
+    batch: SequentialToolBatch,
     reason: "blocked" | "cancelled",
   ): boolean {
     const tools = this.#tools;
@@ -1064,6 +1385,13 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
     state: TurnState<E>,
     batch: ActiveToolBatch,
   ): Promise<Result<RuntimeEvent<E>, RuntimeSourceError>> {
+    if (batch.kind === "parallelRead") {
+      if (batch.phase === "running" || batch.phase === "finishing") {
+        return this.#advanceParallelReadBatch(state, batch);
+      }
+      state.toolBatch = undefined;
+      return this.#finish(state, Object.freeze({ kind: "cancelled" }));
+    }
     if (batch.executions.length === 0) {
       state.toolBatch = undefined;
       return this.#finish(state, Object.freeze({ kind: "cancelled" }));
@@ -1084,10 +1412,21 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
     state: TurnState<E>,
     batch: ActiveToolBatch,
   ): boolean {
+    const executions: ToolExecution[] = [];
+    if (batch.kind === "parallelRead") {
+      for (const call of batch.calls) {
+        if (call.execution === undefined) {
+          return false;
+        }
+        executions.push(call.execution);
+      }
+    } else {
+      executions.push(...batch.executions);
+    }
     const exchange = ToolExchange.create(
       batch.assistant,
-      batch.executions.map((execution) => execution.call),
-      batch.executions.map((execution) => execution.result),
+      executions.map((execution) => execution.call),
+      executions.map((execution) => execution.result),
     );
     if (!exchange.ok) {
       return false;

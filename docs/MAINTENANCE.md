@@ -116,7 +116,8 @@ For a runtime change:
 
 1. define event, bound, cancellation, checkpoint, and settlement behavior in a
    pure runtime contract;
-2. preserve one active decision loop and sequential tool execution;
+2. preserve one active decision loop, serial effects, and only the registered
+   two-to-four-call independent read cohort;
 3. add tests for overflow, cancellation, late events, failed continuation, and
    retained tool truth;
 4. update the provider adapter only through the model port;
@@ -129,7 +130,7 @@ the CLI must not absorb a second private runtime.
 ### Tool engine
 
 **Owners:** `packages/agent-tools`, CLI planners and handlers, the six-tool
-registry, native committers, and decisions 0073, 0050, and 0054.
+registry, native committers, and decisions 0074, 0073, 0050, and 0054.
 
 For a tool change:
 
@@ -138,12 +139,21 @@ For a tool change:
    presentation contracts as applicable;
 3. prove invalid input fails before planning or permission;
 4. prove stale state fails before mutation;
-5. keep execution sequential and one permission decision per planned call;
+5. keep effects sequential and one permission decision per planned call; only
+   an explicitly registered independent read may enter the bounded cohort;
 6. remove any replaced name and alias immediately.
 
 The exact inventory is `read_file`, `list_directory`, `search_text`,
 `apply_patch`, `manage_path`, and `shell`. A new tool or shell-policy change
 requires an accepted decision and current evaluation evidence.
+
+To change read overlap, update registration validation, the four-call runtime
+bound, ordered permission and lifecycle events, complete-settlement
+cancellation, deterministic checkpoint reduction, instructions, privacy and
+security text, and tool/runtime/CLI contract tests together. Roll back by
+restoring the one-call instruction, removing all `independentRead`
+registrations, and deleting the cohort scheduler only after every batch uses
+the serial path.
 
 To change shell execution, update its fixed platform executable and arguments,
 controlled environment projection, descriptor, approval fields, broker
