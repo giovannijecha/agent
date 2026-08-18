@@ -8,6 +8,19 @@ const POWERSHELL_UTF8_PRELUDE =
   "[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false);" +
   "$OutputEncoding=[System.Text.UTF8Encoding]::new($false);";
 
+export const SHELL_LIMITS = Object.freeze({
+  commandCodeUnits: 2_730,
+  commandUtf8Bytes: 8_192,
+  environmentEntries: 8,
+  environmentUtf8Bytes: 8_192,
+  processCount: PROCESS_RUNNER_LIMITS.processCount,
+  stderrBytes: PROCESS_RUNNER_LIMITS.stderrBytes,
+  stdoutBytes: PROCESS_RUNNER_LIMITS.stdoutBytes,
+  timeoutMilliseconds: PROCESS_RUNNER_LIMITS.timeoutMilliseconds,
+  workingDirectoryCodeUnits: PROCESS_RUNNER_LIMITS.workingDirectoryCodeUnits,
+  workingDirectoryUtf8Bytes: 8_192,
+});
+
 export type ShellSourceEnvironment = Readonly<{
   AGENT_OLLAMA_API_KEY?: string;
   APPDATA?: string;
@@ -51,7 +64,7 @@ function validEnvironmentValue(value: unknown): value is string {
 }
 
 function appendEnvironment(
-  target: string[],
+  target: { entries: string[]; utf8Bytes: number },
   name: string,
   value: unknown,
 ): boolean {
@@ -61,20 +74,29 @@ function appendEnvironment(
   if (!validEnvironmentValue(value)) {
     return false;
   }
-  target.push(name + "=" + value);
+  const entry = name + "=" + value;
+  const bytes = scalarUtf8ByteLength(entry, true);
+  if (
+    bytes === undefined ||
+    target.utf8Bytes + bytes > SHELL_LIMITS.environmentUtf8Bytes
+  ) {
+    return false;
+  }
+  target.entries.push(entry);
+  target.utf8Bytes += bytes;
   return true;
 }
 
 function linuxEnvironment(
   source: ShellSourceEnvironment,
 ): Result<readonly string[], ShellExecutionPolicyError> {
-  const entries: string[] = [];
-  return appendEnvironment(entries, "PATH", source.PATH) &&
-    appendEnvironment(entries, "HOME", source.HOME) &&
-    appendEnvironment(entries, "TMPDIR", source.TMPDIR) &&
-    appendEnvironment(entries, "LANG", source.LANG) &&
-    appendEnvironment(entries, "LC_ALL", source.LC_ALL)
-    ? ok(Object.freeze(entries))
+  const projection = { entries: [] as string[], utf8Bytes: 0 };
+  return appendEnvironment(projection, "PATH", source.PATH) &&
+    appendEnvironment(projection, "HOME", source.HOME) &&
+    appendEnvironment(projection, "TMPDIR", source.TMPDIR) &&
+    appendEnvironment(projection, "LANG", source.LANG) &&
+    appendEnvironment(projection, "LC_ALL", source.LC_ALL)
+    ? ok(Object.freeze(projection.entries))
     : err(failure("invalidEnvironment"));
 }
 
@@ -88,17 +110,17 @@ function windowsEnvironment(
   ) {
     return err(failure("invalidEnvironment"));
   }
-  const entries: string[] = [];
+  const projection = { entries: [] as string[], utf8Bytes: 0 };
   const pathValue = source.Path ?? source.PATH;
-  return appendEnvironment(entries, "Path", pathValue) &&
-    appendEnvironment(entries, "PATHEXT", source.PATHEXT) &&
-    appendEnvironment(entries, "TEMP", source.TEMP) &&
-    appendEnvironment(entries, "TMP", source.TMP) &&
-    appendEnvironment(entries, "USERPROFILE", source.USERPROFILE) &&
-    appendEnvironment(entries, "HOME", source.HOME) &&
-    appendEnvironment(entries, "APPDATA", source.APPDATA) &&
-    appendEnvironment(entries, "LOCALAPPDATA", source.LOCALAPPDATA)
-    ? ok(Object.freeze(entries))
+  return appendEnvironment(projection, "Path", pathValue) &&
+    appendEnvironment(projection, "PATHEXT", source.PATHEXT) &&
+    appendEnvironment(projection, "TEMP", source.TEMP) &&
+    appendEnvironment(projection, "TMP", source.TMP) &&
+    appendEnvironment(projection, "USERPROFILE", source.USERPROFILE) &&
+    appendEnvironment(projection, "HOME", source.HOME) &&
+    appendEnvironment(projection, "APPDATA", source.APPDATA) &&
+    appendEnvironment(projection, "LOCALAPPDATA", source.LOCALAPPDATA)
+    ? ok(Object.freeze(projection.entries))
     : err(failure("invalidEnvironment"));
 }
 
@@ -185,16 +207,3 @@ export class ShellExecutionPolicy {
     });
   }
 }
-
-export const SHELL_LIMITS = Object.freeze({
-  commandCodeUnits: 2_730,
-  commandUtf8Bytes: 8_192,
-  environmentEntries: 8,
-  environmentUtf8Bytes: 8_192,
-  processCount: PROCESS_RUNNER_LIMITS.processCount,
-  stderrBytes: PROCESS_RUNNER_LIMITS.stderrBytes,
-  stdoutBytes: PROCESS_RUNNER_LIMITS.stdoutBytes,
-  timeoutMilliseconds: PROCESS_RUNNER_LIMITS.timeoutMilliseconds,
-  workingDirectoryCodeUnits: PROCESS_RUNNER_LIMITS.workingDirectoryCodeUnits,
-  workingDirectoryUtf8Bytes: 8_192,
-});
