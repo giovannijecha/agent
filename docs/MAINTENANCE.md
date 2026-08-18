@@ -322,9 +322,12 @@ selection remains available.
 When selection focus replaces the composer, project any active composer-placed
 transient notice through the selector header's trailing edge. The notice
 temporarily replaces ordinary header context and may add the optional header to
-a headerless pending-tool decision, but it must not mount `InputArea`, expose the
-retained draft, admit a caret, or create another notice authority. Regress both
-an existing selector header and the headerless pending-tool path.
+a headerless pending-tool decision. Give the notice side retention priority over
+the title only while status is present. During concealed credential entry, let
+the same notice temporarily replace the non-secret entry guidance. Neither path
+may expose retained draft or credential text, admit an additional caret, or
+create another notice authority. Regress an existing selector header at narrow
+width, the headerless pending-tool path, and concealed credential entry.
 
 Rollback must restore renderer and CLI event assumptions together. Removal of
 an interaction deletes its decoder event, reducer route, layout projection,

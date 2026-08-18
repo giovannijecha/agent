@@ -1378,6 +1378,13 @@ test("keeps composer copy feedback visible while a selector retains the dock", (
     after.value.frame.rows.some((row) => row.text.includes("retained draft")),
     false,
   );
+
+  const narrow = createChatRender(application, viewport(16, 16));
+  assert.ok(narrow.ok);
+  assert.equal(
+    narrow.value.frame.rows.some((row) => row.text.includes("Copied!")),
+    true,
+  );
 });
 
 test("renders concealed credential entry guidance inside the composer", () => {
@@ -1416,6 +1423,19 @@ test("renders concealed credential entry guidance inside the composer", () => {
     true,
   );
   assert.equal(rendered.value.caret?.column, 2);
+
+  application.feed("process-secret");
+  application.clipboardSettled("failed");
+  const withStatus = frame(application, 72, 16);
+  assert.ok(withStatus.ok);
+  assert.equal(
+    withStatus.value.rows.some((row) => row.text.includes("Copy failed!")),
+    true,
+  );
+  assert.equal(
+    withStatus.value.rows.some((row) => row.text.includes("process-secret")),
+    false,
+  );
 });
 
 test("renders the transient six-tool session permission editor without a box", () => {

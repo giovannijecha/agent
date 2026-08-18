@@ -56,8 +56,12 @@ One composer-placed transient notice remains observable when selection focus
 replaces the editor. The CLI projects that existing notice through the optional
 header's trailing edge, where it temporarily replaces ordinary selector
 context. A headerless pending-tool decision gains that optional header only
-while the notice is active. This projection does not restore `InputArea`, reveal
-the retained draft, admit a caret, or create a second notice authority.
+while the notice is active. When available width cannot retain both sides, the
+transient status has priority over the selector title; ordinary context retains
+the existing title priority. During concealed credential entry, the same notice
+temporarily replaces the non-secret entry guidance. These projections do not
+reveal the retained draft or credential, admit an additional caret, or create a
+second notice authority.
 
 Dock focus does not grant composer-pointer authority. Each immutable render
 projection independently records whether its visible composer body targets the
@@ -98,7 +102,9 @@ regressions prove every contextual selector appears between the existing
 composer rules, never exposes a caret, keeps its selected row visible, and does
 not add a second contextual menu slot. They also prove clipboard settlement
 feedback remains visible through both an existing selector header and the
-normally headerless pending-tool decision without exposing the retained draft.
+normally headerless pending-tool decision without exposing the retained draft,
+survives a narrow selector header, and temporarily replaces concealed credential
+guidance without exposing the credential.
 Session and application regressions prove
 closing input is consumed, drafts remain unchanged, pointer events cannot reach
 the editor during selection focus, transcript pointer selection and scrolling

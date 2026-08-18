@@ -125,25 +125,16 @@ function createNotice(
 
 function createComposer(
   application: ApplicationController,
+  status: InteractionStatusProjection | undefined,
   selection?: Component,
 ): Result<Component, ComponentError> {
   const credentialEntry = application.projectProviderCredential();
-  const notice = application.noticePlacement === "composer"
-    ? application.notice.at(0)
-    : undefined;
-  const trailingStatus = credentialEntry === undefined
-    ? notice === undefined
-      ? undefined
-      : Object.freeze({
-          text: notice,
-          tone: application.noticeLevel === "warning"
-            ? "attention" as const
-            : "muted" as const,
-        })
-    : Object.freeze({
+  const trailingStatus = status === undefined && credentialEntry !== undefined
+    ? Object.freeze({
         text: "Enter API key · Ctrl+C cancels",
         tone: "muted" as const,
-      });
+      })
+    : status;
   let body = selection;
   if (body === undefined) {
     const input = InputArea.create(application, {
@@ -275,7 +266,11 @@ export function createChatRender(
   const completionHeight = completionColumn.value.measure(viewport.columns);
   if (!completionHeight.ok) return completionHeight;
 
-  const composer = createComposer(application, contextualSelection);
+  const composer = createComposer(
+    application,
+    interactionStatus,
+    contextualSelection,
+  );
   if (!composer.ok) return composer;
   const composerColumn = createConversationStage(composer.value);
   if (!composerColumn.ok) return composerColumn;

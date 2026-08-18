@@ -277,7 +277,10 @@ focus replaces that editor body with the provider, model, permission,
 pending-tool, or timeline list, retains at most one header plus five visible
 items, and admits no caret. A composer-placed transient notice remains visible
 in selection focus through that header's trailing edge, temporarily replacing
-its ordinary context without restoring the hidden draft or another editor.
+its ordinary context without restoring the hidden draft or another editor. The
+notice side has retention priority over the selector title when width is scarce.
+During concealed credential entry, the same notice temporarily replaces the
+non-secret entry guidance without exposing credential text.
 Focus and composer-pointer authority are separate:
 only a visible draft admits composer pointer effects; selection focus and the
 concealed credential editor admit none while transcript selection and scrolling
