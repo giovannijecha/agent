@@ -149,9 +149,11 @@ from the platform-owned user-state base and an irreversible digest of the exact
 canonical workspace. Resume requires the newest journal to be inactive and
 valid before provider composition. Unknown versions, ambiguous locks, unsafe
 retirement targets, interior corruption, and all bound failures stop
-content-free. One exact workspace admission serializes scan, retention,
-resume-source validation, and publication; a live contender reports busy, and
-only an operating-system-proven stale owner may be reclaimed once. Required
+content-free. One unique never-reused token per launcher serializes scan,
+retention, resume-source validation, and publication; any observed live peer
+makes the contender report busy, and only an operating-system-proven stale
+token's unique pathname may be removed. Publication values advance beyond the
+newest validated session despite a tied or regressed wall clock. Required
 file synchronization and POSIX directory synchronization fail closed. Only an
 incomplete final line may recover its validated prefix. The journal requests
 owner-only permissions but is not encrypted, tamper-proof, or protected from

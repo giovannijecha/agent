@@ -47,12 +47,13 @@ it does not append to the previous journal or rerun tools. If the previous
 process is still active, the latest journal is corrupt, or no journal exists
 for this workspace, startup fails content-free.
 
-Creation and resume briefly hold one workspace session-admission lock while
-validating retention and publishing the continuation. A simultaneous launch
-for the same workspace fails content-free as busy instead of waiting or
-exceeding the retained-session bound; run it again after the other launch has
-finished admission. A lock whose exact process no longer exists may be
-reclaimed once during a later launch.
+Creation and resume briefly publish one unique workspace session-admission
+token while validating retention and publishing the continuation. A launch
+proceeds only when no other live token exists. Simultaneous launches for the
+same workspace may all fail content-free as busy instead of waiting or
+exceeding the retained-session bound; run again after the other admission has
+finished. A token whose exact process no longer exists may be removed through
+its never-reused pathname during a later launch.
 
 A crash during the final append may leave one incomplete last line. Resume
 discards only that line, restores the validated complete prefix, and shows a

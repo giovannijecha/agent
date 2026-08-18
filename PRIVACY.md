@@ -164,8 +164,9 @@ restores old filesystem state, and never uploads or synchronizes an inactive
 branch by itself. Non-TTY runs and `agent --evaluation-receipt` create no
 session journal.
 
-The journal contains the originating session identity, creation time, a SHA-256
-workspace key, complete settled user and assistant conversation entries,
+The journal contains the originating session identity, a monotonic publication
+timestamp seeded by wall time, a SHA-256 workspace key, complete settled user
+and assistant conversation entries,
 complete checkpointed tool calls and results, closed checkpoint settlement or
 failure classification, branch parent identities, and the selected node. It
 therefore contains personal content and source or tool output already admitted
@@ -183,20 +184,26 @@ owner-only mode `0700` and files request `0600` where supported. This is local
 plain-text JSONL, not encryption or an operating-system vault. Other principals
 already authorized by the host, backups, or malware may still observe it.
 
-The hashed workspace directory also holds an ephemeral `.admission` file with
-the current process identifier while one launch validates retention and
-publishes a session. Normal completion removes it. A later launch may remove it
-only after the operating system reports that the exact process no longer
-exists; it contains no workspace path, credential, conversation, or provider
+The hashed workspace directory can briefly hold exact
+`.admission-<process>-<identity>` files while launches validate retention and
+publish a session. Each launcher owns one uniquely named token containing the
+same process identifier. A launcher proceeds only when it observes no other
+live token; overlapping launchers may all report busy. Normal completion
+removes its token. A later launcher may remove a stale token only after the
+operating system reports that its named process no longer exists. Because a
+token pathname is never reused, stale reclamation cannot remove a successor.
+These files contain no workspace path, credential, conversation, or provider
 state.
 
 One journal is limited to 16,777,216 UTF-8 bytes and the conversation remains
 limited to 128 settled turns, 256 provider-message units, and 1,048,576 code
 units. At most 32 validated sessions are retained for one workspace and at most
-64 are scanned. Creating a new session removes the oldest unlocked exact
-session directories as needed under the exact workspace admission; active or
-ambiguous sessions are never removed. Concurrent admission reports busy rather
-than exceeding either bound. Unknown versions and corruption fail closed. An
+64 are scanned; admission separately scans at most 64 exact tokens. Creating a
+new session removes the oldest unlocked exact session directories as needed
+under the exact workspace admission; active or ambiguous sessions are never
+removed. Its publication timestamp is strictly greater than every retained
+session even if wall time ties or regresses. Concurrent admission reports busy
+rather than exceeding either bound. Unknown versions and corruption fail closed. An
 interrupted final line alone may be discarded, with an explicit recovery
 notice, while its validated prefix is retained.
 
