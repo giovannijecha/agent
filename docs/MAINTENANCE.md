@@ -325,6 +325,16 @@ caret ownership but must publish no composer-pointer target. Its regression must
 prove credential drags cannot queue clipboard content while transcript pointer
 selection remains available.
 
+Provider, model, session-permission, and timeline selection must close only
+through its existing Enter acceptance or explicit Escape/Ctrl+C cancellation.
+Treat printable text, paste, Tab, Home, End, deletion, and word editing as inert
+while selection focus remains active; never forward them to the retained editor,
+replay them after close, or emit a notice for them. Preserve Page Up, Page Down,
+and EOF as global routes. If Escape cannot close a selector, trace the Node host's
+single trailing-byte timer, its 30-millisecond settled marker, the generic
+decoder event, and the shared CLI selector reducer in that order. Do not decode
+raw Escape in a component or make arrow-key correctness depend on stream chunking.
+
 When selection focus replaces the composer, project any active composer-placed
 transient notice through the selector header's trailing edge. The notice
 temporarily replaces ordinary header context and may add the optional header to

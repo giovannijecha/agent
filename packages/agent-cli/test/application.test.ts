@@ -283,6 +283,26 @@ test("active Ctrl+C requests one cancellation and preserves the draft", () => {
   assert.deepEqual(application.notice, []);
 });
 
+test("keeps selector focus through ordinary input until explicit dismissal", () => {
+  const application = new ApplicationController(false);
+  application.feed("retained draft");
+  application.applySessionAction({ kind: "openPermissions" });
+
+  const ignored = application.feed("text\t\u007F");
+
+  assert.equal(ignored.redraw, false);
+  assert.deepEqual(ignored.effects, []);
+  assert.ok(application.projectPermissionMenu() !== undefined);
+  assert.equal(application.project(40).text, "retained draft");
+
+  const dismissed = application.feed("\u001B", 0, undefined, true);
+
+  assert.equal(dismissed.redraw, true);
+  assert.deepEqual(dismissed.effects, []);
+  assert.equal(application.projectPermissionMenu(), undefined);
+  assert.equal(application.project(40).text, "retained draft");
+});
+
 test("preserves ordered coalesced shutdown actions without duplicate exit", () => {
   const command = new ApplicationController(true);
   assert.ok(command.turnAccepted(started(1, "question")).ok);

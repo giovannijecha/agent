@@ -5,6 +5,7 @@ import {
   type SessionAction,
   SessionController,
   type SessionInputContext,
+  type SessionReductionPort,
 } from "../dist/session.js";
 
 test("edits a draft and rejects removed command surfaces", () => {
@@ -157,7 +158,7 @@ test("recomputes completion after editing and keeps unsupported Tab explicit", (
   });
 });
 
-test("consumes the editor input that closes each contextual selector", () => {
+test("keeps non-selector keys inert until each contextual selector is dismissed", () => {
   const cases: readonly Readonly<{
     close: SessionAction["kind"];
     context: SessionInputContext;
@@ -172,15 +173,31 @@ test("consumes the editor input that closes each contextual selector", () => {
     const session = new SessionController();
     session.feed("retained draft");
     const actions: SessionAction[] = [];
-    const closed = session.feed("x", 0, {
+    const reduction: SessionReductionPort = {
       apply: (action) => actions.push(action),
       context: () => entry.context,
       editorRedrawn: () => undefined,
-    });
+    };
+    const ignored = session.feed(
+      "text\u001B[H\u007F\t\u001B[200~paste\u001B[201~",
+      0,
+      reduction,
+    );
 
+    assert.deepEqual(actions, []);
+    assert.equal(session.projectEditor(40).text, "retained draft");
+    assert.equal(ignored.redraw, false);
+
+    const interrupted = session.feed("\u0003", 0, reduction);
     assert.deepEqual(actions, [{ kind: entry.close }]);
     assert.equal(session.projectEditor(40).text, "retained draft");
-    assert.equal(closed.redraw, false);
+    assert.equal(interrupted.redraw, false);
+
+    actions.splice(0);
+    const escaped = session.feed("\u001B", 0, reduction, true);
+    assert.deepEqual(actions, [{ kind: entry.close }]);
+    assert.equal(session.projectEditor(40).text, "retained draft");
+    assert.equal(escaped.redraw, false);
   }
 });
 

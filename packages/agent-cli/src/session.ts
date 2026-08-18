@@ -83,6 +83,38 @@ export type SessionInputContext =
   | "timeline"
   | "toolDecision";
 
+type ContextualSelectorContext =
+  | "models"
+  | "permissions"
+  | "providers"
+  | "timeline";
+
+function contextualSelector(
+  context: SessionInputContext,
+): context is ContextualSelectorContext {
+  return (
+    context === "models" ||
+    context === "permissions" ||
+    context === "providers" ||
+    context === "timeline"
+  );
+}
+
+function closeContextualSelector(
+  context: ContextualSelectorContext,
+): SessionAction {
+  if (context === "permissions") {
+    return Object.freeze({ kind: "closePermissions" as const });
+  }
+  if (context === "providers") {
+    return Object.freeze({ kind: "closeProviders" as const });
+  }
+  if (context === "models") {
+    return Object.freeze({ kind: "closeModels" as const });
+  }
+  return Object.freeze({ kind: "closeTimeline" as const });
+}
+
 function notice(...lines: string[]): SessionAction {
   return Object.freeze({
     kind: "notice" as const,
@@ -222,11 +254,12 @@ export class SessionController {
     ).kind === "changed";
   }
 
-  /** Reduces one chunk through one optional synchronous application port. */
+  /** Reduces one ordered chunk through one optional synchronous application port. */
   feed(
     chunk: string,
     timeMilliseconds = 0,
     reduction?: SessionReductionPort,
+    settledTrailingEscape = false,
   ): SessionUpdate {
     const actions: SessionAction[] = [];
     let redraw = false;
@@ -244,7 +277,7 @@ export class SessionController {
     let afterInterrupt = false;
     let exitCandidate: string | undefined = "";
     let stopChunk = false;
-    for (const event of this.#decoder.feed(chunk)) {
+    for (const event of this.#decoder.feed(chunk, settledTrailingEscape)) {
       if (stopChunk) {
         break;
       }
@@ -316,7 +349,7 @@ export class SessionController {
           continue;
         }
       }
-      if (context === "permissions") {
+      if (contextualSelector(context)) {
         if (event.kind === "up" || event.kind === "down") {
           emit(
             Object.freeze({
@@ -326,7 +359,10 @@ export class SessionController {
           );
           continue;
         }
-        if (event.kind === "left" || event.kind === "right") {
+        if (
+          context === "permissions" &&
+          (event.kind === "left" || event.kind === "right")
+        ) {
           emit(
             Object.freeze({
               direction: event.kind === "left" ? "less" as const : "more" as const,
@@ -335,35 +371,16 @@ export class SessionController {
           );
           continue;
         }
-        if (event.kind === "enter" || event.kind === "interrupt") {
-          emit(Object.freeze({ kind: "closePermissions" as const }));
-          continue;
-        }
-        if (
-          event.kind !== "pageUp" &&
-          event.kind !== "pageDown" &&
-          event.kind !== "eof"
-        ) {
-          emit(Object.freeze({ kind: "closePermissions" as const }));
-          continue;
-        }
-      }
-      if (context === "providers") {
-        if (event.kind === "up" || event.kind === "down") {
+        if (event.kind === "enter") {
           emit(
-            Object.freeze({
-              direction: event.kind === "up" ? "previous" as const : "next" as const,
-              kind: "moveContextSelection" as const,
-            }),
+            context === "permissions"
+              ? closeContextualSelector(context)
+              : Object.freeze({ kind: "activateContextSelection" as const }),
           );
           continue;
         }
-        if (event.kind === "enter") {
-          emit(Object.freeze({ kind: "activateContextSelection" as const }));
-          continue;
-        }
-        if (event.kind === "interrupt") {
-          emit(Object.freeze({ kind: "closeProviders" as const }));
+        if (event.kind === "interrupt" || event.kind === "escape") {
+          emit(closeContextualSelector(context));
           continue;
         }
         if (
@@ -371,61 +388,6 @@ export class SessionController {
           event.kind !== "pageDown" &&
           event.kind !== "eof"
         ) {
-          emit(Object.freeze({ kind: "closeProviders" as const }));
-          continue;
-        }
-      }
-      if (context === "models") {
-        if (event.kind === "up" || event.kind === "down") {
-          emit(
-            Object.freeze({
-              direction: event.kind === "up" ? "previous" as const : "next" as const,
-              kind: "moveContextSelection" as const,
-            }),
-          );
-          continue;
-        }
-        if (event.kind === "enter") {
-          emit(Object.freeze({ kind: "activateContextSelection" as const }));
-          continue;
-        }
-        if (event.kind === "interrupt") {
-          emit(Object.freeze({ kind: "closeModels" as const }));
-          continue;
-        }
-        if (
-          event.kind !== "pageUp" &&
-          event.kind !== "pageDown" &&
-          event.kind !== "eof"
-        ) {
-          emit(Object.freeze({ kind: "closeModels" as const }));
-          continue;
-        }
-      }
-      if (context === "timeline") {
-        if (event.kind === "up" || event.kind === "down") {
-          emit(
-            Object.freeze({
-              direction: event.kind === "up" ? "previous" as const : "next" as const,
-              kind: "moveContextSelection" as const,
-            }),
-          );
-          continue;
-        }
-        if (event.kind === "enter") {
-          emit(Object.freeze({ kind: "activateContextSelection" as const }));
-          continue;
-        }
-        if (event.kind === "interrupt") {
-          emit(Object.freeze({ kind: "closeTimeline" as const }));
-          continue;
-        }
-        if (
-          event.kind !== "pageUp" &&
-          event.kind !== "pageDown" &&
-          event.kind !== "eof"
-        ) {
-          emit(Object.freeze({ kind: "closeTimeline" as const }));
           continue;
         }
       }

@@ -14,6 +14,8 @@ import {
 } from "@agent/tui";
 
 import type { HostEvent, TerminalHost } from "./terminal-host.js";
+import { NodeTimerClock } from "./node-timer-clock.js";
+import type { ScheduledTimer, TimerClock } from "./timer-clock.js";
 
 export type NodeTerminalErrorKind =
   | "input"
@@ -59,11 +61,14 @@ type EventWaiter = (result: EventResult) => void;
 const MAX_QUEUED_EVENTS = 1_024;
 const MAX_INPUT_CHUNK_CODE_UNITS = 65_536;
 const MAX_QUEUED_INPUT_CODE_UNITS = 131_072;
+const ESCAPE = "\u001B";
+const ESCAPE_AMBIGUITY_MILLISECONDS = 30;
 
 /** Node stdin/stdout adapter with an ordered bounded-lifecycle event queue. */
 export class NodeTerminalHost implements TerminalHost<NodeTerminalError> {
   readonly #input: ReadableStream;
   readonly #output: WritableStream;
+  readonly #clock: TimerClock;
   readonly #events: EventResult[] = [];
   readonly #waiters: EventWaiter[] = [];
   #startAttempted = false;
@@ -71,10 +76,17 @@ export class NodeTerminalHost implements TerminalHost<NodeTerminalError> {
   #closed = false;
   #overflowed = false;
   #queuedInputCodeUnits = 0;
+  #escapeTimer: ScheduledTimer | undefined;
+  #pendingEscapeMilliseconds: number | undefined;
 
-  constructor(input: ReadableStream = stdin, output: WritableStream = stdout) {
+  constructor(
+    input: ReadableStream = stdin,
+    output: WritableStream = stdout,
+    clock: TimerClock = new NodeTimerClock(),
+  ) {
     this.#input = input;
     this.#output = output;
+    this.#clock = clock;
   }
 
   get interactive(): boolean {
@@ -168,6 +180,7 @@ export class NodeTerminalHost implements TerminalHost<NodeTerminalError> {
     this.#startAttempted = true;
     this.#closed = false;
     this.#overflowed = false;
+    this.#discardPendingEscape();
     try {
       this.#input.setEncoding("utf8");
       this.#input.on("data", this.#onData);
@@ -249,6 +262,7 @@ export class NodeTerminalHost implements TerminalHost<NodeTerminalError> {
     });
 
     this.#closed = true;
+    this.#discardPendingEscape();
     this.#events.splice(0);
     this.#queuedInputCodeUnits = 0;
     const ended = ok(Object.freeze({ kind: "end" as const }));
@@ -268,23 +282,57 @@ export class NodeTerminalHost implements TerminalHost<NodeTerminalError> {
       return;
     }
     const monotonicMilliseconds = Number(hrtime.bigint() / 1_000_000n);
-    this.#enqueue(
-      ok(
-        Object.freeze({
-          kind: "input" as const,
-          monotonicMilliseconds,
-          text,
-        }),
-      ),
-    );
+    let source = text;
+    let sourceMilliseconds = monotonicMilliseconds;
+    const pendingMilliseconds = this.#pendingEscapeMilliseconds;
+    if (pendingMilliseconds !== undefined) {
+      this.#discardPendingEscape();
+      if (text.startsWith("[") || text.startsWith("O")) {
+        source = ESCAPE + text;
+        sourceMilliseconds = pendingMilliseconds;
+      } else {
+        this.#enqueueInput(ESCAPE, pendingMilliseconds, true);
+      }
+    }
+    if (source.length > MAX_INPUT_CHUNK_CODE_UNITS) {
+      this.#failQueue("terminal input chunk exceeded the owned limit");
+      return;
+    }
+    let trailingEscapes = 0;
+    while (
+      trailingEscapes < source.length &&
+      source.at(source.length - trailingEscapes - 1) === ESCAPE
+    ) {
+      trailingEscapes += 1;
+    }
+    const body = source.slice(0, source.length - trailingEscapes);
+    if (body.length > 0) {
+      this.#enqueueInput(body, sourceMilliseconds, false);
+    }
+    for (let index = 1; index < trailingEscapes; index += 1) {
+      this.#enqueueInput(ESCAPE, sourceMilliseconds, true);
+    }
+    if (trailingEscapes > 0 && !this.#overflowed) {
+      this.#pendingEscapeMilliseconds = monotonicMilliseconds;
+      try {
+        this.#escapeTimer = this.#clock.schedule(
+          ESCAPE_AMBIGUITY_MILLISECONDS,
+          this.#settlePendingEscape,
+        );
+      } catch (_cause: unknown) {
+        this.#failQueue("terminal escape timer failed");
+      }
+    }
   };
 
   readonly #onEnd = (): void => {
     this.#closed = true;
+    this.#discardPendingEscape();
     this.#enqueue(ok(Object.freeze({ kind: "end" as const })));
   };
 
   readonly #onInputError = (cause: unknown): void => {
+    this.#discardPendingEscape();
     this.#enqueue(err(new NodeTerminalError("input", cause)));
   };
 
@@ -293,6 +341,7 @@ export class NodeTerminalHost implements TerminalHost<NodeTerminalError> {
   };
 
   readonly #onOutputError = (cause: unknown): void => {
+    this.#discardPendingEscape();
     this.#enqueue(err(new NodeTerminalError("output", cause)));
   };
 
@@ -333,11 +382,51 @@ export class NodeTerminalHost implements TerminalHost<NodeTerminalError> {
     }
   }
 
+  #enqueueInput(
+    text: string,
+    monotonicMilliseconds: number,
+    settledEscape: boolean,
+  ): void {
+    this.#enqueue(
+      ok(
+        settledEscape
+          ? Object.freeze({
+              kind: "input" as const,
+              monotonicMilliseconds,
+              settledEscape: true as const,
+              text,
+            })
+          : Object.freeze({
+              kind: "input" as const,
+              monotonicMilliseconds,
+              text,
+            }),
+      ),
+    );
+  }
+
+  readonly #settlePendingEscape = (): void => {
+    const monotonicMilliseconds = this.#pendingEscapeMilliseconds;
+    this.#escapeTimer = undefined;
+    this.#pendingEscapeMilliseconds = undefined;
+    if (monotonicMilliseconds === undefined || this.#closed) {
+      return;
+    }
+    this.#enqueueInput(ESCAPE, monotonicMilliseconds, true);
+  };
+
+  #discardPendingEscape(): void {
+    this.#escapeTimer?.cancel();
+    this.#escapeTimer = undefined;
+    this.#pendingEscapeMilliseconds = undefined;
+  }
+
   #failQueue(message: string): void {
     if (this.#overflowed) {
       return;
     }
     this.#overflowed = true;
+    this.#discardPendingEscape();
     this.#events.splice(0);
     this.#queuedInputCodeUnits = 0;
     const cleanupCauses: unknown[] = [];

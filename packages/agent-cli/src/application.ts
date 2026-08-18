@@ -484,6 +484,7 @@ export class ApplicationController
     chunk: string,
     timeMilliseconds = 0,
     pointerProjection?: PointerProjection,
+    settledTrailingEscape = false,
   ): ApplicationUpdate {
     const effects: ApplicationEffect[] = [];
     let exitEmitted = false;
@@ -499,20 +500,25 @@ export class ApplicationController
         effects.push(effect);
       }
     };
-    const session = this.#session.feed(chunk, timeMilliseconds, {
-      apply: (action) => {
-        const applied = this.applySessionAction(action, pointerProjection);
-        redraw = redraw || applied.redraw;
-        appendEffects(applied.effects);
+    const session = this.#session.feed(
+      chunk,
+      timeMilliseconds,
+      {
+        apply: (action) => {
+          const applied = this.applySessionAction(action, pointerProjection);
+          redraw = redraw || applied.redraw;
+          appendEffects(applied.effects);
+        },
+        context: () => this.#inputContext(),
+        editorRedrawn: () => {
+          if (this.#notice.length > 0) {
+            this.#setNotice([]);
+          }
+          redraw = true;
+        },
       },
-      context: () => this.#inputContext(),
-      editorRedrawn: () => {
-        if (this.#notice.length > 0) {
-          this.#setNotice([]);
-        }
-        redraw = true;
-      },
-    });
+      settledTrailingEscape,
+    );
     return update(redraw || session.redraw, effects);
   }
 
