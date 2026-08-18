@@ -260,23 +260,15 @@ export class Renderer<E> {
     }
 
     const caret = frame.caret;
-    let caretRow = 0;
-    let caretColumn = 0;
+    let cursorVisible = false;
     if (
       caret !== undefined &&
       caret.row < viewport.rows &&
       caret.column < viewport.columns
     ) {
-      caretRow = caret.row;
-      caretColumn = caret.column;
-    } else if (next.length > 0) {
-      caretRow = next.length - 1;
-      caretColumn = Math.min(
-        next.at(caretRow)?.cellWidth ?? 0,
-        viewport.columns - 1,
-      );
+      buffer += moveTo(caret.row, caret.column) + CURSOR_SHOW;
+      cursorVisible = true;
     }
-    buffer += moveTo(caretRow, caretColumn) + CURSOR_SHOW;
 
     const recovery = this.#synchronizationMayBeActive
       ? SYNCHRONIZED_OUTPUT_END + STYLE_RESET
@@ -295,7 +287,7 @@ export class Renderer<E> {
     this.#started = true;
     this.#previous = next;
     this.#previousViewport = viewport;
-    this.#cursorMayBeHidden = false;
+    this.#cursorMayBeHidden = !cursorVisible;
     return ok(undefined);
   }
 

@@ -111,8 +111,10 @@ The transcript is the dominant region. User requests use italic steel-blue
 text, assistant prose is neutral, and neither carries a role label or box. The
 interaction dock remains fixed between two light-blue rules. In editor focus
 its caret uses the terminal's blinking block cursor; in selection focus the
-caret is absent. Agent does not simulate the blink, and a terminal that does
-not support shape selection may retain its native cursor.
+caret is absent and the terminal cursor remains hidden rather than moving onto
+the footer or another visible row. Agent does not simulate the blink, and a
+terminal that does not support shape selection may retain its native cursor
+shape while preserving the same visibility contract.
 The footer shows the workspace and selected provider/model; its right edge
 contains a small moving pulse only while autonomous work advances. Permission
 waiting is not active motion.
