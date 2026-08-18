@@ -998,6 +998,18 @@ test("renders a pending permission through the shared activity and contextual se
       .find((span) => span.text.includes("+ new"))?.tone,
     "diffAdded",
   );
+
+  application.clipboardSettled("failed");
+  const withStatus = frame(application, 72, 22);
+  assert.ok(withStatus.ok);
+  assert.equal(
+    withStatus.value.rows.some((row) => row.text.includes("Copy failed!")),
+    true,
+  );
+  assert.equal(
+    withStatus.value.rows.some((row) => row.text.includes("Allow once")),
+    true,
+  );
 });
 
 test("retains the compact action, state, and selected permission before preview", () => {
@@ -1338,6 +1350,33 @@ test("renders the current-session provider selector without a box", () => {
       .filter((span) => span.text.trim().length > 0)
       .every((span) => span.surface === "none"),
     true,
+  );
+});
+
+test("keeps composer copy feedback visible while a selector retains the dock", () => {
+  const application = new ApplicationController(true, configuredProviders());
+  application.feed("retained draft");
+  application.applySessionAction(Object.freeze({ kind: "openProviders" }));
+  const size = viewport(72, 16);
+  const before = createChatRender(application, size);
+  assert.ok(before.ok);
+
+  application.clipboardSettled("copied");
+  const after = createChatRender(application, size);
+  assert.ok(after.ok);
+  assert.deepEqual(after.value.composer, before.value.composer);
+  assert.equal(after.value.frame.caret, undefined);
+  assert.equal(
+    after.value.frame.rows.some((row) => row.text.includes("Providers")),
+    true,
+  );
+  assert.equal(
+    after.value.frame.rows.some((row) => row.text.includes("Copied!")),
+    true,
+  );
+  assert.equal(
+    after.value.frame.rows.some((row) => row.text.includes("retained draft")),
+    false,
   );
 });
 

@@ -10,7 +10,12 @@ import {
 
 import { CONVERSATION_DENSITY } from "./conversation-density.js";
 import type { ProviderSelectionSnapshot } from "./provider-session.js";
-import { createSpan, createStack } from "./view-components.js";
+import {
+  createInteractionHeader,
+  createSpan,
+  createStack,
+  type InteractionStatusProjection,
+} from "./view-components.js";
 
 export type ProviderMenuProjection = Readonly<{
   items: readonly ProviderSelectionSnapshot[];
@@ -20,18 +25,12 @@ export type ProviderMenuProjection = Readonly<{
 /** Projects the closed current-session provider selector. */
 export function createProvidersDocument(
   projection: ProviderMenuProjection | undefined,
+  status?: InteractionStatusProjection,
 ): Result<Component, ComponentError> {
   if (projection === undefined) {
     return createStack([]);
   }
-  const title = createSpan("Providers", "emphasis");
-  const scope = createSpan("current session", "muted");
-  if (!title.ok) return title;
-  if (!scope.ok) return scope;
-  const header = SplitLine.create([title.value], [scope.value], {
-    gap: 2,
-    priority: "left",
-  });
+  const header = createInteractionHeader("Providers", "current session", status);
   if (!header.ok) return header;
 
   const rows: Component[] = [];

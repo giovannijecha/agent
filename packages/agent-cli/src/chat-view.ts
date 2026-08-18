@@ -40,7 +40,11 @@ import { createPermissionsDocument } from "./permissions-view.js";
 import { createProviderCredentialDocument } from "./provider-credential-view.js";
 import { createProvidersDocument } from "./providers-view.js";
 import { createTimelineDocument } from "./timeline-view.js";
-import { createSpacer, createSpan } from "./view-components.js";
+import {
+  createSpacer,
+  createSpan,
+  type InteractionStatusProjection,
+} from "./view-components.js";
 
 const DOCUMENT_SLOT = 0;
 const COMPOSER_SLOT = 8;
@@ -223,15 +227,31 @@ export function createChatRender(
   if (contextCount > 1) {
     return err(new ComponentError("invalidComponent", undefined));
   }
-  const permissions = createPermissionsDocument(permissionMenu, toolDecision);
+  const composerNotice = application.noticePlacement === "composer"
+    ? application.notice.at(0)
+    : undefined;
+  const interactionStatus: InteractionStatusProjection | undefined =
+    composerNotice !== undefined
+      ? Object.freeze({
+          text: composerNotice,
+          tone: application.noticeLevel === "warning"
+            ? "attention"
+            : "muted",
+        })
+      : undefined;
+  const permissions = createPermissionsDocument(
+    permissionMenu,
+    toolDecision,
+    interactionStatus,
+  );
   if (!permissions.ok) return permissions;
-  const providers = createProvidersDocument(providerMenu);
+  const providers = createProvidersDocument(providerMenu, interactionStatus);
   if (!providers.ok) return providers;
-  const models = createModelsDocument(modelMenu);
+  const models = createModelsDocument(modelMenu, interactionStatus);
   if (!models.ok) return models;
   const credential = createProviderCredentialDocument(providerCredential);
   if (!credential.ok) return credential;
-  const timeline = createTimelineDocument(timelineMenu);
+  const timeline = createTimelineDocument(timelineMenu, interactionStatus);
   if (!timeline.ok) return timeline;
   const contextualSelection = providerMenu !== undefined
     ? providers.value

@@ -47,7 +47,9 @@ consumed, and pointer input cannot edit or copy the draft until editor focus
 returns. Transcript selection, copying, and wheel scrolling remain available
 while a selector owns the dock. Pointer input is interpreted against the dock
 focus that is visible on screen, including when keyboard and mouse bytes arrive
-in one input chunk.
+in one input chunk. Clipboard settlement feedback remains visible at the
+selector header's right edge until it expires; it does not reveal the retained
+draft or restore a composer caret.
 
 `/providers` and `/models` use the same list controls: Up and Down move without
 wrapping, and Enter selects the current row. Selecting an unconfigured provider

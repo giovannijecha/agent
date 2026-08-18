@@ -11,7 +11,12 @@ import {
 
 import type { TimelineEntry } from "./chat-state.js";
 import { CONVERSATION_DENSITY } from "./conversation-density.js";
-import { createSpan, createStack } from "./view-components.js";
+import {
+  createInteractionHeader,
+  createSpan,
+  createStack,
+  type InteractionStatusProjection,
+} from "./view-components.js";
 
 const PREVIEW_CODE_POINTS = 48;
 const MAXIMUM_VISIBLE_DEPTH = 8;
@@ -52,6 +57,7 @@ function stateLabel(item: TimelineEntry): string {
 /** Projects the process-memory conversation tree onto one generic selector. */
 export function createTimelineDocument(
   projection: TimelineMenuProjection | undefined,
+  status?: InteractionStatusProjection,
 ): Result<Component, ComponentError> {
   if (projection === undefined) {
     return createStack([]);
@@ -63,7 +69,6 @@ export function createTimelineDocument(
     windowStart,
     windowStart + TUI_LIMITS.componentCount,
   );
-  const title = createSpan("Timeline", "emphasis");
   const scopeLabel = visibleItems.length === projection.items.length
     ? "current process"
     : "current process " +
@@ -72,13 +77,7 @@ export function createTimelineDocument(
       (windowStart + visibleItems.length).toString(10) +
       "/" +
       projection.items.length.toString(10);
-  const scope = createSpan(scopeLabel, "muted");
-  if (!title.ok) return title;
-  if (!scope.ok) return scope;
-  const header = SplitLine.create([title.value], [scope.value], {
-    gap: 2,
-    priority: "left",
-  });
+  const header = createInteractionHeader("Timeline", scopeLabel, status);
   if (!header.ok) return header;
 
   const rows: Component[] = [];

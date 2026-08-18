@@ -319,6 +319,13 @@ caret ownership but must publish no composer-pointer target. Its regression must
 prove credential drags cannot queue clipboard content while transcript pointer
 selection remains available.
 
+When selection focus replaces the composer, project any active composer-placed
+transient notice through the selector header's trailing edge. The notice
+temporarily replaces ordinary header context and may add the optional header to
+a headerless pending-tool decision, but it must not mount `InputArea`, expose the
+retained draft, admit a caret, or create another notice authority. Regress both
+an existing selector header and the headerless pending-tool path.
+
 Rollback must restore renderer and CLI event assumptions together. Removal of
 an interaction deletes its decoder event, reducer route, layout projection,
 manual entry, and tests; never leave a private alternate path.
