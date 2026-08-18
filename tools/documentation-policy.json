@@ -78,7 +78,8 @@
     "docs/decisions/0073-owned-capability-complete-shell-execution.md",
     "docs/decisions/0074-owned-deterministic-read-overlap.md",
     "docs/decisions/0075-owned-branching-conversation-tree.md",
-    "docs/decisions/0076-owned-bounded-session-journal.md"
+    "docs/decisions/0076-owned-bounded-session-journal.md",
+    "docs/decisions/0077-owned-terminal-blinking-block-cursor.md"
   ],
   "decisionIndexLifecycleDigest": {
     "algorithm": "sha256",
@@ -127,7 +128,8 @@
     "0073": "2026-08-18",
     "0074": "2026-08-18",
     "0075": "2026-08-18",
-    "0076": "2026-08-18"
+    "0076": "2026-08-18",
+    "0077": "2026-08-18"
   },
   "historicalDecisionStatusExceptions": {
     "0009": "accepted"
@@ -184,7 +186,7 @@
   ],
   "decisionRecordDigest": {
     "algorithm": "sha256",
-    "value": "0a20c92a8cd572559f44d03af59af87eafd35c3e0c66dd480fa2e93661a954b8"
+    "value": "10af35ef96faa460068343758675363c5b82b4d3e4622aa1bc473b4aabe1999d"
   },
   "decisionDomainMembers": {
     "architecture": [
@@ -263,7 +265,8 @@
       "0045",
       "0059",
       "0060",
-      "0063"
+      "0063",
+      "0077"
     ],
     "tools": [
       "0008",
@@ -325,6 +328,7 @@
       "0058"
     ],
     "terminal": [
+      "0077",
       "0023",
       "0045",
       "0059"

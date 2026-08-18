@@ -86,7 +86,7 @@ function viewport(columns = 80, rows = 24): Viewport {
   return result.value;
 }
 
-test("enters the alternate screen with one steady vertical bar caret", async () => {
+test("enters the alternate screen with one terminal-controlled blinking block caret", async () => {
   const output = new MemoryOutput();
   const renderer = new Renderer(output);
 
@@ -94,7 +94,7 @@ test("enters the alternate screen with one steady vertical bar caret", async () 
 
   assert.equal(
     output.text,
-    "\u001B[?2026h\u001B[?1049h\u001B[?1006h\u001B[?1002h\u001B[?2004h\u001B[?25l\u001B[6 q\u001B[2J\u001B[H" +
+    "\u001B[?2026h\u001B[?1049h\u001B[?1006h\u001B[?1002h\u001B[?2004h\u001B[?25l\u001B[1 q\u001B[2J\u001B[H" +
       "\u001B[1;1H\u001B[2Kagent" +
       "\u001B[1;6H\u001B[?25h\u001B[?2026l",
   );

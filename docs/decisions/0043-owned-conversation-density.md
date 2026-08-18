@@ -9,6 +9,7 @@
 - Activity line amended by: decision 0056
 - Activity surface amended by: decision 0057
 - User identity amended by: decision 0059
+- Cursor selection amended by: decision 0077
 
 Decision 0057 retains the one-cell horizontal and zero-row vertical activity
 padding below while making the surface transparent and moving lifecycle truth
@@ -92,8 +93,9 @@ decoration, flush surface padding, composer rules, and external rhythm.
   width or height is constrained.
 - The composer uses the generic transparent `HorizontalRules` frame with one
   full-stage `accent` rule above and below its child and one cell of horizontal
-  content padding from the shared density record. Its text, steady vertical-bar
-  caret, and pointer hit-testing resolve through that same content coordinate.
+  content padding from the shared density record. Its text, terminal cursor
+  caret, and pointer hit-testing resolve through that same content coordinate;
+  decision 0077 owns the current blinking-block cursor selection.
   It is the only focused frame, remains recognizable at rest, and continues
   to grow from one through six content rows through the same `InputArea`. A
   one-row draft therefore remains three rows tall. When fewer than three rows

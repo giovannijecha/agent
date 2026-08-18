@@ -90,10 +90,12 @@ and confirmation; Agent never launches a browser.
 
 The transcript is the dominant region. User requests use italic steel-blue
 text, assistant prose is neutral, and neither carries a role label or box. The
-composer remains fixed between two light-blue rules. The footer shows the
-workspace and selected provider/model; its right edge contains a small moving
-pulse only while autonomous work advances. Permission waiting is not active
-motion.
+composer remains fixed between two light-blue rules. Its caret uses the
+terminal's blinking block cursor; Agent does not simulate the blink, and a
+terminal that does not support shape selection may retain its native cursor.
+The footer shows the workspace and selected provider/model; its right edge
+contains a small moving pulse only while autonomous work advances. Permission
+waiting is not active motion.
 
 Only the latest tool activity appears near the composer during an active turn.
 Its mark and written state carry success, attention, or failure color. Pending
@@ -136,3 +138,4 @@ display styling never executes code or changes model text.
 - [Conversation focus decision](../decisions/0059-owned-accented-conversation-focus.md)
 - [Branching conversation-tree decision](../decisions/0075-owned-branching-conversation-tree.md)
 - [Durable-session decision](../decisions/0076-owned-bounded-session-journal.md)
+- [Blinking-block cursor decision](../decisions/0077-owned-terminal-blinking-block-cursor.md)
