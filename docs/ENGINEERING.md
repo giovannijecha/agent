@@ -150,6 +150,8 @@ does not prove a contract that names an exact invocation.
   one blocker; it is never repeated blindly.
 - A completed tool checkpoint remains authoritative if a later model
   continuation fails.
+- A durable settled turn and its selected-head identity form one recoverable
+  transition; interruption must restore the newest proven state or fail closed.
 - Selecting retained history changes only the active model path. It never
   retries or replays a tool, and every later mutation replans against current
   state.

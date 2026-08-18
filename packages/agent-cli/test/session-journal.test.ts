@@ -90,12 +90,101 @@ test("creates and resumes the latest bounded journal for the exact workspace", a
         },
       ],
     });
-    assert.equal(resumed.value.recoveredPrefix, false);
+    assert.equal(resumed.value.recoveredState, false);
     assert.equal((await resumed.value.journal.close()).ok, true);
     assert.equal(
       (await SessionJournal.resumeLatest(root, "C:\\work\\other")).ok,
       false,
     );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("recovers a synchronized turn whose head replacement was interrupted", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "agent-journal-head-gap-"));
+  try {
+    const created = await SessionJournal.create(root, "C:\\work\\alpha");
+    assert.equal(created.ok, true);
+    if (!created.ok) return;
+    const directory = await sessionDirectory(root);
+    const headPath = path.join(directory, "head.json");
+    const previousHead = await readFile(headPath, { encoding: "utf8" });
+    const tree = oneTurn();
+    assert.equal(
+      (
+        await created.value.journal.appendTurn(tree.turns.at(0)!, {
+          kind: "completed",
+        })
+      ).ok,
+      true,
+    );
+    assert.equal((await created.value.journal.close()).ok, true);
+    await writeFile(headPath, previousHead, { encoding: "utf8", flag: "w" });
+
+    const resumed = await SessionJournal.resumeLatest(root, "C:\\work\\alpha");
+    assert.equal(resumed.ok, true);
+    if (!resumed.ok) return;
+    assert.equal(resumed.value.history.activeNodeId, 1);
+    assert.equal(resumed.value.recoveredState, true);
+    assert.equal((await resumed.value.journal.close()).ok, true);
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("preserves a deliberate head selection at the current journal revision", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "agent-journal-selection-"));
+  try {
+    const created = await SessionJournal.create(root, "C:\\work\\alpha");
+    assert.equal(created.ok, true);
+    if (!created.ok) return;
+    const tree = oneTurn();
+    assert.equal(
+      (
+        await created.value.journal.appendTurn(tree.turns.at(0)!, {
+          kind: "completed",
+        })
+      ).ok,
+      true,
+    );
+    assert.equal((await created.value.journal.select(0)).ok, true);
+    assert.equal((await created.value.journal.close()).ok, true);
+
+    const resumed = await SessionJournal.resumeLatest(root, "C:\\work\\alpha");
+    assert.equal(resumed.ok, true);
+    if (!resumed.ok) return;
+    assert.equal(resumed.value.history.activeNodeId, 0);
+    assert.equal(resumed.value.recoveredState, false);
+    assert.equal((await resumed.value.journal.close()).ok, true);
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("rejects an unreconciled head and journal revision gap", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "agent-journal-head-corrupt-"));
+  try {
+    const created = await SessionJournal.create(root, "C:\\work\\alpha");
+    assert.equal(created.ok, true);
+    if (!created.ok) return;
+    assert.equal((await created.value.journal.close()).ok, true);
+    const directory = await sessionDirectory(root);
+    const headPath = path.join(directory, "head.json");
+    await writeFile(
+      headPath,
+      JSON.stringify({
+        activeNodeId: 0,
+        journalTurnCount: 2,
+        kind: "head",
+        version: 1,
+      }) + "\n",
+      { encoding: "utf8", flag: "w" },
+    );
+
+    const resumed = await SessionJournal.resumeLatest(root, "C:\\work\\alpha");
+    assert.equal(resumed.ok, false);
+    if (!resumed.ok) assert.equal(resumed.error.kind, "corrupt");
   } finally {
     await rm(root, { force: true, recursive: true });
   }
@@ -132,7 +221,7 @@ test("rejects an active latest session and recovers only a truncated tail", asyn
     const resumed = await SessionJournal.resumeLatest(root, "C:\\work\\alpha");
     assert.equal(resumed.ok, true);
     if (!resumed.ok) return;
-    assert.equal(resumed.value.recoveredPrefix, true);
+    assert.equal(resumed.value.recoveredState, true);
     assert.equal(resumed.value.history.activeNodeId, 1);
     assert.equal((await resumed.value.journal.close()).ok, true);
   } finally {
@@ -170,7 +259,7 @@ test("recovers a final journal line torn inside one UTF-8 scalar", async () => {
     );
     assert.equal(resumed.ok, true);
     if (!resumed.ok) return;
-    assert.equal(resumed.value.recoveredPrefix, true);
+    assert.equal(resumed.value.recoveredState, true);
     assert.equal(resumed.value.history.activeNodeId, 1);
     assert.equal((await resumed.value.journal.close()).ok, true);
   } finally {

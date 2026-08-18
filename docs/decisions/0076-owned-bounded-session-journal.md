@@ -54,7 +54,8 @@ the path itself is not stored. Each session directory contains:
 
 - `journal.jsonl`, beginning with one exact versioned header followed by one
   exact record for every settled turn in insertion order;
-- `head.json`, a replaceable versioned pointer to the selected node; and
+- `head.json`, a replaceable versioned pointer to the selected node and the
+  exact journal turn count it has observed; and
 - `lock`, the owning process identifier while that continuation is active.
 
 Records use an original closed JSON shape. Structured values encode each kind
@@ -62,7 +63,10 @@ explicitly, including negative zero, and unknown fields or versions fail
 closed. Every tool input and result is decoded against its own exact structured
 value budget. A record is appended and synchronized only after the runtime and
 CLI have accepted the complete settlement, including settlement delivered by
-runtime stop. Completed turns retain their final
+runtime stop. Each settled-turn record implicitly selects its own node. The
+replaceable head then records that selection and the synchronized journal turn
+count, making append and head replacement one recoverable logical transition.
+Completed turns retain their final
 assistant message. Checkpointed cancellation retains the fixed cancellation
 marker; checkpointed failure retains only its closed content-free failure code
 beside already committed conversation entries. Streaming deltas, prospective
@@ -73,9 +77,13 @@ foreign causes, and evaluation receipts never enter the journal.
 Resume validates the newest exact header, workspace digest, inactive lock,
 complete record prefix, tree identities, bounds, presentation classifications,
 and selected head before provider composition. An unterminated final line is
-treated as an interrupted append and only that line is discarded with a visible
-recovery notice. Corruption in the header, any earlier record, the head, or the
-tree fails closed. No retry, schema guessing, partial migration, replay,
+treated as an interrupted append and only that line is discarded. If one
+complete final turn is synchronized while the head still names its parent at
+the immediately preceding journal turn count, recovery selects that final turn.
+A head at the current journal count remains a deliberate selection. Every other
+head gap or mismatch fails closed. Either admitted interruption produces one
+visible recovery notice. Corruption in the header, any earlier record, the head,
+or the tree fails closed. No retry, schema guessing, partial migration, replay,
 summary, tool execution, network request, provider selection, or permission
 restoration occurs.
 
@@ -120,7 +128,8 @@ settlement and that the controller appends it before journal close. The
 controller's attempted-node marker prevents cleanup from retrying an append.
 CLI tests also prove platform state-root resolution, workspace isolation,
 bounded creation, active-lock rejection, exact append and head updates,
-truncated-tail recovery,
+truncated-tail recovery, interrupted-head recovery, deliberate selection at the
+current journal revision, rejection of unreconciled revision gaps,
 corruption rejection, continuation lineage, cleanup, and transcript rebuilding.
 One composition test proves that a real runtime settlement is journaled once
 through the serialized controller and can be resumed.

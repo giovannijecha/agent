@@ -151,8 +151,11 @@ journal for the exact workspace, rebuilds the immutable tree and transcript,
 and creates a separate continuation before providers, tools, or terminal
 ownership. Credentials, catalogs, provider/model selection, permissions,
 drafts, provisional turns, activity, and notices remain process-only. A final
-truncated line recovers only its complete prefix; every other corruption fails
-closed. Evaluation-receipt and non-TTY runs create no journal.
+truncated line recovers only its complete prefix. A complete final turn whose
+head is exactly one journal revision behind is selected only when its parent is
+that previous head; current-revision selections remain authoritative and every
+other mismatch fails closed. Evaluation-receipt and non-TTY runs create no
+journal.
 
 Each encoded tool input and result retains the same independent structured-value
 limits enforced when that payload entered the runtime; sibling payloads do not
@@ -281,9 +284,10 @@ Owned native C17 brokers provide:
 - Windows clipboard transfer.
 
 Unsupported operating-system or filesystem primitives fail closed. Session
-records are synchronized and recover one interrupted final append, but these
-guarantees are not a filesystem sandbox, general transaction, rollback system,
-encrypted vault, or arbitrary crash-recovery protocol.
+records are synchronized and recover one interrupted final append or its exact
+one-revision head replacement window, but these guarantees are not a filesystem
+sandbox, general transaction, rollback system, encrypted vault, or arbitrary
+crash-recovery protocol.
 
 The repository follows a clean-room ownership boundary. External runtime and
 platform documentation may define contracts; foreign source, prompts, tests,

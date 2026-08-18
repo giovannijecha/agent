@@ -1132,7 +1132,7 @@ export async function run<E, RE = never>(
   historySource?: RuntimeHistorySource,
   journal?: SessionJournal,
   restoredChat?: RestoredChatState,
-  recoveredPrefix = false,
+  recoveredState = false,
 ): Promise<Result<void, RunError<E, RE>>> {
   const publication: JournalPublication = { attemptedNodeId: undefined };
   if (!host.interactive) {
@@ -1199,9 +1199,9 @@ export async function run<E, RE = never>(
         providers?.snapshots(),
         workspace,
         restoredChat,
-        recoveredPrefix
+        recoveredState
           ? Object.freeze([
-              "Recovered the complete prefix of an interrupted session journal.",
+              "Recovered the last durable state of an interrupted session journal.",
             ])
           : undefined,
       );

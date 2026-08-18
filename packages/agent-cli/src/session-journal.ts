@@ -75,7 +75,7 @@ export type OpenedSessionJournal = Readonly<{
   chat: RestoredChatState;
   history: ConversationTree;
   journal: SessionJournal;
-  recoveredPrefix: boolean;
+  recoveredState: boolean;
 }>;
 
 type SessionHeader = Readonly<{
@@ -93,12 +93,17 @@ type StoredTurn = Readonly<{
   turn: ReturnType<typeof conversationJournalTurnRecord>;
 }>;
 
+type StoredHead = Readonly<{
+  activeNodeId: number;
+  journalTurnCount: number;
+}>;
+
 type LoadedSession = Readonly<{
   chat: RestoredChatState;
   header: SessionHeader;
   history: ConversationTree;
   presentations: readonly SessionTurnPresentation[];
-  recoveredPrefix: boolean;
+  recoveredState: boolean;
   turns: readonly ConversationJournalTurn[];
 }>;
 
@@ -333,16 +338,17 @@ function parseStoredTurn(input: unknown): Readonly<{
   return Object.freeze({ presentation, turn: turn.value });
 }
 
-function parseHead(input: unknown): number | undefined {
+function parseHead(input: unknown): StoredHead | undefined {
   if (
     input === null ||
     typeof input !== "object" ||
-    !exactKeys(input, "activeNodeId,kind,version")
+    !exactKeys(input, "activeNodeId,journalTurnCount,kind,version")
   ) {
     return undefined;
   }
   const value = input as Readonly<{
     activeNodeId?: unknown;
+    journalTurnCount?: unknown;
     kind?: unknown;
     version?: unknown;
   }>;
@@ -350,8 +356,14 @@ function parseHead(input: unknown): number | undefined {
       value.version === JOURNAL_VERSION &&
       typeof value.activeNodeId === "number" &&
       Number.isSafeInteger(value.activeNodeId) &&
-      value.activeNodeId >= 0
-    ? value.activeNodeId
+      value.activeNodeId >= 0 &&
+      typeof value.journalTurnCount === "number" &&
+      Number.isSafeInteger(value.journalTurnCount) &&
+      value.journalTurnCount >= 0
+    ? Object.freeze({
+        activeNodeId: value.activeNodeId,
+        journalTurnCount: value.journalTurnCount,
+      })
     : undefined;
 }
 
@@ -452,9 +464,24 @@ async function loadSession(
   } catch (_cause: unknown) {
     return undefined;
   }
-  const activeNodeId = parseHead(headUnknown);
-  if (activeNodeId === undefined) {
+  const head = parseHead(headUnknown);
+  if (head === undefined) {
     return undefined;
+  }
+  let activeNodeId = head.activeNodeId;
+  let recoveredHead = false;
+  if (head.journalTurnCount !== turns.length) {
+    const finalTurn = turns.at(-1);
+    if (
+      head.journalTurnCount + 1 !== turns.length ||
+      finalTurn === undefined ||
+      finalTurn.id !== turns.length ||
+      finalTurn.parentId !== head.activeNodeId
+    ) {
+      return undefined;
+    }
+    activeNodeId = finalTurn.id;
+    recoveredHead = true;
   }
   const restored = restoreConversationJournal(turns, activeNodeId);
   if (!restored.ok) {
@@ -481,7 +508,7 @@ async function loadSession(
     header,
     history: restored.value,
     presentations: Object.freeze(presentations),
-    recoveredPrefix: journal.recoveredPrefix,
+    recoveredState: journal.recoveredPrefix || recoveredHead,
     turns: Object.freeze(turns),
   });
 }
@@ -627,9 +654,10 @@ function storedTurn(
   });
 }
 
-function headText(activeNodeId: number): string {
+function headText(activeNodeId: number, journalTurnCount: number): string {
   return JSON.stringify({
     activeNodeId,
+    journalTurnCount,
     kind: "head",
     version: JOURNAL_VERSION,
   }) + "\n";
@@ -807,7 +835,7 @@ export class SessionJournal {
       )) ||
       !(await durableFile(
         path.join(temporaryPath, "head.json"),
-        headText(activeNodeId),
+        headText(activeNodeId, turns.length),
         "wx",
       )) ||
       !(await durableFile(
@@ -831,7 +859,7 @@ export class SessionJournal {
         chat: seed?.chat ?? Object.freeze({ activeNodeId: 0, turns: Object.freeze([]) }),
         history: seed?.history ?? ConversationTree.empty(),
         journal,
-        recoveredPrefix: seed?.recoveredPrefix ?? false,
+        recoveredState: seed?.recoveredState ?? false,
       }),
     );
   }
@@ -887,7 +915,13 @@ export class SessionJournal {
       this.#sessionPath,
       "head-" + String(pid) + "-" + String(this.#headRevision) + ".next",
     );
-    if (!(await durableFile(temporary, headText(nodeId), "wx"))) {
+    if (
+      !(await durableFile(
+        temporary,
+        headText(nodeId, this.#turnCount),
+        "wx",
+      ))
+    ) {
       return err(failure("storage"));
     }
     try {
