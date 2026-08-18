@@ -406,7 +406,7 @@ const result = await run(
   runtime,
   openedSession?.journal,
   openedSession?.chat,
-  openedSession?.recoveredPrefix ?? false,
+  openedSession?.recoveredState ?? false,
 );
 await settleEvaluationRun(
   result.ok ? undefined : result.error.primary?.kind ?? "cleanup",

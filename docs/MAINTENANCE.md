@@ -165,14 +165,18 @@ For a journal change:
 2. keep filesystem, platform state roots, locking, retention, and recovery in
    the CLI; never move Node I/O into core, runtime, or TUI;
 3. append only after authoritative runtime and display settlement, update the
-   head only after runtime selection, and keep both in the sole controller;
-   if stop settles a checkpointed turn, append its immutable handoff before
-   journal close and never retry a node whose append was already attempted;
+   head only after runtime selection, record its exact journal turn count, and
+   keep both in the sole controller; recover only one synchronized final turn
+   whose parent is the immediately preceding head; if stop settles a
+   checkpointed turn, append its immutable handoff before journal close and
+   never retry a node whose append was already attempted;
 4. exclude credentials, provider/model state, permissions, drafts,
    provisional output, activity, notices, foreign causes, and receipts;
 5. prove exact-workspace isolation, active and stale locks, truncated final
-   lines, interior corruption, independent structured-payload bounds, cleanup
-   settlement, no duplicate append, and one composition round trip;
+   lines, interrupted head replacement, deliberate current-revision selection,
+   unreconciled gap rejection, interior corruption, independent
+   structured-payload bounds, cleanup settlement, no duplicate append, and one
+   composition round trip;
 6. update the public retention and exact deletion instructions in the same
    change.
 
@@ -180,8 +184,9 @@ Rollback first removes `agent resume --latest` and disables new journal
 creation. Existing versioned directories remain untouched until the operator
 uses the privacy-policy deletion route. Then remove controller wiring, the CLI
 storage owner, runtime projection, core codec, display restoration, tests, and
-registries. Removal must never reinterpret an unknown schema, append to an old
-journal, or delete an active session.
+registries, including head-revision reconciliation. Removal must never
+reinterpret an unknown schema, append to an old journal, or delete an active
+session.
 
 ### Tool engine
 

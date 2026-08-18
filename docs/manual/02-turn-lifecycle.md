@@ -43,6 +43,12 @@ new child there without deleting the former continuation. Selecting history
 does not rerun tools or restore old workspace state; mutations still plan and
 request permission against current state.
 
+The durable head records the journal revision it observed. If interruption
+occurs after one complete turn reaches the journal but before its head
+replacement, `agent resume --latest` selects that turn only when it is the child
+of the preceding head and shows a recovery notice. Deliberate selections at the
+current revision remain unchanged; ambiguous gaps fail closed.
+
 ## Cancel or exit
 
 During active work, Ctrl+C requests cancellation and keeps Agent open. Only
