@@ -5,7 +5,6 @@
 - Input lifecycle amended by: decision 0045
 - Command catalog amended by: decision 0055
 - Provider interaction amended by: decision 0068
-- Cursor selection amended by: decision 0077
 
 Decision 0055 replaces the historical approval commands described below with
 the exact `/permissions` session editor and contextual pending-call decisions.
@@ -65,12 +64,11 @@ plain non-TTY output and renderer cleanup remain inside the typed failure
 contract. The input queue is bounded by both event count and aggregate payload;
 overflow discards queued personal text before returning an owned error.
 
-Decision 0028 later selected a steady vertical bar cursor for the interactive
-session; decision 0077 replaces that shape with a terminal-controlled blinking
-block. The renderer emits the closed standard cursor-shape command only while
-it owns the alternate screen and restores the terminal-default shape during the
-same idempotent cleanup that restores visibility. Unsupported terminals may
-ignore the shape command; no custom glyph enters editor or frame content.
+Decision 0028 later selects a steady vertical bar cursor for the interactive session.
+The renderer emits the closed standard cursor-shape command only while it owns
+the alternate screen and restores the terminal-default shape during the same
+idempotent cleanup that restores visibility. Unsupported terminals may ignore
+the shape command; no custom glyph enters editor or frame content.
 
 The milestone deliberately did not add a workspace, model, provider adapter,
 history, multiline editing, pasted-text batching, completion, mouse support,
