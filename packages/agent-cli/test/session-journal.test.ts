@@ -140,6 +140,44 @@ test("rejects an active latest session and recovers only a truncated tail", asyn
   }
 });
 
+test("recovers a final journal line torn inside one UTF-8 scalar", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "agent-journal-utf8-tail-"));
+  try {
+    const created = await SessionJournal.create(root, "C:\\work\\alpha");
+    assert.equal(created.ok, true);
+    if (!created.ok) return;
+    const tree = oneTurn();
+    assert.equal(
+      (
+        await created.value.journal.appendTurn(tree.turns.at(0)!, {
+          kind: "completed",
+        })
+      ).ok,
+      true,
+    );
+    assert.equal((await created.value.journal.close()).ok, true);
+    const directory = await sessionDirectory(root);
+    const journalPath = path.join(directory, "journal.jsonl");
+    const complete = await readFile(journalPath);
+    const torn = new Uint8Array(complete.length + 3);
+    torn.set(complete, 0);
+    torn.set(Uint8Array.of(0x7b, 0xe2, 0x82), complete.length);
+    await writeFile(journalPath, torn);
+
+    const resumed = await SessionJournal.resumeLatest(
+      root,
+      "C:\\work\\alpha",
+    );
+    assert.equal(resumed.ok, true);
+    if (!resumed.ok) return;
+    assert.equal(resumed.value.recoveredPrefix, true);
+    assert.equal(resumed.value.history.activeNodeId, 1);
+    assert.equal((await resumed.value.journal.close()).ok, true);
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
 test("rejects complete record corruption and unexpected workspace entries", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "agent-journal-corrupt-"));
   try {
@@ -160,6 +198,19 @@ test("rejects complete record corruption and unexpected workspace entries", asyn
     );
     assert.equal(corrupt.ok, false);
     if (!corrupt.ok) assert.equal(corrupt.error.kind, "corrupt");
+
+    await writeFile(journalPath, text, { encoding: "utf8", flag: "w" });
+    const completeBytes = await readFile(journalPath);
+    const invalidUtf8 = new Uint8Array(completeBytes.length + 2);
+    invalidUtf8.set(completeBytes, 0);
+    invalidUtf8.set(Uint8Array.of(0xff, 0x0a), completeBytes.length);
+    await writeFile(journalPath, invalidUtf8);
+    const invalid = await SessionJournal.resumeLatest(
+      root,
+      "C:\\work\\alpha",
+    );
+    assert.equal(invalid.ok, false);
+    if (!invalid.ok) assert.equal(invalid.error.kind, "corrupt");
 
     await writeFile(journalPath, text, { encoding: "utf8", flag: "w" });
     const workspacePath = path.dirname(directory);

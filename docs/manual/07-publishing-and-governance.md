@@ -37,8 +37,10 @@ documentation, decision record, validator, tests, and every published use.
 
 The Apache-2.0 text, public identity, privacy posture, initial contribution
 boundary, and public document links are checked offline. The project has no
-telemetry, backend, persistent sessions, or eligible provider login. Publication
-does not change those facts and does not authorize OAuth access.
+telemetry, backend, persistent credential or provider selection, or eligible
+provider login. Interactive launches retain only the bounded settled local
+session journal documented by the [privacy policy](../../PRIVACY.md).
+Publication does not widen that journal or authorize OAuth access.
 
 The product is single-agent: providers are interchangeable backends for one
 active runtime session, not additional agent identities. The sole controller

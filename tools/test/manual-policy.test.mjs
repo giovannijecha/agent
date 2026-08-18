@@ -125,6 +125,17 @@ test("uses task-specific reading and publishing contracts", () => {
   ]);
 
   const context = currentContext();
+  const index = context.files["docs/manual/README.md"];
+  for (const marker of [
+    "Credentials, catalogs, provider/model selection, permission policy, drafts,\n  and active turns are not persisted.",
+    "only the bounded settled session journal documented by the",
+  ]) {
+    assert.equal(
+      index.includes(marker),
+      true,
+      "manual boundary is missing: " + marker,
+    );
+  }
   for (const chapter of [
     "docs/manual/00-reading-this-manual.md",
     "docs/manual/07-publishing-and-governance.md",
@@ -145,6 +156,7 @@ test("uses task-specific reading and publishing contracts", () => {
     "never require a status name that has not run.",
     "Keep the version on `0.x` until one direct provider integration is complete",
     "Do not add a generated-by banner, automated tool signature,\nor tool co-author trailer.",
+    "Interactive launches retain only the bounded settled local\nsession journal documented by the [privacy policy](../../PRIVACY.md).",
     "Release mechanics remain in the [maintenance guide](../MAINTENANCE.md).",
     "[publication policy](../../tools/lib/publication-policy.mjs)",
     "[offline regressions](../../tools/test/publication-policy.test.mjs)",
