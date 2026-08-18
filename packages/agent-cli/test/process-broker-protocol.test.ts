@@ -7,6 +7,7 @@ import {
   encodeProcessText,
   PROCESS_BROKER_LIMITS,
   ProcessBrokerStatusDecoder,
+  WINDOWS_POWERSHELL_BROKER_PROGRAM,
 } from "../dist/process-broker-protocol.js";
 
 function status(kind: number, payload: readonly number[]): Uint8Array {
@@ -30,6 +31,18 @@ test("encodes launch text and exact protocol fields", () => {
   assert.deepEqual([...encoded.value.slice(0, 8)], [65, 71, 80, 67, 2, 1, 0, 0]);
   assert.equal(new DataView(encoded.value.buffer).getUint32(12, true), 120_000);
   assert.equal(new DataView(encoded.value.buffer).getUint32(16, true), 16);
+});
+
+test("encodes the exact broker-owned Windows shell identity", () => {
+  const encoded = encodeProcessLaunch({
+    arguments: ["-NoLogo"],
+    environment: [],
+    processLimit: 16,
+    program: WINDOWS_POWERSHELL_BROKER_PROGRAM,
+    timeoutMilliseconds: 120_000,
+    workingDirectory: "C:\\workspace",
+  });
+  assert.ok(encoded.ok);
 });
 
 test("rejects malformed and duplicate launch environment entries", () => {
