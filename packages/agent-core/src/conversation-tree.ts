@@ -71,6 +71,7 @@ function validDelta(
   if (
     !Array.isArray(entries) ||
     entries.length < 2 ||
+    entries.length > CONVERSATION_TREE_LIMITS.messageUnits ||
     (settlement !== "completed" && settlement !== "checkpointed")
   ) {
     return false;
@@ -125,6 +126,17 @@ export class ConversationTree {
 
   /** Appends one settled turn below the selected node and selects the new tip. */
   appendTurn(
+    entries: readonly ConversationEntry[],
+    settlement: ConversationTurnSettlement,
+  ): Result<ConversationTree, ConversationTreeError> {
+    try {
+      return this.#appendTurn(entries, settlement);
+    } catch (_cause: unknown) {
+      return err(new ConversationTreeError("invalidDelta"));
+    }
+  }
+
+  #appendTurn(
     entries: readonly ConversationEntry[],
     settlement: ConversationTurnSettlement,
   ): Result<ConversationTree, ConversationTreeError> {

@@ -91,6 +91,59 @@ test("rejects malformed settlements and invalid node selections content-free", (
   }
 });
 
+test("contains hostile turn-entry arrays behind invalidDelta", () => {
+  const tree = ConversationTree.empty();
+  const revoked = Proxy.revocable(
+    completed("revoked user", "revoked assistant"),
+    Object.freeze({}),
+  );
+  revoked.revoke();
+  const lengthFailure = new Proxy(
+    completed("length user", "length assistant"),
+    {
+      get(): never {
+        throw new Error("private length");
+      },
+    },
+  );
+  const atFailure = new Proxy(
+    completed("at user", "at assistant"),
+    {
+      get(target, property) {
+        if (property === "length") return target.length;
+        if (property === "at") throw new Error("private at");
+        return undefined;
+      },
+    },
+  );
+  const iteratorFailure = new Proxy(
+    completed("iterator user", "iterator assistant"),
+    {
+      get(target, property) {
+        if (property === "length") return target.length;
+        if (property === "at") return target.at;
+        if (property === "0") return target.at(0);
+        if (property === "1") return target.at(1);
+        if (property === Symbol.iterator) {
+          throw new Error("private iterator");
+        }
+        return undefined;
+      },
+    },
+  );
+
+  for (const entries of [
+    revoked.proxy,
+    lengthFailure,
+    atFailure,
+    iteratorFailure,
+  ]) {
+    const appended = tree.appendTurn(entries, "completed");
+    assert.equal(appended.ok, false);
+    if (!appended.ok) assert.equal(appended.error.kind, "invalidDelta");
+  }
+});
+
 test("bounds the retained tree without evicting an older branch", () => {
   let tree = ConversationTree.empty();
   for (let turn = 1; turn <= 128; turn += 1) {
