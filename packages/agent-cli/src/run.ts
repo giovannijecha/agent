@@ -1289,6 +1289,7 @@ export async function run<E, RE = never>(
                         : Object.freeze({
                             composer: lastRender.composer,
                             frame: lastRender.frame,
+                            interactionFocus: lastRender.interactionFocus,
                             stageColumns: lastRender.stage.columns,
                             stageLeft: lastRender.stage.left,
                             transcript: lastRender.transcript,

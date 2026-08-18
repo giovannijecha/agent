@@ -279,7 +279,9 @@ items, and admits no caret. The CLI chooses that focus, consumes the input that
 closes a selector, and prevents composer pointer effects until editor focus
 returns while continuing to route transcript selection and scrolling. Slash
 completion stays above the dock because it remains an editor-owned draft
-operation.
+operation. The immutable render projection carries the visible dock focus into
+pointer reduction; one coalesced input chunk never reclassifies stale selection
+geometry from newer application state.
 
 Tool activity never becomes transcript content. User and assistant messages
 remain structured role entries but render without redundant role labels.

@@ -17,6 +17,7 @@ import {
   createChatRender,
   type ChatRender,
 } from "../dist/chat-view.js";
+import { CONVERSATION_DENSITY } from "../dist/conversation-density.js";
 
 type Cell = Readonly<{ column: number; row: number }>;
 
@@ -53,6 +54,7 @@ function projection(rendered: ChatRender): PointerProjection {
   return Object.freeze({
     composer: rendered.composer,
     frame: rendered.frame,
+    interactionFocus: rendered.interactionFocus,
     stageColumns: rendered.stage.columns,
     stageLeft: rendered.stage.left,
     transcript: rendered.transcript,
@@ -112,6 +114,14 @@ function composerCellAt(
   return Object.freeze({
     column: caret.column - draft.length + offset,
     row: caret.row,
+  });
+}
+
+function composerBodyCell(rendered: ChatRender): Cell {
+  return Object.freeze({
+    column: rendered.stage.left + CONVERSATION_DENSITY.contentInsetCells,
+    row:
+      rendered.composer.startRow + CONVERSATION_DENSITY.composerRuleRows,
   });
 }
 
@@ -393,11 +403,11 @@ test("keeps transcript pointer input active without routing it to the retained d
     }).ok,
   );
   application.feed("alpha beta");
-  const editorRender = render(application, 32, 12);
+  render(application, 32, 12);
   const editorArea = application.projectArea(32, 6);
-  const beta = composerCellAt(editorRender, "alpha beta", 6);
   application.applySessionAction(Object.freeze({ kind: "openProviders" }));
   const selectionRender = render(application, 32, 12);
+  const hiddenComposerCell = composerBodyCell(selectionRender);
   const visible = selectionRender.frame.rows
     .flatMap((row) => row.spans)
     .find((span) => span.position?.document === 0);
@@ -416,8 +426,8 @@ test("keeps transcript pointer input active without routing it to the retained d
   assert.equal(wheel(application, selectionRender, "up"), true);
   assert.equal(application.transcriptScroll.offset < oldOffset, true);
 
-  pointer(application, editorRender, beta, "press", 100);
-  pointer(application, editorRender, beta, "release", 110);
+  pointer(application, selectionRender, hiddenComposerCell, "press", 100);
+  pointer(application, selectionRender, hiddenComposerCell, "release", 110);
 
   assert.equal(application.project(36).text, "alpha beta");
   assert.deepEqual(application.projectArea(32, 6), editorArea);
@@ -427,6 +437,15 @@ test("keeps transcript pointer input active without routing it to the retained d
   const restored = render(application);
   assert.equal(restored.frame.caret === undefined, false);
   assert.deepEqual(application.projectArea(32, 6), editorArea);
+
+  application.applySessionAction(Object.freeze({ kind: "openProviders" }));
+  const coalescedRender = render(application, 32, 12);
+  application.feed(
+    "x" + pointerSequence(composerBodyCell(coalescedRender), "press") + "owned",
+    200,
+    projection(coalescedRender),
+  );
+  assert.equal(application.project(32).text, "alpha betaowned");
 });
 
 test("reduces coalesced composer pointer and editor events in decoder order", () => {
