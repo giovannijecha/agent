@@ -307,7 +307,10 @@ at six content rows, has no caret, consumes a closing editor event, and blocks
 composer pointer effects without resetting or blocking transcript pointer
 selection and scrolling. Change focus routing in the CLI reducer only after the
 generic dock tests cover header allocation, selected-row visibility, caret
-admission, narrow viewports, and hostile children. Carry the focus and separate
+admission, narrow viewports, hostile children, and accessor-backed options.
+Snapshot focus, header, and height exactly once before validation and construct
+the frozen dock contract from that same snapshot; never reread caller-owned
+options after validation. Carry the focus and separate
 composer-pointer authority rendered with each pointer projection; never infer
 either from application state that may have changed earlier in the same decoded
 input chunk. A concealed credential editor keeps editor focus for keyboard and

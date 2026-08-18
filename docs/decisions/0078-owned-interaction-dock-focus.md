@@ -34,8 +34,9 @@ one active body at a time:
 - selection focus renders one existing `SelectionList`, permits an optional
   one-row header, and forbids a caret.
 
-The generic `@agent/tui` dock validates and snapshots its components, focus
-kind, and maximum content height. It measures no more than six content rows.
+The generic `@agent/tui` dock reads each caller-owned focus, header, and maximum
+height option exactly once, validates those captured values, and constructs its
+frozen contract from the same snapshot. It measures no more than six content rows.
 When a selection has a header, the header receives one row and the selection
 list receives the remaining rows so its selected item stays visible. If only
 one content row is available, the header is omitted and the selected item keeps
@@ -84,8 +85,9 @@ focus kind, height, styling, or terminal bytes.
 
 Generic TUI tests prove editor and selection focus, exact caret admission,
 six-row measurement, header retention, selected-row visibility, one-row
-fallback, padding, hostile-child containment, and invalid focus rejection. CLI
-view regressions prove every contextual selector appears between the existing
+fallback, padding, hostile-child containment, exact accessor-backed option
+snapshotting, and invalid focus rejection. CLI view regressions prove every
+contextual selector appears between the existing
 composer rules, never exposes a caret, keeps its selected row visible, and does
 not add a second contextual menu slot. Session and application regressions prove
 closing input is consumed, drafts remain unchanged, pointer events cannot reach
