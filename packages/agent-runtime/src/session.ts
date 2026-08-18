@@ -8,7 +8,20 @@ import type {
   RuntimeStopError,
   StartedTurn,
   StartTurnError,
+  TurnOutcome,
 } from "./events.js";
+
+/** One checkpointed turn settled while stop owns runtime ordering. */
+export type RuntimeStoppedTurn<E> = Readonly<{
+  outcome: TurnOutcome<E>;
+  turn: ConversationTreeTurnSnapshot;
+}>;
+
+/** Immutable stop result with cleanup and durable settlement kept distinct. */
+export type RuntimeStopReport<E> = Readonly<{
+  cleanup: Result<void, RuntimeStopError<E>>;
+  settledTurn: RuntimeStoppedTurn<E> | undefined;
+}>;
 
 /** Adapter-neutral application capability for one owned runtime session. */
 export interface RuntimeSession<E> {
@@ -32,8 +45,8 @@ export interface RuntimeSession<E> {
   acknowledgeTurn(turnId: number): Result<void, RuntimeCommandError>;
   /** Pulls one ordered delta or terminal event with one-reader semantics. */
   nextEvent(): Promise<Result<RuntimeEvent<E>, RuntimeSourceError>>;
-  /** Cancels and releases all active work idempotently. */
-  stop(): Promise<Result<void, RuntimeStopError<E>>>;
+  /** Cancels, settles checkpointed work, and releases active resources. */
+  stop(): Promise<RuntimeStopReport<E>>;
 }
 
 /** Read-only settled-history projection used only by the CLI journal owner. */

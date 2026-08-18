@@ -32,7 +32,6 @@ import type {
   RuntimeEvent,
   RuntimeSourceError,
   RuntimeSourceErrorKind,
-  RuntimeStopError,
   StartedTurn,
   StartTurnError,
   StartTurnErrorKind,
@@ -41,7 +40,12 @@ import type {
 } from "./events.js";
 import { RUNTIME_LIMITS } from "./limits.js";
 import type { ModelStreamEvent, ModelToolCall, StreamingModel } from "./model.js";
-import type { RuntimeHistorySource, RuntimeSession } from "./session.js";
+import type {
+  RuntimeHistorySource,
+  RuntimeSession,
+  RuntimeStoppedTurn,
+  RuntimeStopReport,
+} from "./session.js";
 
 
 type Settled<T> =
@@ -295,6 +299,18 @@ function failed<E>(failure: TurnFailure<E>): TurnOutcome<E> {
   return Object.freeze({ kind: "failed" as const, failure });
 }
 
+function stopReport<E>(
+  failures: readonly RuntimeCleanupFailure<E>[],
+  settledTurn: RuntimeStoppedTurn<E> | undefined,
+): RuntimeStopReport<E> {
+  return Object.freeze({
+    cleanup: failures.length === 0
+      ? ok(undefined)
+      : err(Object.freeze({ failures: Object.freeze([...failures]) })),
+    settledTurn,
+  });
+}
+
 function createPendingTool(
   planned: PlannedToolCall,
   phase: PendingTool["phase"] = "requested",
@@ -339,6 +355,7 @@ export class AgentRuntime<E> implements RuntimeHistorySource, RuntimeSession<E> 
   #finished:
     | Readonly<{
         cleanup: readonly RuntimeCleanupFailure<E>[];
+        settledTurn: RuntimeStoppedTurn<E> | undefined;
         turnId: number;
       }>
     | undefined;
@@ -347,7 +364,7 @@ export class AgentRuntime<E> implements RuntimeHistorySource, RuntimeSession<E> 
     | Promise<Result<RuntimeEvent<E>, RuntimeSourceError>>
     | undefined;
   #state: TurnState<E> | undefined;
-  #stopOperation: Promise<Result<void, RuntimeStopError<E>>> | undefined;
+  #stopOperation: Promise<RuntimeStopReport<E>> | undefined;
 
   constructor(
     model: StreamingModel<E>,
@@ -638,7 +655,7 @@ export class AgentRuntime<E> implements RuntimeHistorySource, RuntimeSession<E> 
   }
 
   /** Closes the runtime idempotently, cancelling and cleaning active work. */
-  stop(): Promise<Result<void, RuntimeStopError<E>>> {
+  stop(): Promise<RuntimeStopReport<E>> {
     if (this.#stopOperation !== undefined) {
       return this.#stopOperation;
     }
@@ -1634,7 +1651,17 @@ export class AgentRuntime<E> implements RuntimeHistorySource, RuntimeSession<E> 
     if (this.#state === state) {
       this.#state = undefined;
     }
-    this.#finished = Object.freeze({ cleanup, turnId: state.turnId });
+    const settled = historyNodeId === undefined
+      ? undefined
+      : this.#history.turns.at(historyNodeId - 1);
+    const settledTurn = settled === undefined
+      ? undefined
+      : Object.freeze({ outcome, turn: settled });
+    this.#finished = Object.freeze({
+      cleanup,
+      settledTurn,
+      turnId: state.turnId,
+    });
     return ok(
       Object.freeze({
         kind: "turnFinished" as const,
@@ -1722,25 +1749,29 @@ export class AgentRuntime<E> implements RuntimeHistorySource, RuntimeSession<E> 
     }
   }
 
-  async #performStop(): Promise<Result<void, RuntimeStopError<E>>> {
+  async #performStop(): Promise<RuntimeStopReport<E>> {
     const finished = this.#finished;
     if (finished !== undefined) {
       this.#finished = undefined;
-      return finished.cleanup.length === 0
-        ? ok(undefined)
-        : err(Object.freeze({ failures: finished.cleanup }));
+      return stopReport(finished.cleanup, finished.settledTurn);
     }
     const state = this.#state;
     if (state === undefined) {
-      return ok(undefined);
+      return stopReport(Object.freeze([]), undefined);
     }
     state.cancellation.request();
     if (state.prepared !== undefined) {
       const cleanup = state.prepared.cleanup;
-      this.#discardState(state);
-      return cleanup.length === 0
-        ? ok(undefined)
-        : err(Object.freeze({ failures: cleanup }));
+      this.#terminalEvent(
+        state,
+        Object.freeze({ kind: "cancelled" }),
+        cleanup,
+      );
+      const settledTurn = this.#finished?.turnId === state.turnId
+        ? this.#finished.settledTurn
+        : undefined;
+      this.#finished = undefined;
+      return stopReport(cleanup, settledTurn);
     }
     let terminal =
       this.#pendingRead === undefined
@@ -1754,6 +1785,17 @@ export class AgentRuntime<E> implements RuntimeHistorySource, RuntimeSession<E> 
     ) {
       terminal = await this.#advance(state);
     }
+    if (
+      terminal.ok &&
+      terminal.value.kind === "turnPrepared" &&
+      this.#state === state
+    ) {
+      terminal = this.#terminalEvent(
+        state,
+        Object.freeze({ kind: "cancelled" }),
+        terminal.value.cleanup,
+      );
+    }
     const failures: RuntimeCleanupFailure<E>[] = [];
     if (
       terminal.ok &&
@@ -1766,11 +1808,12 @@ export class AgentRuntime<E> implements RuntimeHistorySource, RuntimeSession<E> 
       failures.push(...(await this.#closeStream(state)));
       this.#discardState(state);
     }
+    const settledTurn = this.#finished?.turnId === state.turnId
+      ? this.#finished.settledTurn
+      : undefined;
     if (this.#finished?.turnId === state.turnId) {
       this.#finished = undefined;
     }
-    return failures.length === 0
-      ? ok(undefined)
-      : err(Object.freeze({ failures: Object.freeze(failures) }));
+    return stopReport(failures, settledTurn);
   }
 }

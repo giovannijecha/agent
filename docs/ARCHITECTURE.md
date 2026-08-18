@@ -125,6 +125,12 @@ truth. Read-cohort settlements are buffered and emitted in provider order.
 There are no implicit retries, concurrent effects, fallback providers, or
 parallel conversations.
 
+If shutdown takes ownership after a checkpoint, runtime stop returns cleanup
+truth separately from the immutable checkpointed turn it settles. The sole CLI
+controller attempts that node's journal append before journal close and never
+attempts the same node twice. Shutdown therefore cannot discard confirmed tool
+truth or cause a completed effect to be replayed on resume.
+
 Core retains a bounded immutable tree whose content-free root is node zero.
 Each other node owns one completed turn or one checkpointed incomplete turn and
 one parent identity. Runtime exposes exactly one selected root-to-node path as
@@ -147,6 +153,10 @@ ownership. Credentials, catalogs, provider/model selection, permissions,
 drafts, provisional turns, activity, and notices remain process-only. A final
 truncated line recovers only its complete prefix; every other corruption fails
 closed. Evaluation-receipt and non-TTY runs create no journal.
+
+Each encoded tool input and result retains the same independent structured-value
+limits enforced when that payload entered the runtime; sibling payloads do not
+share a parser budget.
 
 The principal runtime bounds are fixed:
 

@@ -166,10 +166,13 @@ For a journal change:
    the CLI; never move Node I/O into core, runtime, or TUI;
 3. append only after authoritative runtime and display settlement, update the
    head only after runtime selection, and keep both in the sole controller;
+   if stop settles a checkpointed turn, append its immutable handoff before
+   journal close and never retry a node whose append was already attempted;
 4. exclude credentials, provider/model state, permissions, drafts,
    provisional output, activity, notices, foreign causes, and receipts;
 5. prove exact-workspace isolation, active and stale locks, truncated final
-   lines, interior corruption, bounds, cleanup, and one composition round trip;
+   lines, interior corruption, independent structured-payload bounds, cleanup
+   settlement, no duplicate append, and one composition round trip;
 6. update the public retention and exact deletion instructions in the same
    change.
 

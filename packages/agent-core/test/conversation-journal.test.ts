@@ -54,6 +54,43 @@ function exchange() {
   return created.value;
 }
 
+function wideExchange() {
+  const values = Array.from({ length: 1_024 }, () => null);
+  const payload = structuredValueFromUnknown({ left: values, right: values });
+  assert.equal(payload.ok, true);
+  if (!payload.ok || !(payload.value instanceof StructuredObject)) {
+    throw new Error("wide structured fixture failed");
+  }
+  const ownedPayload = payload.value;
+  const calls = ["call-1", "call-2"].map((callId) =>
+    ToolCall.create(callId, "read_file", ownedPayload)
+  );
+  const results = ["call-1", "call-2"].map((callId) =>
+    ToolResult.create(
+      callId,
+      "read_file",
+      "success",
+      ownedPayload,
+    )
+  );
+  assert.equal(calls.every((call) => call.ok), true);
+  assert.equal(results.every((result) => result.ok), true);
+  const created = ToolExchange.create(
+    undefined,
+    calls.map((call) => {
+      if (!call.ok) throw new Error("wide call fixture failed");
+      return call.value;
+    }),
+    results.map((result) => {
+      if (!result.ok) throw new Error("wide result fixture failed");
+      return result.value;
+    }),
+  );
+  assert.equal(created.ok, true);
+  if (!created.ok) throw new Error("wide exchange fixture failed");
+  return created.value;
+}
+
 test("round-trips an immutable branched tree through owned journal records", () => {
   let tree = ConversationTree.empty();
   const first = tree.appendTurn(
@@ -101,6 +138,26 @@ test("round-trips an immutable branched tree through owned journal records", () 
       Object.is(restoredInput.calls.at(0)?.input.get("line"), -0),
       true,
     );
+  }
+});
+
+test("budgets every structured journal payload independently", () => {
+  const appended = ConversationTree.empty().appendTurn(
+    [message(Role.User, "inspect both"), wideExchange()],
+    "checkpointed",
+  );
+  assert.equal(appended.ok, true);
+  if (!appended.ok) return;
+  const turn = appended.value.turns.at(0);
+  assert.ok(turn !== undefined);
+
+  const parsed = conversationJournalTurnFromUnknown(
+    JSON.parse(JSON.stringify(conversationJournalTurnRecord(turn))),
+  );
+
+  assert.equal(parsed.ok, true);
+  if (parsed.ok) {
+    assert.equal(parsed.value.entries.at(1) instanceof ToolExchange, true);
   }
 });
 
