@@ -80,8 +80,27 @@ function recordDigestFor(context) {
     .digest("hex");
 }
 
+function migrationContentLedgerDigestFor(context) {
+  const normalized = context.files[policy.migrationLedger].replaceAll(
+    "\r\n",
+    "\n",
+  );
+  const marker = "\n## Content ledger\n";
+  const nextMarker = "\n## Delivery sequence\n";
+  const bodyStart = normalized.indexOf(marker) + marker.length;
+  const end = normalized.indexOf(nextMarker, bodyStart);
+  return createHash("sha256")
+    .update(normalized.slice(bodyStart, end), "utf8")
+    .digest("hex");
+}
+
 test("accepts the canonical documentation information architecture", () => {
   assert.doesNotThrow(() => validateDocumentationPolicy(policy, currentContext()));
+});
+
+test("keeps completed migration policy free of duplicated row prose", () => {
+  assert.equal(Object.hasOwn(policy, "migrationRows"), false);
+  assert.equal(Object.hasOwn(policy, "migrationContentLedgerDigest"), true);
 });
 
 test("rejects canonical document structure drift", () => {
@@ -167,6 +186,30 @@ test("rejects noncanonical files in the flat decision directory", () => {
   const file = "docs/decisions/draft-notes.md";
   context.ownedPaths.push(file);
   context.files[file] = "# Draft notes\n";
+  assert.throws(
+    () => validateDocumentationPolicy(policy, context),
+    DocumentationPolicyError,
+  );
+});
+
+test("rejects a coherently renamed stable decision path", () => {
+  const context = currentContext();
+  const currentFile = "docs/decisions/0001-owned-zero-dependency-rust.md";
+  const renamedFile = "docs/decisions/0001-renamed.md";
+  context.ownedPaths = context.ownedPaths.map((file) =>
+    file === currentFile ? renamedFile : file,
+  );
+  context.decisionPaths = context.decisionPaths.map((file) =>
+    file === currentFile ? renamedFile : file,
+  );
+  context.files[renamedFile] = context.files[currentFile];
+  delete context.files[currentFile];
+  context.files[policy.decisionIndex] = context.files[
+    policy.decisionIndex
+  ].replace(
+    "0001-owned-zero-dependency-rust.md",
+    "0001-renamed.md",
+  );
   assert.throws(
     () => validateDocumentationPolicy(policy, context),
     DocumentationPolicyError,
@@ -746,11 +789,16 @@ test("rejects a reopened migration with completed map wording", () => {
       "| Durable design history | decision files and [decision index](decisions/README.md) | [Decision index](decisions/README.md) and stable records | complete |",
       "| Durable design history | decision files and [decision index](decisions/README.md) | [Decision index](decisions/README.md) and stable records | active |",
     );
-  const migrationRows = policy.migrationRows.map((row) =>
-    row.topic === "Durable design history" ? { ...row, status: "active" } : row,
-  );
+  const migrationContentLedgerDigest = {
+    ...policy.migrationContentLedgerDigest,
+    value: migrationContentLedgerDigestFor(context),
+  };
   assert.throws(
-    () => validateDocumentationPolicy({ ...policy, migrationRows }, context),
+    () =>
+      validateDocumentationPolicy(
+        { ...policy, migrationContentLedgerDigest },
+        context,
+      ),
     DocumentationPolicyError,
   );
 });
@@ -769,11 +817,15 @@ test("permits a coherently reopened documentation migration", () => {
     "The completed lossless reduction is preserved in",
     "The active lossless reduction is tracked in",
   );
-  const migrationRows = policy.migrationRows.map((row) =>
-    row.topic === "Durable design history" ? { ...row, status: "active" } : row,
-  );
+  const migrationContentLedgerDigest = {
+    ...policy.migrationContentLedgerDigest,
+    value: migrationContentLedgerDigestFor(context),
+  };
   assert.doesNotThrow(() =>
-    validateDocumentationPolicy({ ...policy, migrationRows }, context),
+    validateDocumentationPolicy(
+      { ...policy, migrationContentLedgerDigest },
+      context,
+    ),
   );
 });
 

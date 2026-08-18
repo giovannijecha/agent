@@ -923,17 +923,19 @@ function validateDecisionIndex(policy, context, ownedPaths) {
   validateDecisionLifecycle(policy, text);
   localLinkTargets(policy.decisionIndex, text, ownedPaths);
   const rows = parseDecisionRows(text);
-  const expected = context.decisionPaths;
-  if (!Array.isArray(expected)) {
+  const actualInventory = context.decisionPaths;
+  if (!Array.isArray(actualInventory)) {
     fail("decision path inventory is missing");
   }
+  same(actualInventory, policy.decisionPaths, "decision path inventory");
+  const expected = policy.decisionPaths;
   const decisionDirectory = path.posix.dirname(policy.decisionIndex) + "/";
   const actualDirectoryPaths = [...ownedPaths]
     .filter((file) => file.startsWith(decisionDirectory))
     .sort();
   same(
     actualDirectoryPaths,
-    [policy.decisionIndex, ...expected].sort(),
+    [policy.decisionIndex, ...policy.decisionPaths].sort(),
     "decision directory inventory",
   );
   const actualPaths = [];
@@ -1008,6 +1010,12 @@ function validateMigrationLedger(policy, context, ownedPaths) {
     fail("documentation migration content ledger section is missing");
   }
   const lines = normalized.slice(bodyStart, end).split("\n");
+  const contentLedgerDigest = createHash("sha256")
+    .update(normalized.slice(bodyStart, end), "utf8")
+    .digest("hex");
+  if (contentLedgerDigest !== policy.migrationContentLedgerDigest.value) {
+    fail("documentation migration content ledger digest mismatch");
+  }
   same(
     lines.slice(0, 3),
     [
@@ -1046,7 +1054,6 @@ function validateMigrationLedger(policy, context, ownedPaths) {
     topics.add(topic);
     migrationRows.push({ topic, currentSources, canonicalOwner, status });
   }
-  same(migrationRows, policy.migrationRows, "documentation migration rows");
   const hasActiveRow = migrationRows.some((row) => row.status === "active");
   if (
     (migrationStatus === "complete" && hasActiveRow) ||
@@ -1072,8 +1079,10 @@ export function validateDocumentationPolicy(policy, context) {
       "schemaVersion",
       "index",
       "decisionIndex",
+      "decisionPaths",
       "decisionIndexLifecycleDigest",
       "migrationLedger",
+      "migrationContentLedgerDigest",
       "migrationMapStatusMarkers",
       "repositoryInstructions",
       "prospectiveDecisionMetadataFrom",
@@ -1084,7 +1093,6 @@ export function validateDocumentationPolicy(policy, context) {
       "decisionRecordDigest",
       "decisionDomainMembers",
       "currentDecisionAuthorities",
-      "migrationRows",
       "decisionStatuses",
       "decisionDomains",
       "documentStructures",
@@ -1092,7 +1100,7 @@ export function validateDocumentationPolicy(policy, context) {
     ],
     "documentation policy",
   );
-  if (policy.schemaVersion !== 14 || !isRecord(context)) {
+  if (policy.schemaVersion !== 15 || !isRecord(context)) {
     fail("unsupported documentation policy schema or context");
   }
   for (const [label, file] of [
@@ -1102,6 +1110,22 @@ export function validateDocumentationPolicy(policy, context) {
   ]) {
     assertRepositoryPath(file, label);
   }
+  validateUniqueStrings(policy.decisionPaths, "decision paths");
+  const decisionDirectory = path.posix.dirname(policy.decisionIndex) + "/";
+  for (const file of policy.decisionPaths) {
+    assertRepositoryPath(file, "decision path");
+    if (
+      !file.startsWith(decisionDirectory) ||
+      !/^[0-9]{4}-[a-z0-9-]+\.md$/u.test(path.posix.basename(file))
+    ) {
+      fail("decision path is not a flat numeric record: " + file);
+    }
+  }
+  same(
+    policy.decisionPaths,
+    [...policy.decisionPaths].sort(),
+    "decision path order",
+  );
   exactKeys(
     policy.decisionIndexLifecycleDigest,
     ["algorithm", "value"],
@@ -1112,6 +1136,17 @@ export function validateDocumentationPolicy(policy, context) {
     !/^[a-f0-9]{64}$/u.test(policy.decisionIndexLifecycleDigest.value)
   ) {
     fail("decision index lifecycle digest is invalid");
+  }
+  exactKeys(
+    policy.migrationContentLedgerDigest,
+    ["algorithm", "value"],
+    "documentation migration content ledger digest",
+  );
+  if (
+    policy.migrationContentLedgerDigest.algorithm !== "sha256" ||
+    !/^[a-f0-9]{64}$/u.test(policy.migrationContentLedgerDigest.value)
+  ) {
+    fail("documentation migration content ledger digest is invalid");
   }
   exactKeys(
     policy.migrationMapStatusMarkers,
@@ -1230,29 +1265,6 @@ export function validateDocumentationPolicy(policy, context) {
     validateUniqueStrings(decisionIds, "current decision authorities: " + domain);
     if (decisionIds.some((id) => !/^[0-9]{4}$/u.test(id))) {
       fail("current decision authority identifier is invalid: " + domain);
-    }
-  }
-  if (!Array.isArray(policy.migrationRows) || policy.migrationRows.length === 0) {
-    fail("documentation migration rows must be a nonempty array");
-  }
-  for (const row of policy.migrationRows) {
-    exactKeys(
-      row,
-      ["topic", "currentSources", "canonicalOwner", "status"],
-      "documentation migration row",
-    );
-    if (
-      typeof row.topic !== "string" ||
-      row.topic.length === 0 ||
-      typeof row.currentSources !== "string" ||
-      row.currentSources.length === 0 ||
-      typeof row.canonicalOwner !== "string" ||
-      row.canonicalOwner.length === 0 ||
-      (row.status !== "active" &&
-        row.status !== "complete" &&
-        row.status !== "retained")
-    ) {
-      fail("documentation migration row is invalid");
     }
   }
   if (!Array.isArray(context.ownedPaths)) {

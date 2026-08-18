@@ -87,7 +87,10 @@ Durable design history now has one discoverable owner in
 `docs/decisions/README.md` and the stable decision records it indexes. The
 central map routes to that owner; the offline policy verifies every record,
 numeric identity, historical core sections, status, domain, relationship, and
-accepted current-authority route without rewriting pre-0070 formats.
+accepted current-authority route without rewriting pre-0070 formats. The policy
+owns the complete stable record paths. This content ledger remains the sole row
+prose; its normalized table is bound by SHA-256 instead of being repeated in the
+machine registry.
 
 ## Content ledger
 
