@@ -9,7 +9,7 @@ import {
   validateDocumentationPolicy,
 } from "../lib/documentation-policy.mjs";
 import { EVALUATION_LIMITS } from "../lib/evaluation-suite.mjs";
-import { projectRoot } from "../lib/project.mjs";
+import { ownershipPolicy, projectRoot } from "../lib/project.mjs";
 
 const policy = JSON.parse(
   readFileSync(path.join(projectRoot, "tools/documentation-policy.json"), "utf8"),
@@ -101,6 +101,13 @@ test("accepts the canonical documentation information architecture", () => {
 test("keeps completed migration policy free of duplicated row prose", () => {
   assert.equal(Object.hasOwn(policy, "migrationRows"), false);
   assert.equal(Object.hasOwn(policy, "migrationContentLedgerDigest"), true);
+});
+
+test("registers every durable decision as required ownership documentation", () => {
+  const requiredDocuments = new Set(ownershipPolicy.requiredDocuments);
+  for (const decisionPath of policy.decisionPaths) {
+    assert.equal(requiredDocuments.has(decisionPath), true, decisionPath);
+  }
 });
 
 test("rejects canonical document structure drift", () => {
