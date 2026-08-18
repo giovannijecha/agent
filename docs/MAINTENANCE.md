@@ -293,6 +293,13 @@ The renderer owns alternate screen, raw-mode presentation obligations, ANSI,
 paste, mouse, caret, and cleanup. The CLI owns event ordering and platform
 effects.
 
+Cursor shape is one renderer-owned initialization choice. Preserve one logical
+frame caret, terminal-controlled blinking, exact positioning, and
+default-style restoration; do not add an application timer, simulated cursor
+glyph, or component-private ANSI path. Shape changes require exact
+initialization and cleanup byte regressions and the terminal decision, manual,
+architecture, and policy to change together.
+
 Rollback must restore renderer and CLI event assumptions together. Removal of
 an interaction deletes its decoder event, reducer route, layout projection,
 manual entry, and tests; never leave a private alternate path.

@@ -274,7 +274,9 @@ regions projected from authoritative application state.
 Tool activity never becomes transcript content. User and assistant messages
 remain structured role entries but render without redundant role labels.
 Only the renderer emits ANSI and owns alternate-screen, paste, mouse, caret,
-and cleanup lifecycles.
+and cleanup lifecycles. On initialization it selects one terminal-controlled
+blinking block for the frame's logical caret; it owns no blink timer or cursor
+glyph and restores the terminal-default style during cleanup.
 
 User entries compose one stage-wide transparent `Surface` with the shared
 one-cell content inset and no rail, marker, border, or background. Generic

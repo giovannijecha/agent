@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-08-10
 - Amended by: decisions 0030, 0031, 0033, 0035, 0038, 0039, 0040, 0043, 0045,
-  0055, 0056, 0057, 0059, and 0060
+  0055, 0056, 0057, 0059, 0060, and 0077
 
 Decision 0033 later replaces the unboxed-activity and approval-panel
 distinction with one borderless semantic surface for every activity state.
@@ -37,6 +37,9 @@ footer lifecycle, role-local width, and bordered geometry below with the
 stage-wide multiline composer, bounded pulse, and one responsive stage. Those
 original component descriptions remain historical rather than current UI
 requirements.
+Decision 0077 replaces the steady vertical-bar cursor selection below with one
+terminal-controlled blinking block while retaining the same logical caret,
+positioning, fallback, and cleanup ownership.
 
 ## Context
 
@@ -98,12 +101,13 @@ lifecycle facts. Working folder is left-aligned, provider/model is physically
 centered, and history plus lifecycle is right-aligned. The lifecycle remains on
 the right edge and is never duplicated above the composer.
 
-The renderer selects the standard steady vertical-bar cursor shape when it first takes
-interactive terminal ownership. Cursor shape remains terminal chrome rather
-than editor content or application state. Cleanup restores the terminal-default
-shape before showing the cursor and leaving the alternate screen. Terminals
-that do not implement the shape command may keep their native cursor; input
-geometry and cleanup remain valid.
+At acceptance, the renderer selected the standard steady vertical-bar cursor
+shape when it first took interactive terminal ownership. Decision 0077 owns the
+current terminal-controlled blinking-block selection. Cursor shape remains
+terminal chrome rather than editor content or application state. Cleanup
+restores the terminal-default shape before showing the cursor and leaving the
+alternate screen. Terminals that do not implement the shape command may keep
+their native cursor; input geometry and cleanup remain valid.
 
 An empty transcript renders no guidance, branding, suggestions, provider
 prompt, or embedded reference. The operator already chose to start the program;
@@ -157,7 +161,7 @@ identifiers remain absent from display state.
 At acceptance, deterministic component tests proved compact and viewport surfaces, style
 composition, panel caret translation, split input tones, malformed callback
 containment, one-cell fallbacks, and exact structured rows. Renderer byte tests
-prove closed foreground/slant/surface composition, steady-bar selection,
+prove closed foreground/slant/surface composition, the current cursor selection,
 default-style restoration, partial-write recovery, and idempotent cleanup. CLI
 tests prove an empty initial document,
 conversation documents, turn rhythm, unboxed tool activity, one contextual
