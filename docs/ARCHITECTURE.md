@@ -131,6 +131,11 @@ the linear conversation sent to the model. Selecting an earlier node while
 idle and submitting another task appends a child there without deleting any
 existing descendants. Alternate branches are inert process-memory data, not
 parallel conversations, and selection never replays a tool or effect.
+The core snapshots each public turn delta through its bounded indexed surface
+before validation, measurement, and storage; caller iteration is never used.
+The CLI mirror cannot reject an accepted tree transition because of its bounded
+checkpoint markers or separators, and `/timeline` keeps all retained identities
+navigable while projecting at most 32 insertion-ordered rows at once.
 
 The principal runtime bounds are fixed:
 

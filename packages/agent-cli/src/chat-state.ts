@@ -1,9 +1,14 @@
+import { CONVERSATION_TREE_LIMITS } from "@agent/core";
 import { RUNTIME_LIMITS } from "@agent/runtime";
 import { err, ok, type Result, TUI_LIMITS } from "@agent/tui";
 
-const MAX_COMPLETED_TURNS = 128;
-const MAX_COMPLETED_CODE_UNITS = 1_048_576;
 const TRANSCRIPT_SEPARATOR = "\n\n";
+const MAX_CHECKPOINT_MARKER_CODE_UNITS = 128;
+const MAX_COMPLETED_DISPLAY_CODE_UNITS =
+  CONVERSATION_TREE_LIMITS.codeUnits +
+  CONVERSATION_TREE_LIMITS.turns *
+    (MAX_CHECKPOINT_MARKER_CODE_UNITS +
+      RUNTIME_LIMITS.toolSteps * TRANSCRIPT_SEPARATOR.length);
 
 export type TranscriptRole = "assistant" | "user";
 
@@ -50,7 +55,7 @@ export class ChatStateError {
 type CompletedTurn = Readonly<{
   assistant: string;
   assistantDocument: number;
-  codeUnits: number;
+  displayCodeUnits: number;
   historyNodeId: number;
   historyParentNodeId: number;
   settlement: "completed" | "checkpointed";
@@ -142,7 +147,7 @@ function inputTooLong(text: string): boolean {
 export class ChatState {
   readonly #completed: CompletedTurn[] = [];
   #active: ActiveTurn | undefined;
-  #completedCodeUnits = 0;
+  #completedDisplayCodeUnits = 0;
   #historyNodeId = 0;
   #nextDocument = 0;
 
@@ -271,6 +276,13 @@ export class ChatState {
     if (active === undefined || active.turnId !== turnId) {
       return err(new ChatStateError("staleTurn"));
     }
+    if (
+      typeof marker !== "string" ||
+      marker.length > MAX_CHECKPOINT_MARKER_CODE_UNITS ||
+      marker.trim().length === 0
+    ) {
+      return err(new ChatStateError("invalidHistoryNode"));
+    }
     const partial = active.segments
       .filter((segment) => segment.trim().length > 0)
       .join("\n\n");
@@ -340,7 +352,7 @@ export class ChatState {
     }
     this.#active = undefined;
     this.#completed.splice(0);
-    this.#completedCodeUnits = 0;
+    this.#completedDisplayCodeUnits = 0;
     this.#historyNodeId = 0;
     this.#nextDocument = 0;
   }
@@ -456,16 +468,16 @@ export class ChatState {
     if (
       !Number.isSafeInteger(historyNodeId) ||
       historyNodeId !== this.#completed.length + 1 ||
-      this.#completed.length >= MAX_COMPLETED_TURNS ||
-      this.#completedCodeUnits + active.user.length + assistant.length >
-        MAX_COMPLETED_CODE_UNITS
+      this.#completed.length >= CONVERSATION_TREE_LIMITS.turns ||
+      this.#completedDisplayCodeUnits + active.user.length + assistant.length >
+        MAX_COMPLETED_DISPLAY_CODE_UNITS
     ) {
       return err(new ChatStateError("invalidHistoryNode"));
     }
     const completed = Object.freeze({
       assistant,
       assistantDocument: active.assistantDocument,
-      codeUnits: active.user.length + assistant.length,
+      displayCodeUnits: active.user.length + assistant.length,
       historyNodeId,
       historyParentNodeId: active.historyParentNodeId,
       settlement,
@@ -477,7 +489,7 @@ export class ChatState {
     active.preparedAssistant = undefined;
     this.#active = undefined;
     this.#completed.push(completed);
-    this.#completedCodeUnits += completed.codeUnits;
+    this.#completedDisplayCodeUnits += completed.displayCodeUnits;
     this.#historyNodeId = historyNodeId;
     return ok(undefined);
   }

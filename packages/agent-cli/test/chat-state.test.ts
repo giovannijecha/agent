@@ -1,9 +1,28 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { RUNTIME_LIMITS } from "@agent/runtime";
 import { TUI_LIMITS } from "@agent/tui";
 
 import { ChatState } from "../dist/chat-state.js";
+
+function publishSizedTurn(
+  chat: ChatState,
+  turnId: number,
+  historyParentNodeId: number,
+  responseCodeUnits: number,
+): void {
+  const response = "a".repeat(responseCodeUnits);
+  assert.ok(chat.begin(turnId, "u", historyParentNodeId).ok);
+  let remaining = responseCodeUnits;
+  while (remaining > 0) {
+    const chunk = Math.min(remaining, RUNTIME_LIMITS.deltaCodeUnits);
+    assert.ok(chat.append(turnId, "a".repeat(chunk)).ok);
+    remaining -= chunk;
+  }
+  assert.ok(chat.prepare(turnId, response).ok);
+  assert.ok(chat.commit(turnId, turnId).ok);
+}
 
 test("publishes a streamed pair only after exact completion", () => {
   const chat = new ChatState();
@@ -127,6 +146,11 @@ test("retains a checkpointed display node as an explicit incomplete turn", () =>
   assert.ok(chat.begin(1, "question", 0).ok);
   assert.ok(chat.append(1, "tool preamble").ok);
   assert.ok(chat.checkpoint(1).ok);
+  const oversized = chat.finishCheckpointed(1, "x".repeat(129), 1);
+  assert.equal(oversized.ok, false);
+  if (!oversized.ok) {
+    assert.equal(oversized.error.kind, "invalidHistoryNode");
+  }
   assert.ok(chat.finishCheckpointed(1, "Turn cancelled.", 1).ok);
 
   assert.equal(
@@ -134,6 +158,32 @@ test("retains a checkpointed display node as an explicit incomplete turn", () =>
     "question\n\ntool preamble\n\nTurn cancelled.",
   );
   assert.equal(chat.timelineEntries().at(1)?.settlement, "checkpointed");
+});
+
+test("keeps synthetic checkpoint display within authoritative history bounds", () => {
+  const chat = new ChatState();
+  assert.ok(chat.begin(1, "u", 0).ok);
+  assert.ok(chat.append(1, "a").ok);
+  assert.ok(chat.checkpoint(1).ok);
+  assert.ok(chat.finishCheckpointed(1, "Turn cancelled.", 1).ok);
+
+  for (let turnId = 2; turnId <= 4; turnId += 1) {
+    publishSizedTurn(
+      chat,
+      turnId,
+      turnId - 1,
+      RUNTIME_LIMITS.responseCodeUnits,
+    );
+  }
+  const finalResponseCodeUnits =
+    RUNTIME_LIMITS.conversationCodeUnits -
+    2 -
+    3 * (RUNTIME_LIMITS.responseCodeUnits + 1) -
+    1;
+  publishSizedTurn(chat, 5, 4, finalResponseCodeUnits);
+
+  assert.equal(chat.timelineEntries().length, 6);
+  assert.equal(chat.timelineEntries().at(5)?.selected, true);
 });
 
 test("enforces independent delta and accumulated response bounds atomically", () => {

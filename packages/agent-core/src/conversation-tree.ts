@@ -100,6 +100,36 @@ function validDelta(
   return true;
 }
 
+function snapshotDelta(
+  entries: readonly ConversationEntry[],
+  settlement: ConversationTurnSettlement,
+): readonly ConversationEntry[] | undefined {
+  if (
+    !Array.isArray(entries) ||
+    (settlement !== "completed" && settlement !== "checkpointed")
+  ) {
+    return undefined;
+  }
+  const count = entries.length;
+  if (
+    !Number.isSafeInteger(count) ||
+    count < 2 ||
+    count > CONVERSATION_TREE_LIMITS.messageUnits
+  ) {
+    return undefined;
+  }
+  const owned: ConversationEntry[] = [];
+  for (let index = 0; index < count; index += 1) {
+    const entry = entries.at(index);
+    if (entry === undefined) {
+      return undefined;
+    }
+    owned.push(entry);
+  }
+  const snapshot = Object.freeze(owned);
+  return validDelta(snapshot, settlement) ? snapshot : undefined;
+}
+
 /** Immutable process-memory tree with one selected root-to-node context. */
 export class ConversationTree {
   readonly #activeNodeId: number;
@@ -140,7 +170,8 @@ export class ConversationTree {
     entries: readonly ConversationEntry[],
     settlement: ConversationTurnSettlement,
   ): Result<ConversationTree, ConversationTreeError> {
-    if (!validDelta(entries, settlement)) {
+    const ownedEntries = snapshotDelta(entries, settlement);
+    if (ownedEntries === undefined) {
       return err(new ConversationTreeError("invalidDelta"));
     }
     if (this.#nodes.length >= CONVERSATION_TREE_LIMITS.turns) {
@@ -150,7 +181,7 @@ export class ConversationTree {
     if (!Number.isSafeInteger(id) || id > Number.MAX_SAFE_INTEGER) {
       return err(new ConversationTreeError("nodeIdExhausted"));
     }
-    const metrics = deltaMetrics(entries);
+    const metrics = deltaMetrics(ownedEntries);
     if (
       this.#retainedCodeUnits + metrics.codeUnits >
       CONVERSATION_TREE_LIMITS.codeUnits
@@ -172,7 +203,7 @@ export class ConversationTree {
     const node: ConversationTreeNode = Object.freeze({
       codeUnits: metrics.codeUnits,
       depth: (parent?.depth ?? 0) + 1,
-      entries: Object.freeze([...entries]),
+      entries: ownedEntries,
       id,
       messageUnits: metrics.messageUnits,
       parentId: this.#activeNodeId,

@@ -40,8 +40,10 @@ contains only that turn's ordered conversation-entry delta, its parent identity,
 depth, settlement classification, and deterministic insertion identity. A turn
 delta starts with one user message, contains zero or more complete tool
 exchanges, and either ends with one final assistant message or is classified as
-a checkpointed incomplete turn. Nodes never move, mutate, or acquire a second
-parent.
+a checkpointed incomplete turn. The public append boundary reads the bounded
+indexed delta exactly once into an owned immutable snapshot before validation,
+measurement, and storage; caller iteration is never authoritative. Nodes never
+move, mutate, or acquire a second parent.
 
 The tree exposes one active node. Materializing model context walks the unique
 parent chain from that node to the root and returns one immutable linear
@@ -57,10 +59,11 @@ unchanged. Runtime results expose the new node identity so the serialized CLI
 reducer can update its display projection after the authoritative transition.
 
 `/timeline` is the sole operator path for tree navigation. It is available only
-while idle and shows the root plus every retained settled turn in deterministic
-insertion order. Each turn row uses its process-local node number, depth,
-alternate-child count, and a bounded sanitized preview of the originating user
-text. Up and Down move without wrapping, Enter selects, and Ctrl+C closes the
+while idle and navigates the root plus every retained settled turn in
+deterministic insertion order through a bounded moving window. Each turn row
+uses its process-local node number, depth, alternate-child count, and a bounded
+sanitized preview of the originating user text. Up and Down move without
+wrapping and move the window when needed, Enter selects, and Ctrl+C closes the
 selector. Selection replaces the visible transcript with the selected root-to-
 node path. The next submitted task branches from that node. Transcript scrolling
 remains presentation-only and never selects a node.
@@ -86,6 +89,14 @@ independent of the existing per-active-conversation limits. Starting another
 turn fails content-free when the tree cannot admit one more node or the selected
 path cannot admit the prospective user and assistant pair.
 
+The CLI display mirror uses the same turn bound and adds only an explicit
+allowance of at most 128 code units for one checkpoint marker and 32 two-unit
+segment separators per retained turn. That presentation-only allowance cannot
+authorize model context, and it prevents a valid authoritative commit from
+being rejected solely because the display adds synthetic text. The generic
+selector renders at most 32 timeline rows at once; its moving window still
+makes the root and all 128 retained turns reachable.
+
 Node identities are positive safe integers assigned monotonically; zero is
 reserved for the root. Selection accepts only an exact retained identity. The
 runtime never accepts caller-supplied entries, parents, depths, settlement
@@ -104,14 +115,17 @@ state under its existing stale-state contract.
 
 Core tests prove root behavior, immutable append, path materialization,
 alternate-child retention, deterministic ordering, invalid delta rejection,
-hostile public-array containment, selection failure, and all aggregate bounds.
+single indexed snapshots that ignore hostile iterators, hostile public-array
+containment, selection failure, and all aggregate bounds.
 Runtime tests prove successful and checkpointed node creation, uncheckpointed
 failure rollback, model input from the selected path, branching after selection,
 idle-only selection, exact node identities, and cleanup.
 
-CLI tests prove the `/timeline` command catalog, selector controls, safe bounded
-labels, root and branch transcript projection, serialized runtime-first
-selection, cancellation behavior, and no tree change on rejected selection.
+CLI tests prove the `/timeline` command catalog, selector controls, its bounded
+moving window at the retained limit, safe bounded labels, root and branch
+transcript projection, display publication at the authoritative content bound,
+serialized runtime-first selection, cancellation behavior, and no tree change
+on rejected selection.
 Documentation policy tests bind the command surface and process-memory posture.
 The canonical Windows and Linux verifier remains the release gate.
 
