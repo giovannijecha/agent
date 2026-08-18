@@ -275,13 +275,14 @@ The ruled interaction dock has one focus owner. Editor focus renders the draft
 or concealed provider credential and admits the frame's one caret. Selection
 focus replaces that editor body with the provider, model, permission,
 pending-tool, or timeline list, retains at most one header plus five visible
-items, and admits no caret. The CLI chooses that focus, consumes the input that
-closes a selector, and prevents composer pointer effects until editor focus
-returns while continuing to route transcript selection and scrolling. Slash
-completion stays above the dock because it remains an editor-owned draft
-operation. The immutable render projection carries the visible dock focus into
-pointer reduction; one coalesced input chunk never reclassifies stale selection
-geometry from newer application state.
+items, and admits no caret. Focus and composer-pointer authority are separate:
+only a visible draft admits composer pointer effects; selection focus and the
+concealed credential editor admit none while transcript selection and scrolling
+remain active. Slash completion stays above the dock because it remains an
+editor-owned draft operation. The immutable render projection carries both the
+visible dock focus and composer-pointer authority into pointer reduction; one
+coalesced input chunk never reclassifies stale geometry from newer application
+state.
 
 Tool activity never becomes transcript content. User and assistant messages
 remain structured role entries but render without redundant role labels.

@@ -48,6 +48,7 @@ const CONVERSATION_RHYTHM_PRIORITY = 6;
 
 export type ChatRender = Readonly<{
   composer: VerticalAllocation;
+  composerPointer: "draft" | "none";
   frame: Frame;
   interactionFocus: InteractionDockFocus;
   stage: Readonly<{ columns: number; left: number }>;
@@ -372,6 +373,11 @@ export function createChatRender(
     ? ok(
         Object.freeze({
           composer: composerGeometry.value,
+          composerPointer:
+            contextualSelection === undefined &&
+            providerCredential === undefined
+              ? "draft"
+              : "none",
           frame: frame.value,
           interactionFocus:
             contextualSelection === undefined ? "editor" : "selection",

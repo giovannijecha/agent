@@ -307,9 +307,13 @@ at six content rows, has no caret, consumes a closing editor event, and blocks
 composer pointer effects without resetting or blocking transcript pointer
 selection and scrolling. Change focus routing in the CLI reducer only after the
 generic dock tests cover header allocation, selected-row visibility, caret
-admission, narrow viewports, and hostile children. Carry the focus rendered with
-each pointer projection; never infer it from application state that may have
-changed earlier in the same decoded input chunk.
+admission, narrow viewports, and hostile children. Carry the focus and separate
+composer-pointer authority rendered with each pointer projection; never infer
+either from application state that may have changed earlier in the same decoded
+input chunk. A concealed credential editor keeps editor focus for keyboard and
+caret ownership but must publish no composer-pointer target. Its regression must
+prove credential drags cannot queue clipboard content while transcript pointer
+selection remains available.
 
 Rollback must restore renderer and CLI event assumptions together. Removal of
 an interaction deletes its decoder event, reducer route, layout projection,

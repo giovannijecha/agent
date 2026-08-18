@@ -33,6 +33,22 @@ function started(
   }) as unknown as StartedTurn;
 }
 
+function unconfiguredProviders() {
+  return Object.freeze([
+    Object.freeze({
+      configured: false,
+      id: "ollamaCloud" as const,
+      presentation: Object.freeze({
+        authentication: "memory-only API key",
+        displayName: "Ollama Cloud",
+        model: undefined,
+      }),
+      ready: false,
+      selected: false,
+    }),
+  ]);
+}
+
 function render(
   application: ApplicationController,
   columns = 40,
@@ -53,6 +69,7 @@ function render(
 function projection(rendered: ChatRender): PointerProjection {
   return Object.freeze({
     composer: rendered.composer,
+    composerPointer: rendered.composerPointer,
     frame: rendered.frame,
     interactionFocus: rendered.interactionFocus,
     stageColumns: rendered.stage.columns,
@@ -446,6 +463,61 @@ test("keeps transcript pointer input active without routing it to the retained d
     projection(coalescedRender),
   );
   assert.equal(application.project(32).text, "alpha betaowned");
+});
+
+test("keeps concealed credentials out of composer pointer routing", () => {
+  const application = new ApplicationController(true, unconfiguredProviders());
+  assert.ok(application.turnAccepted(started(1, "visible transcript")).ok);
+  assert.ok(application.applyRuntime(Object.freeze({
+    kind: "assistantDelta",
+    text: "settled",
+    turnId: 1,
+  }) as RuntimeEvent<string>).ok);
+  assert.ok(application.applyRuntime(Object.freeze({
+    assistant: Object.freeze({ content: "settled" }),
+    checkpointed: false,
+    cleanup: Object.freeze([]),
+    kind: "turnPrepared",
+    turnId: 1,
+  }) as unknown as RuntimeEvent<string>).ok);
+  assert.ok(
+    application.turnCommitResolved(1, {
+      historyNodeId: 1,
+      kind: "committed",
+    }).ok,
+  );
+  application.applySessionAction(Object.freeze({ kind: "openProviders" }));
+  application.applySessionAction(
+    Object.freeze({ kind: "activateContextSelection" }),
+  );
+  application.feed("ephemeral-key");
+  const credentialRender = render(application, 32, 12);
+  assert.equal(credentialRender.composerPointer, "none");
+  assert.equal(credentialRender.interactionFocus, "editor");
+
+  const transcriptStart = cellFor(credentialRender, {
+    document: 0,
+    offset: 0,
+  });
+  const transcriptEnd = cellFor(credentialRender, {
+    document: 0,
+    offset: 6,
+  });
+  pointer(application, credentialRender, transcriptStart, "press", 50);
+  pointer(application, credentialRender, transcriptEnd, "move", 60);
+  pointer(application, credentialRender, transcriptEnd, "release", 70);
+  assert.equal(application.takePendingCopy(), "visible");
+
+  const credentialStart = composerBodyCell(credentialRender);
+  const credentialEnd = Object.freeze({
+    column: credentialStart.column + 8,
+    row: credentialStart.row,
+  });
+  pointer(application, credentialRender, credentialStart, "press", 100);
+  pointer(application, credentialRender, credentialEnd, "move", 110);
+  pointer(application, credentialRender, credentialEnd, "release", 120);
+  assert.equal(application.takePendingCopy(), undefined);
+  assert.deepEqual(application.project(32), { caretColumn: 0, text: "" });
 });
 
 test("reduces coalesced composer pointer and editor events in decoder order", () => {

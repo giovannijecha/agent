@@ -18,6 +18,7 @@ const DOUBLE_CLICK_MILLISECONDS = 500;
 
 export type PointerProjection = Readonly<{
   composer: VerticalAllocation;
+  composerPointer: "draft" | "none";
   frame: Frame;
   interactionFocus: InteractionDockFocus;
   stageColumns: number;
@@ -220,6 +221,7 @@ export class TerminalInteraction {
       composerColumn >= 0 &&
       composerColumn < composerColumns;
     if (
+      projection.composerPointer === "draft" &&
       projection.interactionFocus === "editor" &&
       !this.#transcriptDragging &&
       (inComposer || this.#composerDragging) &&
