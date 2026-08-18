@@ -4,7 +4,7 @@
   "decisionIndex": "docs/decisions/README.md",
   "decisionIndexLifecycleDigest": {
     "algorithm": "sha256",
-    "value": "ea5d2b217c7f4b4b4f173ddd0164c77dbedde2e83c7926f51bcdddd9b13991e9"
+    "value": "ed7e54d7e8b4b62cd51c84235eb9f89454d66f665e6c79dcd78ccfc61131f28b"
   },
   "migrationLedger": "docs/DOCUMENTATION-MIGRATION.md",
   "migrationMapStatusMarkers": {

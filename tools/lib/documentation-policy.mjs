@@ -67,6 +67,38 @@ function validateUniqueStrings(values, label) {
   }
 }
 
+function isIsoCalendarDate(value) {
+  if (typeof value !== "string") {
+    return false;
+  }
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(value);
+  if (match === null) {
+    return false;
+  }
+  const year = Number(match.at(1));
+  const month = Number(match.at(2));
+  const day = Number(match.at(3));
+  if (year <= 0 || month < 1 || month > 12) {
+    return false;
+  }
+  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const maximumDay = [
+    31,
+    leapYear ? 29 : 28,
+    31,
+    30,
+    31,
+    30,
+    31,
+    31,
+    30,
+    31,
+    30,
+    31,
+  ].at(month - 1);
+  return maximumDay !== undefined && day >= 1 && day <= maximumDay;
+}
+
 function textFor(context, file) {
   if (!isRecord(context.files) || typeof context.files[file] !== "string") {
     fail("documentation source is missing: " + file);
@@ -261,23 +293,50 @@ function validateDocumentationMap(policy, context, ownedPaths) {
   if (!text.startsWith("# Agent documentation\n")) {
     fail("documentation map heading mismatch");
   }
-  const targets = new Set(localLinkTargets(policy.index, text, ownedPaths));
-  for (const entry of policy.livingDocuments) {
-    const link = relativeLink(policy.index, entry.path);
-    const row =
+  const normalized = text.replaceAll("\r\n", "\n");
+  const marker = "\n## Start here\n";
+  const nextMarker = "\n## Reading paths\n";
+  const start = normalized.indexOf(marker);
+  const bodyStart = start + marker.length;
+  const end = normalized.indexOf(nextMarker, bodyStart);
+  if (
+    start < 0 ||
+    end < 0 ||
+    normalized.indexOf(marker, bodyStart) >= 0
+  ) {
+    fail("documentation map authority section is missing");
+  }
+  const lines = normalized.slice(bodyStart, end).split("\n");
+  same(
+    lines.slice(0, 3),
+    [
+      "",
+      "| Document | Audience | Authority |",
+      "| --- | --- | --- |",
+    ],
+    "documentation map authority header",
+  );
+  if (lines.at(-1) !== "") {
+    fail("documentation map authority table is malformed");
+  }
+  const expectedRows = policy.livingDocuments.map(
+    (entry) =>
       "| [" +
       entry.label +
       "](" +
-      link +
+      relativeLink(policy.index, entry.path) +
       ") | " +
       entry.audience +
       " | " +
       entry.authority +
-      " |";
-    if (!text.includes(row) || !targets.has(entry.path)) {
-      fail("documentation map authority row mismatch: " + entry.path);
-    }
-  }
+      " |",
+  );
+  same(
+    lines.slice(3, -1),
+    expectedRows,
+    "documentation map authority rows",
+  );
+  const targets = new Set(localLinkTargets(policy.index, text, ownedPaths));
   for (const required of [policy.decisionIndex, policy.migrationLedger]) {
     if (!targets.has(required)) {
       fail("documentation map is missing a required route: " + required);
@@ -868,6 +927,15 @@ function validateDecisionIndex(policy, context, ownedPaths) {
   if (!Array.isArray(expected)) {
     fail("decision path inventory is missing");
   }
+  const decisionDirectory = path.posix.dirname(policy.decisionIndex) + "/";
+  const actualDirectoryPaths = [...ownedPaths]
+    .filter((file) => file.startsWith(decisionDirectory))
+    .sort();
+  same(
+    actualDirectoryPaths,
+    [policy.decisionIndex, ...expected].sort(),
+    "decision directory inventory",
+  );
   const actualPaths = [];
   const ids = new Set();
   const domainsById = expectedDecisionDomains(policy);
@@ -1071,8 +1139,7 @@ export function validateDocumentationPolicy(policy, context) {
     if (
       !/^[0-9]{4}$/u.test(id) ||
       Number(id) < policy.prospectiveDecisionMetadataFrom ||
-      typeof date !== "string" ||
-      !/^\d{4}-\d{2}-\d{2}$/u.test(date)
+      !isIsoCalendarDate(date)
     ) {
       fail("prospective decision date is invalid");
     }
