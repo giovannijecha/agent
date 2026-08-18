@@ -8,7 +8,7 @@ Create the missing `assets` directory, extract the inline styles from
 ## Constraints
 
 Use `manage_path` with `create_directory` to create `assets` before writing the
-nested file. Do not use `run_process` or any other mechanism to create that
+nested file. Do not use `shell` or any other mechanism to create that
 directory. After it exists, use `apply_patch` to create `assets/theme.css` and
 update `index.html`. Preserve the document language, title, markup, visible
 content, declarations, and declaration order. Change only `index.html` and the
@@ -20,6 +20,6 @@ change.
 `index.html` contains no inline style block, loads `assets/theme.css`, and the
 new stylesheet owns the existing page declarations without any other change.
 Accept the run only if the approved namespace request is exactly
-`manage_path(create_directory)` for `assets`. Deny `run_process` or any other
+`manage_path(create_directory)` for `assets`. Deny `shell` or any other
 alternate directory-creation mechanism. The subsequent `apply_patch` request
 may create `assets/theme.css` and update `index.html`.

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import path from "node:path";
-import { arch, cwd, execPath, platform } from "node:process";
+import { arch, cwd, env, execPath, platform } from "node:process";
 import test from "node:test";
 
 import type { ToolCancellation } from "@agent/tools";
@@ -10,6 +10,10 @@ import {
   PROCESS_RUNNER_LIMITS,
   type ProcessRunRequest,
 } from "../dist/process-runner.js";
+import {
+  SHELL_LIMITS,
+  ShellExecutionPolicy,
+} from "../dist/shell-execution-policy.js";
 
 const idleCancellation: ToolCancellation = Object.freeze({
   requested: false,
@@ -37,6 +41,7 @@ function request(
 ): ProcessRunRequest {
   return Object.freeze({
     arguments: Object.freeze([...arguments_]),
+    environment: Object.freeze([]),
     executable: fixturePath(),
     processLimit: 16,
     stderrBytes: 65_536,
@@ -53,7 +58,48 @@ function runner(): NodeProcessRunner {
   return created.value;
 }
 
-test("runs literal arguments without a shell or user environment", async () => {
+test("executes one command through the owned native shell policy", async () => {
+  const shell = ShellExecutionPolicy.create(platform, env);
+  assert.ok(shell.ok);
+  const invocation = shell.value.invocation(
+    "node -e \"process.stdout.write('owned-shell')\"",
+  );
+  const result = await runner().run(
+    request(invocation.arguments, {
+      environment: invocation.environment,
+      executable: invocation.executable,
+    }),
+    idleCancellation,
+  );
+
+  assert.ok(result.ok);
+  assert.equal(result.value.exitCode, 0);
+  assert.equal(result.value.stdout, "owned-shell");
+});
+
+test("executes the maximum code-unit shell command after the fixed prelude", async () => {
+  const shell = ShellExecutionPolicy.create(platform, env);
+  assert.ok(shell.ok);
+  const prefix = "node -e \"process.stdout.write('owned-shell-boundary')\";#";
+  const command = prefix + "\u6f22".repeat(
+    SHELL_LIMITS.commandCodeUnits - prefix.length,
+  );
+  assert.equal(command.length, SHELL_LIMITS.commandCodeUnits);
+  const invocation = shell.value.invocation(command);
+  const result = await runner().run(
+    request(invocation.arguments, {
+      environment: invocation.environment,
+      executable: invocation.executable,
+    }),
+    idleCancellation,
+  );
+
+  assert.ok(result.ok);
+  assert.equal(result.value.exitCode, 0);
+  assert.equal(result.value.stdout, "owned-shell-boundary");
+});
+
+test("runs literal arguments and only the explicit target environment", async () => {
   const argumentsResult = await runner().run(
     request(["arguments", "literal value", "&", "$(ignored)"]),
     idleCancellation,
@@ -65,11 +111,13 @@ test("runs literal arguments without a shell or user environment", async () => {
   );
 
   const environmentResult = await runner().run(
-    request(["environment"]),
+    request(["environment"], {
+      environment: Object.freeze(["AGENT_TEST=value"]),
+    }),
     idleCancellation,
   );
   assert.ok(environmentResult.ok);
-  assert.equal(environmentResult.value.stdout, platform === "win32" ? "1\n" : "0\n");
+  assert.equal(environmentResult.value.stdout, platform === "win32" ? "2\n" : "1\n");
 });
 
 test("boots the real Node executable with only the owned OS environment", async () => {

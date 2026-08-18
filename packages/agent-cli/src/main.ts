@@ -6,7 +6,6 @@ import {
   cwd,
   env,
   exit,
-  execPath,
   hrtime,
   platform,
   stderr,
@@ -43,7 +42,7 @@ import { NodeProcessRunner } from "./node-process-runner.js";
 import { NodeTimerClock } from "./node-timer-clock.js";
 import { NoticeScheduler } from "./notice-scheduler.js";
 import { writeProcessText } from "./process-output.js";
-import { ProcessProgramRegistry } from "./process-program-registry.js";
+import { ShellExecutionPolicy } from "./shell-execution-policy.js";
 import { resolveOllamaCloudConfiguration } from "./provider-configuration.js";
 import {
   ProviderSession,
@@ -235,7 +234,7 @@ if (!ollamaConfiguration.ok) {
     new NodeOllamaModelCatalog(),
   );
   const processRunner = NodeProcessRunner.create(platform, arch);
-  const processPrograms = ProcessProgramRegistry.create(execPath);
+  const shell = ShellExecutionPolicy.create(platform, env);
   const mutationCommitter = PlatformWorkspaceMutationCommitter.create(
     platform,
     arch,
@@ -247,7 +246,7 @@ if (!ollamaConfiguration.ok) {
   if (
     !providerSession.ok ||
     !processRunner.ok ||
-    !processPrograms.ok ||
+    !shell.ok ||
     !mutationCommitter.ok ||
     !namespaceCommitter.ok
   ) {
@@ -271,8 +270,8 @@ if (!ollamaConfiguration.ok) {
         {
           mutationCommitter: mutationCommitter.value,
           namespaceCommitter: namespaceCommitter.value,
-          processPrograms: processPrograms.value,
           processRunner: processRunner.value,
+          shell: shell.value,
         },
         evaluation,
       );

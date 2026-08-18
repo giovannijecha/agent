@@ -123,12 +123,12 @@ model, or falls back to another backend. The TUI credential context reuses the
 bounded editor while projecting zero secret text and zero secret caret offset.
 It enables no provider OAuth login, arbitrary network transport, local Ollama
 daemon, persistent credential, catalog, or session store, or automatic
-provider or model selection. The
-single `run_process` capability admits only an exactly approved bounded `node`
-invocation resolved by the CLI-owned closed program registry and launched
-through owned descendant-tree containment. That containment is not a
-filesystem or network sandbox; approved code retains the launching user's
-operating-system authority. Reports about provider traffic should identify the
+provider or model selection. The single `shell` capability admits one exactly
+approved bounded command through the fixed profile-free platform shell, a
+controlled environment that excludes provider credentials, and owned
+descendant-tree containment. That containment is not a filesystem or network
+sandbox; approved code retains the launching user's operating-system
+authority. Reports about provider traffic should identify the
 exact CLI transport, wire decoder, or configuration boundary involved.
 
 The maintainer-only task evaluator is a separate offline tooling boundary. It

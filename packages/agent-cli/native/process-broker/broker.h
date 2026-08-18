@@ -5,10 +5,11 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#define AGENT_BROKER_PROTOCOL_VERSION 1u
+#define AGENT_BROKER_PROTOCOL_VERSION 2u
 #define AGENT_BROKER_MAX_FRAME_BYTES 65536u
-#define AGENT_BROKER_MAX_STRING_BYTES 8192u
+#define AGENT_BROKER_MAX_STRING_BYTES 16384u
 #define AGENT_BROKER_MAX_ARGUMENTS 64u
+#define AGENT_BROKER_MAX_ENVIRONMENT 8u
 #define AGENT_BROKER_MIN_TIMEOUT_MS 1u
 #define AGENT_BROKER_MAX_TIMEOUT_MS 600000u
 #define AGENT_BROKER_MAX_PROCESSES 64u
@@ -33,6 +34,8 @@ struct agent_broker_request {
   uint32_t process_limit;
   char *program;
   char *working_directory;
+  uint32_t environment_count;
+  char **environment;
   uint32_t argument_count;
   char **arguments;
 };

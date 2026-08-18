@@ -1,8 +1,9 @@
 # 0036: Owned structured process execution
 
-- Status: accepted
+- Status: superseded
 - Date: 2026-08-11
 - Permission amended by: decision 0055
+- Superseded by: decision 0073
 
 Decision 0055 replaces mandatory typed approval with the exact `run_process`
 session mode and one per-request runtime decision. Program resolution,

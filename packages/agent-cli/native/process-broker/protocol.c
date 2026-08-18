@@ -178,6 +178,42 @@ static bool agent_cursor_string(
   return true;
 }
 
+static bool agent_environment_entry_valid(const char *entry) {
+  const unsigned char first = (unsigned char)entry[0];
+  if (!((first >= (unsigned char)'A' && first <= (unsigned char)'Z') ||
+        (first >= (unsigned char)'a' && first <= (unsigned char)'z') ||
+        first == (unsigned char)'_')) {
+    return false;
+  }
+  for (size_t index = 1u; entry[index] != '\0'; index += 1u) {
+    const unsigned char character = (unsigned char)entry[index];
+    if (character == (unsigned char)'=') {
+      return true;
+    }
+    if (!((character >= (unsigned char)'A' && character <= (unsigned char)'Z') ||
+          (character >= (unsigned char)'a' && character <= (unsigned char)'z') ||
+          (character >= (unsigned char)'0' && character <= (unsigned char)'9') ||
+          character == (unsigned char)'_')) {
+      return false;
+    }
+  }
+  return false;
+}
+
+static bool agent_environment_name_equal(
+  const char *left,
+  const char *right
+) {
+  size_t index = 0u;
+  while (left[index] != '=' && right[index] != '=') {
+    if (left[index] != right[index]) {
+      return false;
+    }
+    index += 1u;
+  }
+  return left[index] == '=' && right[index] == '=';
+}
+
 bool agent_protocol_read_launch(
   FILE *input,
   struct agent_broker_request *request
@@ -187,7 +223,7 @@ bool agent_protocol_read_launch(
   if (!agent_read_header(input, AGENT_COMMAND_LAUNCH, &payload_length)) {
     return false;
   }
-  if (payload_length < 22u) {
+  if (payload_length < 26u) {
     return false;
   }
   unsigned char *payload = malloc((size_t)payload_length);
@@ -212,6 +248,31 @@ bool agent_protocol_read_launch(
     request->process_limit <= AGENT_BROKER_MAX_PROCESSES &&
     agent_cursor_string(&cursor, false, &request->program) &&
     agent_cursor_string(&cursor, false, &request->working_directory) &&
+    agent_cursor_u32(&cursor, &request->environment_count) &&
+    request->environment_count <= AGENT_BROKER_MAX_ENVIRONMENT;
+
+  if (valid) {
+    request->environment = calloc(
+      (size_t)request->environment_count + 1u,
+      sizeof(char *)
+    );
+    valid = request->environment != NULL;
+  }
+  for (
+    uint32_t index = 0u;
+    valid && index < request->environment_count;
+    index += 1u
+  ) {
+    valid = agent_cursor_string(&cursor, false, &request->environment[index]) &&
+      agent_environment_entry_valid(request->environment[index]);
+    for (uint32_t prior = 0u; valid && prior < index; prior += 1u) {
+      valid = !agent_environment_name_equal(
+        request->environment[prior],
+        request->environment[index]
+      );
+    }
+  }
+  valid = valid &&
     agent_cursor_u32(&cursor, &request->argument_count) &&
     request->argument_count <= AGENT_BROKER_MAX_ARGUMENTS;
 
@@ -292,6 +353,12 @@ bool agent_protocol_write_failure(FILE *output, uint32_t failure) {
 }
 
 void agent_protocol_dispose_request(struct agent_broker_request *request) {
+  if (request->environment != NULL) {
+    for (uint32_t index = 0u; index < request->environment_count; index += 1u) {
+      free(request->environment[index]);
+    }
+  }
+  free(request->environment);
   if (request->arguments != NULL) {
     for (uint32_t index = 0u; index < request->argument_count; index += 1u) {
       free(request->arguments[index]);

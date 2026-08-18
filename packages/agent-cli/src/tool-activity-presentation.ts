@@ -56,7 +56,7 @@ export const TOOL_ACTIVITY_PRESENTATION_DEFINITIONS:
   }),
   Object.freeze({
     action: "Run",
-    name: "run_process",
+    name: "shell",
     risk: "execute" as const,
   }),
 ]);

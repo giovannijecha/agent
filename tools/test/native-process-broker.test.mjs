@@ -166,7 +166,10 @@ test("preserves structured arguments without shell interpretation", async () => 
 test("starts the target with the owned OS environment and exact directory", async () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "agent-broker-cwd-"));
   try {
-    const environment = await runNativeFixture({ arguments: ["environment"] });
+    const environment = await runNativeFixture({
+      arguments: ["environment"],
+      environment: ["AGENT_ONE=1", "AGENT_TWO=2"],
+    });
     const workingDirectory = await runNativeFixture({
       arguments: ["working-directory"],
       workingDirectory: directory,
@@ -174,7 +177,7 @@ test("starts the target with the owned OS environment and exact directory", asyn
 
     assert.equal(
       environment.stdout.toString("utf8"),
-      process.platform === "win32" ? "1\n" : "0\n",
+      process.platform === "win32" ? "3\n" : "2\n",
     );
     assert.equal(terminalStatus(environment).outcome, 1);
     assert.equal(terminalStatus(workingDirectory).outcome, 1);
@@ -458,4 +461,25 @@ test("rejects malformed controller frames without launching a target", async () 
   assertCleanBroker(result);
   assert.equal(result.close.code, 1);
   assert.deepEqual(result.statuses, [{ kind: "failure", failure: 100 }]);
+});
+
+test("rejects malformed and duplicate target environment entries", async () => {
+  for (const environment of [
+    ["BROKEN"],
+    ["AGENT_DUPLICATE=one", "AGENT_DUPLICATE=two"],
+  ]) {
+    const result = await runNativeBroker({
+      launchFrame: encodeLaunch({
+        arguments: ["environment"],
+        environment,
+        processLimit: 4,
+        program: nativeFixturePath,
+        timeoutMilliseconds: 5_000,
+        workingDirectory: path.resolve("."),
+      }),
+    });
+    assertCleanBroker(result);
+    assert.equal(result.close.code, 1);
+    assert.deepEqual(result.statuses, [{ kind: "failure", failure: 100 }]);
+  }
 });

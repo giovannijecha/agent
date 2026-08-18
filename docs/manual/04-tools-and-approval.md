@@ -13,7 +13,7 @@ The available modes are:
 - `Deny`: reject the call without invoking its handler.
 
 `read_file`, `list_directory`, and `search_text` start as `Allow`.
-`apply_patch`, `manage_path`, and `run_process` start as `Ask`. Changes apply
+`apply_patch`, `manage_path`, and `shell` start as `Ask`. Changes apply
 only to the current Agent process and are discarded on exit.
 
 ## Decide a request
@@ -31,7 +31,7 @@ containment, or platform support.
 
 All paths are relative to the canonical workspace shown in the footer; `.` is
 the workspace root. The workspace boundary is not a machine sandbox. In
-particular, approved Node code still runs with the launching user's filesystem
+particular, an approved shell command runs with the launching user's filesystem
 and network authority.
 
 ## Know the tools
@@ -44,8 +44,8 @@ Agent advertises one name for each admitted capability and no aliases:
 | `list_directory` | `enumerate-one-directory` | `read` | Discovers one directory without reading file contents or recursing. |
 | `manage_path` | `manage-one-workspace-path` | `write` | Creates one directory, moves one file or directory, or removes one file or empty directory without shell or recursive authority. |
 | `read_file` | `read-one-file` | `read` | Inspects one known file without traversing unrelated workspace paths. |
-| `run_process` | `run-one-contained-process` | `execute` | Runs one terminating structured process inside owned whole-tree containment without shell, PATH, stdin, or inherited user-environment authority. |
 | `search_text` | `search-bounded-text` | `read` | Locates exact text with bounded traversal instead of many model-directed reads. |
+| `shell` | `run-one-contained-shell-command` | `execute` | Runs one exact terminating native-shell command with a controlled credential-free environment, fixed bounds, and owned whole-tree containment. |
 
 The read tools apply built-in sensitive-path denials and an optional root
 `.agentignore`. Empty lines and lines beginning with `#` are ignored. Other
@@ -74,11 +74,21 @@ overwrites, merges, or removes recursively. Windows supports all three
 operations. Linux currently supports only `create_directory`; `move` and
 `remove` fail as `unsupported` before path-specific observation or permission.
 
-`run_process` accepts only the registered `node` token, literal arguments, and
-one workspace-relative working directory. It accepts no shell, executable
-path, PATH lookup, stdin, inherited user environment, background service, or
-model-selected limit. The process and its descendants are bounded and cleaned
-up before settlement.
+`shell` accepts one exact command and one workspace-relative working directory.
+Linux uses `/bin/bash --noprofile --norc -c`. Windows uses the operating-system
+Windows PowerShell with `-NoLogo`, `-NoProfile`, `-NonInteractive`, a fixed
+UTF-8 prelude, and `-Command`. The CLI projects only the documented PATH,
+home, temporary-directory, locale, and application-data variables for the
+platform; it never forwards the Ollama credential or an unfiltered parent
+environment. The model cannot choose a shell, executable path, environment,
+stdin, timeout, process limit, or output limit.
+
+The approved command may use PATH-discovered coding tools, pipelines,
+redirection, and shell control flow. This is intentionally host-full authority:
+the workspace is the starting directory, not a filesystem or network sandbox.
+Inspect the whole command before approval. The command and all descendants are
+bounded and cleaned up before settlement. Interactive programs, retained
+background services, and work that outlives the tool remain unsupported.
 
 Calls from one model decision are validated as a batch, planned just in time,
 and executed sequentially in provider order. Each valid plan receives its own
@@ -108,7 +118,7 @@ previews never become transcript history.
   native guarantee is not admitted. Changing permission cannot enable it.
 - `limit`, `not found`, `I/O`, and cancellation failures settle without
   widening or silently retrying the call.
-- A nonzero `run_process` exit is failed tool activity, but its bounded output
+- A nonzero `shell` exit is failed tool activity, but its bounded output
   remains available to the model for diagnosis. Containment, timeout, overflow,
   launch, protocol, or cleanup failures expose only stable categories.
 
@@ -132,4 +142,5 @@ settled effect is not repeated.
 - [Text-patch decision](../decisions/0053-owned-structured-text-patch.md)
 - [Namespace decision](../decisions/0054-owned-workspace-namespace-management.md)
 - [Session-permission decision](../decisions/0055-owned-session-tool-permissions.md)
+- [Shell-execution decision](../decisions/0073-owned-capability-complete-shell-execution.md)
 - [Linux namespace boundary](../decisions/0058-owned-linux-namespace-fail-closed-boundary.md)

@@ -75,7 +75,7 @@ that domain; a summary here never overrides its canonical owner.
 ### Tools and permissions
 
 - The exact model-facing inventory is `read_file`, `list_directory`,
-  `search_text`, `apply_patch`, `manage_path`, and `run_process`.
+  `search_text`, `apply_patch`, `manage_path`, and `shell`.
   Tool aliases and convenience overlaps are forbidden.
 - The provider-neutral boundary validates one bounded ordered batch, plans calls
   just in time, requests one exact permission for each successfully planned
@@ -88,8 +88,10 @@ that domain; a summary here never overrides its canonical owner.
 - `/permissions` is the sole session-only policy editor. Exact tools hold
   `Allow`, `Ask`, or `Deny`; reads default to `Allow`, writes and
   execution to `Ask`. `/approve` and `/deny` do not exist.
-- `apply_patch`, `manage_path`, and `run_process` keep their accepted
-  object-bound, namespace, and contained-process contracts. Their exact bounds,
+- `apply_patch`, `manage_path`, and `shell` keep their accepted object-bound,
+  namespace, and contained-process contracts. Shell execution uses one fixed
+  platform shell, an exact approved command, a controlled credential-free
+  environment, fixed bounds, and whole-tree cleanup. Their exact bounds,
   platform behavior, failures, and removal order live in architecture,
   engineering, maintenance, and the indexed decisions.
 

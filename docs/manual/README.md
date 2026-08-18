@@ -22,9 +22,9 @@ Use this manual to run, understand, and maintain the behavior that exists today.
   selected.
 - Credentials and sessions are not persisted. The
   [privacy policy](../../PRIVACY.md) owns retention and removal guarantees.
-- Process execution is limited to the documented `run_process` contract: the
-  CLI-registered `node` token, session permission, fixed bounds, and native
-  containment.
+- Process execution uses the documented `shell` contract: one exact approved
+  command, a fixed profile-free native shell, controlled credential-free
+  environment, fixed bounds, and native whole-tree containment.
 - `read_file` keeps one canonical name and can return either the complete
   bounded file or an exact bounded logical-line projection with continuation
   metadata.

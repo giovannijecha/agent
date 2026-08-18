@@ -71,7 +71,7 @@ export const TOOL_PERMISSION_DEFINITIONS: readonly ToolPermissionDefinition[] =
     }),
     Object.freeze({
       defaultMode: "ask" as const,
-      name: "run_process",
+      name: "shell",
       risk: "execute" as const,
     }),
   ]);

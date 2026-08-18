@@ -327,7 +327,7 @@ test("owns one cross-platform namespace-directory task", () => {
   );
   assert.match(
     task.task,
-    /Do not use `run_process` or any other mechanism to create that\s+directory/u,
+    /Do not use `shell` or any other mechanism to create that\s+directory/u,
   );
   assert.match(
     task.task,
@@ -339,7 +339,7 @@ test("owns one cross-platform namespace-directory task", () => {
   );
   assert.match(
     task.task,
-    /Deny `run_process` or any other\s+alternate directory-creation mechanism/u,
+    /Deny `shell` or any other\s+alternate directory-creation mechanism/u,
   );
   assert.match(
     task.task,

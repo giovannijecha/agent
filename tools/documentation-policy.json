@@ -74,7 +74,8 @@
     "docs/decisions/0069-owned-tool-call-interoperability.md",
     "docs/decisions/0070-owned-documentation-information-architecture.md",
     "docs/decisions/0071-owned-task-oriented-operator-manual.md",
-    "docs/decisions/0072-owned-ollama-cloud-provider.md"
+    "docs/decisions/0072-owned-ollama-cloud-provider.md",
+    "docs/decisions/0073-owned-capability-complete-shell-execution.md"
   ],
   "decisionIndexLifecycleDigest": {
     "algorithm": "sha256",
@@ -119,7 +120,8 @@
   "prospectiveDecisionDates": {
     "0070": "2026-08-16",
     "0071": "2026-08-16",
-    "0072": "2026-08-16"
+    "0072": "2026-08-16",
+    "0073": "2026-08-18"
   },
   "historicalDecisionStatusExceptions": {
     "0009": "accepted"
@@ -131,6 +133,7 @@
     },
     "supersededBy": [
       "0017",
+      "0036",
       "0067",
       "0068"
     ]
@@ -167,11 +170,15 @@
     {
       "superseder": "0072",
       "superseded": "0068"
+    },
+    {
+      "superseder": "0073",
+      "superseded": "0036"
     }
   ],
   "decisionRecordDigest": {
     "algorithm": "sha256",
-    "value": "ea4f80668895ccdc782374b6f8aac6a76750809a81a5c54a83a6a6721edee39e"
+    "value": "a1c263ea777d97968daa74b89bcbe88672b1b5de9778a49acefda8b3a7711cd4"
   },
   "decisionDomainMembers": {
     "architecture": [
@@ -264,7 +271,8 @@
       "0055",
       "0056",
       "0057",
-      "0062"
+      "0062",
+      "0073"
     ]
   },
   "currentDecisionAuthorities": {
@@ -310,7 +318,7 @@
       "0059"
     ],
     "tools": [
-      "0036",
+      "0073",
       "0050",
       "0053",
       "0054",

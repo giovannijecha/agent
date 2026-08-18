@@ -66,7 +66,7 @@ for the complete workflow and failure contract.
 | `/exit` | Close `agent` |
 
 The advertised tools are exactly `read_file`, `list_directory`, `search_text`,
-`apply_patch`, `manage_path`, and `run_process`. Reads default to `Allow`; writes
+`apply_patch`, `manage_path`, and `shell`. Reads default to `Allow`; writes
 and execution default to `Ask`. Pending requests offer `Allow once`, `Allow for
 session`, and `Deny`.
 
@@ -84,8 +84,9 @@ editing, layout, pointer, color, motion, and failure behavior.
   `.agentignore`; denied content never enters model-visible tool output.
 - File and namespace mutations bind approval to observed filesystem state and
   use owned platform committers without a weaker pathname fallback.
-- `run_process` accepts only the registered `node` token, literal arguments,
-  one relative working directory, fixed limits, and owned descendant cleanup.
+- `shell` runs one exact approved command through the fixed native shell with a
+  controlled credential-free environment, fixed limits, and owned descendant
+  cleanup. It is host-full execution, not filesystem or network sandboxing.
 - Secrets stay memory-only and never enter source, fixtures, logs, transcripts,
   or documentation.
 - A completed tool checkpoint remains conversation truth if a later model

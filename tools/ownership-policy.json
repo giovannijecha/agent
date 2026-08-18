@@ -91,6 +91,7 @@
     "docs/decisions/0070-owned-documentation-information-architecture.md",
     "docs/decisions/0071-owned-task-oriented-operator-manual.md",
     "docs/decisions/0072-owned-ollama-cloud-provider.md",
+    "docs/decisions/0073-owned-capability-complete-shell-execution.md",
     "evaluations/README.md"
   ],
   "workspaces": [
