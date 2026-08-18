@@ -210,6 +210,8 @@ declare module "node:path" {
 }
 
 declare module "node:fs/promises" {
+  export function chmod(path: string, mode: number): Promise<void>;
+
   export interface Dirent {
     readonly name: string;
     isDirectory(): boolean;

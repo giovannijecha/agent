@@ -170,14 +170,21 @@ For a journal change:
    whose parent is the immediately preceding head; if stop settles a
    checkpointed turn, append its immutable handoff before journal close and
    never retry a node whose append was already attempted;
-4. exclude credentials, provider/model state, permissions, drafts,
+4. synchronize every file before publication; on POSIX synchronize the staged
+   session directory before its rename and the containing directory after head
+   replacement, publication, retirement, and lock transitions;
+5. serialize scan, retention, resume selection, and publication with the exact
+   workspace admission lock; live contention fails busy and only one exact
+   operating-system-proven stale admission receives one fresh acquisition;
+6. exclude credentials, provider/model state, permissions, drafts,
    provisional output, activity, notices, foreign causes, and receipts;
-5. prove exact-workspace isolation, active and stale locks, truncated final
-   lines, interrupted head replacement, deliberate current-revision selection,
-   unreconciled gap rejection, interior corruption, independent
-   structured-payload bounds, cleanup settlement, no duplicate append, and one
-   composition round trip;
-6. update the public retention and exact deletion instructions in the same
+7. prove exact-workspace isolation, active and stale locks, concurrent
+   admission at the retention boundary, POSIX directory-sync failure,
+   truncated final lines, interrupted head replacement, deliberate
+   current-revision selection, unreconciled gap rejection, interior corruption,
+   independent structured-payload bounds, cleanup settlement, no duplicate
+   append, and one composition round trip;
+8. update the public retention and exact deletion instructions in the same
    change.
 
 Rollback first removes `agent resume --latest` and disables new journal

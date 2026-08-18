@@ -47,6 +47,13 @@ it does not append to the previous journal or rerun tools. If the previous
 process is still active, the latest journal is corrupt, or no journal exists
 for this workspace, startup fails content-free.
 
+Creation and resume briefly hold one workspace session-admission lock while
+validating retention and publishing the continuation. A simultaneous launch
+for the same workspace fails content-free as busy instead of waiting or
+exceeding the retained-session bound; run it again after the other launch has
+finished admission. A lock whose exact process no longer exists may be
+reclaimed once during a later launch.
+
 A crash during the final append may leave one incomplete last line. Resume
 discards only that line, restores the validated complete prefix, and shows a
 recovery notice. Any earlier corruption fails closed. See the
@@ -96,6 +103,8 @@ The evaluation workflow and interpretation rules live in
   prints `agent rejected the workspace privacy policy` and exits nonzero.
 - A missing, active, corrupt, oversized, or inaccessible latest session makes
   `agent resume --latest` fail without printing its path or content.
+- A simultaneous session admission for the same workspace reports that session
+  admission is busy and exits without opening a journal.
 - Credential, provider, input, rendering, and cleanup failures expose only a
   short content-safe classification and return a nonzero status when startup
   or shutdown cannot complete.

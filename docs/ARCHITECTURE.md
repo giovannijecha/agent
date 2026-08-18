@@ -157,6 +157,15 @@ that previous head; current-revision selections remain authoritative and every
 other mismatch fails closed. Evaluation-receipt and non-TTY runs create no
 journal.
 
+Every accepted journal file is synchronized before publication. On POSIX, the
+CLI also synchronizes a staged session directory before publishing it and the
+containing directory after every head replacement, session publication,
+retirement, or lock transition; unsupported directory synchronization fails
+closed. One exact workspace admission lock serializes scan, retention, resume
+selection, and continuation publication across processes. Live contention is
+reported as busy without waiting, while one operating-system-proven stale
+admission may be reclaimed before one fresh acquisition.
+
 Each encoded tool input and result retains the same independent structured-value
 limits enforced when that payload entered the runtime; sibling payloads do not
 share a parser budget.

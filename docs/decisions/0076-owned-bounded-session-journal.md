@@ -58,6 +58,14 @@ the path itself is not stored. Each session directory contains:
   exact journal turn count it has observed; and
 - `lock`, the owning process identifier while that continuation is active.
 
+The hashed workspace directory may additionally contain one exact ephemeral
+`.admission` file with the admitting process identifier. It exists only while
+the CLI serializes session scanning, retention, resume-source validation, and
+publication. A live owner makes a concurrent launch fail content-free as busy;
+there is no wait or implicit retry. If the operating system proves that the
+exact owner no longer exists, the CLI may remove that stale file and perform
+one fresh exclusive acquisition.
+
 Records use an original closed JSON shape. Structured values encode each kind
 explicitly, including negative zero, and unknown fields or versions fail
 closed. Every tool input and result is decoded against its own exact structured
@@ -73,6 +81,16 @@ beside already committed conversation entries. Streaming deltas, prospective
 turns, drafts, selections in progress, tool activity presentation, notices,
 permissions, provider credentials, provider/model selections, catalog results,
 foreign causes, and evaluation receipts never enter the journal.
+
+File contents are synchronized before they become authoritative. A new session
+also synchronizes its staged directory before the directory is renamed into the
+workspace session set. On POSIX, every same-directory head replacement and
+session publication is followed by synchronization of the containing
+directory; retention and lock namespace changes are synchronized before the
+serialized operation completes. Failure at any required synchronization point
+is a content-free storage failure. Windows retains the same file-sync and
+same-directory replacement order without claiming POSIX directory-fsync
+semantics that Node does not expose there.
 
 Resume validates the newest exact header, workspace digest, inactive lock,
 complete record prefix, tree identities, bounds, presentation classifications,
@@ -100,9 +118,11 @@ The existing tree limit remains 128 settled turns, 256 provider-message units,
 and 1,048,576 code units. One journal is at most 16,777,216 UTF-8 bytes. One
 workspace retains at most 32 validated session directories and scans at most
 64; before creating another, the oldest unlocked exact session directories are
-removed until the bound is restored. Active sessions are never removed. A
-limit, ambiguous lock, unexpected entry, unsafe relative removal target, or
-storage failure stops creation or resume content-free.
+removed until the bound is restored. The workspace admission spans that scan,
+retirement, and publication, so concurrent processes cannot independently
+exceed the retained-session or scan bound. Active sessions are never removed.
+A busy admission, limit, ambiguous lock, unexpected entry, unsafe relative
+removal target, or storage failure stops creation or resume content-free.
 
 Directories request owner-only mode `0700` and files request `0600` where the
 platform honors POSIX modes. The journal is local personal content, not a
@@ -128,9 +148,11 @@ settlement and that the controller appends it before journal close. The
 controller's attempted-node marker prevents cleanup from retrying an append.
 CLI tests also prove platform state-root resolution, workspace isolation,
 bounded creation, active-lock rejection, exact append and head updates,
-truncated-tail recovery, interrupted-head recovery, deliberate selection at the
-current journal revision, rejection of unreconciled revision gaps,
-corruption rejection, continuation lineage, cleanup, and transcript rebuilding.
+POSIX directory-sync failure, serialized concurrent admission at the retention
+boundary, stale admission recovery, truncated-tail recovery, interrupted-head
+recovery, deliberate selection at the current journal revision, rejection of
+unreconciled revision gaps, corruption rejection, continuation lineage,
+cleanup, and transcript rebuilding.
 One composition test proves that a real runtime settlement is journaled once
 through the serialized controller and can be resumed.
 

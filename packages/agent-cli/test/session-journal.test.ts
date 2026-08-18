@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {
+  chmod,
   mkdir,
   mkdtemp,
   readFile,
@@ -9,6 +10,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { platform } from "node:process";
 import test from "node:test";
 
 import { ConversationTree, Message, Role } from "@agent/core";
@@ -158,6 +160,25 @@ test("preserves a deliberate head selection at the current journal revision", as
     assert.equal(resumed.value.recoveredState, false);
     assert.equal((await resumed.value.journal.close()).ok, true);
   } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("fails closed when a POSIX head replacement cannot synchronize its directory", async () => {
+  if (platform === "win32") return;
+  const root = await mkdtemp(path.join(tmpdir(), "agent-journal-head-sync-"));
+  let directory: string | undefined;
+  try {
+    const created = await SessionJournal.create(root, "/work/alpha");
+    assert.equal(created.ok, true);
+    if (!created.ok) return;
+    directory = await sessionDirectory(root);
+    await chmod(directory, 0o300);
+    const selected = await created.value.journal.select(0);
+    assert.equal(selected.ok, false);
+    if (!selected.ok) assert.equal(selected.error.kind, "storage");
+  } finally {
+    if (directory !== undefined) await chmod(directory, 0o700);
     await rm(root, { force: true, recursive: true });
   }
 });
@@ -322,6 +343,65 @@ test("retires oldest inactive sessions at the exact workspace bound", async () =
       assert.equal((await created.value.journal.close()).ok, true);
     }
     assert.equal((await sessionDirectories(root)).length, 32);
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("serializes concurrent admission at the exact workspace bound", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "agent-journal-admission-"));
+  try {
+    for (let index = 0; index < 31; index += 1) {
+      const created = await SessionJournal.create(root, "C:\\work\\alpha");
+      assert.equal(created.ok, true);
+      if (!created.ok) return;
+      assert.equal((await created.value.journal.close()).ok, true);
+    }
+    const admitted = await Promise.all([
+      SessionJournal.create(root, "C:\\work\\alpha"),
+      SessionJournal.create(root, "C:\\work\\alpha"),
+    ]);
+    const opened = admitted.filter((result) => result.ok);
+    const blocked = admitted.filter((result) => !result.ok);
+    assert.equal(opened.length, 1);
+    assert.equal(blocked.length, 1);
+    const rejected = blocked.at(0);
+    if (rejected !== undefined && !rejected.ok) {
+      assert.equal(rejected.error.kind, "busy");
+    }
+    assert.equal((await sessionDirectories(root)).length, 32);
+    const accepted = opened.at(0);
+    if (accepted !== undefined && accepted.ok) {
+      assert.equal((await accepted.value.journal.close()).ok, true);
+    }
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("reclaims one exact stale workspace admission before creating", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "agent-journal-admission-stale-"));
+  try {
+    const initial = await SessionJournal.create(root, "C:\\work\\alpha");
+    assert.equal(initial.ok, true);
+    if (!initial.ok) return;
+    assert.equal((await initial.value.journal.close()).ok, true);
+    const workspace = path.dirname(await sessionDirectory(root));
+    await writeFile(path.join(workspace, ".admission"), "999999999\n", {
+      encoding: "utf8",
+      flag: "wx",
+    });
+
+    const created = await SessionJournal.create(root, "C:\\work\\alpha");
+    assert.equal(created.ok, true);
+    if (!created.ok) return;
+    assert.equal((await created.value.journal.close()).ok, true);
+    assert.equal(
+      (await readdir(workspace, { withFileTypes: true })).some(
+        (entry) => entry.name === ".admission",
+      ),
+      false,
+    );
   } finally {
     await rm(root, { force: true, recursive: true });
   }
