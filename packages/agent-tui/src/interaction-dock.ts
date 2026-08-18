@@ -29,21 +29,30 @@ function isComponent(value: unknown): value is Component {
   );
 }
 
-function validOptions(value: unknown): value is InteractionDockOptions {
+function snapshotOptions(value: unknown): InteractionDockOptions | undefined {
   if (typeof value !== "object" || value === null) {
-    return false;
+    return undefined;
   }
   try {
     const options = value as Partial<InteractionDockOptions>;
-    return (
-      (options.focus === "editor" || options.focus === "selection") &&
-      Number.isSafeInteger(options.maximumRows) &&
-      (options.maximumRows ?? 0) >= 1 &&
-      (options.maximumRows ?? 0) <= TUI_LIMITS.frameRows &&
-      (options.header === undefined || isComponent(options.header))
-    );
+    const focus = options.focus;
+    const header = options.header;
+    const maximumRows = options.maximumRows;
+    if (
+      (focus !== "editor" && focus !== "selection") ||
+      typeof maximumRows !== "number" ||
+      !Number.isSafeInteger(maximumRows) ||
+      maximumRows < 1 ||
+      maximumRows > TUI_LIMITS.frameRows ||
+      (header !== undefined && !isComponent(header))
+    ) {
+      return undefined;
+    }
+    return header === undefined
+      ? Object.freeze({ focus, maximumRows })
+      : Object.freeze({ focus, header, maximumRows });
   } catch (_cause: unknown) {
-    return false;
+    return undefined;
   }
 }
 
@@ -70,20 +79,10 @@ export class InteractionDock implements Component {
       if (!isComponent(body)) {
         return err(new ComponentError("invalidComponent", undefined));
       }
-      if (!validOptions(options)) {
+      const ownedOptions = snapshotOptions(options);
+      if (ownedOptions === undefined) {
         return err(new ComponentError("invalidStyle", undefined));
       }
-      const ownedOptions: InteractionDockOptions =
-        options.header === undefined
-          ? Object.freeze({
-              focus: options.focus,
-              maximumRows: options.maximumRows,
-            })
-          : Object.freeze({
-              focus: options.focus,
-              header: options.header,
-              maximumRows: options.maximumRows,
-            });
       return ok(new InteractionDock(body, ownedOptions));
     } catch (_cause: unknown) {
       return err(new ComponentError("invalidComponent", undefined));

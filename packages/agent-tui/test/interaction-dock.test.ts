@@ -120,6 +120,31 @@ test("gives a one-row dock to the selection instead of its header", () => {
   assert.equal(rendered.value.rows.at(0)?.spans.at(0)?.tone, "accent");
 });
 
+test("snapshots accessor-backed options exactly once before validation", () => {
+  const reads = { focus: 0, header: 0, maximumRows: 0 };
+  const once = <T>(property: keyof typeof reads, value: T): (() => T) =>
+    () => {
+      reads[property] += 1;
+      if (reads[property] > 1) {
+        throw new Error("private hostile content");
+      }
+      return value;
+    };
+  const options = Object.defineProperties({}, {
+    focus: { get: once("focus", "editor") },
+    header: { get: once("header", undefined) },
+    maximumRows: { get: once("maximumRows", 6) },
+  });
+
+  const dock = InteractionDock.create(editor(), options as never);
+  assert.ok(dock.ok);
+  assert.deepEqual(reads, { focus: 1, header: 1, maximumRows: 1 });
+  const rendered = dock.value.render(viewport(20, 1));
+  assert.ok(rendered.ok);
+  assert.deepEqual(rendered.value.caret, { column: 5, row: 0 });
+  assert.deepEqual(reads, { focus: 1, header: 1, maximumRows: 1 });
+});
+
 test("rejects invalid options, headers, and focus caret mismatches", () => {
   const list = SelectionList.create([row("one")], 0);
   const multirowHeader = TextBlock.create("one\ntwo", "head");
