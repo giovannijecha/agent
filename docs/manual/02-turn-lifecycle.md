@@ -48,7 +48,9 @@ request permission against current state.
 During active work, Ctrl+C requests cancellation and keeps Agent open. Only
 state newer than the last completed tool checkpoint is discarded. At idle,
 Ctrl+C exits. `/exit`, Ctrl+D, and terminal EOF exit in every phase and still
-attempt terminal and runtime cleanup.
+attempt terminal and runtime cleanup. If shutdown settles a completed tool
+checkpoint, Agent journals that settled turn before closing the session; it
+does not rerun the tool or retry a journal append already attempted.
 
 ## Failures
 

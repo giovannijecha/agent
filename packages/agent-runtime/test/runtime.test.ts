@@ -1244,8 +1244,11 @@ test("stops idempotently and returns cleanup failure independently", async () =>
   await pending;
 
   assert.deepEqual(stopped, {
-    ok: false,
-    error: { failures: [{ kind: "model", error: "close failed" }] },
+    cleanup: {
+      ok: false,
+      error: { failures: [{ kind: "model", error: "close failed" }] },
+    },
+    settledTurn: undefined,
   });
   assert.deepEqual(runtime.startTurn("later"), {
     ok: false,
@@ -1265,7 +1268,10 @@ test("stop closes a stream after a delivered delta and discards preparation", as
   assert.ok(activeRuntime.startTurn("question").ok);
   assert.equal((await next(activeRuntime)).kind, "assistantDelta");
 
-  assert.deepEqual(await activeRuntime.stop(), ok(undefined));
+  assert.deepEqual(await activeRuntime.stop(), {
+    cleanup: ok(undefined),
+    settledTurn: undefined,
+  });
   assert.equal(activeStream.closeCalls, 1);
   assert.equal(activeRuntime.activeTurnId, undefined);
   assert.equal(activeRuntime.conversation.length, 0);
@@ -1285,8 +1291,11 @@ test("stop closes a stream after a delivered delta and discards preparation", as
   assert.equal((await next(preparedRuntime)).kind, "turnPrepared");
 
   assert.deepEqual(await preparedRuntime.stop(), {
-    ok: false,
-    error: { failures: [{ error: "close failed", kind: "model" }] },
+    cleanup: {
+      ok: false,
+      error: { failures: [{ error: "close failed", kind: "model" }] },
+    },
+    settledTurn: undefined,
   });
   assert.equal(preparedRuntime.activeTurnId, undefined);
   assert.equal(preparedRuntime.conversation.length, 0);
@@ -2693,7 +2702,11 @@ test("stop cancels a pending tool handler and preserves its attempted result", a
   await handlerStarted.promise;
   const stopped = runtime.stop();
   await pending;
-  assert.ok((await stopped).ok);
+  const report = await stopped;
+  assert.deepEqual(report.cleanup, ok(undefined));
+  assert.equal(report.settledTurn?.outcome.kind, "cancelled");
+  assert.equal(report.settledTurn?.turn.settlement, "checkpointed");
+  assert.equal(report.settledTurn?.turn.entries.length, 2);
   assert.equal(cancellationObserved, true);
   assert.equal(runtime.conversation.length, 2);
   const exchange = runtime.conversation.entries.at(1);

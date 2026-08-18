@@ -3,8 +3,11 @@ import type {
   RuntimeCommandError,
   RuntimeSession,
   RuntimeSourceError,
+  RuntimeStoppedTurn,
   RuntimeStopError,
+  RuntimeStopReport,
 } from "@agent/runtime";
+import type { ConversationTreeTurnSnapshot } from "@agent/core";
 import {
   advanceMotionPhase,
   ClipboardPayload,
@@ -126,6 +129,10 @@ type RuntimeStopSettlement =
   | Readonly<{ kind: "unexpected" }>
   | Readonly<{ kind: "value"; result: unknown }>;
 
+type JournalPublication = {
+  attemptedNodeId: number | undefined;
+};
+
 function runError<E, RE>(
   primary: RunFailure<E> | undefined,
   cleanup: readonly CleanupFailure<E, RE>[],
@@ -185,45 +192,79 @@ function beginRuntimeStop<RE>(
   }
 }
 
-function classifyRuntimeStop<E, RE>(
+function readRuntimeStopReport<RE>(
   stopped: RuntimeStopSettlement,
-): CleanupFailure<E, RE> | undefined {
+): RuntimeStopReport<RE> | undefined {
   if (stopped.kind === "unexpected") {
-    return Object.freeze({
-      kind: "unexpected" as const,
-      operation: "runtime" as const,
-    });
+    return undefined;
   }
   try {
     if (typeof stopped.result !== "object" || stopped.result === null) {
-      return Object.freeze({
-        kind: "unexpected" as const,
-        operation: "runtime" as const,
-      });
-    }
-    const result = stopped.result as Readonly<{
-      error?: unknown;
-      ok?: unknown;
-    }>;
-    if (result.ok === true) {
       return undefined;
     }
-    if (result.ok === false && "error" in result) {
-      return Object.freeze({
-        error: result.error as RuntimeStopError<RE>,
-        kind: "runtime" as const,
-      });
+    const report = stopped.result as Readonly<{
+      cleanup?: unknown;
+      settledTurn?: unknown;
+    }>;
+    if (Object.keys(stopped.result).sort().join(",") !== "cleanup,settledTurn") {
+      return undefined;
     }
-    return Object.freeze({
-      kind: "unexpected" as const,
-      operation: "runtime" as const,
-    });
+    const cleanup = report.cleanup;
+    if (typeof cleanup !== "object" || cleanup === null) {
+      return undefined;
+    }
+    const cleanupResult = cleanup as Readonly<{
+      error?: unknown;
+      ok?: unknown;
+      value?: unknown;
+    }>;
+    const cleanupKeys = Object.keys(cleanup).sort().join(",");
+    if (
+      (cleanupResult.ok !== true || cleanupKeys !== "ok,value" ||
+        cleanupResult.value !== undefined) &&
+      (cleanupResult.ok !== false || cleanupKeys !== "error,ok")
+    ) {
+      return undefined;
+    }
+    const settledTurn = report.settledTurn;
+    if (settledTurn !== undefined) {
+      if (
+        typeof settledTurn !== "object" ||
+        settledTurn === null ||
+        Object.keys(settledTurn).sort().join(",") !== "outcome,turn"
+      ) {
+        return undefined;
+      }
+      const outcome = (settledTurn as Readonly<{ outcome?: unknown }>).outcome;
+      if (typeof outcome !== "object" || outcome === null) {
+        return undefined;
+      }
+      const kind = (outcome as Readonly<{ kind?: unknown }>).kind;
+      if (kind !== "cancelled" && kind !== "failed") {
+        return undefined;
+      }
+    }
+    return report as RuntimeStopReport<RE>;
   } catch (_cause: unknown) {
+    return undefined;
+  }
+}
+
+function classifyRuntimeStop<E, RE>(
+  report: RuntimeStopReport<RE> | undefined,
+): CleanupFailure<E, RE> | undefined {
+  if (report === undefined) {
     return Object.freeze({
       kind: "unexpected" as const,
       operation: "runtime" as const,
     });
   }
+  return report.cleanup.ok
+    ? undefined
+    : Object.freeze({
+        error: report.cleanup.error,
+        kind: "runtime" as const,
+      });
 }
 
 async function renderApplication<E>(
@@ -256,6 +297,7 @@ async function persistSettledTurn<E>(
   presentation: SessionTurnPresentation,
   historySource: RuntimeHistorySource | undefined,
   journal: SessionJournal | undefined,
+  publication: JournalPublication,
 ): Promise<RunFailure<E> | undefined> {
   if (journal === undefined) {
     return undefined;
@@ -275,7 +317,32 @@ async function persistSettledTurn<E>(
         operation: "history" as const,
       });
     }
-    const persisted = await journal.appendTurn(turn.value, presentation);
+    return persistTurnSnapshot(
+      turn.value,
+      presentation,
+      journal,
+      publication,
+    );
+  } catch (_cause: unknown) {
+    return Object.freeze({
+      kind: "unexpected" as const,
+      operation: "journal" as const,
+    });
+  }
+}
+
+async function persistTurnSnapshot<E>(
+  turn: ConversationTreeTurnSnapshot,
+  presentation: SessionTurnPresentation,
+  journal: SessionJournal | undefined,
+  publication: JournalPublication,
+): Promise<RunFailure<E> | undefined> {
+  if (journal === undefined || publication.attemptedNodeId === turn.id) {
+    return undefined;
+  }
+  publication.attemptedNodeId = turn.id;
+  try {
+    const persisted = await journal.appendTurn(turn, presentation);
     return persisted.ok
       ? undefined
       : Object.freeze({
@@ -291,6 +358,47 @@ async function persistSettledTurn<E>(
   }
 }
 
+async function persistStoppedTurn<E, RE>(
+  stoppedTurn: RuntimeStoppedTurn<RE> | undefined,
+  journal: SessionJournal | undefined,
+  publication: JournalPublication,
+): Promise<RunFailure<E> | undefined> {
+  if (stoppedTurn === undefined) {
+    return undefined;
+  }
+  try {
+    const presentation: SessionTurnPresentation =
+      stoppedTurn.outcome.kind === "cancelled"
+        ? Object.freeze({ kind: "cancelled" as const })
+        : Object.freeze({
+            code: projectTurnFailure(stoppedTurn.outcome.failure, true).code,
+            kind: "failed" as const,
+          });
+    return persistTurnSnapshot(
+      stoppedTurn.turn,
+      presentation,
+      journal,
+      publication,
+    );
+  } catch (_cause: unknown) {
+    return Object.freeze({
+      kind: "unexpected" as const,
+      operation: "journal" as const,
+    });
+  }
+}
+
+function cleanupPublicationFailure<E, RE>(
+  failure: RunFailure<E>,
+): CleanupFailure<E, RE> {
+  return failure.kind === "journal"
+    ? Object.freeze({ error: failure.error, kind: "journal" as const })
+    : Object.freeze({
+        kind: "unexpected" as const,
+        operation: "journal" as const,
+      });
+}
+
 async function applyEffect<E, RE>(
   effect: ApplicationEffect,
   application: ApplicationController,
@@ -300,6 +408,7 @@ async function applyEffect<E, RE>(
   evaluation: EvaluationReceiptRecorder | undefined,
   historySource: RuntimeHistorySource | undefined,
   journal: SessionJournal | undefined,
+  publication: JournalPublication,
 ): Promise<EffectOutcome<E>> {
   if (effect.kind === "exit") {
     return Object.freeze({ exit: true, failure: undefined, redraw: false });
@@ -667,6 +776,7 @@ async function applyEffect<E, RE>(
           presentation,
           historySource,
           journal,
+          publication,
         );
         if (persisted !== undefined) {
           return Object.freeze({
@@ -819,6 +929,7 @@ async function applyApplicationUpdate<E, RE>(
   evaluation: EvaluationReceiptRecorder | undefined,
   historySource: RuntimeHistorySource | undefined,
   journal: SessionJournal | undefined,
+  publication: JournalPublication,
 ): Promise<EffectOutcome<E>> {
   let redraw = update.redraw;
   for (const effect of update.effects) {
@@ -831,6 +942,7 @@ async function applyApplicationUpdate<E, RE>(
       evaluation,
       historySource,
       journal,
+      publication,
     );
     redraw = redraw || outcome.redraw;
     if (outcome.failure !== undefined || outcome.exit) {
@@ -853,6 +965,7 @@ async function cleanup<E, RE>(
   notices: NoticeController | undefined,
   providers: ProviderSelectionPort | undefined,
   journal: SessionJournal | undefined,
+  publication: JournalPublication,
 ): Promise<readonly CleanupFailure<E, RE>[]> {
   const failures = closeAuxiliaryControllers<E, RE>(motion, notices);
   try {
@@ -899,7 +1012,16 @@ async function cleanup<E, RE>(
   }
   if (runtimeStop !== undefined) {
     const stopped = await runtimeStop;
-    const failure = classifyRuntimeStop<E, RE>(stopped);
+    const report = readRuntimeStopReport<RE>(stopped);
+    const persistenceFailure = await persistStoppedTurn<E, RE>(
+      report?.settledTurn,
+      journal,
+      publication,
+    );
+    if (persistenceFailure !== undefined) {
+      failures.push(cleanupPublicationFailure<E, RE>(persistenceFailure));
+    }
+    const failure = classifyRuntimeStop<E, RE>(report);
     if (failure !== undefined) {
       failures.push(failure);
     }
@@ -955,12 +1077,24 @@ function closeAuxiliaryControllers<E, RE>(
 async function cleanupPlainRuntime<RE>(
   runtime: RuntimeSession<RE> | undefined,
   journal: SessionJournal | undefined,
+  publication: JournalPublication,
 ): Promise<readonly CleanupFailure<never, RE>[]> {
   const stopped = beginRuntimeStop(runtime);
   const failures: CleanupFailure<never, RE>[] = [];
   if (stopped !== undefined) {
     const result = await stopped;
-    const failure = classifyRuntimeStop<never, RE>(result);
+    const report = readRuntimeStopReport<RE>(result);
+    const persistenceFailure = await persistStoppedTurn<never, RE>(
+      report?.settledTurn,
+      journal,
+      publication,
+    );
+    if (persistenceFailure !== undefined) {
+      failures.push(
+        cleanupPublicationFailure<never, RE>(persistenceFailure),
+      );
+    }
+    const failure = classifyRuntimeStop<never, RE>(report);
     if (failure !== undefined) {
       failures.push(failure);
     }
@@ -1000,6 +1134,7 @@ export async function run<E, RE = never>(
   restoredChat?: RestoredChatState,
   recoveredPrefix = false,
 ): Promise<Result<void, RunError<E, RE>>> {
+  const publication: JournalPublication = { attemptedNodeId: undefined };
   if (!host.interactive) {
     let primary: RunFailure<E> | undefined;
     try {
@@ -1024,7 +1159,11 @@ export async function run<E, RE = never>(
         }),
       );
     }
-    const runtimeCleanup = await cleanupPlainRuntime(runtime, journal);
+    const runtimeCleanup = await cleanupPlainRuntime(
+      runtime,
+      journal,
+      publication,
+    );
     cleanupFailures.push(
       ...(runtimeCleanup as readonly CleanupFailure<E, RE>[]),
     );
@@ -1171,6 +1310,7 @@ export async function run<E, RE = never>(
               evaluation,
               historySource,
               journal,
+              publication,
             );
             redraw = outcome.redraw;
             if (outcome.failure !== undefined) {
@@ -1229,6 +1369,7 @@ export async function run<E, RE = never>(
               presentation,
               historySource,
               journal,
+              publication,
             );
             if (persisted !== undefined) {
               primary = persisted;
@@ -1247,6 +1388,7 @@ export async function run<E, RE = never>(
             evaluation,
             historySource,
             journal,
+            publication,
           );
           redraw = outcome.redraw;
           if (outcome.failure !== undefined) {
@@ -1402,6 +1544,7 @@ export async function run<E, RE = never>(
     notices,
     providers,
     journal,
+    publication,
   );
   return primary === undefined && cleanupFailures.length === 0
     ? ok(undefined)

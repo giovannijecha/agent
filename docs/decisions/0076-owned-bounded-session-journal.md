@@ -41,6 +41,12 @@ the sole journal, state-directory, lock, recovery, transcript-restoration, and
 launch owner. Journal append, active-node selection, model events, effects, and
 terminal output all remain in the existing serialized controller.
 
+Runtime stop returns cleanup truth independently from at most one immutable
+checkpointed turn settled while shutdown owns event ordering. The CLI attempts
+that turn's append before closing the journal. It records the exact node whose
+append was attempted, so cleanup never retries a record already offered to the
+journal and never replays its tools or effects.
+
 The per-user state root is `%LOCALAPPDATA%\agent\sessions` on Windows and
 `${XDG_STATE_HOME:-$HOME/.local/state}/agent/sessions` on POSIX systems. A
 SHA-256 digest of the immutable canonical workspace path selects its directory;
@@ -53,8 +59,10 @@ the path itself is not stored. Each session directory contains:
 
 Records use an original closed JSON shape. Structured values encode each kind
 explicitly, including negative zero, and unknown fields or versions fail
-closed. A record is appended and synchronized only after the runtime and CLI
-have accepted the complete settlement. Completed turns retain their final
+closed. Every tool input and result is decoded against its own exact structured
+value budget. A record is appended and synchronized only after the runtime and
+CLI have accepted the complete settlement, including settlement delivered by
+runtime stop. Completed turns retain their final
 assistant message. Checkpointed cancellation retains the fixed cancellation
 marker; checkpointed failure retains only its closed content-free failure code
 beside already committed conversation entries. Streaming deltas, prospective
@@ -105,10 +113,14 @@ contract.
 
 ## Verification
 
-Core tests prove lossless codec round trips, branching identities, structured
-values, exact schemas, impossible parents, and invalid active heads. CLI tests
-prove platform state-root resolution, workspace isolation, bounded creation,
-active-lock rejection, exact append and head updates, truncated-tail recovery,
+Core tests prove lossless codec round trips, branching identities, independently
+bounded structured payloads, exact schemas, impossible parents, and invalid
+active heads. Runtime and CLI tests prove that stop returns a checkpointed
+settlement and that the controller appends it before journal close. The
+controller's attempted-node marker prevents cleanup from retrying an append.
+CLI tests also prove platform state-root resolution, workspace isolation,
+bounded creation, active-lock rejection, exact append and head updates,
+truncated-tail recovery,
 corruption rejection, continuation lineage, cleanup, and transcript rebuilding.
 One composition test proves that a real runtime settlement is journaled once
 through the serialized controller and can be resumed.

@@ -7,7 +7,7 @@ import type {
   RuntimeEvent,
   RuntimeSession,
   RuntimeSourceError,
-  RuntimeStopError,
+  RuntimeStopReport,
   StartedTurn,
   StartTurnError,
 } from "@agent/runtime";
@@ -110,8 +110,11 @@ class PullRuntime implements RuntimeSession<string> {
     return read.promise;
   }
 
-  async stop(): Promise<Result<void, RuntimeStopError<string>>> {
-    return ok(undefined);
+  async stop(): Promise<RuntimeStopReport<string>> {
+    return Object.freeze({
+      cleanup: ok(undefined),
+      settledTurn: undefined,
+    });
   }
 }
 

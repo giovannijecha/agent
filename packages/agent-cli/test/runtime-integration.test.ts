@@ -5,6 +5,16 @@ import path from "node:path";
 import test from "node:test";
 
 import {
+  ConversationTree,
+  Message,
+  Role,
+  StructuredObject,
+  ToolCall,
+  ToolExchange,
+  ToolResult,
+  structuredValueFromUnknown,
+} from "@agent/core";
+import {
   AgentRuntime,
   type CommitTurnResult,
   type ModelStream,
@@ -14,7 +24,8 @@ import {
   type RuntimeEvent,
   type RuntimeSession,
   type RuntimeSourceError,
-  type RuntimeStopError,
+  type RuntimeStoppedTurn,
+  type RuntimeStopReport,
   type StartedTurn,
   type StartTurnError,
   type StreamingModel,
@@ -230,6 +241,7 @@ class ControlledRuntime implements RuntimeSession<string> {
   startCalls = 0;
   stopCalls = 0;
   stopFailure: string | undefined;
+  stoppedTurn: RuntimeStoppedTurn<string> | undefined;
   allowPermission = false;
 
   startTurn(input: string): Result<StartedTurn, StartTurnError> {
@@ -323,7 +335,7 @@ class ControlledRuntime implements RuntimeSession<string> {
     });
   }
 
-  async stop(): Promise<Result<void, RuntimeStopError<string>>> {
+  async stop(): Promise<RuntimeStopReport<string>> {
     this.stopCalls += 1;
     this.#finishedTurnId = undefined;
     const turnId = this.#activeTurnId;
@@ -346,13 +358,21 @@ class ControlledRuntime implements RuntimeSession<string> {
       );
     }
     if (this.stopFailure === undefined) {
-      return ok(undefined);
+      return Object.freeze({
+        cleanup: ok(undefined),
+        settledTurn: this.stoppedTurn,
+      });
     }
     const failure: RuntimeCleanupFailure<string> = Object.freeze({
       error: this.stopFailure,
       kind: "model" as const,
     });
-    return err(Object.freeze({ failures: Object.freeze([failure]) }));
+    return Object.freeze({
+      cleanup: err(
+        Object.freeze({ failures: Object.freeze([failure]) }),
+      ),
+      settledTurn: this.stoppedTurn,
+    });
   }
 
   emit(event: RuntimeEvent<string>): void {
@@ -691,6 +711,56 @@ function completed(turnId: number, text: string): RuntimeEvent<string> {
   }) as unknown as RuntimeEvent<string>;
 }
 
+function stoppedCheckpoint(
+  userContent = "inspect",
+): RuntimeStoppedTurn<string> {
+  const user = Message.create(Role.User, userContent);
+  const inputValue = structuredValueFromUnknown({ path: "notes.txt" });
+  const outputValue = structuredValueFromUnknown({ content: "owned" });
+  assert.ok(user.ok);
+  assert.ok(inputValue.ok);
+  assert.ok(outputValue.ok);
+  if (
+    !user.ok ||
+    !inputValue.ok ||
+    !(inputValue.value instanceof StructuredObject) ||
+    !outputValue.ok
+  ) {
+    throw new Error("checkpoint fixture failed");
+  }
+  const call = ToolCall.create("call-1", "read_file", inputValue.value);
+  const result = ToolResult.create(
+    "call-1",
+    "read_file",
+    "success",
+    outputValue.value,
+  );
+  assert.ok(call.ok);
+  assert.ok(result.ok);
+  if (!call.ok || !result.ok) {
+    throw new Error("checkpoint tool fixture failed");
+  }
+  const exchange = ToolExchange.create(undefined, [call.value], [result.value]);
+  assert.ok(exchange.ok);
+  if (!exchange.ok) {
+    throw new Error("checkpoint exchange fixture failed");
+  }
+  const appended = ConversationTree.empty().appendTurn(
+    [user.value, exchange.value],
+    "checkpointed",
+  );
+  assert.ok(appended.ok);
+  const turn = appended.ok ? appended.value.turns.at(0) : undefined;
+  assert.ok(turn !== undefined);
+  if (turn === undefined) {
+    throw new Error("checkpoint turn fixture failed");
+  }
+  return Object.freeze({
+    outcome: Object.freeze({ kind: "cancelled" as const }),
+    turn,
+  });
+}
+
 test("streams one runtime turn into chat and exits only on later idle Ctrl+C", async () => {
   const host = new ControlledHost();
   const runtime = new ControlledRuntime();
@@ -778,6 +848,55 @@ test("publishes one settled runtime turn into the resumable CLI journal", async 
         ["question", "answer"],
       );
       assert.equal(await resumed.value.journal.close().then((value) => value.ok), true);
+    }
+  } finally {
+    await rm(stateRoot, { force: true, recursive: true });
+  }
+});
+
+test("persists a checkpoint settled during cleanup before closing the journal", async () => {
+  const stateRoot = await mkdtemp(path.join(tmpdir(), "agent-stop-journal-"));
+  const workspace = path.join(stateRoot, "workspace");
+  const opened = await SessionJournal.create(stateRoot, workspace);
+  assert.ok(opened.ok);
+  if (!opened.ok) return;
+  const runtime = new ControlledRuntime();
+  runtime.stoppedTurn = stoppedCheckpoint("question");
+  const host = new ControlledHost();
+  try {
+    const running = run(
+      host,
+      runtime,
+      undefined,
+      workspace,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      opened.value.journal,
+      opened.value.chat,
+    );
+    await host.started.promise;
+    await host.waitForWrites(1);
+    host.emit(input("question\r"));
+    await runtime.waitForReads(1);
+    host.emit(input("/exit\r"));
+    assert.ok((await running).ok);
+
+    const resumed = await SessionJournal.resumeLatest(stateRoot, workspace);
+    assert.ok(resumed.ok);
+    if (resumed.ok) {
+      assert.equal(resumed.value.history.turns.length, 1);
+      assert.equal(
+        resumed.value.history.turns.at(0)?.settlement,
+        "checkpointed",
+      );
+      assert.equal(
+        resumed.value.history.conversation.entries.at(1) instanceof ToolExchange,
+        true,
+      );
+      assert.ok((await resumed.value.journal.close()).ok);
     }
   } finally {
     await rm(stateRoot, { force: true, recursive: true });

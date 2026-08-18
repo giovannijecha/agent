@@ -89,7 +89,7 @@ export type ConversationJournalTurn = Readonly<{
   settlement: ConversationTurnSettlement;
 }>;
 
-type ParseBudget = { depth: number; nodes: number };
+type ParseBudget = { nodes: number; textCodeUnits: number };
 
 function failure(kind: ConversationJournalErrorKind): ConversationJournalError {
   return new ConversationJournalError(kind);
@@ -152,11 +152,16 @@ function structuredRecord(value: StructuredValue): StructuredValueRecord {
 }
 
 function enter(budget: ParseBudget, depth: number): boolean {
-  if (depth > STRUCTURED_VALUE_LIMITS.depth + 2) {
+  if (depth > STRUCTURED_VALUE_LIMITS.depth) {
     return false;
   }
   budget.nodes += 1;
-  return budget.nodes <= STRUCTURED_VALUE_LIMITS.nodes * 2;
+  return budget.nodes <= STRUCTURED_VALUE_LIMITS.nodes;
+}
+
+function addText(budget: ParseBudget, codeUnits: number): boolean {
+  budget.textCodeUnits += codeUnits;
+  return budget.textCodeUnits <= STRUCTURED_VALUE_LIMITS.totalCodeUnits;
 }
 
 function structuredValue(
@@ -186,7 +191,8 @@ function structuredValue(
   if (kind === "string" && exactKeys(input, "kind,value")) {
     const value = candidate.value;
     return typeof value === "string" &&
-        value.length <= STRUCTURED_VALUE_LIMITS.stringCodeUnits
+        value.length <= STRUCTURED_VALUE_LIMITS.stringCodeUnits &&
+        addText(budget, value.length)
       ? value
       : undefined;
   }
@@ -237,7 +243,8 @@ function structuredValue(
       name.length === 0 ||
       name.length > STRUCTURED_VALUE_LIMITS.keyCodeUnits ||
       !/^[A-Za-z][A-Za-z0-9_]*$/u.test(name) ||
-      names.has(name)
+      names.has(name) ||
+      !addText(budget, name.length)
     ) {
       return undefined;
     }
@@ -345,7 +352,6 @@ function exchangeFromRecord(input: unknown): ToolExchange | undefined {
   }
   const calls: ToolCall[] = [];
   const results: ToolResult[] = [];
-  const budget: ParseBudget = { depth: 0, nodes: 0 };
   for (let index = 0; index < candidate.calls.length; index += 1) {
     const rawCall = candidate.calls.at(index);
     const rawResult = candidate.results.at(index);
@@ -370,8 +376,16 @@ function exchangeFromRecord(input: unknown): ToolExchange | undefined {
       output?: unknown;
       status?: unknown;
     }>;
-    const callInput = structuredValue(call.input, budget, 0);
-    const resultOutput = structuredValue(result.output, budget, 0);
+    const callInput = structuredValue(
+      call.input,
+      { nodes: 0, textCodeUnits: 0 },
+      0,
+    );
+    const resultOutput = structuredValue(
+      result.output,
+      { nodes: 0, textCodeUnits: 0 },
+      0,
+    );
     if (
       typeof call.callId !== "string" ||
       typeof call.name !== "string" ||

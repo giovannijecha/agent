@@ -24,4 +24,9 @@ export type {
 } from "./model.js";
 export { RUNTIME_LIMITS } from "./limits.js";
 export { AgentRuntime } from "./runtime.js";
-export type { RuntimeHistorySource, RuntimeSession } from "./session.js";
+export type {
+  RuntimeHistorySource,
+  RuntimeSession,
+  RuntimeStoppedTurn,
+  RuntimeStopReport,
+} from "./session.js";
