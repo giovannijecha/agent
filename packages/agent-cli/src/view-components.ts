@@ -60,5 +60,8 @@ export function createInteractionHeader(
     if (!trailing.ok) return trailing;
     right.push(trailing.value);
   }
-  return SplitLine.create(left, right, { gap: 2, priority: "left" });
+  return SplitLine.create(left, right, {
+    gap: 2,
+    priority: status === undefined ? "left" : "right",
+  });
 }

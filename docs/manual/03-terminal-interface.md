@@ -49,7 +49,8 @@ while a selector owns the dock. Pointer input is interpreted against the dock
 focus that is visible on screen, including when keyboard and mouse bytes arrive
 in one input chunk. Clipboard settlement feedback remains visible at the
 selector header's right edge until it expires; it does not reveal the retained
-draft or restore a composer caret.
+draft or restore a composer caret. On a narrow terminal, that feedback takes
+display priority over the selector title.
 
 `/providers` and `/models` use the same list controls: Up and Down move without
 wrapping, and Enter selects the current row. Selecting an unconfigured provider
@@ -58,7 +59,8 @@ marks the credential as process-only; the composer prompt reads
 `Enter API key · Ctrl+C cancels`. Enter accepts the key and Ctrl+C cancels the
 credential edit. The caret remains keyboard-owned, but pointer input cannot
 position, select, or copy concealed credential text; transcript selection and
-copying remain available. See
+copying remain available. Clipboard settlement feedback temporarily replaces
+the entry prompt without revealing the credential. See
 [Providers and authentication](05-providers-and-authentication.md) for provider
 and model rules.
 
