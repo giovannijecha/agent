@@ -104,10 +104,10 @@ state under its existing stale-state contract.
 
 Core tests prove root behavior, immutable append, path materialization,
 alternate-child retention, deterministic ordering, invalid delta rejection,
-selection failure, and all aggregate bounds. Runtime tests prove successful and
-checkpointed node creation, uncheckpointed failure rollback, model input from
-the selected path, branching after selection, idle-only selection, exact node
-identities, and cleanup.
+hostile public-array containment, selection failure, and all aggregate bounds.
+Runtime tests prove successful and checkpointed node creation, uncheckpointed
+failure rollback, model input from the selected path, branching after selection,
+idle-only selection, exact node identities, and cleanup.
 
 CLI tests prove the `/timeline` command catalog, selector controls, safe bounded
 labels, root and branch transcript projection, serialized runtime-first
