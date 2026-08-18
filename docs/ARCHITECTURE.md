@@ -253,13 +253,13 @@ contract.
 ## Terminal boundary
 
 The TUI is conversation-first. The transcript is dominant; completion,
-activity, notices, permission selection, composer, and footer are contextual
-regions projected from authoritative application state.
+activity, notices, one interaction dock, and the footer are contextual regions
+projected from authoritative application state.
 
 `@agent/tui` owns generic, deterministic terminal mechanics:
 
 - semantic rows, surfaces, wrapping, Markdown, highlighting, and layout;
-- the bounded line editor and generic selection list;
+- the bounded line editor, generic selection list, and six-row interaction dock;
 - input decoding, pointer semantics, scroll geometry, and frame diffs;
 - ANSI emission and terminal-width rules.
 
@@ -270,6 +270,15 @@ regions projected from authoritative application state.
 - permission decisions and tool lifecycle projection;
 - terminal/runtime event serialization and cancellation;
 - filesystem, process, clipboard, and native-platform effects.
+
+The ruled interaction dock has one focus owner. Editor focus renders the draft
+or concealed provider credential and admits the frame's one caret. Selection
+focus replaces that editor body with the provider, model, permission,
+pending-tool, or timeline list, retains at most one header plus five visible
+items, and admits no caret. The CLI chooses that focus, consumes the input that
+closes a selector, and prevents composer pointer effects until editor focus
+returns. Slash completion stays above the dock because it remains an
+editor-owned draft operation.
 
 Tool activity never becomes transcript content. User and assistant messages
 remain structured role entries but render without redundant role labels.

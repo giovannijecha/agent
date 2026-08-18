@@ -8,9 +8,10 @@ Delete remove one code point. Ctrl+Backspace, Ctrl+W, and Ctrl+Delete remove one
 word. Home and End move to the draft boundaries. Enter submits a nonblank
 draft.
 
-The composer grows from one to six visible rows and keeps the caret in view.
-Typing or deleting replaces an active composer selection. Ctrl+C cancels
-active work and exits while idle; it is not a copy shortcut.
+The ruled interaction dock shows the composer while editor focus is active. It
+grows from one to six visible rows and keeps the caret in view. Typing or
+deleting replaces an active composer selection. Ctrl+C cancels active work and
+exits while idle; it is not a copy shortcut.
 
 ## Paste text
 
@@ -36,6 +37,14 @@ Unknown commands produce a short warning. Command feedback is contextual and
 does not enter the transcript.
 
 ## Use selectors
+
+Provider, model, permission, pending-tool, and timeline selectors replace the
+composer body inside the same two rules. The dock shows at most six content
+rows: an optional header and up to five windowed choices. The current choice
+stays visible and accented; the composer caret is absent. The draft remains
+unchanged. An ordinary editor input closes a dismissible selector and is
+consumed, and pointer input cannot edit or copy the draft until editor focus
+returns.
 
 `/providers` and `/models` use the same list controls: Up and Down move without
 wrapping, and Enter selects the current row. Selecting an unconfigured provider
@@ -90,9 +99,10 @@ and confirmation; Agent never launches a browser.
 
 The transcript is the dominant region. User requests use italic steel-blue
 text, assistant prose is neutral, and neither carries a role label or box. The
-composer remains fixed between two light-blue rules. Its caret uses the
-terminal's blinking block cursor; Agent does not simulate the blink, and a
-terminal that does not support shape selection may retain its native cursor.
+interaction dock remains fixed between two light-blue rules. In editor focus
+its caret uses the terminal's blinking block cursor; in selection focus the
+caret is absent. Agent does not simulate the blink, and a terminal that does
+not support shape selection may retain its native cursor.
 The footer shows the workspace and selected provider/model; its right edge
 contains a small moving pulse only while autonomous work advances. Permission
 waiting is not active motion.
@@ -139,3 +149,4 @@ display styling never executes code or changes model text.
 - [Branching conversation-tree decision](../decisions/0075-owned-branching-conversation-tree.md)
 - [Durable-session decision](../decisions/0076-owned-bounded-session-journal.md)
 - [Blinking-block cursor decision](../decisions/0077-owned-terminal-blinking-block-cursor.md)
+- [Interaction-dock focus decision](../decisions/0078-owned-interaction-dock-focus.md)

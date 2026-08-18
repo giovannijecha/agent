@@ -216,6 +216,7 @@ test("owns one frozen conversation density policy", () => {
     flushCells: 0,
     flushRows: 0,
     composerRuleRows: 1,
+    interactionDockMaximumRows: 6,
     rhythmRows: 1,
   });
   assert.equal(Object.isFrozen(CONVERSATION_DENSITY), true);
@@ -1023,7 +1024,8 @@ test("retains the compact action, state, and selected permission before preview"
   assert.equal(activityRows.at(0)?.text.includes("permission"), true);
   assert.equal(activityRows.at(0)?.text.includes("apply_patch"), false);
   assert.equal(rows.some((row) => row.text.includes("Allow once")), true);
-  assert.equal(rows.some((row) => row.text.includes("Allow for session")), false);
+  assert.equal(rows.some((row) => row.text.includes("Allow for session")), true);
+  assert.equal(rows.some((row) => row.text.includes("Deny")), false);
   assert.equal(rows.some((row) => row.text.includes("alpha beta")), false);
   assert.equal(
     activityRows.at(0)?.spans.every((span) => span.surface === "none"),
@@ -1312,8 +1314,16 @@ test("renders the current-session provider selector without a box", () => {
   assert.ok(rendered.ok);
   const rows = rendered.value.rows;
   const provider = rows.find((row) => row.text.includes("Ollama Cloud"));
+  const providerIndex = rows.findIndex((row) => row === provider);
+  const ruleIndexes = rows
+    .map((row, index) => isComposerRule(row) ? index : -1)
+    .filter((index) => index >= 0);
 
   assert.equal(rows.some((row) => row.text.includes("Providers")), true);
+  assert.equal(ruleIndexes.length, 2);
+  assert.equal(providerIndex > (ruleIndexes.at(0) ?? providerIndex), true);
+  assert.equal(providerIndex < (ruleIndexes.at(1) ?? providerIndex), true);
+  assert.equal(rendered.value.caret, undefined);
   assert.equal(provider?.text.includes("qwen3-coder:480b-cloud"), true);
   assert.equal(provider?.text.includes("active"), true);
   assert.equal(
@@ -1386,10 +1396,10 @@ test("renders the transient six-tool session permission editor without a box", (
     "search_text",
     "apply_patch",
     "manage_path",
-    "shell",
   ]) {
     assert.equal(rows.some((row) => row.text.includes(name)), true);
   }
+  assert.equal(rows.some((row) => row.text.includes("shell")), false);
   const selected = rows.find((row) => row.text.includes("apply_patch"));
   assert.equal(
     selected?.spans.find((span) => span.text.includes("apply_patch"))?.tone,
@@ -1408,6 +1418,7 @@ test("renders the transient six-tool session permission editor without a box", (
   );
   assert.equal(rows.some((row) => row.text.includes("/approve")), false);
   assert.equal(rows.some((row) => row.text.includes("/deny")), false);
+  assert.equal(rendered.value.caret, undefined);
 });
 
 test("moves slash selection, hides exact completion, and coexists with activity", () => {

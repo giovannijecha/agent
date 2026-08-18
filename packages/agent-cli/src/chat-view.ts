@@ -6,6 +6,7 @@ import {
   type Frame,
   HorizontalRules,
   InputArea,
+  InteractionDock,
   ok,
   type Result,
   ScrollView,
@@ -43,7 +44,6 @@ import { createSpacer, createSpan } from "./view-components.js";
 const DOCUMENT_SLOT = 0;
 const COMPOSER_SLOT = 8;
 const CONVERSATION_RHYTHM_PRIORITY = 6;
-const COMPOSER_MAXIMUM_CONTENT_ROWS = 6;
 
 export type ChatRender = Readonly<{
   composer: VerticalAllocation;
@@ -118,6 +118,7 @@ function createNotice(
 
 function createComposer(
   application: ApplicationController,
+  selection?: Component,
 ): Result<Component, ComponentError> {
   const credentialEntry = application.projectProviderCredential();
   const notice = application.noticePlacement === "composer"
@@ -136,13 +137,22 @@ function createComposer(
         text: "Enter API key · Ctrl+C cancels",
         tone: "muted" as const,
       });
-  const input = InputArea.create(application, {
-    maximumRows: COMPOSER_MAXIMUM_CONTENT_ROWS,
-    textTone: "plain",
-    ...(trailingStatus === undefined ? {} : { trailingStatus }),
-  });
-  if (!input.ok) return input;
-  return HorizontalRules.create(input.value, {
+  let body = selection;
+  if (body === undefined) {
+    const input = InputArea.create(application, {
+      maximumRows: CONVERSATION_DENSITY.interactionDockMaximumRows,
+      textTone: "plain",
+      ...(trailingStatus === undefined ? {} : { trailingStatus }),
+    });
+    if (!input.ok) return input;
+    const dock = InteractionDock.create(input.value, {
+      focus: "editor",
+      maximumRows: CONVERSATION_DENSITY.interactionDockMaximumRows,
+    });
+    if (!dock.ok) return dock;
+    body = dock.value;
+  }
+  return HorizontalRules.create(body, {
     horizontalPadding: CONVERSATION_DENSITY.contentInsetCells,
     ruleRows: CONVERSATION_DENSITY.composerRuleRows,
     tone: "accent",
@@ -220,25 +230,29 @@ export function createChatRender(
   if (!credential.ok) return credential;
   const timeline = createTimelineDocument(timelineMenu);
   if (!timeline.ok) return timeline;
-  const contextualSelection = contextCount === 1;
-  const completion = providerMenu !== undefined
-    ? providers
+  const contextualSelection = providerMenu !== undefined
+    ? providers.value
     : modelMenu !== undefined
-      ? models
+      ? models.value
       : timelineMenu !== undefined
-        ? timeline
-        : providerCredential !== undefined
-          ? credential
-          : contextualSelection
-            ? permissions
-            : createCommandCompletionDocument(commandCompletion);
+        ? timeline.value
+        : permissionMenu !== undefined || toolDecision !== undefined
+          ? permissions.value
+          : undefined;
+  const completionVisible = providerCredential !== undefined ||
+    (contextualSelection === undefined && commandCompletion !== undefined);
+  const completion = providerCredential !== undefined
+    ? credential
+    : createCommandCompletionDocument(
+        contextualSelection === undefined ? commandCompletion : undefined,
+      );
   if (!completion.ok) return completion;
   const completionColumn = createConversationStage(completion.value);
   if (!completionColumn.ok) return completionColumn;
   const completionHeight = completionColumn.value.measure(viewport.columns);
   if (!completionHeight.ok) return completionHeight;
 
-  const composer = createComposer(application);
+  const composer = createComposer(application, contextualSelection);
   if (!composer.ok) return composer;
   const composerColumn = createConversationStage(composer.value);
   if (!composerColumn.ok) return composerColumn;
@@ -298,7 +312,7 @@ export function createChatRender(
       flex: 0,
       minimumRows: 0,
       preferredRows:
-        commandCompletion === undefined && !contextualSelection
+        !completionVisible
           ? 0
           : CONVERSATION_DENSITY.rhythmRows,
       priority: CONVERSATION_RHYTHM_PRIORITY,
@@ -307,9 +321,9 @@ export function createChatRender(
       component: completionColumn.value,
       flex: 0,
       minimumRows:
-        commandCompletion === undefined && !contextualSelection ? 0 : 1,
+        completionVisible ? 1 : 0,
       preferredRows:
-        commandCompletion === undefined && !contextualSelection
+        !completionVisible
           ? 0
           : completionHeight.value.preferredRows,
       priority: 6,

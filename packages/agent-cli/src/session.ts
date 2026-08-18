@@ -345,6 +345,7 @@ export class SessionController {
           event.kind !== "eof"
         ) {
           emit(Object.freeze({ kind: "closePermissions" as const }));
+          continue;
         }
       }
       if (context === "providers") {
@@ -371,6 +372,7 @@ export class SessionController {
           event.kind !== "eof"
         ) {
           emit(Object.freeze({ kind: "closeProviders" as const }));
+          continue;
         }
       }
       if (context === "models") {
@@ -397,6 +399,7 @@ export class SessionController {
           event.kind !== "eof"
         ) {
           emit(Object.freeze({ kind: "closeModels" as const }));
+          continue;
         }
       }
       if (context === "timeline") {
@@ -423,6 +426,7 @@ export class SessionController {
           event.kind !== "eof"
         ) {
           emit(Object.freeze({ kind: "closeTimeline" as const }));
+          continue;
         }
       }
       if (context === "providerCredential") {

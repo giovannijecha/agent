@@ -48,6 +48,11 @@ export {
   type PointerEvent,
 } from "./input-decoder.js";
 export {
+  InteractionDock,
+  type InteractionDockFocus,
+  type InteractionDockOptions,
+} from "./interaction-dock.js";
+export {
   LineEditor,
   type EditorAreaProjection,
   type EditorOutcome,

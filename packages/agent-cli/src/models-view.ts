@@ -2,10 +2,10 @@ import {
   type Component,
   ComponentError,
   err,
+  InteractionDock,
   type Result,
   SelectionList,
   SplitLine,
-  Surface,
 } from "@agent/tui";
 
 import { CONVERSATION_DENSITY } from "./conversation-density.js";
@@ -61,13 +61,9 @@ export function createModelsDocument(
   }
   const list = SelectionList.create(rows, projection.selectedIndex);
   if (!list.ok) return list;
-  const content = createStack([header.value, list.value]);
-  if (!content.ok) return content;
-  return Surface.create(content.value, {
-    extent: "viewport",
-    horizontalPadding: CONVERSATION_DENSITY.contentInsetCells,
-    slant: "inherit",
-    surface: "none",
-    verticalPadding: CONVERSATION_DENSITY.flushRows,
+  return InteractionDock.create(list.value, {
+    focus: "selection",
+    header: header.value,
+    maximumRows: CONVERSATION_DENSITY.interactionDockMaximumRows,
   });
 }
