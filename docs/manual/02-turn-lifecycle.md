@@ -34,6 +34,13 @@ remaining task. A final assistant response enters the transcript only after the
 runtime prepares it and the CLI acknowledges the commit. If no runtime is
 configured, submitted text is discarded and no turn starts.
 
+Every settled turn becomes one bounded process-memory timeline node. While
+idle, `/timeline` can select the root or an earlier settled node. The transcript
+then shows only that root-to-node path, and the next submitted task creates a
+new child there without deleting the former continuation. Selecting history
+does not rerun tools or restore old workspace state; mutations still plan and
+request permission against current state.
+
 ## Cancel or exit
 
 During active work, Ctrl+C requests cancellation and keeps Agent open. Only
@@ -66,3 +73,4 @@ Cleanup failures remain separate from the primary failure.
 - [Convergent turn decision](../decisions/0061-owned-convergent-tool-turns.md)
 - [Tool-call interoperability decision](../decisions/0069-owned-tool-call-interoperability.md)
 - [Deterministic read-overlap decision](../decisions/0074-owned-deterministic-read-overlap.md)
+- [Branching conversation-tree decision](../decisions/0075-owned-branching-conversation-tree.md)

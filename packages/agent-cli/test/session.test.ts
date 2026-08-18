@@ -80,6 +80,10 @@ test("selects slash completions without navigating the transcript", () => {
         command: "/permissions",
         description: "set session tool permissions",
       },
+      {
+        command: "/timeline",
+        description: "select conversation branch",
+      },
       { command: "/exit", description: "close agent" },
     ],
     selectedIndex: 1,
@@ -93,7 +97,7 @@ test("bounds completion selection and completes with Tab without executing", () 
   const bounded = session.feed("\u001B[A[B[B[B[B");
 
   assert.equal(bounded.redraw, true);
-  assert.equal(session.projectCommandCompletion()?.selectedIndex, 3);
+  assert.equal(session.projectCommandCompletion()?.selectedIndex, 4);
   const completed = session.feed("\t");
   assert.deepEqual(completed, { actions: [], redraw: true });
   assert.equal(session.projectEditor(20).text, "/exit");

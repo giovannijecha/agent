@@ -70,6 +70,11 @@ that domain; a summary here never overrides its canonical owner.
   registered independent read handlers may overlap as one bounded cohort only
   after every permission settles. They never overlap an owned effect and their
   results return to the sole controller in provider order.
+- Core owns one bounded immutable process-memory conversation tree. Runtime
+  exposes exactly one selected root-to-node model path; `/timeline` is the sole
+  idle-only selector, and appending after an older selection retains siblings.
+  Selection never replays tools. Persistence, compaction, merge, deletion,
+  import, and export remain disabled without a separate accepted decision.
 - Keep modules cohesive, independently testable, replaceable, and removable.
   Do not add speculative layers or overlapping authority.
 

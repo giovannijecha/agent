@@ -6,6 +6,7 @@ export type StartTurnErrorKind =
   | "closed"
   | "conversationTooLong"
   | "emptyInput"
+  | "historyTooLong"
   | "inputTooLong"
   | "turnIdExhausted";
 
@@ -13,12 +14,18 @@ export type StartTurnErrorKind =
 export type StartTurnError = Readonly<{ kind: StartTurnErrorKind }>;
 
 /** Accepted local turn that is not yet committed conversation state. */
-export type StartedTurn = Readonly<{ turnId: number; user: Message }>;
+export type StartedTurn = Readonly<{
+  historyParentNodeId: number;
+  turnId: number;
+  user: Message;
+}>;
 
 export type RuntimeCommandErrorKind =
+  | "busy"
   | "closed"
   | "conversationTooLong"
   | "idle"
+  | "invalidHistoryNode"
   | "notFinished"
   | "notAwaitingPermission"
   | "notPrepared"
@@ -68,8 +75,8 @@ export type TurnOutcome<E> =
 
 /** Authoritative result of resolving one prepared successful turn. */
 export type CommitTurnResult =
-  | Readonly<{ kind: "cancelled" }>
-  | Readonly<{ kind: "committed" }>;
+  | Readonly<{ historyNodeId: number | undefined; kind: "cancelled" }>
+  | Readonly<{ historyNodeId: number; kind: "committed" }>;
 
 /** Ordered runtime event consumed by the application reducer. */
 export type RuntimeEvent<E> =
@@ -111,6 +118,7 @@ export type RuntimeEvent<E> =
       outcome: TurnOutcome<E>;
       cleanup: readonly RuntimeCleanupFailure<E>[];
       checkpointed: boolean;
+      historyNodeId: number | undefined;
     }>;
 
 /** Independently observable cleanup failures returned during runtime stop. */

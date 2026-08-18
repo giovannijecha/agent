@@ -7,7 +7,7 @@ import { ChatState } from "../dist/chat-state.js";
 
 test("publishes a streamed pair only after exact completion", () => {
   const chat = new ChatState();
-  assert.ok(chat.begin(1, "question").ok);
+  assert.ok(chat.begin(1, "question", 0).ok);
   assert.ok(chat.append(1, "ans").ok);
 
   assert.equal(chat.transcriptText(), "question\n\nans");
@@ -17,7 +17,7 @@ test("publishes a streamed pair only after exact completion", () => {
   ]);
   assert.ok(chat.append(1, "wer").ok);
   assert.ok(chat.prepare(1, "answer").ok);
-  assert.ok(chat.commit(1).ok);
+  assert.ok(chat.commit(1, 1).ok);
 
   assert.equal(chat.activeTurnId, undefined);
   assert.equal(chat.transcriptText(), "question\n\nanswer");
@@ -29,7 +29,7 @@ test("publishes a streamed pair only after exact completion", () => {
 
 test("discards prospective personal content on cancellation", () => {
   const chat = new ChatState();
-  chat.begin(7, "private question");
+  chat.begin(7, "private question", 0);
   chat.append(7, "partial private answer");
 
   const discarded = chat.discard(7);
@@ -41,7 +41,7 @@ test("discards prospective personal content on cancellation", () => {
 
 test("rejects stale and mismatched events without retaining content in errors", () => {
   const chat = new ChatState();
-  chat.begin(1, "private question");
+  chat.begin(1, "private question", 0);
   chat.append(1, "private partial");
 
   const stale = chat.append(2, "ignored private delta");
@@ -60,25 +60,85 @@ test("rejects stale and mismatched events without retaining content in errors", 
   assert.equal(chat.activeTurnId, undefined);
 });
 
-test("evicts only the oldest completed display turns at the count bound", () => {
+test("retains branches and rejects display history beyond the tree bound", () => {
   const chat = new ChatState();
-  for (let turnId = 1; turnId <= 129; turnId += 1) {
+  for (let turnId = 1; turnId <= 128; turnId += 1) {
     const user = turnId === 1 ? "oldest-marker" : "user-" + turnId;
     const assistant = "assistant-" + turnId;
-    assert.ok(chat.begin(turnId, user).ok);
+    assert.ok(chat.begin(turnId, user, turnId - 1).ok);
     assert.ok(chat.append(turnId, assistant).ok);
     assert.ok(chat.prepare(turnId, assistant).ok);
-    assert.ok(chat.commit(turnId).ok);
+    assert.ok(chat.commit(turnId, turnId).ok);
   }
+  assert.equal(chat.begin(129, "overflow", 128).ok, true);
+  assert.ok(chat.append(129, "overflow").ok);
+  assert.ok(chat.prepare(129, "overflow").ok);
+  assert.equal(chat.commit(129, 129).ok, false);
 
   const transcript = chat.transcriptText();
-  assert.equal(transcript.includes("oldest-marker"), false);
-  assert.equal(transcript.includes("user-129"), true);
+  assert.equal(transcript.includes("oldest-marker"), true);
+  assert.equal(transcript.includes("user-128"), true);
+});
+
+test("projects and selects retained display branches without flattening siblings", () => {
+  const chat = new ChatState();
+  assert.ok(chat.begin(1, "root question", 0).ok);
+  assert.ok(chat.append(1, "root answer").ok);
+  assert.ok(chat.prepare(1, "root answer").ok);
+  assert.ok(chat.commit(1, 1).ok);
+  assert.ok(chat.begin(2, "original question", 1).ok);
+  assert.ok(chat.append(2, "original answer").ok);
+  assert.ok(chat.prepare(2, "original answer").ok);
+  assert.ok(chat.commit(2, 2).ok);
+
+  assert.ok(chat.selectHistoryNode(1).ok);
+  assert.ok(chat.begin(3, "branch question", 1).ok);
+  assert.ok(chat.append(3, "branch answer").ok);
+  assert.ok(chat.prepare(3, "branch answer").ok);
+  assert.ok(chat.commit(3, 3).ok);
+
+  assert.equal(
+    chat.transcriptText(),
+    "root question\n\nroot answer\n\nbranch question\n\nbranch answer",
+  );
+  assert.deepEqual(
+    chat.timelineEntries().map((item) => ({
+      childCount: item.childCount,
+      depth: item.depth,
+      id: item.id,
+      parentId: item.parentId,
+      selected: item.selected,
+    })),
+    [
+      { childCount: 1, depth: 0, id: 0, parentId: 0, selected: false },
+      { childCount: 2, depth: 1, id: 1, parentId: 0, selected: false },
+      { childCount: 0, depth: 2, id: 2, parentId: 1, selected: false },
+      { childCount: 0, depth: 2, id: 3, parentId: 1, selected: true },
+    ],
+  );
+
+  assert.ok(chat.selectHistoryNode(2).ok);
+  assert.equal(chat.transcriptText().includes("original question"), true);
+  assert.equal(chat.transcriptText().includes("branch question"), false);
+});
+
+test("retains a checkpointed display node as an explicit incomplete turn", () => {
+  const chat = new ChatState();
+  assert.ok(chat.begin(1, "question", 0).ok);
+  assert.ok(chat.append(1, "tool preamble").ok);
+  assert.ok(chat.checkpoint(1).ok);
+  assert.ok(chat.finishCheckpointed(1, "Turn cancelled.", 1).ok);
+
+  assert.equal(
+    chat.transcriptText(),
+    "question\n\ntool preamble\n\nTurn cancelled.",
+  );
+  assert.equal(chat.timelineEntries().at(1)?.settlement, "checkpointed");
 });
 
 test("enforces independent delta and accumulated response bounds atomically", () => {
   const chat = new ChatState();
-  chat.begin(1, "question");
+  chat.begin(1, "question", 0);
   const oversized = chat.append(1, "x".repeat(16_385));
   assert.equal(oversized.ok, false);
 
@@ -93,7 +153,7 @@ test("enforces independent delta and accumulated response bounds atomically", ()
 
 test("rejects an oversized prospective user before retaining it", () => {
   const chat = new ChatState();
-  const result = chat.begin(1, "private".repeat(600));
+  const result = chat.begin(1, "private".repeat(600), 0);
 
   assert.equal(result.ok, false);
   assert.equal(chat.hasContent, false);
@@ -105,11 +165,11 @@ test("rejects an oversized prospective user before retaining it", () => {
 
 test("explicitly releases completed and prospective display content", () => {
   const chat = new ChatState();
-  chat.begin(1, "private completed question");
+  chat.begin(1, "private completed question", 0);
   chat.append(1, "private completed answer");
   chat.prepare(1, "private completed answer");
-  chat.commit(1);
-  chat.begin(2, "private active question");
+  chat.commit(1, 1);
+  chat.begin(2, "private active question", 1);
   chat.append(2, "private active answer");
 
   chat.clear();
@@ -121,7 +181,7 @@ test("explicitly releases completed and prospective display content", () => {
 
 test("tail-clips active role entries without joining their Markdown", () => {
   const chat = new ChatState();
-  assert.ok(chat.begin(1, "```text\nquestion").ok);
+  assert.ok(chat.begin(1, "```text\nquestion", 0).ok);
   for (let step = 0; step < 4; step += 1) {
     for (let chunk = 0; chunk < 16; chunk += 1) {
       const text =

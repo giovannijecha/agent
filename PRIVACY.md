@@ -154,7 +154,10 @@ four subscription OAuth connections remain disabled.
 
 ## Future local sessions
 
-Local session persistence is disabled. If implemented, it must be opt-in,
+The active path and retained alternate conversation branches exist only in
+bounded process memory. `/timeline` changes which retained path is sent to the
+model; it writes no session file and never uploads an inactive branch by
+itself. Local session persistence is disabled. If implemented, it must be opt-in,
 versioned, bounded, inspectable, removable, and documented before release. It
 must not silently upload or synchronize session data.
 
@@ -205,7 +208,8 @@ a product diagnosis.
 ## Removal
 
 Closing the current process releases its in-memory conversation, display state,
-selection state, and key reference. Clipboard content accepted by the terminal
+selection state, and key reference. The conversation release includes the
+active path and every retained alternate branch. Clipboard content accepted by the terminal
 is external host state and must be cleared through that terminal or operating
 system. The operator must also remove the environment variable from
 any still-running parent shell. Removing the workspace removes all owned source and generated artifacts;

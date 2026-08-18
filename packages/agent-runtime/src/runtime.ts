@@ -1,5 +1,9 @@
 import {
+  CONVERSATION_TREE_LIMITS,
   Conversation,
+  ConversationTree,
+  type ConversationEntry,
+  type ConversationTurnSettlement,
   err,
   Message,
   ok,
@@ -53,9 +57,13 @@ type OwnedModelStream<E> = Readonly<{
 }>;
 
 type TurnState<E> = {
+  readonly baseCodeUnits: number;
+  readonly baseLength: number;
+  readonly baseMessageUnits: number;
   candidate: Conversation;
   readonly chunks: string[];
   readonly cancellation: CancellationSource;
+  readonly historyParentNodeId: number;
   readonly turnId: number;
   checkpointed: boolean;
   cleanup: RuntimeCleanupFailure<E>[];
@@ -326,6 +334,7 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
   readonly #tools: ToolEngine | undefined;
   #closed = false;
   #conversation = Conversation.empty();
+  #history = ConversationTree.empty();
   #finished:
     | Readonly<{
         cleanup: readonly RuntimeCleanupFailure<E>[];
@@ -354,6 +363,25 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
     return this.#state?.turnId ?? this.#finished?.turnId;
   }
 
+  /** Selects one existing process-memory branch while the runtime is idle. */
+  selectConversationNode(
+    nodeId: number,
+  ): Result<void, RuntimeCommandError> {
+    if (this.#closed) {
+      return err(commandError("closed"));
+    }
+    if (this.#state !== undefined || this.#finished !== undefined) {
+      return err(commandError("busy"));
+    }
+    const selected = this.#history.select(nodeId);
+    if (!selected.ok) {
+      return err(commandError("invalidHistoryNode"));
+    }
+    this.#history = selected.value;
+    this.#conversation = this.#history.conversation;
+    return ok(undefined);
+  }
+
   /** Validates and starts one prospective turn without committing personal text. */
   startTurn(input: string): Result<StartedTurn, StartTurnError> {
     if (this.#closed) {
@@ -378,6 +406,15 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
     ) {
       return err(startError("conversationTooLong"));
     }
+    if (
+      this.#history.turnCount >= CONVERSATION_TREE_LIMITS.turns ||
+      this.#history.retainedMessageUnits + 2 >
+        CONVERSATION_TREE_LIMITS.messageUnits ||
+      this.#history.retainedCodeUnits + user.value.content.length + 1 >
+        CONVERSATION_TREE_LIMITS.codeUnits
+    ) {
+      return err(startError("historyTooLong"));
+    }
     const candidate = this.#conversation.append(user.value);
     if (
       candidate.codeUnits > RUNTIME_LIMITS.conversationCodeUnits
@@ -388,12 +425,16 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
     const turnId = this.#nextTurnId;
     this.#nextTurnId += 1;
     this.#state = {
+      baseCodeUnits: this.#conversation.codeUnits,
+      baseLength: this.#conversation.length,
+      baseMessageUnits: this.#conversation.messageUnits,
       candidate,
       chunks: [],
       cancellation: new CancellationSource(),
       checkpointed: false,
       cleanup: [],
       eventCount: 0,
+      historyParentNodeId: this.#history.activeNodeId,
       toolBatch: undefined,
       prepared: undefined,
       responseCodeUnits: 0,
@@ -402,7 +443,13 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
       toolSteps: 0,
       turnId,
     };
-    return ok(Object.freeze({ turnId, user: user.value }));
+    return ok(
+      Object.freeze({
+        historyParentNodeId: this.#history.activeNodeId,
+        turnId,
+        user: user.value,
+      }),
+    );
   }
 
   /** Requests cancellation for the exact active turn idempotently. */
@@ -480,8 +527,19 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
       return err(commandError("notPrepared"));
     }
     if (state.cancellation.requested) {
+      const historyNodeId = state.checkpointed
+        ? this.#appendHistory(state, "checkpointed")
+        : undefined;
+      if (state.checkpointed && historyNodeId === undefined) {
+        return err(commandError("conversationTooLong"));
+      }
+      if (!state.checkpointed) {
+        this.#conversation = this.#history.conversation;
+      }
       this.#discardState(state);
-      return ok(Object.freeze({ kind: "cancelled" as const }));
+      return ok(
+        Object.freeze({ historyNodeId, kind: "cancelled" as const }),
+      );
     }
     if (
       state.candidate.messageUnits + 1 >
@@ -491,9 +549,18 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
     ) {
       return err(commandError("conversationTooLong"));
     }
-    this.#conversation = state.candidate.append(prepared.assistant);
+    const historyNodeId = this.#appendHistory(
+      state,
+      "completed",
+      prepared.assistant,
+    );
+    if (historyNodeId === undefined) {
+      return err(commandError("conversationTooLong"));
+    }
     this.#discardState(state);
-    return ok(Object.freeze({ kind: "committed" as const }));
+    return ok(
+      Object.freeze({ historyNodeId, kind: "committed" as const }),
+    );
   }
 
   /** Releases one delivered terminal receipt after the application consumes it. */
@@ -842,6 +909,20 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
         failed(Object.freeze({ kind: "toolLimit" })),
       );
     }
+    const retainedDeltaMessageUnits =
+      state.candidate.messageUnits - state.baseMessageUnits;
+    if (
+      this.#history.retainedMessageUnits +
+        retainedDeltaMessageUnits +
+        preparedCalls.length +
+        2 >
+      CONVERSATION_TREE_LIMITS.messageUnits
+    ) {
+      return this.#finish(
+        state,
+        failed(Object.freeze({ kind: "toolLimit" })),
+      );
+    }
     let fixedCodeUnits =
       state.candidate.codeUnits +
       (assistant?.content.length ?? 0) +
@@ -852,8 +933,23 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
         prepared.call.name.length * 2 +
         prepared.call.input.codeUnits;
     }
-    const availableOutputCodeUnits =
+    const activeAvailableOutputCodeUnits =
       RUNTIME_LIMITS.conversationCodeUnits - fixedCodeUnits;
+    let retainedFixedCodeUnits =
+      this.#history.retainedCodeUnits +
+      (state.candidate.codeUnits - state.baseCodeUnits) +
+      (assistant?.content.length ?? 0) +
+      RUNTIME_LIMITS.responseCodeUnits;
+    for (const prepared of preparedCalls) {
+      retainedFixedCodeUnits +=
+        prepared.call.callId.length * 2 +
+        prepared.call.name.length * 2 +
+        prepared.call.input.codeUnits;
+    }
+    const availableOutputCodeUnits = Math.min(
+      activeAvailableOutputCodeUnits,
+      CONVERSATION_TREE_LIMITS.codeUnits - retainedFixedCodeUnits,
+    );
     const minimumOutputCodeUnits =
       preparedCalls.length * TOOL_ENGINE_LIMITS.minimumOutputCodeUnits;
     if (availableOutputCodeUnits < minimumOutputCodeUnits) {
@@ -1438,6 +1534,10 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
     ) {
       return false;
     }
+    const retained = this.#previewHistory(state, "checkpointed", undefined, candidate);
+    if (retained === undefined) {
+      return false;
+    }
     state.candidate = candidate;
     state.checkpointed = true;
     this.#conversation = candidate;
@@ -1458,6 +1558,12 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
         state,
         Object.freeze({ kind: "cancelled" }),
         cleanup,
+      );
+    }
+    if (this.#previewHistory(state, "completed", assistant) === undefined) {
+      return this.#finish(
+        state,
+        failed(Object.freeze({ kind: "responseTooLong" })),
       );
     }
     state.chunks.splice(0);
@@ -1496,6 +1602,12 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
     cleanup: readonly RuntimeCleanupFailure<E>[],
   ): Result<RuntimeEvent<E>, RuntimeSourceError> {
     state.chunks.splice(0);
+    const historyNodeId = state.checkpointed
+      ? this.#appendHistory(state, "checkpointed")
+      : undefined;
+    if (!state.checkpointed) {
+      this.#conversation = this.#history.conversation;
+    }
     if (this.#state === state) {
       this.#state = undefined;
     }
@@ -1507,8 +1619,47 @@ export class AgentRuntime<E> implements RuntimeSession<E> {
         outcome,
         cleanup,
         checkpointed: state.checkpointed,
+        historyNodeId,
       }),
     );
+  }
+
+  #previewHistory(
+    state: TurnState<E>,
+    settlement: ConversationTurnSettlement,
+    assistant?: Message,
+    candidate: Conversation = state.candidate,
+  ): ConversationTree | undefined {
+    if (this.#history.activeNodeId !== state.historyParentNodeId) {
+      return undefined;
+    }
+    const entries: ConversationEntry[] = [];
+    for (let index = state.baseLength; index < candidate.length; index += 1) {
+      const entry = candidate.entries.at(index);
+      if (entry === undefined) {
+        return undefined;
+      }
+      entries.push(entry);
+    }
+    if (assistant !== undefined) {
+      entries.push(assistant);
+    }
+    const appended = this.#history.appendTurn(entries, settlement);
+    return appended.ok ? appended.value : undefined;
+  }
+
+  #appendHistory(
+    state: TurnState<E>,
+    settlement: ConversationTurnSettlement,
+    assistant?: Message,
+  ): number | undefined {
+    const appended = this.#previewHistory(state, settlement, assistant);
+    if (appended === undefined) {
+      return undefined;
+    }
+    this.#history = appended;
+    this.#conversation = this.#history.conversation;
+    return this.#history.activeNodeId;
   }
 
   async #closeStream(

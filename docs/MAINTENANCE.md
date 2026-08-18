@@ -127,6 +127,29 @@ Rollback by reverting the port and CLI composition together. Removal requires a
 replacement owner for bounded turns and acknowledged conversation checkpoints;
 the CLI must not absorb a second private runtime.
 
+### Conversation tree
+
+**Owners:** `packages/agent-core/src/conversation-tree.ts`, runtime settlement
+and selection, CLI `ChatState`, `/timeline`, its generic selection projection,
+and decision 0075.
+
+For a conversation-tree change:
+
+1. change node shape, parent rules, settlement class, bounds, and path
+   materialization first in core;
+2. keep the runtime tree authoritative and allow selection only while idle;
+3. preserve completed and checkpointed node truth without replaying tools;
+4. update the CLI mirror only after a runtime selection or commit succeeds;
+5. prove siblings remain retained, only the selected path reaches the model,
+   rejected selection is inert, and cleanup releases all process-memory state.
+
+Rollback removes `/timeline` and its projection first, restores a linear CLI
+transcript, then replaces the runtime tree with the selected linear path.
+Removal deletes the command, session route, display projection, runtime port,
+core type, tests, manual text, and decision registration together. Never add
+persistence, compaction, replay, branch deletion, or import/export as part of a
+tree maintenance change; each requires a separate accepted design.
+
 ### Tool engine
 
 **Owners:** `packages/agent-tools`, CLI planners and handlers, the six-tool

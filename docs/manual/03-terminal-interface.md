@@ -24,7 +24,7 @@ cannot leave a partial draft or start a turn.
 ## Run commands
 
 Type `/` or a partial exact command name to open completion. The maintained
-commands are `/providers`, `/models`, `/permissions`, and `/exit`.
+commands are `/providers`, `/models`, `/permissions`, `/timeline`, and `/exit`.
 
 While completion is visible:
 
@@ -51,6 +51,13 @@ tool decision instead shows `Allow once`, `Allow for session`, and `Deny`; Up
 and Down choose an action and Enter resolves it. See
 [Tools and permissions](04-tools-and-approval.md) for the authority each choice
 grants.
+
+`/timeline` is available only while idle. It lists the root and every retained
+settled turn in insertion order, with indentation for depth and markers for the
+active path tip, checkpoints, and alternate children. Up and Down move without
+wrapping, Enter selects, and Ctrl+C closes the selector. Selecting the root
+makes the next task a new root branch. Timeline state is process-only and is
+not session persistence.
 
 ## Navigate and copy
 
@@ -125,3 +132,4 @@ display styling never executes code or changes model text.
 - [Composer and paste decision](../decisions/0035-owned-multiline-composer-and-paste.md)
 - [Terminal interaction decision](../decisions/0045-owned-terminal-interaction.md)
 - [Conversation focus decision](../decisions/0059-owned-accented-conversation-focus.md)
+- [Branching conversation-tree decision](../decisions/0075-owned-branching-conversation-tree.md)

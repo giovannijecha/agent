@@ -20,8 +20,13 @@ import {
 
 type Cell = Readonly<{ column: number; row: number }>;
 
-function started(turnId: number, content: string): StartedTurn {
+function started(
+  turnId: number,
+  content: string,
+  historyParentNodeId = 0,
+): StartedTurn {
   return Object.freeze({
+    historyParentNodeId,
     turnId,
     user: Object.freeze({ content }),
   }) as unknown as StartedTurn;
@@ -296,7 +301,12 @@ test("copies one logical range across message documents in chronological order",
     kind: "turnPrepared",
     turnId: 1,
   }) as unknown as RuntimeEvent<string>).ok);
-  assert.ok(application.turnCommitResolved(1, { kind: "committed" }).ok);
+  assert.ok(
+    application.turnCommitResolved(1, {
+      historyNodeId: 1,
+      kind: "committed",
+    }).ok,
+  );
   const rendered = render(application);
   const first = cellFor(rendered, { document: 0, offset: 3 });
   const second = cellFor(rendered, { document: 1, offset: 2 });

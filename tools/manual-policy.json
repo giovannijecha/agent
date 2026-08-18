@@ -107,7 +107,8 @@
     "/exit",
     "/models",
     "/permissions",
-    "/providers"
+    "/providers",
+    "/timeline"
   ],
   "toolSurface": {
     "tools": [
@@ -227,6 +228,7 @@
     "docs/decisions/0072-owned-ollama-cloud-provider.md",
     "docs/decisions/0073-owned-capability-complete-shell-execution.md",
     "docs/decisions/0074-owned-deterministic-read-overlap.md",
+    "docs/decisions/0075-owned-branching-conversation-tree.md",
     "evaluations/README.md",
     "evaluations/failures/registry.json",
     "assets/brand/README.md",
@@ -258,6 +260,7 @@
     "packages/agent-cli/src/commands.ts",
     "packages/agent-cli/src/conversation-density.ts",
     "packages/agent-cli/src/conversation-view.ts",
+    "packages/agent-cli/src/timeline-view.ts",
     "packages/agent-cli/src/evaluation-receipt.ts",
     "packages/agent-cli/src/agent-instructions.ts",
     "packages/agent-cli/src/main.ts",
@@ -317,6 +320,8 @@
     "packages/agent-runtime/src/events.ts",
     "packages/agent-runtime/src/limits.ts",
     "packages/agent-runtime/src/runtime.ts",
+    "packages/agent-runtime/src/session.ts",
+    "packages/agent-core/src/conversation-tree.ts",
     "packages/agent-tools/src/index.ts",
     "packages/agent-tui/src/input-decoder.ts",
     "packages/agent-tui/src/input-area.ts",

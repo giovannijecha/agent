@@ -93,6 +93,7 @@
     "docs/decisions/0072-owned-ollama-cloud-provider.md",
     "docs/decisions/0073-owned-capability-complete-shell-execution.md",
     "docs/decisions/0074-owned-deterministic-read-overlap.md",
+    "docs/decisions/0075-owned-branching-conversation-tree.md",
     "evaluations/README.md"
   ],
   "workspaces": [

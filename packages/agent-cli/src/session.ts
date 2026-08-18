@@ -29,6 +29,7 @@ export type SessionAction =
   | Readonly<{ kind: "closePermissions" }>
   | Readonly<{ kind: "closeModels" }>
   | Readonly<{ kind: "closeProviders" }>
+  | Readonly<{ kind: "closeTimeline" }>
   | Readonly<{ kind: "cancelProviderCredential" }>
   | Readonly<{ kind: "exit" }>
   | Readonly<{ kind: "interactionBreak" }>
@@ -53,6 +54,7 @@ export type SessionAction =
   | Readonly<{ kind: "openPermissions" }>
   | Readonly<{ kind: "openModels" }>
   | Readonly<{ kind: "openProviders" }>
+  | Readonly<{ kind: "openTimeline" }>
   | Readonly<{
       event: PointerEvent;
       kind: "pointer";
@@ -78,6 +80,7 @@ export type SessionInputContext =
   | "permissions"
   | "providerCredential"
   | "providers"
+  | "timeline"
   | "toolDecision";
 
 function notice(...lines: string[]): SessionAction {
@@ -115,6 +118,8 @@ function dispatchSubmission(
     emit(Object.freeze({ kind: "openProviders" as const }));
   } else if (command.kind === "models") {
     emit(Object.freeze({ kind: "openModels" as const }));
+  } else if (command.kind === "timeline") {
+    emit(Object.freeze({ kind: "openTimeline" as const }));
   }
   return false;
 }
@@ -392,6 +397,32 @@ export class SessionController {
           event.kind !== "eof"
         ) {
           emit(Object.freeze({ kind: "closeModels" as const }));
+        }
+      }
+      if (context === "timeline") {
+        if (event.kind === "up" || event.kind === "down") {
+          emit(
+            Object.freeze({
+              direction: event.kind === "up" ? "previous" as const : "next" as const,
+              kind: "moveContextSelection" as const,
+            }),
+          );
+          continue;
+        }
+        if (event.kind === "enter") {
+          emit(Object.freeze({ kind: "activateContextSelection" as const }));
+          continue;
+        }
+        if (event.kind === "interrupt") {
+          emit(Object.freeze({ kind: "closeTimeline" as const }));
+          continue;
+        }
+        if (
+          event.kind !== "pageUp" &&
+          event.kind !== "pageDown" &&
+          event.kind !== "eof"
+        ) {
+          emit(Object.freeze({ kind: "closeTimeline" as const }));
         }
       }
       if (context === "providerCredential") {

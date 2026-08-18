@@ -96,6 +96,7 @@ separate follow-up unless the adjacent change is necessary for correctness.
 | provider change | offline request/stream contract tests; no live network in canonical verification |
 | native boundary | focused native tests on each admitted platform plus canonical Linux and Windows gates |
 | tool change | schema, planner, permission, handler, stale-state, and presentation coverage as applicable |
+| conversation-tree change | pure append/select/path/bound tests, runtime settlement tests, and one CLI selection smoke path |
 | documentation topology | documentation-policy regression and link/route validation |
 | evaluation task | input and expected-tree validation without executing candidate workspaces |
 
@@ -148,6 +149,9 @@ does not prove a contract that names an exact invocation.
   one blocker; it is never repeated blindly.
 - A completed tool checkpoint remains authoritative if a later model
   continuation fails.
+- Selecting retained history changes only the active model path. It never
+  retries or replays a tool, and every later mutation replans against current
+  state.
 - User-facing failures expose only the closed product classification. Provider
   bodies, credentials, paths, call identifiers, and model payloads stay private.
 - One observed evaluation failure is evidence to investigate, not authority for

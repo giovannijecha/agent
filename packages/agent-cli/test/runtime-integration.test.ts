@@ -214,6 +214,9 @@ class ControlledRuntime implements RuntimeSession<string> {
     | ((result: Result<RuntimeEvent<string>, RuntimeSourceError>) => void)
     | undefined;
   #finishedTurnId: number | undefined;
+  #historyNodeId = 0;
+  #nextHistoryNodeId = 1;
+  #preparedCheckpointed = false;
   #readReject: ((cause: unknown) => void) | undefined;
   readonly #readObservers = new Map<number, () => void>();
   #readWaiters: CountWaiter[] = [];
@@ -235,10 +238,22 @@ class ControlledRuntime implements RuntimeSession<string> {
     this.#notifyCount(this.#startWaiters, this.startCalls);
     return ok(
       Object.freeze({
+        historyParentNodeId: this.#historyNodeId,
         turnId: this.#activeTurnId,
         user: Object.freeze({ content: input }),
       }) as unknown as StartedTurn,
     );
+  }
+
+  selectConversationNode(nodeId: number): Result<void, RuntimeCommandError> {
+    if (this.#activeTurnId !== undefined || this.#finishedTurnId !== undefined) {
+      return err(Object.freeze({ kind: "busy" as const }));
+    }
+    if (!Number.isSafeInteger(nodeId) || nodeId < 0 || nodeId >= this.#nextHistoryNodeId) {
+      return err(Object.freeze({ kind: "invalidHistoryNode" as const }));
+    }
+    this.#historyNodeId = nodeId;
+    return ok(undefined);
   }
 
   requestCancel(turnId: number): Result<boolean, RuntimeCommandError> {
@@ -261,11 +276,20 @@ class ControlledRuntime implements RuntimeSession<string> {
       return err(Object.freeze({ kind: "staleTurn" as const }));
     }
     this.#activeTurnId = undefined;
-    return ok(
-      this.cancelCalls > 0
-        ? Object.freeze({ kind: "cancelled" as const })
-        : Object.freeze({ kind: "committed" as const }),
-    );
+    const historyNodeId = this.cancelCalls > 0 && !this.#preparedCheckpointed
+      ? undefined
+      : this.#nextHistoryNodeId;
+    if (historyNodeId !== undefined) {
+      this.#historyNodeId = historyNodeId;
+      this.#nextHistoryNodeId += 1;
+    }
+    this.#preparedCheckpointed = false;
+    return ok(this.cancelCalls > 0
+      ? Object.freeze({ historyNodeId, kind: "cancelled" as const })
+      : Object.freeze({
+          historyNodeId: historyNodeId ?? 0,
+          kind: "committed" as const,
+        }));
   }
 
   acknowledgeTurn(turnId: number): Result<void, RuntimeCommandError> {
@@ -309,6 +333,7 @@ class ControlledRuntime implements RuntimeSession<string> {
           Object.freeze({
             checkpointed: false,
             cleanup: Object.freeze([]),
+            historyNodeId: undefined,
             kind: "turnFinished" as const,
             outcome: Object.freeze({ kind: "cancelled" as const }),
             turnId,
@@ -327,6 +352,9 @@ class ControlledRuntime implements RuntimeSession<string> {
   }
 
   emit(event: RuntimeEvent<string>): void {
+    if (event.kind === "turnPrepared") {
+      this.#preparedCheckpointed = event.checkpointed;
+    }
     if (event.kind === "turnFinished") {
       this.#activeTurnId = undefined;
       this.#finishedTurnId = event.turnId;
@@ -1191,6 +1219,7 @@ test("active Ctrl+C cancels, preserves the draft, and keeps the shell open", asy
     Object.freeze({
       checkpointed: false,
       cleanup: Object.freeze([]),
+      historyNodeId: undefined,
       kind: "turnFinished" as const,
       outcome: Object.freeze({ kind: "cancelled" as const }),
       turnId: 1,
