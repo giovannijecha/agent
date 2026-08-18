@@ -58,6 +58,30 @@ test("owns the exact Windows PowerShell and fixed UTF-8 prelude", () => {
   ]);
 });
 
+test("enforces the aggregate encoded environment byte bound", () => {
+  const exact = ShellExecutionPolicy.create("linux", {
+    HOME: "h".repeat(4_091),
+    PATH: "p".repeat(4_091),
+  });
+  assert.ok(exact.ok);
+
+  assert.deepEqual(ShellExecutionPolicy.create("linux", {
+    HOME: "h".repeat(4_092),
+    PATH: "p".repeat(4_091),
+  }), {
+    error: { kind: "invalidEnvironment" },
+    ok: false,
+  });
+  assert.deepEqual(ShellExecutionPolicy.create("win32", {
+    PATHEXT: "e".repeat(4_089),
+    Path: "p".repeat(4_091),
+    SystemRoot: "C:\\Windows",
+  }), {
+    error: { kind: "invalidEnvironment" },
+    ok: false,
+  });
+});
+
 test("fails closed on unsupported hosts and ambiguous or unsafe environment", () => {
   assert.deepEqual(ShellExecutionPolicy.create("darwin", {}), {
     error: { kind: "unsupportedPlatform" },
