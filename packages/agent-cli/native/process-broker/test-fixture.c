@@ -226,6 +226,26 @@ static int agent_fixture_environment(void) {
   return printf("%lu\n", (unsigned long)count) > 0 ? 0 : 1;
 }
 
+static int agent_fixture_environment_entries(void) {
+  LPWCH environment = GetEnvironmentStringsW();
+  if (environment == NULL) {
+    return 1;
+  }
+  bool succeeded = true;
+  for (const wchar_t *entry = environment; *entry != L'\0';) {
+    if (
+      !agent_fixture_write_wide(stdout, entry) ||
+      fputc('\0', stdout) == EOF
+    ) {
+      succeeded = false;
+      break;
+    }
+    entry += wcslen(entry) + 1u;
+  }
+  FreeEnvironmentStringsW(environment);
+  return succeeded && fflush(stdout) == 0 ? 0 : 1;
+}
+
 static int agent_fixture_working_directory(void) {
   const DWORD required = GetCurrentDirectoryW(0u, NULL);
   if (required == 0u) {
@@ -359,6 +379,9 @@ int wmain(int argc, wchar_t **argv) {
   }
   if (wcscmp(argv[1], L"environment") == 0) {
     return agent_fixture_environment();
+  }
+  if (wcscmp(argv[1], L"environment-entries") == 0) {
+    return agent_fixture_environment_entries();
   }
   if (wcscmp(argv[1], L"working-directory") == 0) {
     return agent_fixture_working_directory();
@@ -612,6 +635,24 @@ static int agent_fixture_environment(void) {
   return printf("%lu\n", (unsigned long)count) > 0 ? 0 : 1;
 }
 
+static int agent_fixture_environment_entries(void) {
+  if (environ != NULL) {
+    for (uint32_t index = 0u; environ[index] != NULL; index += 1u) {
+      if (
+        !agent_fixture_write_all(
+          stdout,
+          (const unsigned char *)environ[index],
+          strlen(environ[index])
+        ) ||
+        fputc('\0', stdout) == EOF
+      ) {
+        return 1;
+      }
+    }
+  }
+  return fflush(stdout) == 0 ? 0 : 1;
+}
+
 static int agent_fixture_working_directory(void) {
   char directory[PATH_MAX];
   if (getcwd(directory, sizeof(directory)) == NULL) {
@@ -727,6 +768,9 @@ int main(int argc, char **argv) {
   }
   if (strcmp(argv[1], "environment") == 0) {
     return agent_fixture_environment();
+  }
+  if (strcmp(argv[1], "environment-entries") == 0) {
+    return agent_fixture_environment_entries();
   }
   if (strcmp(argv[1], "working-directory") == 0) {
     return agent_fixture_working_directory();

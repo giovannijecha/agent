@@ -169,6 +169,32 @@ static void agent_windows_dispose_environment_entries(
   free(entries);
 }
 
+static bool agent_windows_sort_environment_entries(
+  wchar_t **entries,
+  uint32_t count
+) {
+  for (uint32_t left = 0u; left < count; left += 1u) {
+    for (uint32_t right = left + 1u; right < count; right += 1u) {
+      const int comparison = CompareStringOrdinal(
+        entries[left],
+        -1,
+        entries[right],
+        -1,
+        TRUE
+      );
+      if (comparison == 0) {
+        return false;
+      }
+      if (comparison == CSTR_GREATER_THAN) {
+        wchar_t *temporary = entries[left];
+        entries[left] = entries[right];
+        entries[right] = temporary;
+      }
+    }
+  }
+  return true;
+}
+
 static wchar_t *agent_windows_create_target_environment(
   const struct agent_broker_request *request
 ) {
@@ -196,49 +222,58 @@ static wchar_t *agent_windows_create_target_environment(
 
   static const wchar_t prefix[] = L"SystemRoot=";
   const size_t prefix_length = (sizeof(prefix) / sizeof(prefix[0])) - 1u;
-  if ((size_t)directory_length > SIZE_MAX - prefix_length - 2u) {
+  if ((size_t)directory_length > SIZE_MAX - prefix_length - 1u) {
     free(windows_directory);
     return NULL;
   }
-  size_t environment_length =
-    prefix_length + (size_t)directory_length + 2u;
-  wchar_t **entries = NULL;
-  if (request->environment_count > 0u) {
-    entries = calloc(request->environment_count, sizeof(wchar_t *));
-    if (entries == NULL) {
-      free(windows_directory);
+  const uint32_t entry_count = request->environment_count + 1u;
+  wchar_t **entries = calloc(entry_count, sizeof(wchar_t *));
+  if (entries == NULL) {
+    free(windows_directory);
+    return NULL;
+  }
+  const size_t system_root_length =
+    prefix_length + (size_t)directory_length;
+  entries[0] = calloc(system_root_length + 1u, sizeof(wchar_t));
+  if (entries[0] == NULL) {
+    agent_windows_dispose_environment_entries(entries, entry_count);
+    free(windows_directory);
+    return NULL;
+  }
+  memcpy(entries[0], prefix, prefix_length * sizeof(wchar_t));
+  memcpy(
+    entries[0] + prefix_length,
+    windows_directory,
+    (size_t)directory_length * sizeof(wchar_t)
+  );
+  free(windows_directory);
+  for (uint32_t index = 0u; index < request->environment_count; index += 1u) {
+    entries[index + 1u] = agent_windows_widen(request->environment[index]);
+    if (entries[index + 1u] == NULL) {
+      agent_windows_dispose_environment_entries(entries, entry_count);
       return NULL;
     }
   }
-  for (uint32_t index = 0u; index < request->environment_count; index += 1u) {
-    entries[index] = agent_windows_widen(request->environment[index]);
-    if (entries[index] == NULL) {
-      agent_windows_dispose_environment_entries(entries, request->environment_count);
-      free(windows_directory);
-      return NULL;
-    }
+  if (!agent_windows_sort_environment_entries(entries, entry_count)) {
+    agent_windows_dispose_environment_entries(entries, entry_count);
+    return NULL;
+  }
+  size_t environment_length = 1u;
+  for (uint32_t index = 0u; index < entry_count; index += 1u) {
     const size_t entry_length = wcslen(entries[index]);
     if (entry_length > SIZE_MAX - environment_length - 1u) {
-      agent_windows_dispose_environment_entries(entries, request->environment_count);
-      free(windows_directory);
+      agent_windows_dispose_environment_entries(entries, entry_count);
       return NULL;
     }
     environment_length += entry_length + 1u;
   }
   wchar_t *environment = calloc(environment_length, sizeof(wchar_t));
   if (environment == NULL) {
-    agent_windows_dispose_environment_entries(entries, request->environment_count);
-    free(windows_directory);
+    agent_windows_dispose_environment_entries(entries, entry_count);
     return NULL;
   }
-  memcpy(environment, prefix, prefix_length * sizeof(wchar_t));
-  memcpy(
-    environment + prefix_length,
-    windows_directory,
-    (size_t)directory_length * sizeof(wchar_t)
-  );
-  size_t cursor = prefix_length + (size_t)directory_length + 1u;
-  for (uint32_t index = 0u; index < request->environment_count; index += 1u) {
+  size_t cursor = 0u;
+  for (uint32_t index = 0u; index < entry_count; index += 1u) {
     const size_t entry_length = wcslen(entries[index]);
     memcpy(
       environment + cursor,
@@ -247,8 +282,7 @@ static wchar_t *agent_windows_create_target_environment(
     );
     cursor += entry_length + 1u;
   }
-  agent_windows_dispose_environment_entries(entries, request->environment_count);
-  free(windows_directory);
+  agent_windows_dispose_environment_entries(entries, entry_count);
   return environment;
 }
 
