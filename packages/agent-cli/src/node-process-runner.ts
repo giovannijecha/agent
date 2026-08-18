@@ -12,6 +12,7 @@ import {
   encodeProcessLaunch,
   ProcessBrokerStatusDecoder,
   type ProcessBrokerStatus,
+  WINDOWS_POWERSHELL_BROKER_PROGRAM,
 } from "./process-broker-protocol.js";
 import type {
   ProcessRunRequest,
@@ -102,11 +103,16 @@ function validProcessText(
   );
 }
 
-function validRequest(request: ProcessRunRequest): boolean {
+function validRequest(
+  request: ProcessRunRequest,
+  platform: "linux" | "win32",
+): boolean {
   try {
     return (
       validProcessText(request.executable) &&
-      path.isAbsolute(request.executable) &&
+      (path.isAbsolute(request.executable) ||
+        (platform === "win32" &&
+          request.executable === WINDOWS_POWERSHELL_BROKER_PROGRAM)) &&
       validProcessText(request.workingDirectory) &&
       path.isAbsolute(request.workingDirectory) &&
       Array.isArray(request.arguments) &&
@@ -156,9 +162,14 @@ function mapBrokerFailure(failure: number): ToolHandlerError {
 /** Node adapter for the owned native process-containment broker. */
 export class NodeProcessRunner implements ProcessRunner {
   readonly #brokerExecutable: string;
+  readonly #platform: "linux" | "win32";
 
-  private constructor(brokerExecutable: string) {
+  private constructor(
+    brokerExecutable: string,
+    platform: "linux" | "win32",
+  ) {
     this.#brokerExecutable = brokerExecutable;
+    this.#platform = platform;
     Object.freeze(this);
   }
 
@@ -172,7 +183,12 @@ export class NodeProcessRunner implements ProcessRunner {
     ) {
       return err(Object.freeze({ kind: "unsupportedPlatform" as const }));
     }
-    return ok(new NodeProcessRunner(brokerPath(platform, architecture)));
+    return ok(
+      new NodeProcessRunner(
+        brokerPath(platform, architecture),
+        platform,
+      ),
+    );
   }
 
   run(
@@ -185,7 +201,7 @@ export class NodeProcessRunner implements ProcessRunner {
       requested = cancellation.requested;
       const observe = cancellation.whenRequested;
       if (
-        !validRequest(request) ||
+        !validRequest(request, this.#platform) ||
         typeof requested !== "boolean" ||
         typeof observe !== "function"
       ) {

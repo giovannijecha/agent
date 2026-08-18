@@ -38,10 +38,13 @@ serialization contracts continue unchanged unless this decision says
 otherwise.
 
 On Linux the target is `/bin/bash --noprofile --norc -c <command>`. On Windows
-the target is the operating-system Windows PowerShell executable under
-`SystemRoot`, started with `-NoLogo`, `-NoProfile`, `-NonInteractive`, and
-`-Command`. A fixed prelude selects strict UTF-8 console and pipeline encoding
-before the approved command. No user or system shell profile is loaded.
+the CLI sends one reserved broker program identity; the native broker resolves
+the operating-system Windows PowerShell executable below the directory returned
+by `GetWindowsDirectoryW`, then starts it with `-NoLogo`, `-NoProfile`,
+`-NonInteractive`, and `-Command`. Inherited environment values never select or
+verify that executable. A fixed prelude selects strict UTF-8 console and
+pipeline encoding before the approved command. No user or system shell profile
+is loaded.
 
 The target receives a bounded environment projected from the launching
 process. Linux admits only `PATH`, `HOME`, `TMPDIR`, `LANG`, and `LC_ALL`.
@@ -70,11 +73,12 @@ valid Unicode scalar text without NUL, bounded to 2,730 UTF-16 code units and
 nonzero exit is a checkpointed failed tool outcome with bounded output.
 
 The broker protocol advances to version 2 and carries a bounded ordered
-environment vector in addition to executable, working directory, and literal
-arguments. TypeScript and C independently validate the complete frame. Linux
-passes the explicit null-terminated vector to `execve`. Windows constructs one
-Unicode environment block from the explicit vector and its broker-owned
-`SystemRoot`. No parent environment is inherited implicitly.
+environment vector in addition to program identity, working directory, and
+literal arguments. TypeScript and C independently validate the complete frame.
+Linux passes the explicit null-terminated vector to `execve`. Windows resolves
+the reserved shell identity and constructs one Unicode environment block from
+the explicit vector and its broker-owned `SystemRoot`. No parent environment is
+inherited implicitly.
 
 This decision changes only the execute domain. Model turns, permission
 decisions, handlers, mutations, terminal output, and tool checkpoints remain

@@ -190,6 +190,49 @@ test("starts the target with the owned OS environment and exact directory", asyn
   }
 });
 
+test("resolves Windows PowerShell from the broker-owned directory", {
+  skip: process.platform !== "win32",
+}, async () => {
+  const originalSystemRoot = process.env.SystemRoot;
+  process.env.SystemRoot = "C:\\agent-hostile-windows-root";
+  try {
+    const result = await runNativeBroker({
+      launchFrame: encodeLaunch({
+        timeoutMilliseconds: 5_000,
+        processLimit: 1,
+        program: "agent:windows-powershell",
+        workingDirectory: path.dirname(nativeFixturePath),
+        arguments: [
+          "-NoLogo",
+          "-NoProfile",
+          "-NonInteractive",
+          "-Command",
+          "[Console]::Out.Write($PSHOME)",
+        ],
+      }),
+    });
+
+    assertCleanBroker(result);
+    assert.equal(terminalStatus(result).outcome, 1);
+    assert.equal(
+      result.stdout.toString("utf8").toLowerCase().endsWith(
+        "\\system32\\windowspowershell\\v1.0",
+      ),
+      true,
+    );
+    assert.equal(
+      result.stdout.toString("utf8").includes("agent-hostile-windows-root"),
+      false,
+    );
+  } finally {
+    if (originalSystemRoot === undefined) {
+      delete process.env.SystemRoot;
+    } else {
+      process.env.SystemRoot = originalSystemRoot;
+    }
+  }
+});
+
 test("keeps target stderr separate from broker diagnostics", async () => {
   const result = await runNativeFixture({ arguments: ["stderr"] });
 

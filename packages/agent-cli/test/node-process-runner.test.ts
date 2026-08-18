@@ -6,6 +6,7 @@ import test from "node:test";
 import type { ToolCancellation } from "@agent/tools";
 
 import { NodeProcessRunner } from "../dist/node-process-runner.js";
+import { WINDOWS_POWERSHELL_BROKER_PROGRAM } from "../dist/process-broker-protocol.js";
 import {
   PROCESS_RUNNER_LIMITS,
   type ProcessRunRequest,
@@ -198,6 +199,25 @@ test("rejects unsupported process-containment targets", () => {
     ok: false,
     error: { kind: "unsupportedPlatform" },
   });
+});
+
+test("admits only the exact broker-owned Windows shell identity", async () => {
+  const nearMiss = await runner().run(
+    request([], { executable: WINDOWS_POWERSHELL_BROKER_PROGRAM + "-other" }),
+    idleCancellation,
+  );
+  assert.deepEqual(nearMiss, { ok: false, error: { kind: "io" } });
+
+  if (platform === "linux") {
+    const foreignPlatformIdentity = await runner().run(
+      request([], { executable: WINDOWS_POWERSHELL_BROKER_PROGRAM }),
+      idleCancellation,
+    );
+    assert.deepEqual(foreignPlatformIdentity, {
+      ok: false,
+      error: { kind: "io" },
+    });
+  }
 });
 
 test("rejects oversized arguments before launching the broker", async () => {

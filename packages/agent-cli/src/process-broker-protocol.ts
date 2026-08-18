@@ -15,6 +15,9 @@ export const PROCESS_BROKER_LIMITS = Object.freeze({
   stringBytes: PROCESS_RUNNER_LIMITS.textUtf8Bytes,
 });
 
+export const WINDOWS_POWERSHELL_BROKER_PROGRAM =
+  "agent:windows-powershell";
+
 const HEADER_BYTES = 12;
 const PROTOCOL_VERSION = 2;
 const COMMAND_MAGIC = Object.freeze([0x41, 0x47, 0x50, 0x43]);

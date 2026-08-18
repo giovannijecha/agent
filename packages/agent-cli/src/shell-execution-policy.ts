@@ -1,8 +1,7 @@
 import { err, ok, scalarUtf8ByteLength, type Result } from "@agent/core";
 
+import { WINDOWS_POWERSHELL_BROKER_PROGRAM } from "./process-broker-protocol.js";
 import { PROCESS_RUNNER_LIMITS } from "./process-runner.js";
-
-const POWERSHELL_SUFFIX = "\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
 const POWERSHELL_UTF8_PRELUDE =
   "[Console]::InputEncoding=[System.Text.UTF8Encoding]::new($false);" +
   "[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false);" +
@@ -31,8 +30,6 @@ export type ShellSourceEnvironment = Readonly<{
   PATH?: string;
   PATHEXT?: string;
   Path?: string;
-  SYSTEMROOT?: string;
-  SystemRoot?: string;
   TEMP?: string;
   TMP?: string;
   TMPDIR?: string;
@@ -159,29 +156,14 @@ export class ShellExecutionPolicy {
       if (platform !== "win32") {
         return err(failure("unsupportedPlatform"));
       }
-      if (
-        environment.SystemRoot !== undefined &&
-        environment.SYSTEMROOT !== undefined &&
-        environment.SystemRoot !== environment.SYSTEMROOT
-      ) {
-        return err(failure("invalidEnvironment"));
-      }
-      const systemRoot = environment.SystemRoot ?? environment.SYSTEMROOT;
-      if (
-        !validEnvironmentValue(systemRoot) ||
-        !/^[A-Za-z]:[\\/]/u.test(systemRoot)
-      ) {
-        return err(failure("invalidEnvironment"));
-      }
       const projected = windowsEnvironment(environment);
       if (!projected.ok) {
         return projected;
       }
-      const root = systemRoot.replace(/[\\/]+$/u, "");
       return ok(
         new ShellExecutionPolicy(
           "win32",
-          root + POWERSHELL_SUFFIX,
+          WINDOWS_POWERSHELL_BROKER_PROGRAM,
           projected.value,
         ),
       );

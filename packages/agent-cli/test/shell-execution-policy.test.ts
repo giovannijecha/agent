@@ -33,7 +33,6 @@ test("owns the exact Windows PowerShell and fixed UTF-8 prelude", () => {
     AGENT_OLLAMA_API_KEY: "secret",
     APPDATA: "C:\\Users\\operator\\AppData\\Roaming",
     Path: "C:\\tools",
-    SystemRoot: "C:\\Windows\\",
     TEMP: "C:\\Temp",
   });
   assert.ok(created.ok);
@@ -41,7 +40,7 @@ test("owns the exact Windows PowerShell and fixed UTF-8 prelude", () => {
   const invocation = created.value.invocation("git status --short");
   assert.equal(
     invocation.executable,
-    "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+    "agent:windows-powershell",
   );
   assert.deepEqual(invocation.arguments.slice(0, 4), [
     "-NoLogo",
@@ -75,7 +74,6 @@ test("enforces the aggregate encoded environment byte bound", () => {
   assert.deepEqual(ShellExecutionPolicy.create("win32", {
     PATHEXT: "e".repeat(4_089),
     Path: "p".repeat(4_091),
-    SystemRoot: "C:\\Windows",
   }), {
     error: { kind: "invalidEnvironment" },
     ok: false,
@@ -88,17 +86,15 @@ test("fails closed on unsupported hosts and ambiguous or unsafe environment", ()
     ok: false,
   });
   for (const source of [
-    {},
-    { SystemRoot: "relative" },
-    { SYSTEMROOT: "D:\\Windows", SystemRoot: "C:\\Windows" },
-    { PATH: "one", Path: "two", SystemRoot: "C:\\Windows" },
-    { Path: "unsafe\0value", SystemRoot: "C:\\Windows" },
+    { PATH: "one", Path: "two" },
+    { Path: "unsafe\0value" },
   ]) {
     assert.deepEqual(ShellExecutionPolicy.create("win32", source), {
       error: { kind: "invalidEnvironment" },
       ok: false,
     });
   }
+  assert.equal(ShellExecutionPolicy.create("win32", {}).ok, true);
   assert.deepEqual(ShellExecutionPolicy.create("linux", { PATH: "x\0y" }), {
     error: { kind: "invalidEnvironment" },
     ok: false,

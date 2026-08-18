@@ -90,6 +90,37 @@ static wchar_t *agent_windows_widen(const char *value) {
   return wide;
 }
 
+static wchar_t *agent_windows_system_powershell(void) {
+  static const wchar_t suffix[] =
+    L"\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
+  const size_t suffix_length = (sizeof(suffix) / sizeof(suffix[0])) - 1u;
+  wchar_t *program = calloc(
+    AGENT_WINDOWS_DIRECTORY_LIMIT,
+    sizeof(wchar_t)
+  );
+  if (program == NULL) {
+    return NULL;
+  }
+  const DWORD directory_length = GetWindowsDirectoryW(
+    program,
+    AGENT_WINDOWS_DIRECTORY_LIMIT
+  );
+  if (
+    directory_length == 0u ||
+    directory_length >= AGENT_WINDOWS_DIRECTORY_LIMIT ||
+    suffix_length >= AGENT_WINDOWS_DIRECTORY_LIMIT - (size_t)directory_length
+  ) {
+    free(program);
+    return NULL;
+  }
+  memcpy(
+    program + directory_length,
+    suffix,
+    (suffix_length + 1u) * sizeof(wchar_t)
+  );
+  return program;
+}
+
 static size_t agent_windows_environment_name_length(const char *entry) {
   const char *separator = strchr(entry, '=');
   return separator == NULL ? 0u : (size_t)(separator - entry);
@@ -356,7 +387,12 @@ static bool agent_windows_prepare_arguments(
 ) {
   memset(wide, 0, sizeof(*wide));
   wide->argument_count = request->argument_count;
-  wide->program = agent_windows_widen(request->program);
+  wide->program = strcmp(
+    request->program,
+    AGENT_BROKER_WINDOWS_POWERSHELL_PROGRAM
+  ) == 0
+    ? agent_windows_system_powershell()
+    : agent_windows_widen(request->program);
   wide->working_directory = agent_windows_widen(request->working_directory);
   if (wide->program == NULL || wide->working_directory == NULL) {
     agent_windows_dispose_arguments(wide);
