@@ -877,6 +877,7 @@ export async function run<E, RE = never>(
       let lastRender = initial.ok ? initial.value : undefined;
 
       let running = primary === undefined;
+      let readCohortBarrier = false;
       while (running && primary === undefined) {
         const received = await arbiter.nextEvent();
         if (!received.ok) {
@@ -896,6 +897,7 @@ export async function run<E, RE = never>(
         }
 
         let redraw = false;
+        let enterReadCohortBarrier = false;
         if (event.kind === "motion") {
           if (!event.result.ok) {
             primary = Object.freeze({
@@ -904,7 +906,7 @@ export async function run<E, RE = never>(
             });
             break;
           }
-          if (isMotionActive(application.phase)) {
+          if (!readCohortBarrier && isMotionActive(application.phase)) {
             motionPhase = advanceMotionPhase(motionPhase);
             redraw = true;
           }
@@ -984,6 +986,14 @@ export async function run<E, RE = never>(
           break;
         } else {
           const runtimeEvent = event.result.value;
+          if (
+            readCohortBarrier &&
+            runtimeEvent.turnId === application.activeTurnId &&
+            (runtimeEvent.kind === "toolFinished" ||
+              runtimeEvent.kind === "turnFinished")
+          ) {
+            readCohortBarrier = false;
+          }
           const acceptedToolRequest =
             runtimeEvent.kind === "toolRequested" &&
             runtimeEvent.turnId === application.activeTurnId;
@@ -1014,7 +1024,13 @@ export async function run<E, RE = never>(
           if (outcome.exit) {
             running = false;
           }
-          if (application.activeTurnId !== undefined) {
+          enterReadCohortBarrier =
+            runtimeEvent.kind === "toolStarted" &&
+            application.readCohortLaunchReady;
+          if (
+            application.activeTurnId !== undefined &&
+            !enterReadCohortBarrier
+          ) {
             const armed = arbiter.armRuntime();
             if (!armed.ok) {
               primary = Object.freeze({
@@ -1026,7 +1042,9 @@ export async function run<E, RE = never>(
           }
         }
 
-        const pendingCopy = application.takePendingCopy();
+        const pendingCopy = readCohortBarrier
+          ? undefined
+          : application.takePendingCopy();
         if (pendingCopy !== undefined) {
           const settlement = await copySelection(
             pendingCopy,
@@ -1065,7 +1083,8 @@ export async function run<E, RE = never>(
           break;
         }
 
-        const motionActive = isMotionActive(application.phase);
+        const motionActive =
+          !readCohortBarrier && isMotionActive(application.phase);
         if (!motionActive) {
           motionPhase = 0;
         }
@@ -1079,7 +1098,12 @@ export async function run<E, RE = never>(
           break;
         }
 
-        if (running && primary === undefined && redraw) {
+        if (
+          running &&
+          primary === undefined &&
+          redraw &&
+          !readCohortBarrier
+        ) {
           const rendered = await renderApplication(
             renderer,
             application,
@@ -1100,6 +1124,31 @@ export async function run<E, RE = never>(
                 operation: "motion" as const,
               });
             }
+          }
+        }
+        if (
+          running &&
+          primary === undefined &&
+          enterReadCohortBarrier
+        ) {
+          try {
+            motion?.setActive(false);
+            motion?.discardReady();
+            arbiter.discardMotionReady();
+          } catch (_cause: unknown) {
+            primary = Object.freeze({
+              kind: "unexpected" as const,
+              operation: "motion" as const,
+            });
+            break;
+          }
+          readCohortBarrier = true;
+          const armed = arbiter.armRuntime();
+          if (!armed.ok) {
+            primary = Object.freeze({
+              kind: "arbiter" as const,
+              error: armed.error,
+            });
           }
         }
       }

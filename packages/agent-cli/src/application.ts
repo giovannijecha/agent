@@ -306,6 +306,19 @@ export class ApplicationController
     return this.#chat.activeTurnId;
   }
 
+  /** Reports the exact lifecycle edge before an admitted read cohort launches. */
+  get readCohortLaunchReady(): boolean {
+    return (
+      this.#tools.length >= 2 &&
+      this.#tools.some((tool) => tool.status === "started") &&
+      this.#tools.every(
+        (tool) =>
+          tool.risk === "read" &&
+          (tool.decision === "denied" || tool.status === "started"),
+      )
+    );
+  }
+
   get hasTranscript(): boolean {
     return this.#chat.hasContent;
   }
