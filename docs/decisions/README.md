@@ -52,7 +52,7 @@ belong here.
 | providers | [0072 Ollama Cloud](0072-owned-ollama-cloud-provider.md), [0069 tool interoperability](0069-owned-tool-call-interoperability.md) |
 | security | [0016 native containment](0016-owned-native-process-containment.md), [0042 workspace boundary](0042-owned-workspace-trust-boundary.md), [0058 Linux namespace boundary](0058-owned-linux-namespace-fail-closed-boundary.md) |
 | terminal | [0023 Markdown](0023-owned-bounded-markdown.md), [0045 interaction](0045-owned-terminal-interaction.md), [0059 conversation focus](0059-owned-accented-conversation-focus.md) |
-| tools | [0036 process execution](0036-owned-structured-process-execution.md), [0050 capability surface](0050-owned-minimal-coding-capability-surface.md), [0053 text patch](0053-owned-structured-text-patch.md), [0054 namespace management](0054-owned-workspace-namespace-management.md), [0055 permissions](0055-owned-session-tool-permissions.md) |
+| tools | [0073 shell execution](0073-owned-capability-complete-shell-execution.md), [0050 capability surface](0050-owned-minimal-coding-capability-surface.md), [0053 text patch](0053-owned-structured-text-patch.md), [0054 namespace management](0054-owned-workspace-namespace-management.md), [0055 permissions](0055-owned-session-tool-permissions.md) |
 
 ## Complete ledger
 
@@ -93,7 +93,7 @@ belong here.
 | [0033](0033-owned-semantic-activity-surfaces.md) | accepted | tools | current |
 | [0034](0034-owned-slash-command-completion.md) | accepted | terminal | current |
 | [0035](0035-owned-multiline-composer-and-paste.md) | accepted | terminal | current |
-| [0036](0036-owned-structured-process-execution.md) | accepted | tools | current |
+| [0036](0036-owned-structured-process-execution.md) | superseded | tools | superseded by 0073 |
 | [0037](0037-canonical-agent-brand.md) | accepted | governance | current |
 | [0038](0038-owned-deterministic-tui-motion.md) | accepted | terminal | current |
 | [0039](0039-owned-responsive-conversation-stage.md) | accepted | terminal | current |
@@ -130,3 +130,4 @@ belong here.
 | [0070](0070-owned-documentation-information-architecture.md) | accepted | documentation | current |
 | [0071](0071-owned-task-oriented-operator-manual.md) | accepted | documentation | supersedes 0009 |
 | [0072](0072-owned-ollama-cloud-provider.md) | accepted | providers | supersedes 0017, 0067, and 0068 |
+| [0073](0073-owned-capability-complete-shell-execution.md) | accepted | tools | supersedes 0036 |

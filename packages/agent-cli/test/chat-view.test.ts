@@ -719,7 +719,7 @@ test("keeps running tools compact with transparent attention truth", () => {
   requestTool(application, {
     approval: false,
     callId: "private-run",
-    name: "run_process",
+    name: "shell",
     risk: "execute",
     turnId: 22,
   });
@@ -727,7 +727,7 @@ test("keeps running tools compact with transparent attention truth", () => {
     application.applyRuntime({
       callId: "private-run",
       kind: "toolStarted",
-      name: "run_process",
+      name: "shell",
       risk: "execute",
       turnId: 22,
     }).ok,
@@ -742,7 +742,7 @@ test("keeps running tools compact with transparent attention truth", () => {
 
   assert.equal(activityRows.length, 1);
   assert.equal(activityRows.at(0)?.text.includes("\u2022 Run"), true);
-  assert.equal(activityRows.at(0)?.text.includes("run_process"), false);
+  assert.equal(activityRows.at(0)?.text.includes("shell"), false);
   assert.equal(activityRows.at(0)?.text.includes("running"), true);
   assert.equal(activityRows.at(0)?.text.trim().endsWith("running"), true);
   assert.equal(
@@ -1282,7 +1282,7 @@ test("renders the transient six-tool session permission editor without a box", (
     "search_text",
     "apply_patch",
     "manage_path",
-    "run_process",
+    "shell",
   ]) {
     assert.equal(rows.some((row) => row.text.includes(name)), true);
   }

@@ -38,6 +38,20 @@ declare module "node:process" {
   export const hrtime: Readonly<{ bigint(): bigint }>;
   export const env: Readonly<{
     AGENT_OLLAMA_API_KEY?: string;
+    APPDATA?: string;
+    HOME?: string;
+    LANG?: string;
+    LC_ALL?: string;
+    LOCALAPPDATA?: string;
+    PATH?: string;
+    PATHEXT?: string;
+    Path?: string;
+    SYSTEMROOT?: string;
+    SystemRoot?: string;
+    TEMP?: string;
+    TMP?: string;
+    TMPDIR?: string;
+    USERPROFILE?: string;
   }>;
   export function cwd(): string;
   export function exit(code?: number): never;

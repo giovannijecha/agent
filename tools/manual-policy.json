@@ -136,16 +136,16 @@
         "necessity": "Inspects one known file without traversing unrelated workspace paths."
       },
       {
-        "name": "run_process",
-        "capability": "run-one-contained-process",
-        "risk": "execute",
-        "necessity": "Runs one terminating structured process inside owned whole-tree containment without shell, PATH, stdin, or inherited user-environment authority."
-      },
-      {
         "name": "search_text",
         "capability": "search-bounded-text",
         "risk": "read",
         "necessity": "Locates exact text with bounded traversal instead of many model-directed reads."
+      },
+      {
+        "name": "shell",
+        "capability": "run-one-contained-shell-command",
+        "risk": "execute",
+        "necessity": "Runs one exact terminating native-shell command with a controlled credential-free environment, fixed bounds, and owned whole-tree containment."
       }
     ]
   },
@@ -225,6 +225,7 @@
     "docs/decisions/0070-owned-documentation-information-architecture.md",
     "docs/decisions/0071-owned-task-oriented-operator-manual.md",
     "docs/decisions/0072-owned-ollama-cloud-provider.md",
+    "docs/decisions/0073-owned-capability-complete-shell-execution.md",
     "evaluations/README.md",
     "evaluations/failures/registry.json",
     "assets/brand/README.md",
@@ -249,7 +250,7 @@
     "packages/agent-cli/src/permissions-view.ts",
     "packages/agent-cli/src/builtin-tools.ts",
     "packages/agent-cli/src/workspace-file-read.ts",
-    "packages/agent-cli/src/process-program-registry.ts",
+    "packages/agent-cli/src/shell-execution-policy.ts",
     "packages/agent-cli/src/chat-state.ts",
     "packages/agent-cli/src/chat-view.ts",
     "packages/agent-cli/src/command-completion-view.ts",

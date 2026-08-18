@@ -556,8 +556,7 @@ static void agent_linux_target(
   ) {
     agent_linux_child_failure(exec_status, AGENT_BROKER_FAILURE_CAPABILITY);
   }
-  char *const empty_environment[] = { NULL };
-  execve(request->program, arguments, empty_environment);
+  execve(request->program, arguments, request->environment);
   agent_linux_child_failure(exec_status, AGENT_BROKER_FAILURE_LAUNCH);
 }
 

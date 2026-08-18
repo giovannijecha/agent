@@ -19,7 +19,7 @@ test("owns the exact six-tool session permission catalog and defaults", () => {
       { defaultMode: "allow", name: "search_text", risk: "read" },
       { defaultMode: "ask", name: "apply_patch", risk: "write" },
       { defaultMode: "ask", name: "manage_path", risk: "write" },
-      { defaultMode: "ask", name: "run_process", risk: "execute" },
+      { defaultMode: "ask", name: "shell", risk: "execute" },
     ],
   );
 

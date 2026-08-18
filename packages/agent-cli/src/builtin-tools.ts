@@ -10,7 +10,6 @@ import {
   err,
   ok,
   type Result,
-  StructuredList,
   StructuredObject,
 } from "@agent/core";
 import {
@@ -37,11 +36,10 @@ import {
 } from "@agent/tools";
 
 import type { ProcessRunner } from "./process-runner.js";
-import { PROCESS_RUNNER_LIMITS } from "./process-runner.js";
 import {
-  PROCESS_PROGRAM_TOKENS,
-  ProcessProgramRegistry,
-} from "./process-program-registry.js";
+  SHELL_LIMITS,
+  ShellExecutionPolicy,
+} from "./shell-execution-policy.js";
 import { BUILTIN_TOOL_LIMITS } from "./builtin-tool-limits.js";
 import type {
   EvaluationReadName,
@@ -77,8 +75,8 @@ export type BuiltinToolsError = Readonly<{ kind: BuiltinToolsErrorKind }>;
 export type BuiltinToolsPlatform = Readonly<{
   mutationCommitter: WorkspaceMutationCommitter;
   namespaceCommitter: WorkspaceNamespaceCommitter;
-  processPrograms: ProcessProgramRegistry;
   processRunner: ProcessRunner;
+  shell: ShellExecutionPolicy;
 }>;
 
 type ToolFailureKind = ToolHandlerError["kind"];
@@ -157,17 +155,6 @@ function text(input: StructuredObject, name: string): string {
     throw new Error("validated tool input invariant");
   }
   return value;
-}
-
-function textList(input: StructuredObject, name: string): readonly string[] {
-  const value = input.get(name);
-  if (
-    !(value instanceof StructuredList) ||
-    value.values.some((item) => typeof item !== "string")
-  ) {
-    throw new Error("validated tool input invariant");
-  }
-  return Object.freeze(value.values.map((item) => item as string));
 }
 
 function optionalInteger(
@@ -643,7 +630,7 @@ function descriptor(
   return created.value;
 }
 
-function runProcessHandler(
+function shellHandler(
   root: string,
   platform: BuiltinToolsPlatform,
 ): ToolHandler {
@@ -651,11 +638,7 @@ function runProcessHandler(
     if (cancellation.requested) {
       return toolFailure("cancelled");
     }
-    const program = text(input, "program");
-    const registration = platform.processPrograms.resolve(program);
-    if (registration === undefined) {
-      return toolFailure("unsupported");
-    }
+    const invocation = platform.shell.invocation(text(input, "command"));
     const workingDirectory = await existingPath(
       root,
       text(input, "workingDirectory"),
@@ -666,12 +649,13 @@ function runProcessHandler(
     }
     const result = await platform.processRunner.run(
       Object.freeze({
-        arguments: textList(input, "arguments"),
-        executable: registration.executable,
-        processLimit: PROCESS_RUNNER_LIMITS.processCount,
-        stderrBytes: PROCESS_RUNNER_LIMITS.stderrBytes,
-        stdoutBytes: PROCESS_RUNNER_LIMITS.stdoutBytes,
-        timeoutMilliseconds: PROCESS_RUNNER_LIMITS.timeoutMilliseconds,
+        arguments: invocation.arguments,
+        environment: invocation.environment,
+        executable: invocation.executable,
+        processLimit: SHELL_LIMITS.processCount,
+        stderrBytes: SHELL_LIMITS.stderrBytes,
+        stdoutBytes: SHELL_LIMITS.stdoutBytes,
+        timeoutMilliseconds: SHELL_LIMITS.timeoutMilliseconds,
         workingDirectory: workingDirectory.value,
       }),
       cancellation,
@@ -687,10 +671,9 @@ function runProcessHandler(
   };
 }
 
-const RUN_PROCESS_APPROVAL_FIELDS: readonly ToolApprovalField[] =
+const SHELL_APPROVAL_FIELDS: readonly ToolApprovalField[] =
   Object.freeze([
-    Object.freeze({ mode: "exact" as const, name: "program" }),
-    Object.freeze({ mode: "exact" as const, name: "arguments" }),
+    Object.freeze({ mode: "exact" as const, name: "command" }),
     Object.freeze({ mode: "exact" as const, name: "workingDirectory" }),
   ]);
 
@@ -699,8 +682,13 @@ const MANAGE_PATH_APPROVAL_FIELDS: readonly ToolApprovalField[] =
     Object.freeze({ mode: "exact" as const, name: "request" }),
   ]);
 
-const PROCESS_TEXT_SCHEMA_OPTIONS: StringSchemaOptions = Object.freeze({
-  maximumUtf8Bytes: PROCESS_RUNNER_LIMITS.textUtf8Bytes,
+const SHELL_COMMAND_SCHEMA_OPTIONS: StringSchemaOptions = Object.freeze({
+  maximumUtf8Bytes: SHELL_LIMITS.commandUtf8Bytes,
+  rejectNul: true,
+});
+
+const SHELL_DIRECTORY_SCHEMA_OPTIONS: StringSchemaOptions = Object.freeze({
+  maximumUtf8Bytes: SHELL_LIMITS.workingDirectoryUtf8Bytes,
   rejectNul: true,
 });
 
@@ -900,28 +888,18 @@ function registrations(
     }),
     Object.freeze({
       descriptor: descriptor(
-        "run_process",
-        "Run one approved terminating program with bounded arguments in a workspace directory. Persistent services are unsupported.",
+        "shell",
+        "Run one approved terminating native-shell command with bounded output and whole-tree containment in a workspace directory. Persistent services are unsupported.",
         "execute",
         objectSchema([
           {
-            description: "Registered program token. The initial value is node.",
-            name: "program",
+            description: "Exact command text interpreted by the platform-native shell.",
+            name: "command",
             required: true,
-            schema: literalStringSchema(PROCESS_PROGRAM_TOKENS.node),
-          },
-          {
-            description: "Ordered program arguments without shell parsing.",
-            name: "arguments",
-            required: true,
-            schema: listSchema(
-              stringSchema(
-                0,
-                PROCESS_RUNNER_LIMITS.argumentCodeUnits,
-                PROCESS_TEXT_SCHEMA_OPTIONS,
-              ),
-              0,
-              PROCESS_RUNNER_LIMITS.arguments,
+            schema: stringSchema(
+              1,
+              SHELL_LIMITS.commandCodeUnits,
+              SHELL_COMMAND_SCHEMA_OPTIONS,
             ),
           },
           {
@@ -930,17 +908,17 @@ function registrations(
             required: true,
             schema: stringSchema(
               1,
-              PROCESS_RUNNER_LIMITS.workingDirectoryCodeUnits,
-              PROCESS_TEXT_SCHEMA_OPTIONS,
+              SHELL_LIMITS.workingDirectoryCodeUnits,
+              SHELL_DIRECTORY_SCHEMA_OPTIONS,
             ),
           },
         ], {
-          fields: RUN_PROCESS_APPROVAL_FIELDS,
+          fields: SHELL_APPROVAL_FIELDS,
           maximumCodeUnits: TOOL_ENGINE_LIMITS.approvalPreviewCodeUnits,
         }),
-        RUN_PROCESS_APPROVAL_FIELDS,
+        SHELL_APPROVAL_FIELDS,
       ),
-      handler: runProcessHandler(root, platform),
+      handler: shellHandler(root, platform),
     }),
   ]);
 }
@@ -971,10 +949,10 @@ export function createBuiltinToolEngine(
     typeof platform.namespaceCommitter !== "object" ||
     typeof platform.namespaceCommitter.supportsOperation !== "function" ||
     typeof platform.namespaceCommitter.commit !== "function" ||
-    !(platform.processPrograms instanceof ProcessProgramRegistry) ||
     platform.processRunner === null ||
     typeof platform.processRunner !== "object" ||
-    typeof platform.processRunner.run !== "function"
+    typeof platform.processRunner.run !== "function" ||
+    !(platform.shell instanceof ShellExecutionPolicy)
   ) {
     return err(Object.freeze({ kind: "invalidPlatform" as const }));
   }

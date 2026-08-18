@@ -4,7 +4,7 @@ import process from "node:process";
 
 import { projectRoot } from "./project.mjs";
 
-const protocolVersion = 1;
+const protocolVersion = 2;
 const maximumFrameBytes = 65_536;
 const defaultOutputLimit = 65_536;
 const harnessDeadlineMilliseconds = 20_000;
@@ -47,6 +47,7 @@ export function encodeLaunch({
   processLimit,
   program,
   workingDirectory,
+  environment = [],
   arguments: arguments_,
 }) {
   const fixed = Buffer.alloc(8);
@@ -54,10 +55,14 @@ export function encodeLaunch({
   fixed.writeUInt32LE(processLimit, 4);
   const argumentCount = Buffer.alloc(4);
   argumentCount.writeUInt32LE(arguments_.length, 0);
+  const environmentCount = Buffer.alloc(4);
+  environmentCount.writeUInt32LE(environment.length, 0);
   const payload = Buffer.concat([
     fixed,
     encodeString(program),
     encodeString(workingDirectory),
+    environmentCount,
+    ...environment.map(encodeString),
     argumentCount,
     ...arguments_.map(encodeString),
   ]);
@@ -238,6 +243,7 @@ export async function runNativeBroker({
 
 export function runNativeFixture({
   arguments: arguments_,
+  environment = [],
   workingDirectory = projectRoot,
   timeoutMilliseconds = 5_000,
   processLimit = 4,
@@ -254,6 +260,7 @@ export function runNativeFixture({
       processLimit,
       program: nativeFixturePath,
       workingDirectory,
+      environment,
       arguments: arguments_,
     }),
     cancelOnStarted,

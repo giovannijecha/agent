@@ -142,7 +142,7 @@ The advertised model-facing inventory is exactly:
 | `search_text` | bounded text search under the read policy | Allow |
 | `apply_patch` | one object-bound structured text commit | Ask |
 | `manage_path` | one object-bound namespace commit | Ask |
-| `run_process` | one bounded registered process execution | Ask |
+| `shell` | one bounded native-shell command execution | Ask |
 
 The tool registry, schemas, planners, permissions, and handlers remain separate
 authorities. A permission approves one exact planned call; it cannot widen a
@@ -151,8 +151,12 @@ schema, path, program, limit, disclosure policy, or native committer.
 `apply_patch` binds approval to the observed object or absence, exact ordered
 hunks, and state digests. `manage_path` owns only
 `create_directory`, `move`, and `remove`; Linux currently admits only
-directory creation. `run_process` admits only the registered `node` token
-with literal arguments and a workspace-relative working directory.
+directory creation. `shell` admits one exact command and a workspace-relative
+working directory. The CLI fixes Bash without profiles on Linux or Windows
+PowerShell without profiles on Windows, projects only the decision-0073
+environment allowlist, excludes provider credentials, and retains fixed
+whole-tree containment and execution bounds. Approved shell code has the
+launching user's filesystem and network authority.
 
 The read tools share one deny-only disclosure policy. Sensitive built-in paths
 are always denied; an optional root `.agentignore` can add denials but cannot
@@ -224,7 +228,7 @@ Portable TypeScript never performs pathname mutation after authorization.
 Owned native C17 brokers provide:
 
 - canonical protected-root discovery;
-- whole-process-tree containment for `run_process`;
+- whole-process-tree containment for `shell`;
 - object-bound text commits;
 - object-bound namespace commits;
 - Windows clipboard transfer.

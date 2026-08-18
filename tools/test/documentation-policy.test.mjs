@@ -365,7 +365,7 @@ test("rejects invalid current decision authority routes", () => {
       "[0001 Rust foundation](0001-owned-zero-dependency-rust.md)",
     ],
     [
-      "[0036 process execution](0036-owned-structured-process-execution.md)",
+      "[0073 shell execution](0073-owned-capability-complete-shell-execution.md)",
       "[0003 provider authentication](0003-owned-provider-authentication.md)",
     ],
     [
@@ -1500,7 +1500,7 @@ test("routes completed privacy and memory-only secrets to the privacy policy", (
 
   assert.equal(
     context.files["PRIVACY.md"].includes(
-      "An approved `run_process` invocation is lifecycle-contained but not filesystem-\nor network-sandboxed; its Node code retains the launching user's authority.",
+      "An approved `shell` invocation is lifecycle-contained but not filesystem- or\nnetwork-sandboxed; its command retains the launching user's authority.",
     ),
     true,
     "privacy policy lost the process-isolation warning",

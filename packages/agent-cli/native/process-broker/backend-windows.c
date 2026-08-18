@@ -90,7 +90,60 @@ static wchar_t *agent_windows_widen(const char *value) {
   return wide;
 }
 
-static wchar_t *agent_windows_create_target_environment(void) {
+static size_t agent_windows_environment_name_length(const char *entry) {
+  const char *separator = strchr(entry, '=');
+  return separator == NULL ? 0u : (size_t)(separator - entry);
+}
+
+static bool agent_windows_environment_name_equal(
+  const char *left,
+  const char *right
+) {
+  const size_t left_length = agent_windows_environment_name_length(left);
+  const size_t right_length = agent_windows_environment_name_length(right);
+  return left_length == right_length &&
+    left_length > 0u &&
+    _strnicmp(left, right, left_length) == 0;
+}
+
+static bool agent_windows_environment_entries_valid(
+  const struct agent_broker_request *request
+) {
+  static const char reserved[] = "SystemRoot=";
+  for (uint32_t index = 0u; index < request->environment_count; index += 1u) {
+    if (_strnicmp(request->environment[index], reserved, sizeof(reserved) - 1u) == 0) {
+      return false;
+    }
+    for (uint32_t prior = 0u; prior < index; prior += 1u) {
+      if (agent_windows_environment_name_equal(
+        request->environment[prior],
+        request->environment[index]
+      )) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+static void agent_windows_dispose_environment_entries(
+  wchar_t **entries,
+  uint32_t count
+) {
+  if (entries != NULL) {
+    for (uint32_t index = 0u; index < count; index += 1u) {
+      free(entries[index]);
+    }
+  }
+  free(entries);
+}
+
+static wchar_t *agent_windows_create_target_environment(
+  const struct agent_broker_request *request
+) {
+  if (!agent_windows_environment_entries_valid(request)) {
+    return NULL;
+  }
   wchar_t *windows_directory = calloc(
     AGENT_WINDOWS_DIRECTORY_LIMIT,
     sizeof(wchar_t)
@@ -116,10 +169,34 @@ static wchar_t *agent_windows_create_target_environment(void) {
     free(windows_directory);
     return NULL;
   }
-  const size_t environment_length =
+  size_t environment_length =
     prefix_length + (size_t)directory_length + 2u;
+  wchar_t **entries = NULL;
+  if (request->environment_count > 0u) {
+    entries = calloc(request->environment_count, sizeof(wchar_t *));
+    if (entries == NULL) {
+      free(windows_directory);
+      return NULL;
+    }
+  }
+  for (uint32_t index = 0u; index < request->environment_count; index += 1u) {
+    entries[index] = agent_windows_widen(request->environment[index]);
+    if (entries[index] == NULL) {
+      agent_windows_dispose_environment_entries(entries, request->environment_count);
+      free(windows_directory);
+      return NULL;
+    }
+    const size_t entry_length = wcslen(entries[index]);
+    if (entry_length > SIZE_MAX - environment_length - 1u) {
+      agent_windows_dispose_environment_entries(entries, request->environment_count);
+      free(windows_directory);
+      return NULL;
+    }
+    environment_length += entry_length + 1u;
+  }
   wchar_t *environment = calloc(environment_length, sizeof(wchar_t));
   if (environment == NULL) {
+    agent_windows_dispose_environment_entries(entries, request->environment_count);
     free(windows_directory);
     return NULL;
   }
@@ -129,6 +206,17 @@ static wchar_t *agent_windows_create_target_environment(void) {
     windows_directory,
     (size_t)directory_length * sizeof(wchar_t)
   );
+  size_t cursor = prefix_length + (size_t)directory_length + 1u;
+  for (uint32_t index = 0u; index < request->environment_count; index += 1u) {
+    const size_t entry_length = wcslen(entries[index]);
+    memcpy(
+      environment + cursor,
+      entries[index],
+      entry_length * sizeof(wchar_t)
+    );
+    cursor += entry_length + 1u;
+  }
+  agent_windows_dispose_environment_entries(entries, request->environment_count);
   free(windows_directory);
   return environment;
 }
@@ -549,7 +637,7 @@ struct agent_broker_result agent_backend_run(
   startup.StartupInfo.hStdOutput = target_output;
   startup.StartupInfo.hStdError = target_error;
   startup.lpAttributeList = attributes;
-  target_environment = agent_windows_create_target_environment();
+  target_environment = agent_windows_create_target_environment(request);
   if (target_environment == NULL) {
     result = agent_windows_failure(AGENT_BROKER_FAILURE_CAPABILITY);
     goto cleanup;

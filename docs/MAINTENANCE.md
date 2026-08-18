@@ -68,7 +68,7 @@ Diagnose the first boundary that rejected the operation:
 | invalid tool call | advertised schema, full batch validation, identity, planner result |
 | permission wait | exact tool policy, turn-and-call identity, selection settlement |
 | stale mutation | observed identity/content, planned effect, native committer result |
-| process cleanup failure | registered executable, native containment broker, operation and post-kill deadlines |
+| process cleanup failure | fixed shell policy, native containment broker, operation and post-kill deadlines |
 | terminal frame failure | serialized arbiter, renderer obligation, cleanup path, stale event |
 | native-platform failure | compiler output, broker contract, unsupported primitive, platform-focused tests |
 
@@ -129,7 +129,7 @@ the CLI must not absorb a second private runtime.
 ### Tool engine
 
 **Owners:** `packages/agent-tools`, CLI planners and handlers, the six-tool
-registry, native committers, and decisions 0036, 0050, and 0054.
+registry, native committers, and decisions 0073, 0050, and 0054.
 
 For a tool change:
 
@@ -142,8 +142,15 @@ For a tool change:
 6. remove any replaced name and alias immediately.
 
 The exact inventory is `read_file`, `list_directory`, `search_text`,
-`apply_patch`, `manage_path`, and `run_process`. A new tool or registry
-program requires an accepted decision and current evaluation evidence.
+`apply_patch`, `manage_path`, and `shell`. A new tool or shell-policy change
+requires an accepted decision and current evaluation evidence.
+
+To change shell execution, update its fixed platform executable and arguments,
+controlled environment projection, descriptor, approval fields, broker
+protocol, native environment construction, manual, privacy and security text,
+and Windows/Linux contract tests together. Never inherit the complete parent
+environment, expose a provider credential, load a profile, or retain a target
+after settlement.
 
 Removal deletes advertisement, schema, planner, handler, permission entry,
 presentation mapping, tests, declarations, manual text, and decision status in
@@ -162,6 +169,10 @@ sources, focused tests, decision, and policy entries.
 If the complete inventory is retired, replace manual-policy schema 10 with a
 schema that removes the advertised tool inventory; do not leave an empty or
 stale registry behind.
+
+To roll back shell execution, atomically restore the superseded `run_process`
+descriptor and closed Node registry together with protocol v1 and its tests.
+Never advertise both execute tools.
 
 ### Session tool permissions
 

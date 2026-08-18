@@ -11,7 +11,7 @@ import {
 
 function status(kind: number, payload: readonly number[]): Uint8Array {
   const frame = new Uint8Array(12 + payload.length);
-  frame.set([0x41, 0x47, 0x50, 0x53, 1, kind, 0, 0], 0);
+  frame.set([0x41, 0x47, 0x50, 0x53, 2, kind, 0, 0], 0);
   new DataView(frame.buffer).setUint32(8, payload.length, true);
   frame.set(payload, 12);
   return frame;
@@ -20,15 +20,36 @@ function status(kind: number, payload: readonly number[]): Uint8Array {
 test("encodes launch text and exact protocol fields", () => {
   const encoded = encodeProcessLaunch({
     arguments: ["fixture.js", "€ 😀"],
+    environment: ["PATH=C:\\tools", "LANG=C.UTF-8"],
     processLimit: 16,
     program: "C:\\node.exe",
     timeoutMilliseconds: 120_000,
     workingDirectory: "C:\\workspace",
   });
   assert.ok(encoded.ok);
-  assert.deepEqual([...encoded.value.slice(0, 8)], [65, 71, 80, 67, 1, 1, 0, 0]);
+  assert.deepEqual([...encoded.value.slice(0, 8)], [65, 71, 80, 67, 2, 1, 0, 0]);
   assert.equal(new DataView(encoded.value.buffer).getUint32(12, true), 120_000);
   assert.equal(new DataView(encoded.value.buffer).getUint32(16, true), 16);
+});
+
+test("rejects malformed and duplicate launch environment entries", () => {
+  for (const environment of [
+    ["BROKEN"],
+    ["1INVALID=value"],
+    ["AGENT_DUPLICATE=one", "AGENT_DUPLICATE=two"],
+  ]) {
+    assert.deepEqual(encodeProcessLaunch({
+      arguments: [],
+      environment,
+      processLimit: 16,
+      program: "C:\\node.exe",
+      timeoutMilliseconds: 120_000,
+      workingDirectory: "C:\\workspace",
+    }), {
+      error: { kind: "invalidRequest" },
+      ok: false,
+    });
+  }
 });
 
 test("round trips owned UTF-8 and rejects unsafe text", () => {

@@ -118,6 +118,13 @@ function validRequest(request: ProcessRunRequest): boolean {
             PROCESS_RUNNER_LIMITS.argumentCodeUnits,
           ),
       ) &&
+      Array.isArray(request.environment) &&
+      request.environment.length <= PROCESS_RUNNER_LIMITS.environmentEntries &&
+      request.environment.every((entry) =>
+        validProcessText(entry) && /^[A-Za-z_][A-Za-z0-9_]*=/u.test(entry)
+      ) &&
+      new Set(request.environment.map((entry) => entry.slice(0, entry.indexOf("="))))
+        .size === request.environment.length &&
       Number.isSafeInteger(request.processLimit) &&
       request.processLimit >= 1 &&
       request.processLimit <= 64 &&
@@ -194,6 +201,7 @@ export class NodeProcessRunner implements ProcessRunner {
 
     const launch = encodeProcessLaunch({
       arguments: request.arguments,
+      environment: request.environment,
       processLimit: request.processLimit,
       program: request.executable,
       timeoutMilliseconds: request.timeoutMilliseconds,

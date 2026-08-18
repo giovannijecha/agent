@@ -10,12 +10,13 @@ import { decodeUtf8Text } from "./utf8-text.js";
 
 export const PROCESS_BROKER_LIMITS = Object.freeze({
   arguments: PROCESS_RUNNER_LIMITS.arguments,
+  environmentEntries: PROCESS_RUNNER_LIMITS.environmentEntries,
   frameBytes: 65_536,
   stringBytes: PROCESS_RUNNER_LIMITS.textUtf8Bytes,
 });
 
 const HEADER_BYTES = 12;
-const PROTOCOL_VERSION = 1;
+const PROTOCOL_VERSION = 2;
 const COMMAND_MAGIC = Object.freeze([0x41, 0x47, 0x50, 0x43]);
 const STATUS_MAGIC = Object.freeze([0x41, 0x47, 0x50, 0x53]);
 
@@ -25,6 +26,7 @@ export type ProcessBrokerProtocolError = Readonly<{
 
 export type ProcessBrokerLaunch = Readonly<{
   arguments: readonly string[];
+  environment: readonly string[];
   processLimit: number;
   program: string;
   timeoutMilliseconds: number;
@@ -137,6 +139,15 @@ function concatenate(parts: readonly Uint8Array[], length: number): Uint8Array {
   return output;
 }
 
+function environmentName(entry: unknown): string | undefined {
+  if (typeof entry !== "string") {
+    return undefined;
+  }
+  const separator = entry.indexOf("=");
+  const name = separator < 1 ? "" : entry.slice(0, separator);
+  return /^[A-Za-z_][A-Za-z0-9_]*$/u.test(name) ? name : undefined;
+}
+
 export function encodeProcessLaunch(
   request: ProcessBrokerLaunch,
 ): Result<Uint8Array, ProcessBrokerProtocolError> {
@@ -149,11 +160,26 @@ export function encodeProcessLaunch(
       request.processLimit < 1 ||
       request.processLimit > 64 ||
       !Array.isArray(request.arguments) ||
-      request.arguments.length > PROCESS_BROKER_LIMITS.arguments
+      request.arguments.length > PROCESS_BROKER_LIMITS.arguments ||
+      !Array.isArray(request.environment) ||
+      request.environment.length > PROCESS_BROKER_LIMITS.environmentEntries
     ) {
       return err(failure("invalidRequest"));
     }
-    const strings = [request.program, request.workingDirectory, ...request.arguments];
+    const environmentNames = new Set<string>();
+    for (const entry of request.environment) {
+      const name = environmentName(entry);
+      if (name === undefined || environmentNames.has(name)) {
+        return err(failure("invalidRequest"));
+      }
+      environmentNames.add(name);
+    }
+    const strings = [
+      request.program,
+      request.workingDirectory,
+      ...request.environment,
+      ...request.arguments,
+    ];
     const encodedStrings: Uint8Array[] = [];
     for (const value of strings) {
       if (typeof value !== "string") {
@@ -168,9 +194,20 @@ export function encodeProcessLaunch(
     const fixed = new Uint8Array(8);
     writeU32(fixed, 0, request.timeoutMilliseconds);
     writeU32(fixed, 4, request.processLimit);
-    const count = new Uint8Array(4);
-    writeU32(count, 0, request.arguments.length);
-    const parts = [fixed, encodedStrings.at(0)!, encodedStrings.at(1)!, count, ...encodedStrings.slice(2)];
+    const environmentCount = new Uint8Array(4);
+    writeU32(environmentCount, 0, request.environment.length);
+    const argumentCount = new Uint8Array(4);
+    writeU32(argumentCount, 0, request.arguments.length);
+    const environmentEnd = 2 + request.environment.length;
+    const parts = [
+      fixed,
+      encodedStrings.at(0)!,
+      encodedStrings.at(1)!,
+      environmentCount,
+      ...encodedStrings.slice(2, environmentEnd),
+      argumentCount,
+      ...encodedStrings.slice(environmentEnd),
+    ];
     const length = parts.reduce((total, part) => total + part.length, 0);
     return length <= PROCESS_BROKER_LIMITS.frameBytes
       ? ok(frame(1, concatenate(parts, length)))

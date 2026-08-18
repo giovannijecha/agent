@@ -12,7 +12,7 @@ import {
 } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import path from "node:path";
-import { arch, execPath, platform } from "node:process";
+import { arch, env, platform } from "node:process";
 import test from "node:test";
 
 import {
@@ -36,12 +36,14 @@ import {
 import { EvaluationReceiptRecorder } from "../dist/evaluation-receipt.js";
 import { PlatformWorkspaceMutationCommitter } from "../dist/platform-workspace-mutation.js";
 import { PlatformWorkspaceNamespaceCommitter } from "../dist/platform-workspace-namespace.js";
-import {
-  PROCESS_RUNNER_LIMITS,
-  type ProcessRunRequest,
-  type ProcessRunner,
+import type {
+  ProcessRunRequest,
+  ProcessRunner,
 } from "../dist/process-runner.js";
-import { ProcessProgramRegistry } from "../dist/process-program-registry.js";
+import {
+  SHELL_LIMITS,
+  ShellExecutionPolicy,
+} from "../dist/shell-execution-policy.js";
 import { TOOL_PERMISSION_DEFINITIONS } from "../dist/tool-permissions.js";
 import { WorkspaceBoundary } from "../dist/workspace-boundary.js";
 import {
@@ -80,15 +82,15 @@ function toolPlatform(runner: ProcessRunner = processRunner) {
     platform,
     arch,
   );
-  const programs = ProcessProgramRegistry.create(execPath);
+  const shell = ShellExecutionPolicy.create(platform, env);
   assert.ok(committer.ok);
   assert.ok(namespaceCommitter.ok);
-  assert.ok(programs.ok);
+  assert.ok(shell.ok);
   return Object.freeze({
     mutationCommitter: committer.value,
     namespaceCommitter: namespaceCommitter.value,
-    processPrograms: programs.value,
     processRunner: runner,
+    shell: shell.value,
   });
 }
 
@@ -163,7 +165,7 @@ test("advertises the exact workspace-root path convention", async () => {
   });
 });
 
-test("runs only the registered program with structured arguments", async () => {
+test("runs one exact command through the fixed platform shell", async () => {
   await withWorkspace(async (workspace) => {
     let received: ProcessRunRequest | undefined;
     const trackingRunner: ProcessRunner = Object.freeze({
@@ -180,35 +182,44 @@ test("runs only the registered program with structured arguments", async () => {
       },
     });
     const tools = await engine(workspace, trackingRunner);
-    const execution = await execute(tools, "run_process", {
-      arguments: ["--version", "literal value"],
-      program: "node",
+    const execution = await execute(tools, "shell", {
+      command: "node --version",
       workingDirectory: ".",
     });
     assert.equal(execution.result.status, "success");
-    assert.equal(output(execution).get("stdout"), "--version\u0000literal value");
     assert.equal(received?.workingDirectory, await realpath(workspace));
+    assert.equal(received?.arguments.at(-1)?.endsWith("node --version"), true);
+    assert.equal(
+      received?.environment.some((entry) =>
+        entry.startsWith("AGENT_OLLAMA_API_KEY=")
+      ),
+      false,
+    );
 
-    const unsupportedInput = structuredValueFromUnknown({
+    const legacyInput = structuredValueFromUnknown({
       arguments: [],
-      program: "python",
+      program: "node",
       workingDirectory: ".",
     });
     assert.ok(
-      unsupportedInput.ok && unsupportedInput.value instanceof StructuredObject,
+      legacyInput.ok && legacyInput.value instanceof StructuredObject,
     );
     assert.deepEqual(
       tools.prepare(
-        "call-unsupported",
-        "run_process",
-        unsupportedInput.value,
+        "call-legacy",
+        "shell",
+        legacyInput.value,
       ),
       { ok: false, error: { kind: "invalidInput" } },
     );
+    assert.deepEqual(tools.prepare("call-removed", "run_process", legacyInput.value), {
+      ok: false,
+      error: { kind: "unknownTool" },
+    });
   });
 });
 
-test("rejects process text and approval projections beyond their exact limits", async () => {
+test("rejects shell command text beyond its exact limits", async () => {
   await withWorkspace(async (workspace) => {
     let runnerCalls = 0;
     const trackingRunner: ProcessRunner = Object.freeze({
@@ -227,34 +238,30 @@ test("rejects process text and approval projections beyond their exact limits", 
     const tools = await engine(workspace, trackingRunner);
 
     const oversizedUtf8 = structuredValueFromUnknown({
-      arguments: [
-        "\u6f22".repeat(PROCESS_RUNNER_LIMITS.argumentCodeUnits + 1),
-      ],
-      program: "node",
+      command: "\u6f22".repeat(Math.floor(SHELL_LIMITS.commandUtf8Bytes / 3) + 1),
       workingDirectory: ".",
     });
     assert.ok(
       oversizedUtf8.ok && oversizedUtf8.value instanceof StructuredObject,
     );
     assert.deepEqual(
-      tools.prepare("call-oversized-utf8", "run_process", oversizedUtf8.value),
+      tools.prepare("call-oversized-utf8", "shell", oversizedUtf8.value),
       { ok: false, error: { kind: "invalidInput" } },
     );
 
-    const oversizedProjection = structuredValueFromUnknown({
-      arguments: Array.from({ length: 4 }, () => "x".repeat(2_700)),
-      program: "node",
+    const oversizedCommand = structuredValueFromUnknown({
+      command: "x".repeat(SHELL_LIMITS.commandCodeUnits + 1),
       workingDirectory: ".",
     });
     assert.ok(
-      oversizedProjection.ok &&
-        oversizedProjection.value instanceof StructuredObject,
+      oversizedCommand.ok &&
+        oversizedCommand.value instanceof StructuredObject,
     );
     assert.deepEqual(
       tools.prepare(
-        "call-oversized-projection",
-        "run_process",
-        oversizedProjection.value,
+        "call-oversized-command",
+        "shell",
+        oversizedCommand.value,
       ),
       { ok: false, error: { kind: "invalidInput" } },
     );
@@ -262,7 +269,7 @@ test("rejects process text and approval projections beyond their exact limits", 
   });
 });
 
-test("preserves a nonzero process result as a recoverable failed tool outcome", async () => {
+test("preserves a nonzero shell result as a recoverable failed tool outcome", async () => {
   await withWorkspace(async (workspace) => {
     const failedRunner: ProcessRunner = Object.freeze({
       run: async () =>
@@ -277,10 +284,9 @@ test("preserves a nonzero process result as a recoverable failed tool outcome", 
     });
     const execution = await execute(
       await engine(workspace, failedRunner),
-      "run_process",
+      "shell",
       {
-        arguments: ["--owned"],
-        program: "node",
+        command: "owned-command",
         workingDirectory: ".",
       },
     );
@@ -331,8 +337,8 @@ test("distinguishes invalid roots, read policies, and platform adapters", async 
     createBuiltinToolEngine(boundary.value, policy.value, {
       mutationCommitter: toolPlatform().mutationCommitter,
       namespaceCommitter: toolPlatform().namespaceCommitter,
-      processPrograms: Object.freeze({}) as never,
       processRunner,
+      shell: Object.freeze({}) as never,
     }),
     { ok: false, error: { kind: "invalidPlatform" } },
   );
@@ -340,8 +346,8 @@ test("distinguishes invalid roots, read policies, and platform adapters", async 
     createBuiltinToolEngine(boundary.value, policy.value, {
       mutationCommitter: Object.freeze({}) as never,
       namespaceCommitter: toolPlatform().namespaceCommitter,
-      processPrograms: toolPlatform().processPrograms,
       processRunner,
+      shell: toolPlatform().shell,
     }),
     { ok: false, error: { kind: "invalidPlatform" } },
   );
@@ -351,8 +357,8 @@ test("distinguishes invalid roots, read policies, and platform adapters", async 
       namespaceCommitter: Object.freeze({
         commit: toolPlatform().namespaceCommitter.commit,
       }) as never,
-      processPrograms: toolPlatform().processPrograms,
       processRunner,
+      shell: toolPlatform().shell,
     }),
     { ok: false, error: { kind: "invalidPlatform" } },
   );
@@ -360,8 +366,8 @@ test("distinguishes invalid roots, read policies, and platform adapters", async 
     createBuiltinToolEngine(boundary.value, policy.value, {
       mutationCommitter: toolPlatform().mutationCommitter,
       namespaceCommitter: Object.freeze({}) as never,
-      processPrograms: toolPlatform().processPrograms,
       processRunner,
+      shell: toolPlatform().shell,
     }),
     { ok: false, error: { kind: "invalidPlatform" } },
   );
@@ -667,8 +673,8 @@ test("rejects unsupported namespace operations before observation and approval",
     const created = createBuiltinToolEngine(boundary.value, policy.value, {
       mutationCommitter: current.mutationCommitter,
       namespaceCommitter: linuxCommitter.value,
-      processPrograms: current.processPrograms,
       processRunner: current.processRunner,
+      shell: current.shell,
     });
     assert.ok(created.ok);
 

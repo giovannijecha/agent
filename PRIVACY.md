@@ -14,7 +14,7 @@ written to disk, or sent over a network.
 ## Local tools
 
 The five filesystem tools share the one canonical workspace selected at
-startup, and `run_process` starts in one selected directory beneath it.
+startup, and `shell` starts in one selected directory beneath it.
 Filesystem handlers do not use ambient network access. Read tools start as
 `Allow`; write and execute tools start as `Ask`. `/permissions` can set each
 exact tool to `Allow`, `Ask`, or `Deny` for the current process session only.
@@ -75,8 +75,10 @@ DOS short-name aliases fail closed rather than bypassing a long-name denial.
 These rules protect only automatic built-in disclosure; they do not scan file
 contents or alter approved writes. Start `agent` from the narrowest intended
 directory and keep credentials outside it whenever possible.
-An approved `run_process` invocation is lifecycle-contained but not filesystem-
-or network-sandboxed; its Node code retains the launching user's authority.
+An approved `shell` invocation is lifecycle-contained but not filesystem- or
+network-sandboxed; its command retains the launching user's authority. The
+target receives only the fixed decision-0073 environment allowlist, never the
+Ollama credential or the unfiltered parent environment.
 
 ## Terminal selection and links
 

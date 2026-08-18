@@ -383,8 +383,8 @@ test("rejects a weakened process-isolation privacy warning", () => {
   const context = currentContext();
   const maintained = context.files["PRIVACY.md"];
   context.files["PRIVACY.md"] = context.files["PRIVACY.md"].replace(
-    "An approved `run_process` invocation is lifecycle-contained but not filesystem-\nor network-sandboxed; its Node code retains the launching user's authority.",
-    "An approved `run_process` invocation is fully sandboxed.",
+    "An approved `shell` invocation is lifecycle-contained but not filesystem- or\nnetwork-sandboxed; its command retains the launching user's authority.",
+    "An approved `shell` invocation is fully sandboxed.",
   );
   assert.notEqual(context.files["PRIVACY.md"], maintained);
   assert.throws(

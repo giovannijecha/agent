@@ -362,7 +362,7 @@ function validatePublicDocuments(context) {
       "`agent` is local-first software maintained by Giovanni Jecha. It has no project\ncloud service, analytics, advertising, crash-reporting endpoint, or telemetry.",
       "persists no chat session, credential, catalog, or selection.",
       "The policy is never persisted or sent to a provider.",
-      "An approved `run_process` invocation is lifecycle-contained but not filesystem-\nor network-sandboxed; its Node code retains the launching user's authority.",
+      "An approved `shell` invocation is lifecycle-contained but not filesystem- or\nnetwork-sandboxed; its command retains the launching user's authority.",
       "The Ollama API key is accepted only through the\nzero-projection TUI credential context or `AGENT_OLLAMA_API_KEY` and remains in\nprocess memory.",
       "Persistent storage requires a separate accepted\noperating-system vault design.",
       "Local session persistence is disabled.",
