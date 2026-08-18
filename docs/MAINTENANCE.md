@@ -300,14 +300,15 @@ glyph, or component-private ANSI path. Shape changes require exact
 initialization and cleanup byte regressions and the terminal decision, manual,
 architecture, and policy to change together.
 
-The ruled interaction dock owns one body and one focus kind. Keep editor focus
-for the draft and concealed credential entry; keep provider, model, permission,
-pending-tool, and timeline lists in selection focus. Selection focus is capped
-at six content rows, has no caret, consumes a closing editor event, and blocks
-composer pointer effects without resetting or blocking transcript pointer
-selection and scrolling. Change focus routing in the CLI reducer only after the
-generic dock tests cover header allocation, selected-row visibility, caret
-admission, narrow viewports, hostile children, and accessor-backed options.
+The ruled interaction dock owns one body, one focus kind, and an absolute six
+content-row maximum. Keep editor focus for the draft and concealed credential
+entry; keep provider, model, permission, pending-tool, and timeline lists in
+selection focus. Selection focus has no caret, consumes a closing editor event,
+and blocks composer pointer effects without resetting or blocking transcript
+pointer selection and scrolling. Change focus routing in the CLI reducer only
+after generic dock tests cover header allocation, selected-row visibility,
+caret admission, narrow viewports, hostile children, and accessor-backed
+options.
 Snapshot focus, header, and height exactly once before validation and construct
 the frozen dock contract from that same snapshot; never reread caller-owned
 options after validation. Carry the focus and separate

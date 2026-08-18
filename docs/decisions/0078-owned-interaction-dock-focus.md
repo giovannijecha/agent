@@ -86,8 +86,8 @@ focus kind, height, styling, or terminal bytes.
 Generic TUI tests prove editor and selection focus, exact caret admission,
 six-row measurement, header retention, selected-row visibility, one-row
 fallback, padding, hostile-child containment, exact accessor-backed option
-snapshotting, and invalid focus rejection. CLI view regressions prove every
-contextual selector appears between the existing
+snapshotting, oversized-height rejection, and invalid focus rejection. CLI view
+regressions prove every contextual selector appears between the existing
 composer rules, never exposes a caret, keeps its selected row visible, and does
 not add a second contextual menu slot. Session and application regressions prove
 closing input is consumed, drafts remain unchanged, pointer events cannot reach

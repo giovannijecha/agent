@@ -160,6 +160,13 @@ test("rejects invalid options, headers, and focus caret mismatches", () => {
   );
   assert.equal(
     InteractionDock.create(list.value, {
+      focus: "selection",
+      maximumRows: 7,
+    }).ok,
+    false,
+  );
+  assert.equal(
+    InteractionDock.create(list.value, {
       focus: "invalid" as "selection",
       maximumRows: 6,
     }).ok,

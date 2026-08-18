@@ -7,10 +7,11 @@ import {
   type ComponentMeasurement,
 } from "./component.js";
 import { Fragment, type FragmentCaret } from "./fragment.js";
-import { TUI_LIMITS } from "./limits.js";
 import { RichRow } from "./rich-row.js";
 import { err, ok, type Result } from "./result.js";
 import { Viewport } from "./viewport.js";
+
+const INTERACTION_DOCK_MAXIMUM_ROWS = 6;
 
 export type InteractionDockFocus = "editor" | "selection";
 
@@ -43,7 +44,7 @@ function snapshotOptions(value: unknown): InteractionDockOptions | undefined {
       typeof maximumRows !== "number" ||
       !Number.isSafeInteger(maximumRows) ||
       maximumRows < 1 ||
-      maximumRows > TUI_LIMITS.frameRows ||
+      maximumRows > INTERACTION_DOCK_MAXIMUM_ROWS ||
       (header !== undefined && !isComponent(header))
     ) {
       return undefined;
