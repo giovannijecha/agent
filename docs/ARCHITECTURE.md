@@ -161,10 +161,14 @@ Every accepted journal file is synchronized before publication. On POSIX, the
 CLI also synchronizes a staged session directory before publishing it and the
 containing directory after every head replacement, session publication,
 retirement, or lock transition; unsupported directory synchronization fails
-closed. One exact workspace admission lock serializes scan, retention, resume
-selection, and continuation publication across processes. Live contention is
-reported as busy without waiting, while one operating-system-proven stale
-admission may be reclaimed before one fresh acquisition.
+closed. Each launcher publishes one uniquely named, never-reused workspace
+admission token before scanning the bounded token set. Scan, retention, resume
+selection, and continuation publication proceed only while no other live token
+exists. Overlapping live contenders fail busy without waiting and may all fail;
+an operating-system-proven stale token can be removed only through its unique
+pathname, so reclamation cannot delete a successor. While admitted, every new
+session receives a creation value strictly greater than the newest validated
+session even when the wall clock ties or moves backward.
 
 Each encoded tool input and result retains the same independent structured-value
 limits enforced when that payload entered the runtime; sibling payloads do not
@@ -183,6 +187,7 @@ The principal runtime bounds are fixed:
 | retained conversation tree | 128 settled turns / 256 messages / 1,048,576 code units |
 | one local session journal | 16,777,216 UTF-8 bytes |
 | retained sessions per workspace | 32 validated directories / 64 scanned |
+| workspace admission scan | 64 exact tokens |
 | one turn | 32 model/tool steps |
 
 ## Capability surface

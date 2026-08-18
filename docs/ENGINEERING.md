@@ -97,7 +97,7 @@ separate follow-up unless the adjacent change is necessary for correctness.
 | native boundary | focused native tests on each admitted platform plus canonical Linux and Windows gates |
 | tool change | schema, planner, permission, handler, stale-state, and presentation coverage as applicable |
 | conversation-tree change | pure append/select/path/bound tests, runtime settlement tests, and one CLI selection smoke path |
-| durable-session change | codec and corruption tests, independent payload bounds, file and directory durability, serialized admission and stale-lock recovery, storage bounds and lock tests, stop-settlement cleanup, exact-workspace recovery, and one controller composition round trip |
+| durable-session change | codec and corruption tests, independent payload bounds, file and directory durability, unique-token admission and stale-token races, monotonic publication under tied or regressed clocks, storage bounds and lock tests, stop-settlement cleanup, exact-workspace recovery, and one controller composition round trip |
 | documentation topology | documentation-policy regression and link/route validation |
 | evaluation task | input and expected-tree validation without executing candidate workspaces |
 

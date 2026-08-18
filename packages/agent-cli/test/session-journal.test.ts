@@ -5,6 +5,7 @@ import {
   mkdtemp,
   readFile,
   readdir,
+  rename,
   rm,
   writeFile,
 } from "node:fs/promises";
@@ -363,23 +364,22 @@ test("serializes concurrent admission at the exact workspace bound", async () =>
     ]);
     const opened = admitted.filter((result) => result.ok);
     const blocked = admitted.filter((result) => !result.ok);
-    assert.equal(opened.length, 1);
-    assert.equal(blocked.length, 1);
-    const rejected = blocked.at(0);
-    if (rejected !== undefined && !rejected.ok) {
-      assert.equal(rejected.error.kind, "busy");
+    assert.equal(opened.length <= 1, true);
+    for (const rejected of blocked) {
+      if (!rejected.ok) assert.equal(rejected.error.kind, "busy");
     }
-    assert.equal((await sessionDirectories(root)).length, 32);
-    const accepted = opened.at(0);
-    if (accepted !== undefined && accepted.ok) {
-      assert.equal((await accepted.value.journal.close()).ok, true);
+    assert.equal((await sessionDirectories(root)).length, 31 + opened.length);
+    for (const accepted of opened) {
+      if (accepted.ok) {
+        assert.equal((await accepted.value.journal.close()).ok, true);
+      }
     }
   } finally {
     await rm(root, { force: true, recursive: true });
   }
 });
 
-test("reclaims one exact stale workspace admission before creating", async () => {
+test("reclaims one unique stale admission without admitting two launchers", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "agent-journal-admission-stale-"));
   try {
     const initial = await SessionJournal.create(root, "C:\\work\\alpha");
@@ -387,21 +387,75 @@ test("reclaims one exact stale workspace admission before creating", async () =>
     if (!initial.ok) return;
     assert.equal((await initial.value.journal.close()).ok, true);
     const workspace = path.dirname(await sessionDirectory(root));
-    await writeFile(path.join(workspace, ".admission"), "999999999\n", {
-      encoding: "utf8",
-      flag: "wx",
-    });
+    await writeFile(
+      path.join(workspace, ".admission-999999999-" + "a".repeat(64)),
+      "999999999\n",
+      { encoding: "utf8", flag: "wx" },
+    );
+
+    const admitted = await Promise.all([
+      SessionJournal.create(root, "C:\\work\\alpha"),
+      SessionJournal.create(root, "C:\\work\\alpha"),
+    ]);
+    const opened = admitted.filter((result) => result.ok);
+    assert.equal(opened.length <= 1, true);
+    for (const result of admitted) {
+      if (!result.ok) assert.equal(result.error.kind, "busy");
+    }
+    for (const result of opened) {
+      if (result.ok) assert.equal((await result.value.journal.close()).ok, true);
+    }
+    assert.equal((await sessionDirectories(root)).length, 1 + opened.length);
+    assert.equal(
+      (await readdir(workspace, { withFileTypes: true })).some(
+        (entry) => entry.name.startsWith(".admission-"),
+      ),
+      false,
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("publishes after the latest retained creation value when the clock regresses", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "agent-journal-order-"));
+  try {
+    const initial = await SessionJournal.create(root, "C:\\work\\alpha");
+    assert.equal(initial.ok, true);
+    if (!initial.ok) return;
+    assert.equal((await initial.value.journal.close()).ok, true);
+    const directory = await sessionDirectory(root);
+    const journalPath = path.join(directory, "journal.jsonl");
+    const text = await readFile(journalPath, { encoding: "utf8" });
+    const lines = text.split("\n");
+    const firstLine = lines.at(0);
+    assert.equal(firstLine === undefined, false);
+    if (firstLine === undefined) return;
+    const header = JSON.parse(firstLine) as {
+      createdAt: number;
+      sessionId: string;
+    };
+    const futureCreatedAt = Date.now() + 60_000;
+    header.createdAt = futureCreatedAt;
+    await writeFile(
+      journalPath,
+      JSON.stringify(header) + "\n" + lines.slice(1).join("\n"),
+      { encoding: "utf8", flag: "w" },
+    );
+    const futureDirectory = path.join(
+      path.dirname(directory),
+      String(futureCreatedAt).padStart(13, "0") + "-" + header.sessionId,
+    );
+    await rename(directory, futureDirectory);
 
     const created = await SessionJournal.create(root, "C:\\work\\alpha");
     assert.equal(created.ok, true);
     if (!created.ok) return;
     assert.equal((await created.value.journal.close()).ok, true);
-    assert.equal(
-      (await readdir(workspace, { withFileTypes: true })).some(
-        (entry) => entry.name === ".admission",
-      ),
-      false,
+    const publications = (await sessionDirectories(root)).map((session) =>
+      Number(path.basename(session).slice(0, 13))
     );
+    assert.deepEqual(publications, [futureCreatedAt, futureCreatedAt + 1]);
   } finally {
     await rm(root, { force: true, recursive: true });
   }

@@ -36,6 +36,7 @@ import {
 import { decodeUtf8Text, encodeUtf8Text } from "./utf8-text.js";
 
 export const SESSION_JOURNAL_LIMITS = Object.freeze({
+  admissions: 64,
   journalBytes: 16_777_216,
   scannedSessions: 64,
   sessions: 32,
@@ -44,7 +45,9 @@ export const SESSION_JOURNAL_LIMITS = Object.freeze({
 const DIRECTORY_MODE = 0o700;
 const FILE_MODE = 0o600;
 const JOURNAL_VERSION = 1;
-const WORKSPACE_ADMISSION_LOCK = ".admission";
+const SESSION_CREATED_AT_MAX = 9_999_999_999_999;
+const WORKSPACE_ADMISSION =
+  /^\.admission-([1-9][0-9]{0,9})-([a-f0-9]{64})$/u;
 const SESSION_NAME = /^[0-9]{13}-[a-f0-9]{64}$/u;
 
 export type SessionJournalErrorKind =
@@ -114,6 +117,11 @@ type SessionEntry = Readonly<{
   path: string;
 }>;
 
+type WorkspaceAdmission = Readonly<{
+  owner: number;
+  path: string;
+}>;
+
 function failure(kind: SessionJournalErrorKind): SessionJournalError {
   return new SessionJournalError(kind);
 }
@@ -150,6 +158,29 @@ function sessionIdentifier(
     .update("\u0000" + String(hrtime.bigint()), "utf8")
     .update("\u0000" + String(attempt), "utf8")
     .digest("hex");
+}
+
+function admissionIdentifier(
+  workspaceDirectory: string,
+  attempt: number,
+): string {
+  return createHash("sha256")
+    .update(workspaceDirectory, "utf8")
+    .update("\u0000" + String(Date.now()), "utf8")
+    .update("\u0000" + String(pid), "utf8")
+    .update("\u0000" + String(hrtime.bigint()), "utf8")
+    .update("\u0000" + String(attempt), "utf8")
+    .digest("hex");
+}
+
+function admissionOwner(name: string): number | undefined {
+  const matched = WORKSPACE_ADMISSION.exec(name);
+  const text = matched?.at(1);
+  if (text === undefined) {
+    return undefined;
+  }
+  const owner = Number(text);
+  return Number.isSafeInteger(owner) && owner > 0 ? owner : undefined;
 }
 
 async function ensureDirectory(directory: string): Promise<boolean> {
@@ -342,6 +373,7 @@ function parseHeader(input: unknown): SessionHeader | undefined {
     typeof value.createdAt !== "number" ||
     !Number.isSafeInteger(value.createdAt) ||
     value.createdAt < 0 ||
+    value.createdAt > SESSION_CREATED_AT_MAX ||
     typeof value.sessionId !== "string" ||
     !/^[a-f0-9]{64}$/u.test(value.sessionId) ||
     typeof value.workspaceKey !== "string" ||
@@ -594,6 +626,7 @@ async function processLockState(
   lockPath: string,
   directory: string,
   reclaimStale: boolean,
+  expectedOwner?: number,
 ): Promise<"active" | "free" | "invalid"> {
   let text: string;
   try {
@@ -610,6 +643,9 @@ async function processLockState(
     return "invalid";
   }
   const owner = Number(text.trim());
+  if (expectedOwner !== undefined && owner !== expectedOwner) {
+    return "invalid";
+  }
   try {
     kill(owner, 0);
     return "active";
@@ -629,6 +665,35 @@ async function processLockState(
   }
 }
 
+async function workspaceAdmissions(
+  workspaceDirectory: string,
+): Promise<WorkspaceAdmission[] | undefined> {
+  let entries: Awaited<ReturnType<typeof readdir>>;
+  try {
+    entries = await readdir(workspaceDirectory, { withFileTypes: true });
+  } catch (_cause: unknown) {
+    return undefined;
+  }
+  const admissions: WorkspaceAdmission[] = [];
+  for (const entry of entries) {
+    const owner = admissionOwner(entry.name);
+    if (owner === undefined) {
+      continue;
+    }
+    if (!entry.isFile()) {
+      return undefined;
+    }
+    admissions.push(Object.freeze({
+      owner,
+      path: path.join(workspaceDirectory, entry.name),
+    }));
+    if (admissions.length > SESSION_JOURNAL_LIMITS.admissions) {
+      return undefined;
+    }
+  }
+  return admissions;
+}
+
 async function sessionLocked(
   sessionPath: string,
 ): Promise<"active" | "free" | "invalid"> {
@@ -642,31 +707,57 @@ async function sessionLocked(
 async function acquireWorkspaceAdmission(
   workspaceDirectory: string,
 ): Promise<Result<string, SessionJournalError>> {
-  const lockPath = path.join(workspaceDirectory, WORKSPACE_ADMISSION_LOCK);
-  const first = await createDurableLock(lockPath, workspaceDirectory);
-  if (first === "created") {
-    return ok(lockPath);
+  let lockPath: string | undefined;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const candidate = path.join(
+      workspaceDirectory,
+      ".admission-" + String(pid) + "-" +
+        admissionIdentifier(workspaceDirectory, attempt),
+    );
+    const created = await createDurableLock(candidate, workspaceDirectory);
+    if (created === "created") {
+      lockPath = candidate;
+      break;
+    }
+    if (created === "failed") {
+      return err(failure("storage"));
+    }
   }
-  if (first === "failed") {
+  if (lockPath === undefined) {
     return err(failure("storage"));
   }
-  const observed = await processLockState(
-    lockPath,
-    workspaceDirectory,
-    true,
-  );
-  if (observed === "active") {
+
+  const admissions = await workspaceAdmissions(workspaceDirectory);
+  if (admissions === undefined) {
+    await releaseWorkspaceAdmission(lockPath, workspaceDirectory);
+    return err(failure("storage"));
+  }
+  let busy = false;
+  for (const admission of admissions) {
+    const observed = await processLockState(
+      admission.path,
+      workspaceDirectory,
+      true,
+      admission.owner,
+    );
+    if (observed === "invalid") {
+      await releaseWorkspaceAdmission(lockPath, workspaceDirectory);
+      return err(failure("storage"));
+    }
+    if (admission.path === lockPath) {
+      if (observed !== "active") {
+        await releaseWorkspaceAdmission(lockPath, workspaceDirectory);
+        return err(failure("storage"));
+      }
+    } else if (observed === "active") {
+      busy = true;
+    }
+  }
+  if (busy) {
+    if (!(await releaseWorkspaceAdmission(lockPath, workspaceDirectory))) {
+      return err(failure("storage"));
+    }
     return err(failure("busy"));
-  }
-  if (observed === "invalid") {
-    return err(failure("storage"));
-  }
-  const reclaimed = await createDurableLock(lockPath, workspaceDirectory);
-  if (reclaimed === "exists") {
-    return err(failure("busy"));
-  }
-  if (reclaimed === "failed") {
-    return err(failure("storage"));
   }
   return ok(lockPath);
 }
@@ -695,7 +786,7 @@ async function scanSessions(
   }
   const names: string[] = [];
   for (const entry of entries) {
-    if (entry.name === WORKSPACE_ADMISSION_LOCK && entry.isFile()) {
+    if (admissionOwner(entry.name) !== undefined && entry.isFile()) {
       continue;
     }
     if (!entry.isDirectory() || !SESSION_NAME.test(entry.name)) {
@@ -941,6 +1032,16 @@ export class SessionJournal {
     if (sessions === undefined) {
       return err(failure("corrupt"));
     }
+    const latestCreatedAt = sessions.at(-1)?.header.createdAt ?? -1;
+    const wallClock = Date.now();
+    const createdAt = Math.max(wallClock, latestCreatedAt + 1);
+    if (
+      !Number.isSafeInteger(createdAt) ||
+      createdAt < 0 ||
+      createdAt > SESSION_CREATED_AT_MAX
+    ) {
+      return err(failure("limit"));
+    }
     const removeCount = Math.max(
       0,
       sessions.length - SESSION_JOURNAL_LIMITS.sessions + 1,
@@ -951,7 +1052,6 @@ export class SessionJournal {
     ) {
       return err(failure("limit"));
     }
-    const createdAt = Date.now();
     let temporaryPath: string | undefined;
     let finalPath: string | undefined;
     let header: SessionHeader | undefined;

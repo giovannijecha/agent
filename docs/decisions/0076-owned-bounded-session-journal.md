@@ -58,17 +58,23 @@ the path itself is not stored. Each session directory contains:
   exact journal turn count it has observed; and
 - `lock`, the owning process identifier while that continuation is active.
 
-The hashed workspace directory may additionally contain one exact ephemeral
-`.admission` file with the admitting process identifier. It exists only while
-the CLI serializes session scanning, retention, resume-source validation, and
-publication. A live owner makes a concurrent launch fail content-free as busy;
-there is no wait or implicit retry. If the operating system proves that the
-exact owner no longer exists, the CLI may remove that stale file and perform
-one fresh exclusive acquisition.
+The hashed workspace directory may additionally contain a bounded set of exact
+ephemeral `.admission-<process>-<identity>` files. Each launcher creates one
+uniquely named, never-reused token whose content repeats its exact process
+identifier, then scans the bounded token set before session state. It may
+proceed only when no other live token exists. Overlapping live contenders fail
+content-free as busy and may all fail; there is no wait, election, or implicit
+retry. If the operating system proves that a named owner no longer exists, a
+launcher may remove only that stale token's unique pathname. Concurrent stale
+observations therefore cannot delete a fresh successor token.
 
 Records use an original closed JSON shape. Structured values encode each kind
 explicitly, including negative zero, and unknown fields or versions fail
-closed. Every tool input and result is decoded against its own exact structured
+closed. While holding admission, the CLI derives each new creation value as
+the greater of wall time and the newest validated value plus one. Equal or
+regressed wall clocks therefore cannot reorder resume or retention; exhaustion
+of the exact thirteen-digit value fails as a limit before retirement. Every
+tool input and result is decoded against its own exact structured
 value budget. A record is appended and synchronized only after the runtime and
 CLI have accepted the complete settlement, including settlement delivered by
 runtime stop. Each settled-turn record implicitly selects its own node. The
@@ -117,7 +123,8 @@ system reports that its exact process no longer exists.
 The existing tree limit remains 128 settled turns, 256 provider-message units,
 and 1,048,576 code units. One journal is at most 16,777,216 UTF-8 bytes. One
 workspace retains at most 32 validated session directories and scans at most
-64; before creating another, the oldest unlocked exact session directories are
+64; admission scans at most 64 exact tokens. Before creating another, the
+oldest unlocked exact session directories are
 removed until the bound is restored. The workspace admission spans that scan,
 retirement, and publication, so concurrent processes cannot independently
 exceed the retained-session or scan bound. Active sessions are never removed.
@@ -149,7 +156,8 @@ controller's attempted-node marker prevents cleanup from retrying an append.
 CLI tests also prove platform state-root resolution, workspace isolation,
 bounded creation, active-lock rejection, exact append and head updates,
 POSIX directory-sync failure, serialized concurrent admission at the retention
-boundary, stale admission recovery, truncated-tail recovery, interrupted-head
+boundary, successor-safe stale admission recovery, tied and regressed clock
+ordering, truncated-tail recovery, interrupted-head
 recovery, deliberate selection at the current journal revision, rejection of
 unreconciled revision gaps, corruption rejection, continuation lineage,
 cleanup, and transcript rebuilding.
@@ -164,8 +172,9 @@ remain required and run without credentials or network access.
 
 ## Update, rollback, and removal
 
-Changing the root, workspace identity, schema, codec, record timing, recovery,
-lock semantics, retained content, bounds, CLI grammar, or automatic removal
+Changing the root, workspace identity, schema, codec, publication ordering,
+record timing, recovery, lock semantics, retained content, bounds, CLI grammar,
+or automatic removal
 requires this decision, core codec, runtime projection, CLI owner, privacy and
 security policies, manuals, executable registries, and contract tests to change
 together. A new schema version requires an accepted migration decision; unknown

@@ -173,13 +173,17 @@ For a journal change:
 4. synchronize every file before publication; on POSIX synchronize the staged
    session directory before its rename and the containing directory after head
    replacement, publication, retirement, and lock transitions;
-5. serialize scan, retention, resume selection, and publication with the exact
-   workspace admission lock; live contention fails busy and only one exact
-   operating-system-proven stale admission receives one fresh acquisition;
+5. serialize scan, retention, resume selection, and publication with one
+   unique never-reused admission token per launcher; proceed only when no
+   other live token exists, fail overlapping contenders busy without waiting,
+   remove only an operating-system-proven stale token's unique pathname, and
+   derive each publication value as the greater of wall time and the newest
+   retained value plus one;
 6. exclude credentials, provider/model state, permissions, drafts,
    provisional output, activity, notices, foreign causes, and receipts;
 7. prove exact-workspace isolation, active and stale locks, concurrent
-   admission at the retention boundary, POSIX directory-sync failure,
+   admission at the retention boundary, successor-safe stale reclamation,
+   tied and regressed publication clocks, POSIX directory-sync failure,
    truncated final lines, interrupted head replacement, deliberate
    current-revision selection, unreconciled gap rejection, interior corruption,
    independent structured-payload bounds, cleanup settlement, no duplicate
