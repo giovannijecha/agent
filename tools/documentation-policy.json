@@ -79,7 +79,8 @@
     "docs/decisions/0074-owned-deterministic-read-overlap.md",
     "docs/decisions/0075-owned-branching-conversation-tree.md",
     "docs/decisions/0076-owned-bounded-session-journal.md",
-    "docs/decisions/0077-owned-terminal-blinking-block-cursor.md"
+    "docs/decisions/0077-owned-terminal-blinking-block-cursor.md",
+    "docs/decisions/0078-owned-interaction-dock-focus.md"
   ],
   "decisionIndexLifecycleDigest": {
     "algorithm": "sha256",
@@ -129,7 +130,8 @@
     "0074": "2026-08-18",
     "0075": "2026-08-18",
     "0076": "2026-08-18",
-    "0077": "2026-08-18"
+    "0077": "2026-08-18",
+    "0078": "2026-08-18"
   },
   "historicalDecisionStatusExceptions": {
     "0009": "accepted"
@@ -186,7 +188,7 @@
   ],
   "decisionRecordDigest": {
     "algorithm": "sha256",
-    "value": "4fdfdc4a78f1591ce039294115e0dd1bf5583882553ed329705a1ccb9b81be28"
+    "value": "321152cc501e1a5935cbff006b41db0e1a96874375285b7f335b3cc22262aad6"
   },
   "decisionDomainMembers": {
     "architecture": [
@@ -266,7 +268,8 @@
       "0059",
       "0060",
       "0063",
-      "0077"
+      "0077",
+      "0078"
     ],
     "tools": [
       "0008",
@@ -328,6 +331,7 @@
       "0058"
     ],
     "terminal": [
+      "0078",
       "0077",
       "0023",
       "0045",

@@ -300,6 +300,14 @@ glyph, or component-private ANSI path. Shape changes require exact
 initialization and cleanup byte regressions and the terminal decision, manual,
 architecture, and policy to change together.
 
+The ruled interaction dock owns one body and one focus kind. Keep editor focus
+for the draft and concealed credential entry; keep provider, model, permission,
+pending-tool, and timeline lists in selection focus. Selection focus is capped
+at six content rows, has no caret, consumes a closing editor event, and blocks
+composer pointer effects. Change focus routing in the CLI reducer only after
+the generic dock tests cover header allocation, selected-row visibility,
+caret admission, narrow viewports, and hostile children.
+
 Rollback must restore renderer and CLI event assumptions together. Removal of
 an interaction deletes its decoder event, reducer route, layout projection,
 manual entry, and tests; never leave a private alternate path.
@@ -313,6 +321,12 @@ New visual behavior must reuse generic surfaces, split lines, selection lists,
 spacers, activity, scrolling, and layout. Add a new primitive only when three or
 more product regions need the same relationship and the existing primitive
 cannot express it.
+
+The interaction dock is the generic owner for mutually exclusive editor and
+selection bodies. Remove it only after every selector returns to an explicitly
+documented placement and the ruled composer again owns the sole caret; delete
+its export, focused tests, CLI composition, decision, and policy registration
+together.
 
 Prove narrow and wide viewports, retained priorities, transparent/surfaced
 runs, Unicode width, wrapping continuations, and deterministic frames. Unknown

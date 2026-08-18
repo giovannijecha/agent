@@ -619,7 +619,7 @@ export class ApplicationController
     pointerProjection?: PointerProjection,
   ): ApplicationUpdate {
     if (action.kind === "pointer") {
-      if (this.#credentialProviderId !== undefined) {
+      if (this.#inputContext() !== "composer") {
         this.#terminalInteraction.reset();
         return update(false);
       }

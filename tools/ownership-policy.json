@@ -96,6 +96,7 @@
     "docs/decisions/0075-owned-branching-conversation-tree.md",
     "docs/decisions/0076-owned-bounded-session-journal.md",
     "docs/decisions/0077-owned-terminal-blinking-block-cursor.md",
+    "docs/decisions/0078-owned-interaction-dock-focus.md",
     "evaluations/README.md"
   ],
   "workspaces": [

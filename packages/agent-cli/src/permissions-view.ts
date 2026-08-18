@@ -3,10 +3,10 @@ import {
   ComponentError,
   err,
   InlineText,
+  InteractionDock,
   type Result,
   SelectionList,
   SplitLine,
-  Surface,
 } from "@agent/tui";
 
 import { CONVERSATION_DENSITY } from "./conversation-density.js";
@@ -67,14 +67,10 @@ function createPermissionMenu(
   }
   const list = SelectionList.create(rows, projection.selectedIndex);
   if (!list.ok) return list;
-  const content = createStack([header.value, list.value]);
-  if (!content.ok) return content;
-  return Surface.create(content.value, {
-    extent: "viewport",
-    horizontalPadding: CONVERSATION_DENSITY.contentInsetCells,
-    slant: "inherit",
-    surface: "none",
-    verticalPadding: CONVERSATION_DENSITY.flushRows,
+  return InteractionDock.create(list.value, {
+    focus: "selection",
+    header: header.value,
+    maximumRows: CONVERSATION_DENSITY.interactionDockMaximumRows,
   });
 }
 
@@ -95,12 +91,9 @@ function createToolDecision(
   }
   const list = SelectionList.create(rows, projection.selectedIndex);
   if (!list.ok) return list;
-  return Surface.create(list.value, {
-    extent: "viewport",
-    horizontalPadding: CONVERSATION_DENSITY.contentInsetCells,
-    slant: "inherit",
-    surface: "none",
-    verticalPadding: CONVERSATION_DENSITY.flushRows,
+  return InteractionDock.create(list.value, {
+    focus: "selection",
+    maximumRows: CONVERSATION_DENSITY.interactionDockMaximumRows,
   });
 }
 

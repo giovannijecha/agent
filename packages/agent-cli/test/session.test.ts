@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { SessionController } from "../dist/session.js";
+import {
+  type SessionAction,
+  SessionController,
+  type SessionInputContext,
+} from "../dist/session.js";
 
 test("edits a draft and rejects removed command surfaces", () => {
   const session = new SessionController();
@@ -151,6 +155,33 @@ test("recomputes completion after editing and keeps unsupported Tab explicit", (
     ],
     redraw: true,
   });
+});
+
+test("consumes the editor input that closes each contextual selector", () => {
+  const cases: readonly Readonly<{
+    close: SessionAction["kind"];
+    context: SessionInputContext;
+  }>[] = Object.freeze([
+    Object.freeze({ close: "closePermissions", context: "permissions" }),
+    Object.freeze({ close: "closeProviders", context: "providers" }),
+    Object.freeze({ close: "closeModels", context: "models" }),
+    Object.freeze({ close: "closeTimeline", context: "timeline" }),
+  ]);
+
+  for (const entry of cases) {
+    const session = new SessionController();
+    session.feed("retained draft");
+    const actions: SessionAction[] = [];
+    const closed = session.feed("x", 0, {
+      apply: (action) => actions.push(action),
+      context: () => entry.context,
+      editorRedrawn: () => undefined,
+    });
+
+    assert.deepEqual(actions, [{ kind: entry.close }]);
+    assert.equal(session.projectEditor(40).text, "retained draft");
+    assert.equal(closed.redraw, false);
+  }
 });
 
 test("preserves batched shutdown controls after an interrupt", () => {

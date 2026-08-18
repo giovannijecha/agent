@@ -4,5 +4,6 @@ export const CONVERSATION_DENSITY = Object.freeze({
   flushCells: 0 as const,
   flushRows: 0 as const,
   composerRuleRows: 1 as const,
+  interactionDockMaximumRows: 6 as const,
   rhythmRows: 1 as const,
 });

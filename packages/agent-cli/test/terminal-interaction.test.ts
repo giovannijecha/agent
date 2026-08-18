@@ -354,6 +354,39 @@ test("routes composer double click, replacement, and resize through LineEditor",
   );
 });
 
+test("does not route pointer input to the retained draft during selection focus", () => {
+  const application = new ApplicationController(true, [
+    Object.freeze({
+      configured: true,
+      id: "ollamaCloud" as const,
+      presentation: Object.freeze({
+        authentication: "memory-only API key",
+        displayName: "Ollama Cloud",
+        model: "qwen3-coder:480b-cloud",
+      }),
+      ready: true,
+      selected: true,
+    }),
+  ]);
+  application.feed("alpha beta");
+  const editorRender = render(application);
+  const editorArea = application.projectArea(36, 6);
+  const beta = composerCellAt(editorRender, "alpha beta", 6);
+  application.applySessionAction(Object.freeze({ kind: "openProviders" }));
+
+  pointer(application, editorRender, beta, "press", 100);
+  pointer(application, editorRender, beta, "release", 110);
+
+  assert.equal(application.project(36).text, "alpha beta");
+  assert.deepEqual(application.projectArea(36, 6), editorArea);
+  assert.equal(application.takePendingCopy(), undefined);
+
+  application.applySessionAction(Object.freeze({ kind: "closeProviders" }));
+  const restored = render(application);
+  assert.equal(restored.frame.caret === undefined, false);
+  assert.deepEqual(application.projectArea(36, 6), editorArea);
+});
+
 test("reduces coalesced composer pointer and editor events in decoder order", () => {
   const clicked = new ApplicationController(false);
   clicked.feed("alpha beta");
