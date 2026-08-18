@@ -295,7 +295,10 @@ remain structured role entries but render without redundant role labels.
 Only the renderer emits ANSI and owns alternate-screen, paste, mouse, caret,
 and cleanup lifecycles. On initialization it selects one terminal-controlled
 blinking block for the frame's logical caret; it owns no blink timer or cursor
-glyph and restores the terminal-default style during cleanup.
+glyph. It shows the hardware cursor only when that logical caret is visible in
+the current viewport; a frame without a visible caret keeps the cursor hidden
+instead of synthesizing a position on other content. Cleanup restores the
+terminal-default style and cursor visibility.
 
 User entries compose one stage-wide transparent `Surface` with the shared
 one-cell content inset and no rail, marker, border, or background. Generic

@@ -100,28 +100,37 @@ test("enters the alternate screen with one terminal-controlled blinking block ca
   );
 });
 
-test("always restores a visible cursor for absent or clipped carets", async () => {
+test("hides the terminal cursor until a visible frame caret owns it", async () => {
   const output = new MemoryOutput();
   const renderer = new Renderer(output);
+  const size = viewport(3, 1);
+  await renderer.render(frame(["abc"], 0, 2), size);
+  const visibleBefore = output.chunks.at(-1) ?? "";
   const withoutCaret = Frame.create([frame(["agent"]).rows[0]!]);
   assert.ok(withoutCaret.ok);
 
-  await renderer.render(withoutCaret.value, viewport(3, 1));
+  await renderer.render(withoutCaret.value, size);
   const first = output.chunks.at(-1) ?? "";
   const clipped = Frame.create([frame(["abcdef"]).rows[0]!], {
     row: 0,
     column: 6,
   });
   assert.ok(clipped.ok);
-  await renderer.render(clipped.value, viewport(3, 1));
+  await renderer.render(clipped.value, size);
   const second = output.chunks.at(-1) ?? "";
+  await renderer.render(frame(["abc"], 0, 2), size);
+  const visibleAfter = output.chunks.at(-1) ?? "";
 
   assert.equal(
-    first.endsWith("\u001B[1;3H\u001B[?25h\u001B[?2026l"),
+    visibleBefore.endsWith("\u001B[1;3H\u001B[?25h\u001B[?2026l"),
     true,
   );
+  assert.equal(first.includes("\u001B[?25l"), true);
+  assert.equal(first.includes("\u001B[?25h"), false);
+  assert.equal(second.includes("\u001B[?25l"), true);
+  assert.equal(second.includes("\u001B[?25h"), false);
   assert.equal(
-    second.endsWith("\u001B[1;3H\u001B[?25h\u001B[?2026l"),
+    visibleAfter.endsWith("\u001B[1;3H\u001B[?25h\u001B[?2026l"),
     true,
   );
 });

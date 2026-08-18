@@ -300,6 +300,12 @@ glyph, or component-private ANSI path. Shape changes require exact
 initialization and cleanup byte regressions and the terminal decision, manual,
 architecture, and policy to change together.
 
+A frame with no viewport-visible caret must leave the terminal cursor hidden.
+If a selector appears to move the block cursor onto footer text, diagnose the
+renderer for a synthesized fallback coordinate rather than special-casing the
+dock or footer. Regress visible-to-absent-to-visible ownership and clipped
+carets at the renderer boundary.
+
 The ruled interaction dock owns one body, one focus kind, and an absolute six
 content-row maximum. Keep editor focus for the draft and concealed credential
 entry; keep provider, model, permission, pending-tool, and timeline lists in
