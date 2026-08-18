@@ -667,6 +667,132 @@ test("replaces contextual activity for each call in one tool batch", () => {
   assert.equal(application.transcriptText().includes("list_directory"), false);
 });
 
+test("retains a complete read cohort through ordered permission, start, and finish events", () => {
+  const application = new ApplicationController(true);
+  reduceInput(application, "/permissions\r");
+  reduceInput(application, "\u001B[D");
+  reduceInput(application, "\r");
+  assert.ok(application.turnAccepted(started(71, "inspect together")).ok);
+
+  const firstRequested = application.applyRuntime(
+    Object.freeze({
+      approvalPreview: "",
+      approvalRequired: false,
+      callId: "call-71-a",
+      kind: "toolRequested" as const,
+      name: "read_file",
+      risk: "read" as const,
+      turnId: 71,
+    }),
+  );
+  assert.ok(firstRequested.ok);
+  assert.deepEqual(firstRequested.value.effects, []);
+  assert.equal(application.activities.at(0)?.state, "permission");
+  assert.deepEqual(reduceInput(application, "\r").effects, [
+    {
+      allowed: true,
+      callId: "call-71-a",
+      kind: "resolveToolPermission",
+      operatorApproved: true,
+      turnId: 71,
+    },
+  ]);
+
+  const secondRequested = application.applyRuntime(
+    Object.freeze({
+      approvalPreview: "",
+      approvalRequired: false,
+      callId: "call-71-b",
+      kind: "toolRequested" as const,
+      name: "list_directory",
+      risk: "read" as const,
+      turnId: 71,
+    }),
+  );
+  assert.ok(secondRequested.ok);
+  assert.equal(
+    secondRequested.value.effects.at(0)?.kind,
+    "resolveToolPermission",
+  );
+  assert.deepEqual(application.activities, [
+    { name: "read_file", preview: "", risk: "read", state: "queued" },
+    { name: "list_directory", preview: "", risk: "read", state: "queued" },
+  ]);
+
+  assert.equal(
+    application.applyRuntime(
+      Object.freeze({
+        approvalPreview: 'path="blocked.txt"',
+        approvalRequired: true,
+        callId: "call-71-write",
+        kind: "toolRequested" as const,
+        name: "apply_patch",
+        risk: "write" as const,
+        turnId: 71,
+      }),
+    ).ok,
+    false,
+  );
+
+  for (const event of [
+    Object.freeze({
+      callId: "call-71-a",
+      kind: "toolStarted" as const,
+      name: "read_file",
+      risk: "read" as const,
+      turnId: 71,
+    }),
+    Object.freeze({
+      callId: "call-71-b",
+      kind: "toolStarted" as const,
+      name: "list_directory",
+      risk: "read" as const,
+      turnId: 71,
+    }),
+  ]) {
+    assert.ok(application.applyRuntime(event).ok);
+  }
+  assert.deepEqual(
+    application.activities.map((entry) => entry.state),
+    ["running", "running"],
+  );
+
+  assert.ok(
+    application.applyRuntime(
+      Object.freeze({
+        callId: "call-71-a",
+        kind: "toolFinished" as const,
+        name: "read_file",
+        risk: "read" as const,
+        status: "success" as const,
+        turnId: 71,
+      }),
+    ).ok,
+  );
+  assert.equal(application.phase, "runningTool");
+  assert.deepEqual(
+    application.activities.map((entry) => entry.state),
+    ["succeeded", "running"],
+  );
+  assert.ok(
+    application.applyRuntime(
+      Object.freeze({
+        callId: "call-71-b",
+        kind: "toolFinished" as const,
+        name: "list_directory",
+        risk: "read" as const,
+        status: "success" as const,
+        turnId: 71,
+      }),
+    ).ok,
+  );
+  assert.equal(application.phase, "generating");
+  assert.deepEqual(
+    application.activities.map((entry) => entry.state),
+    ["succeeded", "succeeded"],
+  );
+});
+
 test("classifies model continuation failure after checkpointed tool success", () => {
   const application = new ApplicationController(true);
   assert.ok(application.turnAccepted(started(8, "inspect")).ok);

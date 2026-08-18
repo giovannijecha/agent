@@ -1,8 +1,9 @@
-import type {
-  CommitTurnResult,
-  RuntimeEvent,
-  StartedTurn,
-  StartTurnError,
+import {
+  RUNTIME_LIMITS,
+  type CommitTurnResult,
+  type RuntimeEvent,
+  type StartedTurn,
+  type StartTurnError,
 } from "@agent/runtime";
 import {
   isSafeApprovalPreview,
@@ -73,6 +74,16 @@ export type ApplicationPhase =
   | "runningTool";
 
 export type ClipboardSettlement = "copied" | "failed" | "requested";
+
+type ApplicationTool = {
+  readonly callId: string;
+  readonly name: string;
+  readonly preview: string;
+  readonly risk: "execute" | "read" | "write";
+  readonly turnId: number;
+  decision: "allowed" | "denied" | undefined;
+  status: "requested" | "started";
+};
 
 export type ApplicationEffect =
   | Readonly<{ kind: "acknowledgeTurn"; turnId: number }>
@@ -226,17 +237,7 @@ export class ApplicationController
   #checkpointObserved = false;
   #preparedCleanup = false;
   #preparedCheckpointed = false;
-  #tool:
-    | {
-        readonly callId: string;
-        readonly name: string;
-        readonly preview: string;
-        readonly risk: "execute" | "read" | "write";
-        readonly turnId: number;
-        decision: "allowed" | "denied" | undefined;
-        status: "requested" | "started";
-      }
-    | undefined;
+  #tools: ApplicationTool[] = [];
   #toolDecisionIndex = 0;
 
   constructor(
@@ -555,7 +556,7 @@ export class ApplicationController
     this.#checkpointObserved = false;
     this.#preparedCleanup = false;
     this.#preparedCheckpointed = false;
-    this.#tool = undefined;
+    this.#tools = [];
     this.#toolDecisionIndex = 0;
   }
 
@@ -802,10 +803,14 @@ export class ApplicationController
           }),
         ]);
       }
-      const tool = this.#tool;
+      const pendingTools = this.#tools.filter(
+        (candidate) => candidate.decision === undefined,
+      );
+      const tool = pendingTools.at(0);
       const selected = TOOL_DECISION_ACTIONS.at(this.#toolDecisionIndex);
       if (
         this.#phase !== "awaitingPermission" ||
+        pendingTools.length !== 1 ||
         tool === undefined ||
         tool.decision !== undefined ||
         selected === undefined
@@ -1111,7 +1116,7 @@ export class ApplicationController
         if (turnId !== this.#chat.activeTurnId) {
           return ok(update(false));
         }
-        if (this.#tool !== undefined) {
+        if (this.#tools.length > 0) {
           return err(new ApplicationError("invalidRuntimeEvent"));
         }
         const text = event.text;
@@ -1131,7 +1136,17 @@ export class ApplicationController
         const effectApprovalRequired = event.approvalRequired;
         const approvalPreview = event.approvalPreview;
         if (
-          this.#tool !== undefined ||
+          (this.#phase !== "generating" && this.#phase !== "runningTool") ||
+          this.#tools.some((tool) => tool.callId === callId) ||
+          (this.#tools.length > 0 &&
+            (this.#tools.length >= RUNTIME_LIMITS.parallelReads ||
+              risk !== "read" ||
+              this.#tools.some(
+                (tool) =>
+                  tool.risk !== "read" ||
+                  tool.status !== "requested" ||
+                  tool.decision === undefined,
+              ))) ||
           typeof callId !== "string" ||
           callId.length === 0 ||
           callId.length > 128 ||
@@ -1173,7 +1188,7 @@ export class ApplicationController
             return err(new ApplicationError("activityInvariant"));
           }
         }
-        this.#tool = {
+        this.#tools.push({
           callId,
           decision:
             mode === "ask" ? undefined : mode === "deny" ? "denied" : "allowed",
@@ -1182,7 +1197,7 @@ export class ApplicationController
           risk,
           status: "requested",
           turnId,
-        };
+        });
         this.#permissionsVisible = false;
         this.#modelsVisible = false;
         this.#providersVisible = false;
@@ -1204,7 +1219,11 @@ export class ApplicationController
         );
       }
       if (eventKind === "toolStarted") {
-        const tool = this.#tool;
+        const toolIndex = this.#tools.findIndex(
+          (candidate) => candidate.callId === event.callId,
+        );
+        const tool = toolIndex < 0 ? undefined : this.#tools.at(toolIndex);
+        const earlierTools = toolIndex < 0 ? [] : this.#tools.slice(0, toolIndex);
         if (event.turnId !== this.#chat.activeTurnId) {
           return ok(update(false));
         }
@@ -1214,7 +1233,13 @@ export class ApplicationController
           tool.name !== event.name ||
           tool.risk !== event.risk ||
           tool.status !== "requested" ||
-          tool.decision !== "allowed"
+          tool.decision !== "allowed" ||
+          this.#tools.some((candidate) => candidate.decision === undefined) ||
+          earlierTools.some(
+            (candidate) =>
+              candidate.decision === "allowed" &&
+              candidate.status === "requested",
+          )
         ) {
           return err(new ApplicationError("invalidRuntimeEvent"));
         }
@@ -1231,7 +1256,7 @@ export class ApplicationController
         return ok(update(true));
       }
       if (eventKind === "toolFinished") {
-        const tool = this.#tool;
+        const tool = this.#tools.at(0);
         if (event.turnId !== this.#chat.activeTurnId) {
           return ok(update(false));
         }
@@ -1265,9 +1290,9 @@ export class ApplicationController
         if (!checkpointed.ok) {
           return err(new ApplicationError("chatInvariant"));
         }
-        this.#tool = undefined;
+        this.#tools = this.#tools.slice(1);
         this.#checkpointObserved = true;
-        this.#phase = "generating";
+        this.#phase = this.#tools.length > 0 ? "runningTool" : "generating";
         this.#setNotice([]);
         return ok(update(true));
       }
@@ -1285,7 +1310,7 @@ export class ApplicationController
         if (
           typeof checkpointed !== "boolean" ||
           checkpointed !== this.#checkpointObserved ||
-          this.#tool !== undefined
+          this.#tools.length > 0
         ) {
           return err(new ApplicationError("invalidRuntimeEvent"));
         }
@@ -1297,7 +1322,7 @@ export class ApplicationController
         }
         this.#preparedCleanup = cleanupPresent;
         this.#preparedCheckpointed = checkpointed;
-        this.#tool = undefined;
+        this.#tools = [];
         return ok(
           update(false, [
             Object.freeze({
@@ -1326,7 +1351,7 @@ export class ApplicationController
         typeof checkpointed !== "boolean" ||
         checkpointed !== this.#checkpointObserved ||
         (outcomeKind !== "cancelled" && outcomeKind !== "failed") ||
-        (this.#tool !== undefined && outcomeKind !== "cancelled")
+        (this.#tools.length > 0 && outcomeKind !== "cancelled")
       ) {
         return err(new ApplicationError("invalidRuntimeEvent"));
       }
@@ -1348,7 +1373,7 @@ export class ApplicationController
       if (!resolved.ok) {
         return err(new ApplicationError("chatInvariant"));
       }
-      if (this.#tool !== undefined && outcomeKind === "cancelled") {
+      if (this.#tools.length > 0 && outcomeKind === "cancelled") {
         const cancelled = this.#activityLog.cancelActive(turnId);
         if (!cancelled.ok || !cancelled.value) {
           return err(new ApplicationError("activityInvariant"));
@@ -1367,7 +1392,7 @@ export class ApplicationController
       this.#preparedCleanup = false;
       this.#preparedCheckpointed = false;
       this.#checkpointObserved = false;
-      this.#tool = undefined;
+      this.#tools = [];
       this.#phase = "idle";
       return ok(
         update(true, [
@@ -1440,7 +1465,7 @@ export class ApplicationController
       this.#preparedCleanup = false;
       this.#preparedCheckpointed = false;
       this.#checkpointObserved = false;
-      this.#tool = undefined;
+      this.#tools = [];
       this.#phase = "idle";
       return ok(update(true));
     } catch (_cause: unknown) {

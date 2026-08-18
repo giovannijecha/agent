@@ -89,7 +89,7 @@ function validPreview(preview: string): boolean {
 /** Bounded display-only lifecycle for the current tool-call batch. */
 export class ToolActivityLog {
   #acceptedEntries = 0;
-  #entry: OwnedActivity | undefined;
+  #entries: OwnedActivity[] = [];
   #turnId: number | undefined;
 
   /** Starts a fresh display sequence after the preceding turn has settled. */
@@ -101,7 +101,7 @@ export class ToolActivityLog {
       return err(new ToolActivityError("activeTurn"));
     }
     this.#acceptedEntries = 0;
-    this.#entry = undefined;
+    this.#entries = [];
     this.#turnId = turnId;
     return ok(undefined);
   }
@@ -135,11 +135,24 @@ export class ToolActivityLog {
     if (this.#acceptedEntries >= TOOL_ACTIVITY_LIMITS.entries) {
       return err(new ToolActivityError("entryLimit"));
     }
-    if (this.#entry?.open === true) {
+    const openEntries = this.#entries.filter((entry) => entry.open);
+    if (openEntries.some((entry) => entry.callId === callId)) {
+      return err(new ToolActivityError("staleCall"));
+    }
+    if (
+      openEntries.length > 0 &&
+      (openEntries.length >= RUNTIME_LIMITS.parallelReads ||
+        risk !== "read" ||
+        openEntries.some(
+          (entry) =>
+            entry.risk !== "read" ||
+            (entry.state !== "queued" && entry.state !== "denied"),
+        ))
+    ) {
       return err(new ToolActivityError("invalidTransition"));
     }
     this.#acceptedEntries += 1;
-    this.#entry = {
+    const entry: OwnedActivity = {
       callId,
       denied: false,
       name,
@@ -148,6 +161,7 @@ export class ToolActivityLog {
       risk,
       state: decisionRequired ? "permission" : "queued",
     };
+    this.#entries = openEntries.length === 0 ? [entry] : [...this.#entries, entry];
     return ok(undefined);
   }
 
@@ -179,7 +193,19 @@ export class ToolActivityLog {
     if (!entry.ok) {
       return entry;
     }
-    if (entry.value.state !== "queued") {
+    const entryIndex = this.#entries.findIndex(
+      (candidate) => candidate === entry.value,
+    );
+    const earlier = this.#entries.slice(0, entryIndex);
+    if (
+      entry.value.state !== "queued" ||
+      this.#entries.some(
+        (candidate) => candidate.open && candidate.state === "permission",
+      ) ||
+      earlier.some(
+        (candidate) => candidate.open && candidate.state === "queued",
+      )
+    ) {
       return err(new ToolActivityError("invalidTransition"));
     }
     entry.value.state = "running";
@@ -196,7 +222,9 @@ export class ToolActivityLog {
     if (!entry.ok) {
       return entry;
     }
+    const firstOpen = this.#entries.find((candidate) => candidate.open);
     if (
+      firstOpen !== entry.value ||
       (outcome === "denied" && !entry.value.denied) ||
       (outcome !== "denied" && entry.value.denied) ||
       (entry.value.state !== "running" &&
@@ -215,11 +243,13 @@ export class ToolActivityLog {
     if (turnId !== this.#turnId) {
       return err(new ToolActivityError("staleTurn"));
     }
-    const entry = this.#entry?.open === true ? this.#entry : undefined;
-    if (entry === undefined) {
+    const openEntries = this.#entries.filter((entry) => entry.open);
+    if (openEntries.length === 0) {
       return ok(false);
     }
-    entry.state = "cancelling";
+    for (const entry of openEntries) {
+      entry.state = "cancelling";
+    }
     return ok(true);
   }
 
@@ -228,15 +258,17 @@ export class ToolActivityLog {
     if (turnId !== this.#turnId) {
       return err(new ToolActivityError("staleTurn"));
     }
-    const entry = this.#entry?.open === true ? this.#entry : undefined;
-    if (entry === undefined) {
+    const openEntries = this.#entries.filter((entry) => entry.open);
+    if (openEntries.length === 0) {
       return ok(false);
     }
-    if (entry.state !== "cancelling") {
+    if (openEntries.some((entry) => entry.state !== "cancelling")) {
       return err(new ToolActivityError("invalidTransition"));
     }
-    entry.state = "cancelled";
-    entry.open = false;
+    for (const entry of openEntries) {
+      entry.state = "cancelled";
+      entry.open = false;
+    }
     return ok(true);
   }
 
@@ -245,34 +277,33 @@ export class ToolActivityLog {
     if (turnId !== this.#turnId) {
       return err(new ToolActivityError("staleTurn"));
     }
-    if (this.#entry?.open === true) {
+    if (this.#entries.some((entry) => entry.open)) {
       return err(new ToolActivityError("invalidTransition"));
     }
     this.#acceptedEntries = 0;
-    this.#entry = undefined;
+    this.#entries = [];
     this.#turnId = undefined;
     return ok(undefined);
   }
 
   /** Returns fresh immutable view data with private call identities omitted. */
   snapshots(): readonly ToolActivitySnapshot[] {
-    const entry = this.#entry;
-    return entry === undefined
-      ? Object.freeze([])
-      : Object.freeze([
-          Object.freeze({
-            name: entry.name,
-            preview: entry.preview,
-            risk: entry.risk,
-            state: entry.state,
-          }),
-        ]);
+    return Object.freeze(
+      this.#entries.map((entry) =>
+        Object.freeze({
+          name: entry.name,
+          preview: entry.preview,
+          risk: entry.risk,
+          state: entry.state,
+        }),
+      ),
+    );
   }
 
   /** Releases every retained activity and private identity. */
   clear(): void {
     this.#acceptedEntries = 0;
-    this.#entry = undefined;
+    this.#entries = [];
     this.#turnId = undefined;
   }
 
@@ -283,10 +314,9 @@ export class ToolActivityLog {
     if (turnId !== this.#turnId) {
       return err(new ToolActivityError("staleTurn"));
     }
-    const entry =
-      this.#entry?.open === true && this.#entry.callId === callId
-        ? this.#entry
-        : undefined;
+    const entry = this.#entries.find(
+      (candidate) => candidate.open && candidate.callId === callId,
+    );
     return entry === undefined
       ? err(new ToolActivityError("staleCall"))
       : ok(entry);
