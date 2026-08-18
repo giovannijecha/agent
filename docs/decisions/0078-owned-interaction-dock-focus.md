@@ -51,6 +51,12 @@ an editor-owned discovery surface above the dock because its Up, Down, Tab, and
 Enter behavior edits or submits the active draft. Provider credential context
 may remain above the dock while its concealed editor owns the caret.
 
+Dock focus does not grant composer-pointer authority. Each immutable render
+projection independently records whether its visible composer body targets the
+ordinary draft or admits no composer pointer effects. Only the ordinary draft
+uses the draft target. Selection focus and concealed credential entry use no
+target, while transcript pointer selection and scrolling remain available.
+
 While selection focus is active, keyboard actions are reduced only by that
 selector or by the existing global transcript and exit routes. An editor action
 that closes a selector is consumed; it cannot also edit the retained draft.
@@ -85,18 +91,20 @@ not add a second contextual menu slot. Session and application regressions prove
 closing input is consumed, drafts remain unchanged, pointer events cannot reach
 the editor during selection focus, transcript pointer selection and scrolling
 remain active, coalesced close-plus-pointer input is reduced against the focus
-stored with its rendered projection, and editor focus returns after close or
-acceptance. Existing completion, credential, permission, timeline, terminal,
-layout, and renderer tests remain required. The canonical Windows and Linux
-verifier is the release gate.
+and composer-pointer authority stored with its rendered projection, concealed
+credentials cannot be selected or copied by pointer, and editor focus returns
+after close or acceptance. Existing completion, credential, permission,
+timeline, terminal, layout, and renderer tests remain required. The canonical
+Windows and Linux verifier is the release gate.
 
 ## Update, rollback, and removal
 
-Changing focus kinds, content height, header priority, selector membership,
-closing-input consumption, pointer exclusion, caret admission, or dock placement
-requires this decision, the generic component, CLI reducer and view composition,
-focused tests, architecture, manual, maintenance guidance, and documentation and
-ownership policy to change together.
+Changing focus kinds, composer-pointer authority, content height, header
+priority, selector membership, closing-input consumption, pointer exclusion,
+caret admission, or dock placement requires this decision, the generic
+component, CLI reducer and view composition, focused tests, architecture,
+manual, maintenance guidance, and documentation and ownership policy to change
+together.
 
 Rollback removes the generic dock wrapper, restores contextual selectors above
 the independently rendered composer, and restores the prior input propagation

@@ -54,8 +54,11 @@ wrapping, and Enter selects the current row. Selecting an unconfigured provider
 opens a concealed credential editor. Its context identifies the provider and
 marks the credential as process-only; the composer prompt reads
 `Enter API key · Ctrl+C cancels`. Enter accepts the key and Ctrl+C cancels the
-credential edit. See [Providers and authentication](05-providers-and-authentication.md)
-for provider and model rules.
+credential edit. The caret remains keyboard-owned, but pointer input cannot
+position, select, or copy concealed credential text; transcript selection and
+copying remain available. See
+[Providers and authentication](05-providers-and-authentication.md) for provider
+and model rules.
 
 `/permissions` lists the six tools. Up and Down choose a tool, Left and Right
 change its `Deny`, `Ask`, or `Allow` mode, and Enter closes the editor. A pending

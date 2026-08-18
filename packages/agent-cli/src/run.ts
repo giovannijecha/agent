@@ -1288,6 +1288,7 @@ export async function run<E, RE = never>(
                         ? undefined
                         : Object.freeze({
                             composer: lastRender.composer,
+                            composerPointer: lastRender.composerPointer,
                             frame: lastRender.frame,
                             interactionFocus: lastRender.interactionFocus,
                             stageColumns: lastRender.stage.columns,
