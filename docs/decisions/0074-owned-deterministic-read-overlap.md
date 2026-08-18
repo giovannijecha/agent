@@ -61,6 +61,15 @@ cohort. Allowed handlers share the turn cancellation signal and run with a
 fixed maximum width of four. No model read, permission decision, mutation,
 `shell` execution, conversation commit, or terminal write overlaps the cohort.
 
+The CLI application controller retains every cohort call identity and activity
+entry in provider order from request through terminal settlement. A later
+request may join retained state only while every earlier member is a resolved,
+not-yet-started read and the width remains below four. Duplicate identities,
+pending permissions, started members, mutations, execution, and a fifth read
+fail closed. The conversation-first TUI continues to project only the most
+recent member as its contextual activity line; that presentation never replaces
+the controller's complete lifecycle state.
+
 The runtime awaits every started handler even after cancellation or a handler
 contract failure. It buffers settlements, then emits completion events and
 results in provider order. It constructs one complete ordered `ToolExchange`
@@ -114,6 +123,11 @@ They also prove serial fallback for mixed and oversized batches, denial without
 invocation, cancellation before and after cohort start, all-handler settlement,
 contract-failure checkpoint truth, one model continuation after the complete
 checkpoint, and one active runtime event reader.
+
+CLI controller and activity-log regressions replay the complete cohort event
+sequence, including an `Ask` decision, multiple retained requests, ordered
+starts and finishes, cancellation of every open member, and fail-closed mixed,
+incomplete, duplicate, and oversized lifecycle state.
 
 Instruction and documentation-policy tests bind the bounded sibling-read rule.
 The canonical Windows and Linux verifier remains the release gate.

@@ -67,6 +67,67 @@ test("preserves denied and cancelled terminal truth", () => {
   assert.equal(cancelled.snapshots().at(0)?.state, "cancelled");
 });
 
+test("retains one bounded ordered cohort through every read lifecycle", () => {
+  const log = new ToolActivityLog();
+  assert.ok(log.beginTurn(7).ok);
+  assert.ok(request(log, "read-a", false).ok);
+  assert.ok(request(log, "read-b", false).ok);
+  assert.deepEqual(log.snapshots(), [
+    { name: "read_file", preview: "", risk: "read", state: "queued" },
+    { name: "read_file", preview: "", risk: "read", state: "queued" },
+  ]);
+
+  assert.equal(log.start(7, "read-b").ok, false);
+  assert.ok(log.start(7, "read-a").ok);
+  assert.ok(log.start(7, "read-b").ok);
+  assert.equal(log.finish(7, "read-b", "succeeded").ok, false);
+  assert.ok(log.finish(7, "read-a", "succeeded").ok);
+  assert.ok(log.finish(7, "read-b", "failed").ok);
+  assert.deepEqual(log.snapshots(), [
+    { name: "read_file", preview: "", risk: "read", state: "succeeded" },
+    { name: "read_file", preview: "", risk: "read", state: "failed" },
+  ]);
+  assert.ok(log.finishTurn(7).ok);
+});
+
+test("rejects incomplete, mixed, and oversized read cohorts", () => {
+  const pending = new ToolActivityLog();
+  assert.ok(pending.beginTurn(7).ok);
+  assert.ok(request(pending, "permission-a").ok);
+  assert.equal(request(pending, "read-b", false).ok, false);
+
+  const mixed = new ToolActivityLog();
+  assert.ok(mixed.beginTurn(7).ok);
+  assert.ok(request(mixed, "read-a", false).ok);
+  assert.equal(request(mixed, "write-b").ok, false);
+
+  const bounded = new ToolActivityLog();
+  assert.ok(bounded.beginTurn(7).ok);
+  for (let index = 0; index < 4; index += 1) {
+    assert.ok(request(bounded, "read-" + String(index), false).ok);
+  }
+  assert.equal(request(bounded, "read-overflow", false).ok, false);
+});
+
+test("cancels every retained read activity together", () => {
+  const log = new ToolActivityLog();
+  assert.ok(log.beginTurn(7).ok);
+  assert.ok(request(log, "read-a", false).ok);
+  assert.ok(request(log, "read-b", false).ok);
+  assert.ok(log.start(7, "read-a").ok);
+  assert.ok(log.start(7, "read-b").ok);
+  assert.deepEqual(log.requestCancel(7), { ok: true, value: true });
+  assert.deepEqual(
+    log.snapshots().map((entry) => entry.state),
+    ["cancelling", "cancelling"],
+  );
+  assert.deepEqual(log.cancelActive(7), { ok: true, value: true });
+  assert.deepEqual(
+    log.snapshots().map((entry) => entry.state),
+    ["cancelled", "cancelled"],
+  );
+});
+
 test("renders a failed mutation plan without opening an approval", () => {
   const log = new ToolActivityLog();
   assert.ok(log.beginTurn(7).ok);
