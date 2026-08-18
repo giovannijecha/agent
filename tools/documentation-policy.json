@@ -1,10 +1,84 @@
 {
-  "schemaVersion": 14,
+  "schemaVersion": 15,
   "index": "docs/README.md",
   "decisionIndex": "docs/decisions/README.md",
+  "decisionPaths": [
+    "docs/decisions/0001-owned-zero-dependency-rust.md",
+    "docs/decisions/0002-owned-zero-dependency-typescript.md",
+    "docs/decisions/0003-owned-provider-authentication.md",
+    "docs/decisions/0004-owned-interactive-terminal.md",
+    "docs/decisions/0005-owned-streaming-runtime.md",
+    "docs/decisions/0006-owned-vertical-tui-framework.md",
+    "docs/decisions/0007-owned-cli-application-loop.md",
+    "docs/decisions/0008-owned-tool-execution.md",
+    "docs/decisions/0009-owned-operator-manual.md",
+    "docs/decisions/0010-public-project-identity.md",
+    "docs/decisions/0011-verified-provider-registration-requests.md",
+    "docs/decisions/0012-owned-continuous-verification.md",
+    "docs/decisions/0013-single-agent-execution.md",
+    "docs/decisions/0014-lean-tool-harness.md",
+    "docs/decisions/0015-process-tree-containment.md",
+    "docs/decisions/0016-owned-native-process-containment.md",
+    "docs/decisions/0017-owned-opencode-go-provider.md",
+    "docs/decisions/0018-owned-executable-startup.md",
+    "docs/decisions/0019-owned-semantic-terminal-tones.md",
+    "docs/decisions/0020-owned-scrollable-screen-foundation.md",
+    "docs/decisions/0021-owned-structured-terminal-rows.md",
+    "docs/decisions/0022-owned-tool-activity-surface.md",
+    "docs/decisions/0023-owned-bounded-markdown.md",
+    "docs/decisions/0024-owned-transcript-navigation.md",
+    "docs/decisions/0025-owned-word-aware-display-layout.md",
+    "docs/decisions/0026-owned-responsive-conversation-shell.md",
+    "docs/decisions/0027-owned-semantic-state-chrome.md",
+    "docs/decisions/0028-owned-conversation-visual-grammar.md",
+    "docs/decisions/0029-canonical-tool-call-batches.md",
+    "docs/decisions/0030-owned-structured-markdown-surfaces.md",
+    "docs/decisions/0031-owned-terminal-palette-and-code-highlighting.md",
+    "docs/decisions/0032-owned-transcript-visual-refinement.md",
+    "docs/decisions/0033-owned-semantic-activity-surfaces.md",
+    "docs/decisions/0034-owned-slash-command-completion.md",
+    "docs/decisions/0035-owned-multiline-composer-and-paste.md",
+    "docs/decisions/0036-owned-structured-process-execution.md",
+    "docs/decisions/0037-canonical-agent-brand.md",
+    "docs/decisions/0038-owned-deterministic-tui-motion.md",
+    "docs/decisions/0039-owned-responsive-conversation-stage.md",
+    "docs/decisions/0040-owned-quiet-conversation-rhythm.md",
+    "docs/decisions/0041-owned-ephemeral-contextual-notices.md",
+    "docs/decisions/0042-owned-workspace-trust-boundary.md",
+    "docs/decisions/0043-owned-conversation-density.md",
+    "docs/decisions/0044-owned-latin-prose-cell-width.md",
+    "docs/decisions/0045-owned-terminal-interaction.md",
+    "docs/decisions/0046-owned-handle-relative-mutation-commit.md",
+    "docs/decisions/0047-owned-reproducible-task-evaluation.md",
+    "docs/decisions/0048-owned-content-free-evaluation-receipt.md",
+    "docs/decisions/0049-owned-evaluation-failure-registry.md",
+    "docs/decisions/0050-owned-minimal-coding-capability-surface.md",
+    "docs/decisions/0051-owned-bounded-file-line-projection.md",
+    "docs/decisions/0052-owned-checkpointed-turn-failure-classification.md",
+    "docs/decisions/0053-owned-structured-text-patch.md",
+    "docs/decisions/0054-owned-workspace-namespace-management.md",
+    "docs/decisions/0055-owned-session-tool-permissions.md",
+    "docs/decisions/0056-owned-compact-tool-activity-line.md",
+    "docs/decisions/0057-owned-transparent-human-tool-activity.md",
+    "docs/decisions/0058-owned-linux-namespace-fail-closed-boundary.md",
+    "docs/decisions/0059-owned-accented-conversation-focus.md",
+    "docs/decisions/0060-owned-semantic-patch-diff-foregrounds.md",
+    "docs/decisions/0061-owned-convergent-tool-turns.md",
+    "docs/decisions/0062-owned-changed-only-patch-preview.md",
+    "docs/decisions/0063-owned-terminal-separator-patch-preview.md",
+    "docs/decisions/0064-owned-self-verifying-typescript-evaluation.md",
+    "docs/decisions/0065-owned-red-green-tool-recovery-evaluation.md",
+    "docs/decisions/0066-owned-namespace-directory-evaluation.md",
+    "docs/decisions/0067-owned-opencode-provider-selection.md",
+    "docs/decisions/0068-owned-ephemeral-provider-and-model-selection.md",
+    "docs/decisions/0069-owned-tool-call-interoperability.md",
+    "docs/decisions/0070-owned-documentation-information-architecture.md",
+    "docs/decisions/0071-owned-task-oriented-operator-manual.md",
+    "docs/decisions/0072-owned-ollama-cloud-provider.md"
+  ],
   "decisionIndexLifecycleDigest": {
     "algorithm": "sha256",
-    "value": "ed7e54d7e8b4b62cd51c84235eb9f89454d66f665e6c79dcd78ccfc61131f28b"
+    "value": "d80bdac539bb847ae072654da56b9508ee763dc7beea95bc708772cce994af7c"
   },
   "migrationLedger": "docs/DOCUMENTATION-MIGRATION.md",
   "migrationMapStatusMarkers": {
@@ -243,146 +317,10 @@
       "0055"
     ]
   },
-  "migrationRows": [
-    {
-      "topic": "Public purpose, identity, installation, and first run",
-      "currentSources": "[Public README](../README.md), [brand guide](BRAND.md)",
-      "canonicalOwner": "[Public README](../README.md)",
-      "status": "complete"
-    },
-    {
-      "topic": "Repository-wide change constraints and routing",
-      "currentSources": "[Repository instructions](../AGENTS.md), [architecture](ARCHITECTURE.md), [engineering guide](ENGINEERING.md)",
-      "canonicalOwner": "[Repository instructions](../AGENTS.md)",
-      "status": "complete"
-    },
-    {
-      "topic": "Contribution workflow",
-      "currentSources": "[Repository instructions](../AGENTS.md), [contributing guide](../CONTRIBUTING.md), [engineering guide](ENGINEERING.md), [maintenance guide](MAINTENANCE.md), [publishing chapter](manual/07-publishing-and-governance.md)",
-      "canonicalOwner": "[Contributing guide](../CONTRIBUTING.md)",
-      "status": "complete"
-    },
-    {
-      "topic": "License terms",
-      "currentSources": "[License](../LICENSE)",
-      "canonicalOwner": "[License](../LICENSE)",
-      "status": "retained"
-    },
-    {
-      "topic": "Vulnerability reporting",
-      "currentSources": "[Security policy](../SECURITY.md), [maintenance guide](MAINTENANCE.md)",
-      "canonicalOwner": "[Security policy](../SECURITY.md)",
-      "status": "complete"
-    },
-    {
-      "topic": "Privacy and memory-only secrets",
-      "currentSources": "[Privacy policy](../PRIVACY.md), [provider policy](PROVIDERS.md), [operator manual](manual/README.md)",
-      "canonicalOwner": "[Privacy policy](../PRIVACY.md)",
-      "status": "complete"
-    },
-    {
-      "topic": "Current package and runtime architecture",
-      "currentSources": "[Repository instructions](../AGENTS.md), [architecture](ARCHITECTURE.md), [engineering guide](ENGINEERING.md)",
-      "canonicalOwner": "[Architecture](ARCHITECTURE.md)",
-      "status": "complete"
-    },
-    {
-      "topic": "Development and verification practice",
-      "currentSources": "[Repository instructions](../AGENTS.md), [engineering guide](ENGINEERING.md), [maintenance guide](MAINTENANCE.md)",
-      "canonicalOwner": "[Engineering guide](ENGINEERING.md)",
-      "status": "complete"
-    },
-    {
-      "topic": "Maintainer diagnostics, releases, and rollback",
-      "currentSources": "[Engineering guide](ENGINEERING.md), [maintenance guide](MAINTENANCE.md)",
-      "canonicalOwner": "[Maintenance guide](MAINTENANCE.md)",
-      "status": "complete"
-    },
-    {
-      "topic": "Brand identity and registered assets",
-      "currentSources": "[Public README](../README.md), [brand guide](BRAND.md), [brand assets](../assets/brand/README.md)",
-      "canonicalOwner": "[Brand guide](BRAND.md)",
-      "status": "complete"
-    },
-    {
-      "topic": "Clean-room provenance and inspections",
-      "currentSources": "[Repository instructions](../AGENTS.md), [ownership record](OWNERSHIP.md)",
-      "canonicalOwner": "[Ownership record](OWNERSHIP.md)",
-      "status": "complete"
-    },
-    {
-      "topic": "Direct provider admission and operation",
-      "currentSources": "[Repository instructions](../AGENTS.md), [provider policy](PROVIDERS.md), [operator manual](manual/README.md)",
-      "canonicalOwner": "[Provider policy](PROVIDERS.md)",
-      "status": "complete"
-    },
-    {
-      "topic": "Provider registration requests",
-      "currentSources": "[Provider applications](PROVIDER-APPLICATIONS.md), [provider policy](PROVIDERS.md)",
-      "canonicalOwner": "[Provider applications](PROVIDER-APPLICATIONS.md)",
-      "status": "complete"
-    },
-    {
-      "topic": "OAuth registration status",
-      "currentSources": "[OAuth registration](OAUTH-REGISTRATION.md), [provider policy](PROVIDERS.md)",
-      "canonicalOwner": "[OAuth registration](OAUTH-REGISTRATION.md)",
-      "status": "complete"
-    },
-    {
-      "topic": "Product operation",
-      "currentSources": "[Public README](../README.md), [operator manual](manual/README.md), [maintenance guide](MAINTENANCE.md)",
-      "canonicalOwner": "[Operator manual](manual/README.md)",
-      "status": "complete"
-    },
-    {
-      "topic": "Operator-manual structure and repository evidence routing",
-      "currentSources": "[decision 0009](decisions/0009-owned-operator-manual.md), [manual chapters](manual/README.md), [manual policy](../tools/manual-policy.json)",
-      "canonicalOwner": "[decision 0071](decisions/0071-owned-task-oriented-operator-manual.md) and task-specific manual chapters",
-      "status": "complete"
-    },
-    {
-      "topic": "Turn operation, runtime bounds, checkpoints, and failure recovery",
-      "currentSources": "[turn-lifecycle manual](manual/02-turn-lifecycle.md), [architecture](ARCHITECTURE.md), [maintenance guide](MAINTENANCE.md), [checkpoint decisions](decisions/0029-canonical-tool-call-batches.md)",
-      "canonicalOwner": "[turn-lifecycle manual](manual/02-turn-lifecycle.md) for operator flow, [architecture](ARCHITECTURE.md) for current runtime contracts, [maintenance guide](MAINTENANCE.md) for change procedure, and stable decisions for rationale",
-      "status": "complete"
-    },
-    {
-      "topic": "Terminal editing, navigation, selection, and presentation",
-      "currentSources": "[terminal-interface manual](manual/03-terminal-interface.md), [architecture](ARCHITECTURE.md), [engineering guide](ENGINEERING.md), [maintenance guide](MAINTENANCE.md), and terminal decisions",
-      "canonicalOwner": "[terminal-interface manual](manual/03-terminal-interface.md) for operator controls, [architecture](ARCHITECTURE.md) for current TUI and CLI contracts, [maintenance guide](MAINTENANCE.md) for change procedure, and the [decision index](decisions/README.md) for rationale",
-      "status": "complete"
-    },
-    {
-      "topic": "Tool use, session permissions, previews, and operator recovery",
-      "currentSources": "[tools-and-permissions manual](manual/04-tools-and-approval.md), [architecture](ARCHITECTURE.md), [maintenance guide](MAINTENANCE.md), [privacy policy](../PRIVACY.md), and tool decisions",
-      "canonicalOwner": "[tools-and-permissions manual](manual/04-tools-and-approval.md) for operator choices and the verified inventory, [architecture](ARCHITECTURE.md) for current contracts, [maintenance guide](MAINTENANCE.md) for change and removal, [privacy policy](../PRIVACY.md) for disclosure rules, and the [decision index](decisions/README.md) for rationale",
-      "status": "complete"
-    },
-    {
-      "topic": "Provider connection, model selection, process-only credentials, and operator recovery",
-      "currentSources": "[providers-and-authentication manual](manual/05-providers-and-authentication.md), [provider policy](PROVIDERS.md), [privacy policy](../PRIVACY.md), [architecture](ARCHITECTURE.md), [maintenance guide](MAINTENANCE.md), and provider decisions",
-      "canonicalOwner": "[providers-and-authentication manual](manual/05-providers-and-authentication.md) for operator flow, [provider policy](PROVIDERS.md) for eligibility and wire admission, [privacy policy](../PRIVACY.md) for secret and retention boundaries, [architecture](ARCHITECTURE.md) for current contracts, [maintenance guide](MAINTENANCE.md) for change and removal, and the [decision index](decisions/README.md) for rationale",
-      "status": "complete"
-    },
-    {
-      "topic": "Change verification, failure diagnosis, and evaluation routing",
-      "currentSources": "[verification-and-diagnostics manual](manual/06-verification-and-diagnostics.md), [engineering guide](ENGINEERING.md), [maintenance guide](MAINTENANCE.md), [evaluation guide](../evaluations/README.md), and verification and evaluation decisions",
-      "canonicalOwner": "[verification-and-diagnostics manual](manual/06-verification-and-diagnostics.md) for operator flow, [engineering guide](ENGINEERING.md) for definition of done and verification policy, [maintenance guide](MAINTENANCE.md) for gate change and removal, [evaluation guide](../evaluations/README.md) for the evaluation lifecycle, and the [decision index](decisions/README.md) for rationale",
-      "status": "complete"
-    },
-    {
-      "topic": "Owned evaluation operation",
-      "currentSources": "[Evaluation manual](../evaluations/README.md), [engineering guide](ENGINEERING.md), [maintenance guide](MAINTENANCE.md)",
-      "canonicalOwner": "[Evaluation manual](../evaluations/README.md)",
-      "status": "complete"
-    },
-    {
-      "topic": "Durable design history",
-      "currentSources": "decision files and [decision index](decisions/README.md)",
-      "canonicalOwner": "[Decision index](decisions/README.md) and stable records",
-      "status": "complete"
-    }
-  ],
+  "migrationContentLedgerDigest": {
+    "algorithm": "sha256",
+    "value": "f072d9ce52f7153d60f1ebd5b579662ef5a91a7ec5024a7410199568624a9ba1"
+  },
   "decisionStatuses": [
     "accepted",
     "superseded"

@@ -19,9 +19,10 @@ changing that acyclic graph requires updating the policy in the same decision
 change.
 
 The complete ledger classifies every stable record. The decision directory
-contains only this index and the registered flat numeric record paths. The
-current-authority view routes each closed domain only to accepted entry points
-and binds every visible decision ID to its stable record destination. Each
+contains only this index and the complete flat numeric record paths registered
+in policy. The current-authority view routes each closed domain only to accepted
+entry points and binds every visible decision ID to its stable record
+destination. Each
 authority cell contains only those links and their canonical separators. Every
 record retains its numeric heading plus its `Context` and `Decision`; the
 verifier preserves historical pre-0070 formats instead of normalizing them
