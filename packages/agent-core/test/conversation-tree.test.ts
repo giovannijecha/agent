@@ -131,16 +131,54 @@ test("contains hostile turn-entry arrays behind invalidDelta", () => {
       },
     },
   );
+  const emptyIterator = new Proxy(
+    completed("indexed user", "indexed assistant"),
+    {
+      get(target, property) {
+        if (property === "length") return target.length;
+        if (property === "at") return target.at;
+        if (property === "0") return target.at(0);
+        if (property === "1") return target.at(1);
+        if (property === Symbol.iterator) {
+          return function* emptyEntries() {
+            return;
+          };
+        }
+        return undefined;
+      },
+    },
+  );
 
   for (const entries of [
     revoked.proxy,
     lengthFailure,
     atFailure,
-    iteratorFailure,
   ]) {
     const appended = tree.appendTurn(entries, "completed");
     assert.equal(appended.ok, false);
     if (!appended.ok) assert.equal(appended.error.kind, "invalidDelta");
+  }
+
+  const withoutIterator = tree.appendTurn(iteratorFailure, "completed");
+  assert.ok(withoutIterator.ok);
+  if (withoutIterator.ok) {
+    assert.deepEqual(
+      withoutIterator.value.conversation.entries.map((item) =>
+        item instanceof Message ? item.content : "tool exchange",
+      ),
+      ["iterator user", "iterator assistant"],
+    );
+  }
+
+  const indexed = tree.appendTurn(emptyIterator, "completed");
+  assert.ok(indexed.ok);
+  if (indexed.ok) {
+    assert.deepEqual(
+      indexed.value.conversation.entries.map((item) =>
+        item instanceof Message ? item.content : "tool exchange",
+      ),
+      ["indexed user", "indexed assistant"],
+    );
   }
 });
 

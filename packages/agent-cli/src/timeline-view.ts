@@ -6,6 +6,7 @@ import {
   SelectionList,
   SplitLine,
   Surface,
+  TUI_LIMITS,
 } from "@agent/tui";
 
 import type { TimelineEntry } from "./chat-state.js";
@@ -55,8 +56,23 @@ export function createTimelineDocument(
   if (projection === undefined) {
     return createStack([]);
   }
+  const windowStart = projection.items.length <= TUI_LIMITS.componentCount
+    ? 0
+    : Math.max(0, projection.selectedIndex);
+  const visibleItems = projection.items.slice(
+    windowStart,
+    windowStart + TUI_LIMITS.componentCount,
+  );
   const title = createSpan("Timeline", "emphasis");
-  const scope = createSpan("current process", "muted");
+  const scopeLabel = visibleItems.length === projection.items.length
+    ? "current process"
+    : "current process " +
+      (windowStart + 1).toString(10) +
+      "-" +
+      (windowStart + visibleItems.length).toString(10) +
+      "/" +
+      projection.items.length.toString(10);
+  const scope = createSpan(scopeLabel, "muted");
   if (!title.ok) return title;
   if (!scope.ok) return scope;
   const header = SplitLine.create([title.value], [scope.value], {
@@ -66,8 +82,8 @@ export function createTimelineDocument(
   if (!header.ok) return header;
 
   const rows: Component[] = [];
-  for (let position = 0; position < projection.items.length; position += 1) {
-    const item = projection.items.at(position);
+  for (let position = 0; position < visibleItems.length; position += 1) {
+    const item = visibleItems.at(position);
     if (item === undefined) {
       return err(new ComponentError("invalidComponent", position));
     }
@@ -88,7 +104,10 @@ export function createTimelineDocument(
     if (!row.ok) return row;
     rows.push(row.value);
   }
-  const list = SelectionList.create(rows, projection.selectedIndex);
+  const list = SelectionList.create(
+    rows,
+    projection.selectedIndex - windowStart,
+  );
   if (!list.ok) return list;
   const content = createStack([header.value, list.value]);
   if (!content.ok) return content;

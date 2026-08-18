@@ -52,12 +52,13 @@ and Down choose an action and Enter resolves it. See
 [Tools and permissions](04-tools-and-approval.md) for the authority each choice
 grants.
 
-`/timeline` is available only while idle. It lists the root and every retained
-settled turn in insertion order, with indentation for depth and markers for the
-active path tip, checkpoints, and alternate children. Up and Down move without
-wrapping, Enter selects, and Ctrl+C closes the selector. Selecting the root
-makes the next task a new root branch. Timeline state is process-only and is
-not session persistence.
+`/timeline` is available only while idle. It navigates the root and every
+retained settled turn in insertion order through a bounded moving window, with
+indentation for depth and markers for the active path tip, checkpoints, and
+alternate children. Up and Down move without wrapping and reveal earlier or
+later rows as needed, Enter selects, and Ctrl+C closes the selector. Selecting
+the root makes the next task a new root branch. Timeline state is process-only
+and is not session persistence.
 
 ## Navigate and copy
 

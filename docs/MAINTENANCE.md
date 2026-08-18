@@ -142,6 +142,9 @@ For a conversation-tree change:
 4. update the CLI mirror only after a runtime selection or commit succeeds;
 5. prove siblings remain retained, only the selected path reaches the model,
    rejected selection is inert, and cleanup releases all process-memory state.
+6. prove append snapshots use bounded indexed access, the full retained
+   timeline remains reachable through its moving window, and display-only
+   markers cannot reject an authoritative commit.
 
 Rollback removes `/timeline` and its projection first, restores a linear CLI
 transcript, then replaces the runtime tree with the selected linear path.

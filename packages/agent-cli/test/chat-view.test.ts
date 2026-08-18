@@ -277,6 +277,45 @@ test("renders the bounded timeline as an idle branch selector", () => {
   assert.equal(text.includes("active"), true);
 });
 
+test("windows timeline rows beyond the generic selection-list bound", () => {
+  const application = new ApplicationController(true);
+  for (let turnId = 1; turnId <= 32; turnId += 1) {
+    settleDisplayTurn(
+      application,
+      turnId,
+      "question-" + turnId.toString(10),
+      "answer-" + turnId.toString(10),
+      turnId - 1,
+      turnId,
+    );
+  }
+  application.feed("/timeline\r");
+
+  const rendered = createChatRender(application, viewport(72, 20));
+  assert.ok(rendered.ok);
+  const text = rendered.ok
+    ? rendered.value.frame.rows.map((row) => row.text).join("\n")
+    : "";
+  assert.equal(text.includes("Timeline"), true);
+  assert.equal(text.includes("current process 33-33/33"), true);
+  assert.equal(text.includes("#32 question-32"), true);
+  assert.equal(text.includes("active"), true);
+
+  for (let index = 0; index < 32; index += 1) {
+    application.applySessionAction(Object.freeze({
+      direction: "previous" as const,
+      kind: "moveContextSelection" as const,
+    }));
+  }
+  const rootWindow = createChatRender(application, viewport(72, 20));
+  assert.ok(rootWindow.ok);
+  const rootText = rootWindow.ok
+    ? rootWindow.value.frame.rows.map((row) => row.text).join("\n")
+    : "";
+  assert.equal(rootText.includes("current process 1-32/33"), true);
+  assert.equal(rootText.includes("root"), true);
+});
+
 test("renders one ruled composer and the exact canonical workspace root", () => {
   const canonicalWorkspaceRoot = "/owned/workspace";
   const application = new ApplicationController(
