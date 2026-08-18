@@ -183,14 +183,22 @@ owner-only mode `0700` and files request `0600` where supported. This is local
 plain-text JSONL, not encryption or an operating-system vault. Other principals
 already authorized by the host, backups, or malware may still observe it.
 
+The hashed workspace directory also holds an ephemeral `.admission` file with
+the current process identifier while one launch validates retention and
+publishes a session. Normal completion removes it. A later launch may remove it
+only after the operating system reports that the exact process no longer
+exists; it contains no workspace path, credential, conversation, or provider
+state.
+
 One journal is limited to 16,777,216 UTF-8 bytes and the conversation remains
 limited to 128 settled turns, 256 provider-message units, and 1,048,576 code
 units. At most 32 validated sessions are retained for one workspace and at most
 64 are scanned. Creating a new session removes the oldest unlocked exact
-session directories as needed; active or ambiguous sessions are never removed.
-Unknown versions and corruption fail closed. An interrupted final line alone
-may be discarded, with an explicit recovery notice, while its validated prefix
-is retained.
+session directories as needed under the exact workspace admission; active or
+ambiguous sessions are never removed. Concurrent admission reports busy rather
+than exceeding either bound. Unknown versions and corruption fail closed. An
+interrupted final line alone may be discarded, with an explicit recovery
+notice, while its validated prefix is retained.
 
 ## Local task evaluation
 

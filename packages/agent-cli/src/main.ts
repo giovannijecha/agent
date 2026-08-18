@@ -99,6 +99,9 @@ function sessionJournalDiagnostic(kind: SessionJournalErrorKind): string {
   if (kind === "active") {
     return "agent refused to resume an active session\n";
   }
+  if (kind === "busy") {
+    return "agent found session admission busy for this workspace\n";
+  }
   if (kind === "limit") {
     return "agent could not retain another bounded session\n";
   }

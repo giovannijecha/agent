@@ -149,11 +149,14 @@ from the platform-owned user-state base and an irreversible digest of the exact
 canonical workspace. Resume requires the newest journal to be inactive and
 valid before provider composition. Unknown versions, ambiguous locks, unsafe
 retirement targets, interior corruption, and all bound failures stop
-content-free. Only an incomplete final line may recover its validated prefix.
-The journal requests owner-only permissions but is not encrypted, tamper-proof,
-or protected from host-authorized principals. Credentials, provider/model
-state, permissions, drafts, provisional output, and foreign causes are never
-recorded.
+content-free. One exact workspace admission serializes scan, retention,
+resume-source validation, and publication; a live contender reports busy, and
+only an operating-system-proven stale owner may be reclaimed once. Required
+file synchronization and POSIX directory synchronization fail closed. Only an
+incomplete final line may recover its validated prefix. The journal requests
+owner-only permissions but is not encrypted, tamper-proof, or protected from
+host-authorized principals. Credentials, provider/model state, permissions,
+drafts, provisional output, and foreign causes are never recorded.
 
 The maintainer-only task evaluator is a separate offline tooling boundary. It
 accepts only the registered strict-text corpus and regular-file run trees,
