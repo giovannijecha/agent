@@ -20,8 +20,10 @@ Use this manual to run, understand, and maintain the behavior that exists today.
   boundaries, and subscription eligibility. Ollama Cloud is the sole optional
   process-local backend; startup enters the TUI with neither provider nor model
   selected.
-- Credentials and sessions are not persisted. The
-  [privacy policy](../../PRIVACY.md) owns retention and removal guarantees.
+- Credentials, catalogs, provider/model selection, permission policy, drafts,
+  and active turns are not persisted. Explicit interactive launches retain
+  only the bounded settled session journal documented by the
+  [privacy policy](../../PRIVACY.md), which owns retention and removal guarantees.
 - Process execution uses the documented `shell` contract: one exact approved
   command, a fixed profile-free native shell, controlled credential-free
   environment, fixed bounds, and native whole-tree containment.

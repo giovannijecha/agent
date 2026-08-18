@@ -184,7 +184,7 @@ async function durableFile(
   }
 }
 
-async function readBoundedText(file: string): Promise<string | undefined> {
+async function readBoundedBytes(file: string): Promise<Uint8Array | undefined> {
   try {
     const observed = await lstat(file);
     if (
@@ -194,12 +194,45 @@ async function readBoundedText(file: string): Promise<string | undefined> {
     ) {
       return undefined;
     }
-    const bytes = await readFile(file);
-    const decoded = decodeUtf8Text(bytes);
-    return decoded.ok ? decoded.value : undefined;
+    return await readFile(file);
   } catch (_cause: unknown) {
     return undefined;
   }
+}
+
+async function readBoundedText(file: string): Promise<string | undefined> {
+  const bytes = await readBoundedBytes(file);
+  if (bytes === undefined) {
+    return undefined;
+  }
+  const decoded = decodeUtf8Text(bytes);
+  return decoded.ok ? decoded.value : undefined;
+}
+
+async function readBoundedJournal(
+  file: string,
+): Promise<Readonly<{ recoveredPrefix: boolean; text: string }> | undefined> {
+  const bytes = await readBoundedBytes(file);
+  if (bytes === undefined || bytes.length === 0) {
+    return undefined;
+  }
+  const complete = bytes.at(-1) === 0x0a;
+  let prefixLength = complete ? bytes.length : 0;
+  if (!complete) {
+    for (let index = bytes.length - 1; index >= 0; index -= 1) {
+      if (bytes.at(index) === 0x0a) {
+        prefixLength = index + 1;
+        break;
+      }
+    }
+  }
+  if (prefixLength === 0) {
+    return undefined;
+  }
+  const decoded = decodeUtf8Text(bytes.slice(0, prefixLength));
+  return decoded.ok
+    ? Object.freeze({ recoveredPrefix: !complete, text: decoded.value })
+    : undefined;
 }
 
 function parseHeader(input: unknown): SessionHeader | undefined {
@@ -370,20 +403,15 @@ async function loadSession(
   sessionPath: string,
   expectedWorkspaceKey: string,
 ): Promise<LoadedSession | undefined> {
-  const journalText = await readBoundedText(path.join(sessionPath, "journal.jsonl"));
+  const journal = await readBoundedJournal(
+    path.join(sessionPath, "journal.jsonl"),
+  );
   const headText = await readBoundedText(path.join(sessionPath, "head.json"));
-  if (journalText === undefined || headText === undefined) {
+  if (journal === undefined || headText === undefined) {
     return undefined;
   }
-  const completeTail = journalText.endsWith("\n");
-  const lines = journalText.split("\n");
-  let recoveredPrefix = false;
-  if (!completeTail) {
-    const tail = lines.pop();
-    recoveredPrefix = tail !== undefined && tail.length > 0;
-  } else {
-    lines.pop();
-  }
+  const lines = journal.text.split("\n");
+  lines.pop();
   const headerLine = lines.at(0);
   if (headerLine === undefined || headerLine.length === 0) {
     return undefined;
@@ -453,7 +481,7 @@ async function loadSession(
     header,
     history: restored.value,
     presentations: Object.freeze(presentations),
-    recoveredPrefix,
+    recoveredPrefix: journal.recoveredPrefix,
     turns: Object.freeze(turns),
   });
 }
@@ -514,8 +542,10 @@ async function scanSessions(
   const sessions: SessionEntry[] = [];
   for (const name of names) {
     const sessionPath = path.join(workspaceDirectory, name);
-    const text = await readBoundedText(path.join(sessionPath, "journal.jsonl"));
-    const firstLine = text?.split("\n").at(0);
+    const journal = await readBoundedJournal(
+      path.join(sessionPath, "journal.jsonl"),
+    );
+    const firstLine = journal?.text.split("\n").at(0);
     if (firstLine === undefined) {
       return undefined;
     }
