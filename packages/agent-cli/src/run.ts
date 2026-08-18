@@ -46,7 +46,13 @@ export type RunFailure<E> =
   | Readonly<{ kind: "frame"; error: ComponentError }>
   | Readonly<{
       kind: "runtime";
-      operation: "acknowledge" | "cancel" | "commit" | "event" | "permission";
+      operation:
+        | "acknowledge"
+        | "cancel"
+        | "commit"
+        | "event"
+        | "history"
+        | "permission";
       error: RuntimeCommandError | RuntimeSourceError;
     }>
   | Readonly<{
@@ -67,6 +73,7 @@ export type RunFailure<E> =
         | "providerSelection"
         | "runtimeAcknowledge"
         | "runtimePermission"
+        | "runtimeSelection"
         | "runtimeCancel"
         | "runtimeCommit"
         | "runtimeStart"
@@ -482,6 +489,57 @@ async function applyEffect<E, RE>(
         failure: Object.freeze({
           kind: "unexpected" as const,
           operation: "runtimeStart" as const,
+        }),
+        redraw: false,
+      });
+    }
+  }
+
+  if (effect.kind === "selectTimelineNode") {
+    if (runtime === undefined) {
+      return Object.freeze({
+        exit: false,
+        failure: Object.freeze({
+          kind: "unexpected" as const,
+          operation: "runtimeSelection" as const,
+        }),
+        redraw: false,
+      });
+    }
+    try {
+      const selected = runtime.selectConversationNode(effect.nodeId);
+      if (!selected.ok) {
+        return Object.freeze({
+          exit: false,
+          failure: Object.freeze({
+            kind: "runtime" as const,
+            operation: "history" as const,
+            error: selected.error,
+          }),
+          redraw: false,
+        });
+      }
+      const applied = application.conversationNodeSelected(effect.nodeId);
+      return applied.ok
+        ? Object.freeze({
+            exit: false,
+            failure: undefined,
+            redraw: applied.value.redraw,
+          })
+        : Object.freeze({
+            exit: false,
+            failure: Object.freeze({
+              kind: "application" as const,
+              error: applied.error,
+            }),
+            redraw: false,
+          });
+    } catch (_cause: unknown) {
+      return Object.freeze({
+        exit: false,
+        failure: Object.freeze({
+          kind: "unexpected" as const,
+          operation: "runtimeSelection" as const,
         }),
         redraw: false,
       });

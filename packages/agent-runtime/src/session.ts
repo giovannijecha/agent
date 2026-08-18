@@ -14,6 +14,10 @@ import type {
 export interface RuntimeSession<E> {
   /** Starts one prospective turn synchronously without committing it. */
   startTurn(input: string): Result<StartedTurn, StartTurnError>;
+  /** Selects one retained conversation node while no turn is active. */
+  selectConversationNode(
+    nodeId: number,
+  ): Result<void, RuntimeCommandError>;
   /** Requests cancellation for the exact active turn idempotently. */
   requestCancel(turnId: number): Result<boolean, RuntimeCommandError>;
   /** Resolves the exact pending tool request without retaining session policy. */

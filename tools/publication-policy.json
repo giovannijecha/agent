@@ -23,7 +23,7 @@
   "provenanceLog": {
     "path": "docs/OWNERSHIP.md",
     "entryCount": 34,
-    "sha256": "b33546b92f263d014689d3323274c1d4489d079728f89f14288d90f4b6974111"
+    "sha256": "1a0ce63005408665d7067d883e9d3cbc0603cc208dcecda95541a463afe53804"
   },
   "documents": [
     ".gitattributes",
@@ -44,6 +44,7 @@
     "docs/manual/07-publishing-and-governance.md",
     "docs/decisions/0013-single-agent-execution.md",
     "docs/decisions/0074-owned-deterministic-read-overlap.md",
+    "docs/decisions/0075-owned-branching-conversation-tree.md",
     "assets/brand/README.md",
     "docs/BRAND.md",
     "docs/decisions/0037-canonical-agent-brand.md",

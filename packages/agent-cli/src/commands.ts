@@ -6,6 +6,7 @@ export type CommandResult =
   | Readonly<{ kind: "permissions" }>
   | Readonly<{ kind: "models" }>
   | Readonly<{ kind: "providers" }>
+  | Readonly<{ kind: "timeline" }>
   | Readonly<{
       kind: "notice";
       level: NoticeLevel;
@@ -13,7 +14,12 @@ export type CommandResult =
     }>
   | Readonly<{ kind: "submit"; text: string }>;
 
-export type CommandName = "/exit" | "/models" | "/permissions" | "/providers";
+export type CommandName =
+  | "/exit"
+  | "/models"
+  | "/permissions"
+  | "/providers"
+  | "/timeline";
 
 export type CommandDefinition = Readonly<{
   command: CommandName;
@@ -33,6 +39,10 @@ export const COMMANDS: readonly CommandDefinition[] = Object.freeze([
   Object.freeze({
     command: "/permissions" as const,
     description: "set session tool permissions",
+  }),
+  Object.freeze({
+    command: "/timeline" as const,
+    description: "select conversation branch",
   }),
   Object.freeze({ command: "/exit" as const, description: "close agent" }),
 ]);
@@ -89,6 +99,9 @@ export function executeSubmission(
   }
   if (exact === "/permissions") {
     return Object.freeze({ kind: "permissions" as const });
+  }
+  if (exact === "/timeline") {
+    return Object.freeze({ kind: "timeline" as const });
   }
   if (command.startsWith("/")) {
     return notice("warning", "Unknown command");

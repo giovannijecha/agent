@@ -22,7 +22,11 @@ import {
   TUI_LIMITS,
 } from "@agent/tui";
 
-import { ChatState, type TranscriptEntry } from "./chat-state.js";
+import {
+  ChatState,
+  type TimelineEntry,
+  type TranscriptEntry,
+} from "./chat-state.js";
 import {
   createNoticeToken,
   type NoticeLevel,
@@ -59,6 +63,7 @@ import {
   type PointerProjection,
   TerminalInteraction,
 } from "./terminal-interaction.js";
+import type { TimelineMenuProjection } from "./timeline-view.js";
 import { projectTurnFailure } from "./turn-failure-presentation.js";
 
 export type { PointerProjection } from "./terminal-interaction.js";
@@ -105,6 +110,7 @@ export type ApplicationEffect =
     }>
   | Readonly<{ kind: "selectProvider"; id: ProviderId }>
   | Readonly<{ kind: "selectModel"; id: string }>
+  | Readonly<{ kind: "selectTimelineNode"; nodeId: number }>
   | Readonly<{ kind: "startTurn"; text: string }>;
 
 export type ApplicationUpdate = Readonly<{
@@ -230,6 +236,8 @@ export class ApplicationController
   #modelsVisible = false;
   #providerSelectionIndex = 0;
   #providersVisible = false;
+  #timelineSelectionIndex = 0;
+  #timelineVisible = false;
   #transcriptGeometry:
     | Readonly<{ contentRows: number; viewportRows: number }>
     | undefined;
@@ -343,6 +351,10 @@ export class ApplicationController
     return this.#chat.transcriptEntries();
   }
 
+  timelineEntries(): readonly TimelineEntry[] {
+    return this.#chat.timelineEntries();
+  }
+
   project(columns: number): EditorProjection {
     return this.#credentialProviderId === undefined
       ? this.#session.projectEditor(columns)
@@ -417,6 +429,16 @@ export class ApplicationController
       items: this.#models,
       providerName: provider.presentation.displayName,
       selectedIndex: this.#modelSelectionIndex,
+    });
+  }
+
+  projectTimelineMenu(): TimelineMenuProjection | undefined {
+    if (!this.#timelineVisible || this.#phase !== "idle") {
+      return undefined;
+    }
+    return Object.freeze({
+      items: this.#chat.timelineEntries(),
+      selectedIndex: this.#timelineSelectionIndex,
     });
   }
 
@@ -562,6 +584,8 @@ export class ApplicationController
     this.#modelSelectionIndex = 0;
     this.#modelsVisible = false;
     this.#providersVisible = false;
+    this.#timelineSelectionIndex = 0;
+    this.#timelineVisible = false;
     this.#providerSelectionIndex = this.#activeProviderIndex ?? 0;
     this.#transcriptGeometry = undefined;
     this.#transcriptScroll = ScrollState.followEnd();
@@ -623,6 +647,7 @@ export class ApplicationController
       this.#permissionsVisible = true;
       this.#modelsVisible = false;
       this.#providersVisible = false;
+      this.#timelineVisible = false;
       this.#setNotice([]);
       return update(true);
     }
@@ -648,6 +673,7 @@ export class ApplicationController
       this.#providerSelectionIndex = this.#activeProviderIndex ?? 0;
       this.#modelsVisible = false;
       this.#permissionsVisible = false;
+      this.#timelineVisible = false;
       this.#setNotice([]);
       return update(true);
     }
@@ -675,6 +701,7 @@ export class ApplicationController
       this.#permissionsVisible = false;
       this.#providersVisible = false;
       this.#modelsVisible = false;
+      this.#timelineVisible = false;
       this.#models = Object.freeze([]);
       this.#modelSelectionIndex = 0;
       this.#setNotice([]);
@@ -685,6 +712,30 @@ export class ApplicationController
         return update(false);
       }
       this.#modelsVisible = false;
+      return update(true);
+    }
+    if (action.kind === "openTimeline") {
+      if (this.#phase !== "idle") {
+        this.#setNotice([
+          "Timeline selection is available only while idle.",
+        ]);
+        return update(true);
+      }
+      const entries = this.#chat.timelineEntries();
+      const selected = entries.findIndex((entry) => entry.selected);
+      this.#timelineSelectionIndex = selected < 0 ? 0 : selected;
+      this.#timelineVisible = true;
+      this.#modelsVisible = false;
+      this.#permissionsVisible = false;
+      this.#providersVisible = false;
+      this.#setNotice([]);
+      return update(true);
+    }
+    if (action.kind === "closeTimeline") {
+      if (!this.#timelineVisible) {
+        return update(false);
+      }
+      this.#timelineVisible = false;
       return update(true);
     }
     if (action.kind === "cancelProviderCredential") {
@@ -750,6 +801,17 @@ export class ApplicationController
         this.#modelSelectionIndex = next;
         return update(true);
       }
+      if (this.#timelineVisible) {
+        const items = this.#chat.timelineEntries();
+        const next = action.direction === "previous"
+          ? Math.max(0, this.#timelineSelectionIndex - 1)
+          : Math.min(items.length - 1, this.#timelineSelectionIndex + 1);
+        if (next === this.#timelineSelectionIndex) {
+          return update(false);
+        }
+        this.#timelineSelectionIndex = next;
+        return update(true);
+      }
       if (!this.#permissionsVisible) {
         return update(false);
       }
@@ -813,6 +875,22 @@ export class ApplicationController
           Object.freeze({
             id: selected.id,
             kind: "selectModel" as const,
+          }),
+        ]);
+      }
+      if (this.#timelineVisible && this.#phase === "idle") {
+        const selected = this.#chat.timelineEntries().at(
+          this.#timelineSelectionIndex,
+        );
+        this.#timelineVisible = false;
+        if (selected === undefined) {
+          this.#setNotice(["Timeline selection could not be updated."]);
+          return update(true);
+        }
+        return update(true, [
+          Object.freeze({
+            kind: "selectTimelineNode" as const,
+            nodeId: selected.id,
           }),
         ]);
       }
@@ -946,7 +1024,12 @@ export class ApplicationController
       if (!activityTurn.ok) {
         return err(new ApplicationError("activityInvariant"));
       }
-      const begun = this.#chat.begin(turnId, content);
+      const historyParentNodeId = started.historyParentNodeId;
+      const begun = this.#chat.begin(
+        turnId,
+        content,
+        historyParentNodeId,
+      );
       if (!begun.ok) {
         this.#activityLog.clear();
         return err(new ApplicationError("invalidStartedTurn"));
@@ -958,6 +1041,7 @@ export class ApplicationController
     this.#credentialProviderId = undefined;
     this.#modelsVisible = false;
     this.#providersVisible = false;
+    this.#timelineVisible = false;
     this.#transcriptGeometry = undefined;
     this.#transcriptScroll = ScrollState.followEnd();
     this.#terminalInteraction.reset();
@@ -981,6 +1065,8 @@ export class ApplicationController
           ? "The submitted input exceeds the runtime limit."
           : kind === "conversationTooLong"
             ? "The conversation has reached its runtime limit."
+            : kind === "historyTooLong"
+              ? "The process-memory timeline has reached its runtime limit."
             : kind === "turnIdExhausted"
               ? "The runtime turn identifier limit was reached."
               : kind === "closed"
@@ -992,6 +1078,29 @@ export class ApplicationController
   /** Confirms no-runtime discard without retaining or echoing submitted text. */
   noRuntime(): void {
     this.#setNotice(["No model is configured; input was not sent."]);
+  }
+
+  /** Mirrors one runtime-authoritative idle conversation-node selection. */
+  conversationNodeSelected(
+    nodeId: number,
+  ): Result<ApplicationUpdate, ApplicationError> {
+    if (this.#phase !== "idle") {
+      return err(new ApplicationError("chatInvariant"));
+    }
+    const selected = this.#chat.selectHistoryNode(nodeId);
+    if (!selected.ok) {
+      return err(new ApplicationError("chatInvariant"));
+    }
+    this.#timelineVisible = false;
+    this.#transcriptGeometry = undefined;
+    this.#transcriptScroll = ScrollState.followEnd();
+    this.#terminalInteraction.reset();
+    this.#setNotice([
+      nodeId === 0
+        ? "Timeline root selected; the next task starts a new branch."
+        : "Timeline node #" + nodeId.toString(10) + " selected.",
+    ], "info");
+    return ok(update(true));
   }
 
   /** Confirms concealed provider configuration and selection for this process. */
@@ -1214,6 +1323,7 @@ export class ApplicationController
         this.#permissionsVisible = false;
         this.#modelsVisible = false;
         this.#providersVisible = false;
+        this.#timelineVisible = false;
         this.#toolDecisionIndex = 0;
         this.#phase = mode === "ask" ? "awaitingPermission" : "runningTool";
         this.#setNotice([]);
@@ -1358,11 +1468,17 @@ export class ApplicationController
       }
       const cleanupPresent = cleanup.length > 0;
       const checkpointed = event.checkpointed;
+      const historyNodeId = event.historyNodeId;
       const outcome = event.outcome;
       const outcomeKind = outcome.kind;
       if (
         typeof checkpointed !== "boolean" ||
         checkpointed !== this.#checkpointObserved ||
+        (checkpointed
+          ? !Number.isSafeInteger(historyNodeId) ||
+            historyNodeId === undefined ||
+            historyNodeId < 1
+          : historyNodeId !== undefined) ||
         (outcomeKind !== "cancelled" && outcomeKind !== "failed") ||
         (this.#tools.length > 0 && outcomeKind !== "cancelled")
       ) {
@@ -1381,6 +1497,7 @@ export class ApplicationController
         ? this.#chat.finishCheckpointed(
             turnId,
             settlementPresentation.checkpointedMarker,
+            historyNodeId ?? 0,
           )
         : this.#chat.discard(turnId);
       if (!resolved.ok) {
@@ -1434,7 +1551,11 @@ export class ApplicationController
         if (this.#phase === "cancelling") {
           return err(new ApplicationError("invalidRuntimeEvent"));
         }
-        const committed = this.#chat.commit(turnId);
+        const historyNodeId = resolution.historyNodeId;
+        if (!Number.isSafeInteger(historyNodeId) || historyNodeId < 1) {
+          return err(new ApplicationError("invalidRuntimeEvent"));
+        }
+        const committed = this.#chat.commit(turnId, historyNodeId);
         if (!committed.ok) {
           return err(new ApplicationError("chatInvariant"));
         }
@@ -1444,10 +1565,21 @@ export class ApplicationController
             : [],
         );
       } else {
+        const historyNodeId = resolution.historyNodeId;
+        if (
+          this.#preparedCheckpointed
+            ? !Number.isSafeInteger(historyNodeId) ||
+              historyNodeId === undefined ||
+              historyNodeId < 1
+            : historyNodeId !== undefined
+        ) {
+          return err(new ApplicationError("invalidRuntimeEvent"));
+        }
         const resolved = this.#preparedCheckpointed
           ? this.#chat.finishCheckpointed(
               turnId,
               "[turn cancelled after tool activity]",
+              historyNodeId ?? 0,
             )
           : this.#chat.discard(turnId);
         if (!resolved.ok) {
@@ -1498,6 +1630,9 @@ export class ApplicationController
     }
     if (this.#providersVisible) {
       return "providers";
+    }
+    if (this.#timelineVisible) {
+      return "timeline";
     }
     return this.#permissionsVisible ? "permissions" : "composer";
   }

@@ -37,6 +37,7 @@ import { createModelsDocument } from "./models-view.js";
 import { createPermissionsDocument } from "./permissions-view.js";
 import { createProviderCredentialDocument } from "./provider-credential-view.js";
 import { createProvidersDocument } from "./providers-view.js";
+import { createTimelineDocument } from "./timeline-view.js";
 import { createSpacer, createSpan } from "./view-components.js";
 
 const DOCUMENT_SLOT = 0;
@@ -197,12 +198,14 @@ export function createChatRender(
   const providerMenu = application.projectProviderMenu();
   const modelMenu = application.projectModelMenu();
   const providerCredential = application.projectProviderCredential();
+  const timelineMenu = application.projectTimelineMenu();
   const contextCount = [
     permissionMenu,
     toolDecision,
     providerMenu,
     modelMenu,
     providerCredential,
+    timelineMenu,
   ].filter((projection) => projection !== undefined).length;
   if (contextCount > 1) {
     return err(new ComponentError("invalidComponent", undefined));
@@ -215,16 +218,20 @@ export function createChatRender(
   if (!models.ok) return models;
   const credential = createProviderCredentialDocument(providerCredential);
   if (!credential.ok) return credential;
+  const timeline = createTimelineDocument(timelineMenu);
+  if (!timeline.ok) return timeline;
   const contextualSelection = contextCount === 1;
   const completion = providerMenu !== undefined
     ? providers
     : modelMenu !== undefined
       ? models
-      : providerCredential !== undefined
-        ? credential
-        : contextualSelection
-          ? permissions
-          : createCommandCompletionDocument(commandCompletion);
+      : timelineMenu !== undefined
+        ? timeline
+        : providerCredential !== undefined
+          ? credential
+          : contextualSelection
+            ? permissions
+            : createCommandCompletionDocument(commandCompletion);
   if (!completion.ok) return completion;
   const completionColumn = createConversationStage(completion.value);
   if (!completionColumn.ok) return completionColumn;

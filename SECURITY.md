@@ -134,6 +134,13 @@ sandbox; approved code retains the launching user's operating-system
 authority. Reports about provider traffic should identify the
 exact CLI transport, wire decoder, or configuration boundary involved.
 
+The process-memory conversation tree exposes only one selected root-to-node
+path to the model. Alternate branches cannot execute, request permission, or
+emit output. Selecting an older checkpoint does not replay its tool call or
+assert that its observation is current; any later mutation is planned and
+authorized again against current workspace state. Node selection is idle-only
+and accepts only an exact retained identity.
+
 The maintainer-only task evaluator is a separate offline tooling boundary. It
 accepts only the registered strict-text corpus and regular-file run trees,
 rejects linked or secret-shaped corpus paths, and never executes candidate code

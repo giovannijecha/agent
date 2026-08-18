@@ -35,6 +35,7 @@ const EXPECTED_DOCUMENTS = Object.freeze([
   "docs/manual/07-publishing-and-governance.md",
   "docs/decisions/0013-single-agent-execution.md",
   "docs/decisions/0074-owned-deterministic-read-overlap.md",
+  "docs/decisions/0075-owned-branching-conversation-tree.md",
   "assets/brand/README.md",
   "docs/BRAND.md",
   "docs/decisions/0037-canonical-agent-brand.md",

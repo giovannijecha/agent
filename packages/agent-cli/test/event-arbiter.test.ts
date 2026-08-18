@@ -82,6 +82,10 @@ class PullRuntime implements RuntimeSession<string> {
     return err(Object.freeze({ kind: "closed" as const }));
   }
 
+  selectConversationNode(): Result<void, RuntimeCommandError> {
+    return err(Object.freeze({ kind: "invalidHistoryNode" as const }));
+  }
+
   requestCancel(): Result<boolean, RuntimeCommandError> {
     return err(Object.freeze({ kind: "idle" as const }));
   }

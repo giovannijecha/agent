@@ -84,12 +84,12 @@ Node and operating-system boundary.
 
 | Package | Owns |
 | --- | --- |
-| `@agent/core` | deterministic domain state and immutable results |
+| `@agent/core` | deterministic domain state, immutable conversation trees, and immutable results |
 | `@agent/tools` | tool schemas, risk classes, registry validation, and bounded handler execution |
-| `@agent/runtime` | bounded streaming turns, cancellation, tool checkpoints, and conversation commits |
+| `@agent/runtime` | bounded streaming turns, cancellation, tool checkpoints, conversation-tree selection, and commits |
 | `@agent/provider-ollama-cloud` | provider-neutral request translation and Ollama Cloud stream decoding |
 | `@agent/tui` | input decoding, editors, structured rows, Markdown, layout, viewports, and frame rendering |
-| `@agent/cli` | application state, commands, provider/session state, built-in tools, terminal arbitration, filesystem/process access, and native brokers |
+| `@agent/cli` | application state, commands, branch-aware transcript projection, provider/session state, built-in tools, terminal arbitration, filesystem/process access, and native brokers |
 
 Dependencies point inward and public package access goes through each
 `src/index.ts`. Deep cross-package imports are not part of the architecture.
@@ -115,13 +115,22 @@ model response may contain one bounded ordered tool-call batch. The runtime:
    independently registered reads after all cohort permissions settle;
 5. checkpoints every tool result into conversation truth;
 6. returns that truth before the next model decision;
-7. commits one complete exchange when the turn settles.
+7. appends one settled-turn node and commits one complete exchange when the
+   turn settles.
 
 A later model failure does not erase a completed tool checkpoint. The CLI
 publishes a closed content-free failure family and retains the confirmed tool
 truth. Read-cohort settlements are buffered and emitted in provider order.
 There are no implicit retries, concurrent effects, fallback providers, or
 parallel conversations.
+
+Core retains a bounded immutable tree whose content-free root is node zero.
+Each other node owns one completed turn or one checkpointed incomplete turn and
+one parent identity. Runtime exposes exactly one selected root-to-node path as
+the linear conversation sent to the model. Selecting an earlier node while
+idle and submitting another task appends a child there without deleting any
+existing descendants. Alternate branches are inert process-memory data, not
+parallel conversations, and selection never replays a tool or effect.
 
 The principal runtime bounds are fixed:
 
@@ -132,7 +141,8 @@ The principal runtime bounds are fixed:
 | one assistant response | 262,144 code units |
 | one stream | 4,096 events |
 | one parallel read cohort | 2-4 calls |
-| retained conversation | 256 messages / 1,048,576 code units |
+| one selected conversation path | 256 messages / 1,048,576 code units |
+| retained conversation tree | 128 settled turns / 256 messages / 1,048,576 code units |
 | one turn | 32 model/tool steps |
 
 ## Capability surface
@@ -210,7 +220,7 @@ regions projected from authoritative application state.
 
 `@agent/cli` owns product meaning:
 
-- transcript entries, command dispatch, and provider/session state;
+- transcript entries, `/timeline` branch selection, command dispatch, and provider/session state;
 - one latest ephemeral activity or notice;
 - permission decisions and tool lifecycle projection;
 - terminal/runtime event serialization and cancellation;

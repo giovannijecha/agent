@@ -476,10 +476,11 @@ async function drainTurn(runtime: AgentRuntime<string>): Promise<DrainedTurn> {
       return Object.freeze({ cleanup: event.cleanup, outcome: event.outcome });
     }
     if (event.kind === "turnPrepared") {
-      assert.deepEqual(runtime.commitTurn(event.turnId), {
-        ok: true,
-        value: { kind: "committed" },
-      });
+      const committed = runtime.commitTurn(event.turnId);
+      assert.ok(committed.ok);
+      if (committed.ok) {
+        assert.equal(committed.value.kind, "committed");
+      }
       return Object.freeze({
         cleanup: event.cleanup,
         outcome: Object.freeze({ kind: "completed" as const }),
@@ -522,7 +523,7 @@ test("streams a prospective turn and commits both messages atomically", async ()
     assert.deepEqual(prepared.cleanup, []);
     assert.deepEqual(runtime.commitTurn(prepared.turnId), {
       ok: true,
-      value: { kind: "committed" },
+      value: { historyNodeId: 1, kind: "committed" },
     });
   }
   assert.deepEqual(
@@ -536,6 +537,79 @@ test("streams a prospective turn and commits both messages atomically", async ()
   );
   assert.equal(stream.closeCalls, 1);
   assert.equal(runtime.activeTurnId, undefined);
+});
+
+test("branches from a selected node and restores either retained path", async () => {
+  const model = new SequenceModel<string>([
+    new ScriptedStream([
+      ok(Object.freeze({ kind: "delta" as const, text: "root answer" })),
+      ok(Object.freeze({ kind: "done" as const })),
+    ]),
+    new ScriptedStream([
+      ok(Object.freeze({ kind: "delta" as const, text: "original answer" })),
+      ok(Object.freeze({ kind: "done" as const })),
+    ]),
+    new ScriptedStream([
+      ok(Object.freeze({ kind: "delta" as const, text: "branch answer" })),
+      ok(Object.freeze({ kind: "done" as const })),
+    ]),
+    new ScriptedStream([
+      ok(Object.freeze({ kind: "delta" as const, text: "follow answer" })),
+      ok(Object.freeze({ kind: "done" as const })),
+    ]),
+  ]);
+  const runtime = new AgentRuntime(model);
+
+  const root = runtime.startTurn("root question");
+  assert.ok(root.ok);
+  if (root.ok) assert.equal(root.value.historyParentNodeId, 0);
+  assert.equal((await drainTurn(runtime)).outcome.kind, "completed");
+
+  const original = runtime.startTurn("original question");
+  assert.ok(original.ok);
+  if (original.ok) assert.equal(original.value.historyParentNodeId, 1);
+  assert.equal((await drainTurn(runtime)).outcome.kind, "completed");
+
+  assert.deepEqual(runtime.selectConversationNode(1), ok(undefined));
+  const branch = runtime.startTurn("branch question");
+  assert.ok(branch.ok);
+  if (branch.ok) assert.equal(branch.value.historyParentNodeId, 1);
+  assert.deepEqual(runtime.selectConversationNode(2), {
+    ok: false,
+    error: { kind: "busy" },
+  });
+  assert.equal((await drainTurn(runtime)).outcome.kind, "completed");
+
+  assert.deepEqual(runtime.selectConversationNode(2), ok(undefined));
+  assert.deepEqual(runtime.selectConversationNode(99), {
+    ok: false,
+    error: { kind: "invalidHistoryNode" },
+  });
+  const recovered = runtime.startTurn("follow original");
+  assert.ok(recovered.ok);
+  if (recovered.ok) assert.equal(recovered.value.historyParentNodeId, 2);
+  assert.equal((await drainTurn(runtime)).outcome.kind, "completed");
+
+  const branchConversation = model.conversations.at(2);
+  assert.deepEqual(
+    branchConversation?.entries.map((entry) =>
+      entry instanceof Message ? entry.content : "tool exchange",
+    ),
+    ["root question", "root answer", "branch question"],
+  );
+  const recoveredConversation = model.conversations.at(3);
+  assert.deepEqual(
+    recoveredConversation?.entries.map((entry) =>
+      entry instanceof Message ? entry.content : "tool exchange",
+    ),
+    [
+      "root question",
+      "root answer",
+      "original question",
+      "original answer",
+      "follow original",
+    ],
+  );
 });
 
 test("rolls back deltas and reports model and cleanup failures separately", async () => {
@@ -685,7 +759,7 @@ test("cancellation after preparation wins before explicit commit", async () => {
   assert.deepEqual(runtime.requestCancel(started.value.turnId), ok(true));
   assert.deepEqual(runtime.commitTurn(started.value.turnId), {
     ok: true,
-    value: { kind: "cancelled" },
+    value: { historyNodeId: undefined, kind: "cancelled" },
   });
   assert.equal(runtime.conversation.length, 0);
   assert.equal(runtime.activeTurnId, undefined);
@@ -1127,7 +1201,7 @@ test("enforces aggregate conversation content at the exact boundary", async () =
   }
   assert.deepEqual(exactRuntime.startTurn("q"), {
     ok: false,
-    error: { kind: "conversationTooLong" },
+    error: { kind: "historyTooLong" },
   });
 
   const overflowLengths = [262_144, 262_144, 262_144, 262_141];
@@ -1679,6 +1753,7 @@ test("cancels an enrolled read batch before cohort start without invocation", as
   if (terminal.kind === "turnFinished") {
     assert.equal(terminal.outcome.kind, "cancelled");
     assert.equal(terminal.checkpointed, false);
+    assert.equal(terminal.historyNodeId, undefined);
   }
   assert.equal(handlerCalls, 0);
   assert.equal(runtime.conversation.length, 0);
@@ -1732,6 +1807,8 @@ test("settles every started read after cancellation and checkpoints provider ord
   if (terminal.kind === "turnFinished") {
     assert.equal(terminal.outcome.kind, "cancelled");
     assert.equal(terminal.checkpointed, true);
+    assert.equal(terminal.historyNodeId, 1);
+    assert.ok(runtime.acknowledgeTurn(terminal.turnId).ok);
   }
   const exchange = runtime.conversation.entries.at(1);
   assert.ok(exchange instanceof ToolExchange);
@@ -1739,6 +1816,10 @@ test("settles every started read after cancellation and checkpoints provider ord
     exchange.results.map((result) => result.callId),
     ["call-first", "call-second"],
   );
+  assert.deepEqual(runtime.selectConversationNode(0), ok(undefined));
+  assert.equal(runtime.conversation.length, 0);
+  assert.deepEqual(runtime.selectConversationNode(1), ok(undefined));
+  assert.equal(runtime.conversation.length, 2);
 });
 
 test("falls back to sequential execution above the fixed read cohort bound", async () => {
@@ -2451,7 +2532,7 @@ test("returns a stale batched mutation to the model and converges on a correctiv
     assert.equal(prepared.checkpointed, true);
     assert.deepEqual(runtime.commitTurn(prepared.turnId), {
       ok: true,
-      value: { kind: "committed" },
+      value: { historyNodeId: 1, kind: "committed" },
     });
   }
   assert.deepEqual(planned, ["remove", "stale-theme", "corrective-theme"]);

@@ -40,8 +40,13 @@ function unconfiguredProviders() {
   ]);
 }
 
-function started(turnId: number, content: string): StartedTurn {
+function started(
+  turnId: number,
+  content: string,
+  historyParentNodeId = 0,
+): StartedTurn {
   return Object.freeze({
+    historyParentNodeId,
     turnId,
     user: Object.freeze({ content }),
   }) as unknown as StartedTurn;
@@ -446,12 +451,51 @@ test("publishes exact streamed completion and returns to idle", () => {
   }
   const committed = application.turnCommitResolved(
     3,
-    Object.freeze({ kind: "committed" as const }),
+    Object.freeze({ historyNodeId: 1, kind: "committed" as const }),
   );
   assert.ok(committed.ok);
   assert.equal(application.phase, "idle");
   assert.equal(application.transcriptText(), "question\n\nanswer");
   assert.deepEqual(application.notice, []);
+});
+
+test("selects a timeline node only after the runtime-authoritative effect", () => {
+  const application = new ApplicationController(true);
+  application.turnAccepted(started(1, "root question"));
+  application.applyRuntime(Object.freeze({
+    kind: "assistantDelta" as const,
+    text: "root answer",
+    turnId: 1,
+  }));
+  application.applyRuntime(completed(1, "root answer"));
+  assert.ok(application.turnCommitResolved(1, Object.freeze({
+    historyNodeId: 1,
+    kind: "committed" as const,
+  })).ok);
+  application.turnAccepted(started(2, "original question", 1));
+  application.applyRuntime(Object.freeze({
+    kind: "assistantDelta" as const,
+    text: "original answer",
+    turnId: 2,
+  }));
+  application.applyRuntime(completed(2, "original answer"));
+  assert.ok(application.turnCommitResolved(2, Object.freeze({
+    historyNodeId: 2,
+    kind: "committed" as const,
+  })).ok);
+
+  assert.deepEqual(reduceInput(application, "/timeline\r").effects, []);
+  assert.equal(application.projectTimelineMenu()?.selectedIndex, 2);
+  const requested = reduceInput(application, "\u001B[A\r");
+  assert.deepEqual(requested.effects, [
+    { kind: "selectTimelineNode", nodeId: 1 },
+  ]);
+  assert.equal(application.transcriptText().includes("original question"), true);
+
+  const selected = application.conversationNodeSelected(1);
+  assert.ok(selected.ok);
+  assert.equal(application.transcriptText(), "root question\n\nroot answer");
+  assert.deepEqual(application.notice, ["Timeline node #1 selected."]);
 });
 
 test("filters stale events and discards failed prospective content", () => {
@@ -477,6 +521,7 @@ test("filters stale events and discards failed prospective content", () => {
       cleanup: Object.freeze([
         Object.freeze({ kind: "model" as const, error: "private cleanup" }),
       ]),
+      historyNodeId: undefined,
       kind: "turnFinished" as const,
       outcome: Object.freeze({
         failure: Object.freeze({
@@ -507,6 +552,7 @@ test("identifies invalid model tool calls without retaining their content", () =
     Object.freeze({
       checkpointed: false,
       cleanup: Object.freeze([]),
+      historyNodeId: undefined,
       kind: "turnFinished" as const,
       outcome: Object.freeze({
         failure: Object.freeze({
@@ -845,6 +891,7 @@ test("classifies model continuation failure after checkpointed tool success", ()
     Object.freeze({
       checkpointed: true,
       cleanup: Object.freeze([]),
+      historyNodeId: 1,
       kind: "turnFinished" as const,
       outcome: Object.freeze({
         failure: Object.freeze({
@@ -880,7 +927,7 @@ test("classifies model continuation failure after checkpointed tool success", ()
     true,
   );
 
-  assert.ok(application.turnAccepted(started(9, "next")).ok);
+  assert.ok(application.turnAccepted(started(9, "next", 1)).ok);
   assert.deepEqual(application.activities, []);
 });
 
@@ -920,6 +967,7 @@ test("makes tool cancellation visible through authoritative lifecycle states", (
     Object.freeze({
       checkpointed: false,
       cleanup: Object.freeze([]),
+      historyNodeId: undefined,
       kind: "turnFinished" as const,
       outcome: Object.freeze({ kind: "cancelled" as const }),
       turnId: 30,
@@ -1218,6 +1266,7 @@ test("rejects tool events that bypass approval or contradict checkpoints", () =>
         assistant: Object.freeze({ content: "done" }),
         checkpointed: false,
         cleanup: Object.freeze([]),
+        historyNodeId: undefined,
         kind: "turnPrepared" as const,
         turnId: 10,
       }) as never,
@@ -1309,6 +1358,7 @@ test("rejects tool events that bypass approval or contradict checkpoints", () =>
       Object.freeze({
         checkpointed: false,
         cleanup: Object.freeze([]),
+        historyNodeId: undefined,
         kind: "turnFinished" as const,
         outcome: Object.freeze({ kind: "cancelled" as const }),
         turnId: 12,
@@ -1364,6 +1414,7 @@ test("retains only checkpoint-backed text after cancellation", () => {
       Object.freeze({
         checkpointed: true,
         cleanup: Object.freeze([]),
+        historyNodeId: 1,
         kind: "turnFinished" as const,
         outcome: Object.freeze({ kind: "cancelled" as const }),
         turnId: 20,
@@ -1423,7 +1474,7 @@ test("retains only checkpoint-backed text after cancellation", () => {
   assert.ok(
     afterPreparation.turnCommitResolved(
       21,
-      Object.freeze({ kind: "cancelled" as const }),
+      Object.freeze({ historyNodeId: 1, kind: "cancelled" as const }),
     ).ok,
   );
   assert.equal(afterPreparation.transcriptText().includes("backed"), true);

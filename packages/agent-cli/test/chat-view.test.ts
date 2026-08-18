@@ -144,11 +144,45 @@ test("projects a smooth fixed-width active-work pulse on the composer edge", () 
   );
 });
 
-function started(turnId: number, content: string): StartedTurn {
+function started(
+  turnId: number,
+  content: string,
+  historyParentNodeId = 0,
+): StartedTurn {
   return Object.freeze({
+    historyParentNodeId,
     turnId,
     user: Object.freeze({ content }),
   }) as unknown as StartedTurn;
+}
+
+function settleDisplayTurn(
+  application: ApplicationController,
+  turnId: number,
+  user: string,
+  assistant: string,
+  historyParentNodeId: number,
+  historyNodeId: number,
+): void {
+  assert.ok(application.turnAccepted(
+    started(turnId, user, historyParentNodeId),
+  ).ok);
+  assert.ok(application.applyRuntime(Object.freeze({
+    kind: "assistantDelta" as const,
+    text: assistant,
+    turnId,
+  })).ok);
+  assert.ok(application.applyRuntime(Object.freeze({
+    assistant: Object.freeze({ content: assistant }),
+    checkpointed: false,
+    cleanup: Object.freeze([]),
+    kind: "turnPrepared" as const,
+    turnId,
+  }) as never).ok);
+  assert.ok(application.turnCommitResolved(turnId, Object.freeze({
+    historyNodeId,
+    kind: "committed" as const,
+  })).ok);
 }
 
 function requestTool(
@@ -210,6 +244,37 @@ test("keeps an empty session visually empty", () => {
     rows.at(caretRow)?.spans.every((span) => span.surface === "none"),
     true,
   );
+});
+
+test("renders the bounded timeline as an idle branch selector", () => {
+  const application = new ApplicationController(true);
+  settleDisplayTurn(
+    application,
+    1,
+    "root question",
+    "root answer",
+    0,
+    1,
+  );
+  settleDisplayTurn(
+    application,
+    2,
+    "original question",
+    "original answer",
+    1,
+    2,
+  );
+  application.feed("/timeline\r");
+
+  const rendered = createChatRender(application, viewport(72, 20));
+  assert.ok(rendered.ok);
+  const text = rendered.value.frame.rows.map((row) => row.text).join("\n");
+  assert.equal(text.includes("Timeline"), true);
+  assert.equal(text.includes("current process"), true);
+  assert.equal(text.includes("root"), true);
+  assert.equal(text.includes("#1 root question"), true);
+  assert.equal(text.includes("#2 original question"), true);
+  assert.equal(text.includes("active"), true);
 });
 
 test("renders one ruled composer and the exact canonical workspace root", () => {
@@ -1527,7 +1592,7 @@ test("replaces the contextual tool and clears it when the turn settles", () => {
   assert.ok(
     application.turnCommitResolved(
       7,
-      Object.freeze({ kind: "committed" as const }),
+      Object.freeze({ historyNodeId: 1, kind: "committed" as const }),
     ).ok,
   );
   assert.equal(

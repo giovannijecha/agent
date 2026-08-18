@@ -20,6 +20,14 @@ export {
   type ToolExchangeErrorKind,
   type ToolResultStatus,
 } from "./conversation.js";
+export {
+  CONVERSATION_TREE_LIMITS,
+  ConversationTree,
+  ConversationTreeError,
+  type ConversationTreeErrorKind,
+  type ConversationTreeNodeSnapshot,
+  type ConversationTurnSettlement,
+} from "./conversation-tree.js";
 export { err, ok, type Result } from "./result.js";
 export { scalarUtf8ByteLength } from "./text.js";
 export {

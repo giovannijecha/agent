@@ -17,10 +17,12 @@ runtime packages.
 ## Capabilities
 
 - Inspect and search one bounded local workspace.
-- Apply exact text patches, manage paths, and run the registered `node` process.
+- Apply exact text patches, manage paths, and run one approved native-shell command.
 - Ask for one explicit permission decision for every planned write or execution.
 - Connect Ollama Cloud and select an available cloud model for the current process.
 - Stream one checkpointed model-and-tool loop through a conversation-first TUI.
+- Retain bounded alternate conversation branches in process memory and select
+  one active path.
 - Verify the complete repository and grade maintained task fixtures offline.
 
 The single-agent execution model has one identity, one controller, one active
@@ -63,6 +65,7 @@ for the complete workflow and failure contract.
 | `/providers` | Configure or select a session provider |
 | `/models` | Load and select an admitted provider model |
 | `/permissions` | Edit session-only tool permissions |
+| `/timeline` | Select a retained conversation branch |
 | `/exit` | Close `agent` |
 
 The advertised tools are exactly `read_file`, `list_directory`, `search_text`,
@@ -75,6 +78,11 @@ temporary, patch approvals show bounded human-readable changes, and provider,
 model, permission, and command choices reuse one compact selection path. The
 [terminal-interface manual](docs/manual/03-terminal-interface.md) owns the full
 editing, layout, pointer, color, motion, and failure behavior.
+
+`/timeline` shows the process-memory root and settled turns. Selecting an older
+node changes the transcript and the context for the next task; appending then
+creates a sibling branch without deleting later nodes. It never replays tools,
+and all branches disappear when the process exits.
 
 ## Safety model
 

@@ -13,10 +13,21 @@ export type TranscriptEntry = Readonly<{
   role: TranscriptRole;
 }>;
 
+export type TimelineEntry = Readonly<{
+  childCount: number;
+  depth: number;
+  id: number;
+  parentId: number;
+  selected: boolean;
+  settlement: "completed" | "checkpointed" | "root";
+  user: string;
+}>;
+
 export type ChatStateErrorKind =
   | "activeTurn"
   | "deltaTooLong"
   | "invalidTurn"
+  | "invalidHistoryNode"
   | "responseMismatch"
   | "responseTooLong"
   | "turnNotPrepared"
@@ -40,6 +51,9 @@ type CompletedTurn = Readonly<{
   assistant: string;
   assistantDocument: number;
   codeUnits: number;
+  historyNodeId: number;
+  historyParentNodeId: number;
+  settlement: "completed" | "checkpointed";
   user: string;
   userDocument: number;
 }>;
@@ -49,6 +63,7 @@ type ActiveTurn = {
   readonly chunks: string[];
   readonly segments: string[];
   readonly turnId: number;
+  readonly historyParentNodeId: number;
   readonly user: string;
   readonly userDocument: number;
   preparedAssistant: string | undefined;
@@ -128,6 +143,7 @@ export class ChatState {
   readonly #completed: CompletedTurn[] = [];
   #active: ActiveTurn | undefined;
   #completedCodeUnits = 0;
+  #historyNodeId = 0;
   #nextDocument = 0;
 
   get activeTurnId(): number | undefined {
@@ -135,11 +151,15 @@ export class ChatState {
   }
 
   get hasContent(): boolean {
-    return this.#completed.length > 0 || this.#active !== undefined;
+    return this.#historyNodeId !== 0 || this.#active !== undefined;
   }
 
   /** Starts one prospective display turn without publishing it to history. */
-  begin(turnId: number, user: string): Result<void, ChatStateError> {
+  begin(
+    turnId: number,
+    user: string,
+    historyParentNodeId: number,
+  ): Result<void, ChatStateError> {
     if (this.#active !== undefined) {
       return err(new ChatStateError("activeTurn"));
     }
@@ -149,6 +169,13 @@ export class ChatState {
       typeof user !== "string" ||
       user.trim().length === 0 ||
       inputTooLong(user) ||
+      !Number.isSafeInteger(historyParentNodeId) ||
+      historyParentNodeId < 0 ||
+      historyParentNodeId !== this.#historyNodeId ||
+      (historyParentNodeId !== 0 &&
+        !this.#completed.some(
+          (turn) => turn.historyNodeId === historyParentNodeId,
+        )) ||
       this.#nextDocument > Number.MAX_SAFE_INTEGER - 2
     ) {
       return err(new ChatStateError("invalidTurn"));
@@ -156,6 +183,7 @@ export class ChatState {
     this.#active = {
       assistantDocument: this.#nextDocument + 1,
       chunks: [],
+      historyParentNodeId,
       segments: [],
       preparedAssistant: undefined,
       responseCodeUnits: 0,
@@ -237,6 +265,7 @@ export class ChatState {
   finishCheckpointed(
     turnId: number,
     marker: string,
+    historyNodeId: number,
   ): Result<void, ChatStateError> {
     const active = this.#active;
     if (active === undefined || active.turnId !== turnId) {
@@ -247,12 +276,19 @@ export class ChatState {
       .join("\n\n");
     const assistant =
       partial.length === 0 ? marker : partial + "\n\n" + marker;
-    this.#publish(active, assistant);
-    return ok(undefined);
+    return this.#publish(
+      active,
+      assistant,
+      historyNodeId,
+      "checkpointed",
+    );
   }
 
   /** Publishes the exact pair only after the runtime acknowledges its commit. */
-  commit(turnId: number): Result<void, ChatStateError> {
+  commit(
+    turnId: number,
+    historyNodeId: number,
+  ): Result<void, ChatStateError> {
     const active = this.#active;
     if (active === undefined || active.turnId !== turnId) {
       return err(new ChatStateError("staleTurn"));
@@ -261,17 +297,23 @@ export class ChatState {
     if (assistant === undefined) {
       return err(new ChatStateError("turnNotPrepared"));
     }
-    const completed = Object.freeze({
-      assistant,
-      assistantDocument: active.assistantDocument,
-      codeUnits: active.user.length + assistant.length,
-      user: active.user,
-      userDocument: active.userDocument,
-    });
-    this.#active = undefined;
-    this.#completed.push(completed);
-    this.#completedCodeUnits += completed.codeUnits;
-    this.#evictCompleted();
+    return this.#publish(active, assistant, historyNodeId, "completed");
+  }
+
+  /** Selects one retained display branch after the runtime accepts it. */
+  selectHistoryNode(nodeId: number): Result<void, ChatStateError> {
+    if (this.#active !== undefined) {
+      return err(new ChatStateError("activeTurn"));
+    }
+    if (
+      !Number.isSafeInteger(nodeId) ||
+      nodeId < 0 ||
+      (nodeId !== 0 &&
+        !this.#completed.some((turn) => turn.historyNodeId === nodeId))
+    ) {
+      return err(new ChatStateError("invalidHistoryNode"));
+    }
+    this.#historyNodeId = nodeId;
     return ok(undefined);
   }
 
@@ -299,6 +341,7 @@ export class ChatState {
     this.#active = undefined;
     this.#completed.splice(0);
     this.#completedCodeUnits = 0;
+    this.#historyNodeId = 0;
     this.#nextDocument = 0;
   }
 
@@ -336,8 +379,9 @@ export class ChatState {
         codeUnits += completeProspective.length;
       }
     }
-    for (let index = this.#completed.length - 1; index >= 0; index -= 1) {
-      const turn = this.#completed.at(index);
+    const path = this.#selectedPath();
+    for (let index = path.length - 1; index >= 0; index -= 1) {
+      const turn = path.at(index);
       if (turn === undefined) {
         continue;
       }
@@ -369,26 +413,62 @@ export class ChatState {
       .join(TRANSCRIPT_SEPARATOR);
   }
 
-  #evictCompleted(): void {
-    while (
-      this.#completed.length > MAX_COMPLETED_TURNS ||
-      this.#completedCodeUnits > MAX_COMPLETED_CODE_UNITS
-    ) {
-      const removed = this.#completed.shift();
-      if (removed === undefined) {
-        this.#completedCodeUnits = 0;
-        return;
-      }
-      this.#completedCodeUnits -= removed.codeUnits;
+  /** Returns bounded insertion-ordered rows for the process-memory selector. */
+  timelineEntries(): readonly TimelineEntry[] {
+    const rows: TimelineEntry[] = [
+      Object.freeze({
+        childCount: this.#completed.filter(
+          (turn) => turn.historyParentNodeId === 0,
+        ).length,
+        depth: 0,
+        id: 0,
+        parentId: 0,
+        selected: this.#historyNodeId === 0,
+        settlement: "root" as const,
+        user: "",
+      }),
+    ];
+    for (const turn of this.#completed) {
+      rows.push(
+        Object.freeze({
+          childCount: this.#completed.filter(
+            (candidate) =>
+              candidate.historyParentNodeId === turn.historyNodeId,
+          ).length,
+          depth: this.#depth(turn.historyNodeId),
+          id: turn.historyNodeId,
+          parentId: turn.historyParentNodeId,
+          selected: turn.historyNodeId === this.#historyNodeId,
+          settlement: turn.settlement,
+          user: turn.user,
+        }),
+      );
     }
+    return Object.freeze(rows);
   }
 
-
-  #publish(active: ActiveTurn, assistant: string): void {
+  #publish(
+    active: ActiveTurn,
+    assistant: string,
+    historyNodeId: number,
+    settlement: "completed" | "checkpointed",
+  ): Result<void, ChatStateError> {
+    if (
+      !Number.isSafeInteger(historyNodeId) ||
+      historyNodeId !== this.#completed.length + 1 ||
+      this.#completed.length >= MAX_COMPLETED_TURNS ||
+      this.#completedCodeUnits + active.user.length + assistant.length >
+        MAX_COMPLETED_CODE_UNITS
+    ) {
+      return err(new ChatStateError("invalidHistoryNode"));
+    }
     const completed = Object.freeze({
       assistant,
       assistantDocument: active.assistantDocument,
       codeUnits: active.user.length + assistant.length,
+      historyNodeId,
+      historyParentNodeId: active.historyParentNodeId,
+      settlement,
       user: active.user,
       userDocument: active.userDocument,
     });
@@ -398,6 +478,40 @@ export class ChatState {
     this.#active = undefined;
     this.#completed.push(completed);
     this.#completedCodeUnits += completed.codeUnits;
-    this.#evictCompleted();
+    this.#historyNodeId = historyNodeId;
+    return ok(undefined);
+  }
+
+  #selectedPath(): readonly CompletedTurn[] {
+    const reversed: CompletedTurn[] = [];
+    let nodeId = this.#active?.historyParentNodeId ?? this.#historyNodeId;
+    while (nodeId !== 0) {
+      const turn = this.#completed.find(
+        (candidate) => candidate.historyNodeId === nodeId,
+      );
+      if (turn === undefined) {
+        return Object.freeze([]);
+      }
+      reversed.push(turn);
+      nodeId = turn.historyParentNodeId;
+    }
+    reversed.reverse();
+    return Object.freeze(reversed);
+  }
+
+  #depth(nodeId: number): number {
+    let depth = 0;
+    let current = nodeId;
+    while (current !== 0) {
+      const turn = this.#completed.find(
+        (candidate) => candidate.historyNodeId === current,
+      );
+      if (turn === undefined) {
+        return 0;
+      }
+      depth += 1;
+      current = turn.historyParentNodeId;
+    }
+    return depth;
   }
 }
