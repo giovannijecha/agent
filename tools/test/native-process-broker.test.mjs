@@ -190,6 +190,24 @@ test("starts the target with the owned OS environment and exact directory", asyn
   }
 });
 
+test("sorts the complete Windows environment block case-insensitively", {
+  skip: process.platform !== "win32",
+}, async () => {
+  const result = await runNativeFixture({
+    arguments: ["environment-entries"],
+    environment: ["zeta=3", "beta=2", "AGENT_ALPHA=1"],
+  });
+
+  assertCleanBroker(result);
+  assert.equal(terminalStatus(result).outcome, 1);
+  assert.deepEqual(
+    result.stdout.subarray(0, -1).toString("utf8").split("\0").map(
+      (entry) => entry.slice(0, entry.indexOf("=")),
+    ),
+    ["AGENT_ALPHA", "beta", "SystemRoot", "zeta"],
+  );
+});
+
 test("resolves Windows PowerShell from the broker-owned directory", {
   skip: process.platform !== "win32",
 }, async () => {

@@ -76,9 +76,9 @@ The broker protocol advances to version 2 and carries a bounded ordered
 environment vector in addition to program identity, working directory, and
 literal arguments. TypeScript and C independently validate the complete frame.
 Linux passes the explicit null-terminated vector to `execve`. Windows resolves
-the reserved shell identity and constructs one Unicode environment block from
-the explicit vector and its broker-owned `SystemRoot`. No parent environment is
-inherited implicitly.
+the reserved shell identity, combines the explicit vector with its broker-owned
+`SystemRoot`, sorts the complete set case-insensitively, and constructs one
+Unicode environment block. No parent environment is inherited implicitly.
 
 This decision changes only the execute domain. Model turns, permission
 decisions, handlers, mutations, terminal output, and tool checkpoints remain
