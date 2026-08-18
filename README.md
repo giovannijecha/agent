@@ -78,8 +78,9 @@ editing, layout, pointer, color, motion, and failure behavior.
 
 ## Safety model
 
-- Every tool call is schema-validated, planned just in time, authorized, and
-  executed sequentially in provider order.
+- Every tool call is schema-validated, planned, and authorized in provider
+  order. Effects remain serial; two to four explicitly independent inspection
+  calls may overlap and their results are reduced in provider order.
 - Automatic reads share the built-in sensitive-path policy and root
   `.agentignore`; denied content never enters model-visible tool output.
 - File and namespace mutations bind approval to observed filesystem state and

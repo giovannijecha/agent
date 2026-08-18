@@ -5,6 +5,7 @@ export const RUNTIME_LIMITS = Object.freeze({
   deltaCodeUnits: 16_384,
   inputCodePoints: 4_096,
   responseCodeUnits: 262_144,
+  parallelReads: 4,
   streamEvents: 4_096,
   toolSteps: 32,
 });

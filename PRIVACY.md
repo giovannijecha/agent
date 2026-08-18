@@ -132,10 +132,14 @@ project-owned backend, local Ollama daemon, SDK, CLI, compatibility endpoint,
 or alternate origin.
 
 One response may contain one bounded ordered tool-call batch. The runtime
-validates the complete batch, executes each accepted call sequentially, and
-checkpoints its result before another model decision. Selecting a provider or
-model never redirects, retries, aliases, routes, or falls back to another
-backend. No tool handler is executed concurrently.
+validates the complete batch, then plans and authorizes calls in provider
+order. Effects remain sequential; two to four explicitly registered independent
+inspection handlers may overlap only after every exact cohort permission
+settles. Their individually
+truthful results are reduced in provider order and checkpointed before another
+model decision. The cohort shares the same workspace boundary and read-denial
+policy and cannot widen disclosure. Selecting a provider or model never
+redirects, retries, aliases, routes, or falls back to another backend.
 
 `agent` never asks for provider passwords, cookies, recovery codes, payment
 details, or one-time codes. The Ollama API key is accepted only through the

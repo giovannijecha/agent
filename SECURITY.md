@@ -61,11 +61,14 @@ are display-only closed data. They cannot dispatch a tool, select a permission,
 or replace the canonical tool name and risk validation.
 
 The Ollama Cloud adapter admits one bounded ordered native tool-call batch per
-model response. The runtime validates the complete batch, executes calls
-sequentially, and checkpoints their results before the next model decision.
-This is a convergence boundary, not an authority change: schemas, permissions,
-effect plans, committers, and process containment remain exact. Tool handlers
-never overlap, and a completed effect is never retried implicitly.
+model response. The runtime validates the complete batch and resolves one exact
+permission for each plan before its execution. Effects remain sequential. A batch
+of two to four explicitly enrolled inspection calls may execute as one bounded
+read cohort; all settlements are awaited and exposed in provider order before
+the next model decision. This is a scheduling boundary, not an authority
+change: schemas, disclosure policy, permissions, effect plans, committers, and
+process containment remain exact. A read cohort never overlaps a mutation or
+`shell`, and a completed effect is never retried implicitly.
 
 Write calls are schema-validated with the complete batch before observation,
 then planned just in time. `apply_patch` binds each authorized plan to one canonical target,

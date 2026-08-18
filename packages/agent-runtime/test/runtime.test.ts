@@ -220,10 +220,32 @@ function toolBatchEvent(
   });
 }
 
+function namedToolBatchEvent(
+  calls: readonly Readonly<{
+    callId: string;
+    name: "read_file" | "search_text";
+    path: string;
+  }>[],
+): ModelStreamEvent {
+  return Object.freeze({
+    calls: Object.freeze(
+      calls.map((call) =>
+        Object.freeze({
+          callId: call.callId,
+          input: toolInput(call.path),
+          name: call.name,
+        }),
+      ),
+    ),
+    kind: "toolCalls" as const,
+  });
+}
+
 function toolEngine(
   risk: "read" | "write" = "read",
   handler: ToolHandler = async () =>
     ok(ToolHandlerOutcome.success({ text: "owned" })),
+  scheduling: "independentRead" | "serial" = "serial",
 ): ToolEngine {
   const path = StringSchema.create(1, 256);
   assert.ok(path.ok);
@@ -249,10 +271,58 @@ function toolEngine(
   );
   assert.ok(descriptor.ok);
   const registry = ToolRegistry.create([
+    scheduling === "independentRead"
+      ? {
+          descriptor: descriptor.value,
+          handler,
+          scheduling: "independentRead" as const,
+        }
+      : {
+          descriptor: descriptor.value,
+          handler,
+        },
+  ]);
+  assert.ok(registry.ok);
+  const engine = ToolEngine.create(registry.value);
+  assert.ok(engine.ok);
+  return engine.value;
+}
+
+function mixedReadToolEngine(handler: ToolHandler): ToolEngine {
+  const path = StringSchema.create(1, 256);
+  assert.ok(path.ok);
+  const input = ObjectSchema.create([
     {
-      descriptor: descriptor.value,
-      handler,
+      description: "Relative workspace path.",
+      name: "path",
+      required: true,
+      schema: path.value,
     },
+  ]);
+  assert.ok(input.ok);
+  const enrolled = ToolDescriptor.create(
+    "read_file",
+    "Read one bounded workspace file.",
+    "read",
+    input.value,
+    Object.freeze([]),
+  );
+  const serial = ToolDescriptor.create(
+    "search_text",
+    "Search bounded workspace text serially.",
+    "read",
+    input.value,
+    Object.freeze([]),
+  );
+  assert.ok(enrolled.ok);
+  assert.ok(serial.ok);
+  const registry = ToolRegistry.create([
+    {
+      descriptor: enrolled.value,
+      handler,
+      scheduling: "independentRead" as const,
+    },
+    { descriptor: serial.value, handler },
   ]);
   assert.ok(registry.ok);
   const engine = ToolEngine.create(registry.value);
@@ -1319,6 +1389,472 @@ test("preflights and executes one ordered tool-call batch sequentially", async (
   assert.equal((await next(runtime)).kind, "assistantDelta");
   assert.equal((await next(runtime)).kind, "turnPrepared");
   assert.equal(model.conversations.at(1)?.messageUnits, 4);
+});
+
+test("overlaps an enrolled read cohort and reduces results in provider order", async () => {
+  const firstEntered = new Deferred<void>();
+  const secondEntered = new Deferred<void>();
+  const firstRelease = new Deferred<void>();
+  const secondRelease = new Deferred<void>();
+  const secondSettled = new Deferred<void>();
+  const observed: string[] = [];
+  const first = new ScriptedStream<string>([
+    ok(
+      toolBatchEvent([
+        { callId: "call-first", path: "first.txt" },
+        { callId: "call-second", path: "second.txt" },
+      ]),
+    ),
+  ]);
+  const second = new ScriptedStream<string>([
+    ok(Object.freeze({ kind: "delta" as const, text: "both observed" })),
+    ok(Object.freeze({ kind: "done" as const })),
+  ]);
+  const model = new SequenceModel([first, second]);
+  const runtime = new AgentRuntime(
+    model,
+    toolEngine(
+      "read",
+      async (input) => {
+        const path = input.get("path");
+        assert.equal(typeof path, "string");
+        observed.push(path as string);
+        if (path === "first.txt") {
+          firstEntered.resolve(undefined);
+          await firstRelease.promise;
+        } else {
+          secondEntered.resolve(undefined);
+          await secondRelease.promise;
+          secondSettled.resolve(undefined);
+        }
+        return ok(ToolHandlerOutcome.success({ text: path }));
+      },
+      "independentRead",
+    ),
+  );
+  const started = runtime.startTurn("inspect both files");
+  assert.ok(started.ok);
+
+  const firstRequested = await next(runtime);
+  assert.equal(firstRequested.kind, "toolRequested");
+  decideTool(runtime, started.value.turnId, "call-first");
+  const secondRequested = await next(runtime);
+  assert.equal(secondRequested.kind, "toolRequested");
+  if (secondRequested.kind === "toolRequested") {
+    assert.equal(secondRequested.callId, "call-second");
+  }
+  assert.deepEqual(observed, []);
+  decideTool(runtime, started.value.turnId, "call-second");
+  const firstStarted = await next(runtime);
+  assert.equal(firstStarted.kind, "toolStarted");
+  assert.deepEqual(observed, []);
+  const secondStarted = await next(runtime);
+  assert.equal(secondStarted.kind, "toolStarted");
+  assert.deepEqual(observed, []);
+  if (firstStarted.kind === "toolStarted") {
+    assert.equal(firstStarted.callId, "call-first");
+  }
+  if (secondStarted.kind === "toolStarted") {
+    assert.equal(secondStarted.callId, "call-second");
+  }
+
+  const firstFinishedOperation = runtime.nextEvent();
+  await firstEntered.promise;
+  await secondEntered.promise;
+  assert.deepEqual(observed, ["first.txt", "second.txt"]);
+  secondRelease.resolve(undefined);
+  await secondSettled.promise;
+  assert.equal(runtime.conversation.length, 0);
+  firstRelease.resolve(undefined);
+
+  const firstFinishedResult = await firstFinishedOperation;
+  assert.ok(firstFinishedResult.ok);
+  assert.equal(firstFinishedResult.value.kind, "toolFinished");
+  if (firstFinishedResult.value.kind === "toolFinished") {
+    assert.equal(firstFinishedResult.value.callId, "call-first");
+  }
+  assert.equal(runtime.conversation.length, 0);
+  const secondFinished = await next(runtime);
+  assert.equal(secondFinished.kind, "toolFinished");
+  if (secondFinished.kind === "toolFinished") {
+    assert.equal(secondFinished.callId, "call-second");
+  }
+
+  const exchange = runtime.conversation.entries.at(1);
+  assert.ok(exchange instanceof ToolExchange);
+  assert.deepEqual(
+    exchange.results.map((result) => result.callId),
+    ["call-first", "call-second"],
+  );
+  assert.equal((await next(runtime)).kind, "assistantDelta");
+  assert.equal((await next(runtime)).kind, "turnPrepared");
+  assert.equal(model.conversations.at(1)?.messageUnits, 4);
+});
+
+test("admits four enrolled reads into one fixed-width cohort", async () => {
+  const allEntered = new Deferred<void>();
+  const release = new Deferred<void>();
+  let handlerCalls = 0;
+  const stream = new ScriptedStream<string>([
+    ok(
+      toolBatchEvent([
+        { callId: "call-1", path: "1.txt" },
+        { callId: "call-2", path: "2.txt" },
+        { callId: "call-3", path: "3.txt" },
+        { callId: "call-4", path: "4.txt" },
+      ]),
+    ),
+  ]);
+  const runtime = new AgentRuntime(
+    new FixedModel(ok(stream)),
+    toolEngine(
+      "read",
+      async () => {
+        handlerCalls += 1;
+        if (handlerCalls === 4) {
+          allEntered.resolve(undefined);
+        }
+        await release.promise;
+        return ok(ToolHandlerOutcome.success({}));
+      },
+      "independentRead",
+    ),
+  );
+  const started = runtime.startTurn("inspect four files");
+  assert.ok(started.ok);
+
+  for (let index = 1; index <= 4; index += 1) {
+    const requested = await next(runtime);
+    assert.equal(requested.kind, "toolRequested");
+    decideTool(
+      runtime,
+      started.value.turnId,
+      "call-" + String(index),
+    );
+  }
+  for (let index = 1; index <= 4; index += 1) {
+    const toolStarted = await next(runtime);
+    assert.equal(toolStarted.kind, "toolStarted");
+    assert.equal(handlerCalls, 0);
+  }
+
+  const firstFinished = runtime.nextEvent();
+  await allEntered.promise;
+  assert.equal(handlerCalls, 4);
+  release.resolve(undefined);
+  assert.ok((await firstFinished).ok);
+  assert.equal((await next(runtime)).kind, "toolFinished");
+  assert.equal((await next(runtime)).kind, "toolFinished");
+  assert.equal((await next(runtime)).kind, "toolFinished");
+  const exchange = runtime.conversation.entries.at(1);
+  assert.ok(exchange instanceof ToolExchange);
+  assert.equal(exchange.results.length, 4);
+});
+
+test("keeps a mixed scheduling batch on the sequential path", async () => {
+  const firstEntered = new Deferred<void>();
+  const releaseFirst = new Deferred<void>();
+  const observed: string[] = [];
+  const stream = new ScriptedStream<string>([
+    ok(
+      namedToolBatchEvent([
+        { callId: "call-enrolled", name: "read_file", path: "one.txt" },
+        { callId: "call-serial", name: "search_text", path: "two.txt" },
+      ]),
+    ),
+  ]);
+  const runtime = new AgentRuntime(
+    new FixedModel(ok(stream)),
+    mixedReadToolEngine(async (input) => {
+      const path = input.get("path");
+      assert.equal(typeof path, "string");
+      observed.push(path as string);
+      if (path === "one.txt") {
+        firstEntered.resolve(undefined);
+        await releaseFirst.promise;
+      }
+      return ok(ToolHandlerOutcome.success({ text: path }));
+    }),
+  );
+  const started = runtime.startTurn("inspect a mixed batch");
+  assert.ok(started.ok);
+
+  assert.equal((await next(runtime)).kind, "toolRequested");
+  decideTool(runtime, started.value.turnId, "call-enrolled");
+  assert.equal((await next(runtime)).kind, "toolStarted");
+  const firstFinished = runtime.nextEvent();
+  await firstEntered.promise;
+  assert.deepEqual(observed, ["one.txt"]);
+  releaseFirst.resolve(undefined);
+  assert.ok((await firstFinished).ok);
+  const secondRequested = await next(runtime);
+  assert.equal(secondRequested.kind, "toolRequested");
+  if (secondRequested.kind === "toolRequested") {
+    assert.equal(secondRequested.callId, "call-serial");
+  }
+  assert.deepEqual(observed, ["one.txt"]);
+  assert.ok(runtime.requestCancel(started.value.turnId).ok);
+  assert.equal((await next(runtime)).kind, "turnFinished");
+});
+
+test("resolves every read permission before starting an allowed cohort", async () => {
+  const observed: string[] = [];
+  const stream = new ScriptedStream<string>([
+    ok(
+      toolBatchEvent([
+        { callId: "call-denied", path: "private.txt" },
+        { callId: "call-allowed", path: "public.txt" },
+      ]),
+    ),
+  ]);
+  const runtime = new AgentRuntime(
+    new FixedModel(ok(stream)),
+    toolEngine(
+      "read",
+      async (input) => {
+        const path = input.get("path");
+        assert.equal(typeof path, "string");
+        observed.push(path as string);
+        return ok(ToolHandlerOutcome.success({ text: path }));
+      },
+      "independentRead",
+    ),
+  );
+  const started = runtime.startTurn("inspect permitted files");
+  assert.ok(started.ok);
+
+  assert.equal((await next(runtime)).kind, "toolRequested");
+  decideTool(runtime, started.value.turnId, "call-denied", false);
+  const allowedRequest = await next(runtime);
+  assert.equal(allowedRequest.kind, "toolRequested");
+  assert.deepEqual(observed, []);
+  decideTool(runtime, started.value.turnId, "call-allowed");
+  const allowedStarted = await next(runtime);
+  assert.equal(allowedStarted.kind, "toolStarted");
+  assert.equal((await next(runtime)).kind, "toolFinished");
+  assert.equal((await next(runtime)).kind, "toolFinished");
+  assert.deepEqual(observed, ["public.txt"]);
+
+  const exchange = runtime.conversation.entries.at(1);
+  assert.ok(exchange instanceof ToolExchange);
+  assert.deepEqual(
+    exchange.results.map((result) => result.status),
+    ["failure", "success"],
+  );
+  const denied = exchange.results.at(0);
+  assert.ok(denied?.output instanceof StructuredObject);
+  assert.equal(denied.output.get("error"), "denied");
+});
+
+test("cancels an enrolled read batch before cohort start without invocation", async () => {
+  let handlerCalls = 0;
+  const stream = new ScriptedStream<string>([
+    ok(
+      toolBatchEvent([
+        { callId: "call-first", path: "first.txt" },
+        { callId: "call-second", path: "second.txt" },
+      ]),
+    ),
+  ]);
+  const runtime = new AgentRuntime(
+    new FixedModel(ok(stream)),
+    toolEngine(
+      "read",
+      async () => {
+        handlerCalls += 1;
+        return ok(ToolHandlerOutcome.success({}));
+      },
+      "independentRead",
+    ),
+  );
+  const started = runtime.startTurn("inspect both files");
+  assert.ok(started.ok);
+
+  assert.equal((await next(runtime)).kind, "toolRequested");
+  decideTool(runtime, started.value.turnId, "call-first");
+  assert.equal((await next(runtime)).kind, "toolRequested");
+  assert.ok(runtime.requestCancel(started.value.turnId).ok);
+  const terminal = await next(runtime);
+  assert.equal(terminal.kind, "turnFinished");
+  if (terminal.kind === "turnFinished") {
+    assert.equal(terminal.outcome.kind, "cancelled");
+    assert.equal(terminal.checkpointed, false);
+  }
+  assert.equal(handlerCalls, 0);
+  assert.equal(runtime.conversation.length, 0);
+});
+
+test("settles every started read after cancellation and checkpoints provider order", async () => {
+  const entered = new Deferred<void>();
+  let handlerCalls = 0;
+  const stream = new ScriptedStream<string>([
+    ok(
+      toolBatchEvent([
+        { callId: "call-first", path: "first.txt" },
+        { callId: "call-second", path: "second.txt" },
+      ]),
+    ),
+  ]);
+  const runtime = new AgentRuntime(
+    new FixedModel(ok(stream)),
+    toolEngine(
+      "read",
+      async (_input, cancellation) => {
+        handlerCalls += 1;
+        if (handlerCalls === 2) {
+          entered.resolve(undefined);
+        }
+        await cancellation.whenRequested();
+        return err(Object.freeze({ kind: "cancelled" as const }));
+      },
+      "independentRead",
+    ),
+  );
+  const started = runtime.startTurn("inspect both files");
+  assert.ok(started.ok);
+
+  assert.equal((await next(runtime)).kind, "toolRequested");
+  decideTool(runtime, started.value.turnId, "call-first");
+  assert.equal((await next(runtime)).kind, "toolRequested");
+  decideTool(runtime, started.value.turnId, "call-second");
+  assert.equal((await next(runtime)).kind, "toolStarted");
+  assert.equal((await next(runtime)).kind, "toolStarted");
+  const firstFinished = runtime.nextEvent();
+  await entered.promise;
+  assert.equal(handlerCalls, 2);
+  assert.ok(runtime.requestCancel(started.value.turnId).ok);
+  const firstFinishedResult = await firstFinished;
+  assert.ok(firstFinishedResult.ok);
+  assert.equal(firstFinishedResult.value.kind, "toolFinished");
+  assert.equal((await next(runtime)).kind, "toolFinished");
+  const terminal = await next(runtime);
+  assert.equal(terminal.kind, "turnFinished");
+  if (terminal.kind === "turnFinished") {
+    assert.equal(terminal.outcome.kind, "cancelled");
+    assert.equal(terminal.checkpointed, true);
+  }
+  const exchange = runtime.conversation.entries.at(1);
+  assert.ok(exchange instanceof ToolExchange);
+  assert.deepEqual(
+    exchange.results.map((result) => result.callId),
+    ["call-first", "call-second"],
+  );
+});
+
+test("falls back to sequential execution above the fixed read cohort bound", async () => {
+  const firstEntered = new Deferred<void>();
+  const releaseFirst = new Deferred<void>();
+  const observed: string[] = [];
+  const stream = new ScriptedStream<string>([
+    ok(
+      toolBatchEvent([
+        { callId: "call-1", path: "1.txt" },
+        { callId: "call-2", path: "2.txt" },
+        { callId: "call-3", path: "3.txt" },
+        { callId: "call-4", path: "4.txt" },
+        { callId: "call-5", path: "5.txt" },
+      ]),
+    ),
+  ]);
+  const runtime = new AgentRuntime(
+    new FixedModel(ok(stream)),
+    toolEngine(
+      "read",
+      async (input) => {
+        const path = input.get("path");
+        assert.equal(typeof path, "string");
+        observed.push(path as string);
+        if (path === "1.txt") {
+          firstEntered.resolve(undefined);
+          await releaseFirst.promise;
+        }
+        return ok(ToolHandlerOutcome.success({ text: path }));
+      },
+      "independentRead",
+    ),
+  );
+  const started = runtime.startTurn("inspect five files");
+  assert.ok(started.ok);
+
+  assert.equal((await next(runtime)).kind, "toolRequested");
+  decideTool(runtime, started.value.turnId, "call-1");
+  assert.equal((await next(runtime)).kind, "toolStarted");
+  const firstFinished = runtime.nextEvent();
+  await firstEntered.promise;
+  assert.deepEqual(observed, ["1.txt"]);
+  releaseFirst.resolve(undefined);
+  assert.ok((await firstFinished).ok);
+  const secondRequested = await next(runtime);
+  assert.equal(secondRequested.kind, "toolRequested");
+  if (secondRequested.kind === "toolRequested") {
+    assert.equal(secondRequested.callId, "call-2");
+  }
+  assert.deepEqual(observed, ["1.txt"]);
+  assert.ok(runtime.requestCancel(started.value.turnId).ok);
+  const terminal = await next(runtime);
+  assert.equal(terminal.kind, "turnFinished");
+});
+
+test("settles a complete read cohort before reporting a handler contract failure", async () => {
+  const observed: string[] = [];
+  const stream = new ScriptedStream<string>([
+    ok(
+      toolBatchEvent([
+        { callId: "call-invalid", path: "invalid.txt" },
+        { callId: "call-valid", path: "valid.txt" },
+      ]),
+    ),
+  ]);
+  const runtime = new AgentRuntime(
+    new FixedModel(ok(stream)),
+    toolEngine(
+      "read",
+      async (input) => {
+        const path = input.get("path");
+        assert.equal(typeof path, "string");
+        observed.push(path as string);
+        return ok(
+          ToolHandlerOutcome.success({
+            text: path === "invalid.txt" ? "x".repeat(262_145) : path,
+          }),
+        );
+      },
+      "independentRead",
+    ),
+  );
+  const started = runtime.startTurn("inspect both files");
+  assert.ok(started.ok);
+
+  assert.equal((await next(runtime)).kind, "toolRequested");
+  decideTool(runtime, started.value.turnId, "call-invalid");
+  assert.equal((await next(runtime)).kind, "toolRequested");
+  decideTool(runtime, started.value.turnId, "call-valid");
+  assert.equal((await next(runtime)).kind, "toolStarted");
+  assert.equal((await next(runtime)).kind, "toolStarted");
+  const firstFinished = await next(runtime);
+  assert.equal(firstFinished.kind, "toolFinished");
+  if (firstFinished.kind === "toolFinished") {
+    assert.equal(firstFinished.callId, "call-invalid");
+    assert.equal(firstFinished.status, "failure");
+  }
+  assert.equal((await next(runtime)).kind, "toolFinished");
+  assert.deepEqual(observed, ["invalid.txt", "valid.txt"]);
+
+  const exchange = runtime.conversation.entries.at(1);
+  assert.ok(exchange instanceof ToolExchange);
+  assert.deepEqual(
+    exchange.results.map((result) => result.callId),
+    ["call-invalid", "call-valid"],
+  );
+  const terminal = await next(runtime);
+  assert.equal(terminal.kind, "turnFinished");
+  if (terminal.kind === "turnFinished") {
+    assert.equal(terminal.outcome.kind, "failed");
+    if (terminal.outcome.kind === "failed") {
+      assert.equal(terminal.outcome.failure.kind, "toolEngine");
+    }
+    assert.equal(terminal.checkpointed, true);
+  }
 });
 
 test("checkpoints a complete batch and blocks its suffix after a handler contract failure", async () => {

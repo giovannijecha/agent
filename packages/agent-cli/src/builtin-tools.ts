@@ -763,6 +763,7 @@ function registrations(
         ]),
       ),
       handler: readFileHandler(root, policy, observer),
+      scheduling: "independentRead" as const,
     }),
     Object.freeze({
       descriptor: descriptor(
@@ -772,6 +773,7 @@ function registrations(
         objectSchema([pathField]),
       ),
       handler: listDirectoryHandler(root, policy, observer),
+      scheduling: "independentRead" as const,
     }),
     Object.freeze({
       descriptor: descriptor(
@@ -789,6 +791,7 @@ function registrations(
         ]),
       ),
       handler: searchTextHandler(root, policy, observer),
+      scheduling: "independentRead" as const,
     }),
     Object.freeze({
       descriptor: descriptor(

@@ -14,7 +14,9 @@ intake, [architecture](ARCHITECTURE.md) for current boundaries,
 maintained evidence lifecycle.
 
 All integrations preserve the single-agent execution model.
-Any mutation excludes concurrent mechanics. Current runtime remains sequential.
+Any mutation excludes concurrent mechanics. Only decision-0074 registered
+independent read handlers may overlap, within the fixed four-call cohort bound
+and deterministic provider-order reduction.
 
 ## Definition of done
 

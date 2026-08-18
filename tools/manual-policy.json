@@ -226,6 +226,7 @@
     "docs/decisions/0071-owned-task-oriented-operator-manual.md",
     "docs/decisions/0072-owned-ollama-cloud-provider.md",
     "docs/decisions/0073-owned-capability-complete-shell-execution.md",
+    "docs/decisions/0074-owned-deterministic-read-overlap.md",
     "evaluations/README.md",
     "evaluations/failures/registry.json",
     "assets/brand/README.md",

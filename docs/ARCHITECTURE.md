@@ -22,11 +22,12 @@ does not create sub-agents; providers are replaceable backends, not additional
 agents.
 
 Single-agent is an identity and authority contract, not a claim that every
-mechanical operation must be synchronous. Reduction is deterministic. Bounded
-independent mechanics may overlap only over immutable snapshots during a
-read-only phase. Any mutation excludes concurrent mechanics. Model turns, tool
-handlers, writes, process execution, permissions, and
-terminal output remain serialized. Current runtime remains sequential.
+mechanical operation must be synchronous. Reduction is deterministic. The sole
+controller may overlap two to four explicitly registered independent read
+handlers after all permissions settle. This observation cohort is not an atomic
+filesystem snapshot. It excludes every owned effect, then returns all results
+in provider order. Model turns, permission decisions, writes, process
+execution, conversation commits, and terminal output remain serialized.
 
 ```text
 terminal
@@ -108,17 +109,19 @@ A submitted user message is prospective until the complete turn settles. One
 model response may contain one bounded ordered tool-call batch. The runtime:
 
 1. validates the complete batch before effects;
-2. plans each call just in time;
+2. plans calls serially in provider order;
 3. obtains one exact permission decision for every successfully planned call;
-4. executes calls sequentially in provider order;
+4. executes calls sequentially, except for one admitted cohort of two to four
+   independently registered reads after all cohort permissions settle;
 5. checkpoints every tool result into conversation truth;
 6. returns that truth before the next model decision;
 7. commits one complete exchange when the turn settles.
 
 A later model failure does not erase a completed tool checkpoint. The CLI
 publishes a closed content-free failure family and retains the confirmed tool
-truth. There are no implicit retries, concurrent handlers, fallback providers,
-or parallel conversations.
+truth. Read-cohort settlements are buffered and emitted in provider order.
+There are no implicit retries, concurrent effects, fallback providers, or
+parallel conversations.
 
 The principal runtime bounds are fixed:
 
@@ -128,6 +131,7 @@ The principal runtime bounds are fixed:
 | one streamed text delta | 16,384 code units |
 | one assistant response | 262,144 code units |
 | one stream | 4,096 events |
+| one parallel read cohort | 2-4 calls |
 | retained conversation | 256 messages / 1,048,576 code units |
 | one turn | 32 model/tool steps |
 
@@ -147,6 +151,11 @@ The advertised model-facing inventory is exactly:
 The tool registry, schemas, planners, permissions, and handlers remain separate
 authorities. A permission approves one exact planned call; it cannot widen a
 schema, path, program, limit, disclosure policy, or native committer.
+
+Registration separately marks a direct read handler as `independentRead`.
+Only `read_file`, `list_directory`, and `search_text` carry that declaration.
+The runtime does not infer concurrency from the `read` risk alone; mixed,
+single, unregistered, and oversized batches remain serial.
 
 `apply_patch` binds approval to the observed object or absence, exact ordered
 hunks, and state digests. `manage_path` owns only

@@ -75,7 +75,8 @@
     "docs/decisions/0070-owned-documentation-information-architecture.md",
     "docs/decisions/0071-owned-task-oriented-operator-manual.md",
     "docs/decisions/0072-owned-ollama-cloud-provider.md",
-    "docs/decisions/0073-owned-capability-complete-shell-execution.md"
+    "docs/decisions/0073-owned-capability-complete-shell-execution.md",
+    "docs/decisions/0074-owned-deterministic-read-overlap.md"
   ],
   "decisionIndexLifecycleDigest": {
     "algorithm": "sha256",
@@ -121,7 +122,8 @@
     "0070": "2026-08-16",
     "0071": "2026-08-16",
     "0072": "2026-08-16",
-    "0073": "2026-08-18"
+    "0073": "2026-08-18",
+    "0074": "2026-08-18"
   },
   "historicalDecisionStatusExceptions": {
     "0009": "accepted"
@@ -178,7 +180,7 @@
   ],
   "decisionRecordDigest": {
     "algorithm": "sha256",
-    "value": "2a4fbaf8f36fdc034342ecda5edf81a94e1dfd427499171cffdac2700529aa9f"
+    "value": "ecddd82c6c53ddec8c42de1a00a8be0e914a06280fd7b03534e52be71fd49e25"
   },
   "decisionDomainMembers": {
     "architecture": [
@@ -187,7 +189,8 @@
       "0013",
       "0018",
       "0052",
-      "0061"
+      "0061",
+      "0074"
     ],
     "documentation": [
       "0009",
@@ -277,6 +280,7 @@
   },
   "currentDecisionAuthorities": {
     "architecture": [
+      "0074",
       "0013",
       "0052",
       "0061"

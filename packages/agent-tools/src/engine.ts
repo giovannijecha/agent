@@ -25,6 +25,7 @@ export const TOOL_ENGINE_LIMITS = Object.freeze({
 });
 
 export type ToolRisk = "execute" | "read" | "write";
+export type ToolScheduling = "independentRead" | "serial";
 
 export type ToolDescriptorErrorKind =
   | "invalidApproval"
@@ -318,6 +319,7 @@ export type ToolRegistration = Readonly<{
   descriptor: ToolDescriptor;
   handler?: ToolHandler;
   planner?: ToolPlanner;
+  scheduling?: "independentRead";
 }>;
 
 export type ToolRegistryErrorKind =
@@ -325,6 +327,7 @@ export type ToolRegistryErrorKind =
   | "invalidDescriptor"
   | "invalidHandler"
   | "invalidPlanner"
+  | "invalidScheduling"
   | "tooManyTools";
 export type ToolRegistryError = Readonly<{ kind: ToolRegistryErrorKind }>;
 
@@ -332,6 +335,7 @@ type OwnedRegistration = Readonly<{
   descriptor: ToolDescriptor;
   handler: ToolHandler | undefined;
   planner: ToolPlanner | undefined;
+  scheduling: ToolScheduling;
 }>;
 
 export class ToolRegistry {
@@ -362,9 +366,11 @@ export class ToolRegistry {
         let descriptor: unknown;
         let handler: unknown;
         let planner: unknown;
+        let scheduling: unknown;
         descriptor = registration.descriptor;
         handler = registration.handler;
         planner = registration.planner;
+        scheduling = registration.scheduling;
         if (
           descriptor === null ||
           typeof descriptor !== "object" ||
@@ -385,6 +391,15 @@ export class ToolRegistry {
         ) {
           return err(Object.freeze({ kind: "invalidPlanner" as const }));
         }
+        if (
+          (scheduling !== undefined && scheduling !== "independentRead") ||
+          (scheduling === "independentRead" &&
+            (descriptor.risk !== "read" ||
+              handler === undefined ||
+              planner !== undefined))
+        ) {
+          return err(Object.freeze({ kind: "invalidScheduling" as const }));
+        }
         const ownedDescriptor = descriptor as ToolDescriptor;
         const ownedHandler = handler as ToolHandler | undefined;
         if (names.has(ownedDescriptor.name)) {
@@ -396,6 +411,10 @@ export class ToolRegistry {
             descriptor: ownedDescriptor,
             handler: ownedHandler,
             planner: planner as ToolPlanner | undefined,
+            scheduling:
+              scheduling === "independentRead"
+                ? "independentRead" as const
+                : "serial" as const,
           }),
         );
       }
@@ -425,6 +444,7 @@ export type ToolPrepareError = Readonly<{ kind: ToolPrepareErrorKind }>;
 export interface PreparedToolCall {
   readonly call: ToolCall;
   readonly descriptor: ToolDescriptor;
+  readonly scheduling: ToolScheduling;
 }
 
 class OwnedPreparedToolCall implements PreparedToolCall {
@@ -451,6 +471,10 @@ class OwnedPreparedToolCall implements PreparedToolCall {
   get registration(): OwnedRegistration {
     return this.#registration;
   }
+
+  get scheduling(): ToolScheduling {
+    return this.#registration.scheduling;
+  }
 }
 
 export interface PlannedToolCall {
@@ -458,6 +482,7 @@ export interface PlannedToolCall {
   readonly approvalRequired: boolean;
   readonly call: ToolCall;
   readonly descriptor: ToolDescriptor;
+  readonly scheduling: ToolScheduling;
 }
 
 class OwnedPlannedToolCall implements PlannedToolCall {
@@ -507,6 +532,10 @@ class OwnedPlannedToolCall implements PlannedToolCall {
 
   get prepared(): OwnedPreparedToolCall {
     return this.#prepared;
+  }
+
+  get scheduling(): ToolScheduling {
+    return this.#prepared.scheduling;
   }
 
   run(
