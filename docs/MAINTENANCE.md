@@ -375,7 +375,7 @@ Delete its export, tests, documentation, and renderer branches together.
 ### Ollama Cloud
 
 **Owners:** `@agent/provider-ollama-cloud`, CLI HTTPS transport and catalog
-transport, `tools/provider-policy.json`, decision 0072,
+transport, `tools/provider-policy.json`, decisions 0072 and 0080,
 [providers](PROVIDERS.md), and [privacy](../PRIVACY.md).
 
 For an adapter or transport change:
@@ -391,6 +391,16 @@ For an adapter or transport change:
 Catalog and chat transports each need independent wall-clock deadlines in
 addition to inactivity timeouts. Timers become inert after settlement and
 destroy the active request/stream on expiry.
+
+For `model/open/<family>`, diagnose the classified boundary before changing the
+wire request: `request` means a 4xx request contract failure, `rejected` covers
+authentication, payment, authorization, or missing-model rejection, `limit`
+covers entity or rate limits, `timeout` covers HTTP timeouts, `connectivity`
+covers server failures, and `protocol` covers an unexpected non-success class.
+The selected identifier must still be present in the fresh authenticated
+catalog, but catalog membership alone does not prove entitlement, credit,
+quota, or capacity. Never inspect or persist an error body, hard-code a model,
+retry, alias, or fall back to conceal one of these outcomes.
 
 To remove Ollama Cloud, delete the adapter, CLI transport, commands/session
 registration, provider policy entry, declarations, tests, public contract, and

@@ -1,7 +1,7 @@
 # Provider eligibility
 
 This reference separates direct API-key access from subscription OAuth client
-registration. Status is current as of 2026-08-16.
+registration. Status is current as of 2026-08-19.
 
 This document owns provider admission, exact network and wire boundaries, and
 provider-specific account and credential constraints. Use the
@@ -40,6 +40,14 @@ bounded response bytes and metadata.
 only the exact current model identifiers that pass the bounded decoder. Neither
 provider nor model has an automatic default. Environment input may preload the
 credential but never selects the provider or model.
+
+A catalog row proves only that the exact identifier is currently advertised by
+the authenticated API. It does not prove account entitlement, available credit,
+quota, or per-request capacity. A non-successful chat response is classified
+from its ephemeral HTTP outcome into the existing content-free `request`,
+`rejected`, `limit`, `timeout`, `connectivity`, or `protocol` family. Agent does
+not retain the status, read the error body, vary the request by model, retry, or
+substitute another identifier.
 
 Catalog discovery sends the API key to Ollama Cloud but sends no conversation,
 workspace path, file content, tool schema, or tool result. Chat requests send
@@ -117,6 +125,7 @@ separate accepted operating-system vault design.
 - [Ollama Cloud](https://docs.ollama.com/cloud)
 - [Ollama API authentication](https://docs.ollama.com/api/authentication)
 - [Ollama chat API](https://docs.ollama.com/api/chat)
+- [Ollama API errors](https://docs.ollama.com/api/errors)
 - [Ollama model catalog API](https://docs.ollama.com/api/tags)
 - [Ollama tool calling](https://docs.ollama.com/capabilities/tool-calling)
 - [Ollama streaming](https://docs.ollama.com/api/streaming)

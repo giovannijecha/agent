@@ -87,6 +87,19 @@ function wireReason(error: WireError): OllamaCloudFailureReason {
   return error.kind === "request" ? "request" : "protocol";
 }
 
+function statusReason(statusCode: number): OllamaCloudFailureReason {
+  if (statusCode >= 400 && statusCode <= 499) {
+    if (statusCode >= 401 && statusCode <= 404) return "statusRejected";
+    if (statusCode === 408) return "statusTimeout";
+    if (statusCode === 413 || statusCode === 429) return "statusLimit";
+    return "statusRequest";
+  }
+  if (statusCode >= 500 && statusCode <= 599) {
+    return statusCode === 504 ? "statusTimeout" : "statusConnectivity";
+  }
+  return "statusProtocol";
+}
+
 function snapshotTransportStream(value: unknown): OwnedTransportStream | undefined {
   try {
     if (value === null || typeof value !== "object") return undefined;
@@ -289,7 +302,13 @@ export class OllamaCloudModel implements StreamingModel<OllamaCloudError> {
     const stream = snapshotTransportStream(opened.value);
     if (stream === undefined) return err(modelError("open", "transportProtocol"));
     if (stream.statusCode !== 200) {
-      return err(modelError("open", "status", await closeTransport(stream)));
+      return err(
+        modelError(
+          "open",
+          statusReason(stream.statusCode),
+          await closeTransport(stream),
+        ),
+      );
     }
     if (!validContentType(stream.contentType)) {
       return err(modelError("open", "contentType", await closeTransport(stream)));

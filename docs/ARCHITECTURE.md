@@ -240,10 +240,13 @@ The session has no default provider or model. `/providers` is the only
 interactive credential and provider-selection path. `/models` performs one
 authenticated catalog request and exposes only bounded entries whose returned
 `name` and `model` fields are equal. The latest process-memory catalog is
-the model-availability authority.
+the model-availability authority; it does not locally infer account entitlement,
+credit, quota, or per-request provider capacity.
 
 There is no redirect, alias, retry, router, or fallback. Provider errors cross
-the product boundary only through closed content-free failure families.
+the product boundary only through closed content-free failure families. A
+non-successful chat status is classified by HTTP outcome before the response is
+closed, without retaining its number or reading its body.
 Credentials and catalog content never enter the transcript, logs, fixtures, or
 documentation.
 

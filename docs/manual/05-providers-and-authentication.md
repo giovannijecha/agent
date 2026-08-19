@@ -81,6 +81,15 @@ admission.
   repeat the effect implicitly.
 - `cancelled`, `connectivity`, `lifecycle`, `limit`, `protocol`, `rejected`,
   `request`, and `timeout` are intentionally content-free failure families.
+- For `model/open`, `request` identifies a client-request contract failure;
+  `rejected` identifies account access, payment, authorization, or missing-model
+  rejection; `limit` identifies an entity or rate limit; `timeout` identifies
+  an HTTP timeout; `connectivity` identifies provider-side failure; and
+  `protocol` identifies an unexpected response class. A model appearing in the
+  fresh catalog does not guarantee entitlement, credit, quota, or capacity.
+- The `model/open/rejected` notice therefore asks you to verify plan, credit,
+  authorization, and model availability without claiming which provider-owned
+  condition failed.
 
 Agent does not print response bodies, provider-specific causes, credentials,
 prompts, or model content as diagnostics. It does not retry, change models, or
@@ -94,5 +103,6 @@ fall back to another endpoint after a catalog or chat failure.
 - [Provider update and removal procedure](../MAINTENANCE.md#ollama-cloud)
 - [Current authority by domain](../decisions/README.md#current-authority-by-domain)
 - [Ollama Cloud provider decision](../decisions/0072-owned-ollama-cloud-provider.md)
+- [Provider HTTP outcome decision](../decisions/0080-owned-provider-http-outcome-classification.md)
 - [Ephemeral provider and model selection decision](../decisions/0068-owned-ephemeral-provider-and-model-selection.md)
 - [Tool-call interoperability decision](../decisions/0069-owned-tool-call-interoperability.md)

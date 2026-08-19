@@ -21,7 +21,12 @@ type ProviderFailureReason = OllamaCloudFailureReason;
 function classifyReason(
   reason: ProviderFailureReason,
 ): ProviderFailureFamily {
-  if (reason === "status") return "rejected";
+  if (reason === "statusConnectivity") return "connectivity";
+  if (reason === "statusLimit") return "limit";
+  if (reason === "statusProtocol") return "protocol";
+  if (reason === "statusRejected") return "rejected";
+  if (reason === "statusRequest") return "request";
+  if (reason === "statusTimeout") return "timeout";
   if (reason === "transportConnection") return "connectivity";
   if (reason === "transportTimeout") return "timeout";
   if (reason === "request") return "request";
@@ -53,7 +58,12 @@ function isProviderFailureReason(
     reason === "limit" ||
     reason === "protocol" ||
     reason === "request" ||
-    reason === "status" ||
+    reason === "statusConnectivity" ||
+    reason === "statusLimit" ||
+    reason === "statusProtocol" ||
+    reason === "statusRejected" ||
+    reason === "statusRequest" ||
+    reason === "statusTimeout" ||
     reason === "transportCancelled" ||
     reason === "transportClosed" ||
     reason === "transportConcurrentRead" ||
