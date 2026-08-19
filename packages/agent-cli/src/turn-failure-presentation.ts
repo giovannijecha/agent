@@ -123,6 +123,15 @@ export function checkpointedFailureMarker(code: string): string | undefined {
     : undefined;
 }
 
+function openFailureDetail(code: string): string {
+  if (code === "model/open/rejected") {
+    return " the provider rejected account or model access; verify plan, credit, authorization, and model availability;";
+  }
+  return code.startsWith("model/open")
+    ? " the provider did not open a usable response stream;"
+    : "";
+}
+
 /** Projects one closed, content-free failed-turn classification for display. */
 export function projectTurnFailure<E>(
   failure: TurnFailure<E>,
@@ -130,6 +139,7 @@ export function projectTurnFailure<E>(
 ): TurnFailurePresentation {
   const code = failureCode(failure);
   const openFailure = code.startsWith("model/open");
+  const detail = openFailureDetail(code);
   return Object.freeze({
     checkpointedMarker:
       "[turn failed (" + code + ") after completed tool activity]",
@@ -138,16 +148,13 @@ export function projectTurnFailure<E>(
       ? "The turn failed (" +
         code +
         ");" +
-        (openFailure
-          ? " the provider did not open a usable response stream;"
-          : "") +
+        detail +
         " completed tool activity remains in conversation."
       : "The turn failed (" +
         code +
         ");" +
-        (openFailure
-          ? " the provider did not open a usable response stream; no tools ran and"
-          : "") +
+        detail +
+        (openFailure ? " no tools ran and" : "") +
         " no conversation changes were committed.",
   });
 }

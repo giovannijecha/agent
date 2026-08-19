@@ -380,24 +380,47 @@ test("discards bounded thinking without exposing it as assistant text", async ()
   assert.deepEqual(await read(stream), { kind: "done" });
 });
 
-test("rejects invalid status and content type while observing cleanup", async () => {
-  const status = new FakeStream([], 429);
-  status.closeResult = err(Object.freeze({ kind: "connection" }));
-  const statusResult = await fixture(status).model.open(
-    conversation("private-status-content"),
-    new Cancellation(),
-    [],
-  );
-  assert.equal(statusResult.ok, false);
-  if (!statusResult.ok) {
-    assert.deepEqual(statusResult.error, {
-      cleanupFailed: true,
-      kind: "ollamaCloud",
-      operation: "open",
-      reason: "status",
-    });
+test("classifies non-success statuses while observing cleanup", async () => {
+  const cases = [
+    Object.freeze({ reason: "statusRequest", statusCode: 400 }),
+    Object.freeze({ reason: "statusRejected", statusCode: 401 }),
+    Object.freeze({ reason: "statusRejected", statusCode: 402 }),
+    Object.freeze({ reason: "statusRejected", statusCode: 403 }),
+    Object.freeze({ reason: "statusRejected", statusCode: 404 }),
+    Object.freeze({ reason: "statusTimeout", statusCode: 408 }),
+    Object.freeze({ reason: "statusLimit", statusCode: 413 }),
+    Object.freeze({ reason: "statusRequest", statusCode: 418 }),
+    Object.freeze({ reason: "statusLimit", statusCode: 429 }),
+    Object.freeze({ reason: "statusConnectivity", statusCode: 500 }),
+    Object.freeze({ reason: "statusConnectivity", statusCode: 502 }),
+    Object.freeze({ reason: "statusConnectivity", statusCode: 503 }),
+    Object.freeze({ reason: "statusTimeout", statusCode: 504 }),
+    Object.freeze({ reason: "statusProtocol", statusCode: 302 }),
+  ] as const;
+
+  for (const item of cases) {
+    const status = new FakeStream([], item.statusCode);
+    status.closeResult = err(Object.freeze({ kind: "connection" }));
+    const statusResult = await fixture(status).model.open(
+      conversation("private-status-content"),
+      new Cancellation(),
+      [],
+    );
+    assert.equal(statusResult.ok, false);
+    if (!statusResult.ok) {
+      assert.deepEqual(statusResult.error, {
+        cleanupFailed: true,
+        kind: "ollamaCloud",
+        operation: "open",
+        reason: item.reason,
+      });
+    }
+    assert.equal(status.closeCalls, 1);
+    assert.equal(
+      JSON.stringify(statusResult).includes("private-status-content"),
+      false,
+    );
   }
-  assert.equal(status.closeCalls, 1);
 
   const contentType = new FakeStream([], 200, "application/x-ndjson");
   const contentResult = await fixture(contentType).model.open(
@@ -409,7 +432,7 @@ test("rejects invalid status and content type while observing cleanup", async ()
   if (!contentResult.ok) assert.equal(contentResult.error.reason, "contentType");
   assert.equal(contentType.closeCalls, 1);
   assert.equal(
-    JSON.stringify([statusResult, contentResult]).includes("private-status-content"),
+    JSON.stringify(contentResult).includes("private-status-content"),
     false,
   );
 });

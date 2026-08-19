@@ -7,7 +7,12 @@ import {
 } from "../dist/provider-failure-classification.js";
 
 const REASONS = [
-  ["status", "rejected"],
+  ["statusRequest", "request"],
+  ["statusRejected", "rejected"],
+  ["statusLimit", "limit"],
+  ["statusConnectivity", "connectivity"],
+  ["statusTimeout", "timeout"],
+  ["statusProtocol", "protocol"],
   ["transportConnection", "connectivity"],
   ["transportTimeout", "timeout"],
   ["request", "request"],

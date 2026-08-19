@@ -67,7 +67,7 @@ test("explains a classified provider-open failure without exposing its identity"
         cleanupFailed: false,
         kind: "ollamaCloud" as const,
         operation: "open" as const,
-        reason: "status" as const,
+        reason: "statusRejected" as const,
       }),
       kind: "model",
       operation: "open",
@@ -77,10 +77,28 @@ test("explains a classified provider-open failure without exposing its identity"
   assert.equal(projected.code, "model/open/rejected");
   assert.equal(
     projected.notice,
-    "The turn failed (model/open/rejected); the provider did not open a usable response stream; no tools ran and no conversation changes were committed.",
+    "The turn failed (model/open/rejected); the provider rejected account or model access; verify plan, credit, authorization, and model availability; no tools ran and no conversation changes were committed.",
   );
   assert.equal(projected.notice.includes("Ollama Cloud"), false);
   assert.equal(projected.notice.includes("status"), false);
+
+  const checkpointed = projectTurnFailure(
+    {
+      error: Object.freeze({
+        cleanupFailed: false,
+        kind: "ollamaCloud" as const,
+        operation: "open" as const,
+        reason: "statusRejected" as const,
+      }),
+      kind: "model",
+      operation: "open",
+    },
+    true,
+  );
+  assert.equal(
+    checkpointed.notice,
+    "The turn failed (model/open/rejected); the provider rejected account or model access; verify plan, credit, authorization, and model availability; completed tool activity remains in conversation.",
+  );
 });
 
 test("retains completed tool truth in a classified continuation failure", () => {

@@ -143,6 +143,13 @@ model decision. The cohort shares the same workspace boundary and read-denial
 policy and cannot widen disclosure. Selecting a provider or model never
 redirects, retries, aliases, routes, or falls back to another backend.
 
+If chat returns a non-successful HTTP status, the provider adapter derives one
+closed content-free failure family from the ephemeral status and closes the
+response. The numeric status, headers, and error body are not retained, read for
+diagnosis, written to the terminal, journaled, logged, or included in fixtures.
+Catalog membership never causes agent to infer or persist account entitlement,
+credit, quota, or capacity.
+
 `agent` never asks for provider passwords, cookies, recovery codes, payment
 details, or one-time codes. The Ollama API key is accepted only through the
 zero-projection TUI credential context or `AGENT_OLLAMA_API_KEY` and remains in
