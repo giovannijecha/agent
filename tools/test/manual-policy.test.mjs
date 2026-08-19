@@ -172,6 +172,49 @@ test("rejects contradictory selector dismissal additions after repinning", () =>
   }
 });
 
+test("rejects contradictions using every decision-named inert input", () => {
+  const contradictions = [
+    "Paste closes the menu.",
+    "Tab dismisses the selector.",
+    "Home cancels the menu.",
+    "End closes the selector.",
+    "Delete dismisses the menu.",
+    "Backspace closes the selector.",
+    "Deletion dismisses the menu.",
+    "Word-editing input cancels the selector.",
+  ];
+  for (const contradiction of contradictions) {
+    const policy = structuredClone(currentPolicy);
+    const context = currentContext();
+    const chapter = policy.selectorDismissal.path;
+    context.files[chapter] += "\n" + contradiction + "\n";
+    repinSelectorDismissal(policy, context);
+    assert.throws(
+      () => validateManualPolicy(policy, context),
+      {
+        message: "manual selector dismissal contract is inconsistent",
+        name: "ManualPolicyError",
+      },
+    );
+  }
+});
+
+test("scopes negation to the selector dismissal action", () => {
+  const policy = structuredClone(currentPolicy);
+  const context = currentContext();
+  const chapter = policy.selectorDismissal.path;
+  context.files[chapter] +=
+    "\nTyping does not edit but closes the menu.\n";
+  repinSelectorDismissal(policy, context);
+  assert.throws(
+    () => validateManualPolicy(policy, context),
+    {
+      message: "manual selector dismissal contract is inconsistent",
+      name: "ManualPolicyError",
+    },
+  );
+});
+
 test("accepts explicit negative selector guidance after repinning", () => {
   const policy = structuredClone(currentPolicy);
   const context = currentContext();

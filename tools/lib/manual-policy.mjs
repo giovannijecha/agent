@@ -211,50 +211,23 @@ function normalizedProse(value) {
   return value.replace(/\s+/gu, " ").trim();
 }
 
-const ORDINARY_INPUT_TERMS = [
-  "ordinary editor input",
-  "printable input",
-  "printable text",
-  "printable character",
-  "typing",
-  "editing input",
-  "editing key",
-  "paste",
-  "deletion",
-  "word editing",
-  "word-editing",
-];
-
-const SELECTOR_TARGET_TERMS = ["menu", "selector"];
+const INERT_SELECTOR_INPUT =
+  /\b(?:ordinary editor input|printable (?:input|text|characters?)|typing|editing (?:input|keys?)|paste|tab|home|end|delete|deletion|backspace|word(?:-| )editing)\b/u;
+const SELECTOR_TARGET = /\b(?:menu|selector)\b/u;
 const DISMISSAL_ACTION =
-  /\b(?:close|closes|closed|closing|dismiss|dismisses|dismissed|dismissing|cancel|cancels|canceled|cancelled|canceling|cancelling)\b/gu;
-const NEGATED_ACTION_PREFIX =
-  /(?:\bnot|\bnever|\bneither|\bcannot|\bwithout)(?:\s+\S+){0,3}\s*$/u;
-
-function includesAny(value, candidates) {
-  for (const candidate of candidates) {
-    if (value.includes(candidate)) {
-      return true;
-    }
-  }
-  return false;
-}
+  /\b(?:(do not|does not|did not|will not|would not|can not|could not|should not|must not|is not|are not|was not|were not|not|never|neither|cannot|without)\s+)?(?:close|closes|closed|closing|dismiss|dismisses|dismissed|dismissing|cancel|cancels|canceled|cancelled|canceling|cancelling)\b/gu;
 
 function hasContradictorySelectorDismissal(terminal) {
   const clauses = terminal.toLowerCase().split(/[.;!?]/u);
   for (const clause of clauses) {
     if (
-      !includesAny(clause, ORDINARY_INPUT_TERMS) ||
-      !includesAny(clause, SELECTOR_TARGET_TERMS)
+      !INERT_SELECTOR_INPUT.test(clause) ||
+      !SELECTOR_TARGET.test(clause)
     ) {
       continue;
     }
     for (const action of clause.matchAll(DISMISSAL_ACTION)) {
-      if (typeof action.index !== "number") {
-        fail("manual selector dismissal classifier is invalid");
-      }
-      const prefix = clause.slice(Math.max(0, action.index - 64), action.index);
-      if (!NEGATED_ACTION_PREFIX.test(prefix)) {
+      if (action.at(1) === undefined) {
         return true;
       }
     }
