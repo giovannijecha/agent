@@ -245,6 +245,9 @@ function visibleManualMarkdown(value) {
   return visibleLines.join("\n");
 }
 
+const RAW_HTML_ELEMENT =
+  /<(?:\/?[A-Za-z][A-Za-z0-9-]*(?:\s[^<>]*?)?\s*\/?|![A-Za-z][^<>]*|\?[^<>]*)>/u;
+
 function manualSection(value, heading) {
   const manual = value.replaceAll("\r\n", "\n");
   const marker = "\n## " + heading + "\n";
@@ -411,6 +414,7 @@ function verifySelectorDismissal(contract, context) {
     .digest("hex");
   if (
     digest !== contract.sha256 ||
+    RAW_HTML_ELEMENT.test(visibleTerminal) ||
     hasUnregisteredSelectorInputGuidance(
       terminal,
       useSelectors,

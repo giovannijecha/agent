@@ -357,7 +357,9 @@ admitted. The first occurs exactly once in `Use selectors`; the second occurs
 exactly once in `Read the interface`. A matching sentence elsewhere or any
 duplicate remains unregistered. Presence, cardinality, and section ownership
 are evaluated against operator-visible prose: HTML comments, fenced code, and
-indented code cannot satisfy them. Any additional or rewritten sentence in
+indented code cannot satisfy them. Raw HTML outside those code regions is not
+admitted in the protected chapter; canonical guidance remains ordinary
+Markdown prose. Any additional or rewritten sentence in
 that domain, including alternative dismissal verbs or otherwise benign
 negative wording, requires an explicit policy, regression, and manual update.
 Repinning the digest alone cannot admit the new guidance.
