@@ -232,7 +232,12 @@ test("rejects equivalent generic key-press terminology", () => {
     "Keypresses close the selector.",
     "Keyboard input closes the selector.",
     "Key actions close the selector.",
+    "Input event closes the selector.",
     "Input events close the selector.",
+    "Input-event closes the selector.",
+    "Input-events close the selector.",
+    "Inputevent closes the selector.",
+    "Inputevents close the selector.",
   ];
   for (const contradiction of contradictions) {
     const policy = structuredClone(currentPolicy);

@@ -238,7 +238,7 @@ function proseSentences(value) {
 }
 
 const INERT_SELECTOR_INPUT =
-  /\b(?:ordinary editor input|(?:keyboard|key)[ -]?(?:actions?|events?|inputs?|press(?:es)?|strokes?)|input events?|printable (?:input|text|characters?)|typing|editing (?:input|keys?)|paste|tab|home|end|delete|deletion|backspace|word(?:-| )editing|ctrl\+(?:left|right|backspace|w|delete))\b/u;
+  /\b(?:ordinary editor input|(?:keyboard|key)[ -]?(?:actions?|events?|inputs?|press(?:es)?|strokes?)|input[ -]?events?|printable (?:input|text|characters?)|typing|editing (?:input|keys?)|paste|tab|home|end|delete|deletion|backspace|word(?:-| )editing|ctrl\+(?:left|right|backspace|w|delete))\b/u;
 const SELECTOR_DISMISSAL_CONTEXT =
   /\b(?:lists?|menus?|selectors?|focus(?:es)?|foci)\b/u;
 const OWNED_SELECTOR_INPUT_SENTENCES = Object.freeze([
