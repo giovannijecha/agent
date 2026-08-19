@@ -340,12 +340,13 @@ Escape or Ctrl+C cancels, and other typing and editing keys remain ignored.
 It treats the decision's closed inert-input vocabulary together with singular
 or plural menu, selector, or focus context as one fail-closed semantic domain.
 The vocabulary covers printable and editing input, paste, Tab, Home, End,
-Delete, Backspace, deletion, and word-editing events. Only the two canonical
-inert-input sentences in the terminal-interface chapter are admitted. Any
-additional or rewritten sentence in that domain, including alternative
-dismissal verbs or otherwise benign negative wording, requires an explicit
-policy, regression, and manual update. Repinning the digest alone cannot admit
-the new guidance.
+Delete, Backspace, deletion, and word-editing events, including the concrete
+Ctrl+Left, Ctrl+Right, Ctrl+Backspace, Ctrl+W, and Ctrl+Delete spellings admitted
+by the decoder. Only the two canonical inert-input sentences in the
+terminal-interface chapter are admitted. Any additional or rewritten sentence
+in that domain, including alternative dismissal verbs or otherwise benign
+negative wording, requires an explicit policy, regression, and manual update.
+Repinning the digest alone cannot admit the new guidance.
 Repin only with the corresponding behavior, decision, manual, focused regression,
 and removal guidance.
 
