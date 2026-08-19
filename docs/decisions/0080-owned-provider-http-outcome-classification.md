@@ -63,7 +63,10 @@ status. It allocates no response buffer and admits no additional network read.
 The rejected response is closed exactly once and cleanup truth remains separate
 from the primary reason. No status, response header, response body, model name,
 account detail, secret, submitted text, or provider-specific diagnostic enters
-the transcript, notice, journal, fixture values, or logs.
+the transcript, notice, journal, returned error, recorded diagnostic, output
+fixture value, or log. Deterministic fixture inputs may enumerate public numeric
+status codes solely to prove the total mapping; they contain no captured
+provider response.
 
 Transport failure before a response retains the existing transport family.
 Invalid status shape retains the existing transport-protocol failure. A
