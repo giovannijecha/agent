@@ -338,7 +338,8 @@ The manual policy pins the normalized terminal-interface chapter and separately
 requires its three positive selector-dismissal clauses: input remains inert,
 Escape or Ctrl+C cancels, and other typing and editing keys remain ignored.
 It treats the decision's closed inert-input vocabulary together with singular
-or plural menu, selector, or focus context as one fail-closed semantic domain.
+or plural list, menu, selector, or focus context as one fail-closed semantic
+domain.
 The vocabulary covers printable and editing input, paste, Tab, Home, End,
 Delete, Backspace, deletion, and word-editing events, including the concrete
 Ctrl+Left, Ctrl+Right, Ctrl+Backspace, Ctrl+W, and Ctrl+Delete spellings admitted
