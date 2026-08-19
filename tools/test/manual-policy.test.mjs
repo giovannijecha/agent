@@ -355,6 +355,56 @@ test("rejects canonical selector guidance outside its owning section", () => {
   );
 });
 
+test("rejects canonical selector guidance hidden in an HTML comment", () => {
+  const policy = structuredClone(currentPolicy);
+  const context = currentContext();
+  const chapter = policy.selectorDismissal.path;
+  const maintained = context.files[chapter];
+  const wrapped =
+    "Printable and editing input is inert while a dismissible selector\n" +
+    "owns focus; accepting or cancelling input is consumed without editing " +
+    "the\nretained draft.";
+  const canonical = wrapped.replaceAll("\n", " ");
+  context.files[chapter] = maintained.replace(
+    wrapped,
+    "<!--. " + canonical + ". -->",
+  );
+  assert.notEqual(context.files[chapter], maintained);
+  repinSelectorDismissal(policy, context);
+  assert.throws(
+    () => validateManualPolicy(policy, context),
+    {
+      message: "manual selector dismissal contract is inconsistent",
+      name: "ManualPolicyError",
+    },
+  );
+});
+
+test("rejects canonical selector guidance hidden in a fenced code block", () => {
+  const policy = structuredClone(currentPolicy);
+  const context = currentContext();
+  const chapter = policy.selectorDismissal.path;
+  const maintained = context.files[chapter];
+  const wrapped =
+    "Other typing and editing keys\nare ignored while the menu remains open, " +
+    "so an accidental character neither\ncloses the menu nor disappears into " +
+    "the composer.";
+  const canonical = wrapped.replaceAll("\n", " ");
+  context.files[chapter] = maintained.replace(
+    wrapped,
+    "\n```text\n.\n" + canonical + ".\n```\n",
+  );
+  assert.notEqual(context.files[chapter], maintained);
+  repinSelectorDismissal(policy, context);
+  assert.throws(
+    () => validateManualPolicy(policy, context),
+    {
+      message: "manual selector dismissal contract is inconsistent",
+      name: "ManualPolicyError",
+    },
+  );
+});
+
 test("rejects contradictions using concrete word-editing keys", () => {
   const contradictions = [
     "Ctrl+Left closes the menu.",

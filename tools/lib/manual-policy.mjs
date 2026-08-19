@@ -211,6 +211,40 @@ function normalizedProse(value) {
   return value.replace(/\s+/gu, " ").trim();
 }
 
+function visibleManualMarkdown(value) {
+  const withoutComments = value.replace(/<!--[\s\S]*?(?:-->|$)/gu, "");
+  const visibleLines = [];
+  let fenceCharacter;
+  let fenceLength = 0;
+  for (const line of withoutComments.replaceAll("\r\n", "\n").split("\n")) {
+    if (fenceCharacter !== undefined) {
+      const closing = line.match(/^\s{0,3}(`{3,}|~{3,})\s*$/u);
+      const closingToken = closing?.at(1);
+      if (
+        closingToken !== undefined &&
+        closingToken.at(0) === fenceCharacter &&
+        closingToken.length >= fenceLength
+      ) {
+        fenceCharacter = undefined;
+        fenceLength = 0;
+      }
+      continue;
+    }
+    const opening = line.match(/^\s{0,3}(`{3,}|~{3,})/u);
+    const openingToken = opening?.at(1);
+    if (openingToken !== undefined) {
+      fenceCharacter = openingToken.at(0);
+      fenceLength = openingToken.length;
+      continue;
+    }
+    if (/^(?: {4}|\t)/u.test(line)) {
+      continue;
+    }
+    visibleLines.push(line);
+  }
+  return visibleLines.join("\n");
+}
+
 function manualSection(value, heading) {
   const manual = value.replaceAll("\r\n", "\n");
   const marker = "\n## " + heading + "\n";
@@ -365,9 +399,10 @@ function verifySelectorDismissal(contract, context) {
   }
   ownedPath(contract.path, "manual selector dismissal path");
   const terminalText = fileText(context, contract.path);
-  const terminal = normalizedProse(terminalText);
-  const useSelectors = manualSection(terminalText, "Use selectors");
-  const readInterface = manualSection(terminalText, "Read the interface");
+  const visibleTerminal = visibleManualMarkdown(terminalText);
+  const terminal = normalizedProse(visibleTerminal);
+  const useSelectors = manualSection(visibleTerminal, "Use selectors");
+  const readInterface = manualSection(visibleTerminal, "Read the interface");
   const digest = createHash("sha256")
     .update(
       terminalText.replaceAll("\r\n", "\n"),
