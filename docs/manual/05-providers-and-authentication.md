@@ -118,6 +118,15 @@ normalized in provider order and settled history uses one canonical native
 form. Agent does not switch parsers, coerce serialized arguments, retry, or
 change endpoints for one model.
 
+Catalog availability, ordinary text completion, and native tool-call
+interoperability are separate facts. A model can answer an ordinary text turn
+and still end a tool-required turn without contributing a native call. In that
+case, call-shaped tags or serialized arguments inside assistant text remain
+non-executable text. Agent does not reinterpret them or remove the model from
+the catalog. Return to `/models` and deliberately select another current entry
+when work must continue; do not repeat an effect that may already have reached
+a committed checkpoint.
+
 Agent does not print response bodies, provider-specific causes, credentials,
 prompts, or model content as diagnostics. It does not retry, change models, or
 fall back to another endpoint after a catalog or chat failure.

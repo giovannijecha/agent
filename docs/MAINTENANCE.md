@@ -431,6 +431,16 @@ of the public code. Do not relax the native contract, parse serialized
 arguments a second time, or add a model-specific branch. Missing, null, and
 empty `tool_calls` members are already the admitted no-contribution forms.
 
+Test catalog admission, ordinary text completion, and native tool-call
+interoperability as three independent contracts. A successful text-only smoke
+does not qualify tool interoperability. When a bounded live observation ends
+at `terminal` after tools were advertised, preserve only the content-free
+failure code and reproduce the boundary with owned offline fixtures. Do not
+persist model output, infer executable calls from assistant content, edit the
+catalog, or introduce identifier- or family-specific compatibility. Reconsider
+the shared adapter only when the provider publishes a model-neutral native
+contract change and the owned fixtures establish its complete boundary.
+
 For completion failures, preserve the transport distinction. A clean HTTP end
 may settle only after the native decoder accepted non-empty thinking, content,
 or a complete tool call. A clean empty stream is `terminal`; incomplete UTF-8

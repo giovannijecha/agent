@@ -65,11 +65,17 @@ credential but never selects the provider or model.
 
 A catalog row proves only that the exact identifier is currently advertised by
 the authenticated API. It does not prove account entitlement, available credit,
-quota, or per-request capacity. A non-successful chat response is classified
-from its ephemeral HTTP outcome into the existing content-free `request`,
-`rejected`, `limit`, `timeout`, `connectivity`, or `protocol` family. Agent does
-not retain the status, read the error body, vary the request by model, retry, or
-substitute another identifier.
+quota, per-request capacity, ordinary text completion, or native tool-call
+interoperability. Those are independent observations. A selected model may
+complete ordinary assistant text while contributing no provider-native
+`message.tool_calls` when tools are advertised. Tagged, serialized, or
+otherwise call-shaped assistant content remains assistant content and is never
+executed. Neither outcome removes or rewrites the authenticated catalog row.
+
+A non-successful chat response is classified from its ephemeral HTTP outcome
+into the existing content-free `request`, `rejected`, `limit`, `timeout`,
+`connectivity`, or `protocol` family. Agent does not retain the status, read the
+error body, vary the request by model, retry, or substitute another identifier.
 Every pre-stream protocol rejection, including an unexpected non-success
 status, invalid content type, or malformed transport opening, maps to the
 unphased `model/open/protocol` outcome because the adapter did not admit a
