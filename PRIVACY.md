@@ -186,6 +186,15 @@ and model availability terms can change and are not guarantees made by this
 project; review the current Ollama terms before sending sensitive content. The
 four subscription OAuth connections remain disabled.
 
+### Reserved thinking data
+
+Decision 0083 reserves a possible reasoning stream but does not activate one.
+Requests currently keep `think: false`; reasoning is not displayed, journaled,
+logged, diagnosed, retained in receipts, or admitted to evaluation fixtures. A
+future explicit session-only mode must keep reasoning separate from assistant
+content, commit only bounded settled data, and ship with a separately accepted
+journal-schema and deletion contract before any reasoning can persist.
+
 ## Local sessions
 
 An explicit interactive `agent` launch creates a version-one local session

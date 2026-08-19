@@ -101,6 +101,7 @@
     "docs/decisions/0080-owned-provider-http-outcome-classification.md",
     "docs/decisions/0081-owned-structural-manual-policy.md",
     "docs/decisions/0082-owned-ollama-tool-stream-normalization.md",
+    "docs/decisions/0083-owned-bounded-thinking-stream.md",
     "evaluations/README.md"
   ],
   "workspaces": [

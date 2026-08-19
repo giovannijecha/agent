@@ -279,6 +279,17 @@ documentation.
 See [providers](PROVIDERS.md) and [privacy](../PRIVACY.md) for the public
 contract.
 
+### Reserved bounded thinking stream
+
+Decision 0083 reserves one optional provider-neutral reasoning stream without
+activating it. The current provider request remains `think: false`; core,
+runtime, the version-one journal, and the TUI expose no reasoning value. A
+future implementation must preserve reasoning as bounded non-executable data,
+stage it with the complete native record, retain only settled selected-path
+history required by the provider, and render it through the existing transcript
+model. It cannot ship until a separate accepted journal-schema migration binds
+durability and recovery.
+
 ## Terminal boundary
 
 The TUI is conversation-first. The transcript is dominant; completion,

@@ -84,7 +84,8 @@
     "docs/decisions/0079-owned-explicit-selector-dismissal.md",
     "docs/decisions/0080-owned-provider-http-outcome-classification.md",
     "docs/decisions/0081-owned-structural-manual-policy.md",
-    "docs/decisions/0082-owned-ollama-tool-stream-normalization.md"
+    "docs/decisions/0082-owned-ollama-tool-stream-normalization.md",
+    "docs/decisions/0083-owned-bounded-thinking-stream.md"
   ],
   "decisionIndexLifecycleDigest": {
     "algorithm": "sha256",
@@ -139,7 +140,8 @@
     "0079": "2026-08-18",
     "0080": "2026-08-19",
     "0081": "2026-08-19",
-    "0082": "2026-08-19"
+    "0082": "2026-08-19",
+    "0083": "2026-08-19"
   },
   "historicalDecisionStatusExceptions": {
     "0009": "accepted"
@@ -196,7 +198,7 @@
   ],
   "decisionRecordDigest": {
     "algorithm": "sha256",
-    "value": "9b9f56c975421d532fb36739134ce8d13e206338aca98cdcdbb487e366d1929e"
+    "value": "959903f80ffec3f9904adf48d5ebf86c3555b2119ac67f72c757514eeec6ba8d"
   },
   "decisionDomainMembers": {
     "architecture": [
@@ -208,7 +210,8 @@
       "0061",
       "0074",
       "0075",
-      "0076"
+      "0076",
+      "0083"
     ],
     "documentation": [
       "0009",
@@ -304,6 +307,7 @@
   },
   "currentDecisionAuthorities": {
     "architecture": [
+      "0083",
       "0076",
       "0075",
       "0074",

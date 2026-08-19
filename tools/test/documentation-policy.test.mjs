@@ -110,6 +110,32 @@ test("registers every durable decision as required ownership documentation", () 
   }
 });
 
+test("binds the reserved bounded thinking stream contract", () => {
+  const context = currentContext();
+  const decision =
+    "docs/decisions/0083-owned-bounded-thinking-stream.md";
+  assert.equal(policy.decisionPaths.includes(decision), true);
+  assert.equal(ownershipPolicy.requiredDocuments.includes(decision), true);
+  assert.equal(typeof context.files[decision], "string");
+  assert.match(
+    context.files[decision],
+    /The current runtime remains fixed at `think: false`/u,
+  );
+  assert.match(
+    context.files[decision],
+    /A separate accepted journal-schema migration decision is required before implementation/u,
+  );
+  for (const [file, marker] of [
+    ["docs/ARCHITECTURE.md", "### Reserved bounded thinking stream"],
+    ["docs/ENGINEERING.md", "### Thinking-stream contract verification"],
+    ["docs/MAINTENANCE.md", "### Reserved thinking-stream lifecycle"],
+    ["docs/PROVIDERS.md", "### Reserved native thinking boundary"],
+    ["PRIVACY.md", "### Reserved thinking data"],
+  ]) {
+    assert.match(context.files[file], new RegExp(marker, "u"), file);
+  }
+});
+
 test("rejects canonical document structure drift", () => {
   for (const [file, before, after] of [
     ["README.md", "## Quick start", "## Getting started"],
@@ -388,7 +414,7 @@ test("rejects invalid current decision authority routes", () => {
       "[0013 single-agent execution](0013-single-agent-execution.md), unregistered authority, [0052 checkpointed failures](0052-owned-checkpointed-turn-failure-classification.md)",
     ],
     [
-      "| architecture | [0076 durable session journal](0076-owned-bounded-session-journal.md), [0075 branching conversation tree](0075-owned-branching-conversation-tree.md), [0074 deterministic read overlap](0074-owned-deterministic-read-overlap.md), [0013 single-agent execution](0013-single-agent-execution.md), [0052 checkpointed failures](0052-owned-checkpointed-turn-failure-classification.md), [0061 convergent turns](0061-owned-convergent-tool-turns.md) |\n",
+      "| architecture | [0083 bounded thinking stream](0083-owned-bounded-thinking-stream.md), [0076 durable session journal](0076-owned-bounded-session-journal.md), [0075 branching conversation tree](0075-owned-branching-conversation-tree.md), [0074 deterministic read overlap](0074-owned-deterministic-read-overlap.md), [0013 single-agent execution](0013-single-agent-execution.md), [0052 checkpointed failures](0052-owned-checkpointed-turn-failure-classification.md), [0061 convergent turns](0061-owned-convergent-tool-turns.md) |\n",
       "",
     ],
   ]) {

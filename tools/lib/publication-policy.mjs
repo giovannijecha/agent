@@ -180,6 +180,17 @@ function validateProvenanceLog(policy, context) {
   if (!entries.includes(ollamaErrorEntry)) {
     fail("Ollama error provenance contract is missing or incomplete");
   }
+  const ollamaThinkingEntry =
+    "| 2026-08-19 | [Ollama chat API](https://docs.ollama.com/api/chat), " +
+    "[thinking capability](https://docs.ollama.com/capabilities/thinking), " +
+    "[tool calling](https://docs.ollama.com/capabilities/tool-calling), and " +
+    "[streaming](https://docs.ollama.com/capabilities/streaming) | " +
+    "Native request control, separate streamed reasoning field, and reasoning continuity in assistant history | " +
+    "Independently specified the disabled-by-default, bounded, non-executable thinking-stream reservation under decision 0083 | " +
+    "None; no SDK, CLI, executable, source, sample, fixture, prompt, response, model identifier, product identity, or implementation structure reused |";
+  if (!entries.includes(ollamaThinkingEntry)) {
+    fail("Ollama thinking provenance contract is missing or incomplete");
+  }
   const digest = createHash("sha256")
     .update(entries.join("\n") + "\n", "utf8")
     .digest("hex");
