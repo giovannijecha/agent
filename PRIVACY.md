@@ -146,7 +146,12 @@ redirects, retries, aliases, routes, or falls back to another backend.
 If chat returns a non-successful HTTP status, the provider adapter derives one
 closed content-free failure family from the ephemeral status and closes the
 response. The numeric status, headers, and error body are not retained, read for
-diagnosis, written to the terminal, journaled, logged, or included in fixtures.
+diagnosis, returned in errors, written to the terminal, journaled, logged, or
+emitted as output fixture values.
+
+Fixture inputs may enumerate public numeric status codes solely to prove the
+closed mapping; those inputs are not returned diagnostics and contain no
+captured provider response.
 Catalog membership never causes agent to infer or persist account entitlement,
 credit, quota, or capacity.
 

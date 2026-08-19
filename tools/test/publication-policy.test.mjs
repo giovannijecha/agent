@@ -368,6 +368,7 @@ test("rejects privacy and bounded local retention drift", () => {
     "persists no credential, catalog, provider/model selection, or permission\npolicy.",
     "The policy is never persisted or sent to a provider.",
     "The Ollama API key is accepted only through the\nzero-projection TUI credential context or `AGENT_OLLAMA_API_KEY` and remains in\nprocess memory.",
+    "Fixture inputs may enumerate public numeric status codes solely to prove the\nclosed mapping; those inputs are not returned diagnostics and contain no\ncaptured provider response.",
     "Persistent storage requires a separate accepted\noperating-system vault design.",
     "An explicit interactive `agent` launch creates a version-one local session\njournal outside the workspace.",
     "`agent resume --latest` restores the newest\ninactive journal for the exact canonical workspace",
