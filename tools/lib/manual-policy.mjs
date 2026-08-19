@@ -211,6 +211,32 @@ function normalizedProse(value) {
   return value.replace(/\s+/gu, " ").trim();
 }
 
+function manualSection(value, heading) {
+  const manual = value.replaceAll("\r\n", "\n");
+  const marker = "\n## " + heading + "\n";
+  const markerStart = manual.indexOf(marker);
+  if (markerStart < 0) {
+    fail("manual selector dismissal section is missing");
+  }
+  const contentStart = markerStart + marker.length;
+  const nextHeading = manual.indexOf("\n## ", contentStart);
+  return manual.slice(
+    contentStart,
+    nextHeading < 0 ? manual.length : nextHeading,
+  );
+}
+
+function proseSentences(value) {
+  const sentences = [];
+  for (const candidate of normalizedProse(value).toLowerCase().split(/[.!?]/u)) {
+    const sentence = candidate.trim();
+    if (sentence.length > 0) {
+      sentences.push(sentence);
+    }
+  }
+  return sentences;
+}
+
 const INERT_SELECTOR_INPUT =
   /\b(?:ordinary editor input|keyboard events?|printable (?:input|text|characters?)|typing|editing (?:input|keys?)|paste|tab|home|end|delete|deletion|backspace|word(?:-| )editing|ctrl\+(?:left|right|backspace|w|delete))\b/u;
 const SELECTOR_DISMISSAL_CONTEXT =
@@ -220,17 +246,33 @@ const OWNED_SELECTOR_INPUT_SENTENCES = Object.freeze([
   "other typing and editing keys are ignored while the menu remains open, so an accidental character neither closes the menu nor disappears into the composer",
 ]);
 
-function hasUnregisteredSelectorInputGuidance(terminal) {
-  const sentences = terminal.toLowerCase().split(/[.!?]/u);
-  for (const candidate of sentences) {
-    const sentence = candidate.trim();
+function hasUnregisteredSelectorInputGuidance(terminal, selectorAuthority) {
+  const sentences = proseSentences(terminal);
+  for (let index = 0; index < sentences.length; index += 1) {
+    const sentence = sentences.at(index);
     if (
+      sentence === undefined ||
       !INERT_SELECTOR_INPUT.test(sentence) ||
-      !SELECTOR_DISMISSAL_CONTEXT.test(sentence)
+      OWNED_SELECTOR_INPUT_SENTENCES.includes(sentence)
     ) {
       continue;
     }
-    if (!OWNED_SELECTOR_INPUT_SENTENCES.includes(sentence)) {
+    const previous = index > 0 ? sentences.at(index - 1) : undefined;
+    const next =
+      index + 1 < sentences.length ? sentences.at(index + 1) : undefined;
+    if (
+      SELECTOR_DISMISSAL_CONTEXT.test(sentence) ||
+      (previous !== undefined && SELECTOR_DISMISSAL_CONTEXT.test(previous)) ||
+      (next !== undefined && SELECTOR_DISMISSAL_CONTEXT.test(next))
+    ) {
+      return true;
+    }
+  }
+  for (const sentence of proseSentences(selectorAuthority)) {
+    if (
+      INERT_SELECTOR_INPUT.test(sentence) &&
+      !OWNED_SELECTOR_INPUT_SENTENCES.includes(sentence)
+    ) {
       return true;
     }
   }
@@ -292,18 +334,21 @@ function verifySelectorDismissal(contract, context) {
     fail("manual selector dismissal contract is invalid");
   }
   ownedPath(contract.path, "manual selector dismissal path");
-  const terminal = normalizedProse(
-    fileText(context, contract.path),
-  );
+  const terminalText = fileText(context, contract.path);
+  const terminal = normalizedProse(terminalText);
+  const selectorAuthority = [
+    manualSection(terminalText, "Use selectors"),
+    manualSection(terminalText, "Read the interface"),
+  ].join("\n");
   const digest = createHash("sha256")
     .update(
-      fileText(context, contract.path).replaceAll("\r\n", "\n"),
+      terminalText.replaceAll("\r\n", "\n"),
       "utf8",
     )
     .digest("hex");
   if (
     digest !== contract.sha256 ||
-    hasUnregisteredSelectorInputGuidance(terminal) ||
+    hasUnregisteredSelectorInputGuidance(terminal, selectorAuthority) ||
     !terminal.includes(
       "Printable and editing input is inert while a dismissible selector owns focus",
     ) ||

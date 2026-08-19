@@ -343,12 +343,16 @@ domain.
 The vocabulary covers generic keyboard events, printable and editing input,
 paste, Tab, Home, End, Delete, Backspace, deletion, and word-editing events,
 including the concrete Ctrl+Left, Ctrl+Right, Ctrl+Backspace, Ctrl+W, and
-Ctrl+Delete spellings admitted by the decoder. Only the two canonical
-inert-input sentences in the terminal-interface chapter are admitted. Any
-additional or rewritten sentence in that domain, including alternative
-dismissal verbs or otherwise benign negative wording, requires an explicit
-policy, regression, and manual update. Repinning the digest alone cannot admit
-the new guidance.
+Ctrl+Delete spellings admitted by the decoder. Within the `Use selectors` and
+`Read the interface` sections, every sentence containing that vocabulary belongs
+to the closed domain even when it refers to the selector only through surrounding
+prose. Across the full chapter, an inert-input sentence also inherits selector
+context from its immediately adjacent sentences so a split contradiction cannot
+bypass validation. Only the two canonical inert-input sentences in the
+terminal-interface chapter are admitted. Any additional or rewritten sentence
+in that domain, including alternative dismissal verbs or otherwise benign
+negative wording, requires an explicit policy, regression, and manual update.
+Repinning the digest alone cannot admit the new guidance.
 Repin only with the corresponding behavior, decision, manual, focused regression,
 and removal guidance.
 
