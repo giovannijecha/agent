@@ -215,7 +215,29 @@ test("scopes negation to the selector dismissal action", () => {
   );
 });
 
-test("accepts explicit negative selector guidance after repinning", () => {
+test("rejects unregistered selector dismissal action wording", () => {
+  const contradictions = [
+    "Tab exits the selector.",
+    "Home hides the menu.",
+    "End returns focus.",
+  ];
+  for (const contradiction of contradictions) {
+    const policy = structuredClone(currentPolicy);
+    const context = currentContext();
+    const chapter = policy.selectorDismissal.path;
+    context.files[chapter] += "\n" + contradiction + "\n";
+    repinSelectorDismissal(policy, context);
+    assert.throws(
+      () => validateManualPolicy(policy, context),
+      {
+        message: "manual selector dismissal contract is inconsistent",
+        name: "ManualPolicyError",
+      },
+    );
+  }
+});
+
+test("rejects unregistered negative selector guidance after repinning", () => {
   const policy = structuredClone(currentPolicy);
   const context = currentContext();
   const chapter = policy.selectorDismissal.path;
@@ -225,7 +247,13 @@ test("accepts explicit negative selector guidance after repinning", () => {
     policy.selectorDismissal.sha256,
     currentPolicy.selectorDismissal.sha256,
   );
-  assert.doesNotThrow(() => validateManualPolicy(policy, context));
+  assert.throws(
+    () => validateManualPolicy(policy, context),
+    {
+      message: "manual selector dismissal contract is inconsistent",
+      name: "ManualPolicyError",
+    },
+  );
 });
 
 test("binds each chapter to its declared task-specific sections", () => {

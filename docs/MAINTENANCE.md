@@ -337,13 +337,14 @@ raw Escape in a component or make arrow-key correctness depend on stream chunkin
 The manual policy pins the normalized terminal-interface chapter and separately
 requires its three positive selector-dismissal clauses: input remains inert,
 Escape or Ctrl+C cancels, and other typing and editing keys remain ignored.
-It also rejects any clause that combines the decision's closed inert-input
-vocabulary, a menu or selector, and a dismissal action unless a negation is
-grammatically adjacent to that action. The vocabulary covers printable and
-editing input, paste, Tab, Home, End, Delete, Backspace, deletion, and
-word-editing events. A negation attached to another verb cannot exempt a later
-dismissal. Repinning the digest cannot admit omitted or additional contradictory
-guidance.
+It treats the decision's closed inert-input vocabulary together with menu,
+selector, or focus context as one fail-closed semantic domain. The vocabulary
+covers printable and editing input, paste, Tab, Home, End, Delete, Backspace,
+deletion, and word-editing events. Only the two canonical inert-input sentences
+in the terminal-interface chapter are admitted. Any additional or rewritten
+sentence in that domain, including alternative dismissal verbs or otherwise
+benign negative wording, requires an explicit policy, regression, and manual
+update. Repinning the digest alone cannot admit the new guidance.
 Repin only with the corresponding behavior, decision, manual, focused regression,
 and removal guidance.
 
