@@ -34,8 +34,11 @@ independent structural layers:
 - three bounded exact clauses are assigned to their canonical sections and
   must each occur exactly once after whitespace normalization.
 
-The section inventory must equal the chapter's registered heading order. The
-clause inventory is closed, unique, and limited to the accepted selector-
+The verifier owns the fixed ordered inventory of the chapter's eight canonical
+section headings. Both the chapter registry and the per-section digest registry
+must equal that inventory independently, so changing both mutable registries
+cannot reduce the protected surface. The clause inventory is closed, unique,
+and limited to the accepted selector-
 dismissal statements: ordinary input remains inert, Escape or Ctrl+C cancels,
 and other typing and editing input remains ignored. Changing unrelated prose
 requires explicit chapter and affected-section digest updates. Changing,
@@ -69,7 +72,9 @@ Focused regressions prove that chapter-only repinning cannot admit changes in
 any section, including comment and fence-like inputs; removing a protected
 clause still fails after both chapter and section repinning; an unrelated prose
 revision succeeds only after the chapter and affected section are repinned; and
-malformed section or clause inventories fail closed.
+malformed section or clause inventories fail closed. Removing one complete
+section, reducing both registries, and repinning every remaining digest still
+fails against the verifier-owned eight-section inventory.
 
 Documentation-policy tests bind this record, its metadata, domain membership,
 current-authority route, and complete record digest. The canonical Windows and

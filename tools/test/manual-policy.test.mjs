@@ -186,7 +186,7 @@ test("rejects malformed selector section and clause inventories", () => {
   assert.throws(
     () => validateManualPolicy(missingSection, currentContext()),
     {
-      message: "manual selector dismissal contract is invalid",
+      message: "manual selector dismissal section inventory is invalid",
       name: "ManualPolicyError",
     },
   );
@@ -199,6 +199,34 @@ test("rejects malformed selector section and clause inventories", () => {
     () => validateManualPolicy(duplicateClause, currentContext()),
     {
       message: "manual selector dismissal clauses must not contain duplicates",
+      name: "ManualPolicyError",
+    },
+  );
+});
+
+test("rejects a coherently reduced selector section inventory", () => {
+  const policy = structuredClone(currentPolicy);
+  const context = currentContext();
+  const chapter = policy.selectorDismissal.path;
+  const registeredChapter = policy.chapters.find(
+    (entry) => entry.path === chapter,
+  );
+  assert.notEqual(registeredChapter, undefined, "missing terminal chapter");
+  const marker = "\n## References\n";
+  const sectionStart = context.files[chapter].indexOf(marker);
+  assert.notEqual(sectionStart, -1, "missing References section");
+  context.files[chapter] = context.files[chapter].slice(0, sectionStart) + "\n";
+  registeredChapter.sections.pop();
+  policy.selectorDismissal.sections.pop();
+  repinSelectorDismissal(policy, context);
+  for (const section of policy.selectorDismissal.sections) {
+    repinSelectorSection(policy, context, section.heading);
+  }
+
+  assert.throws(
+    () => validateManualPolicy(policy, context),
+    {
+      message: "manual selector dismissal section inventory is invalid",
       name: "ManualPolicyError",
     },
   );

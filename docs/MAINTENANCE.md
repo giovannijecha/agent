@@ -334,8 +334,9 @@ and EOF as global routes. If Escape cannot close a selector, trace the Node host
 single trailing-byte timer, its 30-millisecond settled marker, the generic
 decoder event, and the shared CLI selector reducer in that order. Do not decode
 raw Escape in a component or make arrow-key correctness depend on stream chunking.
-Manual-policy schema 12 pins the normalized terminal-interface chapter, every
-declared section body in heading order, and three exact selector-dismissal
+Manual-policy schema 12 pins the normalized terminal-interface chapter, the
+fixed eight-section inventory and every corresponding body in heading order,
+and three exact selector-dismissal
 clauses in their owning sections: input remains inert, Escape or Ctrl+C
 cancels, and other typing and editing keys remain ignored. The verifier checks
 structure, identity, clause placement, and clause cardinality. It deliberately

@@ -5,6 +5,17 @@ const INDEX_PATH = "docs/manual/README.md";
 const COMMAND_SOURCE = "packages/agent-cli/src/commands.ts";
 const TOOL_SOURCE = "packages/agent-cli/src/builtin-tools.ts";
 const PRODUCT_SOURCE = /^packages\/[a-z0-9-]+\/src\/[a-z0-9-]+\.ts$/u;
+const TERMINAL_INTERFACE_PATH = "docs/manual/03-terminal-interface.md";
+const TERMINAL_INTERFACE_SECTIONS = Object.freeze([
+  "Write and edit",
+  "Paste text",
+  "Run commands",
+  "Use selectors",
+  "Navigate and copy",
+  "Read the interface",
+  "Recover from terminal problems",
+  "References",
+]);
 
 export class ManualPolicyError extends Error {
   constructor(message) {
@@ -292,16 +303,23 @@ function verifySelectorDismissal(contract, chapter, context) {
   );
   if (
     contract.algorithm !== "sha256" ||
-    contract.path !== "docs/manual/03-terminal-interface.md" ||
+    contract.path !== TERMINAL_INTERFACE_PATH ||
     typeof contract.sha256 !== "string" ||
     !/^[a-f0-9]{64}$/u.test(contract.sha256) ||
     chapter.path !== contract.path ||
     !Array.isArray(contract.sections) ||
-    contract.sections.length !== chapter.sections.length ||
     !Array.isArray(contract.clauses) ||
     contract.clauses.length !== 3
   ) {
     fail("manual selector dismissal contract is invalid");
+  }
+  const chapterSections = sectionList(chapter.sections);
+  if (
+    JSON.stringify(chapterSections) !==
+      JSON.stringify(TERMINAL_INTERFACE_SECTIONS) ||
+    contract.sections.length !== TERMINAL_INTERFACE_SECTIONS.length
+  ) {
+    fail("manual selector dismissal section inventory is invalid");
   }
   ownedPath(contract.path, "manual selector dismissal path");
   const terminalText = fileText(context, contract.path);
@@ -313,7 +331,7 @@ function verifySelectorDismissal(contract, chapter, context) {
   const sectionBodies = new Map();
   for (let index = 0; index < contract.sections.length; index += 1) {
     const section = contract.sections.at(index);
-    const expectedHeading = chapter.sections.at(index);
+    const expectedHeading = TERMINAL_INTERFACE_SECTIONS.at(index);
     if (!isRecord(section)) {
       fail("manual selector dismissal section contract is invalid");
     }
