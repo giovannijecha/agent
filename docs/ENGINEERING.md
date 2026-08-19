@@ -173,6 +173,18 @@ does not prove a contract that names an exact invocation.
 - Every async owner has one settlement path. Late events are inert after
   settlement and cleanup has a hard bound.
 
+### Thinking-stream contract verification
+
+Decision 0083 is reserved rather than implemented. Current regressions must
+prove that provider requests keep `think: false`, reasoning does not cross a
+public package boundary, and no manual claims that `/thinking` is available.
+Any implementation change must begin red and cover native request encoding,
+bounded incremental decode, whole-record atomicity, selected-path history,
+runtime event order, journal crash recovery, interaction-dock focus, transcript
+rendering, privacy, rollback, and removal in the same change. Text and tags must
+remain non-executable, and no test may introduce an implicit retry, replay,
+fallback, or model-specific compatibility branch.
+
 ## Documentation changes
 
 Every durable topic has one canonical owner:

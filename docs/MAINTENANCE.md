@@ -467,6 +467,17 @@ declarations, tests, public contract, and decisions 0072, 0080, and 0082 status
 together. The product returns to no admitted provider; do not select a
 replacement implicitly.
 
+### Reserved thinking-stream lifecycle
+
+Decision 0083 currently changes no runtime behavior: requests retain
+`think: false`, `/thinking` is unavailable, and no reasoning is exposed or
+stored. Activation requires one separate accepted journal-schema migration and
+a complete provider-to-TUI implementation with contract and recovery tests.
+Rollback disables the provider request before removing presentation, while
+settled data remains readable until its schema owner defines removal. Abandoning
+the reservation removes decision 0083, its living-document markers, registries,
+ownership row, and regressions together.
+
 ### Workspace trust boundary
 
 **Owners:** CLI startup resolution, native protected-root resolver, read policy,

@@ -97,6 +97,16 @@ Provider availability, model availability, pricing, retention, and data use are
 Ollama terms rather than `agent` guarantees and may change. Recheck the official
 terms before submitting sensitive material.
 
+### Reserved native thinking boundary
+
+The admitted native contract can carry reasoning separately from assistant
+content, but the current request fixes `think: false` and the product exposes no
+reasoning stream. Decision 0083 reserves a future provider-neutral bounded
+field only. Native reasoning may never be reconstructed from assistant text,
+tags, or call-shaped content, and it cannot activate through a catalog entry or
+model-specific compatibility rule. Activation requires the separate journal
+schema and complete lifecycle evidence named by that decision.
+
 ## Blocked subscription OAuth providers
 
 Pi `main` at commit

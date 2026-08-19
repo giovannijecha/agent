@@ -513,6 +513,32 @@ test("rejects Ollama error provenance drift after inventory repinning", () => {
   }
 });
 
+test("rejects bounded thinking provenance drift after inventory repinning", () => {
+  const maintained = currentContext().files["docs/OWNERSHIP.md"];
+  for (const marker of [
+    "[thinking capability](https://docs.ollama.com/capabilities/thinking)",
+    "Native request control, separate streamed reasoning field, and reasoning continuity in assistant history",
+    "Independently specified the disabled-by-default, bounded, non-executable thinking-stream reservation under decision 0083",
+    "under decision 0083 | None; no SDK, CLI, executable, source, sample, fixture, prompt, response, model identifier, product identity, or implementation structure reused |",
+  ]) {
+    const context = currentContext();
+    context.files["docs/OWNERSHIP.md"] = maintained.replace(
+      marker,
+      "removed bounded thinking provenance",
+    );
+    assert.notEqual(context.files["docs/OWNERSHIP.md"], maintained, marker);
+    const changed = structuredClone(policy);
+    changed.provenanceLog.sha256 = provenanceDigest(
+      context.files["docs/OWNERSHIP.md"],
+    );
+    assert.throws(
+      () => validatePublicationPolicy(changed, context),
+      PublicationPolicyError,
+      marker,
+    );
+  }
+});
+
 test("rejects a missing ownership publication route", () => {
   const context = currentContext();
   const maintained = context.files[
