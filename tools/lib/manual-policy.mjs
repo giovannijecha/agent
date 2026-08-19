@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import path from "node:path";
 
 const INDEX_PATH = "docs/manual/README.md";
@@ -250,11 +251,32 @@ function verifyRemovalSchemaGuidance(policy, context) {
   }
 }
 
-function verifySelectorDismissal(context) {
-  const terminal = normalizedProse(
-    fileText(context, "docs/manual/03-terminal-interface.md"),
+function verifySelectorDismissal(contract, context) {
+  exactKeys(
+    contract,
+    ["algorithm", "path", "sha256"],
+    "manual selector dismissal contract",
   );
   if (
+    contract.algorithm !== "sha256" ||
+    contract.path !== "docs/manual/03-terminal-interface.md" ||
+    typeof contract.sha256 !== "string" ||
+    !/^[a-f0-9]{64}$/u.test(contract.sha256)
+  ) {
+    fail("manual selector dismissal contract is invalid");
+  }
+  ownedPath(contract.path, "manual selector dismissal path");
+  const terminal = normalizedProse(
+    fileText(context, contract.path),
+  );
+  const digest = createHash("sha256")
+    .update(
+      fileText(context, contract.path).replaceAll("\r\n", "\n"),
+      "utf8",
+    )
+    .digest("hex");
+  if (
+    digest !== contract.sha256 ||
     terminal.includes(
       "An ordinary editor input closes a dismissible selector and is consumed",
     ) ||
@@ -359,12 +381,13 @@ export function validateManualPolicy(policy, context) {
       "index",
       "chapters",
       "commands",
+      "selectorDismissal",
       "toolSurface",
       "referencePaths",
     ],
     "manual policy",
   );
-  if (policy.schemaVersion !== 10 || policy.index !== INDEX_PATH) {
+  if (policy.schemaVersion !== 11 || policy.index !== INDEX_PATH) {
     fail("unsupported manual policy schema or index");
   }
   if (!isRecord(context) || !Array.isArray(context.manualPaths) || !Array.isArray(context.ownedPaths)) {
@@ -390,7 +413,7 @@ export function validateManualPolicy(policy, context) {
   const tools = validateToolSurface(policy.toolSurface);
   verifyDescriptorConstruction(context);
   verifyRemovalSchemaGuidance(policy, context);
-  verifySelectorDismissal(context);
+  verifySelectorDismissal(policy.selectorDismissal, context);
   same(commands, extractCommands(fileText(context, COMMAND_SOURCE)), "manual command source inventory");
   same(
     tools.map((tool) => ({ name: tool.name, risk: tool.risk })),
