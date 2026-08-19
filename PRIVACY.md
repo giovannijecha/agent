@@ -165,6 +165,9 @@ During native response decoding, the adapter retains only accepted bounded
 contributions and one content-free rejected state. The first rejected record
 terminalizes that decoder; later records and a clean response end cannot recover
 it or turn earlier accepted evidence into successful completion.
+The owning stream applies the same terminal transition to transport, UTF-8, and
+NDJSON failures before returning them. Later reads cannot inspect more provider
+bytes or convert an earlier partial contribution into a completed response.
 
 Fixture inputs may enumerate public numeric status codes solely to prove the
 closed mapping; those inputs are not returned diagnostics and contain no

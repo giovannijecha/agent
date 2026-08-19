@@ -512,6 +512,53 @@ test("does not settle an empty or abruptly failed native stream", async () => {
   }
 });
 
+test("terminalizes every admitted read failure after a valid contribution", async () => {
+  const cases = [
+    Object.freeze({
+      chunks: [
+        ok(line(response({ content: "accepted response" }))),
+        err(Object.freeze({ kind: "connection" as const })),
+        ok(null),
+      ],
+      reason: "transportConnection",
+    }),
+    Object.freeze({
+      chunks: [
+        ok(line(response({ content: "accepted response" }))),
+        ok(Uint8Array.from([0xe2])),
+        ok(null),
+      ],
+      reason: "encoding",
+    }),
+    Object.freeze({
+      chunks: [
+        ok(line(response({ content: "accepted response" }))),
+        ok(ascii("\n")),
+        ok(null),
+      ],
+      reason: "protocolFraming",
+    }),
+  ] as const;
+
+  for (const item of cases) {
+    const stream = await open(fixture(new FakeStream([...item.chunks])).model);
+    assert.deepEqual(await read(stream), {
+      kind: "delta",
+      text: "accepted response",
+    });
+
+    const rejected = await stream.read();
+    assert.equal(rejected.ok, false);
+    if (!rejected.ok) assert.equal(rejected.error.reason, item.reason);
+
+    const terminal = await stream.read();
+    assert.equal(terminal.ok, false);
+    if (!terminal.ok) {
+      assert.equal(terminal.error.reason, "protocolTerminal");
+    }
+  }
+});
+
 test("classifies malformed native response phases without retaining content", async () => {
   const cases = [
     Object.freeze({

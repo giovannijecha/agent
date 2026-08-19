@@ -269,6 +269,10 @@ Every native record validates thinking, content, and its complete tool-call
 member against staged state before committing any of them to the stream.
 Rejecting any record terminalizes that decoder: later records and a later clean
 HTTP end cannot recover, contribute, or complete the response.
+Any transport, UTF-8, NDJSON, or native-record failure returned by an admitted
+read also terminalizes the owning stream before control returns. A later read
+cannot consult the transport, framer, or decoder and returns only the closed
+terminal failure, so accepted partial evidence can never become completion.
 Credentials and catalog content never enter the transcript, logs, fixtures, or
 documentation.
 
