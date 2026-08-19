@@ -211,43 +211,6 @@ function normalizedProse(value) {
   return value.replace(/\s+/gu, " ").trim();
 }
 
-function visibleManualMarkdown(value) {
-  const withoutComments = value.replace(/<!--[\s\S]*?(?:-->|$)/gu, "");
-  const visibleLines = [];
-  let fenceCharacter;
-  let fenceLength = 0;
-  for (const line of withoutComments.replaceAll("\r\n", "\n").split("\n")) {
-    if (fenceCharacter !== undefined) {
-      const closing = line.match(/^\s{0,3}(`{3,}|~{3,})\s*$/u);
-      const closingToken = closing?.at(1);
-      if (
-        closingToken !== undefined &&
-        closingToken.at(0) === fenceCharacter &&
-        closingToken.length >= fenceLength
-      ) {
-        fenceCharacter = undefined;
-        fenceLength = 0;
-      }
-      continue;
-    }
-    const opening = line.match(/^\s{0,3}(`{3,}|~{3,})/u);
-    const openingToken = opening?.at(1);
-    if (openingToken !== undefined) {
-      fenceCharacter = openingToken.at(0);
-      fenceLength = openingToken.length;
-      continue;
-    }
-    if (/^(?: {4}|\t)/u.test(line)) {
-      continue;
-    }
-    visibleLines.push(line);
-  }
-  return visibleLines.join("\n");
-}
-
-const RAW_HTML_BLOCK_START =
-  /<(?:\/?[A-Za-z][A-Za-z0-9-]*(?=[\t\n\f\r />])|![A-Z]|\?|!\[CDATA\[)/u;
-
 function manualSection(value, heading) {
   const manual = value.replaceAll("\r\n", "\n");
   const marker = "\n## " + heading + "\n";
@@ -263,87 +226,22 @@ function manualSection(value, heading) {
   );
 }
 
-function proseSentences(value) {
-  const sentences = [];
-  for (const candidate of normalizedProse(value).toLowerCase().split(/[.!?]/u)) {
-    const sentence = candidate.trim();
-    if (sentence.length > 0) {
-      sentences.push(sentence);
-    }
-  }
-  return sentences;
+function sha256(value) {
+  return createHash("sha256").update(value, "utf8").digest("hex");
 }
 
-const INERT_SELECTOR_INPUT =
-  /\b(?:ordinary editor input|selector[ -]?inputs?|(?:keyboard|key)[ -]?(?:actions?|events?|inputs?|press(?:es)?|strokes?)|input[ -]?events?|printable (?:input|text|characters?)|typing|editing (?:input|keys?)|paste|tab|home|end|delete|deletion|backspace|word(?:-| )editing|ctrl\+(?:left|right|backspace|w|delete))\b/u;
-const SELECTOR_DISMISSAL_CONTEXT =
-  /\b(?:lists?|menus?|selectors?|focus(?:es)?|foci)\b/u;
-const OWNED_SELECTOR_INPUT_SENTENCES = Object.freeze([
-  "printable and editing input is inert while a dismissible selector owns focus; accepting or cancelling input is consumed without editing the retained draft",
-  "other typing and editing keys are ignored while the menu remains open, so an accidental character neither closes the menu nor disappears into the composer",
-]);
-
-function exactSentenceCount(sentences, expected) {
+function exactSubstringCount(value, expected) {
   let count = 0;
-  for (const sentence of sentences) {
-    if (sentence === expected) {
-      count += 1;
+  let offset = 0;
+  while (offset <= value.length - expected.length) {
+    const found = value.indexOf(expected, offset);
+    if (found < 0) {
+      break;
     }
+    count += 1;
+    offset = found + expected.length;
   }
   return count;
-}
-
-function hasUnregisteredSelectorInputGuidance(
-  terminal,
-  useSelectors,
-  readInterface,
-) {
-  const sentences = proseSentences(terminal);
-  const useSelectorSentences = proseSentences(useSelectors);
-  const readInterfaceSentences = proseSentences(readInterface);
-  const firstOwnedSentence = OWNED_SELECTOR_INPUT_SENTENCES.at(0);
-  const secondOwnedSentence = OWNED_SELECTOR_INPUT_SENTENCES.at(1);
-  if (
-    firstOwnedSentence === undefined ||
-    secondOwnedSentence === undefined ||
-    exactSentenceCount(sentences, firstOwnedSentence) !== 1 ||
-    exactSentenceCount(useSelectorSentences, firstOwnedSentence) !== 1 ||
-    exactSentenceCount(sentences, secondOwnedSentence) !== 1 ||
-    exactSentenceCount(readInterfaceSentences, secondOwnedSentence) !== 1
-  ) {
-    return true;
-  }
-  for (let index = 0; index < sentences.length; index += 1) {
-    const sentence = sentences.at(index);
-    if (
-      sentence === undefined ||
-      !INERT_SELECTOR_INPUT.test(sentence) ||
-      OWNED_SELECTOR_INPUT_SENTENCES.includes(sentence)
-    ) {
-      continue;
-    }
-    const previous = index > 0 ? sentences.at(index - 1) : undefined;
-    const next =
-      index + 1 < sentences.length ? sentences.at(index + 1) : undefined;
-    if (
-      SELECTOR_DISMISSAL_CONTEXT.test(sentence) ||
-      (previous !== undefined && SELECTOR_DISMISSAL_CONTEXT.test(previous)) ||
-      (next !== undefined && SELECTOR_DISMISSAL_CONTEXT.test(next))
-    ) {
-      return true;
-    }
-  }
-  for (const authority of [useSelectorSentences, readInterfaceSentences]) {
-    for (const sentence of authority) {
-      if (
-        INERT_SELECTOR_INPUT.test(sentence) &&
-        !OWNED_SELECTOR_INPUT_SENTENCES.includes(sentence)
-      ) {
-        return true;
-      }
-    }
-  }
-  return false;
 }
 
 function verifyToolConvergence(tools, context) {
@@ -386,52 +284,83 @@ function verifyRemovalSchemaGuidance(policy, context) {
   }
 }
 
-function verifySelectorDismissal(contract, context) {
+function verifySelectorDismissal(contract, chapter, context) {
   exactKeys(
     contract,
-    ["algorithm", "path", "sha256"],
+    ["algorithm", "clauses", "path", "sections", "sha256"],
     "manual selector dismissal contract",
   );
   if (
     contract.algorithm !== "sha256" ||
     contract.path !== "docs/manual/03-terminal-interface.md" ||
     typeof contract.sha256 !== "string" ||
-    !/^[a-f0-9]{64}$/u.test(contract.sha256)
+    !/^[a-f0-9]{64}$/u.test(contract.sha256) ||
+    chapter.path !== contract.path ||
+    !Array.isArray(contract.sections) ||
+    contract.sections.length !== chapter.sections.length ||
+    !Array.isArray(contract.clauses) ||
+    contract.clauses.length !== 3
   ) {
     fail("manual selector dismissal contract is invalid");
   }
   ownedPath(contract.path, "manual selector dismissal path");
   const terminalText = fileText(context, contract.path);
-  const visibleTerminal = visibleManualMarkdown(terminalText);
-  const terminal = normalizedProse(visibleTerminal);
-  const useSelectors = manualSection(visibleTerminal, "Use selectors");
-  const readInterface = manualSection(visibleTerminal, "Read the interface");
-  const digest = createHash("sha256")
-    .update(
-      terminalText.replaceAll("\r\n", "\n"),
-      "utf8",
-    )
-    .digest("hex");
-  if (
-    digest !== contract.sha256 ||
-    RAW_HTML_BLOCK_START.test(visibleTerminal) ||
-    hasUnregisteredSelectorInputGuidance(
-      terminal,
-      useSelectors,
-      readInterface,
-    ) ||
-    !terminal.includes(
-      "Printable and editing input is inert while a dismissible selector owns focus",
-    ) ||
-    !terminal.includes(
-      "Escape or Ctrl+C cancels the menu and restores the unchanged draft",
-    ) ||
-    !terminal.includes(
-      "Other typing and editing keys are ignored while the menu remains open",
-    )
-  ) {
+  const normalizedTerminal = terminalText.replaceAll("\r\n", "\n");
+  if (sha256(normalizedTerminal) !== contract.sha256) {
     fail("manual selector dismissal contract is inconsistent");
   }
+
+  const sectionBodies = new Map();
+  for (let index = 0; index < contract.sections.length; index += 1) {
+    const section = contract.sections.at(index);
+    const expectedHeading = chapter.sections.at(index);
+    if (!isRecord(section)) {
+      fail("manual selector dismissal section contract is invalid");
+    }
+    exactKeys(
+      section,
+      ["heading", "sha256"],
+      "manual selector dismissal section contract",
+    );
+    if (
+      section.heading !== expectedHeading ||
+      typeof section.sha256 !== "string" ||
+      !/^[a-f0-9]{64}$/u.test(section.sha256)
+    ) {
+      fail("manual selector dismissal section contract is invalid");
+    }
+    const body = manualSection(normalizedTerminal, section.heading);
+    if (sha256(body) !== section.sha256) {
+      fail("manual selector dismissal contract is inconsistent");
+    }
+    sectionBodies.set(section.heading, normalizedProse(body));
+  }
+
+  const clauseKeys = [];
+  for (const clause of contract.clauses) {
+    if (!isRecord(clause)) {
+      fail("manual selector dismissal clause is invalid");
+    }
+    exactKeys(
+      clause,
+      ["section", "text"],
+      "manual selector dismissal clause",
+    );
+    const body = sectionBodies.get(clause.section);
+    if (
+      body === undefined ||
+      typeof clause.text !== "string" ||
+      clause.text !== normalizedProse(clause.text) ||
+      clause.text.length < 16 ||
+      clause.text.length > 512 ||
+      /[\p{Cc}\p{Cf}\p{Cs}\u2028\u2029]/u.test(clause.text) ||
+      exactSubstringCount(body, clause.text) !== 1
+    ) {
+      fail("manual selector dismissal clause is invalid");
+    }
+    clauseKeys.push(clause.section + "\n" + clause.text);
+  }
+  unique(clauseKeys, "manual selector dismissal clauses");
 }
 
 function verifyChapter(chapter, index, context) {
@@ -530,7 +459,7 @@ export function validateManualPolicy(policy, context) {
     ],
     "manual policy",
   );
-  if (policy.schemaVersion !== 11 || policy.index !== INDEX_PATH) {
+  if (policy.schemaVersion !== 12 || policy.index !== INDEX_PATH) {
     fail("unsupported manual policy schema or index");
   }
   if (!isRecord(context) || !Array.isArray(context.manualPaths) || !Array.isArray(context.ownedPaths)) {
@@ -556,7 +485,13 @@ export function validateManualPolicy(policy, context) {
   const tools = validateToolSurface(policy.toolSurface);
   verifyDescriptorConstruction(context);
   verifyRemovalSchemaGuidance(policy, context);
-  verifySelectorDismissal(policy.selectorDismissal, context);
+  const terminalChapter = policy.chapters.find(
+    (chapter) => chapter.path === policy.selectorDismissal.path,
+  );
+  if (terminalChapter === undefined) {
+    fail("manual selector dismissal chapter is missing");
+  }
+  verifySelectorDismissal(policy.selectorDismissal, terminalChapter, context);
   same(commands, extractCommands(fileText(context, COMMAND_SOURCE)), "manual command source inventory");
   same(
     tools.map((tool) => ({ name: tool.name, risk: tool.risk })),

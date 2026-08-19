@@ -605,8 +605,8 @@ test("preserves both directions when a consolidation is superseded", () => {
   const context = currentContext();
   context.files[policy.decisionIndex] = context.files[policy.decisionIndex]
     .replace(
-      "| documentation | [0070 information architecture](0070-owned-documentation-information-architecture.md), [0071 task-oriented operator manual](0071-owned-task-oriented-operator-manual.md) |",
-      "| documentation | [0070 information architecture](0070-owned-documentation-information-architecture.md) |",
+      "| documentation | [0081 structural manual policy](0081-owned-structural-manual-policy.md), [0070 information architecture](0070-owned-documentation-information-architecture.md), [0071 task-oriented operator manual](0071-owned-task-oriented-operator-manual.md) |",
+      "| documentation | [0081 structural manual policy](0081-owned-structural-manual-policy.md), [0070 information architecture](0070-owned-documentation-information-architecture.md) |",
     )
     .replace(
       "| [0070](0070-owned-documentation-information-architecture.md) | accepted | documentation | current |",
@@ -629,7 +629,7 @@ test("preserves both directions when a consolidation is superseded", () => {
       .replace("- Superseded by: none", "- Superseded by: 0070");
   const currentDecisionAuthorities = {
     ...policy.currentDecisionAuthorities,
-    documentation: ["0070"],
+    documentation: ["0081", "0070"],
   };
   const decisionRelationshipEdges = policy.decisionRelationshipEdges.flatMap(
     (edge) =>

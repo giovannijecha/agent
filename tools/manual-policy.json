@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 11,
+  "schemaVersion": 12,
   "index": "docs/manual/README.md",
   "chapters": [
     {
@@ -113,8 +113,56 @@
   ],
   "selectorDismissal": {
     "algorithm": "sha256",
+    "clauses": [
+      {
+        "section": "Use selectors",
+        "text": "Printable and editing input is inert while a dismissible selector owns focus; accepting or cancelling input is consumed without editing the retained draft."
+      },
+      {
+        "section": "Read the interface",
+        "text": "Escape or Ctrl+C cancels the menu and restores the unchanged draft."
+      },
+      {
+        "section": "Read the interface",
+        "text": "Other typing and editing keys are ignored while the menu remains open, so an accidental character neither closes the menu nor disappears into the composer."
+      }
+    ],
     "path": "docs/manual/03-terminal-interface.md",
-    "sha256": "40679df0486eb999aa5a09d31447ab7085ba0f5c8edde7728a1ba0a381670cb9"
+    "sections": [
+      {
+        "heading": "Write and edit",
+        "sha256": "86f2f385f5852a1180c73eefe86f5dece04948ca0b7f745b06896ec20ffeb608"
+      },
+      {
+        "heading": "Paste text",
+        "sha256": "0975063b6d51eec111bdbf555f7e69f0e1c49893bf6fe2f0d08cda06ed9da2ac"
+      },
+      {
+        "heading": "Run commands",
+        "sha256": "5212dcf99532006c9c530546d23a03972fd87e360a1455b79b0f5b5edfc5b6b4"
+      },
+      {
+        "heading": "Use selectors",
+        "sha256": "4a5b4055a20e5eecd217f838adea52da4654d233996b386ebbb69158339f197b"
+      },
+      {
+        "heading": "Navigate and copy",
+        "sha256": "c18dbcfe0b5a0b543d35dd75e9c3dbab910bab649ffb8efa19d6b3c74e34bcb6"
+      },
+      {
+        "heading": "Read the interface",
+        "sha256": "b00ae628e5518fa4ac516e0686e6f1af89828895cc028a6a068f2b0e382ad028"
+      },
+      {
+        "heading": "Recover from terminal problems",
+        "sha256": "3d159168ce745c4847a285ed97d0919598a5ffa4e78d2749f230f18a9b3c17c9"
+      },
+      {
+        "heading": "References",
+        "sha256": "47ae9f2a4d1376c827780f32cdeaf635695ebb973f1d388fe7f891d62ed629fc"
+      }
+    ],
+    "sha256": "598bdb9c592c1937bb52650b344674e78693e5875ce2b9825beb185d730d6243"
   },
   "toolSurface": {
     "tools": [
@@ -239,6 +287,7 @@
     "docs/decisions/0077-owned-terminal-blinking-block-cursor.md",
     "docs/decisions/0078-owned-interaction-dock-focus.md",
     "docs/decisions/0079-owned-explicit-selector-dismissal.md",
+    "docs/decisions/0081-owned-structural-manual-policy.md",
     "evaluations/README.md",
     "evaluations/failures/registry.json",
     "assets/brand/README.md",

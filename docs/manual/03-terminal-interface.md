@@ -171,3 +171,4 @@ display styling never executes code or changes model text.
 - [Blinking-block cursor decision](../decisions/0077-owned-terminal-blinking-block-cursor.md)
 - [Interaction-dock focus decision](../decisions/0078-owned-interaction-dock-focus.md)
 - [Explicit-selector dismissal decision](../decisions/0079-owned-explicit-selector-dismissal.md)
+- [Structural manual-policy decision](../decisions/0081-owned-structural-manual-policy.md)

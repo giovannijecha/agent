@@ -44,7 +44,7 @@ belong here.
 | Domain | Entry points |
 | --- | --- |
 | architecture | [0076 durable session journal](0076-owned-bounded-session-journal.md), [0075 branching conversation tree](0075-owned-branching-conversation-tree.md), [0074 deterministic read overlap](0074-owned-deterministic-read-overlap.md), [0013 single-agent execution](0013-single-agent-execution.md), [0052 checkpointed failures](0052-owned-checkpointed-turn-failure-classification.md), [0061 convergent turns](0061-owned-convergent-tool-turns.md) |
-| documentation | [0070 information architecture](0070-owned-documentation-information-architecture.md), [0071 task-oriented operator manual](0071-owned-task-oriented-operator-manual.md) |
+| documentation | [0081 structural manual policy](0081-owned-structural-manual-policy.md), [0070 information architecture](0070-owned-documentation-information-architecture.md), [0071 task-oriented operator manual](0071-owned-task-oriented-operator-manual.md) |
 | engineering | [0012 continuous verification](0012-owned-continuous-verification.md) |
 | evaluation | [0047 reproducible evaluation](0047-owned-reproducible-task-evaluation.md), [0048 receipt](0048-owned-content-free-evaluation-receipt.md), [0049 failure registry](0049-owned-evaluation-failure-registry.md), [0064 TypeScript fixture](0064-owned-self-verifying-typescript-evaluation.md), [0065 red-green recovery](0065-owned-red-green-tool-recovery-evaluation.md), [0066 namespace directory](0066-owned-namespace-directory-evaluation.md) |
 | foundation | [0002 TypeScript foundation](0002-owned-zero-dependency-typescript.md) |
@@ -138,3 +138,4 @@ belong here.
 | [0078](0078-owned-interaction-dock-focus.md) | accepted | terminal | current |
 | [0079](0079-owned-explicit-selector-dismissal.md) | accepted | terminal | current |
 | [0080](0080-owned-provider-http-outcome-classification.md) | accepted | providers | current |
+| [0081](0081-owned-structural-manual-policy.md) | accepted | documentation | current |

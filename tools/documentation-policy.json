@@ -82,7 +82,8 @@
     "docs/decisions/0077-owned-terminal-blinking-block-cursor.md",
     "docs/decisions/0078-owned-interaction-dock-focus.md",
     "docs/decisions/0079-owned-explicit-selector-dismissal.md",
-    "docs/decisions/0080-owned-provider-http-outcome-classification.md"
+    "docs/decisions/0080-owned-provider-http-outcome-classification.md",
+    "docs/decisions/0081-owned-structural-manual-policy.md"
   ],
   "decisionIndexLifecycleDigest": {
     "algorithm": "sha256",
@@ -135,7 +136,8 @@
     "0077": "2026-08-18",
     "0078": "2026-08-18",
     "0079": "2026-08-18",
-    "0080": "2026-08-19"
+    "0080": "2026-08-19",
+    "0081": "2026-08-19"
   },
   "historicalDecisionStatusExceptions": {
     "0009": "accepted"
@@ -192,7 +194,7 @@
   ],
   "decisionRecordDigest": {
     "algorithm": "sha256",
-    "value": "518dcb5f68f82ed49669b866b93e9ccac8008dcaf86a8b9e60103f40b649b0cf"
+    "value": "c6fd301752f5af1bff261db7dcf1a9493499880127e4c54e95a3281b435de917"
   },
   "decisionDomainMembers": {
     "architecture": [
@@ -209,7 +211,8 @@
     "documentation": [
       "0009",
       "0070",
-      "0071"
+      "0071",
+      "0081"
     ],
     "engineering": [
       "0012"
@@ -306,6 +309,7 @@
       "0061"
     ],
     "documentation": [
+      "0081",
       "0070",
       "0071"
     ],
