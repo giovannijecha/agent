@@ -390,13 +390,14 @@ Delete its export, tests, documentation, and renderer branches together.
 ### Ollama Cloud
 
 **Owners:** `@agent/provider-ollama-cloud`, CLI HTTPS transport and catalog
-transport, `tools/provider-policy.json`, decisions 0072 and 0080,
+transport, `tools/provider-policy.json`, decisions 0072, 0080, and 0082,
 [providers](PROVIDERS.md), and [privacy](../PRIVACY.md).
 
 For an adapter or transport change:
 
 1. verify the provider-published endpoint and exact admitted origin;
-2. update request, catalog, stream, bounds, inactivity, wall-clock deadline,
+2. update request, catalog, stream framing, native message and tool-call
+   normalization, canonical history, bounds, inactivity, wall-clock deadline,
    cancellation, and cleanup contracts;
 3. keep credentials and catalog state process-only;
 4. add offline request/response and adversarial transport tests;
@@ -417,10 +418,20 @@ catalog, but catalog membership alone does not prove entitlement, credit,
 quota, or capacity. Never inspect or persist an error body, hard-code a model,
 retry, alias, or fall back to conceal one of these outcomes.
 
+For `model/read/protocol/<phase>`, inspect only the named owned boundary:
+`transport` snapshots or content type, `framing` UTF-8 or NDJSON structure,
+`envelope` top-level identity, `message` assistant fields, `tool-call` native
+call normalization, or `terminal` completion. Reproduce with a bounded offline
+fixture and keep its contents out of the public code. Do not relax the native
+contract, parse serialized arguments a second time, or add a model-specific
+branch. Missing, null, and empty `tool_calls` members are already the admitted
+no-contribution forms.
+
 To remove Ollama Cloud, delete the adapter, CLI transport, commands/session
-registration, provider policy entry, declarations, tests, public contract, and
-decision status together. The product returns to no admitted provider; do not
-select a replacement implicitly.
+registration, provider policy entry, normalizer and phase mapping,
+declarations, tests, public contract, and decisions 0072, 0080, and 0082 status
+together. The product returns to no admitted provider; do not select a
+replacement implicitly.
 
 ### Workspace trust boundary
 

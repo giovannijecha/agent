@@ -3,7 +3,10 @@ import test from "node:test";
 
 import type { TurnFailure } from "@agent/runtime";
 
-import { projectTurnFailure } from "../dist/turn-failure-presentation.js";
+import {
+  isTurnFailureCode,
+  projectTurnFailure,
+} from "../dist/turn-failure-presentation.js";
 
 const CASES = [
   [{ kind: "model", operation: "open", error: "private" }, "model/open"],
@@ -120,6 +123,31 @@ test("retains completed tool truth in a classified continuation failure", () => 
     projected.notice,
     "The turn failed (model/open/timeout); the provider did not open a usable response stream; completed tool activity remains in conversation.",
   );
+});
+
+test("projects and validates one exact provider protocol phase", () => {
+  const projected = projectTurnFailure(
+    {
+      error: Object.freeze({
+        cleanupFailed: false,
+        kind: "ollamaCloud" as const,
+        operation: "read" as const,
+        reason: "protocolToolCall" as const,
+      }),
+      kind: "model",
+      operation: "read",
+    },
+    false,
+  );
+  assert.equal(projected.code, "model/read/protocol/tool-call");
+  assert.equal(isTurnFailureCode(projected.code), true);
+  for (const invalid of [
+    "model/read/protocol/private",
+    "model/read/protocol/tool-call/private",
+    "model/open/request/transport",
+  ]) {
+    assert.equal(isTurnFailureCode(invalid), false);
+  }
 });
 
 test("maps an unknown hostile variant to one content-free residual code", () => {

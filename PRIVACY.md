@@ -13,6 +13,13 @@ Without a configured runtime, submitted text is discarded after a generic
 notice. It is not added to conversation state, displayed in the transcript,
 written to disk, or sent over a network.
 
+Provider failures retain only a closed operation, family, and, for native
+protocol failures, one phase from `transport`, `framing`, `envelope`, `message`,
+`tool-call`, or `terminal`. Numeric status, headers, response bodies, raw stream
+records, model output, tool arguments, credentials, and foreign causes are not
+retained, journaled, logged, rendered, or copied into fixtures. Phase labels
+diagnose an owned boundary and do not identify provider content.
+
 ## Local tools
 
 The five filesystem tools share the one canonical workspace selected at

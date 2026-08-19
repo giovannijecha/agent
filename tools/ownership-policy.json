@@ -100,6 +100,7 @@
     "docs/decisions/0079-owned-explicit-selector-dismissal.md",
     "docs/decisions/0080-owned-provider-http-outcome-classification.md",
     "docs/decisions/0081-owned-structural-manual-policy.md",
+    "docs/decisions/0082-owned-ollama-tool-stream-normalization.md",
     "evaluations/README.md"
   ],
   "workspaces": [

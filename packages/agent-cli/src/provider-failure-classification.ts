@@ -13,6 +13,19 @@ export type ProviderFailureFamily =
   | "request"
   | "timeout";
 
+export type ProviderProtocolPhase =
+  | "envelope"
+  | "framing"
+  | "message"
+  | "terminal"
+  | "tool-call"
+  | "transport";
+
+export type ProviderFailureClassification = Readonly<{
+  family: ProviderFailureFamily;
+  protocolPhase?: ProviderProtocolPhase;
+}>;
+
 export type ProviderModelFailure = OllamaCloudError;
 
 type ProviderFailureOperation = ProviderModelFailure["operation"];
@@ -20,19 +33,21 @@ type ProviderFailureReason = OllamaCloudFailureReason;
 
 function classifyReason(
   reason: ProviderFailureReason,
-): ProviderFailureFamily {
-  if (reason === "statusConnectivity") return "connectivity";
-  if (reason === "statusLimit") return "limit";
-  if (reason === "statusProtocol") return "protocol";
-  if (reason === "statusRejected") return "rejected";
-  if (reason === "statusRequest") return "request";
-  if (reason === "statusTimeout") return "timeout";
-  if (reason === "transportConnection") return "connectivity";
-  if (reason === "transportTimeout") return "timeout";
-  if (reason === "request") return "request";
-  if (reason === "limit" || reason === "transportLimit") return "limit";
+): ProviderFailureClassification {
+  if (reason === "statusConnectivity") return classification("connectivity");
+  if (reason === "statusLimit") return classification("limit");
+  if (reason === "statusProtocol") return protocolClassification("transport");
+  if (reason === "statusRejected") return classification("rejected");
+  if (reason === "statusRequest") return classification("request");
+  if (reason === "statusTimeout") return classification("timeout");
+  if (reason === "transportConnection") return classification("connectivity");
+  if (reason === "transportTimeout") return classification("timeout");
+  if (reason === "request") return classification("request");
+  if (reason === "limit" || reason === "transportLimit") {
+    return classification("limit");
+  }
   if (reason === "cancelled" || reason === "transportCancelled") {
-    return "cancelled";
+    return classification("cancelled");
   }
   if (
     reason === "closed" ||
@@ -40,9 +55,42 @@ function classifyReason(
     reason === "transportClosed" ||
     reason === "transportConcurrentRead"
   ) {
-    return "lifecycle";
+    return classification("lifecycle");
   }
-  return "protocol";
+  if (
+    reason === "contentType" ||
+    reason === "transportProtocol"
+  ) {
+    return protocolClassification("transport");
+  }
+  if (reason === "encoding" || reason === "protocolFraming") {
+    return protocolClassification("framing");
+  }
+  if (reason === "protocolEnvelope") {
+    return protocolClassification("envelope");
+  }
+  if (reason === "protocolMessage") {
+    return protocolClassification("message");
+  }
+  if (reason === "protocolToolCall") {
+    return protocolClassification("tool-call");
+  }
+  if (reason === "finishReason" || reason === "protocolTerminal") {
+    return protocolClassification("terminal");
+  }
+  return classification("protocol");
+}
+
+function classification(
+  family: ProviderFailureFamily,
+): ProviderFailureClassification {
+  return Object.freeze({ family });
+}
+
+function protocolClassification(
+  protocolPhase: ProviderProtocolPhase,
+): ProviderFailureClassification {
+  return Object.freeze({ family: "protocol" as const, protocolPhase });
 }
 
 function isProviderFailureReason(
@@ -57,6 +105,11 @@ function isProviderFailureReason(
     reason === "finishReason" ||
     reason === "limit" ||
     reason === "protocol" ||
+    reason === "protocolEnvelope" ||
+    reason === "protocolFraming" ||
+    reason === "protocolMessage" ||
+    reason === "protocolTerminal" ||
+    reason === "protocolToolCall" ||
     reason === "request" ||
     reason === "statusConnectivity" ||
     reason === "statusLimit" ||
@@ -78,7 +131,7 @@ function isProviderFailureReason(
 export function classifyProviderFailure(
   value: unknown,
   operation: ProviderFailureOperation,
-): ProviderFailureFamily | undefined {
+): ProviderFailureClassification | undefined {
   if (value === null || typeof value !== "object") return undefined;
   const candidate = value as Readonly<{
     cleanupFailed?: unknown;

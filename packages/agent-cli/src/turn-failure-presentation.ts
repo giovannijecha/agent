@@ -11,10 +11,18 @@ export type TurnFailurePresentation = Readonly<{
 function failureCode<E>(failure: TurnFailure<E>): string {
   const kind = failure.kind;
   if (kind === "model") {
-    const family = classifyProviderFailure(failure.error, failure.operation);
+    const classification = classifyProviderFailure(
+      failure.error,
+      failure.operation,
+    );
     return (
       "model/" + failure.operation +
-      (family === undefined ? "" : "/" + family)
+      (classification === undefined
+        ? ""
+        : "/" + classification.family +
+          (classification.protocolPhase === undefined
+            ? ""
+            : "/" + classification.protocolPhase))
     );
   }
   if (kind === "invalidModelResult") {
@@ -97,6 +105,15 @@ const PROVIDER_FAILURE_FAMILIES = Object.freeze([
   "timeout",
 ]);
 
+const PROVIDER_PROTOCOL_PHASES = Object.freeze([
+  "envelope",
+  "framing",
+  "message",
+  "terminal",
+  "tool-call",
+  "transport",
+]);
+
 /** Validates the closed content-free failure vocabulary retained by a journal. */
 export function isTurnFailureCode(value: unknown): value is string {
   if (typeof value !== "string") {
@@ -113,7 +130,15 @@ export function isTurnFailureCode(value: unknown): value is string {
     : value.startsWith("model/read/")
       ? value.slice("model/read/".length)
       : undefined;
-  return family !== undefined && PROVIDER_FAILURE_FAMILIES.includes(family);
+  if (family === undefined) {
+    return false;
+  }
+  if (PROVIDER_FAILURE_FAMILIES.includes(family)) {
+    return true;
+  }
+  const protocolPrefix = "protocol/";
+  return family.startsWith(protocolPrefix) &&
+    PROVIDER_PROTOCOL_PHASES.includes(family.slice(protocolPrefix.length));
 }
 
 /** Rebuilds the exact bounded transcript marker from a validated code. */

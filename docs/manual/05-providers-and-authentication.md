@@ -90,6 +90,17 @@ admission.
 - The `model/open/rejected` notice therefore asks you to verify plan, credit,
   authorization, and model availability without claiming which provider-owned
   condition failed.
+- `model/read/protocol/transport`, `/framing`, `/envelope`, `/message`,
+  `/tool-call`, or `/terminal` identifies the first native response boundary
+  that rejected an opened stream. It does not expose provider text or prove a
+  model defect. Reproduce it with the same current model and report the exact
+  content-free code; do not paste prompts, responses, or tool arguments.
+
+The native decoder is shared by every selected model. Missing, null, and empty
+tool-call members mean that a stream chunk contributed no call; real calls are
+normalized in provider order and settled history uses one canonical native
+form. Agent does not switch parsers, coerce serialized arguments, retry, or
+change endpoints for one model.
 
 Agent does not print response bodies, provider-specific causes, credentials,
 prompts, or model content as diagnostics. It does not retry, change models, or
@@ -104,5 +115,6 @@ fall back to another endpoint after a catalog or chat failure.
 - [Current authority by domain](../decisions/README.md#current-authority-by-domain)
 - [Ollama Cloud provider decision](../decisions/0072-owned-ollama-cloud-provider.md)
 - [Provider HTTP outcome decision](../decisions/0080-owned-provider-http-outcome-classification.md)
+- [Ollama tool-stream normalization decision](../decisions/0082-owned-ollama-tool-stream-normalization.md)
 - [Ephemeral provider and model selection decision](../decisions/0068-owned-ephemeral-provider-and-model-selection.md)
 - [Tool-call interoperability decision](../decisions/0069-owned-tool-call-interoperability.md)

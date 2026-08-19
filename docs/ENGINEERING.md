@@ -157,6 +157,10 @@ does not prove a contract that names an exact invocation.
   state.
 - User-facing failures expose only the closed product classification. Provider
   bodies, credentials, paths, call identifiers, and model payloads stay private.
+- Provider contract tests use offline native fixtures to cover every admitted
+  optional representation, canonical history encoding, malformed framing,
+  envelope, message, tool-call, and terminal input, and the exact content-free
+  public phase. A model name is never a parser branch or a fixture rationale.
 - One observed evaluation failure is evidence to investigate, not authority for
   a product change.
 - Invalid evaluation fixtures are corrected or removed before their evidence is

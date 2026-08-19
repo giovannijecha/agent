@@ -231,7 +231,8 @@ grant access.
 Ollama Cloud is the sole admitted direct provider. The integration is split
 between:
 
-- the Node-free package adapter, which builds bounded requests and decodes the
+- the Node-free package adapter, which builds bounded requests, normalizes the
+  admitted native Ollama message and tool-call variants, and decodes the
   provider stream into runtime events;
 - the CLI transport, which owns HTTPS, exact origins, bearer authentication,
   response limits, inactivity limits, and wall-clock deadlines.
@@ -247,6 +248,12 @@ There is no redirect, alias, retry, router, or fallback. Provider errors cross
 the product boundary only through closed content-free failure families. A
 non-successful chat status is classified by HTTP outcome before the response is
 closed, without retaining its number or reading its body.
+The adapter treats a missing, null, or empty native `tool_calls` member as no
+contribution, validates every non-empty call into one bounded ordered batch,
+and writes settled assistant tool history in one canonical native
+`type`/`function.index` form. Protocol failures identify only the closed
+`transport`, `framing`, `envelope`, `message`, `tool-call`, or `terminal` phase;
+they never expose provider content or authorize model-specific behavior.
 Credentials and catalog content never enter the transcript, logs, fixtures, or
 documentation.
 
