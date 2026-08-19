@@ -214,7 +214,7 @@ function normalizedProse(value) {
 const INERT_SELECTOR_INPUT =
   /\b(?:ordinary editor input|printable (?:input|text|characters?)|typing|editing (?:input|keys?)|paste|tab|home|end|delete|deletion|backspace|word(?:-| )editing|ctrl\+(?:left|right|backspace|w|delete))\b/u;
 const SELECTOR_DISMISSAL_CONTEXT =
-  /\b(?:menus?|selectors?|focus(?:es)?|foci)\b/u;
+  /\b(?:lists?|menus?|selectors?|focus(?:es)?|foci)\b/u;
 const OWNED_SELECTOR_INPUT_SENTENCES = Object.freeze([
   "printable and editing input is inert while a dismissible selector owns focus; accepting or cancelling input is consumed without editing the retained draft",
   "other typing and editing keys are ignored while the menu remains open, so an accidental character neither closes the menu nor disappears into the composer",

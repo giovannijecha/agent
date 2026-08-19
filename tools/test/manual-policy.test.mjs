@@ -284,6 +284,27 @@ test("rejects unregistered plural selector context wording", () => {
   }
 });
 
+test("rejects singular and plural list selector context wording", () => {
+  const contradictions = [
+    "Ctrl+W closes the list.",
+    "Ctrl+Delete dismisses lists.",
+  ];
+  for (const contradiction of contradictions) {
+    const policy = structuredClone(currentPolicy);
+    const context = currentContext();
+    const chapter = policy.selectorDismissal.path;
+    context.files[chapter] += "\n" + contradiction + "\n";
+    repinSelectorDismissal(policy, context);
+    assert.throws(
+      () => validateManualPolicy(policy, context),
+      {
+        message: "manual selector dismissal contract is inconsistent",
+        name: "ManualPolicyError",
+      },
+    );
+  }
+});
+
 test("rejects unregistered negative selector guidance after repinning", () => {
   const policy = structuredClone(currentPolicy);
   const context = currentContext();
