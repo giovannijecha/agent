@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 10,
+  "schemaVersion": 11,
   "index": "docs/manual/README.md",
   "chapters": [
     {
@@ -111,6 +111,11 @@
     "/providers",
     "/timeline"
   ],
+  "selectorDismissal": {
+    "algorithm": "sha256",
+    "path": "docs/manual/03-terminal-interface.md",
+    "sha256": "40679df0486eb999aa5a09d31447ab7085ba0f5c8edde7728a1ba0a381670cb9"
+  },
   "toolSurface": {
     "tools": [
       {

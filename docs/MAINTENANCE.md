@@ -248,7 +248,7 @@ To remove namespace mutation, remove `manage_path` advertisement and manual
 inventory before deleting its planner, preview, committer, protocol, native
 sources, focused tests, decision, and policy entries.
 
-If the complete inventory is retired, replace manual-policy schema 10 with a
+If the complete inventory is retired, replace manual-policy schema 11 with a
 schema that removes the advertised tool inventory; do not leave an empty or
 stale registry behind.
 
@@ -334,6 +334,10 @@ and EOF as global routes. If Escape cannot close a selector, trace the Node host
 single trailing-byte timer, its 30-millisecond settled marker, the generic
 decoder event, and the shared CLI selector reducer in that order. Do not decode
 raw Escape in a component or make arrow-key correctness depend on stream chunking.
+The manual policy pins the normalized terminal-interface chapter so alternate
+wording cannot reintroduce a contradictory selector-dismissal contract while
+retaining the required sentence. Repin that digest only with the corresponding
+behavior, decision, manual, focused regression, and removal guidance.
 
 When selection focus replaces the composer, project any active composer-placed
 transient notice through the selector header's trailing edge. The notice

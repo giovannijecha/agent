@@ -108,6 +108,24 @@ test("rejects implicit selector dismissal guidance", () => {
   );
 });
 
+test("rejects contradictory selector dismissal guidance", () => {
+  const context = currentContext();
+  const chapter = "docs/manual/03-terminal-interface.md";
+  const maintained = context.files[chapter];
+  context.files[chapter] = context.files[chapter].replace(
+    "Other typing and editing keys\nare ignored while the menu remains open",
+    "Other typing and editing keys close the menu and are consumed",
+  );
+  assert.notEqual(context.files[chapter], maintained);
+  assert.throws(
+    () => validateManualPolicy(currentPolicy, context),
+    {
+      message: "manual selector dismissal contract is inconsistent",
+      name: "ManualPolicyError",
+    },
+  );
+});
+
 test("binds each chapter to its declared task-specific sections", () => {
   const policy = structuredClone(currentPolicy);
   policy.chapters.at(1).sections = [
@@ -426,7 +444,7 @@ test("rejects stale manual removal schema guidance", () => {
   const maintainedGuidance = context.files["docs/MAINTENANCE.md"];
   context.files["docs/MAINTENANCE.md"] = context.files[
     "docs/MAINTENANCE.md"
-  ].replace("manual-policy schema 10", "manual-policy schema 9");
+  ].replace("manual-policy schema 11", "manual-policy schema 10");
   assert.notEqual(context.files["docs/MAINTENANCE.md"], maintainedGuidance);
   assert.throws(
     () => validateManualPolicy(currentPolicy, context),
