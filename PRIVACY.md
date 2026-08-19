@@ -15,7 +15,7 @@ written to disk, or sent over a network.
 
 Provider failures retain only a closed operation, family, and, for native
 protocol failures, one phase from `transport`, `framing`, `envelope`, `message`,
-`tool-call`, or `terminal`. Numeric status, headers, response bodies, raw stream
+`tool-call`, `finish`, or `terminal`. Numeric status, headers, response bodies, raw stream
 records, model output, tool arguments, credentials, and foreign causes are not
 retained, journaled, logged, rendered, or copied into fixtures. Phase labels
 diagnose an owned boundary and do not identify provider content.

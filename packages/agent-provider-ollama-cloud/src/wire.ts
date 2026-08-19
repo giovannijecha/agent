@@ -197,6 +197,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 const VALID_TOOL_NAME = /^[a-z][a-z0-9_]{0,63}$/u;
 
+type AcceptedTools = Readonly<{
+  argumentCodeUnits: number;
+  calls: readonly ModelToolCall[];
+}>;
+
 /** Stateful validator for one native Ollama NDJSON chat response. */
 export class OllamaChatDecoder {
   readonly #model: OllamaCloudModelId;
@@ -248,32 +253,40 @@ export class OllamaChatDecoder {
     if (typeof content !== "string") {
       return err(failure("protocolMessage"));
     }
-    if (message.thinking !== undefined && message.thinking !== null) {
-      if (typeof message.thinking !== "string") {
+    let thinkingCodeUnits = this.#thinkingCodeUnits;
+    let hasThinking = false;
+    const thinking = message.thinking;
+    if (thinking !== undefined && thinking !== null) {
+      if (typeof thinking !== "string") {
         return err(failure("protocolMessage"));
       }
-      this.#thinkingCodeUnits += message.thinking.length;
-      if (this.#thinkingCodeUnits > OLLAMA_CLOUD_LIMITS.thinkingCodeUnits) {
+      thinkingCodeUnits += thinking.length;
+      if (thinkingCodeUnits > OLLAMA_CLOUD_LIMITS.thinkingCodeUnits) {
         return err(failure("limit"));
       }
-      if (message.thinking.length > 0) {
-        this.#hasContribution = true;
-      }
+      hasThinking = thinking.length > 0;
     }
+
+    let acceptedTools = Object.freeze({
+      argumentCodeUnits: this.#toolArgumentCodeUnits,
+      calls: Object.freeze([]) as readonly ModelToolCall[],
+    });
     if (message.tool_calls !== undefined && message.tool_calls !== null) {
-      const toolCount = this.#tools.length;
       const accepted = this.#acceptTools(message.tool_calls);
       if (!accepted.ok) {
         return accepted;
       }
-      if (this.#tools.length > toolCount) {
-        this.#hasContribution = true;
-      }
+      acceptedTools = accepted.value;
     }
 
     const events: ModelStreamEvent[] = [];
-    if (content.length > 0) {
+    this.#thinkingCodeUnits = thinkingCodeUnits;
+    this.#toolArgumentCodeUnits = acceptedTools.argumentCodeUnits;
+    this.#tools.push(...acceptedTools.calls);
+    if (hasThinking || acceptedTools.calls.length > 0 || content.length > 0) {
       this.#hasContribution = true;
+    }
+    if (content.length > 0) {
       events.push(Object.freeze({
         kind: "delta" as const,
         text: content,
@@ -305,12 +318,15 @@ export class OllamaChatDecoder {
         });
   }
 
-  #acceptTools(value: unknown): Result<void, WireError> {
+  #acceptTools(value: unknown): Result<AcceptedTools, WireError> {
     if (!Array.isArray(value)) {
       return err(failure("protocolToolCall"));
     }
     if (value.length === 0) {
-      return ok(undefined);
+      return ok(Object.freeze({
+        argumentCodeUnits: this.#toolArgumentCodeUnits,
+        calls: Object.freeze([]),
+      }));
     }
     if (
       this.#tools.length + value.length >
@@ -318,6 +334,8 @@ export class OllamaChatDecoder {
     ) {
       return err(failure("limit"));
     }
+    const calls: ModelToolCall[] = [];
+    let argumentCodeUnits = this.#toolArgumentCodeUnits;
     for (const item of value) {
       if (
         !isRecord(item) ||
@@ -329,7 +347,7 @@ export class OllamaChatDecoder {
       const name = item.function.name;
       const input = item.function.arguments;
       const index = item.function.index;
-      const expectedIndex = this.#tools.length;
+      const expectedIndex = this.#tools.length + calls.length;
       if (typeof name !== "string" || !VALID_TOOL_NAME.test(name)) {
         return err(failure("protocolToolCall"));
       }
@@ -353,10 +371,10 @@ export class OllamaChatDecoder {
       } catch (_cause: unknown) {
         return err(failure("protocolToolCall"));
       }
-      this.#toolArgumentCodeUnits += encoded.length;
+      argumentCodeUnits += encoded.length;
       if (
         encoded.length > OLLAMA_CLOUD_LIMITS.toolArgumentCodeUnits ||
-        this.#toolArgumentCodeUnits >
+        argumentCodeUnits >
           OLLAMA_CLOUD_LIMITS.toolBatchArgumentCodeUnits
       ) {
         return err(failure("limit"));
@@ -365,12 +383,15 @@ export class OllamaChatDecoder {
       if (!structured.ok || !(structured.value instanceof StructuredObject)) {
         return err(failure("protocolToolCall"));
       }
-      this.#tools.push(Object.freeze({
-        callId: "ollama-call-" + String(this.#tools.length + 1),
+      calls.push(Object.freeze({
+        callId: "ollama-call-" + String(this.#tools.length + calls.length + 1),
         input: structured.value,
         name,
       }));
     }
-    return ok(undefined);
+    return ok(Object.freeze({
+      argumentCodeUnits,
+      calls: Object.freeze(calls),
+    }));
   }
 }

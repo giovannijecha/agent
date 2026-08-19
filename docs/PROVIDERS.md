@@ -70,7 +70,7 @@ substitute another identifier.
 
 An opened stream that violates the native contract retains the `protocol`
 family and adds exactly one content-free phase: `transport`, `framing`,
-`envelope`, `message`, `tool-call`, or `terminal`. The phase names the first
+`envelope`, `message`, `tool-call`, `finish`, or `terminal`. The phase names the first
 owned boundary that rejected the response, not a provider cause, and never
 contains response text, tool arguments, or model output.
 

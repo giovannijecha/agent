@@ -91,17 +91,18 @@ admission.
   authorization, and model availability without claiming which provider-owned
   condition failed.
 - `model/read/protocol/transport`, `/framing`, `/envelope`, `/message`,
-  `/tool-call`, or `/terminal` identifies the first native response boundary
+  `/tool-call`, `/finish`, or `/terminal` identifies the first native response boundary
   that rejected an opened stream. It does not expose provider text or prove a
   model defect. Reproduce it with the same current model and report the exact
   content-free code; do not paste prompts, responses, or tool arguments.
 - A native clean end is accepted after validated text, thinking, or a complete
-  tool call. `/terminal` therefore identifies an empty clean stream or another
-  invalid completion boundary; an interrupted connection remains a transport
-  failure rather than an accepted clean end.
+  tool call. `/terminal` identifies a clean end with no validated contribution;
+  an interrupted connection remains a transport failure rather than an
+  accepted clean end.
 - Finish metadata is checked before a response chunk becomes visible. A
   non-null reason is valid only as `stop` with `done: true`; non-terminal or
-  truncated completion metadata commits no assistant text or tool call.
+  truncated completion metadata fails at `/finish` and commits no thinking,
+  assistant text, or tool call.
 
 The native decoder is shared by every selected model. Missing, null, and empty
 tool-call members mean that a stream chunk contributed no call; real calls are

@@ -607,6 +607,69 @@ test("classifies malformed native response phases without retaining content", as
   }
 });
 
+test("does not retain thinking from a rejected native record", async () => {
+  const stream = await open(
+    fixture(new FakeStream([
+      ok(line(response({
+        content: "",
+        thinking: "PRIVATE_SECRET",
+        tool_calls: "malformed",
+      }))),
+    ])).model,
+    [descriptor()],
+  );
+
+  const rejected = await stream.read();
+  assert.equal(rejected.ok, false);
+  if (!rejected.ok) assert.equal(rejected.error.reason, "protocolToolCall");
+
+  const ended = await stream.read();
+  assert.equal(ended.ok, false);
+  if (!ended.ok) assert.equal(ended.error.reason, "protocolTerminal");
+  assert.equal(JSON.stringify([rejected, ended]).includes("PRIVATE_SECRET"), false);
+});
+
+test("does not retain calls from a partially rejected native batch", async () => {
+  const stream = await open(
+    fixture(new FakeStream([
+      ok(line(response({
+        content: "",
+        tool_calls: [
+          {
+            function: { arguments: { path: "private" }, name: "read_file" },
+            type: "function",
+          },
+          {
+            function: { arguments: { path: "ignored" }, name: "read_file" },
+            type: "malformed",
+          },
+        ],
+      }))),
+      ok(line(response({
+        content: "",
+        tool_calls: [{
+          function: { arguments: { path: "index.html" }, name: "read_file" },
+          type: "function",
+        }],
+      }, true))),
+    ])).model,
+    [descriptor()],
+  );
+
+  const rejected = await stream.read();
+  assert.equal(rejected.ok, false);
+  if (!rejected.ok) assert.equal(rejected.error.reason, "protocolToolCall");
+
+  const accepted = await read(stream);
+  assert.equal(accepted.kind, "toolCalls");
+  if (accepted.kind === "toolCalls") {
+    assert.deepEqual(
+      accepted.calls.map((call) => [call.callId, call.input.get("path")]),
+      [["ollama-call-1", "index.html"]],
+    );
+  }
+});
+
 test("discards bounded thinking without exposing it as assistant text", async () => {
   const stream = await open(
     fixture(new FakeStream([
