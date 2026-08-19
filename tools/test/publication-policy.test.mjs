@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
@@ -22,6 +23,15 @@ function currentContext() {
       ]),
     ),
   };
+}
+
+function provenanceDigest(text) {
+  const entries = text
+    .split("\n")
+    .filter((line) => /^\| [0-9]{4}-[0-9]{2}-[0-9]{2} \|/u.test(line));
+  return createHash("sha256")
+    .update(entries.join("\n") + "\n", "utf8")
+    .digest("hex");
 }
 
 test("accepts the canonical public project identity", () => {
@@ -472,6 +482,31 @@ test("rejects removal or modification of maintained provenance entries", () => {
     assert.throws(
       () => validatePublicationPolicy(policy, context),
       PublicationPolicyError,
+    );
+  }
+});
+
+test("rejects Ollama error provenance drift after inventory repinning", () => {
+  const maintained = currentContext().files["docs/OWNERSHIP.md"];
+  for (const marker of [
+    "[Ollama API errors](https://docs.ollama.com/api/errors)",
+    "Public HTTP status-code semantics and JSON error-envelope shape for failed requests",
+    "Content-free classification of non-success HTTP outcomes into the closed provider failure families under decision 0080",
+  ]) {
+    const context = currentContext();
+    context.files["docs/OWNERSHIP.md"] = maintained.replace(
+      marker,
+      "removed Ollama error provenance",
+    );
+    assert.notEqual(context.files["docs/OWNERSHIP.md"], maintained, marker);
+    const changed = structuredClone(policy);
+    changed.provenanceLog.sha256 = provenanceDigest(
+      context.files["docs/OWNERSHIP.md"],
+    );
+    assert.throws(
+      () => validatePublicationPolicy(changed, context),
+      PublicationPolicyError,
+      marker,
     );
   }
 });
