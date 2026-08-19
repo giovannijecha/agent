@@ -108,6 +108,9 @@ admission.
   assistant text, or tool call.
 - Once an opened stream rejects one native record, later records and clean end
   cannot recover or complete that turn.
+- Once any admitted read fails at transport, framing, envelope, message,
+  tool-call, finish, or terminal, later reads do not consume provider data and
+  return only the closed terminal failure. Report the first failure code.
 
 The native decoder is shared by every selected model. Missing, null, and empty
 tool-call members mean that a stream chunk contributed no call; real calls are

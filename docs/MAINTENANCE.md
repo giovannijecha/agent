@@ -445,6 +445,11 @@ identities from any rejected record must remain unchanged.
 The first rejected record also terminalizes the decoder. Later records and
 clean EOF must return the closed terminal failure rather than restore earlier
 completion evidence or admit new contributions.
+Apply the same one-way transition to every admitted read failure. After a
+transport, UTF-8, NDJSON, or native-record failure is returned, later reads must
+not call the transport, framer, or decoder and must return the closed terminal
+failure. Diagnose the first content-free failure; never replay the stream or
+infer completion from an EOF observed after it.
 
 To remove Ollama Cloud, delete the adapter, CLI transport, commands/session
 registration, provider policy entry, normalizer and phase mapping,

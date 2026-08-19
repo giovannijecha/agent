@@ -147,6 +147,7 @@ class OllamaCloudStream implements ModelStream<OllamaCloudError> {
   readonly #transport: OwnedTransportStream;
   readonly #utf8 = new Utf8Decoder();
   #closed = false;
+  #failed = false;
   #reading = false;
   #terminal = false;
 
@@ -158,6 +159,9 @@ class OllamaCloudStream implements ModelStream<OllamaCloudError> {
   read(): Promise<Result<ModelStreamEvent, OllamaCloudError>> {
     if (this.#closed || this.#terminal) {
       return Promise.resolve(err(modelError("read", "closed")));
+    }
+    if (this.#failed) {
+      return Promise.resolve(err(modelError("read", "protocolTerminal")));
     }
     if (this.#reading) {
       return Promise.resolve(err(modelError("read", "concurrentRead")));
@@ -196,20 +200,20 @@ class OllamaCloudStream implements ModelStream<OllamaCloudError> {
 
         const framed = this.#ndjson.next();
         if (!framed.ok) {
-          return err(modelError("read", framingReason(framed.error.kind)));
+          return this.#fail(framingReason(framed.error.kind));
         }
         if (framed.value.kind === "data") {
           const decoded = this.#chat.accept(framed.value.data);
-          if (!decoded.ok) return err(modelError("read", wireReason(decoded.error)));
+          if (!decoded.ok) return this.#fail(wireReason(decoded.error));
           this.#events.push(...decoded.value);
           continue;
         }
         if (framed.value.kind === "end") {
           const ended = this.#chat.end();
-          if (!ended.ok) return err(modelError("read", wireReason(ended.error)));
+          if (!ended.ok) return this.#fail(wireReason(ended.error));
           this.#events.push(...ended.value);
           if (this.#events.length === 0) {
-            return err(modelError("read", "protocolTerminal"));
+            return this.#fail("protocolTerminal");
           }
           continue;
         }
@@ -220,36 +224,43 @@ class OllamaCloudStream implements ModelStream<OllamaCloudError> {
         } catch (_cause: unknown) {
           received = undefined;
         }
-        if (received === undefined) return err(modelError("read", "transportProtocol"));
-        if (!received.ok) return err(modelError("read", transportReason(received.error.kind)));
+        if (received === undefined) return this.#fail("transportProtocol");
+        if (!received.ok) return this.#fail(transportReason(received.error.kind));
         if (received.value === null) {
           const tail = this.#utf8.finish();
-          if (!tail.ok) return err(modelError("read", "encoding"));
+          if (!tail.ok) return this.#fail("encoding");
           if (tail.value.length > 0) {
             const pushed = this.#ndjson.push(tail.value);
             if (!pushed.ok) {
-              return err(modelError("read", framingReason(pushed.error.kind)));
+              return this.#fail(framingReason(pushed.error.kind));
             }
           }
           this.#ndjson.finish();
           continue;
         }
         if (!(received.value instanceof Uint8Array)) {
-          return err(modelError("read", "transportProtocol"));
+          return this.#fail("transportProtocol");
         }
         const text = this.#utf8.decode(received.value);
-        if (!text.ok) return err(modelError("read", "encoding"));
+        if (!text.ok) return this.#fail("encoding");
         if (text.value.length > 0) {
           const pushed = this.#ndjson.push(text.value);
           if (!pushed.ok) {
-            return err(modelError("read", framingReason(pushed.error.kind)));
+            return this.#fail(framingReason(pushed.error.kind));
           }
         }
       }
       return err(modelError("read", "closed"));
     } catch (_cause: unknown) {
-      return err(modelError("read", "protocol"));
+      return this.#fail("protocol");
     }
+  }
+
+  #fail(
+    reason: OllamaCloudFailureReason,
+  ): Result<ModelStreamEvent, OllamaCloudError> {
+    this.#failed = true;
+    return err(modelError("read", reason));
   }
 }
 

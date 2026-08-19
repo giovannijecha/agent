@@ -80,6 +80,9 @@ family and adds exactly one content-free phase: `transport`, `framing`,
 `envelope`, `message`, `tool-call`, `finish`, or `terminal`. The phase names the first
 owned boundary that rejected the response, not a provider cause, and never
 contains response text, tool arguments, or model output.
+The first admitted read failure terminalizes the stream before it is returned.
+Later reads cannot consume another response record or clean end and expose only
+the closed terminal failure.
 
 Catalog discovery sends the API key to Ollama Cloud but sends no conversation,
 workspace path, file content, tool schema, or tool result. Chat requests send
