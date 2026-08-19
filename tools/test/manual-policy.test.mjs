@@ -146,6 +146,45 @@ test("rejects contradictory selector dismissal guidance", () => {
   );
 });
 
+test("rejects contradictory selector dismissal additions after repinning", () => {
+  const contradictions = [
+    "An ordinary editor input closes the menu and is consumed.",
+    "Printable text dismisses the selector.",
+    "Editing keys cancel the menu.",
+  ];
+  for (const contradiction of contradictions) {
+    const policy = structuredClone(currentPolicy);
+    const context = currentContext();
+    const chapter = policy.selectorDismissal.path;
+    context.files[chapter] += "\n" + contradiction + "\n";
+    repinSelectorDismissal(policy, context);
+    assert.notEqual(
+      policy.selectorDismissal.sha256,
+      currentPolicy.selectorDismissal.sha256,
+    );
+    assert.throws(
+      () => validateManualPolicy(policy, context),
+      {
+        message: "manual selector dismissal contract is inconsistent",
+        name: "ManualPolicyError",
+      },
+    );
+  }
+});
+
+test("accepts explicit negative selector guidance after repinning", () => {
+  const policy = structuredClone(currentPolicy);
+  const context = currentContext();
+  const chapter = policy.selectorDismissal.path;
+  context.files[chapter] += "\nPrintable text does not close the menu.\n";
+  repinSelectorDismissal(policy, context);
+  assert.notEqual(
+    policy.selectorDismissal.sha256,
+    currentPolicy.selectorDismissal.sha256,
+  );
+  assert.doesNotThrow(() => validateManualPolicy(policy, context));
+});
+
 test("binds each chapter to its declared task-specific sections", () => {
   const policy = structuredClone(currentPolicy);
   policy.chapters.at(1).sections = [
