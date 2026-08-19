@@ -45,6 +45,12 @@ argument objects, malformed indices, unknown call types, and partial messages
 fail closed. This one normalization contract applies to every catalog model;
 there is no model-specific decoder.
 
+The native stream completes after one valid `done: true` record or after a
+clean HTTP end that follows at least one fully validated non-empty thinking,
+content, or tool-call contribution. A clean empty stream remains a `terminal`
+protocol failure. Partial UTF-8 or NDJSON, malformed native records, and an
+aborted or errored transport are not promoted to success.
+
 `/providers` enters or selects the process-local Ollama Cloud credential.
 `/models` performs one authenticated fixed-origin catalog request and exposes
 only the exact current model identifiers that pass the bounded decoder. Neither

@@ -41,7 +41,12 @@ Settled assistant history is encoded in one canonical native form containing
 arguments. The decoder accumulates bounded thinking, content, and tool-call
 contributions across chunks without allowing an empty member to erase prior
 work. It emits a completed assistant message or one complete tool batch only
-after the terminal record validates the selected model and finish contract.
+after either a terminal record validates the selected model and finish contract,
+or the owned transport reports a clean HTTP end after at least one fully
+validated non-empty thinking, content, or tool-call contribution. A clean end
+without such a contribution, an incomplete framed record, and an aborted or
+errored transport remain distinct failures. This completion rule is shared by
+every catalog model and introduces no retry, replay, or inferred provider state.
 
 Protocol failures use a closed content-free phase classification:
 `transport`, `framing`, `envelope`, `message`, `tool-call`, or `terminal`.
@@ -64,6 +69,12 @@ members are validated when present. JSON strings containing encoded argument
 objects are not parsed a second time, null content is not coerced to text, and
 unknown enum values do not become generic success.
 
+A clean HTTP end can settle only contributions already accepted by the native
+decoder. It cannot complete an empty stream, repair partial UTF-8 or NDJSON,
+convert a transport interruption into success, or authorize a partially
+validated call. An explicit valid terminal record retains its documented
+meaning even when the runtime later classifies the settled response as empty.
+
 The normalizer remains Node-free and provider-local. The CLI remains the sole
 HTTPS, credential, terminal, journal, and provider-composition boundary. A
 failure before a complete checkpoint commits no conversation change and runs
@@ -76,7 +87,8 @@ Provider contract regressions cover missing, null, empty, indexed, unindexed,
 and mixed tool-call members; multiple calls; interleaved stream contributions;
 canonical history replay; wrong types; malformed indices; gaps; duplicates;
 serialized arguments; invalid envelopes and messages; mismatched terminal
-records; truncation; and content-free reasons. CLI regressions bind every
+records; clean ends after text and tool calls; empty clean ends; abrupt
+transport failures; truncation; and content-free reasons. CLI regressions bind every
 provider reason to one immutable public classification and reject unknown or
 malformed phase codes.
 
@@ -88,7 +100,7 @@ provider request.
 ## Update, rollback, and removal
 
 Changing an admitted wire variant, canonical history shape, phase vocabulary,
-or provider-reason mapping requires this decision, provider implementation,
+completion rule, or provider-reason mapping requires this decision, provider implementation,
 adapter declarations, focused contract tests, architecture, engineering,
 provider policy, operator guidance, privacy boundary, maintenance runbook,
 provenance inventory, decision index, documentation policy, and ownership
