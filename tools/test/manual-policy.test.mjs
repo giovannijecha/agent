@@ -90,6 +90,24 @@ test("rejects terminal-interface task contract drift", () => {
   );
 });
 
+test("rejects implicit selector dismissal guidance", () => {
+  const context = currentContext();
+  const chapter = "docs/manual/03-terminal-interface.md";
+  const maintained = context.files[chapter];
+  context.files[chapter] = context.files[chapter].replace(
+    "Printable and editing input is inert while a dismissible selector\nowns focus",
+    "An ordinary editor input closes a dismissible selector and is consumed",
+  );
+  assert.notEqual(context.files[chapter], maintained);
+  assert.throws(
+    () => validateManualPolicy(currentPolicy, context),
+    {
+      message: "manual selector dismissal contract is inconsistent",
+      name: "ManualPolicyError",
+    },
+  );
+});
+
 test("binds each chapter to its declared task-specific sections", () => {
   const policy = structuredClone(currentPolicy);
   policy.chapters.at(1).sections = [
