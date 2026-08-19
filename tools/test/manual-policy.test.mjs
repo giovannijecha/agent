@@ -380,6 +380,37 @@ test("rejects canonical selector guidance hidden in an HTML comment", () => {
   );
 });
 
+test("rejects raw HTML in the protected selector chapter", () => {
+  const wrappers = [
+    ["<template>.\n", "\n.</template>"],
+    ["<div hidden>.\n", "\n.</div>"],
+  ];
+  for (const [opening, closing] of wrappers) {
+    const policy = structuredClone(currentPolicy);
+    const context = currentContext();
+    const chapter = policy.selectorDismissal.path;
+    const maintained = context.files[chapter];
+    const wrapped =
+      "Printable and editing input is inert while a dismissible selector\n" +
+      "owns focus; accepting or cancelling input is consumed without editing " +
+      "the\nretained draft.";
+    const canonical = wrapped.replaceAll("\n", " ");
+    context.files[chapter] = maintained.replace(
+      wrapped,
+      opening + canonical + closing,
+    );
+    assert.notEqual(context.files[chapter], maintained);
+    repinSelectorDismissal(policy, context);
+    assert.throws(
+      () => validateManualPolicy(policy, context),
+      {
+        message: "manual selector dismissal contract is inconsistent",
+        name: "ManualPolicyError",
+      },
+    );
+  }
+});
+
 test("rejects canonical selector guidance hidden in a fenced code block", () => {
   const policy = structuredClone(currentPolicy);
   const context = currentContext();
