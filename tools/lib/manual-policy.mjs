@@ -246,8 +246,36 @@ const OWNED_SELECTOR_INPUT_SENTENCES = Object.freeze([
   "other typing and editing keys are ignored while the menu remains open, so an accidental character neither closes the menu nor disappears into the composer",
 ]);
 
-function hasUnregisteredSelectorInputGuidance(terminal, selectorAuthority) {
+function exactSentenceCount(sentences, expected) {
+  let count = 0;
+  for (const sentence of sentences) {
+    if (sentence === expected) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+function hasUnregisteredSelectorInputGuidance(
+  terminal,
+  useSelectors,
+  readInterface,
+) {
   const sentences = proseSentences(terminal);
+  const useSelectorSentences = proseSentences(useSelectors);
+  const readInterfaceSentences = proseSentences(readInterface);
+  const firstOwnedSentence = OWNED_SELECTOR_INPUT_SENTENCES.at(0);
+  const secondOwnedSentence = OWNED_SELECTOR_INPUT_SENTENCES.at(1);
+  if (
+    firstOwnedSentence === undefined ||
+    secondOwnedSentence === undefined ||
+    exactSentenceCount(sentences, firstOwnedSentence) !== 1 ||
+    exactSentenceCount(useSelectorSentences, firstOwnedSentence) !== 1 ||
+    exactSentenceCount(sentences, secondOwnedSentence) !== 1 ||
+    exactSentenceCount(readInterfaceSentences, secondOwnedSentence) !== 1
+  ) {
+    return true;
+  }
   for (let index = 0; index < sentences.length; index += 1) {
     const sentence = sentences.at(index);
     if (
@@ -268,12 +296,14 @@ function hasUnregisteredSelectorInputGuidance(terminal, selectorAuthority) {
       return true;
     }
   }
-  for (const sentence of proseSentences(selectorAuthority)) {
-    if (
-      INERT_SELECTOR_INPUT.test(sentence) &&
-      !OWNED_SELECTOR_INPUT_SENTENCES.includes(sentence)
-    ) {
-      return true;
+  for (const authority of [useSelectorSentences, readInterfaceSentences]) {
+    for (const sentence of authority) {
+      if (
+        INERT_SELECTOR_INPUT.test(sentence) &&
+        !OWNED_SELECTOR_INPUT_SENTENCES.includes(sentence)
+      ) {
+        return true;
+      }
     }
   }
   return false;
@@ -336,10 +366,8 @@ function verifySelectorDismissal(contract, context) {
   ownedPath(contract.path, "manual selector dismissal path");
   const terminalText = fileText(context, contract.path);
   const terminal = normalizedProse(terminalText);
-  const selectorAuthority = [
-    manualSection(terminalText, "Use selectors"),
-    manualSection(terminalText, "Read the interface"),
-  ].join("\n");
+  const useSelectors = manualSection(terminalText, "Use selectors");
+  const readInterface = manualSection(terminalText, "Read the interface");
   const digest = createHash("sha256")
     .update(
       terminalText.replaceAll("\r\n", "\n"),
@@ -348,7 +376,11 @@ function verifySelectorDismissal(contract, context) {
     .digest("hex");
   if (
     digest !== contract.sha256 ||
-    hasUnregisteredSelectorInputGuidance(terminal, selectorAuthority) ||
+    hasUnregisteredSelectorInputGuidance(
+      terminal,
+      useSelectors,
+      readInterface,
+    ) ||
     !terminal.includes(
       "Printable and editing input is inert while a dismissible selector owns focus",
     ) ||
