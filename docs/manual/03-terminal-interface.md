@@ -42,8 +42,9 @@ Provider, model, permission, pending-tool, and timeline selectors replace the
 composer body inside the same two rules. The dock shows at most six content
 rows: an optional header and up to five windowed choices. The current choice
 stays visible and accented; the composer caret is absent. The draft remains
-unchanged. An ordinary editor input closes a dismissible selector and is
-consumed, and pointer input cannot edit or copy the draft until editor focus
+unchanged. Printable and editing input is inert while a dismissible selector
+owns focus; accepting or cancelling input is consumed without editing the
+retained draft. Pointer input cannot edit or copy the draft until editor focus
 returns. Transcript selection, copying, and wheel scrolling remain available
 while a selector owns the dock. Pointer input is interpreted against the dock
 focus that is visible on screen, including when keyboard and mouse bytes arrive

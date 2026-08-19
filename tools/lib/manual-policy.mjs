@@ -250,6 +250,25 @@ function verifyRemovalSchemaGuidance(policy, context) {
   }
 }
 
+function verifySelectorDismissal(context) {
+  const terminal = normalizedProse(
+    fileText(context, "docs/manual/03-terminal-interface.md"),
+  );
+  if (
+    terminal.includes(
+      "An ordinary editor input closes a dismissible selector and is consumed",
+    ) ||
+    !terminal.includes(
+      "Printable and editing input is inert while a dismissible selector owns focus",
+    ) ||
+    !terminal.includes(
+      "Escape or Ctrl+C cancels the menu and restores the unchanged draft",
+    )
+  ) {
+    fail("manual selector dismissal contract is inconsistent");
+  }
+}
+
 function verifyChapter(chapter, index, context) {
   exactKeys(chapter, ["path", "sections", "title"], "manual chapter");
   const expectedPrefix = String(index).padStart(2, "0");
@@ -371,6 +390,7 @@ export function validateManualPolicy(policy, context) {
   const tools = validateToolSurface(policy.toolSurface);
   verifyDescriptorConstruction(context);
   verifyRemovalSchemaGuidance(policy, context);
+  verifySelectorDismissal(context);
   same(commands, extractCommands(fileText(context, COMMAND_SOURCE)), "manual command source inventory");
   same(
     tools.map((tool) => ({ name: tool.name, risk: tool.risk })),
