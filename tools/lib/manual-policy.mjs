@@ -213,23 +213,24 @@ function normalizedProse(value) {
 
 const INERT_SELECTOR_INPUT =
   /\b(?:ordinary editor input|printable (?:input|text|characters?)|typing|editing (?:input|keys?)|paste|tab|home|end|delete|deletion|backspace|word(?:-| )editing)\b/u;
-const SELECTOR_TARGET = /\b(?:menu|selector)\b/u;
-const DISMISSAL_ACTION =
-  /\b(?:(do not|does not|did not|will not|would not|can not|could not|should not|must not|is not|are not|was not|were not|not|never|neither|cannot|without)\s+)?(?:close|closes|closed|closing|dismiss|dismisses|dismissed|dismissing|cancel|cancels|canceled|cancelled|canceling|cancelling)\b/gu;
+const SELECTOR_DISMISSAL_CONTEXT = /\b(?:menu|selector|focus)\b/u;
+const OWNED_SELECTOR_INPUT_SENTENCES = Object.freeze([
+  "printable and editing input is inert while a dismissible selector owns focus; accepting or cancelling input is consumed without editing the retained draft",
+  "other typing and editing keys are ignored while the menu remains open, so an accidental character neither closes the menu nor disappears into the composer",
+]);
 
-function hasContradictorySelectorDismissal(terminal) {
-  const clauses = terminal.toLowerCase().split(/[.;!?]/u);
-  for (const clause of clauses) {
+function hasUnregisteredSelectorInputGuidance(terminal) {
+  const sentences = terminal.toLowerCase().split(/[.!?]/u);
+  for (const candidate of sentences) {
+    const sentence = candidate.trim();
     if (
-      !INERT_SELECTOR_INPUT.test(clause) ||
-      !SELECTOR_TARGET.test(clause)
+      !INERT_SELECTOR_INPUT.test(sentence) ||
+      !SELECTOR_DISMISSAL_CONTEXT.test(sentence)
     ) {
       continue;
     }
-    for (const action of clause.matchAll(DISMISSAL_ACTION)) {
-      if (action.at(1) === undefined) {
-        return true;
-      }
+    if (!OWNED_SELECTOR_INPUT_SENTENCES.includes(sentence)) {
+      return true;
     }
   }
   return false;
@@ -301,7 +302,7 @@ function verifySelectorDismissal(contract, context) {
     .digest("hex");
   if (
     digest !== contract.sha256 ||
-    hasContradictorySelectorDismissal(terminal) ||
+    hasUnregisteredSelectorInputGuidance(terminal) ||
     !terminal.includes(
       "Printable and editing input is inert while a dismissible selector owns focus",
     ) ||
