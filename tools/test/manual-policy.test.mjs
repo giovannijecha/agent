@@ -199,6 +199,27 @@ test("rejects contradictions using every decision-named inert input", () => {
   }
 });
 
+test("rejects generic keyboard-event contradictions", () => {
+  const contradictions = [
+    "Every other keyboard event closes the list.",
+    "Keyboard events dismiss selectors.",
+  ];
+  for (const contradiction of contradictions) {
+    const policy = structuredClone(currentPolicy);
+    const context = currentContext();
+    const chapter = policy.selectorDismissal.path;
+    context.files[chapter] += "\n" + contradiction + "\n";
+    repinSelectorDismissal(policy, context);
+    assert.throws(
+      () => validateManualPolicy(policy, context),
+      {
+        message: "manual selector dismissal contract is inconsistent",
+        name: "ManualPolicyError",
+      },
+    );
+  }
+});
+
 test("rejects contradictions using concrete word-editing keys", () => {
   const contradictions = [
     "Ctrl+Left closes the menu.",
