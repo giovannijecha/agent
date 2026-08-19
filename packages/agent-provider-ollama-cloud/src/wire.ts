@@ -30,7 +30,14 @@ import { OLLAMA_CLOUD_LIMITS } from "./limits.js";
 import type { OllamaCloudModelId } from "./models.js";
 
 export type WireError = Readonly<{
-  kind: "finishReason" | "limit" | "protocol" | "request";
+  kind:
+    | "finishReason"
+    | "limit"
+    | "protocolEnvelope"
+    | "protocolMessage"
+    | "protocolTerminal"
+    | "protocolToolCall"
+    | "request";
 }>;
 
 function failure(kind: WireError["kind"]): WireError {
@@ -132,11 +139,13 @@ function messageValues(entry: ConversationEntry): readonly unknown[] {
         content: entry.assistant?.content ?? "",
         role: Role.Assistant,
         tool_calls: Object.freeze(
-          entry.calls.map((call) => Object.freeze({
+          entry.calls.map((call, index) => Object.freeze({
             function: Object.freeze({
               arguments: structuredValue(call.input),
+              index,
               name: call.name,
             }),
+            type: "function",
           })),
         ),
       }),
@@ -203,7 +212,7 @@ export class OllamaChatDecoder {
 
   accept(data: string): Result<readonly ModelStreamEvent[], WireError> {
     if (this.#terminal || typeof data !== "string") {
-      return err(failure("protocol"));
+      return err(failure("protocolTerminal"));
     }
     this.#wireEvents += 1;
     if (this.#wireEvents > OLLAMA_CLOUD_LIMITS.wireEvents) {
@@ -214,7 +223,7 @@ export class OllamaChatDecoder {
     try {
       parsed = JSON.parse(data) as unknown;
     } catch (_cause: unknown) {
-      return err(failure("protocol"));
+      return err(failure("protocolEnvelope"));
     }
     if (
       !isRecord(parsed) ||
@@ -223,17 +232,17 @@ export class OllamaChatDecoder {
       !isRecord(parsed.message) ||
       parsed.message.role !== Role.Assistant
     ) {
-      return err(failure("protocol"));
+      return err(failure("protocolEnvelope"));
     }
 
     const message = parsed.message;
     const content = message.content;
     if (typeof content !== "string") {
-      return err(failure("protocol"));
+      return err(failure("protocolMessage"));
     }
     if (message.thinking !== undefined && message.thinking !== null) {
       if (typeof message.thinking !== "string") {
-        return err(failure("protocol"));
+        return err(failure("protocolMessage"));
       }
       this.#thinkingCodeUnits += message.thinking.length;
       if (this.#thinkingCodeUnits > OLLAMA_CLOUD_LIMITS.thinkingCodeUnits) {
@@ -279,12 +288,15 @@ export class OllamaChatDecoder {
   end(): Result<readonly ModelStreamEvent[], WireError> {
     return this.#terminal
       ? ok(Object.freeze([]))
-      : err(failure("protocol"));
+      : err(failure("protocolTerminal"));
   }
 
   #acceptTools(value: unknown): Result<void, WireError> {
-    if (!Array.isArray(value) || value.length === 0) {
-      return err(failure("protocol"));
+    if (!Array.isArray(value)) {
+      return err(failure("protocolToolCall"));
+    }
+    if (value.length === 0) {
+      return ok(undefined);
     }
     if (
       this.#tools.length + value.length >
@@ -293,19 +305,39 @@ export class OllamaChatDecoder {
       return err(failure("limit"));
     }
     for (const item of value) {
-      if (!isRecord(item) || !isRecord(item.function)) {
-        return err(failure("protocol"));
+      if (
+        !isRecord(item) ||
+        (item.type !== undefined && item.type !== "function") ||
+        !isRecord(item.function)
+      ) {
+        return err(failure("protocolToolCall"));
       }
       const name = item.function.name;
       const input = item.function.arguments;
+      const index = item.function.index;
+      const expectedIndex = this.#tools.length;
       if (typeof name !== "string" || !VALID_TOOL_NAME.test(name)) {
-        return err(failure("protocol"));
+        return err(failure("protocolToolCall"));
+      }
+      if (
+        index !== undefined &&
+        (
+          typeof index !== "number" ||
+          !Number.isSafeInteger(index) ||
+          index < 0 ||
+          index !== expectedIndex
+        )
+      ) {
+        return err(failure("protocolToolCall"));
+      }
+      if (!isRecord(input)) {
+        return err(failure("protocolToolCall"));
       }
       let encoded: string;
       try {
         encoded = JSON.stringify(input);
       } catch (_cause: unknown) {
-        return err(failure("protocol"));
+        return err(failure("protocolToolCall"));
       }
       this.#toolArgumentCodeUnits += encoded.length;
       if (
@@ -317,7 +349,7 @@ export class OllamaChatDecoder {
       }
       const structured = structuredValueFromUnknown(input);
       if (!structured.ok || !(structured.value instanceof StructuredObject)) {
-        return err(failure("protocol"));
+        return err(failure("protocolToolCall"));
       }
       this.#tools.push(Object.freeze({
         callId: "ollama-call-" + String(this.#tools.length + 1),

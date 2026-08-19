@@ -33,7 +33,9 @@ When the CLI stops, use its stable coarse category to choose the owner:
 `application`, `arbiter`, `frame`, `runtime`, `source`, `terminal`, or
 `cleanup`. Model and tool failures have the more specific recovery described in
 [Turn lifecycle](02-turn-lifecycle.md#recover-from-a-failure) and
-[Tools and permissions](04-tools-and-approval.md#interpret-a-tool-result).
+[Tools and permissions](04-tools-and-approval.md#interpret-a-tool-result);
+native provider phase codes are explained in
+[Providers and authentication](05-providers-and-authentication.md#recover-from-provider-failures).
 Diagnostics must not add credentials, prompts, file contents, or other personal
 content to logs or retained evidence.
 

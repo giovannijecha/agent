@@ -84,7 +84,12 @@ function transportReason(kind: OllamaCloudTransportErrorKind): OllamaCloudFailur
 function wireReason(error: WireError): OllamaCloudFailureReason {
   if (error.kind === "finishReason") return "finishReason";
   if (error.kind === "limit") return "limit";
-  return error.kind === "request" ? "request" : "protocol";
+  if (error.kind === "request") return "request";
+  return error.kind;
+}
+
+function framingReason(kind: "limit" | "protocol"): OllamaCloudFailureReason {
+  return kind === "limit" ? "limit" : "protocolFraming";
 }
 
 function statusReason(statusCode: number): OllamaCloudFailureReason {
@@ -190,7 +195,9 @@ class OllamaCloudStream implements ModelStream<OllamaCloudError> {
         }
 
         const framed = this.#ndjson.next();
-        if (!framed.ok) return err(modelError("read", framed.error.kind));
+        if (!framed.ok) {
+          return err(modelError("read", framingReason(framed.error.kind)));
+        }
         if (framed.value.kind === "data") {
           const decoded = this.#chat.accept(framed.value.data);
           if (!decoded.ok) return err(modelError("read", wireReason(decoded.error)));
@@ -201,7 +208,9 @@ class OllamaCloudStream implements ModelStream<OllamaCloudError> {
           const ended = this.#chat.end();
           if (!ended.ok) return err(modelError("read", wireReason(ended.error)));
           this.#events.push(...ended.value);
-          if (this.#events.length === 0) return err(modelError("read", "protocol"));
+          if (this.#events.length === 0) {
+            return err(modelError("read", "protocolTerminal"));
+          }
           continue;
         }
 
@@ -218,7 +227,9 @@ class OllamaCloudStream implements ModelStream<OllamaCloudError> {
           if (!tail.ok) return err(modelError("read", "encoding"));
           if (tail.value.length > 0) {
             const pushed = this.#ndjson.push(tail.value);
-            if (!pushed.ok) return err(modelError("read", pushed.error.kind));
+            if (!pushed.ok) {
+              return err(modelError("read", framingReason(pushed.error.kind)));
+            }
           }
           this.#ndjson.finish();
           continue;
@@ -230,7 +241,9 @@ class OllamaCloudStream implements ModelStream<OllamaCloudError> {
         if (!text.ok) return err(modelError("read", "encoding"));
         if (text.value.length > 0) {
           const pushed = this.#ndjson.push(text.value);
-          if (!pushed.ok) return err(modelError("read", pushed.error.kind));
+          if (!pushed.ok) {
+            return err(modelError("read", framingReason(pushed.error.kind)));
+          }
         }
       }
       return err(modelError("read", "closed"));

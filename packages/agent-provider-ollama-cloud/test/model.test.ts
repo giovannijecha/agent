@@ -297,8 +297,17 @@ test("maps native tool calls to deterministic local call identities", async () =
       ok(line(response({
         content: "",
         tool_calls: [
-          { function: { arguments: { path: "index.html" }, name: "read_file" } },
-          { function: { arguments: { path: "src/index.ts" }, name: "read_file" } },
+          {
+            function: {
+              arguments: { path: "index.html" },
+              index: 0,
+              name: "read_file",
+            },
+            type: "function",
+          },
+          {
+            function: { arguments: { path: "src/index.ts" }, name: "read_file" },
+          },
         ],
       }, true))),
     ]),
@@ -357,7 +366,14 @@ test("encodes a completed exchange with native assistant and tool messages", asy
     content: "",
     role: "assistant",
     tool_calls: [
-      { function: { arguments: { path: "index.html" }, name: "read_file" } },
+      {
+        function: {
+          arguments: { path: "index.html" },
+          index: 0,
+          name: "read_file",
+        },
+        type: "function",
+      },
     ],
   });
   assert.deepEqual(parsed.messages.at(3), {
@@ -366,6 +382,134 @@ test("encodes a completed exchange with native assistant and tool messages", asy
     tool_name: "read_file",
   });
   assert.equal("tool_call_id" in (parsed.messages.at(3) ?? {}), false);
+});
+
+test("normalizes absent, null, and empty native tool-call contributions", async () => {
+  const provider = fixture(
+    new FakeStream([
+      ok(line(response({ content: "", tool_calls: [] }))),
+      ok(line(response({ content: "", tool_calls: null }))),
+      ok(line(response({ content: "" }))),
+      ok(line(response({
+        content: "",
+        tool_calls: [
+          {
+            function: {
+              arguments: { path: "index.html" },
+              index: 0,
+              name: "read_file",
+            },
+            type: "function",
+          },
+        ],
+      }))),
+      ok(line(response({ content: "", tool_calls: [] }, true))),
+    ]),
+  );
+
+  const event = await read(await open(provider.model, [descriptor()]));
+  assert.equal(event.kind, "toolCalls");
+  if (event.kind === "toolCalls") {
+    assert.deepEqual(
+      event.calls.map((call) => [call.callId, call.name, call.input.get("path")]),
+      [["ollama-call-1", "read_file", "index.html"]],
+    );
+  }
+});
+
+test("classifies malformed native response phases without retaining content", async () => {
+  const cases = [
+    Object.freeze({
+      bytes: ascii("{\n"),
+      reason: "protocolEnvelope",
+    }),
+    Object.freeze({
+      bytes: line({ ...response({ content: "" }, true), model: "other" }),
+      reason: "protocolEnvelope",
+    }),
+    Object.freeze({
+      bytes: line(response({ content: null }, true)),
+      reason: "protocolMessage",
+    }),
+    Object.freeze({
+      bytes: line(response({ content: "", thinking: { secret: "PRIVATE_SECRET" } }, true)),
+      reason: "protocolMessage",
+    }),
+    Object.freeze({
+      bytes: line(response({ content: "", tool_calls: "PRIVATE_SECRET" }, true)),
+      reason: "protocolToolCall",
+    }),
+    Object.freeze({
+      bytes: line(response({
+        content: "",
+        tool_calls: [{
+          function: { arguments: { path: "index.html" }, name: "read_file" },
+          type: "other",
+        }],
+      }, true)),
+      reason: "protocolToolCall",
+    }),
+    Object.freeze({
+      bytes: line(response({
+        content: "",
+        tool_calls: [{
+          function: {
+            arguments: { path: "index.html" },
+            index: 1,
+            name: "read_file",
+          },
+          type: "function",
+        }],
+      }, true)),
+      reason: "protocolToolCall",
+    }),
+    Object.freeze({
+      bytes: line(response({
+        content: "",
+        tool_calls: [
+          {
+            function: {
+              arguments: { path: "index.html" },
+              index: 0,
+              name: "read_file",
+            },
+            type: "function",
+          },
+          {
+            function: {
+              arguments: { path: "src/index.ts" },
+              index: 0,
+              name: "read_file",
+            },
+            type: "function",
+          },
+        ],
+      }, true)),
+      reason: "protocolToolCall",
+    }),
+    Object.freeze({
+      bytes: line(response({
+        content: "",
+        tool_calls: [{
+          function: { arguments: "PRIVATE_SECRET", name: "read_file" },
+          type: "function",
+        }],
+      }, true)),
+      reason: "protocolToolCall",
+    }),
+    Object.freeze({
+      bytes: line({ ...response({ content: "" }, true), done_reason: "length" }),
+      reason: "finishReason",
+    }),
+  ] as const;
+
+  for (const item of cases) {
+    const stream = await open(fixture(new FakeStream([ok(item.bytes)])).model);
+    const result = await stream.read();
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.equal(result.error.reason, item.reason);
+    assert.equal(JSON.stringify(result).includes("PRIVATE_SECRET"), false);
+  }
 });
 
 test("discards bounded thinking without exposing it as assistant text", async () => {
@@ -437,27 +581,6 @@ test("classifies non-success statuses while observing cleanup", async () => {
   );
 });
 
-test("rejects malformed JSON, mismatched models, and non-stop completion", async () => {
-  const cases = [
-    Object.freeze({ bytes: ascii("{\n"), reason: "protocol" }),
-    Object.freeze({
-      bytes: line({ ...response({ content: "" }, true), model: "other" }),
-      reason: "protocol",
-    }),
-    Object.freeze({
-      bytes: line({ ...response({ content: "" }, true), done_reason: "length" }),
-      reason: "finishReason",
-    }),
-  ];
-
-  for (const item of cases) {
-    const stream = await open(fixture(new FakeStream([ok(item.bytes)])).model);
-    const result = await stream.read();
-    assert.equal(result.ok, false);
-    if (!result.ok) assert.equal(result.error.reason, item.reason);
-  }
-});
-
 test("rejects invalid UTF-8 and an unterminated response", async () => {
   const invalid = await open(
     fixture(new FakeStream([ok(Uint8Array.from([0xff]))])).model,
@@ -473,7 +596,19 @@ test("rejects invalid UTF-8 and an unterminated response", async () => {
   assert.deepEqual(await read(truncated), { kind: "delta", text: "partial" });
   const truncatedResult = await truncated.read();
   assert.equal(truncatedResult.ok, false);
-  if (!truncatedResult.ok) assert.equal(truncatedResult.error.reason, "protocol");
+  if (!truncatedResult.ok) {
+    assert.equal(truncatedResult.error.reason, "protocolTerminal");
+  }
+});
+
+test("classifies malformed NDJSON framing without retaining content", async () => {
+  const stream = await open(
+    fixture(new FakeStream([ok(ascii("\n"))])).model,
+  );
+  const result = await stream.read();
+
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.equal(result.error.reason, "protocolFraming");
 });
 
 test("bounds one NDJSON line without retaining provider content", async () => {

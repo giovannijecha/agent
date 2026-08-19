@@ -27,13 +27,23 @@ independent clients. Decision 0072 admits exactly:
 | Model authority | Current bounded catalog entries whose exact non-empty `name` equals `model` |
 | Cost class | `cloud` |
 | Wire mode | Native Ollama `application/json` stream of line-delimited JSON objects |
-| Tool selection | One call requested by the owned instruction; bounded ordered native batches decoded defensively |
+| Tool selection | One call requested by the owned instruction; model-neutral native normalization into bounded ordered batches |
 
 The implementation is independent. It does not install or invoke Ollama, use an
 Ollama SDK or CLI, contact a local daemon, read Ollama configuration, discover
 origins, follow model aliases, or persist the key. The CLI owns the fixed HTTPS
 boundary and bearer header. The provider workspace is Node-free and sees only
 bounded response bytes and metadata.
+
+The native adapter accepts only provider-documented representation variance.
+A missing, null, or empty `tool_calls` member contributes no call. A non-empty
+member must contain bounded function calls with object arguments; documented
+optional function type and index fields are validated when present, and absent
+indices are inferred from provider order. Settled assistant history is emitted
+with the canonical native function type and response-local index. Serialized
+argument objects, malformed indices, unknown call types, and partial messages
+fail closed. This one normalization contract applies to every catalog model;
+there is no model-specific decoder.
 
 `/providers` enters or selects the process-local Ollama Cloud credential.
 `/models` performs one authenticated fixed-origin catalog request and exposes
@@ -48,6 +58,12 @@ from its ephemeral HTTP outcome into the existing content-free `request`,
 `rejected`, `limit`, `timeout`, `connectivity`, or `protocol` family. Agent does
 not retain the status, read the error body, vary the request by model, retry, or
 substitute another identifier.
+
+An opened stream that violates the native contract retains the `protocol`
+family and adds exactly one content-free phase: `transport`, `framing`,
+`envelope`, `message`, `tool-call`, or `terminal`. The phase names the first
+owned boundary that rejected the response, not a provider cause, and never
+contains response text, tool arguments, or model output.
 
 Catalog discovery sends the API key to Ollama Cloud but sends no conversation,
 workspace path, file content, tool schema, or tool result. Chat requests send
@@ -129,3 +145,4 @@ separate accepted operating-system vault design.
 - [Ollama model catalog API](https://docs.ollama.com/api/tags)
 - [Ollama tool calling](https://docs.ollama.com/capabilities/tool-calling)
 - [Ollama streaming](https://docs.ollama.com/api/streaming)
+- [Ollama OpenAPI contract](https://github.com/ollama/ollama/blob/main/docs/openapi.yaml)
