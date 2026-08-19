@@ -337,9 +337,11 @@ raw Escape in a component or make arrow-key correctness depend on stream chunkin
 The manual policy pins the normalized terminal-interface chapter and separately
 requires its three positive selector-dismissal clauses: input remains inert,
 Escape or Ctrl+C cancels, and other typing and editing keys remain ignored.
-Repinning the digest cannot admit contradictory wording that omits one of those
-clauses. Repin only with the corresponding behavior, decision, manual, focused
-regression, and removal guidance.
+It also rejects any unnegated clause that combines ordinary input, a dismissal
+action, and a menu or selector, even when every positive clause remains present.
+Repinning the digest cannot admit omitted or additional contradictory guidance.
+Repin only with the corresponding behavior, decision, manual, focused regression,
+and removal guidance.
 
 When selection focus replaces the composer, project any active composer-placed
 transient notice through the selector header's trailing edge. The notice
