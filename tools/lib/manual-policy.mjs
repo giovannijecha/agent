@@ -245,8 +245,8 @@ function visibleManualMarkdown(value) {
   return visibleLines.join("\n");
 }
 
-const RAW_HTML_ELEMENT =
-  /<(?:\/?[A-Za-z][A-Za-z0-9-]*(?:\s[^<>]*?)?\s*\/?|![A-Za-z][^<>]*|\?[^<>]*)>/u;
+const RAW_HTML_BLOCK_START =
+  /<(?:\/?[A-Za-z][A-Za-z0-9-]*(?=[\t\n\f\r />])|![A-Z]|\?|!\[CDATA\[)/u;
 
 function manualSection(value, heading) {
   const manual = value.replaceAll("\r\n", "\n");
@@ -414,7 +414,7 @@ function verifySelectorDismissal(contract, context) {
     .digest("hex");
   if (
     digest !== contract.sha256 ||
-    RAW_HTML_ELEMENT.test(visibleTerminal) ||
+    RAW_HTML_BLOCK_START.test(visibleTerminal) ||
     hasUnregisteredSelectorInputGuidance(
       terminal,
       useSelectors,

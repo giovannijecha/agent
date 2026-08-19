@@ -384,6 +384,9 @@ test("rejects raw HTML in the protected selector chapter", () => {
   const wrappers = [
     ["<template>.\n", "\n.</template>"],
     ["<div hidden>.\n", "\n.</div>"],
+    ["<![CDATA[.\n", "\n.]]>"],
+    ["<?agent .\n", "\n.?>"],
+    ["<!DOCTYPE .\n", "\n.>"],
   ];
   for (const [opening, closing] of wrappers) {
     const policy = structuredClone(currentPolicy);
