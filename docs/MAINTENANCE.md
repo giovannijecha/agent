@@ -355,10 +355,12 @@ adjacent sentences so a split contradiction cannot bypass validation. Only the
 two canonical inert-input sentences in the terminal-interface chapter are
 admitted. The first occurs exactly once in `Use selectors`; the second occurs
 exactly once in `Read the interface`. A matching sentence elsewhere or any
-duplicate remains unregistered. Any additional or rewritten sentence in that
-domain, including alternative dismissal verbs or otherwise benign negative
-wording, requires an explicit policy, regression, and manual update. Repinning
-the digest alone cannot admit the new guidance.
+duplicate remains unregistered. Presence, cardinality, and section ownership
+are evaluated against operator-visible prose: HTML comments, fenced code, and
+indented code cannot satisfy them. Any additional or rewritten sentence in
+that domain, including alternative dismissal verbs or otherwise benign
+negative wording, requires an explicit policy, regression, and manual update.
+Repinning the digest alone cannot admit the new guidance.
 Repin only with the corresponding behavior, decision, manual, focused regression,
 and removal guidance.
 
