@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
@@ -60,6 +61,13 @@ function currentContext() {
   };
 }
 
+function repinSelectorDismissal(policy, context) {
+  const chapter = policy.selectorDismissal.path;
+  policy.selectorDismissal.sha256 = createHash("sha256")
+    .update(context.files[chapter].replaceAll("\r\n", "\n"), "utf8")
+    .digest("hex");
+}
+
 test("accepts the canonical owned operator manual", () => {
   assert.doesNotThrow(() => validateManualPolicy(currentPolicy, currentContext()));
 });
@@ -91,6 +99,7 @@ test("rejects terminal-interface task contract drift", () => {
 });
 
 test("rejects implicit selector dismissal guidance", () => {
+  const policy = structuredClone(currentPolicy);
   const context = currentContext();
   const chapter = "docs/manual/03-terminal-interface.md";
   const maintained = context.files[chapter];
@@ -99,8 +108,13 @@ test("rejects implicit selector dismissal guidance", () => {
     "An ordinary editor input closes a dismissible selector and is consumed",
   );
   assert.notEqual(context.files[chapter], maintained);
+  repinSelectorDismissal(policy, context);
+  assert.notEqual(
+    policy.selectorDismissal.sha256,
+    currentPolicy.selectorDismissal.sha256,
+  );
   assert.throws(
-    () => validateManualPolicy(currentPolicy, context),
+    () => validateManualPolicy(policy, context),
     {
       message: "manual selector dismissal contract is inconsistent",
       name: "ManualPolicyError",
@@ -109,6 +123,7 @@ test("rejects implicit selector dismissal guidance", () => {
 });
 
 test("rejects contradictory selector dismissal guidance", () => {
+  const policy = structuredClone(currentPolicy);
   const context = currentContext();
   const chapter = "docs/manual/03-terminal-interface.md";
   const maintained = context.files[chapter];
@@ -117,8 +132,13 @@ test("rejects contradictory selector dismissal guidance", () => {
     "Other typing and editing keys close the menu and are consumed",
   );
   assert.notEqual(context.files[chapter], maintained);
+  repinSelectorDismissal(policy, context);
+  assert.notEqual(
+    policy.selectorDismissal.sha256,
+    currentPolicy.selectorDismissal.sha256,
+  );
   assert.throws(
-    () => validateManualPolicy(currentPolicy, context),
+    () => validateManualPolicy(policy, context),
     {
       message: "manual selector dismissal contract is inconsistent",
       name: "ManualPolicyError",
