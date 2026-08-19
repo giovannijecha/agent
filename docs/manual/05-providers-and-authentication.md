@@ -95,6 +95,10 @@ admission.
   that rejected an opened stream. It does not expose provider text or prove a
   model defect. Reproduce it with the same current model and report the exact
   content-free code; do not paste prompts, responses, or tool arguments.
+- A native clean end is accepted after validated text, thinking, or a complete
+  tool call. `/terminal` therefore identifies an empty clean stream or another
+  invalid completion boundary; an interrupted connection remains a transport
+  failure rather than an accepted clean end.
 
 The native decoder is shared by every selected model. Missing, null, and empty
 tool-call members mean that a stream chunk contributed no call; real calls are

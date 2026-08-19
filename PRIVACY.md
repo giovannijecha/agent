@@ -19,6 +19,9 @@ protocol failures, one phase from `transport`, `framing`, `envelope`, `message`,
 records, model output, tool arguments, credentials, and foreign causes are not
 retained, journaled, logged, rendered, or copied into fixtures. Phase labels
 diagnose an owned boundary and do not identify provider content.
+The adapter may distinguish a clean HTTP end from an aborted or errored stream
+only through the content-free transport lifecycle. It retains neither the
+validated contribution used to establish completion nor the foreign cause.
 
 ## Local tools
 

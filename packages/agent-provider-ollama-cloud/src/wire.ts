@@ -200,6 +200,7 @@ const VALID_TOOL_NAME = /^[a-z][a-z0-9_]{0,63}$/u;
 /** Stateful validator for one native Ollama NDJSON chat response. */
 export class OllamaChatDecoder {
   readonly #model: OllamaCloudModelId;
+  #hasContribution = false;
   #terminal = false;
   #thinkingCodeUnits = 0;
   #toolArgumentCodeUnits = 0;
@@ -248,16 +249,24 @@ export class OllamaChatDecoder {
       if (this.#thinkingCodeUnits > OLLAMA_CLOUD_LIMITS.thinkingCodeUnits) {
         return err(failure("limit"));
       }
+      if (message.thinking.length > 0) {
+        this.#hasContribution = true;
+      }
     }
     if (message.tool_calls !== undefined && message.tool_calls !== null) {
+      const toolCount = this.#tools.length;
       const accepted = this.#acceptTools(message.tool_calls);
       if (!accepted.ok) {
         return accepted;
+      }
+      if (this.#tools.length > toolCount) {
+        this.#hasContribution = true;
       }
     }
 
     const events: ModelStreamEvent[] = [];
     if (content.length > 0) {
+      this.#hasContribution = true;
       events.push(Object.freeze({
         kind: "delta" as const,
         text: content,
@@ -273,22 +282,27 @@ export class OllamaChatDecoder {
     ) {
       return err(failure("finishReason"));
     }
-    this.#terminal = true;
-    events.push(
-      this.#tools.length === 0
-        ? Object.freeze({ kind: "done" as const })
-        : Object.freeze({
-            calls: Object.freeze([...this.#tools]),
-            kind: "toolCalls" as const,
-          }),
-    );
+    events.push(this.#complete());
     return ok(Object.freeze(events));
   }
 
   end(): Result<readonly ModelStreamEvent[], WireError> {
-    return this.#terminal
-      ? ok(Object.freeze([]))
+    if (this.#terminal) {
+      return ok(Object.freeze([]));
+    }
+    return this.#hasContribution
+      ? ok(Object.freeze([this.#complete()]))
       : err(failure("protocolTerminal"));
+  }
+
+  #complete(): ModelStreamEvent {
+    this.#terminal = true;
+    return this.#tools.length === 0
+      ? Object.freeze({ kind: "done" as const })
+      : Object.freeze({
+          calls: Object.freeze([...this.#tools]),
+          kind: "toolCalls" as const,
+        });
   }
 
   #acceptTools(value: unknown): Result<void, WireError> {

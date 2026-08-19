@@ -427,6 +427,13 @@ contract, parse serialized arguments a second time, or add a model-specific
 branch. Missing, null, and empty `tool_calls` members are already the admitted
 no-contribution forms.
 
+For completion failures, preserve the transport distinction. A clean HTTP end
+may settle only after the native decoder accepted non-empty thinking, content,
+or a complete tool call. A clean empty stream is `terminal`; incomplete UTF-8
+or NDJSON remains framing or encoding failure; an aborted or errored connection
+remains transport failure. Never infer success from partial bytes or add a
+model-specific terminal rule.
+
 To remove Ollama Cloud, delete the adapter, CLI transport, commands/session
 registration, provider policy entry, normalizer and phase mapping,
 declarations, tests, public contract, and decisions 0072, 0080, and 0082 status

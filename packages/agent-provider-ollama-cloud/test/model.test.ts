@@ -417,6 +417,70 @@ test("normalizes absent, null, and empty native tool-call contributions", async 
   }
 });
 
+test("settles validated native contributions on a clean stream end", async () => {
+  const toolStream = await open(
+    fixture(new FakeStream([
+      ok(line(response({
+        content: "",
+        tool_calls: [{
+          function: {
+            arguments: { path: "index.html" },
+            index: 0,
+            name: "read_file",
+          },
+          type: "function",
+        }],
+      }))),
+    ])).model,
+    [descriptor()],
+  );
+  const toolEvent = await read(toolStream);
+  assert.equal(toolEvent.kind, "toolCalls");
+  if (toolEvent.kind === "toolCalls") {
+    assert.deepEqual(
+      toolEvent.calls.map((call) => [call.callId, call.name, call.input.get("path")]),
+      [["ollama-call-1", "read_file", "index.html"]],
+    );
+  }
+
+  const textStream = await open(
+    fixture(new FakeStream([
+      ok(line(response({ content: "complete response" }))),
+    ])).model,
+  );
+  assert.deepEqual(await read(textStream), {
+    kind: "delta",
+    text: "complete response",
+  });
+  assert.deepEqual(await read(textStream), { kind: "done" });
+});
+
+test("does not settle an empty or abruptly failed native stream", async () => {
+  const empty = await open(fixture(new FakeStream([])).model);
+  const emptyResult = await empty.read();
+  assert.equal(emptyResult.ok, false);
+  if (!emptyResult.ok) assert.equal(emptyResult.error.reason, "protocolTerminal");
+
+  const interrupted = await open(
+    fixture(new FakeStream([
+      ok(line(response({
+        content: "",
+        tool_calls: [{
+          function: { arguments: { path: "index.html" }, name: "read_file" },
+          type: "function",
+        }],
+      }))),
+      err(Object.freeze({ kind: "connection" as const })),
+    ])).model,
+    [descriptor()],
+  );
+  const interruptedResult = await interrupted.read();
+  assert.equal(interruptedResult.ok, false);
+  if (!interruptedResult.ok) {
+    assert.equal(interruptedResult.error.reason, "transportConnection");
+  }
+});
+
 test("classifies malformed native response phases without retaining content", async () => {
   const cases = [
     Object.freeze({
@@ -581,24 +645,13 @@ test("classifies non-success statuses while observing cleanup", async () => {
   );
 });
 
-test("rejects invalid UTF-8 and an unterminated response", async () => {
+test("rejects invalid UTF-8", async () => {
   const invalid = await open(
     fixture(new FakeStream([ok(Uint8Array.from([0xff]))])).model,
   );
   const invalidResult = await invalid.read();
   assert.equal(invalidResult.ok, false);
   if (!invalidResult.ok) assert.equal(invalidResult.error.reason, "encoding");
-
-  const truncated = await open(
-    fixture(new FakeStream([ok(line(response({ content: "partial" })))]))
-      .model,
-  );
-  assert.deepEqual(await read(truncated), { kind: "delta", text: "partial" });
-  const truncatedResult = await truncated.read();
-  assert.equal(truncatedResult.ok, false);
-  if (!truncatedResult.ok) {
-    assert.equal(truncatedResult.error.reason, "protocolTerminal");
-  }
 });
 
 test("classifies malformed NDJSON framing without retaining content", async () => {
