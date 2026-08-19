@@ -489,9 +489,11 @@ test("rejects removal or modification of maintained provenance entries", () => {
 test("rejects Ollama error provenance drift after inventory repinning", () => {
   const maintained = currentContext().files["docs/OWNERSHIP.md"];
   for (const marker of [
-    "[Ollama API errors](https://docs.ollama.com/api/errors)",
+    "| 2026-08-19 | [Ollama API errors](https://docs.ollama.com/api/errors)",
     "Public HTTP status-code semantics and JSON error-envelope shape for failed requests",
     "Content-free classification of non-success HTTP outcomes into the closed provider failure families under decision 0080",
+    "response bodies remain unread",
+    "None; no SDK, CLI, executable, local daemon, source, sample, response, fixture, identifier, or implementation structure reused",
   ]) {
     const context = currentContext();
     context.files["docs/OWNERSHIP.md"] = maintained.replace(
