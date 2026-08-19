@@ -248,7 +248,7 @@ To remove namespace mutation, remove `manage_path` advertisement and manual
 inventory before deleting its planner, preview, committer, protocol, native
 sources, focused tests, decision, and policy entries.
 
-If the complete inventory is retired, replace manual-policy schema 11 with a
+If the complete inventory is retired, replace manual-policy schema 12 with a
 schema that removes the advertised tool inventory; do not leave an empty or
 stale registry behind.
 
@@ -334,37 +334,20 @@ and EOF as global routes. If Escape cannot close a selector, trace the Node host
 single trailing-byte timer, its 30-millisecond settled marker, the generic
 decoder event, and the shared CLI selector reducer in that order. Do not decode
 raw Escape in a component or make arrow-key correctness depend on stream chunking.
-The manual policy pins the normalized terminal-interface chapter and separately
-requires its three positive selector-dismissal clauses: input remains inert,
-Escape or Ctrl+C cancels, and other typing and editing keys remain ignored.
-It treats the decision's closed inert-input vocabulary together with singular
-or plural list, menu, selector, or focus context as one fail-closed semantic
-domain.
-The vocabulary covers the decision-named selector input; generic keyboard or
-key events, actions, input, keystrokes, key strokes, key presses, and input
-events; printable and editing input; paste; Tab, Home, End, Delete, and
-Backspace; deletion and word-editing events; and the concrete Ctrl+Left,
-Ctrl+Right, Ctrl+Backspace, Ctrl+W, and Ctrl+Delete spellings admitted by the
-decoder. Joined, spaced, and hyphenated selector-input, keyboard-, key-, and
-input-event terms share the same classification.
-Within the `Use selectors` and `Read the interface` sections, every sentence
-containing that vocabulary belongs to the closed domain even when it refers to
-the selector only through surrounding prose. Across the full chapter, an
-inert-input sentence also inherits selector context from its immediately
-adjacent sentences so a split contradiction cannot bypass validation. Only the
-two canonical inert-input sentences in the terminal-interface chapter are
-admitted. The first occurs exactly once in `Use selectors`; the second occurs
-exactly once in `Read the interface`. A matching sentence elsewhere or any
-duplicate remains unregistered. Presence, cardinality, and section ownership
-are evaluated against operator-visible prose: HTML comments, fenced code, and
-indented code cannot satisfy them. Raw HTML outside those code regions is not
-admitted in the protected chapter; canonical guidance remains ordinary
-Markdown prose. Any additional or rewritten sentence in
-that domain, including alternative dismissal verbs or otherwise benign
-negative wording, requires an explicit policy, regression, and manual update.
-Repinning the digest alone cannot admit the new guidance.
-Repin only with the corresponding behavior, decision, manual, focused regression,
-and removal guidance.
+Manual-policy schema 12 pins the normalized terminal-interface chapter, every
+declared section body in heading order, and three exact selector-dismissal
+clauses in their owning sections: input remains inert, Escape or Ctrl+C
+cancels, and other typing and editing keys remain ignored. The verifier checks
+structure, identity, clause placement, and clause cardinality. It deliberately
+does not parse CommonMark or infer semantic equivalence from free-form English.
+
+A chapter edit requires the chapter digest and each affected section digest to
+change explicitly. A protected-clause rewrite also requires an explicit clause
+contract update. Digest updates identify the reviewed artifact; they never
+constitute semantic approval by themselves. Change behavior, decision, manual,
+focused regression, policy, and removal guidance together. Rollback restores
+the prior schema, contract, validator, and tests as one unit; never introduce a
+parallel prose classifier or partial Markdown parser.
 
 When selection focus replaces the composer, project any active composer-placed
 transient notice through the selector header's trailing edge. The notice

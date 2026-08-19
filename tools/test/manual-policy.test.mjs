@@ -68,6 +68,27 @@ function repinSelectorDismissal(policy, context) {
     .digest("hex");
 }
 
+function manualSection(value, heading) {
+  const manual = value.replaceAll("\r\n", "\n");
+  const marker = "\n## " + heading + "\n";
+  const start = manual.indexOf(marker);
+  assert.notEqual(start, -1, "missing manual section: " + heading);
+  const bodyStart = start + marker.length;
+  const next = manual.indexOf("\n## ", bodyStart);
+  return manual.slice(bodyStart, next < 0 ? manual.length : next);
+}
+
+function repinSelectorSection(policy, context, heading) {
+  const contract = policy.selectorDismissal.sections.find(
+    (section) => section.heading === heading,
+  );
+  assert.notEqual(contract, undefined, "missing section contract: " + heading);
+  const chapter = policy.selectorDismissal.path;
+  contract.sha256 = createHash("sha256")
+    .update(manualSection(context.files[chapter], heading), "utf8")
+    .digest("hex");
+}
+
 test("accepts the canonical owned operator manual", () => {
   assert.doesNotThrow(() => validateManualPolicy(currentPolicy, currentContext()));
 });
@@ -98,96 +119,18 @@ test("rejects terminal-interface task contract drift", () => {
   );
 });
 
-test("rejects implicit selector dismissal guidance", () => {
-  const policy = structuredClone(currentPolicy);
-  const context = currentContext();
-  const chapter = "docs/manual/03-terminal-interface.md";
-  const maintained = context.files[chapter];
-  context.files[chapter] = context.files[chapter].replace(
-    "Printable and editing input is inert while a dismissible selector\nowns focus",
-    "An ordinary editor input closes a dismissible selector and is consumed",
-  );
-  assert.notEqual(context.files[chapter], maintained);
-  repinSelectorDismissal(policy, context);
-  assert.notEqual(
-    policy.selectorDismissal.sha256,
-    currentPolicy.selectorDismissal.sha256,
-  );
-  assert.throws(
-    () => validateManualPolicy(policy, context),
-    {
-      message: "manual selector dismissal contract is inconsistent",
-      name: "ManualPolicyError",
-    },
-  );
-});
-
-test("rejects contradictory selector dismissal guidance", () => {
-  const policy = structuredClone(currentPolicy);
-  const context = currentContext();
-  const chapter = "docs/manual/03-terminal-interface.md";
-  const maintained = context.files[chapter];
-  context.files[chapter] = context.files[chapter].replace(
-    "Other typing and editing keys\nare ignored while the menu remains open",
-    "Other typing and editing keys close the menu and are consumed",
-  );
-  assert.notEqual(context.files[chapter], maintained);
-  repinSelectorDismissal(policy, context);
-  assert.notEqual(
-    policy.selectorDismissal.sha256,
-    currentPolicy.selectorDismissal.sha256,
-  );
-  assert.throws(
-    () => validateManualPolicy(policy, context),
-    {
-      message: "manual selector dismissal contract is inconsistent",
-      name: "ManualPolicyError",
-    },
-  );
-});
-
-test("rejects contradictory selector dismissal additions after repinning", () => {
-  const contradictions = [
-    "An ordinary editor input closes the menu and is consumed.",
-    "Printable text dismisses the selector.",
-    "Editing keys cancel the menu.",
+test("rejects any selector chapter drift after only the chapter is repinned", () => {
+  const edits = [
+    "Tab closes the selector.",
+    "<!-- hidden selector guidance -->",
+    "``` invalid`\nTab closes the selector.",
+    "~~~ text\nTab closes the selector.\n~~~",
   ];
-  for (const contradiction of contradictions) {
+  for (const edit of edits) {
     const policy = structuredClone(currentPolicy);
     const context = currentContext();
     const chapter = policy.selectorDismissal.path;
-    context.files[chapter] += "\n" + contradiction + "\n";
-    repinSelectorDismissal(policy, context);
-    assert.notEqual(
-      policy.selectorDismissal.sha256,
-      currentPolicy.selectorDismissal.sha256,
-    );
-    assert.throws(
-      () => validateManualPolicy(policy, context),
-      {
-        message: "manual selector dismissal contract is inconsistent",
-        name: "ManualPolicyError",
-      },
-    );
-  }
-});
-
-test("rejects contradictions using every decision-named inert input", () => {
-  const contradictions = [
-    "Paste closes the menu.",
-    "Tab dismisses the selector.",
-    "Home cancels the menu.",
-    "End closes the selector.",
-    "Delete dismisses the menu.",
-    "Backspace closes the selector.",
-    "Deletion dismisses the menu.",
-    "Word-editing input cancels the selector.",
-  ];
-  for (const contradiction of contradictions) {
-    const policy = structuredClone(currentPolicy);
-    const context = currentContext();
-    const chapter = policy.selectorDismissal.path;
-    context.files[chapter] += "\n" + contradiction + "\n";
+    context.files[chapter] += "\n" + edit + "\n";
     repinSelectorDismissal(policy, context);
     assert.throws(
       () => validateManualPolicy(policy, context),
@@ -199,366 +142,63 @@ test("rejects contradictions using every decision-named inert input", () => {
   }
 });
 
-test("rejects generic keyboard-event contradictions", () => {
-  const contradictions = [
-    "Every other keyboard event closes the list.",
-    "Keyboard events dismiss selectors.",
-  ];
-  for (const contradiction of contradictions) {
-    const policy = structuredClone(currentPolicy);
-    const context = currentContext();
-    const chapter = policy.selectorDismissal.path;
-    context.files[chapter] += "\n" + contradiction + "\n";
-    repinSelectorDismissal(policy, context);
-    assert.throws(
-      () => validateManualPolicy(policy, context),
-      {
-        message: "manual selector dismissal contract is inconsistent",
-        name: "ManualPolicyError",
-      },
-    );
-  }
-});
-
-test("rejects equivalent generic key-press terminology", () => {
-  const contradictions = [
-    "A keystroke closes the selector.",
-    "Keystrokes close the selector.",
-    "A key press closes the selector.",
-    "Key presses close the selector.",
-    "A key-press closes the selector.",
-    "Key-presses close the selector.",
-    "A keypress closes the selector.",
-    "Keypresses close the selector.",
-    "Keyboard input closes the selector.",
-    "Ignored selector input closes the menu.",
-    "Ignored selector inputs close the menu.",
-    "Ignored selector-input closes the menu.",
-    "Ignored selectorinput closes the menu.",
-    "Key actions close the selector.",
-    "Input event closes the selector.",
-    "Input events close the selector.",
-    "Input-event closes the selector.",
-    "Input-events close the selector.",
-    "Inputevent closes the selector.",
-    "Inputevents close the selector.",
-  ];
-  for (const contradiction of contradictions) {
-    const policy = structuredClone(currentPolicy);
-    const context = currentContext();
-    const chapter = policy.selectorDismissal.path;
-    const maintained = context.files[chapter];
-    context.files[chapter] = maintained.replace(
-      "\n## Navigate and copy",
-      "\n" + contradiction + "\n\n## Navigate and copy",
-    );
-    assert.notEqual(context.files[chapter], maintained);
-    repinSelectorDismissal(policy, context);
-    assert.throws(
-      () => validateManualPolicy(policy, context),
-      {
-        message: "manual selector dismissal contract is inconsistent",
-        name: "ManualPolicyError",
-      },
-    );
-  }
-});
-
-test("rejects selector contradictions split across adjacent sentences", () => {
+test("requires an exact clause after an explicit section repin", () => {
   const policy = structuredClone(currentPolicy);
   const context = currentContext();
   const chapter = policy.selectorDismissal.path;
-  context.files[chapter] +=
-    "\nKeyboard events close it. The selector then disappears.\n";
-  repinSelectorDismissal(policy, context);
-  assert.throws(
-    () => validateManualPolicy(policy, context),
-    {
-      message: "manual selector dismissal contract is inconsistent",
-      name: "ManualPolicyError",
-    },
-  );
-});
-
-test("rejects pronoun guidance inside selector authority sections", () => {
-  const policy = structuredClone(currentPolicy);
-  const context = currentContext();
-  const chapter = policy.selectorDismissal.path;
-  const maintained = context.files[chapter];
-  context.files[chapter] = maintained.replace(
-    "\n## Navigate and copy",
-    "\nKeyboard events close it.\n\n## Navigate and copy",
-  );
-  assert.notEqual(context.files[chapter], maintained);
-  repinSelectorDismissal(policy, context);
-  assert.throws(
-    () => validateManualPolicy(policy, context),
-    {
-      message: "manual selector dismissal contract is inconsistent",
-      name: "ManualPolicyError",
-    },
-  );
-});
-
-test("rejects duplicate canonical selector guidance after repinning", () => {
-  const canonicalSentences = [
-    "Printable and editing input is inert while a dismissible selector " +
-      "owns focus; accepting or cancelling input is consumed without " +
-      "editing the retained draft.",
-    "Other typing and editing keys are ignored while the menu remains open, " +
-      "so an accidental character neither closes the menu nor disappears " +
-      "into the composer.",
-  ];
-  for (const canonical of canonicalSentences) {
-    const policy = structuredClone(currentPolicy);
-    const context = currentContext();
-    const chapter = policy.selectorDismissal.path;
-    const maintained = context.files[chapter];
-    context.files[chapter] = maintained.replace(
-      "\n## Navigate and copy",
-      "\n" + canonical + "\n\n## Navigate and copy",
-    );
-    assert.notEqual(context.files[chapter], maintained);
-    repinSelectorDismissal(policy, context);
-    assert.throws(
-      () => validateManualPolicy(policy, context),
-      {
-        message: "manual selector dismissal contract is inconsistent",
-        name: "ManualPolicyError",
-      },
-    );
-  }
-});
-
-test("rejects canonical selector guidance outside its owning section", () => {
-  const policy = structuredClone(currentPolicy);
-  const context = currentContext();
-  const chapter = policy.selectorDismissal.path;
-  const maintained = context.files[chapter];
+  const clause = policy.selectorDismissal.clauses.at(0);
   const wrapped =
     "Printable and editing input is inert while a dismissible selector\n" +
     "owns focus; accepting or cancelling input is consumed without editing " +
     "the\nretained draft.";
-  const canonical = wrapped.replaceAll("\n", " ");
-  context.files[chapter] = maintained
-    .replace(wrapped, "")
-    .replace("\n## Recover from terminal problems", "\n" + canonical +
-      "\n\n## Recover from terminal problems");
-  assert.notEqual(context.files[chapter], maintained);
-  repinSelectorDismissal(policy, context);
-  assert.throws(
-    () => validateManualPolicy(policy, context),
-    {
-      message: "manual selector dismissal contract is inconsistent",
-      name: "ManualPolicyError",
-    },
-  );
-});
-
-test("rejects canonical selector guidance hidden in an HTML comment", () => {
-  const policy = structuredClone(currentPolicy);
-  const context = currentContext();
-  const chapter = policy.selectorDismissal.path;
-  const maintained = context.files[chapter];
-  const wrapped =
-    "Printable and editing input is inert while a dismissible selector\n" +
-    "owns focus; accepting or cancelling input is consumed without editing " +
-    "the\nretained draft.";
-  const canonical = wrapped.replaceAll("\n", " ");
-  context.files[chapter] = maintained.replace(
+  assert.equal(context.files[chapter].includes(wrapped), true);
+  context.files[chapter] = context.files[chapter].replace(
     wrapped,
-    "<!--. " + canonical + ". -->",
+    "Ordinary input closes the selector.",
   );
-  assert.notEqual(context.files[chapter], maintained);
   repinSelectorDismissal(policy, context);
+  repinSelectorSection(policy, context, clause.section);
   assert.throws(
     () => validateManualPolicy(policy, context),
     {
-      message: "manual selector dismissal contract is inconsistent",
+      message: "manual selector dismissal clause is invalid",
       name: "ManualPolicyError",
     },
   );
 });
 
-test("rejects raw HTML in the protected selector chapter", () => {
-  const wrappers = [
-    ["<template>.\n", "\n.</template>"],
-    ["<div hidden>.\n", "\n.</div>"],
-    ["<![CDATA[.\n", "\n.]]>"],
-    ["<?agent .\n", "\n.?>"],
-    ["<!DOCTYPE .\n", "\n.>"],
-  ];
-  for (const [opening, closing] of wrappers) {
-    const policy = structuredClone(currentPolicy);
-    const context = currentContext();
-    const chapter = policy.selectorDismissal.path;
-    const maintained = context.files[chapter];
-    const wrapped =
-      "Printable and editing input is inert while a dismissible selector\n" +
-      "owns focus; accepting or cancelling input is consumed without editing " +
-      "the\nretained draft.";
-    const canonical = wrapped.replaceAll("\n", " ");
-    context.files[chapter] = maintained.replace(
-      wrapped,
-      opening + canonical + closing,
-    );
-    assert.notEqual(context.files[chapter], maintained);
-    repinSelectorDismissal(policy, context);
-    assert.throws(
-      () => validateManualPolicy(policy, context),
-      {
-        message: "manual selector dismissal contract is inconsistent",
-        name: "ManualPolicyError",
-      },
-    );
-  }
-});
-
-test("rejects canonical selector guidance hidden in a fenced code block", () => {
+test("accepts an explicit non-clause section revision", () => {
   const policy = structuredClone(currentPolicy);
   const context = currentContext();
   const chapter = policy.selectorDismissal.path;
-  const maintained = context.files[chapter];
-  const wrapped =
-    "Other typing and editing keys\nare ignored while the menu remains open, " +
-    "so an accidental character neither\ncloses the menu nor disappears into " +
-    "the composer.";
-  const canonical = wrapped.replaceAll("\n", " ");
-  context.files[chapter] = maintained.replace(
-    wrapped,
-    "\n```text\n.\n" + canonical + ".\n```\n",
+  context.files[chapter] = context.files[chapter].replace(
+    "Transcript navigation never changes the draft or caret.",
+    "Transcript navigation preserves both the draft and caret.",
   );
-  assert.notEqual(context.files[chapter], maintained);
   repinSelectorDismissal(policy, context);
+  repinSelectorSection(policy, context, "Navigate and copy");
+  assert.doesNotThrow(() => validateManualPolicy(policy, context));
+});
+
+test("rejects malformed selector section and clause inventories", () => {
+  const missingSection = structuredClone(currentPolicy);
+  missingSection.selectorDismissal.sections.pop();
   assert.throws(
-    () => validateManualPolicy(policy, context),
+    () => validateManualPolicy(missingSection, currentContext()),
     {
-      message: "manual selector dismissal contract is inconsistent",
+      message: "manual selector dismissal contract is invalid",
       name: "ManualPolicyError",
     },
   );
-});
 
-test("rejects contradictions using concrete word-editing keys", () => {
-  const contradictions = [
-    "Ctrl+Left closes the menu.",
-    "Ctrl+Right dismisses the selector.",
-    "Ctrl+Backspace cancels the menu.",
-    "Ctrl+W closes the selector.",
-    "Ctrl+Delete dismisses the menu.",
-  ];
-  for (const contradiction of contradictions) {
-    const policy = structuredClone(currentPolicy);
-    const context = currentContext();
-    const chapter = policy.selectorDismissal.path;
-    context.files[chapter] += "\n" + contradiction + "\n";
-    repinSelectorDismissal(policy, context);
-    assert.throws(
-      () => validateManualPolicy(policy, context),
-      {
-        message: "manual selector dismissal contract is inconsistent",
-        name: "ManualPolicyError",
-      },
-    );
-  }
-});
-
-test("scopes negation to the selector dismissal action", () => {
-  const policy = structuredClone(currentPolicy);
-  const context = currentContext();
-  const chapter = policy.selectorDismissal.path;
-  context.files[chapter] +=
-    "\nTyping does not edit but closes the menu.\n";
-  repinSelectorDismissal(policy, context);
-  assert.throws(
-    () => validateManualPolicy(policy, context),
-    {
-      message: "manual selector dismissal contract is inconsistent",
-      name: "ManualPolicyError",
-    },
-  );
-});
-
-test("rejects unregistered selector dismissal action wording", () => {
-  const contradictions = [
-    "Tab exits the selector.",
-    "Home hides the menu.",
-    "End returns focus.",
-  ];
-  for (const contradiction of contradictions) {
-    const policy = structuredClone(currentPolicy);
-    const context = currentContext();
-    const chapter = policy.selectorDismissal.path;
-    context.files[chapter] += "\n" + contradiction + "\n";
-    repinSelectorDismissal(policy, context);
-    assert.throws(
-      () => validateManualPolicy(policy, context),
-      {
-        message: "manual selector dismissal contract is inconsistent",
-        name: "ManualPolicyError",
-      },
-    );
-  }
-});
-
-test("rejects unregistered plural selector context wording", () => {
-  const contradictions = [
-    "Tab closes selectors.",
-    "Printable text closes the menus.",
-    "Home changes the foci.",
-    "End focuses the composer.",
-  ];
-  for (const contradiction of contradictions) {
-    const policy = structuredClone(currentPolicy);
-    const context = currentContext();
-    const chapter = policy.selectorDismissal.path;
-    context.files[chapter] += "\n" + contradiction + "\n";
-    repinSelectorDismissal(policy, context);
-    assert.throws(
-      () => validateManualPolicy(policy, context),
-      {
-        message: "manual selector dismissal contract is inconsistent",
-        name: "ManualPolicyError",
-      },
-    );
-  }
-});
-
-test("rejects singular and plural list selector context wording", () => {
-  const contradictions = [
-    "Ctrl+W closes the list.",
-    "Ctrl+Delete dismisses lists.",
-  ];
-  for (const contradiction of contradictions) {
-    const policy = structuredClone(currentPolicy);
-    const context = currentContext();
-    const chapter = policy.selectorDismissal.path;
-    context.files[chapter] += "\n" + contradiction + "\n";
-    repinSelectorDismissal(policy, context);
-    assert.throws(
-      () => validateManualPolicy(policy, context),
-      {
-        message: "manual selector dismissal contract is inconsistent",
-        name: "ManualPolicyError",
-      },
-    );
-  }
-});
-
-test("rejects unregistered negative selector guidance after repinning", () => {
-  const policy = structuredClone(currentPolicy);
-  const context = currentContext();
-  const chapter = policy.selectorDismissal.path;
-  context.files[chapter] += "\nPrintable text does not close the menu.\n";
-  repinSelectorDismissal(policy, context);
-  assert.notEqual(
-    policy.selectorDismissal.sha256,
-    currentPolicy.selectorDismissal.sha256,
+  const duplicateClause = structuredClone(currentPolicy);
+  duplicateClause.selectorDismissal.clauses[2] = structuredClone(
+    duplicateClause.selectorDismissal.clauses.at(1),
   );
   assert.throws(
-    () => validateManualPolicy(policy, context),
+    () => validateManualPolicy(duplicateClause, currentContext()),
     {
-      message: "manual selector dismissal contract is inconsistent",
+      message: "manual selector dismissal clauses must not contain duplicates",
       name: "ManualPolicyError",
     },
   );
@@ -882,7 +522,7 @@ test("rejects stale manual removal schema guidance", () => {
   const maintainedGuidance = context.files["docs/MAINTENANCE.md"];
   context.files["docs/MAINTENANCE.md"] = context.files[
     "docs/MAINTENANCE.md"
-  ].replace("manual-policy schema 11", "manual-policy schema 10");
+  ].replace("manual-policy schema 12", "manual-policy schema 11");
   assert.notEqual(context.files["docs/MAINTENANCE.md"], maintainedGuidance);
   assert.throws(
     () => validateManualPolicy(currentPolicy, context),
