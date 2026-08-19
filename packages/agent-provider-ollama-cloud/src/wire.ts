@@ -235,6 +235,13 @@ export class OllamaChatDecoder {
     ) {
       return err(failure("protocolEnvelope"));
     }
+    if (
+      parsed.done_reason !== undefined &&
+      parsed.done_reason !== null &&
+      (!parsed.done || parsed.done_reason !== "stop")
+    ) {
+      return err(failure("finishReason"));
+    }
 
     const message = parsed.message;
     const content = message.content;
@@ -274,13 +281,6 @@ export class OllamaChatDecoder {
     }
     if (!parsed.done) {
       return ok(Object.freeze(events));
-    }
-    if (
-      parsed.done_reason !== undefined &&
-      parsed.done_reason !== null &&
-      parsed.done_reason !== "stop"
-    ) {
-      return err(failure("finishReason"));
     }
     events.push(this.#complete());
     return ok(Object.freeze(events));

@@ -455,6 +455,37 @@ test("settles validated native contributions on a clean stream end", async () =>
   assert.deepEqual(await read(textStream), { kind: "done" });
 });
 
+test("validates finish metadata before accepting native contributions", async () => {
+  for (const doneReason of ["length", "stop"] as const) {
+    const stream = await open(
+      fixture(new FakeStream([
+        ok(line({
+          ...response({ content: "PRIVATE_SECRET" }),
+          done_reason: doneReason,
+        })),
+      ])).model,
+    );
+    const result = await stream.read();
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.equal(result.error.reason, "finishReason");
+    assert.equal(JSON.stringify(result).includes("PRIVATE_SECRET"), false);
+  }
+
+  const terminal = await open(
+    fixture(new FakeStream([
+      ok(line({
+        ...response({ content: "complete response" }, true),
+        done_reason: "stop",
+      })),
+    ])).model,
+  );
+  assert.deepEqual(await read(terminal), {
+    kind: "delta",
+    text: "complete response",
+  });
+  assert.deepEqual(await read(terminal), { kind: "done" });
+});
+
 test("does not settle an empty or abruptly failed native stream", async () => {
   const empty = await open(fixture(new FakeStream([])).model);
   const emptyResult = await empty.read();

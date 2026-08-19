@@ -433,6 +433,10 @@ or a complete tool call. A clean empty stream is `terminal`; incomplete UTF-8
 or NDJSON remains framing or encoding failure; an aborted or errored connection
 remains transport failure. Never infer success from partial bytes or add a
 model-specific terminal rule.
+Validate any non-null finish reason before accepting the record's contribution:
+only `stop` paired with `done: true` is terminal success. A reason on
+`done: false` and a truncation reason remain fail-closed terminal-contract
+failures rather than partial assistant output.
 
 To remove Ollama Cloud, delete the adapter, CLI transport, commands/session
 registration, provider policy entry, normalizer and phase mapping,
