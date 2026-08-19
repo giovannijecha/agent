@@ -220,6 +220,41 @@ test("rejects generic keyboard-event contradictions", () => {
   }
 });
 
+test("rejects equivalent generic key-press terminology", () => {
+  const contradictions = [
+    "A keystroke closes the selector.",
+    "Keystrokes close the selector.",
+    "A key press closes the selector.",
+    "Key presses close the selector.",
+    "A key-press closes the selector.",
+    "Key-presses close the selector.",
+    "A keypress closes the selector.",
+    "Keypresses close the selector.",
+    "Keyboard input closes the selector.",
+    "Key actions close the selector.",
+    "Input events close the selector.",
+  ];
+  for (const contradiction of contradictions) {
+    const policy = structuredClone(currentPolicy);
+    const context = currentContext();
+    const chapter = policy.selectorDismissal.path;
+    const maintained = context.files[chapter];
+    context.files[chapter] = maintained.replace(
+      "\n## Navigate and copy",
+      "\n" + contradiction + "\n\n## Navigate and copy",
+    );
+    assert.notEqual(context.files[chapter], maintained);
+    repinSelectorDismissal(policy, context);
+    assert.throws(
+      () => validateManualPolicy(policy, context),
+      {
+        message: "manual selector dismissal contract is inconsistent",
+        name: "ManualPolicyError",
+      },
+    );
+  }
+});
+
 test("rejects selector contradictions split across adjacent sentences", () => {
   const policy = structuredClone(currentPolicy);
   const context = currentContext();
