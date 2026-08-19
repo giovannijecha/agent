@@ -237,6 +237,29 @@ test("rejects unregistered selector dismissal action wording", () => {
   }
 });
 
+test("rejects unregistered plural selector context wording", () => {
+  const contradictions = [
+    "Tab closes selectors.",
+    "Printable text closes the menus.",
+    "Home changes the foci.",
+    "End focuses the composer.",
+  ];
+  for (const contradiction of contradictions) {
+    const policy = structuredClone(currentPolicy);
+    const context = currentContext();
+    const chapter = policy.selectorDismissal.path;
+    context.files[chapter] += "\n" + contradiction + "\n";
+    repinSelectorDismissal(policy, context);
+    assert.throws(
+      () => validateManualPolicy(policy, context),
+      {
+        message: "manual selector dismissal contract is inconsistent",
+        name: "ManualPolicyError",
+      },
+    );
+  }
+});
+
 test("rejects unregistered negative selector guidance after repinning", () => {
   const policy = structuredClone(currentPolicy);
   const context = currentContext();
