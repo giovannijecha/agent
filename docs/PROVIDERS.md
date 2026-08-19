@@ -50,6 +50,9 @@ clean HTTP end that follows at least one fully validated non-empty thinking,
 content, or tool-call contribution. A clean empty stream remains a `terminal`
 protocol failure. Partial UTF-8 or NDJSON, malformed native records, and an
 aborted or errored transport are not promoted to success.
+When present and non-null, `done_reason` is validated before any contribution:
+only `stop` on the same `done: true` record is admitted. Non-terminal finish
+metadata and truncation reasons fail closed for every catalog model.
 
 `/providers` enters or selects the process-local Ollama Cloud credential.
 `/models` performs one authenticated fixed-origin catalog request and exposes

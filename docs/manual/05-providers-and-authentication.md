@@ -99,6 +99,9 @@ admission.
   tool call. `/terminal` therefore identifies an empty clean stream or another
   invalid completion boundary; an interrupted connection remains a transport
   failure rather than an accepted clean end.
+- Finish metadata is checked before a response chunk becomes visible. A
+  non-null reason is valid only as `stop` with `done: true`; non-terminal or
+  truncated completion metadata commits no assistant text or tool call.
 
 The native decoder is shared by every selected model. Missing, null, and empty
 tool-call members mean that a stream chunk contributed no call; real calls are

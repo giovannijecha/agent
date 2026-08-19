@@ -47,6 +47,9 @@ validated non-empty thinking, content, or tool-call contribution. A clean end
 without such a contribution, an incomplete framed record, and an aborted or
 errored transport remain distinct failures. This completion rule is shared by
 every catalog model and introduces no retry, replay, or inferred provider state.
+Any non-null finish reason is validated before thinking, content, or tool calls
+can mutate decoder state. It is admitted only as `stop` on the same record that
+declares `done: true`; a non-terminal record cannot carry terminal metadata.
 
 Protocol failures use a closed content-free phase classification:
 `transport`, `framing`, `envelope`, `message`, `tool-call`, or `terminal`.
@@ -87,7 +90,8 @@ Provider contract regressions cover missing, null, empty, indexed, unindexed,
 and mixed tool-call members; multiple calls; interleaved stream contributions;
 canonical history replay; wrong types; malformed indices; gaps; duplicates;
 serialized arguments; invalid envelopes and messages; mismatched terminal
-records; clean ends after text and tool calls; empty clean ends; abrupt
+records; non-terminal finish reasons before contributions; clean ends after
+text and tool calls; empty clean ends; abrupt
 transport failures; truncation; and content-free reasons. CLI regressions bind every
 provider reason to one immutable public classification and reject unknown or
 malformed phase codes.

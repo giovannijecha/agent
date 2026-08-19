@@ -258,7 +258,8 @@ One valid terminal record completes the stream normally. A clean HTTP end also
 completes it only after the decoder has accepted a non-empty native thinking,
 content, or tool-call contribution. Empty clean streams fail at `terminal`;
 incomplete framing and aborted or errored transports retain their own failure
-boundaries.
+boundaries. Any non-null finish reason is checked before those contributions
+can change decoder state and is admitted only as `stop` on `done: true`.
 Credentials and catalog content never enter the transcript, logs, fixtures, or
 documentation.
 
