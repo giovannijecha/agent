@@ -172,20 +172,12 @@ function validateProvenanceLog(policy, context) {
   if (entries.length !== policy.provenanceLog.entryCount) {
     fail("provenance log entry inventory drifted");
   }
-  const ollamaErrorEntry = entries.find((entry) =>
-    entry.includes(
-      "[Ollama API errors](https://docs.ollama.com/api/errors)",
-    ),
-  );
-  if (
-    ollamaErrorEntry === undefined ||
-    !ollamaErrorEntry.includes(
-      "Public HTTP status-code semantics and JSON error-envelope shape for failed requests",
-    ) ||
-    !ollamaErrorEntry.includes(
-      "Content-free classification of non-success HTTP outcomes into the closed provider failure families under decision 0080",
-    )
-  ) {
+  const ollamaErrorEntry =
+    "| 2026-08-19 | [Ollama API errors](https://docs.ollama.com/api/errors) | " +
+    "Public HTTP status-code semantics and JSON error-envelope shape for failed requests | " +
+    "Content-free classification of non-success HTTP outcomes into the closed provider failure families under decision 0080; response bodies remain unread | " +
+    "None; no SDK, CLI, executable, local daemon, source, sample, response, fixture, identifier, or implementation structure reused |";
+  if (!entries.includes(ollamaErrorEntry)) {
     fail("Ollama error provenance contract is missing or incomplete");
   }
   const digest = createHash("sha256")
