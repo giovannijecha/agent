@@ -85,10 +85,11 @@ admission.
   `rejected` identifies account access, payment, authorization, or missing-model
   rejection; `limit` identifies an entity or rate limit; `timeout` identifies
   an HTTP timeout; `connectivity` identifies provider-side failure; and
-  `protocol` identifies an unexpected response class. A model appearing in the
-  fresh catalog does not guarantee entitlement, credit, quota, or capacity.
-- `model/open/protocol` is intentionally unphased: the unexpected HTTP response
-  did not open an admitted native stream.
+  `protocol` identifies a rejected pre-stream contract. A model appearing in
+  the fresh catalog does not guarantee entitlement, credit, quota, or capacity.
+- `model/open/protocol` is intentionally unphased: an unexpected HTTP response,
+  invalid content type, or malformed transport opening did not open an admitted
+  native stream.
 - The `model/open/rejected` notice therefore asks you to verify plan, credit,
   authorization, and model availability without claiming which provider-owned
   condition failed.

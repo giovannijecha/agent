@@ -34,6 +34,7 @@ type ProviderFailureReason = OllamaCloudFailureReason;
 
 function classifyReason(
   reason: ProviderFailureReason,
+  operation: ProviderFailureOperation,
 ): ProviderFailureClassification {
   if (reason === "statusConnectivity") return classification("connectivity");
   if (reason === "statusLimit") return classification("limit");
@@ -62,25 +63,25 @@ function classifyReason(
     reason === "contentType" ||
     reason === "transportProtocol"
   ) {
-    return protocolClassification("transport");
+    return protocolClassificationFor(operation, "transport");
   }
   if (reason === "encoding" || reason === "protocolFraming") {
-    return protocolClassification("framing");
+    return protocolClassificationFor(operation, "framing");
   }
   if (reason === "protocolEnvelope") {
-    return protocolClassification("envelope");
+    return protocolClassificationFor(operation, "envelope");
   }
   if (reason === "protocolMessage") {
-    return protocolClassification("message");
+    return protocolClassificationFor(operation, "message");
   }
   if (reason === "protocolToolCall") {
-    return protocolClassification("tool-call");
+    return protocolClassificationFor(operation, "tool-call");
   }
   if (reason === "finishReason") {
-    return protocolClassification("finish");
+    return protocolClassificationFor(operation, "finish");
   }
   if (reason === "protocolTerminal") {
-    return protocolClassification("terminal");
+    return protocolClassificationFor(operation, "terminal");
   }
   return classification("protocol");
 }
@@ -95,6 +96,15 @@ function protocolClassification(
   protocolPhase: ProviderProtocolPhase,
 ): ProviderFailureClassification {
   return Object.freeze({ family: "protocol" as const, protocolPhase });
+}
+
+function protocolClassificationFor(
+  operation: ProviderFailureOperation,
+  protocolPhase: ProviderProtocolPhase,
+): ProviderFailureClassification {
+  return operation === "read"
+    ? protocolClassification(protocolPhase)
+    : classification("protocol");
 }
 
 function isProviderFailureReason(
@@ -151,5 +161,5 @@ export function classifyProviderFailure(
   ) {
     return undefined;
   }
-  return classifyReason(candidate.reason);
+  return classifyReason(candidate.reason, operation);
 }

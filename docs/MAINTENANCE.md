@@ -412,9 +412,11 @@ For `model/open/<family>`, diagnose the classified boundary before changing the
 wire request: `request` means a 4xx request contract failure, `rejected` covers
 authentication, payment, authorization, or missing-model rejection, `limit`
 covers entity or rate limits, `timeout` covers HTTP timeouts, `connectivity`
-covers server failures, and `protocol` covers an unexpected non-success class.
-That open-time protocol outcome has no stream phase because no response stream
-was admitted. Do not label it `transport` or present it as a read failure.
+covers server failures, and `protocol` covers a rejected pre-stream contract,
+including an unexpected non-success class, invalid content type, or malformed
+transport opening. Every open-time protocol outcome has no stream phase because
+no response stream was admitted. Do not label it `transport` or present it as a
+read failure.
 The selected identifier must still be present in the fresh authenticated
 catalog, but catalog membership alone does not prove entitlement, credit,
 quota, or capacity. Never inspect or persist an error body, hard-code a model,

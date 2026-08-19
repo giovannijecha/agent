@@ -25,16 +25,16 @@ const REASONS = [
   ["concurrentRead", { family: "lifecycle" }],
   ["transportClosed", { family: "lifecycle" }],
   ["transportConcurrentRead", { family: "lifecycle" }],
-  ["contentType", { family: "protocol", protocolPhase: "transport" }],
-  ["encoding", { family: "protocol", protocolPhase: "framing" }],
-  ["finishReason", { family: "protocol", protocolPhase: "finish" }],
+  ["contentType", { family: "protocol" }],
+  ["encoding", { family: "protocol" }],
+  ["finishReason", { family: "protocol" }],
   ["protocol", { family: "protocol" }],
-  ["protocolEnvelope", { family: "protocol", protocolPhase: "envelope" }],
-  ["protocolFraming", { family: "protocol", protocolPhase: "framing" }],
-  ["protocolMessage", { family: "protocol", protocolPhase: "message" }],
-  ["protocolToolCall", { family: "protocol", protocolPhase: "tool-call" }],
-  ["protocolTerminal", { family: "protocol", protocolPhase: "terminal" }],
-  ["transportProtocol", { family: "protocol", protocolPhase: "transport" }],
+  ["protocolEnvelope", { family: "protocol" }],
+  ["protocolFraming", { family: "protocol" }],
+  ["protocolMessage", { family: "protocol" }],
+  ["protocolToolCall", { family: "protocol" }],
+  ["protocolTerminal", { family: "protocol" }],
+  ["transportProtocol", { family: "protocol" }],
 ] as const satisfies readonly (readonly [
   string,
   Readonly<{
@@ -55,6 +55,33 @@ test("maps the admitted provider into one shared failure vocabulary", () => {
         "open",
       );
     assert.deepEqual(classified, expected);
+    assert.equal(Object.isFrozen(classified), true);
+  }
+});
+
+test("adds protocol phases only after a response stream is admitted", () => {
+  const phases = [
+    ["contentType", "transport"],
+    ["transportProtocol", "transport"],
+    ["encoding", "framing"],
+    ["protocolFraming", "framing"],
+    ["protocolEnvelope", "envelope"],
+    ["protocolMessage", "message"],
+    ["protocolToolCall", "tool-call"],
+    ["finishReason", "finish"],
+    ["protocolTerminal", "terminal"],
+  ] as const;
+  for (const [reason, protocolPhase] of phases) {
+    const classified = classifyProviderFailure(
+      Object.freeze({
+        cleanupFailed: false,
+        kind: "ollamaCloud" as const,
+        operation: "read" as const,
+        reason,
+      }),
+      "read",
+    );
+    assert.deepEqual(classified, { family: "protocol", protocolPhase });
     assert.equal(Object.isFrozen(classified), true);
   }
 });
