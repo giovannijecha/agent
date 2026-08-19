@@ -629,7 +629,7 @@ test("does not retain thinking from a rejected native record", async () => {
   assert.equal(JSON.stringify([rejected, ended]).includes("PRIVATE_SECRET"), false);
 });
 
-test("does not retain calls from a partially rejected native batch", async () => {
+test("terminalizes a partially rejected native batch without retaining calls", async () => {
   const stream = await open(
     fixture(new FakeStream([
       ok(line(response({
@@ -660,14 +660,40 @@ test("does not retain calls from a partially rejected native batch", async () =>
   assert.equal(rejected.ok, false);
   if (!rejected.ok) assert.equal(rejected.error.reason, "protocolToolCall");
 
-  const accepted = await read(stream);
-  assert.equal(accepted.kind, "toolCalls");
-  if (accepted.kind === "toolCalls") {
-    assert.deepEqual(
-      accepted.calls.map((call) => [call.callId, call.input.get("path")]),
-      [["ollama-call-1", "index.html"]],
-    );
-  }
+  const ended = await stream.read();
+  assert.equal(ended.ok, false);
+  if (!ended.ok) assert.equal(ended.error.reason, "protocolTerminal");
+  assert.equal(
+    JSON.stringify([rejected, ended]).includes("private"),
+    false,
+  );
+  assert.equal(
+    JSON.stringify([rejected, ended]).includes("index.html"),
+    false,
+  );
+});
+
+test("does not settle after a rejected record follows a valid contribution", async () => {
+  const stream = await open(
+    fixture(new FakeStream([
+      ok(line(response({ content: "accepted response" }))),
+      ok(line(response({ content: "", tool_calls: "malformed" }))),
+    ])).model,
+    [descriptor()],
+  );
+
+  assert.deepEqual(await read(stream), {
+    kind: "delta",
+    text: "accepted response",
+  });
+
+  const rejected = await stream.read();
+  assert.equal(rejected.ok, false);
+  if (!rejected.ok) assert.equal(rejected.error.reason, "protocolToolCall");
+
+  const ended = await stream.read();
+  assert.equal(ended.ok, false);
+  if (!ended.ok) assert.equal(ended.error.reason, "protocolTerminal");
 });
 
 test("discards bounded thinking without exposing it as assistant text", async () => {

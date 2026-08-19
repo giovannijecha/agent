@@ -13,7 +13,7 @@ const REASONS = [
   ["statusLimit", { family: "limit" }],
   ["statusConnectivity", { family: "connectivity" }],
   ["statusTimeout", { family: "timeout" }],
-  ["statusProtocol", { family: "protocol", protocolPhase: "transport" }],
+  ["statusProtocol", { family: "protocol" }],
   ["transportConnection", { family: "connectivity" }],
   ["transportTimeout", { family: "timeout" }],
   ["request", { family: "request" }],

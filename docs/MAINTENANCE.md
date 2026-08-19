@@ -413,6 +413,8 @@ wire request: `request` means a 4xx request contract failure, `rejected` covers
 authentication, payment, authorization, or missing-model rejection, `limit`
 covers entity or rate limits, `timeout` covers HTTP timeouts, `connectivity`
 covers server failures, and `protocol` covers an unexpected non-success class.
+That open-time protocol outcome has no stream phase because no response stream
+was admitted. Do not label it `transport` or present it as a read failure.
 The selected identifier must still be present in the fresh authenticated
 catalog, but catalog membership alone does not prove entitlement, credit,
 quota, or capacity. Never inspect or persist an error body, hard-code a model,
@@ -438,6 +440,9 @@ only `stop` paired with `done: true` is terminal success. A reason on
 `done: false` and a truncation reason fail at `finish` rather than becoming
 partial assistant output. Thinking, content, call counts, arguments, and call
 identities from any rejected record must remain unchanged.
+The first rejected record also terminalizes the decoder. Later records and
+clean EOF must return the closed terminal failure rather than restore earlier
+completion evidence or admit new contributions.
 
 To remove Ollama Cloud, delete the adapter, CLI transport, commands/session
 registration, provider policy entry, normalizer and phase mapping,

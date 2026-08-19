@@ -87,6 +87,8 @@ admission.
   an HTTP timeout; `connectivity` identifies provider-side failure; and
   `protocol` identifies an unexpected response class. A model appearing in the
   fresh catalog does not guarantee entitlement, credit, quota, or capacity.
+- `model/open/protocol` is intentionally unphased: the unexpected HTTP response
+  did not open an admitted native stream.
 - The `model/open/rejected` notice therefore asks you to verify plan, credit,
   authorization, and model availability without claiming which provider-owned
   condition failed.
@@ -103,6 +105,8 @@ admission.
   non-null reason is valid only as `stop` with `done: true`; non-terminal or
   truncated completion metadata fails at `/finish` and commits no thinking,
   assistant text, or tool call.
+- Once an opened stream rejects one native record, later records and clean end
+  cannot recover or complete that turn.
 
 The native decoder is shared by every selected model. Missing, null, and empty
 tool-call members mean that a stream chunk contributed no call; real calls are

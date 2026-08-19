@@ -50,6 +50,9 @@ clean HTTP end that follows at least one fully validated non-empty thinking,
 content, or tool-call contribution. A clean empty stream remains a `terminal`
 protocol failure. Partial UTF-8 or NDJSON, malformed native records, and an
 aborted or errored transport are not promoted to success.
+After any native record is rejected, the decoder remains rejected. It does not
+accept later records or promote a later clean HTTP end to success, even when an
+earlier record made a valid contribution.
 When present and non-null, `done_reason` is validated before any contribution:
 only `stop` on the same `done: true` record is admitted. Non-terminal finish
 metadata and truncation reasons fail closed for every catalog model.
@@ -67,6 +70,8 @@ from its ephemeral HTTP outcome into the existing content-free `request`,
 `rejected`, `limit`, `timeout`, `connectivity`, or `protocol` family. Agent does
 not retain the status, read the error body, vary the request by model, retry, or
 substitute another identifier.
+An unexpected non-success status maps to the unphased `model/open/protocol`
+outcome because the adapter did not admit a stream.
 
 An opened stream that violates the native contract retains the `protocol`
 family and adds exactly one content-free phase: `transport`, `framing`,

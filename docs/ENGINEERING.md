@@ -162,7 +162,9 @@ does not prove a contract that names an exact invocation.
   envelope, message, tool-call, finish, and terminal input, and the exact
   content-free public phase. They validate an entire native record before any
   thinking, content, or tool-call contribution can be observed. A model name is
-  never a parser branch or a fixture rationale.
+  never a parser branch or a fixture rationale. Regressions prove that one
+  rejected record terminalizes the decoder across later records and clean end,
+  and that an unexpected HTTP response class remains an unphased open failure.
 - One observed evaluation failure is evidence to investigate, not authority for
   a product change.
 - Invalid evaluation fixtures are corrected or removed before their evidence is

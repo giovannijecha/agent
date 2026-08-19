@@ -247,11 +247,14 @@ credit, quota, or per-request provider capacity.
 There is no redirect, alias, retry, router, or fallback. Provider errors cross
 the product boundary only through closed content-free failure families. A
 non-successful chat status is classified by HTTP outcome before the response is
-closed, without retaining its number or reading its body.
+closed, without retaining its number or reading its body. An unexpected status
+class is the unphased `model/open/protocol` outcome because no response stream
+was admitted.
 The adapter treats a missing, null, or empty native `tool_calls` member as no
 contribution, validates every non-empty call into one bounded ordered batch,
 and writes settled assistant tool history in one canonical native
-`type`/`function.index` form. Protocol failures identify only the closed
+`type`/`function.index` form. Protocol failures on an opened stream identify
+only the closed
 `transport`, `framing`, `envelope`, `message`, `tool-call`, `finish`, or
 `terminal` phase; they never expose provider content or authorize
 model-specific behavior.
@@ -263,6 +266,8 @@ boundaries. Any non-null finish reason is checked before those contributions
 can change decoder state and is admitted only as `stop` on `done: true`.
 Every native record validates thinking, content, and its complete tool-call
 member against staged state before committing any of them to the stream.
+Rejecting any record terminalizes that decoder: later records and a later clean
+HTTP end cannot recover, contribute, or complete the response.
 Credentials and catalog content never enter the transcript, logs, fixtures, or
 documentation.
 

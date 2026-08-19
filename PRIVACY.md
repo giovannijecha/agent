@@ -13,12 +13,15 @@ Without a configured runtime, submitted text is discarded after a generic
 notice. It is not added to conversation state, displayed in the transcript,
 written to disk, or sent over a network.
 
-Provider failures retain only a closed operation, family, and, for native
-protocol failures, one phase from `transport`, `framing`, `envelope`, `message`,
-`tool-call`, `finish`, or `terminal`. Numeric status, headers, response bodies, raw stream
-records, model output, tool arguments, credentials, and foreign causes are not
-retained, journaled, logged, rendered, or copied into fixtures. Phase labels
-diagnose an owned boundary and do not identify provider content.
+Provider failures retain only a closed operation, family, and, for opened
+native-stream protocol failures, one phase from `transport`, `framing`,
+`envelope`, `message`, `tool-call`, `finish`, or `terminal`. Numeric status,
+headers, response bodies, raw stream records, model output, tool arguments,
+credentials, and foreign causes are not retained, journaled, logged, rendered,
+or copied into fixtures. Phase labels diagnose an owned boundary and do not
+identify provider content.
+An unexpected HTTP response class is retained only as the unphased open-time
+protocol failure because no native stream was admitted.
 The adapter may distinguish a clean HTTP end from an aborted or errored stream
 only through the content-free transport lifecycle. It retains neither the
 validated contribution used to establish completion nor the foreign cause.
@@ -158,6 +161,10 @@ closed content-free failure family from the ephemeral status and closes the
 response. The numeric status, headers, and error body are not retained, read for
 diagnosis, returned in errors, written to the terminal, journaled, logged, or
 emitted as output fixture values.
+During native response decoding, the adapter retains only accepted bounded
+contributions and one content-free rejected state. The first rejected record
+terminalizes that decoder; later records and a clean response end cannot recover
+it or turn earlier accepted evidence into successful completion.
 
 Fixture inputs may enumerate public numeric status codes solely to prove the
 closed mapping; those inputs are not returned diagnostics and contain no
