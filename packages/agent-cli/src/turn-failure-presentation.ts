@@ -126,14 +126,15 @@ export function isTurnFailureCode(value: unknown): value is string {
   if (value === "model/open" || value === "model/read") {
     return true;
   }
-  const family = value.startsWith("model/open/")
-    ? value.slice("model/open/".length)
-    : value.startsWith("model/read/")
-      ? value.slice("model/read/".length)
-      : undefined;
-  if (family === undefined) {
+  if (value.startsWith("model/open/")) {
+    return PROVIDER_FAILURE_FAMILIES.includes(
+      value.slice("model/open/".length),
+    );
+  }
+  if (!value.startsWith("model/read/")) {
     return false;
   }
+  const family = value.slice("model/read/".length);
   if (PROVIDER_FAILURE_FAMILIES.includes(family)) {
     return true;
   }

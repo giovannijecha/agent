@@ -4,6 +4,7 @@ import test from "node:test";
 import type { TurnFailure } from "@agent/runtime";
 
 import {
+  checkpointedFailureMarker,
   isTurnFailureCode,
   projectTurnFailure,
 } from "../dist/turn-failure-presentation.js";
@@ -162,6 +163,39 @@ test("projects and validates one exact provider protocol phase", () => {
     "model/open/request/transport",
   ]) {
     assert.equal(isTurnFailureCode(invalid), false);
+  }
+});
+
+test("keeps provider-open protocol failures unphased", () => {
+  for (const reason of ["contentType", "transportProtocol"] as const) {
+    const projected = projectTurnFailure(
+      {
+        error: Object.freeze({
+          cleanupFailed: false,
+          kind: "ollamaCloud" as const,
+          operation: "open" as const,
+          reason,
+        }),
+        kind: "model",
+        operation: "open",
+      },
+      false,
+    );
+    assert.equal(projected.code, "model/open/protocol");
+    assert.equal(isTurnFailureCode(projected.code), true);
+  }
+  for (const phase of [
+    "transport",
+    "framing",
+    "envelope",
+    "message",
+    "tool-call",
+    "finish",
+    "terminal",
+  ]) {
+    const impossible = "model/open/protocol/" + phase;
+    assert.equal(isTurnFailureCode(impossible), false);
+    assert.equal(checkpointedFailureMarker(impossible), undefined);
   }
 });
 

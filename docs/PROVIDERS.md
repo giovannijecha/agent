@@ -70,8 +70,10 @@ from its ephemeral HTTP outcome into the existing content-free `request`,
 `rejected`, `limit`, `timeout`, `connectivity`, or `protocol` family. Agent does
 not retain the status, read the error body, vary the request by model, retry, or
 substitute another identifier.
-An unexpected non-success status maps to the unphased `model/open/protocol`
-outcome because the adapter did not admit a stream.
+Every pre-stream protocol rejection, including an unexpected non-success
+status, invalid content type, or malformed transport opening, maps to the
+unphased `model/open/protocol` outcome because the adapter did not admit a
+stream.
 
 An opened stream that violates the native contract retains the `protocol`
 family and adds exactly one content-free phase: `transport`, `framing`,

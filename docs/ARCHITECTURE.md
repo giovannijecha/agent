@@ -247,9 +247,10 @@ credit, quota, or per-request provider capacity.
 There is no redirect, alias, retry, router, or fallback. Provider errors cross
 the product boundary only through closed content-free failure families. A
 non-successful chat status is classified by HTTP outcome before the response is
-closed, without retaining its number or reading its body. An unexpected status
-class is the unphased `model/open/protocol` outcome because no response stream
-was admitted.
+closed, without retaining its number or reading its body. Every protocol
+rejection before stream admission, including an unexpected status class,
+invalid content type, or malformed transport opening, is the unphased
+`model/open/protocol` outcome because no response stream was admitted.
 The adapter treats a missing, null, or empty native `tool_calls` member as no
 contribution, validates every non-empty call into one bounded ordered batch,
 and writes settled assistant tool history in one canonical native
