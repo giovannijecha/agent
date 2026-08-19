@@ -334,10 +334,12 @@ and EOF as global routes. If Escape cannot close a selector, trace the Node host
 single trailing-byte timer, its 30-millisecond settled marker, the generic
 decoder event, and the shared CLI selector reducer in that order. Do not decode
 raw Escape in a component or make arrow-key correctness depend on stream chunking.
-The manual policy pins the normalized terminal-interface chapter so alternate
-wording cannot reintroduce a contradictory selector-dismissal contract while
-retaining the required sentence. Repin that digest only with the corresponding
-behavior, decision, manual, focused regression, and removal guidance.
+The manual policy pins the normalized terminal-interface chapter and separately
+requires its three positive selector-dismissal clauses: input remains inert,
+Escape or Ctrl+C cancels, and other typing and editing keys remain ignored.
+Repinning the digest cannot admit contradictory wording that omits one of those
+clauses. Repin only with the corresponding behavior, decision, manual, focused
+regression, and removal guidance.
 
 When selection focus replaces the composer, project any active composer-placed
 transient notice through the selector header's trailing edge. The notice

@@ -277,14 +277,14 @@ function verifySelectorDismissal(contract, context) {
     .digest("hex");
   if (
     digest !== contract.sha256 ||
-    terminal.includes(
-      "An ordinary editor input closes a dismissible selector and is consumed",
-    ) ||
     !terminal.includes(
       "Printable and editing input is inert while a dismissible selector owns focus",
     ) ||
     !terminal.includes(
       "Escape or Ctrl+C cancels the menu and restores the unchanged draft",
+    ) ||
+    !terminal.includes(
+      "Other typing and editing keys are ignored while the menu remains open",
     )
   ) {
     fail("manual selector dismissal contract is inconsistent");
