@@ -107,6 +107,7 @@ const PROVIDER_FAILURE_FAMILIES = Object.freeze([
 
 const PROVIDER_PROTOCOL_PHASES = Object.freeze([
   "envelope",
+  "finish",
   "framing",
   "message",
   "terminal",

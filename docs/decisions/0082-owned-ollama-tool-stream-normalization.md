@@ -50,9 +50,15 @@ every catalog model and introduces no retry, replay, or inferred provider state.
 Any non-null finish reason is validated before thinking, content, or tool calls
 can mutate decoder state. It is admitted only as `stop` on the same record that
 declares `done: true`; a non-terminal record cannot carry terminal metadata.
+Thinking, content, and the complete tool-call member of one native record are
+validated against staged decoder state and committed together. Rejection of any
+field leaves all contribution counts, call identities, and completion evidence
+unchanged.
 
 Protocol failures use a closed content-free phase classification:
-`transport`, `framing`, `envelope`, `message`, `tool-call`, or `terminal`.
+`transport`, `framing`, `envelope`, `message`, `tool-call`, `finish`, or
+`terminal`. `finish` identifies rejected completion metadata; `terminal`
+identifies a clean end without a validated contribution.
 Provider-specific reasons map once at the CLI boundary to
 `model/<operation>/protocol/<phase>`; existing non-protocol families remain
 unchanged. Raw status text, headers, response bodies, model output, tool
@@ -90,7 +96,8 @@ Provider contract regressions cover missing, null, empty, indexed, unindexed,
 and mixed tool-call members; multiple calls; interleaved stream contributions;
 canonical history replay; wrong types; malformed indices; gaps; duplicates;
 serialized arguments; invalid envelopes and messages; mismatched terminal
-records; non-terminal finish reasons before contributions; clean ends after
+records; record-atomic rejection after thinking or a valid call; non-terminal
+finish reasons before contributions; clean ends after
 text and tool calls; empty clean ends; abrupt
 transport failures; truncation; and content-free reasons. CLI regressions bind every
 provider reason to one immutable public classification and reject unknown or

@@ -15,6 +15,7 @@ export type ProviderFailureFamily =
 
 export type ProviderProtocolPhase =
   | "envelope"
+  | "finish"
   | "framing"
   | "message"
   | "terminal"
@@ -75,7 +76,10 @@ function classifyReason(
   if (reason === "protocolToolCall") {
     return protocolClassification("tool-call");
   }
-  if (reason === "finishReason" || reason === "protocolTerminal") {
+  if (reason === "finishReason") {
+    return protocolClassification("finish");
+  }
+  if (reason === "protocolTerminal") {
     return protocolClassification("terminal");
   }
   return classification("protocol");

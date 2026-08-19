@@ -421,11 +421,11 @@ retry, alias, or fall back to conceal one of these outcomes.
 For `model/read/protocol/<phase>`, inspect only the named owned boundary:
 `transport` snapshots or content type, `framing` UTF-8 or NDJSON structure,
 `envelope` top-level identity, `message` assistant fields, `tool-call` native
-call normalization, or `terminal` completion. Reproduce with a bounded offline
-fixture and keep its contents out of the public code. Do not relax the native
-contract, parse serialized arguments a second time, or add a model-specific
-branch. Missing, null, and empty `tool_calls` members are already the admitted
-no-contribution forms.
+call normalization, `finish` completion metadata, or `terminal` clean-end
+admission. Reproduce with a bounded offline fixture and keep its contents out
+of the public code. Do not relax the native contract, parse serialized
+arguments a second time, or add a model-specific branch. Missing, null, and
+empty `tool_calls` members are already the admitted no-contribution forms.
 
 For completion failures, preserve the transport distinction. A clean HTTP end
 may settle only after the native decoder accepted non-empty thinking, content,
@@ -435,8 +435,9 @@ remains transport failure. Never infer success from partial bytes or add a
 model-specific terminal rule.
 Validate any non-null finish reason before accepting the record's contribution:
 only `stop` paired with `done: true` is terminal success. A reason on
-`done: false` and a truncation reason remain fail-closed terminal-contract
-failures rather than partial assistant output.
+`done: false` and a truncation reason fail at `finish` rather than becoming
+partial assistant output. Thinking, content, call counts, arguments, and call
+identities from any rejected record must remain unchanged.
 
 To remove Ollama Cloud, delete the adapter, CLI transport, commands/session
 registration, provider policy entry, normalizer and phase mapping,

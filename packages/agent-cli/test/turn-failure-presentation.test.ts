@@ -141,6 +141,21 @@ test("projects and validates one exact provider protocol phase", () => {
   );
   assert.equal(projected.code, "model/read/protocol/tool-call");
   assert.equal(isTurnFailureCode(projected.code), true);
+  const finish = projectTurnFailure(
+    {
+      error: Object.freeze({
+        cleanupFailed: false,
+        kind: "ollamaCloud" as const,
+        operation: "read" as const,
+        reason: "finishReason" as const,
+      }),
+      kind: "model",
+      operation: "read",
+    },
+    false,
+  );
+  assert.equal(finish.code, "model/read/protocol/finish");
+  assert.equal(isTurnFailureCode(finish.code), true);
   for (const invalid of [
     "model/read/protocol/private",
     "model/read/protocol/tool-call/private",

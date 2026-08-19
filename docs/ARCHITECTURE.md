@@ -252,14 +252,17 @@ The adapter treats a missing, null, or empty native `tool_calls` member as no
 contribution, validates every non-empty call into one bounded ordered batch,
 and writes settled assistant tool history in one canonical native
 `type`/`function.index` form. Protocol failures identify only the closed
-`transport`, `framing`, `envelope`, `message`, `tool-call`, or `terminal` phase;
-they never expose provider content or authorize model-specific behavior.
+`transport`, `framing`, `envelope`, `message`, `tool-call`, `finish`, or
+`terminal` phase; they never expose provider content or authorize
+model-specific behavior.
 One valid terminal record completes the stream normally. A clean HTTP end also
 completes it only after the decoder has accepted a non-empty native thinking,
 content, or tool-call contribution. Empty clean streams fail at `terminal`;
 incomplete framing and aborted or errored transports retain their own failure
 boundaries. Any non-null finish reason is checked before those contributions
 can change decoder state and is admitted only as `stop` on `done: true`.
+Every native record validates thinking, content, and its complete tool-call
+member against staged state before committing any of them to the stream.
 Credentials and catalog content never enter the transcript, logs, fixtures, or
 documentation.
 

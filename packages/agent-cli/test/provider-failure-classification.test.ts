@@ -27,7 +27,7 @@ const REASONS = [
   ["transportConcurrentRead", { family: "lifecycle" }],
   ["contentType", { family: "protocol", protocolPhase: "transport" }],
   ["encoding", { family: "protocol", protocolPhase: "framing" }],
-  ["finishReason", { family: "protocol", protocolPhase: "terminal" }],
+  ["finishReason", { family: "protocol", protocolPhase: "finish" }],
   ["protocol", { family: "protocol" }],
   ["protocolEnvelope", { family: "protocol", protocolPhase: "envelope" }],
   ["protocolFraming", { family: "protocol", protocolPhase: "framing" }],

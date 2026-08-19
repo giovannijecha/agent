@@ -159,9 +159,10 @@ does not prove a contract that names an exact invocation.
   bodies, credentials, paths, call identifiers, and model payloads stay private.
 - Provider contract tests use offline native fixtures to cover every admitted
   optional representation, canonical history encoding, malformed framing,
-  envelope, message, tool-call, and terminal input, and the exact content-free
-  public phase. They validate terminal metadata before any contribution can be
-  observed. A model name is never a parser branch or a fixture rationale.
+  envelope, message, tool-call, finish, and terminal input, and the exact
+  content-free public phase. They validate an entire native record before any
+  thinking, content, or tool-call contribution can be observed. A model name is
+  never a parser branch or a fixture rationale.
 - One observed evaluation failure is evidence to investigate, not authority for
   a product change.
 - Invalid evaluation fixtures are corrected or removed before their evidence is
