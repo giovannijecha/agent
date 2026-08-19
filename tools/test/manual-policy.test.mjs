@@ -220,6 +220,42 @@ test("rejects generic keyboard-event contradictions", () => {
   }
 });
 
+test("rejects selector contradictions split across adjacent sentences", () => {
+  const policy = structuredClone(currentPolicy);
+  const context = currentContext();
+  const chapter = policy.selectorDismissal.path;
+  context.files[chapter] +=
+    "\nKeyboard events close it. The selector then disappears.\n";
+  repinSelectorDismissal(policy, context);
+  assert.throws(
+    () => validateManualPolicy(policy, context),
+    {
+      message: "manual selector dismissal contract is inconsistent",
+      name: "ManualPolicyError",
+    },
+  );
+});
+
+test("rejects pronoun guidance inside selector authority sections", () => {
+  const policy = structuredClone(currentPolicy);
+  const context = currentContext();
+  const chapter = policy.selectorDismissal.path;
+  const maintained = context.files[chapter];
+  context.files[chapter] = maintained.replace(
+    "\n## Navigate and copy",
+    "\nKeyboard events close it.\n\n## Navigate and copy",
+  );
+  assert.notEqual(context.files[chapter], maintained);
+  repinSelectorDismissal(policy, context);
+  assert.throws(
+    () => validateManualPolicy(policy, context),
+    {
+      message: "manual selector dismissal contract is inconsistent",
+      name: "ManualPolicyError",
+    },
+  );
+});
+
 test("rejects contradictions using concrete word-editing keys", () => {
   const contradictions = [
     "Ctrl+Left closes the menu.",
