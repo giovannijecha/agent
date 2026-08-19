@@ -37,7 +37,7 @@ function classifyReason(
 ): ProviderFailureClassification {
   if (reason === "statusConnectivity") return classification("connectivity");
   if (reason === "statusLimit") return classification("limit");
-  if (reason === "statusProtocol") return protocolClassification("transport");
+  if (reason === "statusProtocol") return classification("protocol");
   if (reason === "statusRejected") return classification("rejected");
   if (reason === "statusRequest") return classification("request");
   if (reason === "statusTimeout") return classification("timeout");

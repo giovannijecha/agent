@@ -206,6 +206,7 @@ type AcceptedTools = Readonly<{
 export class OllamaChatDecoder {
   readonly #model: OllamaCloudModelId;
   #hasContribution = false;
+  #rejected = false;
   #terminal = false;
   #thinkingCodeUnits = 0;
   #toolArgumentCodeUnits = 0;
@@ -217,19 +218,20 @@ export class OllamaChatDecoder {
   }
 
   accept(data: string): Result<readonly ModelStreamEvent[], WireError> {
-    if (this.#terminal || typeof data !== "string") {
+    if (this.#terminal || this.#rejected) {
       return err(failure("protocolTerminal"));
     }
+    if (typeof data !== "string") return this.#reject("protocolTerminal");
     this.#wireEvents += 1;
     if (this.#wireEvents > OLLAMA_CLOUD_LIMITS.wireEvents) {
-      return err(failure("limit"));
+      return this.#reject("limit");
     }
 
     let parsed: unknown;
     try {
       parsed = JSON.parse(data) as unknown;
     } catch (_cause: unknown) {
-      return err(failure("protocolEnvelope"));
+      return this.#reject("protocolEnvelope");
     }
     if (
       !isRecord(parsed) ||
@@ -238,31 +240,31 @@ export class OllamaChatDecoder {
       !isRecord(parsed.message) ||
       parsed.message.role !== Role.Assistant
     ) {
-      return err(failure("protocolEnvelope"));
+      return this.#reject("protocolEnvelope");
     }
     if (
       parsed.done_reason !== undefined &&
       parsed.done_reason !== null &&
       (!parsed.done || parsed.done_reason !== "stop")
     ) {
-      return err(failure("finishReason"));
+      return this.#reject("finishReason");
     }
 
     const message = parsed.message;
     const content = message.content;
     if (typeof content !== "string") {
-      return err(failure("protocolMessage"));
+      return this.#reject("protocolMessage");
     }
     let thinkingCodeUnits = this.#thinkingCodeUnits;
     let hasThinking = false;
     const thinking = message.thinking;
     if (thinking !== undefined && thinking !== null) {
       if (typeof thinking !== "string") {
-        return err(failure("protocolMessage"));
+        return this.#reject("protocolMessage");
       }
       thinkingCodeUnits += thinking.length;
       if (thinkingCodeUnits > OLLAMA_CLOUD_LIMITS.thinkingCodeUnits) {
-        return err(failure("limit"));
+        return this.#reject("limit");
       }
       hasThinking = thinking.length > 0;
     }
@@ -274,7 +276,7 @@ export class OllamaChatDecoder {
     if (message.tool_calls !== undefined && message.tool_calls !== null) {
       const accepted = this.#acceptTools(message.tool_calls);
       if (!accepted.ok) {
-        return accepted;
+        return this.#reject(accepted.error.kind);
       }
       acceptedTools = accepted.value;
     }
@@ -303,6 +305,7 @@ export class OllamaChatDecoder {
     if (this.#terminal) {
       return ok(Object.freeze([]));
     }
+    if (this.#rejected) return err(failure("protocolTerminal"));
     return this.#hasContribution
       ? ok(Object.freeze([this.#complete()]))
       : err(failure("protocolTerminal"));
@@ -316,6 +319,13 @@ export class OllamaChatDecoder {
           calls: Object.freeze([...this.#tools]),
           kind: "toolCalls" as const,
         });
+  }
+
+  #reject(
+    kind: WireError["kind"],
+  ): Result<readonly ModelStreamEvent[], WireError> {
+    this.#rejected = true;
+    return err(failure(kind));
   }
 
   #acceptTools(value: unknown): Result<AcceptedTools, WireError> {

@@ -53,15 +53,18 @@ declares `done: true`; a non-terminal record cannot carry terminal metadata.
 Thinking, content, and the complete tool-call member of one native record are
 validated against staged decoder state and committed together. Rejection of any
 field leaves all contribution counts, call identities, and completion evidence
-unchanged.
+unchanged and terminalizes the decoder. Later records and a clean transport end
+cannot recover the stream, add contributions, or settle it successfully.
 
 Protocol failures use a closed content-free phase classification:
 `transport`, `framing`, `envelope`, `message`, `tool-call`, `finish`, or
 `terminal`. `finish` identifies rejected completion metadata; `terminal`
 identifies a clean end without a validated contribution.
-Provider-specific reasons map once at the CLI boundary to
-`model/<operation>/protocol/<phase>`; existing non-protocol families remain
-unchanged. Raw status text, headers, response bodies, model output, tool
+Provider-specific reasons from an admitted stream map once at the CLI boundary
+to `model/read/protocol/<phase>`. An unexpected non-successful HTTP class occurs
+before a stream is admitted and maps to unphased `model/open/protocol`.
+Existing non-protocol families remain unchanged. Raw status text, headers,
+response bodies, model output, tool
 arguments, and credentials never enter the code, journal, terminal, logs, or
 fixtures. The phases add diagnosis only: they do not authorize retry, fallback,
 replay, alternate origins, model aliases, or model-specific behavior.
@@ -81,8 +84,10 @@ unknown enum values do not become generic success.
 A clean HTTP end can settle only contributions already accepted by the native
 decoder. It cannot complete an empty stream, repair partial UTF-8 or NDJSON,
 convert a transport interruption into success, or authorize a partially
-validated call. An explicit valid terminal record retains its documented
-meaning even when the runtime later classifies the settled response as empty.
+validated call. It also cannot settle after any record rejection, even when an
+earlier record contributed valid content. An explicit valid terminal record
+retains its documented meaning even when the runtime later classifies the
+settled response as empty.
 
 The normalizer remains Node-free and provider-local. The CLI remains the sole
 HTTPS, credential, terminal, journal, and provider-composition boundary. A
@@ -97,11 +102,13 @@ and mixed tool-call members; multiple calls; interleaved stream contributions;
 canonical history replay; wrong types; malformed indices; gaps; duplicates;
 serialized arguments; invalid envelopes and messages; mismatched terminal
 records; record-atomic rejection after thinking or a valid call; non-terminal
-finish reasons before contributions; clean ends after
-text and tool calls; empty clean ends; abrupt
-transport failures; truncation; and content-free reasons. CLI regressions bind every
-provider reason to one immutable public classification and reject unknown or
-malformed phase codes.
+finish reasons before contributions; irreversible record rejection across
+later records and clean end; clean ends after
+text and tool calls; empty clean ends; abrupt transport failures; truncation;
+and content-free reasons. CLI regressions bind every provider reason to one
+immutable public classification, distinguish unphased open-status protocol
+failures from phased read failures, and reject unknown or malformed phase
+codes.
 
 Documentation-policy tests bind this record, its metadata, provider-domain
 membership, current-authority route, and complete record digest. The canonical
