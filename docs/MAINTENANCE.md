@@ -340,12 +340,13 @@ Escape or Ctrl+C cancels, and other typing and editing keys remain ignored.
 It treats the decision's closed inert-input vocabulary together with singular
 or plural list, menu, selector, or focus context as one fail-closed semantic
 domain.
-The vocabulary covers generic keyboard or key events, actions, input,
-keystrokes, key strokes, key presses, and input events; printable and editing
-input; paste; Tab, Home, End, Delete, and Backspace; deletion and word-editing
-events; and the concrete Ctrl+Left, Ctrl+Right, Ctrl+Backspace, Ctrl+W, and
-Ctrl+Delete spellings admitted by the decoder. Joined, spaced, and hyphenated
-generic keyboard-, key-, and input-event terms share the same classification.
+The vocabulary covers the decision-named selector input; generic keyboard or
+key events, actions, input, keystrokes, key strokes, key presses, and input
+events; printable and editing input; paste; Tab, Home, End, Delete, and
+Backspace; deletion and word-editing events; and the concrete Ctrl+Left,
+Ctrl+Right, Ctrl+Backspace, Ctrl+W, and Ctrl+Delete spellings admitted by the
+decoder. Joined, spaced, and hyphenated selector-input, keyboard-, key-, and
+input-event terms share the same classification.
 Within the `Use selectors` and `Read the interface` sections, every sentence
 containing that vocabulary belongs to the closed domain even when it refers to
 the selector only through surrounding prose. Across the full chapter, an
