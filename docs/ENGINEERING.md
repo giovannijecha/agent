@@ -75,27 +75,26 @@ separate follow-up unless the adjacent change is necessary for correctness.
   `npm exec`.
 - Access runtime-selected collection members through explicit APIs such as
   `.at()`; shipped modules admit only statically proven computed names.
-- Verifier-only lexical analysis reconstructs bounded static string
-  compositions from non-interpolated literals, parentheses, literal `+`, and
-  literal arrays joined with a static separator. It never executes or imports
-  product code, and an over-bound candidate fails closed.
 - Source-policy identifier allowances bind each case-sensitive spelling to its
   reviewed path and exact occurrence count. A spelling admitted elsewhere never
   authorizes a new declaration or use.
 - Closed source-policy inventories are bidirectional. Every registered path must
   remain in the canonical product-source set. Each approved CLI module with a
-  direct `node:fs` or `node:child_process` authority must retain its reviewed
-  module specifier, import bindings, and normalized source digest. The native
-  C/H platform tree retains its exact ordered path set and aggregate source
-  digest. Source integrity normalizes only CRLF to LF and uses SHA-256 over
-  complete UTF-8 source records. Renaming, deleting, reducing, expanding, or
-  otherwise changing an inventoried authority fails closed.
+  direct `node:fs`, `node:child_process`, or `node:https` effect authority must
+  retain its reviewed module specifier and import bindings. The complete dormant
+  CLI product tree and native C/H platform tree each retain their exact ordered
+  path set and aggregate source digest. Source integrity normalizes only CRLF to
+  LF and uses SHA-256 over complete UTF-8 path/source records. Renaming,
+  deleting, reducing, expanding, or otherwise changing an inventoried authority
+  fails closed.
 - The exact source digest is the sole verifier authority for code flow within an
-  approved direct Node or native platform module. The verifier does not execute
-  product code or attempt partial command, export, alias, assignment, or
+  approved dormant CLI product or native source tree; the direct Node registry
+  owns only exact effect edges. The verifier does not execute product code or
+  attempt partial string evaluation, command, export, alias, assignment, or
   capability-flow inference. Any legitimate source edit requires an explicit
   review and digest update in the same policy change; a new direct filesystem,
-  child-process, or native platform path requires a new exact authority record.
+  child-process, network, CLI product, or native platform path requires a new
+  exact authority record.
 - Put minimal Node declarations in `types/` from authoritative runtime
   contracts.
 - Cross package boundaries only through `src/index.ts`.

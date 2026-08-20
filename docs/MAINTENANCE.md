@@ -513,11 +513,13 @@ While every subscription OAuth provider is blocked, verify that no
 token field, or API-key persistence enters the product. Do not implement an
 opaque generic store in anticipation of a provider.
 
-Keep the verifier's closed sensitive-state identifier inventory and exact
-production CLI platform-authority registries synchronized with reviewed source.
+Keep the verifier's closed sensitive-state identifier inventory, exact dormant
+CLI product tree, and exact production CLI effect-authority registries
+synchronized with reviewed source.
 Any new auth, credential, secret, session-state, or token identifier and any new
-or expanded CLI filesystem, child-process, or native authority must fail until
-its owning contract and mutation evidence are updated in the same change.
+or expanded CLI filesystem, child-process, network, activation, or native
+authority must fail until its owning contract and mutation evidence are updated
+in the same change.
 
 Sensitive spelling alone never authorizes a use. Each admitted spelling is
 bound to one reviewed path and exact occurrence count; update only the affected
@@ -526,13 +528,13 @@ and a removed occurrence fail before repinning that record.
 
 Treat every closed inventory as an exact current-path requirement. Renaming or
 deleting an inventoried file must fail, as must changing its reviewed filesystem
-or child-process import or any other source content. Each direct Node platform
-authority record owns the exact module specifier, imported bindings, and SHA-256
-digest of the complete UTF-8 module after only CRLF-to-LF normalization. The
-native platform authority owns the exact ordered C/H path set and an aggregate
-SHA-256 digest over its normalized path/source records. Update or remove stale
-records together with the owning decision and mutation evidence; never retain a
-dormant pathname or digest allowance for possible later reuse.
+or child-process import, network import, or any other source content. Each direct
+Node effect-authority record owns only its exact module specifier and imported
+bindings. The complete dormant CLI product tree and native platform authority
+each own an exact ordered path set and an aggregate SHA-256 digest over
+normalized UTF-8 path/source records after only CRLF-to-LF normalization. Update
+or remove stale records together with the owning decision and mutation evidence;
+never retain a dormant pathname or digest allowance for possible later reuse.
 
 Do not weaken source integrity into a partial export or alias scanner. Keep
 representative escape recurrences in the source-policy corpus, including direct
@@ -540,16 +542,13 @@ and aliased exports, variable declarations, assertions, destructuring, Unicode
 bindings, assignment to an exported binding after declaration, and an
 unreviewed child-process launch with split path fragments. They all must fail
 through the same exact source-integrity boundary, independent of surface syntax.
-Any legitimate edit to an approved Node or native platform authority requires
-review of the complete authority-bearing source and an explicit digest repin in
-the same change. The gate does not execute product code or infer general data
-flow.
-
-Keep direct and split dormant literals in the mutation corpus. The static-string
-projection admits only non-interpolated literals, parentheses, literal `+`, and
-literal arrays joined with a static separator under its fixed bounds; never
-replace it with code evaluation or an imported parser. Change its grammar,
-bounds, projection, and lexer/provider regressions together.
+Keep direct, split, and method-composed dormant command and namespace
+recurrences in the mutation corpus. They must fail through the exact dormant CLI
+product-tree boundary without teaching the verifier each new string syntax. Any
+legitimate CLI or native source edit requires review of the complete owning tree
+and an explicit digest repin in the same change; effect-edge changes also update
+the exact Node registry. The gate does not execute product code or infer partial
+strings, exports, commands, or general data flow.
 
 To activate the boundary, first admit one independently registered provider and
 define its exact durable record, bounds, native access proof, cross-process

@@ -150,34 +150,33 @@ This dormant decision is verified by repository policy: all subscription OAuth
 providers remain blocked, the current product creates no `credentials`
 namespace, Ollama credential persistence remains forbidden, and no auth package,
 command, endpoint, token field, or generic credential reader enters source.
-The gate maintains a closed inventory of current sensitive-state identifiers and
-the exact production CLI Node and native platform authorities. A new sensitive
-identifier, direct filesystem or child-process CLI module, native C/H path, or
-expanded platform binding fails closed until the owning decision and policy
-evidence are updated together.
+The gate maintains a closed inventory of current sensitive-state identifiers,
+the exact dormant CLI product tree, and the exact production CLI Node
+effect and native platform authorities. A new sensitive identifier, direct
+filesystem, child-process, or network CLI module, activation owner, native C/H
+path, or expanded effect binding fails closed until the owning decision and
+policy evidence are updated together.
 The identifier inventory grants no global spelling allowance: each
 case-sensitive spelling is bound to one reviewed path and exact occurrence
 count. Adding a known spelling at a new use or removing an admitted occurrence
 fails closed until that path record and its evidence change together.
 All closed path sets are bidirectional: every registered path must remain in
 the canonical product-source set. Each approved CLI module with direct
-`node:fs` or `node:child_process` authority must retain its exact module
-specifier, import bindings, and normalized source digest. The native platform
-authority retains the exact ordered C/H path set and an aggregate digest over
-its path/source records. Both digest forms cover complete UTF-8 source after
-only CRLF-to-LF normalization and use SHA-256. A rename, deletion, reduced or
-expanded platform import, native path change, or any other source drift fails
-closed rather than preserving a dormant allowance. These complete source
-snapshots are the verifier's sole authority for code flow inside approved direct
-Node and native platform modules. The gate does not execute product code or
-infer commands, exports, aliases, assignments, or general capability flow. A
-legitimate edit requires review of the complete authority-bearing source and an
-explicit digest repin in the same policy change; unfamiliar syntax and split
-command or path fragments cannot bypass the boundary.
-Before applying dormant literal markers, the gate projects values reconstructed
-only from bounded non-interpolated literals, parentheses, literal `+`, and
-literal arrays joined with a static separator. It never evaluates product code;
-an unscannable or over-bound candidate fails closed.
+`node:fs`, `node:child_process`, or `node:https` effect authority must retain its
+exact module specifier and import bindings. The complete dormant CLI product
+tree and native platform authority each retain their exact ordered path set and
+an aggregate digest over path/source records. Both digest forms cover complete
+UTF-8 source after only CRLF-to-LF normalization and use SHA-256. A rename,
+deletion, reduced or expanded effect import, CLI path change, native path change,
+or any other source drift fails closed rather than preserving a dormant
+allowance. These complete source snapshots are the verifier's sole authority
+for code flow inside the CLI product and native trees; the direct Node registry
+owns only exact effect edges. The gate does not execute product code or infer
+partial strings, commands, exports, aliases, assignments, or general capability
+flow. A legitimate edit requires review of the complete owning source tree and
+an explicit digest repin in the same policy change; split literals, method
+composition such as `.concat()`, and other unfamiliar syntax cannot bypass the
+boundary.
 
 An activating provider change must add Windows and Linux native contract tests
 for secure creation, exact access validation, reparse and symlink rejection,

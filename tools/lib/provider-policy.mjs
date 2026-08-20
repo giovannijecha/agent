@@ -1,10 +1,5 @@
 import { createHash } from "node:crypto";
 
-import {
-  collectStaticStringValues,
-  ModuleScanError,
-} from "./module-specifiers.mjs";
-
 const OPENAI_SUBMISSION_URL =
   "https://community.openai.com/t/independent-native-oauth-public-client-registration-request-for-agent/1389585";
 const CLAUDE_SUBMISSION_REFERENCE =
@@ -230,11 +225,10 @@ const REVIEWED_SENSITIVE_STATE_IDENTIFIERS = Object.freeze([
   ),
 ]);
 
-const APPROVED_CLI_NODE_PLATFORM_AUTHORITIES = Object.freeze({
+const APPROVED_CLI_NODE_EFFECT_AUTHORITIES = Object.freeze({
   "packages/agent-cli/src/builtin-tools.ts": Object.freeze({
     imports: Object.freeze(["type Dirent", "lstat", "opendir", "readFile"]),
     module: "node:fs/promises",
-    sourceSha256: "fe6f38a1a91c7a3738b44e02564db69f8d4af8208ac543ffe05b264de21bfc37",
   }),
   "packages/agent-cli/src/session-journal.ts": Object.freeze({
     imports: Object.freeze([
@@ -247,52 +241,42 @@ const APPROVED_CLI_NODE_PLATFORM_AUTHORITIES = Object.freeze({
       "rm",
     ]),
     module: "node:fs/promises",
-    sourceSha256: "8730b91db3136c00998d31cf582cbf5bd90443e599738cc72b5fdc9af059c8c1",
   }),
   "packages/agent-cli/src/workspace-boundary.ts": Object.freeze({
     imports: Object.freeze(["lstat", "realpath"]),
     module: "node:fs/promises",
-    sourceSha256: "3840784307299b14ae8f86b0c7c132a5d22574e70f332b41091a481f3985ebe7",
   }),
   "packages/agent-cli/src/workspace-mutation-plans.ts": Object.freeze({
     imports: Object.freeze(["lstat", "open"]),
     module: "node:fs/promises",
-    sourceSha256: "fc7ec4869d05fb1272aa54771d1917b74594a27cf54889381f5035cda9e921de",
   }),
   "packages/agent-cli/src/workspace-namespace-plans.ts": Object.freeze({
     imports: Object.freeze(["lstat", "opendir"]),
     module: "node:fs/promises",
-    sourceSha256: "0721527b3fed371d0f530cd064bedb846c747ae7d136e548c90e9b2e95197d27",
   }),
   "packages/agent-cli/src/workspace-path.ts": Object.freeze({
     imports: Object.freeze(["lstat", "realpath"]),
     module: "node:fs/promises",
-    sourceSha256: "461169a100be3561ce7a86148f533418fd79b7dd052998863052bac652a41020",
   }),
   "packages/agent-cli/src/workspace-read-policy.ts": Object.freeze({
     imports: Object.freeze(["lstat", "readFile", "realpath"]),
     module: "node:fs/promises",
-    sourceSha256: "5f469faf1792645e8ee8f44b0de17c2dd55f656ce4de31d7e80538dd7e17ad5e",
   }),
   "packages/agent-cli/src/node-process-runner.ts": Object.freeze({
     imports: Object.freeze(["spawn", "type ChildProcess"]),
     module: "node:child_process",
-    sourceSha256: "2a01998b2b3c03d0b5bf2f3b8a2ac59655a903718b2ea122101fc4ae8bc6402c",
   }),
   "packages/agent-cli/src/platform-clipboard.ts": Object.freeze({
     imports: Object.freeze(["spawn", "type ChildProcess", "type SpawnOptions"]),
     module: "node:child_process",
-    sourceSha256: "5b23d7f895231f2d90794dc2a37b977a31eb0444ecbc4b30604c67ce6970e679",
   }),
   "packages/agent-cli/src/platform-workspace-mutation.ts": Object.freeze({
     imports: Object.freeze(["spawn", "type ChildProcess", "type SpawnOptions"]),
     module: "node:child_process",
-    sourceSha256: "03756575344ca010631706c6afa0805669af280e93509c733e6bb972d0e9354a",
   }),
   "packages/agent-cli/src/platform-workspace-namespace.ts": Object.freeze({
     imports: Object.freeze(["spawn", "type ChildProcess", "type SpawnOptions"]),
     module: "node:child_process",
-    sourceSha256: "f339d1d3c87508aee4f911da258d23e640145f2b36d95c7137ac735042f012f0",
   }),
   "packages/agent-cli/src/platform-workspace-roots.ts": Object.freeze({
     imports: Object.freeze([
@@ -301,8 +285,33 @@ const APPROVED_CLI_NODE_PLATFORM_AUTHORITIES = Object.freeze({
       "type SpawnReadOptions",
     ]),
     module: "node:child_process",
-    sourceSha256: "fd5b064e4e521ee70d416ac1a1dcee128ca694b0e4010a4071237e972ccb6a15",
   }),
+  "packages/agent-cli/src/node-ollama-cloud-transport.ts": Object.freeze({
+    imports: Object.freeze([
+      "request as nodeHttpsRequest",
+      "type ClientRequest",
+      "type IncomingMessage",
+      "type RequestOptions",
+    ]),
+    module: "node:https",
+  }),
+  "packages/agent-cli/src/node-ollama-model-catalog.ts": Object.freeze({
+    imports: Object.freeze([
+      "request as nodeHttpsRequest",
+      "type ClientRequest",
+      "type IncomingMessage",
+      "type RequestOptions",
+    ]),
+    module: "node:https",
+  }),
+});
+
+const APPROVED_CLI_DORMANT_PRODUCT_TREE = Object.freeze({
+  pathCount: 72,
+  pathsSha256:
+    "c98c61c7e385b1aeeb6a4c6534561a5c44086349283cd30fc04933354bcfafac",
+  sourceSha256:
+    "e47405f9e285e5704a174164f35d1c48fdf7742459dbaef4124445658dc6ef32",
 });
 
 const APPROVED_CLI_NATIVE_PLATFORM_TREE = Object.freeze({
@@ -742,19 +751,6 @@ function compactSource(text) {
     .toLowerCase();
 }
 
-function projectStaticStringValues(path, text) {
-  let values;
-  try {
-    values = collectStaticStringValues(text);
-  } catch (error) {
-    if (error instanceof ModuleScanError) {
-      fail(path + " contains an unscannable static string expression");
-    }
-    throw error;
-  }
-  return values.map((entry) => JSON.stringify(entry.value)).join("\n");
-}
-
 function isSensitiveStateIdentifier(identifier) {
   const normalized = identifier.toLowerCase();
   if (
@@ -802,30 +798,30 @@ function validateSensitiveStateIdentifiers(path, text) {
   }
 }
 
-function validateCliNodePlatformAuthority(path, text) {
+function validateCliNodeEffectAuthority(path, text) {
   if (!path.startsWith("packages/agent-cli/src/")) {
     return;
   }
   const decoded = decodeScannableEscapes(text);
   const references = [
     ...decoded.matchAll(
-      /["']node:(?:child_process|fs(?:\/promises)?)["']/gu,
+      /["']node:(?:child_process|fs(?:\/promises)?|https)["']/gu,
     ),
   ];
-  const expected = APPROVED_CLI_NODE_PLATFORM_AUTHORITIES[path];
+  const expected = APPROVED_CLI_NODE_EFFECT_AUTHORITIES[path];
   if (expected === undefined && references.length === 0) {
     return;
   }
   if (expected === undefined) {
-    fail(path + " contains unregistered CLI Node platform authority");
+    fail(path + " contains unregistered CLI Node effect authority");
   }
   const imports = [
     ...decoded.matchAll(
-      /import\s*\{([^}]*)\}\s*from\s*["'](node:(?:child_process|fs(?:\/promises)?))["']\s*;/gu,
+      /import\s*\{([^}]*)\}\s*from\s*["'](node:(?:child_process|fs(?:\/promises)?|https))["']\s*;/gu,
     ),
   ];
   if (imports.length !== 1 || references.length !== 1) {
-    fail(path + " contains CLI Node platform authority drift");
+    fail(path + " contains CLI Node effect authority drift");
   }
   const source = imports.at(0)?.at(1);
   const module = imports.at(0)?.at(2);
@@ -837,28 +833,28 @@ function validateCliNodePlatformAuthority(path, text) {
     actual === undefined ||
     JSON.stringify(actual) !== JSON.stringify(expected.imports)
   ) {
-    fail(path + " contains CLI Node platform authority drift");
-  }
-  const sourceSha256 = createHash("sha256")
-    .update(text.replaceAll("\r\n", "\n"), "utf8")
-    .digest("hex");
-  if (sourceSha256 !== expected.sourceSha256) {
-    fail(path + " contains CLI platform authority source-integrity drift");
+    fail(path + " contains CLI Node effect authority drift");
   }
 }
 
-function validateCliNativePlatformAuthority(productSources) {
+function validateExactSourceTree(productSources, expected, select, label) {
   const sources = productSources
-    .filter((source) =>
-      /^packages\/agent-cli\/native\/.*\.(?:c|h)$/u.test(source.path)
-    )
+    .filter(select)
     .sort((left, right) => left.path.localeCompare(right.path));
   const paths = sources.map((source) => source.path);
+  const expectedPathCount = expected.paths?.length ?? expected.pathCount;
+  const expectedPathsSha256 = expected.pathsSha256 ??
+    createHash("sha256")
+      .update(JSON.stringify(expected.paths), "utf8")
+      .digest("hex");
+  const pathsSha256 = createHash("sha256")
+    .update(JSON.stringify(paths), "utf8")
+    .digest("hex");
   if (
-    JSON.stringify(paths) !==
-      JSON.stringify(APPROVED_CLI_NATIVE_PLATFORM_TREE.paths)
+    paths.length !== expectedPathCount ||
+    pathsSha256 !== expectedPathsSha256
   ) {
-    fail("CLI native platform authority path drift");
+    fail(label + " path drift");
   }
   const records = sources.map((source) => Object.freeze({
     path: source.path,
@@ -867,34 +863,24 @@ function validateCliNativePlatformAuthority(productSources) {
   const sourceSha256 = createHash("sha256")
     .update(JSON.stringify(records), "utf8")
     .digest("hex");
-  if (sourceSha256 !== APPROVED_CLI_NATIVE_PLATFORM_TREE.sourceSha256) {
-    fail("CLI native platform authority source-integrity drift");
-  }
-}
-
-function validateInventoryPaths(encounteredPaths, inventory, label) {
-  for (const path of Object.keys(inventory)) {
-    if (!encounteredPaths.has(path)) {
-      fail(label + " path is missing from product sources: " + path);
-    }
+  if (sourceSha256 !== expected.sourceSha256) {
+    fail(label + " source-integrity drift");
   }
 }
 
 function validateProductSources(productSources) {
-  const encounteredPaths = new Set();
   for (const source of productSources) {
-    if (!isRecord(source) || typeof source.path !== "string" || typeof source.text !== "string") {
+    if (
+      !isRecord(source) ||
+      typeof source.path !== "string" ||
+      typeof source.text !== "string"
+    ) {
       fail("product source entries must contain path and text");
     }
-    encounteredPaths.add(source.path);
     let scannable = source.text;
     const approved = APPROVED_SOURCE_LITERALS[source.path] ?? [];
     for (const literal of approved) {
       scannable = scannable.split(literal).join("");
-    }
-    const staticProjection = projectStaticStringValues(source.path, scannable);
-    if (staticProjection.length > 0) {
-      scannable += "\n" + staticProjection;
     }
     for (const [pattern, label] of FORBIDDEN_SOURCE_MARKERS) {
       if (pattern.test(scannable)) {
@@ -902,7 +888,7 @@ function validateProductSources(productSources) {
       }
     }
     validateSensitiveStateIdentifiers(source.path, source.text);
-    validateCliNodePlatformAuthority(source.path, source.text);
+    validateCliNodeEffectAuthority(source.path, source.text);
     const compact = compactSource(scannable);
     if (
       /import(?!\{)[^;]*fromnode:process/u.test(compact) ||
@@ -916,16 +902,19 @@ function validateProductSources(productSources) {
       }
     }
   }
-  validateCliNativePlatformAuthority(productSources);
-  validateInventoryPaths(
-    encounteredPaths,
-    EXPECTED_SENSITIVE_STATE_OCCURRENCES,
-    "sensitive-state identifier inventory",
+  validateExactSourceTree(
+    productSources,
+    APPROVED_CLI_DORMANT_PRODUCT_TREE,
+    (source) =>
+      /^packages\/agent-cli\/src\/[^/]+\.ts$/u.test(source.path),
+    "CLI dormant product tree",
   );
-  validateInventoryPaths(
-    encounteredPaths,
-    APPROVED_CLI_NODE_PLATFORM_AUTHORITIES,
-    "CLI Node platform authority inventory",
+  validateExactSourceTree(
+    productSources,
+    APPROVED_CLI_NATIVE_PLATFORM_TREE,
+    (source) =>
+      /^packages\/agent-cli\/native\/.*\.(?:c|h)$/u.test(source.path),
+    "CLI native platform authority",
   );
 }
 

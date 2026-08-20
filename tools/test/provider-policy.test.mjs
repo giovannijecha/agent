@@ -383,8 +383,9 @@ test("rejects every provider or auth workspace that was not admitted", () => {
 test("rejects every dormant durable credential product surface", () => {
   const mutations = [
     {
-      label: "dormant agent auth command",
-      match: "forbidden",
+      failure:
+        "packages/agent-cli/src/launch-command.ts contains forbidden " +
+        "dormant agent auth command",
       path: "packages/agent-cli/src/launch-command.ts",
       mutate: (text) => text.replace(
         'if (argument === "--help") {',
@@ -392,8 +393,7 @@ test("rejects every dormant durable credential product surface", () => {
       ),
     },
     {
-      label: "dormant agent auth command",
-      match: "forbidden",
+      failure: "CLI dormant product tree source-integrity drift",
       path: "packages/agent-cli/src/launch-command.ts",
       mutate: (text) => text.replace(
         'if (argument === "--help") {',
@@ -401,8 +401,9 @@ test("rejects every dormant durable credential product surface", () => {
       ),
     },
     {
-      label: "dormant credential namespace",
-      match: "forbidden",
+      failure:
+        "packages/agent-cli/src/workspace-boundary.ts contains forbidden " +
+        "dormant credential namespace",
       path: "packages/agent-cli/src/workspace-boundary.ts",
       mutate: (text) => text.replace(
         'path.join(userStateRoot, "sessions")',
@@ -410,8 +411,8 @@ test("rejects every dormant durable credential product surface", () => {
       ),
     },
     {
-      label: "dormant credential namespace",
-      match: "forbidden",
+      failure:
+        "CLI dormant product tree source-integrity drift",
       path: "packages/agent-cli/src/workspace-boundary.ts",
       mutate: (text) => text.replace(
         'path.join(userStateRoot, "sessions")',
@@ -425,8 +426,9 @@ test("rejects every dormant durable credential product surface", () => {
       "readCredential",
       "resolveCredential",
     ].map((reader) => ({
-      label: "sensitive-state identifier",
-      match: "unregistered",
+      failure:
+        "packages/agent-cli/src/provider-session.ts contains unregistered " +
+        "sensitive-state identifier",
       path: "packages/agent-cli/src/provider-session.ts",
       mutate: (text) => text +
         "\nexport function " + reader + "(): undefined {\n" +
@@ -439,8 +441,9 @@ test("rejects every dormant durable credential product surface", () => {
       "readAuthState",
       "readSecretRecord",
     ].map((reader) => ({
-      label: "sensitive-state identifier",
-      match: "unregistered",
+      failure:
+        "packages/agent-cli/src/provider-session.ts contains unregistered " +
+        "sensitive-state identifier",
       path: "packages/agent-cli/src/provider-session.ts",
       mutate: (text) => text +
         "\nexport function " + reader + "(): undefined {\n" +
@@ -471,13 +474,85 @@ test("rejects every dormant durable credential product surface", () => {
         ),
       (error) =>
         error instanceof ProviderPolicyError &&
-        error.message ===
-          mutation.path + " contains " + mutation.match + " " + mutation.label,
+        error.message === mutation.failure,
     );
   }
 });
 
-test("rejects new or expanded CLI Node platform authority", () => {
+test("rejects unsupported dormant command composition through source integrity", () => {
+  const path = "packages/agent-cli/src/launch-command.ts";
+  const original = readFileSync(
+    new URL("../../" + path, import.meta.url),
+    "utf8",
+  );
+  const mutated = original.replace(
+    'if (argument === "--help") {',
+    'if (argument === "a".concat("uth")) {',
+  );
+  assert.notEqual(mutated, original);
+  assert.throws(
+    () =>
+      validateProviderPolicy(
+        currentPolicy,
+        contextWithSources({ path, text: mutated }),
+      ),
+    (error) =>
+      error instanceof ProviderPolicyError &&
+      error.message ===
+        "CLI dormant product tree source-integrity drift",
+  );
+});
+
+test("pins the exact CLI dormant product tree", () => {
+  const sources = currentProductSources.filter((source) =>
+    /^packages\/agent-cli\/src\/[^/]+\.ts$/u.test(source.path)
+  );
+  assert.equal(sources.length, 72);
+  const unprivilegedSource = sources.find(
+    (source) => source.path === "packages/agent-cli/src/models-view.ts",
+  );
+  assert.notEqual(unprivilegedSource, undefined);
+  assert.throws(
+    () =>
+      validateProviderPolicy(
+        currentPolicy,
+        contextWithSources({
+          path: unprivilegedSource.path,
+          text: unprivilegedSource.text + "\n// unreviewed activation drift\n",
+        }),
+      ),
+    (error) =>
+      error instanceof ProviderPolicyError &&
+      error.message === "CLI dormant product tree source-integrity drift",
+  );
+
+  const missingPath = "packages/agent-cli/src/launch-command.ts";
+  assert.throws(
+    () =>
+      validateProviderPolicy(currentPolicy, {
+        ...emptyContext,
+        productSources: currentProductSources.filter(
+          (source) => source.path !== missingPath,
+        ),
+      }),
+    (error) =>
+      error instanceof ProviderPolicyError &&
+      error.message === "CLI dormant product tree path drift",
+  );
+
+  const addedSource = {
+    path: "packages/agent-cli/src/dormant-auth.ts",
+    text: "export const dormant = true;\n",
+  };
+  assert.throws(
+    () => validateProviderPolicy(currentPolicy, contextWithSources(addedSource)),
+    (error) =>
+      error instanceof ProviderPolicyError &&
+      error.message === "CLI dormant product tree path drift",
+  );
+});
+
+test("rejects new or expanded CLI Node effect authority", () => {
   const newSource = {
     path: "packages/agent-cli/src/local-state.ts",
     text:
@@ -509,7 +584,27 @@ test("rejects new or expanded CLI Node platform authority", () => {
       error instanceof ProviderPolicyError &&
       error.message ===
         newProcessSource.path +
-          " contains unregistered CLI Node platform authority",
+          " contains unregistered CLI Node effect authority",
+  );
+  const newNetworkSource = {
+    path: "packages/agent-cli/src/local-network.ts",
+    text:
+      'import { request } from "node:https";\n' +
+      "export function open(): void {\n" +
+      "  request({});\n" +
+      "}\n",
+  };
+  assert.throws(
+    () =>
+      validateProviderPolicy(
+        currentPolicy,
+        contextWithSources(newNetworkSource),
+      ),
+    (error) =>
+      error instanceof ProviderPolicyError &&
+      error.message ===
+        newNetworkSource.path +
+          " contains unregistered CLI Node effect authority",
   );
 
   const path = "packages/agent-cli/src/workspace-boundary.ts";
@@ -547,7 +642,7 @@ test("rejects new or expanded CLI Node platform authority", () => {
       ),
     (error) =>
       error instanceof ProviderPolicyError &&
-      error.message === path + " contains CLI Node platform authority drift",
+      error.message === path + " contains CLI Node effect authority drift",
   );
 });
 
@@ -638,14 +733,16 @@ test("rejects reviewed filesystem escape recurrences as source drift", () => {
       (error) =>
         error instanceof ProviderPolicyError &&
         error.message ===
-          path + " contains CLI platform authority source-integrity drift",
+          "CLI dormant product tree path drift",
     );
   }
 });
 
-test("pins every approved CLI Node platform authority to its reviewed source", () => {
+test("registers every direct CLI Node effect authority", () => {
   const expectedPaths = [
     "packages/agent-cli/src/builtin-tools.ts",
+    "packages/agent-cli/src/node-ollama-cloud-transport.ts",
+    "packages/agent-cli/src/node-ollama-model-catalog.ts",
     "packages/agent-cli/src/node-process-runner.ts",
     "packages/agent-cli/src/platform-clipboard.ts",
     "packages/agent-cli/src/platform-workspace-mutation.ts",
@@ -660,28 +757,12 @@ test("pins every approved CLI Node platform authority to its reviewed source", (
   ];
   const sources = currentProductSources.filter((source) =>
     source.path.startsWith("packages/agent-cli/src/") &&
-    /["']node:(?:child_process|fs(?:\/promises)?)["']/u.test(source.text)
+    /["']node:(?:child_process|fs(?:\/promises)?|https)["']/u.test(source.text)
   );
   assert.deepEqual(
     sources.map((source) => source.path).sort(),
     expectedPaths,
   );
-  for (const source of sources) {
-    assert.throws(
-      () =>
-        validateProviderPolicy(
-          currentPolicy,
-          contextWithSources({
-            path: source.path,
-            text: source.text + "\n// unreviewed source drift\n",
-          }),
-        ),
-      (error) =>
-        error instanceof ProviderPolicyError &&
-        error.message ===
-          source.path + " contains CLI platform authority source-integrity drift",
-    );
-  }
 });
 
 test("rejects unreviewed child-process launch behavior", () => {
@@ -702,11 +783,11 @@ test("rejects unreviewed child-process launch behavior", () => {
     (error) =>
       error instanceof ProviderPolicyError &&
       error.message ===
-        path + " contains CLI platform authority source-integrity drift",
+        "CLI dormant product tree source-integrity drift",
   );
 });
 
-test("normalizes approved CLI platform source line endings", () => {
+test("normalizes approved CLI boundary source line endings", () => {
   const path = "packages/agent-cli/src/session-journal.ts";
   const original = readFileSync(
     new URL("../../" + path, import.meta.url),
@@ -718,6 +799,23 @@ test("normalizes approved CLI platform source line endings", () => {
       contextWithSources({
         path,
         text: original.replaceAll("\r\n", "\n").replaceAll("\n", "\r\n"),
+      }),
+    ),
+  );
+
+  const activationPath = "packages/agent-cli/src/launch-command.ts";
+  const activationOriginal = readFileSync(
+    new URL("../../" + activationPath, import.meta.url),
+    "utf8",
+  );
+  assert.doesNotThrow(() =>
+    validateProviderPolicy(
+      currentPolicy,
+      contextWithSources({
+        path: activationPath,
+        text: activationOriginal
+          .replaceAll("\r\n", "\n")
+          .replaceAll("\n", "\r\n"),
       }),
     ),
   );
@@ -779,40 +877,6 @@ test("rejects an allowed sensitive identifier at an unreviewed occurrence", () =
   );
 });
 
-test("rejects missing paths from the closed source inventories", () => {
-  const sensitivePath = "packages/agent-cli/src/notice.ts";
-  assert.throws(
-    () =>
-      validateProviderPolicy(currentPolicy, {
-        ...emptyContext,
-        productSources: currentProductSources.filter(
-          (source) => source.path !== sensitivePath,
-        ),
-      }),
-    (error) =>
-      error instanceof ProviderPolicyError &&
-      error.message ===
-        "sensitive-state identifier inventory path is missing from product sources: " +
-          sensitivePath,
-  );
-
-  const nodePlatformPath = "packages/agent-cli/src/workspace-boundary.ts";
-  assert.throws(
-    () =>
-      validateProviderPolicy(currentPolicy, {
-        ...emptyContext,
-        productSources: currentProductSources.filter(
-          (source) => source.path !== nodePlatformPath,
-        ),
-      }),
-    (error) =>
-      error instanceof ProviderPolicyError &&
-      error.message ===
-        "CLI Node platform authority inventory path is missing from product sources: " +
-          nodePlatformPath,
-  );
-});
-
 test("pins the exact CLI native platform source tree", () => {
   const path = "packages/agent-cli/native/workspace-roots/main.c";
   const original = readFileSync(
@@ -854,26 +918,7 @@ test("pins the exact CLI native platform source tree", () => {
   }
 });
 
-test("fails closed when static string projection exceeds its bounds", () => {
-  const path = "packages/agent-cli/src/provider-session.ts";
-  const fragments = Array.from({ length: 33 }, () => '"a"').join(", ");
-  assert.throws(
-    () =>
-      validateProviderPolicy(
-        currentPolicy,
-        contextWithSources({
-            path,
-            text: "const value = [" + fragments + '].join("");\n',
-        }),
-      ),
-    (error) =>
-      error instanceof ProviderPolicyError &&
-      error.message ===
-        path + " contains an unscannable static string expression",
-  );
-});
-
-test("accepts only the exact current CLI platform authorities", () => {
+test("accepts only the exact current CLI boundary authorities", () => {
   assert.doesNotThrow(() =>
     validateProviderPolicy(currentPolicy, emptyContext),
   );
