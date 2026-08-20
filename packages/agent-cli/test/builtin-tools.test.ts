@@ -165,6 +165,71 @@ test("advertises the exact workspace-root path convention", async () => {
   });
 });
 
+test("advertises and preflights one exact flat namespace contract", async () => {
+  await withWorkspace(async (workspace) => {
+    const tools = await engine(workspace);
+    const descriptor = tools.descriptors.find(
+      (candidate) => candidate.name === "manage_path",
+    );
+    assert.ok(descriptor !== undefined);
+    assert.deepEqual(
+      descriptor.input.fields.map((field) => ({
+        description: field.description,
+        name: field.name,
+        required: field.required,
+      })),
+      [
+        {
+          description: "Exact operation: create_directory, move, or remove.",
+          name: "operation",
+          required: true,
+        },
+        {
+          description: "Workspace-relative namespace path.",
+          name: "path",
+          required: true,
+        },
+        {
+          description:
+            "Absent workspace-relative destination path; required only for move.",
+          name: "destination",
+          required: false,
+        },
+      ],
+    );
+    assert.deepEqual(descriptor.input.discriminant, {
+      field: "operation",
+      variants: [
+        { fields: ["operation", "path"], value: "create_directory" },
+        {
+          fields: ["operation", "path", "destination"],
+          value: "move",
+        },
+        { fields: ["operation", "path"], value: "remove" },
+      ],
+    });
+
+    for (const input of [
+      { operation: "create_directory", path: "assets" },
+      { destination: "new.txt", operation: "move", path: "old.txt" },
+      { operation: "remove", path: "old.txt" },
+    ]) {
+      assert.equal(tools.prepare("call-valid", "manage_path", input).ok, true);
+    }
+    for (const input of [
+      { request: { operation: "remove", path: "old.txt" } },
+      { operation: "move", path: "old.txt" },
+      { destination: "unused", operation: "remove", path: "old.txt" },
+      { operation: "unknown", path: "old.txt" },
+    ]) {
+      assert.deepEqual(tools.prepare("call-invalid", "manage_path", input), {
+        error: { kind: "invalidInput" },
+        ok: false,
+      });
+    }
+  });
+});
+
 test("enrolls only the three built-in inspection handlers for read overlap", async () => {
   await withWorkspace(async (workspace) => {
     const tools = await engine(workspace);
@@ -194,7 +259,8 @@ test("enrolls only the three built-in inspection handlers for read overlap", asy
       }),
       Object.freeze({
         input: {
-          request: { operation: "create_directory", path: "created" },
+          operation: "create_directory",
+          path: "created",
         },
         name: "manage_path",
         scheduling: "serial",
@@ -575,7 +641,8 @@ test("creates directories and applies the platform namespace boundary", async ()
   await withWorkspace(async (workspace) => {
     const tools = await engine(workspace);
     const creation = await preparePlan(tools, "manage_path", {
-      request: { operation: "create_directory", path: "archive" },
+      operation: "create_directory",
+      path: "archive",
     });
     assert.equal(creation.planned.approvalRequired, true);
     assert.equal(
@@ -598,11 +665,9 @@ test("creates directories and applies the platform namespace boundary", async ()
       flag: "wx",
     });
     const movement = await preparePlan(tools, "manage_path", {
-      request: {
-        destination: "archive/source.txt",
-        operation: "move",
-        path: "source.txt",
-      },
+      destination: "archive/source.txt",
+      operation: "move",
+      path: "source.txt",
     });
     if (platform === "linux") {
       assert.equal(movement.planned.approvalRequired, false);
@@ -623,7 +688,8 @@ test("creates directories and applies the platform namespace boundary", async ()
       );
 
       const fileRemoval = await preparePlan(tools, "manage_path", {
-        request: { operation: "remove", path: "source.txt" },
+        operation: "remove",
+        path: "source.txt",
       });
       assert.equal(fileRemoval.planned.approvalRequired, false);
       assert.equal(fileRemoval.planned.approvalPreview, "");
@@ -636,7 +702,8 @@ test("creates directories and applies the platform namespace boundary", async ()
       assert.equal(output(removedFile.value).get("error"), "unsupported");
 
       const directoryRemoval = await preparePlan(tools, "manage_path", {
-        request: { operation: "remove", path: "archive" },
+        operation: "remove",
+        path: "archive",
       });
       assert.equal(directoryRemoval.planned.approvalRequired, false);
       assert.equal(directoryRemoval.planned.approvalPreview, "");
@@ -675,7 +742,8 @@ test("creates directories and applies the platform namespace boundary", async ()
     );
 
     const fileRemoval = await preparePlan(tools, "manage_path", {
-      request: { operation: "remove", path: "archive/source.txt" },
+      operation: "remove",
+      path: "archive/source.txt",
     });
     assert.equal(fileRemoval.planned.approvalRequired, true);
     assert.equal(
@@ -690,7 +758,8 @@ test("creates directories and applies the platform namespace boundary", async ()
     assert.equal(output(removedFile.value).get("effect"), "removed");
 
     const directoryRemoval = await preparePlan(tools, "manage_path", {
-      request: { operation: "remove", path: "archive" },
+      operation: "remove",
+      path: "archive",
     });
     assert.equal(directoryRemoval.planned.approvalRequired, true);
     assert.equal(
@@ -741,9 +810,7 @@ test("rejects unsupported namespace operations before observation and approval",
       },
       { operation: "remove", path: "missing/source.txt" },
     ]) {
-      const rejected = await preparePlan(created.value, "manage_path", {
-        request,
-      });
+      const rejected = await preparePlan(created.value, "manage_path", request);
       assert.equal(rejected.planned.approvalRequired, false);
       assert.equal(rejected.planned.approvalPreview, "");
       const settled = await created.value.execute(
@@ -789,7 +856,7 @@ test("rejects invalid namespace plans before approval and stale effects at commi
         path: "tree",
       },
     ]) {
-      const rejected = await preparePlan(tools, "manage_path", { request });
+      const rejected = await preparePlan(tools, "manage_path", request);
       assert.equal(rejected.planned.approvalRequired, false);
       assert.equal(rejected.planned.approvalPreview, "");
       const settled = await tools.execute(rejected.planned, cancellation);
@@ -798,11 +865,9 @@ test("rejects invalid namespace plans before approval and stale effects at commi
     }
 
     const stale = await preparePlan(tools, "manage_path", {
-      request: {
-        destination: "moved.txt",
-        operation: "move",
-        path: "source.txt",
-      },
+      destination: "moved.txt",
+      operation: "move",
+      path: "source.txt",
     });
     if (platform === "linux") {
       assert.equal(stale.planned.approvalRequired, false);

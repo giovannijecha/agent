@@ -70,9 +70,11 @@ mechanism, durability guarantee, or filesystem sandbox.
 
 `manage_path` creates one directory, moves one file or directory to an absent
 destination, or removes one file or empty directory. It never creates parents,
-overwrites, merges, or removes recursively. Windows supports all three
-operations. Linux currently supports only `create_directory`; `move` and
-`remove` fail as `unsupported` before path-specific observation or permission.
+overwrites, merges, or removes recursively. Its model-facing input names
+`operation` and `path` directly; only `move` also supplies `destination`. There
+is no nested request form. Windows supports all three operations. Linux
+currently supports only `create_directory`; `move` and `remove` fail as
+`unsupported` before path-specific observation or permission.
 
 `shell` accepts one exact command and one workspace-relative working directory.
 Linux uses `/bin/bash --noprofile --norc -c`. Windows uses the operating-system
@@ -146,6 +148,7 @@ settled effect is not repeated.
 - [Minimal capability decision](../decisions/0050-owned-minimal-coding-capability-surface.md)
 - [Text-patch decision](../decisions/0053-owned-structured-text-patch.md)
 - [Namespace decision](../decisions/0054-owned-workspace-namespace-management.md)
+- [Flat namespace contract](../decisions/0084-owned-flat-namespace-tool-contract.md)
 - [Session-permission decision](../decisions/0055-owned-session-tool-permissions.md)
 - [Shell-execution decision](../decisions/0073-owned-capability-complete-shell-execution.md)
 - [Read-overlap decision](../decisions/0074-owned-deterministic-read-overlap.md)

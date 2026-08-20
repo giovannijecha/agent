@@ -93,6 +93,19 @@ test("accepts the canonical owned operator manual", () => {
   assert.doesNotThrow(() => validateManualPolicy(currentPolicy, currentContext()));
 });
 
+test("binds the flat manage_path operator contract", () => {
+  const source = currentContext().files["docs/manual/04-tools-and-approval.md"];
+  assert.match(
+    source,
+    /input names\s+`operation` and `path` directly; only `move` also supplies `destination`/u,
+  );
+  assert.match(source, /There\s+is no nested request form/u);
+  assert.match(
+    source,
+    /0084-owned-flat-namespace-tool-contract\.md/u,
+  );
+});
+
 test("rejects missing or reordered chapter contract sections", () => {
   const context = currentContext();
   const chapter = currentPolicy.chapters.at(2).path;

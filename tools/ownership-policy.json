@@ -102,6 +102,7 @@
     "docs/decisions/0081-owned-structural-manual-policy.md",
     "docs/decisions/0082-owned-ollama-tool-stream-normalization.md",
     "docs/decisions/0083-owned-bounded-thinking-stream.md",
+    "docs/decisions/0084-owned-flat-namespace-tool-contract.md",
     "evaluations/README.md"
   ],
   "workspaces": [

@@ -31,6 +31,7 @@ export type SchemaErrorKind =
   | "duplicateField"
   | "invalidBounds"
   | "invalidDescription"
+  | "invalidDiscriminant"
   | "invalidFieldName"
   | "invalidLiteral"
   | "invalidProjection"
@@ -351,15 +352,126 @@ export type ObjectSchemaProjection = Readonly<{
   maximumCodeUnits: number;
 }>;
 
+export type ObjectSchemaDiscriminantVariant = Readonly<{
+  fields: readonly string[];
+  value: string;
+}>;
+
+export type ObjectSchemaDiscriminant = Readonly<{
+  field: string;
+  variants: readonly ObjectSchemaDiscriminantVariant[];
+}>;
+
+function objectSchemaDiscriminant(
+  fields: readonly ObjectSchemaField[],
+  names: ReadonlySet<string>,
+  discriminant: ObjectSchemaDiscriminant | undefined,
+): Result<ObjectSchemaDiscriminant | undefined, SchemaError> {
+  if (discriminant === undefined) {
+    return ok(undefined);
+  }
+  try {
+    if (
+      discriminant === null ||
+      typeof discriminant !== "object" ||
+      Object.keys(discriminant).sort().join(",") !== "field,variants" ||
+      typeof discriminant.field !== "string" ||
+      !Array.isArray(discriminant.variants) ||
+      discriminant.variants.length < 2 ||
+      discriminant.variants.length > TOOL_SCHEMA_LIMITS.unionVariants
+    ) {
+      return err(schemaError("invalidDiscriminant"));
+    }
+    const discriminantField = fields.find(
+      (field) => field.name === discriminant.field,
+    );
+    if (
+      discriminantField === undefined ||
+      !discriminantField.required ||
+      !(discriminantField.schema instanceof StringSchema)
+    ) {
+      return err(schemaError("invalidDiscriminant"));
+    }
+    const values = new Set<string>();
+    const referencedFields = new Set<string>();
+    const variants: ObjectSchemaDiscriminantVariant[] = [];
+    for (const variant of discriminant.variants) {
+      if (
+        variant === null ||
+        typeof variant !== "object" ||
+        Object.keys(variant).sort().join(",") !== "fields,value" ||
+        !Array.isArray(variant.fields) ||
+        variant.fields.length === 0 ||
+        variant.fields.length > names.size ||
+        typeof variant.value !== "string" ||
+        values.has(variant.value) ||
+        !LiteralStringSchema.create(variant.value).ok ||
+        !validateOwnedSchema(discriminantField.schema, variant.value).ok
+      ) {
+        return err(schemaError("invalidDiscriminant"));
+      }
+      const variantFields = new Set<string>();
+      const ownedFields: string[] = [];
+      for (const fieldName of variant.fields) {
+        if (
+          typeof fieldName !== "string" ||
+          !names.has(fieldName) ||
+          variantFields.has(fieldName)
+        ) {
+          return err(schemaError("invalidDiscriminant"));
+        }
+        variantFields.add(fieldName);
+        referencedFields.add(fieldName);
+        ownedFields.push(fieldName);
+      }
+      if (
+        !variantFields.has(discriminant.field) ||
+        fields.some(
+          (field) => field.required && !variantFields.has(field.name),
+        )
+      ) {
+        return err(schemaError("invalidDiscriminant"));
+      }
+      values.add(variant.value);
+      variants.push(Object.freeze({
+        fields: Object.freeze(ownedFields),
+        value: variant.value,
+      }));
+    }
+    if (fields.some((field) => !referencedFields.has(field.name))) {
+      return err(schemaError("invalidDiscriminant"));
+    }
+    return ok(Object.freeze({
+      field: discriminant.field,
+      variants: Object.freeze(variants),
+    }));
+  } catch (_cause: unknown) {
+    return err(schemaError("invalidDiscriminant"));
+  }
+}
+
 export class ObjectSchema {
   readonly kind = "object" as const;
+  readonly #discriminant: ObjectSchemaDiscriminant | undefined;
   readonly #fields: readonly ObjectSchemaField[];
   readonly #projection: ObjectSchemaProjection | undefined;
 
   private constructor(
     fields: readonly ObjectSchemaField[],
     projection: ObjectSchemaProjection | undefined,
+    discriminant: ObjectSchemaDiscriminant | undefined,
   ) {
+    this.#discriminant = discriminant === undefined
+      ? undefined
+      : Object.freeze({
+          field: discriminant.field,
+          variants: Object.freeze(
+            discriminant.variants.map((variant) => Object.freeze({
+              fields: Object.freeze([...variant.fields]),
+              value: variant.value,
+            })),
+          ),
+        });
     this.#fields = Object.freeze(
       fields.map((field) => Object.freeze({ ...field })),
     );
@@ -378,6 +490,7 @@ export class ObjectSchema {
   static create(
     fields: readonly ObjectSchemaField[],
     projection?: ObjectSchemaProjection,
+    discriminant?: ObjectSchemaDiscriminant,
   ): Result<ObjectSchema, SchemaError> {
     try {
       if (!Array.isArray(fields)) {
@@ -459,10 +572,24 @@ export class ObjectSchema {
           maximumCodeUnits: projection.maximumCodeUnits,
         });
       }
-      return ok(new ObjectSchema(owned, ownedProjection));
+      const ownedDiscriminant = objectSchemaDiscriminant(
+        owned,
+        names,
+        discriminant,
+      );
+      if (!ownedDiscriminant.ok) {
+        return ownedDiscriminant;
+      }
+      return ok(
+        new ObjectSchema(owned, ownedProjection, ownedDiscriminant.value),
+      );
     } catch (_cause: unknown) {
       return err(schemaError("invalidFieldName"));
     }
+  }
+
+  get discriminant(): ObjectSchemaDiscriminant | undefined {
+    return this.#discriminant;
   }
 
   get fields(): readonly ObjectSchemaField[] {
@@ -711,6 +838,21 @@ function validateOwnedSchema(
   }
   if (matched !== value.size) {
     return err(validationError("additionalField"));
+  }
+  const discriminant = schema.discriminant;
+  if (discriminant !== undefined) {
+    const selected = value.get(discriminant.field);
+    const variant = typeof selected === "string"
+      ? discriminant.variants.find((candidate) => candidate.value === selected)
+      : undefined;
+    if (variant === undefined || variant.fields.length !== value.size) {
+      return err(validationError("outOfRange"));
+    }
+    for (const fieldName of variant.fields) {
+      if (value.get(fieldName) === undefined) {
+        return err(validationError("outOfRange"));
+      }
+    }
   }
   return schema.projection === undefined ||
     renderStructuredProjection(

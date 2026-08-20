@@ -181,6 +181,61 @@ function descriptor(): ToolDescriptor {
   return tool.value;
 }
 
+function namespaceDescriptor(): ToolDescriptor {
+  const operation = StringSchema.create(4, 16);
+  const path = StringSchema.create(1, 512);
+  assert.ok(operation.ok && path.ok);
+  const input = ObjectSchema.create(
+    [
+      {
+        description: "Exact operation: create_directory, move, or remove.",
+        name: "operation",
+        required: true,
+        schema: operation.value,
+      },
+      {
+        description: "Workspace-relative namespace path.",
+        name: "path",
+        required: true,
+        schema: path.value,
+      },
+      {
+        description:
+          "Absent workspace-relative destination path; required only for move.",
+        name: "destination",
+        required: false,
+        schema: path.value,
+      },
+    ],
+    undefined,
+    {
+      field: "operation",
+      variants: [
+        { fields: ["operation", "path"], value: "create_directory" },
+        {
+          fields: ["operation", "path", "destination"],
+          value: "move",
+        },
+        { fields: ["operation", "path"], value: "remove" },
+      ],
+    },
+  );
+  assert.ok(input.ok);
+  const tool = ToolDescriptor.create(
+    "manage_path",
+    "Manage one exact workspace namespace path.",
+    "write",
+    input.value,
+    [
+      { mode: "exact", name: "operation" },
+      { mode: "exact", name: "path" },
+      { mode: "exact", name: "destination" },
+    ],
+  );
+  assert.ok(tool.ok);
+  return tool.value;
+}
+
 function fixture(stream: OllamaCloudTransportStream): Readonly<{
   model: OllamaCloudModel;
   transport: FakeTransport;
@@ -265,6 +320,51 @@ test("encodes the exact native Ollama chat request and owned tool schema", async
       type: "function",
     },
   ]);
+});
+
+test("projects a discriminated tool as one flat object without wire combinators", async () => {
+  const provider = fixture(
+    new FakeStream([ok(line(response({ content: "done" }, true)))]),
+  );
+  const stream = await open(provider.model, [namespaceDescriptor()]);
+  assert.deepEqual(await read(stream), { kind: "delta", text: "done" });
+  assert.deepEqual(await read(stream), { kind: "done" });
+
+  const body = provider.transport.request?.body;
+  assert.ok(body !== undefined);
+  const parsed = JSON.parse(body) as {
+    tools: Array<{
+      function: { parameters: Record<string, unknown> };
+    }>;
+  };
+  assert.deepEqual(parsed.tools.at(0)?.function.parameters, {
+    additionalProperties: false,
+    properties: {
+      destination: {
+        description:
+          "Absent workspace-relative destination path; required only for move.",
+        maxLength: 512,
+        minLength: 1,
+        type: "string",
+      },
+      operation: {
+        description: "Exact operation: create_directory, move, or remove.",
+        maxLength: 16,
+        minLength: 4,
+        type: "string",
+      },
+      path: {
+        description: "Workspace-relative namespace path.",
+        maxLength: 512,
+        minLength: 1,
+        type: "string",
+      },
+    },
+    required: ["operation", "path"],
+    type: "object",
+  });
+  assert.equal(body.includes('"request"'), false);
+  assert.equal(body.includes('"oneOf"'), false);
 });
 
 test("decodes fragmented NDJSON and strict multibyte UTF-8", async () => {

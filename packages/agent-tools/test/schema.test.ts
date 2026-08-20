@@ -179,6 +179,177 @@ test("validates exactly one bounded union variant", () => {
   assert.equal(UnionSchema.create([createRequest.value]).ok, false);
 });
 
+test("validates exact flat object variants through one bounded discriminant", () => {
+  const operation = StringSchema.create(1, 32);
+  const path = StringSchema.create(1, 256);
+  assert.ok(operation.ok && path.ok);
+  const schema = ObjectSchema.create(
+    [
+      {
+        description: "Exact namespace operation.",
+        name: "operation",
+        required: true,
+        schema: operation.value,
+      },
+      {
+        description: "Workspace-relative path.",
+        name: "path",
+        required: true,
+        schema: path.value,
+      },
+      {
+        description: "Destination required only for move.",
+        name: "destination",
+        required: false,
+        schema: path.value,
+      },
+    ],
+    undefined,
+    {
+      field: "operation",
+      variants: Object.freeze([
+        Object.freeze({
+          fields: Object.freeze(["operation", "path"]),
+          value: "create_directory",
+        }),
+        Object.freeze({
+          fields: Object.freeze(["operation", "path", "destination"]),
+          value: "move",
+        }),
+        Object.freeze({
+          fields: Object.freeze(["operation", "path"]),
+          value: "remove",
+        }),
+      ]),
+    },
+  );
+  assert.ok(schema.ok);
+
+  for (const accepted of [
+    { operation: "create_directory", path: "assets" },
+    { destination: "new.txt", operation: "move", path: "old.txt" },
+    { operation: "remove", path: "old.txt" },
+  ]) {
+    assert.equal(validateSchema(schema.value, value(accepted)).ok, true);
+  }
+  for (const rejected of [
+    { operation: "move", path: "old.txt" },
+    { destination: "unused", operation: "remove", path: "old.txt" },
+    { operation: "unknown", path: "old.txt" },
+  ]) {
+    const validated = validateSchema(schema.value, value(rejected));
+    assert.equal(validated.ok, false);
+    if (!validated.ok) {
+      assert.equal(validated.error.kind, "outOfRange");
+    }
+  }
+
+  assert.equal(Object.isFrozen(schema.value.discriminant), true);
+  assert.equal(Object.isFrozen(schema.value.discriminant?.variants), true);
+  assert.equal(
+    Object.isFrozen(schema.value.discriminant?.variants.at(0)?.fields),
+    true,
+  );
+});
+
+test("rejects malformed or incomplete object discriminants", () => {
+  const text = StringSchema.create(1, 32);
+  assert.ok(text.ok);
+  const base = ObjectSchema.create([
+    {
+      description: "Exact operation.",
+      name: "operation",
+      required: true,
+      schema: text.value,
+    },
+    {
+      description: "Required path.",
+      name: "path",
+      required: true,
+      schema: text.value,
+    },
+    {
+      description: "Optional destination.",
+      name: "destination",
+      required: false,
+      schema: text.value,
+    },
+  ]);
+  assert.ok(base.ok);
+
+  for (const discriminant of [
+    {
+      field: "missing",
+      variants: [
+        { fields: ["operation", "path"], value: "create" },
+        { fields: ["operation", "path", "destination"], value: "move" },
+      ],
+    },
+    {
+      field: "operation",
+      variants: [
+        { fields: ["operation", "path"], value: "same" },
+        { fields: ["operation", "path", "destination"], value: "same" },
+      ],
+    },
+    {
+      field: "operation",
+      variants: [
+        { fields: ["operation"], value: "create" },
+        { fields: ["operation", "path", "destination"], value: "move" },
+      ],
+    },
+    {
+      field: "operation",
+      variants: [
+        { fields: ["operation", "path"], value: "create" },
+        { fields: ["operation", "path"], value: "remove" },
+      ],
+    },
+    {
+      field: "operation",
+      variants: [
+        { fields: ["operation", "path"], value: "create" },
+        { fields: ["operation", "unknown"], value: "move" },
+      ],
+    },
+    {
+      field: "operation",
+      variants: [
+        { fields: ["operation", "path"], value: "x".repeat(33) },
+        { fields: ["operation", "path", "destination"], value: "move" },
+      ],
+    },
+    {
+      field: "operation",
+      variants: [
+        { fields: ["operation", "path"], value: "bad\u0000value" },
+        { fields: ["operation", "path", "destination"], value: "move" },
+      ],
+    },
+  ]) {
+    const rejected = ObjectSchema.create(
+      base.value.fields,
+      undefined,
+      discriminant,
+    );
+    assert.deepEqual(rejected, {
+      error: { kind: "invalidDiscriminant" },
+      ok: false,
+    });
+  }
+
+  const hostile = new Proxy({}, {
+    ownKeys(): never {
+      throw new Error("private discriminant cause");
+    },
+  });
+  assert.deepEqual(
+    ObjectSchema.create(base.value.fields, undefined, hostile as never),
+    { error: { kind: "invalidDiscriminant" }, ok: false },
+  );
+});
+
 test("rejects malformed schema bounds and duplicate fields", () => {
   assert.equal(StringSchema.create(4, 3).ok, false);
   const text = StringSchema.create();
