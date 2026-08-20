@@ -177,9 +177,10 @@ bounded lexical region of at most 256 tokens and 32 nested balanced parentheses,
 brackets, braces, or generic angle pairs. Function-type arrows are consumed
 atomically, nested commas never delimit declarations, and unbalanced or
 over-bound annotations fail closed. Its direct-alias grammar admits at most 32
-nested balanced parentheses, postfix non-null markers, and `as` or `satisfies`
-chains whose assertion types are `const`, `typeof` plus a qualified identifier,
-or a qualified identifier; any other assertion type fails closed. The complete
+nested balanced parentheses or legacy angle-bracket assertions, postfix
+non-null markers, and `as` or `satisfies` chains. Assertion types are limited to
+`const`, `typeof` plus a qualified identifier, or a qualified identifier; any
+other assertion type fails closed. The complete
 default-export expression must be a direct alias before it creates raw-binding
 evidence. A named runtime binding literally called `type` remains runtime; the
 type-only modifier is recognized only when it prefixes another local identifier.

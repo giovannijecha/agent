@@ -100,10 +100,11 @@ separate follow-up unless the adjacent change is necessary for correctness.
   and 32 nested balanced parentheses, brackets, braces, or generic angle pairs,
   consumes function-type arrows atomically, and never treats a nested comma as
   a declarator boundary. Unbalanced or over-bound annotations fail closed. The
-  direct-alias grammar admits at most 32 nested balanced parentheses, postfix
-  non-null markers, and `as` or `satisfies` chains whose assertion types are
-  `const`, `typeof` plus a qualified identifier, or a qualified identifier;
-  every other assertion type fails closed. A default
+  direct-alias grammar admits at most 32 nested balanced parentheses or legacy
+  angle-bracket assertions, postfix non-null markers, and `as` or `satisfies`
+  chains. Every assertion type is limited to `const`, `typeof` plus a qualified
+  identifier, or a qualified identifier; every other assertion type fails
+  closed. A default
   export creates alias evidence only when its complete delimited expression is
   a direct identifier alias. A named runtime binding literally called `type`
   remains runtime; `type` is a type-only modifier only when it prefixes another

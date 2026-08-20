@@ -540,11 +540,12 @@ than inferring function scope. Require the complete default-export expression to
 be a direct alias before recording it. Include a runtime binding literally named
 `type` beside a type-only export, a separate module-scope direct-alias chain, the
 256-alias bound, cycle rejection, Unicode aliases in both the basic and astral
-planes, parenthesized bounded `as` and `satisfies` chains, and an
-omitted-semicolon declaration followed by a new statement. Keep negative
+planes, parenthesized bounded `as` and `satisfies` chains, bounded legacy
+angle-bracket assertions, and an omitted-semicolon declaration followed by a
+new statement. Keep negative
 controls for escaped identifiers, assertion types outside the bounded alias
-grammar, the 32-parenthesis depth bound, multiline calls, member access, tagged
-templates, nested scopes, call results, comments, standalone source strings,
+grammar, the 32-level direct-alias depth bound, multiline calls, member access,
+tagged templates, nested scopes, call results, comments, standalone source strings,
 and type-only exports. Exercise typed variable declarations separately with a
 nested generic comma, a function-type arrow, a multiline import type, an
 automatic-semicolon boundary, unbalanced delimiters, and both the 32-delimiter

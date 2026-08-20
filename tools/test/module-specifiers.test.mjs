@@ -89,12 +89,19 @@ test("follows bounded assertions inside parenthesized aliases", () => {
       "const assertedRead = ((readFile) as typeof readFile);\n" +
         "const satisfiedRead = (assertedRead! satisfies typeof readFile);\n" +
         "const chainedRead = ((satisfiedRead as unknown as typeof readFile))!;\n" +
-        "export { assertedRead, satisfiedRead, chainedRead };\n",
+        "const legacyRead = <typeof readFile>readFile;\n" +
+        "const nestedLegacyRead = <unknown><typeof readFile>(legacyRead)!;\n" +
+        "export { assertedRead, satisfiedRead, chainedRead, legacyRead, " +
+        "nestedLegacyRead };\n" +
+        "export default <typeof readFile>readFile;\n",
     ),
     [
-      { exported: "assertedRead", line: 4, local: "readFile" },
-      { exported: "satisfiedRead", line: 4, local: "readFile" },
-      { exported: "chainedRead", line: 4, local: "readFile" },
+      { exported: "assertedRead", line: 6, local: "readFile" },
+      { exported: "satisfiedRead", line: 6, local: "readFile" },
+      { exported: "chainedRead", line: 6, local: "readFile" },
+      { exported: "legacyRead", line: 6, local: "readFile" },
+      { exported: "nestedLegacyRead", line: 6, local: "readFile" },
+      { exported: "default", line: 7, local: "readFile" },
     ],
   );
 });
@@ -110,21 +117,51 @@ test("rejects assertion types outside the bounded alias grammar", () => {
       error instanceof ModuleScanError &&
       error.message.endsWith("runtime alias assertion is outside owned bounds"),
   );
+
+  for (const assertion of [
+    "<Readonly<{ value: string }>>readFile",
+    "<typeof readFile readFile",
+  ]) {
+    assert.throws(
+      () =>
+        collectRuntimeExportBindings(
+          "const localRead = " + assertion + ";\nexport { localRead };\n",
+        ),
+      (error) =>
+        error instanceof ModuleScanError &&
+        error.message.endsWith(
+          "runtime alias assertion is outside owned bounds",
+        ),
+    );
+  }
 });
 
 test("bounds direct alias expression nesting", () => {
-  const source =
-    "const localRead = " +
-    "(".repeat(33) +
-    "readFile" +
-    ")".repeat(33) +
-    ";\nexport { localRead };\n";
-  assert.throws(
-    () => collectRuntimeExportBindings(source),
-    (error) =>
-      error instanceof ModuleScanError &&
-      error.message.endsWith("runtime alias expression exceeds owned bounds"),
+  assert.deepEqual(
+    collectRuntimeExportBindings(
+      "const localRead = " +
+        "<unknown>".repeat(32) +
+        "readFile;\nexport { localRead };\n",
+    ),
+    [{ exported: "localRead", line: 2, local: "readFile" }],
   );
+
+  for (const expression of [
+    "(".repeat(33) + "readFile" + ")".repeat(33),
+    "<unknown>".repeat(33) + "readFile",
+  ]) {
+    assert.throws(
+      () =>
+        collectRuntimeExportBindings(
+          "const localRead = " + expression + ";\nexport { localRead };\n",
+        ),
+      (error) =>
+        error instanceof ModuleScanError &&
+        error.message.endsWith(
+          "runtime alias expression exceeds owned bounds",
+        ),
+    );
+  }
 });
 
 test("distinguishes runtime bindings named type from type-only exports", () => {

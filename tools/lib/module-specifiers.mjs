@@ -572,6 +572,32 @@ function directAliasSource(
     }
     source = Object.freeze({ line: first.line, value: nested });
     cursor = closing + 1;
+  } else if (isPunctuationToken(tokens, start, "<")) {
+    const closing = directAssertionTypeEnd(tokens, start + 1, end);
+    if (
+      closing === undefined ||
+      !isPunctuationToken(tokens, closing, ">")
+    ) {
+      if (strictAssertions) {
+        throw new ModuleScanError(
+          "runtime alias assertion is outside owned bounds",
+          first.line,
+        );
+      }
+      return undefined;
+    }
+    const nested = directAliasSource(
+      tokens,
+      closing + 1,
+      end,
+      strictAssertions,
+      depth + 1,
+    );
+    if (nested === undefined) {
+      return undefined;
+    }
+    source = Object.freeze({ line: first.line, value: nested });
+    cursor = end;
   } else {
     return undefined;
   }
