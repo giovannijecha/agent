@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   analyzeModule,
+  collectRuntimeExportBindings,
   collectStaticStringValues,
   ModuleScanError,
 } from "../lib/module-specifiers.mjs";
@@ -36,6 +37,22 @@ test("does not apply composition bounds to ordinary static arrays", () => {
     collectStaticStringValues("const value = [" + fragments + "];\n"),
     [],
   );
+});
+
+test("collects runtime export bindings without comments, strings, or types", () => {
+  const result = collectRuntimeExportBindings(
+    "// export { hidden };\n" +
+      'const text = "export { concealed };";\n' +
+      "export type { Dirent };\n" +
+      "export { type Metadata, readFile, open as localOpen };\n" +
+      "export default ((rename));\n",
+  );
+
+  assert.deepEqual(result, [
+    { exported: "readFile", line: 4, local: "readFile" },
+    { exported: "localOpen", line: 4, local: "open" },
+    { exported: "default", line: 5, local: "rename" },
+  ]);
 });
 
 test("extracts static imports and re-exports", () => {

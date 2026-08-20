@@ -531,6 +531,44 @@ test("rejects new or expanded CLI filesystem authority", () => {
   );
 });
 
+test("rejects approved filesystem bindings re-exported to local modules", () => {
+  const path = "packages/agent-cli/src/session-journal.ts";
+  const original = readFileSync(
+    new URL("../../" + path, import.meta.url),
+    "utf8",
+  );
+  const consumer = {
+    path: "packages/agent-cli/src/local-state.ts",
+    text:
+      'import { readFile } from "./session-journal.js";\n' +
+      "export async function load(path: string): Promise<string> {\n" +
+      '  return readFile(path, "utf8");\n' +
+      "}\n",
+  };
+
+  for (const reexport of [
+    "export { readFile };",
+    "export { readFile as localRead };",
+    "export default readFile;",
+    "export default ((readFile));",
+  ]) {
+    assert.throws(
+      () =>
+        validateProviderPolicy(
+          currentPolicy,
+          contextWithSources(
+            { path, text: original + "\n" + reexport + "\n" },
+            consumer,
+          ),
+        ),
+      (error) =>
+        error instanceof ProviderPolicyError &&
+        error.message ===
+          path + " exports an approved CLI filesystem binding",
+    );
+  }
+});
+
 test("rejects an allowed sensitive identifier at an unreviewed occurrence", () => {
   const path = "packages/agent-cli/src/session-journal.ts";
   const original = readFileSync(

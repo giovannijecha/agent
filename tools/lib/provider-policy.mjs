@@ -1,4 +1,5 @@
 import {
+  collectRuntimeExportBindings,
   collectStaticStringValues,
   ModuleScanError,
 } from "./module-specifiers.mjs";
@@ -761,6 +762,15 @@ function validateCliFilesystemAuthority(path, text) {
   );
   if (actual === undefined || JSON.stringify(actual) !== JSON.stringify(expected)) {
     fail(path + " contains CLI filesystem authority drift");
+  }
+  const runtimeBindings = new Set(
+    expected
+      .filter((entry) => !entry.startsWith("type "))
+      .map((entry) => entry.split(/\s+as\s+/u).at(-1)),
+  );
+  const exportedBindings = collectRuntimeExportBindings(text);
+  if (exportedBindings.some((entry) => runtimeBindings.has(entry.local))) {
+    fail(path + " exports an approved CLI filesystem binding");
   }
 }
 

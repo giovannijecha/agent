@@ -86,6 +86,10 @@ separate follow-up unless the adjacent change is necessary for correctness.
   remain in the canonical product-source set, and each approved CLI filesystem
   path must retain exactly its reviewed import statement and bindings. Renaming,
   deleting, or reducing an inventoried authority fails closed.
+- An approved runtime filesystem binding may not leave its inventoried module
+  through a named, aliased, or default export. The owned lexer distinguishes
+  runtime exports from comments, strings, and type-only syntax; it does not infer
+  capability flow through product execution.
 - Put minimal Node declarations in `types/` from authoritative runtime
   contracts.
 - Cross package boundaries only through `src/index.ts`.

@@ -474,6 +474,78 @@ export function collectStaticStringValues(source) {
   return Object.freeze(values);
 }
 
+/** Returns runtime bindings named directly by export lists or default exports. */
+export function collectRuntimeExportBindings(source) {
+  const tokens = tokenize(source);
+  const bindings = [];
+  for (let index = 0; index < tokens.length; index += 1) {
+    if (tokens[index]?.value !== "export") {
+      continue;
+    }
+    let cursor = index + 1;
+    if (
+      tokens[cursor]?.value === "type" ||
+      tokens[cursor]?.value === "interface"
+    ) {
+      continue;
+    }
+    if (tokens[cursor]?.value === "default") {
+      cursor += 1;
+      while (tokens[cursor]?.value === "(") {
+        cursor += 1;
+      }
+      const local = tokens[cursor];
+      if (
+        local?.kind === "identifier" &&
+        !["async", "class", "function"].includes(local.value)
+      ) {
+        bindings.push(Object.freeze({
+          exported: "default",
+          line: tokens[index].line,
+          local: local.value,
+        }));
+      }
+      continue;
+    }
+    if (tokens[cursor]?.value !== "{") {
+      continue;
+    }
+    cursor += 1;
+    while (cursor < tokens.length && tokens[cursor]?.value !== "}") {
+      if (tokens[cursor]?.value === ",") {
+        cursor += 1;
+        continue;
+      }
+      const typeOnly = tokens[cursor]?.value === "type";
+      if (typeOnly) {
+        cursor += 1;
+      }
+      const local = tokens[cursor];
+      if (local?.kind !== "identifier") {
+        break;
+      }
+      cursor += 1;
+      let exported = local.value;
+      if (tokens[cursor]?.value === "as") {
+        const alias = tokens[cursor + 1];
+        if (alias?.kind !== "identifier") {
+          break;
+        }
+        exported = alias.value;
+        cursor += 2;
+      }
+      if (!typeOnly) {
+        bindings.push(Object.freeze({
+          exported,
+          line: tokens[index].line,
+          local: local.value,
+        }));
+      }
+    }
+  }
+  return Object.freeze(bindings);
+}
+
 function closingBracketIndex(tokens, openingIndex) {
   let depth = 0;
   for (let index = openingIndex; index < tokens.length; index += 1) {

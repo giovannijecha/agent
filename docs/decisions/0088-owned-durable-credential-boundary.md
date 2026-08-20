@@ -162,6 +162,10 @@ Both inventory key sets are bidirectional: every registered path must remain in
 the canonical product-source set, and each approved CLI filesystem path must
 retain its exact import statement and bindings. A rename, deletion, or reduced
 filesystem import fails closed rather than preserving a dormant path allowance.
+No approved runtime filesystem binding may be named, aliased, or default-
+exported from its inventoried module. The same owned lexer ignores comments,
+strings, and type-only exports; it never executes product code or claims general
+capability-flow analysis.
 Before applying dormant literal markers, the gate projects values reconstructed
 only from bounded non-interpolated literals, parentheses, literal `+`, and
 literal arrays joined with a static separator. It never evaluates product code;
