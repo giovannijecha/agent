@@ -552,6 +552,11 @@ test("rejects approved filesystem bindings re-exported to local modules", () => 
       'import { localRead as readFile } from "./session-journal.js";',
     ],
     [
+      "export const localRead = readFile\n" +
+        "export const marker = 1;",
+      'import { localRead as readFile } from "./session-journal.js";',
+    ],
+    [
       "const firstRead = readFile;\n" +
         "const localRead = firstRead;\n" +
         "export { localRead };",

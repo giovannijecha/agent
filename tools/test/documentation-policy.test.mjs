@@ -219,7 +219,9 @@ test("binds the dormant durable credential boundary", () => {
     /including an identifier or string-literal alias/u,
     /exported variable declaration/u,
     /admits at most\s+256 alias records/u,
-    /never executes product code or claims general\s+capability-flow analysis/u,
+    /lexically\s+unambiguous automatic-semicolon boundaries/u,
+    /multiline calls, member\s+access, tagged templates, and transparent assertions remain\s+continuations/u,
+    /never executes\s+product code or claims general\s+capability-flow analysis/u,
     /projects values reconstructed\s+only from bounded non-interpolated literals/u,
   ]) {
     assert.match(context.files[decision], marker);
@@ -231,10 +233,12 @@ test("binds the dormant durable credential boundary", () => {
     ["docs/ENGINEERING.md", "Closed source-policy inventories are bidirectional"],
     ["docs/ENGINEERING.md", "identifier or string-literal alias"],
     ["docs/ENGINEERING.md", "module-scope direct identifier aliases"],
+    ["docs/ENGINEERING.md", "automatic-semicolon boundaries"],
     ["docs/MAINTENANCE.md", "### Dormant durable credential boundary"],
     ["docs/MAINTENANCE.md", "exact current-path requirements"],
     ["docs/MAINTENANCE.md", "string-literal-aliased"],
     ["docs/MAINTENANCE.md", "exported variable declaration mutations"],
+    ["docs/MAINTENANCE.md", "omitted-semicolon declaration"],
     ["docs/PROVIDERS.md", "Decision 0088 admits no API"],
     ["PRIVACY.md", "Decision 0088 defines a dormant"],
     ["SECURITY.md", "Decision 0088 selects the security boundary"],

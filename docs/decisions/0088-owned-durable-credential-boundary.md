@@ -166,9 +166,12 @@ No approved runtime filesystem binding may leave its inventoried module through
 a named export, including an identifier or string-literal alias, a default
 export, or an exported variable declaration. The same owned lexer resolves only
 direct identifier aliases at module scope, rejects cycles, and admits at most
-256 alias records. Nested-scope aliases, call results, comments, standalone
-string contents, and type-only exports do not create raw-binding evidence; the
-gate never executes product code or claims general capability-flow analysis.
+256 alias records. It delimits variable declarators at explicit or lexically
+unambiguous automatic-semicolon boundaries while multiline calls, member
+access, tagged templates, and transparent assertions remain continuations.
+Nested-scope aliases, call results, comments, standalone string contents, and
+type-only exports do not create raw-binding evidence; the gate never executes
+product code or claims general capability-flow analysis.
 Before applying dormant literal markers, the gate projects values reconstructed
 only from bounded non-interpolated literals, parentheses, literal `+`, and
 literal arrays joined with a static separator. It never evaluates product code;

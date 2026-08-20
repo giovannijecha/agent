@@ -66,6 +66,69 @@ test("collects runtime export bindings and ignores non-runtime forms", () => {
   ]);
 });
 
+test("stops runtime alias declarators at automatic semicolon boundaries", () => {
+  const result = collectRuntimeExportBindings(
+    "export const localRead = readFile\n" +
+      "export const marker = 1;\n" +
+      "const chainedRead = localRead\n" +
+      "consume(chainedRead);\n" +
+      "export { chainedRead };\n" +
+      "export const assertedRead = readFile\n" +
+      "  satisfies typeof readFile;\n" +
+      "export const callResult = readFile\n" +
+      "  (path);\n" +
+      "export const memberResult = readFile\n" +
+      "  [name];\n" +
+      "export const dottedResult = readFile\n" +
+      "  .bind(owner);\n" +
+      "export const taggedResult = readFile\n" +
+      "  `path`;\n",
+  );
+
+  assert.deepEqual(result, [
+    { exported: "localRead", line: 1, local: "readFile" },
+    { exported: "marker", line: 2, local: "marker" },
+    { exported: "chainedRead", line: 5, local: "readFile" },
+    { exported: "assertedRead", line: 6, local: "readFile" },
+    { exported: "callResult", line: 8, local: "callResult" },
+    { exported: "memberResult", line: 10, local: "memberResult" },
+    { exported: "dottedResult", line: 12, local: "dottedResult" },
+    { exported: "taggedResult", line: 14, local: "taggedResult" },
+  ]);
+});
+
+test("recognizes unambiguous automatic semicolon statement starters", () => {
+  const result = collectRuntimeExportBindings(
+    "const stringRead = readFile\n" +
+      '"next";\n' +
+      "export { stringRead };\n" +
+      "const numberRead = readFile\n" +
+      "1;\n" +
+      "export { numberRead };\n" +
+      "const fractionalRead = readFile\n" +
+      ".5;\n" +
+      "export { fractionalRead };\n" +
+      "const blockRead = readFile\n" +
+      "{}\n" +
+      "export { blockRead };\n" +
+      "let incrementRead = readFile\n" +
+      "++count;\n" +
+      "export { incrementRead };\n" +
+      "let decrementRead = readFile\n" +
+      "--count;\n" +
+      "export { decrementRead };\n",
+  );
+
+  assert.deepEqual(result, [
+    { exported: "stringRead", line: 3, local: "readFile" },
+    { exported: "numberRead", line: 6, local: "readFile" },
+    { exported: "fractionalRead", line: 9, local: "readFile" },
+    { exported: "blockRead", line: 12, local: "readFile" },
+    { exported: "incrementRead", line: 15, local: "readFile" },
+    { exported: "decrementRead", line: 18, local: "readFile" },
+  ]);
+});
+
 test("bounds direct runtime binding aliases", () => {
   const source = Array.from(
     { length: 257 },

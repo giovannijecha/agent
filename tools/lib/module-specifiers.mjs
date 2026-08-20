@@ -512,6 +512,40 @@ function directAliasSource(tokens, start, end) {
   return source.value;
 }
 
+function isAutomaticSemicolonAliasBoundary(tokens, start, cursor) {
+  const current = tokens[cursor];
+  const previous = tokens[cursor - 1];
+  if (
+    current === undefined ||
+    previous === undefined ||
+    current.line <= previous.line ||
+    directAliasSource(tokens, start, cursor) === undefined ||
+    ["as", "satisfies"].includes(previous.value)
+  ) {
+    return false;
+  }
+  if (current.kind === "identifier") {
+    return !["as", "in", "instanceof", "satisfies"].includes(current.value);
+  }
+  if (current.kind === "string") {
+    return true;
+  }
+  if (current.kind !== "punctuation") {
+    return false;
+  }
+  if (current.value === "{" || /[0-9]/u.test(current.value)) {
+    return true;
+  }
+  if (
+    (current.value === "+" || current.value === "-") &&
+    tokens[cursor + 1]?.value === current.value
+  ) {
+    return true;
+  }
+  return current.value === "." &&
+    /[0-9]/u.test(tokens[cursor + 1]?.value ?? "");
+}
+
 function variableDeclarator(tokens, start) {
   let cursor = start + 1;
   let equals;
@@ -520,6 +554,15 @@ function variableDeclarator(tokens, start) {
   let braces = 0;
   while (cursor < tokens.length) {
     const value = tokens[cursor]?.value;
+    if (
+      parentheses === 0 &&
+      brackets === 0 &&
+      braces === 0 &&
+      equals !== undefined &&
+      isAutomaticSemicolonAliasBoundary(tokens, equals + 1, cursor)
+    ) {
+      break;
+    }
     if (value === "(") {
       parentheses += 1;
     } else if (value === ")" && parentheses > 0) {
