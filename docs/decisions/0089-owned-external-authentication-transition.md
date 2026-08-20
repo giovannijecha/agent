@@ -8,7 +8,7 @@
 
 ## Context
 
-Decision 0072 currently owns the shipped Ollama Cloud boundary: `/providers`
+At acceptance, decision 0072 owned the shipped Ollama Cloud boundary: `/providers`
 accepts one concealed process-memory API key, `/models` queries that active
 provider's exact authenticated catalog, and no credential, provider, or model
 selection survives process exit. Decision 0087 reserves
@@ -23,7 +23,7 @@ activation gate. Leaving it current beside an API-key store would create two
 incompatible credential authorities. This decision therefore supersedes
 decision 0088's dormant future contract.
 
-This record changes no shipped behavior. In particular, it does not supersede
+At acceptance, this record changed no shipped behavior. In particular, it did not supersede
 decision 0072, activate `~/.agent/credentials`, add `agent auth`, remove
 `/providers`, alter `/models`, persist an API key, or change the current
 provider policy. Those changes require the later implementation modules and
@@ -32,15 +32,16 @@ removal evidence. Decision 0087 remains the current user-root authority.
 
 ## Decision
 
-Adopt one non-activating transition contract for external authentication,
+Adopt one initially non-activating transition contract for external authentication,
 provider-specific durable credentials, and atomic provider-model selection.
-Until an implementation module changes a named product boundary, the current
-decision-0072 behavior and the verifier's dormant source gate remain
-authoritative.
+Until an implementation module changed a named product boundary, the prior
+decision-0072 behavior and the verifier's dormant source gate remained
+authoritative. The activation record below now owns the resulting current
+behavior.
 
 ### External authentication surface
 
-The future exact launch form is `agent auth`. It runs after resolving the exact
+The exact launch form is `agent auth`. It runs after resolving the exact
 canonical immutable workspace boundary and before terminal alternate-screen
 ownership. An unsafe or inaccessible workspace fails content-free before the
 credential store opens. The command requires TTY input and output, performs no
@@ -252,7 +253,7 @@ no failed response is replayed.
 
 ### Provider and model selection
 
-After the later selector module, `/models` is the sole in-TUI backend selector.
+After activation, `/models` is the sole in-TUI backend selector.
 It operates from the immutable startup snapshot of providers with exactly one
 credential authority. With none, it shows one content-safe notice directing the
 operator to run `agent auth` after exit. It performs no catalog request.
@@ -291,9 +292,25 @@ branch only while the next module remains in progress; the complete activation
 changes source, native policy, provider policy, tests, living documentation,
 privacy, security, maintenance, rollback, and removal together before release.
 
+## Activation
+
+The complete implementation unit activates this decision on 2026-08-21. It
+adds the exact native Ollama record lifecycle and process adapter, external
+`agent auth`, complete `/providers` removal, immutable startup admission, and
+the serial two-stage `/models` transaction. It also replaces the dormant source
+gate with closed current-product inventories and Windows/Linux offline contract
+evidence. No OAuth material, generic record, provider addition, implicit
+selection, or hot reload is activated.
+
+This activation partially supersedes only decision 0072's authentication,
+credential-retention, and selection clauses. Decision 0072's Ollama identity,
+origins, request paths, native wire protocol, bounds, and failure behavior
+remain authoritative, so the decision ledger records no complete supersession
+edge between 0089 and 0072. Decision 0088 remains completely superseded.
+
 ## Consequences
 
-The future credential boundary is owned, plaintext, inspectable, provider-
+The credential boundary is owned, plaintext, inspectable, provider-
 specific, and removable without a dependency or operating-system secret
 container. Authentication no longer competes with conversation input, while
 backend selection remains an explicit process-only TUI action. Shared usage and
@@ -309,15 +326,15 @@ precedence, and ambiguous catalog aggregation.
 
 ## Verification
 
-This decision-only module adds no product source or native authority. Its red-
-green evidence binds the stable record, the reciprocal 0088 supersession edge,
-the current non-activation statements, and the living-document distinction
-between decision 0072 behavior and this future transition. The existing
-provider gate must continue to require memory-only Ollama credentials and reject
-`agent auth`, the credentials namespace, persistent readers, new Node effects,
-and native source drift.
+The decision-only acceptance module added no product source or native
+authority. Its initial red-green evidence bound the stable record, reciprocal
+0088 supersession edge, and then-current non-activation statements. The active
+provider gate now requires the exact external command, record namespace,
+credential-broker effect authority, registered native tree, and absence of
+`/providers`; it rejects any second command, generic credential namespace,
+unregistered effect, or source/native drift.
 
-Activation requires offline Windows and Linux native tests for exact root and
+Activation evidence includes offline Windows and Linux native tests for exact root and
 object validation, SID/DACL or UID/mode enforcement, link rejection, bounded
 header-before-payload parsing, unexpected entries, shared/exclusive contention,
 environment dual authority, create, replace, remove, every recovery state,

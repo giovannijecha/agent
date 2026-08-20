@@ -108,7 +108,6 @@
     "/exit",
     "/models",
     "/permissions",
-    "/providers",
     "/thinking",
     "/timeline"
   ],
@@ -140,11 +139,11 @@
       },
       {
         "heading": "Run commands",
-        "sha256": "7bb6cd2b21a699b850b4b36e4225b90dd1e06f5ad80239b48e5602c0d5d0bff4"
+        "sha256": "7abf4a1d7a9f560a2cc6a57b2db2cd948bb14348b0be1f3945920c152b9f0895"
       },
       {
         "heading": "Use selectors",
-        "sha256": "9227169873d6dcfb3863c380a581f9d96083cc6cb9c17c383a537f992fc01075"
+        "sha256": "95b1adbfce2bb050dd41d718279532747e40aa5f1e88df0b96e907eacaacbad0"
       },
       {
         "heading": "Navigate and copy",
@@ -163,7 +162,7 @@
         "sha256": "3ea5d5448196993d23ad81edd26f506d2e0547943a266a4260e17f60f436c542"
       }
     ],
-    "sha256": "ba411a2382d76e3930bd8f978d167b621dc02a173b873e31d942181a054f695f"
+    "sha256": "e6a0bb69e5b63b1f91a93d9bf45feb7ddbb184c24431c9745762c17c3ac1d872"
   },
   "toolSurface": {
     "tools": [
@@ -327,11 +326,16 @@
     "packages/agent-cli/src/commands.ts",
     "packages/agent-cli/src/conversation-density.ts",
     "packages/agent-cli/src/conversation-view.ts",
+    "packages/agent-cli/src/auth-command.ts",
+    "packages/agent-cli/src/auth-terminal.ts",
+    "packages/agent-cli/src/credential-broker-protocol.ts",
+    "packages/agent-cli/src/credential-broker.ts",
     "packages/agent-cli/src/timeline-view.ts",
     "packages/agent-cli/src/evaluation-receipt.ts",
     "packages/agent-cli/src/agent-instructions.ts",
     "packages/agent-cli/src/main.ts",
     "packages/agent-cli/src/launch-command.ts",
+    "packages/agent-cli/src/model-providers-view.ts",
     "packages/agent-cli/src/models-view.ts",
     "packages/agent-cli/src/node-ollama-cloud-transport.ts",
     "packages/agent-cli/src/node-ollama-model-catalog.ts",
@@ -340,11 +344,9 @@
     "packages/agent-cli/src/process-broker-protocol.ts",
     "packages/agent-cli/src/process-runner.ts",
     "packages/agent-cli/src/provider-configuration.ts",
-    "packages/agent-cli/src/provider-credential-view.ts",
     "packages/agent-cli/src/provider-identity.ts",
     "packages/agent-cli/src/provider-model-catalog.ts",
     "packages/agent-cli/src/provider-session.ts",
-    "packages/agent-cli/src/providers-view.ts",
     "packages/agent-cli/src/run.ts",
     "packages/agent-cli/src/session-journal.ts",
     "packages/agent-cli/src/tool-activity-log.ts",
@@ -375,6 +377,9 @@
     "packages/agent-cli/native/process-broker/main.c",
     "packages/agent-cli/native/process-broker/protocol.c",
     "packages/agent-cli/native/process-broker/test-fixture.c",
+    "packages/agent-cli/native/credential-broker/credential-store.c",
+    "packages/agent-cli/native/credential-broker/credential-store.h",
+    "packages/agent-cli/native/credential-broker/main.c",
     "packages/agent-cli/native/mutation-commit/backend-linux.c",
     "packages/agent-cli/native/mutation-commit/backend-windows.c",
     "packages/agent-cli/native/mutation-commit/main.c",
@@ -439,6 +444,7 @@
     "tools/test/evaluation-suite.test.mjs",
     "tools/test/manual-policy.test.mjs",
     "tools/test/native-process-broker.test.mjs",
+    "tools/test/native-credential-broker.test.mjs",
     "tools/test/native-mutation-commit.test.mjs",
     "packages/agent-cli/test/platform-workspace-namespace-protocol.test.ts",
     "packages/agent-cli/test/platform-workspace-namespace.test.ts",

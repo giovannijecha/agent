@@ -35,10 +35,9 @@ import {
 } from "./conversation-stage.js";
 import { createConversationDocument } from "./conversation-view.js";
 import { isMotionActive } from "./motion-policy.js";
+import { createModelProvidersDocument } from "./model-providers-view.js";
 import { createModelsDocument } from "./models-view.js";
 import { createPermissionsDocument } from "./permissions-view.js";
-import { createProviderCredentialDocument } from "./provider-credential-view.js";
-import { createProvidersDocument } from "./providers-view.js";
 import { createTimelineDocument } from "./timeline-view.js";
 import { createThinkingDocument } from "./thinking-view.js";
 import {
@@ -141,19 +140,12 @@ function createComposer(
   status: InteractionStatusProjection | undefined,
   selection?: Component,
 ): Result<Component, ComponentError> {
-  const credentialEntry = application.projectProviderCredential();
-  const trailingStatus = status === undefined && credentialEntry !== undefined
-    ? Object.freeze({
-        text: "Enter API key · Ctrl+C cancels",
-        tone: "muted" as const,
-      })
-    : status;
   let body = selection;
   if (body === undefined) {
     const input = InputArea.create(application, {
       maximumRows: CONVERSATION_DENSITY.interactionDockMaximumRows,
       textTone: "plain",
-      ...(trailingStatus === undefined ? {} : { trailingStatus }),
+      ...(status === undefined ? {} : { trailingStatus: status }),
     });
     if (!input.ok) return input;
     const dock = InteractionDock.create(input.value, {
@@ -216,17 +208,15 @@ export function createChatRender(
   const commandCompletion = application.projectCommandCompletion();
   const permissionMenu = application.projectPermissionMenu();
   const toolDecision = application.projectToolDecision();
-  const providerMenu = application.projectProviderMenu();
+  const modelProviderMenu = application.projectModelProviderMenu();
   const modelMenu = application.projectModelMenu();
-  const providerCredential = application.projectProviderCredential();
   const timelineMenu = application.projectTimelineMenu();
   const thinkingMenu = application.projectThinkingMenu();
   const contextCount = [
     permissionMenu,
     toolDecision,
-    providerMenu,
+    modelProviderMenu,
     modelMenu,
-    providerCredential,
     timelineMenu,
     thinkingMenu,
   ].filter((projection) => projection !== undefined).length;
@@ -251,18 +241,19 @@ export function createChatRender(
     interactionStatus,
   );
   if (!permissions.ok) return permissions;
-  const providers = createProvidersDocument(providerMenu, interactionStatus);
-  if (!providers.ok) return providers;
+  const modelProviders = createModelProvidersDocument(
+    modelProviderMenu,
+    interactionStatus,
+  );
+  if (!modelProviders.ok) return modelProviders;
   const models = createModelsDocument(modelMenu, interactionStatus);
   if (!models.ok) return models;
-  const credential = createProviderCredentialDocument(providerCredential);
-  if (!credential.ok) return credential;
   const timeline = createTimelineDocument(timelineMenu, interactionStatus);
   if (!timeline.ok) return timeline;
   const thinking = createThinkingDocument(thinkingMenu, interactionStatus);
   if (!thinking.ok) return thinking;
-  const contextualSelection = providerMenu !== undefined
-    ? providers.value
+  const contextualSelection = modelProviderMenu !== undefined
+    ? modelProviders.value
     : modelMenu !== undefined
       ? models.value
       : timelineMenu !== undefined
@@ -272,13 +263,11 @@ export function createChatRender(
         : permissionMenu !== undefined || toolDecision !== undefined
           ? permissions.value
           : undefined;
-  const completionVisible = providerCredential !== undefined ||
-    (contextualSelection === undefined && commandCompletion !== undefined);
-  const completion = providerCredential !== undefined
-    ? credential
-    : createCommandCompletionDocument(
-        contextualSelection === undefined ? commandCompletion : undefined,
-      );
+  const completionVisible = contextualSelection === undefined &&
+    commandCompletion !== undefined;
+  const completion = createCommandCompletionDocument(
+    contextualSelection === undefined ? commandCompletion : undefined,
+  );
   if (!completion.ok) return completion;
   const completionColumn = createConversationStage(completion.value);
   if (!completionColumn.ok) return completionColumn;
@@ -407,11 +396,7 @@ export function createChatRender(
     ? ok(
         Object.freeze({
           composer: composerGeometry.value,
-          composerPointer:
-            contextualSelection === undefined &&
-            providerCredential === undefined
-              ? "draft"
-              : "none",
+          composerPointer: contextualSelection === undefined ? "draft" : "none",
           frame: frame.value,
           interactionFocus:
             contextualSelection === undefined ? "editor" : "selection",

@@ -51,11 +51,11 @@ client secret, and it will never borrow another application's registration,
 identity, user agent, prompt, or credential store.
 
 The browser remains provider-hosted. `agent` will not request a password,
-cookie, recovery code, payment detail, or one-time code. Initial credentials
-remain in process memory. Decision 0089 changes no current registration or
-OAuth admission result. Its future owned store can admit OAuth material only
-after a separate provider decision supplies the exact public-client identity,
-record, refresh, revocation, recovery, and removal contract.
+cookie, recovery code, payment detail, or one-time code. Decision 0089's active
+owned store admits only the Ollama Cloud API-key record; it changes no current
+registration or OAuth admission result. OAuth material remains forbidden until
+a separate provider decision supplies the exact public-client identity, closed
+provider-specific record, refresh, revocation, recovery, and removal contract.
 
 ## Data flow
 
@@ -85,12 +85,12 @@ another.
 ## Provider submission summary
 
 > `agent` is a local, open-source native CLI maintained by Giovanni Jecha. It
-> has no backend, telemetry, embedded browser, or credential collection form.
+> has no backend, telemetry, embedded browser, or subscription credential form.
 > It requests a direct public-client registration for voluntary use with the
 > operator's existing subscription. Authentication stays provider-hosted;
-> credentials are initially memory-only; requests travel directly between the
-> local process and the provider. The project does not reuse another product's
-> client identity or distribute a client secret.
+> OAuth material would use a closed provider-specific local record; requests
+> travel directly between the local process and the provider. The project does
+> not reuse another product's client identity or distribute a client secret.
 
 The summary is project-authored application text. The four provider-specific
 requests and their current lifecycle state live in the

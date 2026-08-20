@@ -73,11 +73,17 @@ resolve the exact directory conflict before trying again.
 
 ## Configure the session
 
-Every new or resumed session starts without a selected provider or model. Use
-`/providers` to enter a process-only Ollama Cloud credential. Then use
-`/models` to load and select one exact model exposed by the provider's
-authenticated catalog. The key is concealed, never enters the transcript, and
-is discarded on exit.
+Manage the Ollama Cloud credential outside the TUI with exact `agent auth`.
+The command requires TTY input and output, runs after workspace validation but
+before any session journal or alternate screen, accepts no operands, and reads
+register or replacement values with terminal echo disabled. It performs no
+network request. Use it to register, replace, remove, or cancel the local
+provider-specific record.
+
+Every new or resumed session starts without a selected provider or model.
+Use `/models` to choose an authenticated provider and then one exact model from
+that provider's fresh catalog. Both selections are process-only and atomic; a
+credential never selects either one.
 
 Provider eligibility, model discovery, and failure behavior are covered in
 [Providers and authentication](05-providers-and-authentication.md). Tool modes
@@ -128,6 +134,12 @@ The evaluation workflow and interpretation rules live in
   exact session directory back first using the maintenance procedure; otherwise
   the older executable can recreate legacy state and the current executable
   will reject the resulting dual-root conflict.
+- `agent auth` fails if redirected, given an operand, run while another Agent
+  process holds the Ollama credential admission, or run while
+  `AGENT_OLLAMA_API_KEY` is set. A durable record plus that variable makes both
+  normal startup and `agent auth` fail as dual authority.
+- An unsafe credential owner, access control, link, record, inventory, or
+  recovery state fails content-free without falling back to the environment.
 - Credential, provider, input, rendering, and cleanup failures expose only a
   short content-safe classification and return a nonzero status when startup
   or shutdown cannot complete.

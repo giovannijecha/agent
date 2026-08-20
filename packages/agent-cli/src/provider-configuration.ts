@@ -22,7 +22,7 @@ export function isValidOllamaCloudCredential(value: unknown): value is string {
   return isValidProviderCredential(value);
 }
 
-/** Validates the optional memory-only Ollama credential without normalizing it. */
+/** Validates one optional process-memory Ollama snapshot without normalizing it. */
 export function resolveOllamaCloudConfiguration(
   value: string | undefined,
 ): Result<OllamaCloudConfiguration, OllamaCloudConfigurationError> {

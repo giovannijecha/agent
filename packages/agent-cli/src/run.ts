@@ -413,117 +413,6 @@ async function applyEffect<E, RE>(
   if (effect.kind === "exit") {
     return Object.freeze({ exit: true, failure: undefined, redraw: false });
   }
-  if (effect.kind === "selectProvider") {
-    if (providers === undefined) {
-      return Object.freeze({
-        exit: false,
-        failure: Object.freeze({
-          kind: "unexpected" as const,
-          operation: "providerSelection" as const,
-        }),
-        redraw: false,
-      });
-    }
-    try {
-      const selected = providers.select(effect.id);
-      if (!selected.ok) {
-        return Object.freeze({
-          exit: false,
-          failure: Object.freeze({
-            kind: "unexpected" as const,
-            operation: "providerSelection" as const,
-          }),
-          redraw: false,
-        });
-      }
-      const applied = application.providerSelected(
-        providers.snapshots(),
-        effect.id,
-      );
-      return applied.ok
-        ? Object.freeze({
-            exit: false,
-            failure: undefined,
-            redraw: applied.value.redraw,
-          })
-        : Object.freeze({
-            exit: false,
-            failure: Object.freeze({
-              kind: "application" as const,
-              error: applied.error,
-            }),
-            redraw: false,
-          });
-    } catch (_cause: unknown) {
-      return Object.freeze({
-        exit: false,
-        failure: Object.freeze({
-          kind: "unexpected" as const,
-          operation: "providerSelection" as const,
-        }),
-        redraw: false,
-      });
-    }
-  }
-  if (effect.kind === "configureProvider") {
-    if (providers === undefined) {
-      return Object.freeze({
-        exit: false,
-        failure: Object.freeze({
-          kind: "unexpected" as const,
-          operation: "providerSelection" as const,
-        }),
-        redraw: false,
-      });
-    }
-    try {
-      const configured = providers.configure(effect.id, effect.credential);
-      if (!configured.ok) {
-        const failed = application.providerOperationFailed("configuration");
-        return Object.freeze({
-          exit: false,
-          failure: undefined,
-          redraw: failed.redraw,
-        });
-      }
-      const selected = providers.select(effect.id);
-      if (!selected.ok) {
-        const failed = application.providerOperationFailed("configuration");
-        return Object.freeze({
-          exit: false,
-          failure: undefined,
-          redraw: failed.redraw,
-        });
-      }
-      const applied = application.providerConfigured(
-        providers.snapshots(),
-        effect.id,
-      );
-      return applied.ok
-        ? Object.freeze({
-            exit: false,
-            failure: undefined,
-            redraw: applied.value.redraw,
-          })
-        : Object.freeze({
-            exit: false,
-            failure: Object.freeze({
-              kind: "application" as const,
-              error: applied.error,
-            }),
-            redraw: false,
-          });
-    } catch (_cause: unknown) {
-      return Object.freeze({
-        exit: false,
-        failure: Object.freeze({
-          kind: "unexpected" as const,
-          operation: "providerSelection" as const,
-        }),
-        redraw: false,
-      });
-    }
-  }
   if (effect.kind === "loadModels") {
     if (providers === undefined) {
       return Object.freeze({
@@ -537,7 +426,7 @@ async function applyEffect<E, RE>(
     }
     let listed: Awaited<ReturnType<ProviderSelectionPort["listModels"]>>;
     try {
-      listed = await providers.listModels();
+      listed = await providers.listModels(effect.id);
     } catch (_cause: unknown) {
       const failed = application.providerOperationFailed("catalog");
       return Object.freeze({
@@ -554,7 +443,7 @@ async function applyEffect<E, RE>(
         redraw: failed.redraw,
       });
     }
-    const applied = application.modelsLoaded(listed.value);
+    const applied = application.modelsLoaded(effect.id, listed.value);
     return applied.ok
       ? Object.freeze({
           exit: false,
@@ -570,7 +459,7 @@ async function applyEffect<E, RE>(
           redraw: false,
         });
   }
-  if (effect.kind === "selectModel") {
+  if (effect.kind === "selectProviderModel") {
     if (providers === undefined) {
       return Object.freeze({
         exit: false,
@@ -581,9 +470,12 @@ async function applyEffect<E, RE>(
         redraw: false,
       });
     }
-    let selected: ReturnType<ProviderSelectionPort["selectModel"]>;
+    let selected: ReturnType<ProviderSelectionPort["selectProviderModel"]>;
     try {
-      selected = providers.selectModel(effect.id);
+      selected = providers.selectProviderModel(
+        effect.providerId,
+        effect.modelId,
+      );
     } catch (_cause: unknown) {
       const failed = application.providerOperationFailed("model");
       return Object.freeze({
@@ -600,7 +492,11 @@ async function applyEffect<E, RE>(
         redraw: failed.redraw,
       });
     }
-    const applied = application.modelSelected(providers.snapshots(), effect.id);
+    const applied = application.providerModelSelected(
+      providers.snapshots(),
+      effect.providerId,
+      effect.modelId,
+    );
     return applied.ok
       ? Object.freeze({
           exit: false,

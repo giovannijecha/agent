@@ -22,7 +22,12 @@ import {
 import { AgentRuntime } from "@agent/runtime";
 
 import { AGENT_INSTRUCTIONS } from "./agent-instructions.js";
+import { runAuthCommand, type AuthCommandError } from "./auth-command.js";
 import { createBuiltinToolEngine } from "./builtin-tools.js";
+import {
+  openOllamaCredentialSnapshot,
+  type OllamaCredentialAdmission,
+} from "./credential-broker.js";
 import {
   EvaluationReceiptRecorder,
   formatEvaluationReceipt,
@@ -43,7 +48,6 @@ import { NodeTimerClock } from "./node-timer-clock.js";
 import { NoticeScheduler } from "./notice-scheduler.js";
 import { writeProcessText } from "./process-output.js";
 import { ShellExecutionPolicy } from "./shell-execution-policy.js";
-import { resolveOllamaCloudConfiguration } from "./provider-configuration.js";
 import {
   prepareSessionJournalRoot,
   resolveSessionJournalRoots,
@@ -84,6 +88,17 @@ async function closeSessionJournal(
   }
 }
 
+async function closeCredentialAdmission(
+  admission: OllamaCredentialAdmission | undefined,
+): Promise<boolean> {
+  if (admission === undefined) return true;
+  try {
+    return (await admission.close()).ok;
+  } catch (_cause: unknown) {
+    return false;
+  }
+}
+
 async function closeSessionAndExit(
   opened: OpenedSessionJournal | undefined,
   text: string,
@@ -110,6 +125,22 @@ function sessionJournalDiagnostic(kind: SessionJournalErrorKind): string {
     return "agent could not migrate legacy session state\n";
   }
   return "agent could not open the session journal\n";
+}
+
+function authDiagnostic(error: AuthCommandError): string {
+  if (error.kind === "busy") {
+    return "agent found Ollama Cloud authentication busy\n";
+  }
+  if (error.kind === "dualAuthority") {
+    return "agent found conflicting Ollama Cloud credential authorities\n";
+  }
+  if (error.kind === "environmentAuthority") {
+    return "agent auth requires AGENT_OLLAMA_API_KEY to be unset\n";
+  }
+  if (error.kind === "invalidCredential") {
+    return "agent rejected the Ollama Cloud credential\n";
+  }
+  return "agent could not update Ollama Cloud authentication\n";
 }
 
 function monotonicMilliseconds(): number {
@@ -185,6 +216,7 @@ if (!launch.ok) {
   await writeAndExit(
     stderr,
     "usage: agent [--evaluation-receipt | --help | --version]\n" +
+      "       agent auth\n" +
       "       agent resume --latest\n",
     2,
   );
@@ -193,13 +225,16 @@ if (!launch.ok) {
     stdout,
     "agent - owned personal coding agent\n\n" +
       "usage: agent [--evaluation-receipt | --help | --version]\n" +
+      "       agent auth\n" +
       "       agent resume --latest\n\n" +
+      "Use agent auth to register, replace, or remove the owned Ollama " +
+      "Cloud credential outside the conversation interface.\n\n" +
       "Use agent resume --latest to continue the newest settled session for " +
       "the exact current workspace.\n\n" +
       "Use --evaluation-receipt only for one interactive owned task " +
       "evaluation; it prints bounded content-free counts after cleanup.\n\n" +
-      "Use /providers to configure or select a memory-only provider, then " +
-      "use /models to choose one compatible model for this process.\n",
+      "Use /models to choose one authenticated provider and compatible " +
+      "model for this process.\n",
     0,
   );
 } else if (launch.command === "version") {
@@ -208,13 +243,16 @@ if (!launch.ok) {
 
 if (
   launch.ok &&
-  ((launch.command === "run" && launch.evaluationReceipt) ||
+  (launch.command === "auth" ||
+    (launch.command === "run" && launch.evaluationReceipt) ||
     launch.command === "resume") &&
   (stdin.isTTY !== true || stdout.isTTY !== true)
 ) {
   await writeAndExit(
     stderr,
-    launch.command === "resume"
+    launch.command === "auth"
+      ? "agent auth requires TTY input and output\n"
+      : launch.command === "resume"
       ? "agent resume requires TTY input and output\n"
       : "agent evaluation receipt requires TTY input and output\n",
     2,
@@ -241,6 +279,18 @@ const workspaceReadPolicy = workspaceReadPolicyResult.ok
       "agent rejected the workspace privacy policy\n",
       1,
     );
+
+if (launch.ok && launch.command === "auth") {
+  const authenticated = await runAuthCommand(
+    platform,
+    arch,
+    env.AGENT_OLLAMA_API_KEY,
+  );
+  if (!authenticated.ok) {
+    await writeAndExit(stderr, authDiagnostic(authenticated.error), 1);
+  }
+  await writeAndExit(stdout, "", 0);
+}
 
 const terminalHost = new NodeTerminalHost();
 const timerClock = terminalHost.interactive ? new NodeTimerClock() : undefined;
@@ -284,17 +334,6 @@ if (terminalHost.interactive && evaluation === undefined) {
       );
 }
 
-const ollamaConfiguration = resolveOllamaCloudConfiguration(
-  env.AGENT_OLLAMA_API_KEY,
-);
-const configuration = ollamaConfiguration.ok
-  ? ollamaConfiguration.value
-  : await closeSessionAndExit(
-      openedSession,
-      "agent rejected the provider configuration\n",
-      1,
-    );
-
 const definitions: readonly ProviderDefinition<ProviderError>[] = Object.freeze([
   Object.freeze({
     acceptsModel: isOllamaCloudModelId,
@@ -311,7 +350,7 @@ const definitions: readonly ProviderDefinition<ProviderError>[] = Object.freeze(
     },
     id: "ollamaCloud" as const,
     presentation: Object.freeze({
-      authentication: "memory-only API key",
+      authentication: "owned credential",
       displayName: "Ollama Cloud",
     }),
   }),
@@ -366,19 +405,6 @@ const initializedNamespaceCommitter = namespaceCommitter.ok
       1,
     );
 
-const ollamaPreloaded = configuration.kind === "disabled" ||
-  initializedProviderSession.configure(
-    "ollamaCloud",
-    configuration.credential,
-  ).ok;
-if (!ollamaPreloaded) {
-  await closeSessionAndExit(
-    openedSession,
-    "agent rejected the provider configuration\n",
-    1,
-  );
-}
-
 const tools = createBuiltinToolEngine(
   workspaceBoundary,
   workspaceReadPolicy,
@@ -399,6 +425,39 @@ const initializedTools = tools.ok
     );
 
 await startEvaluation(evaluation);
+const credentialSnapshot = terminalHost.interactive
+  ? await openOllamaCredentialSnapshot(
+      platform,
+      arch,
+      env.AGENT_OLLAMA_API_KEY,
+    )
+  : undefined;
+const snapshot = credentialSnapshot === undefined || credentialSnapshot.ok
+  ? credentialSnapshot?.value
+  : await closeSessionAndExit(
+      openedSession,
+      credentialSnapshot.error.kind === "busy"
+        ? "agent found Ollama Cloud authentication busy\n"
+        : credentialSnapshot.error.kind === "dualAuthority"
+          ? "agent found conflicting Ollama Cloud credential authorities\n"
+          : "agent rejected the provider configuration\n",
+      1,
+    );
+const ollamaAdmitted = snapshot === undefined ||
+  snapshot.configuration.kind === "disabled" ||
+  initializedProviderSession.admit(
+    "ollamaCloud",
+    snapshot.configuration.credential,
+    snapshot.admission,
+  ).ok;
+if (!ollamaAdmitted) {
+  await closeCredentialAdmission(snapshot?.admission);
+  await closeSessionAndExit(
+    openedSession,
+    "agent rejected the provider configuration\n",
+    1,
+  );
+}
 const runtime = new AgentRuntime(
   initializedProviderSession,
   initializedTools,
@@ -418,7 +477,12 @@ const result = await run(
   openedSession?.chat,
   openedSession?.recoveredState ?? false,
 );
+const credentialClosed = await closeCredentialAdmission(snapshot?.admission);
 await settleEvaluationRun(
-  result.ok ? undefined : result.error.primary?.kind ?? "cleanup",
+  result.ok && credentialClosed
+    ? undefined
+    : result.ok
+      ? "credential cleanup"
+      : result.error.primary?.kind ?? "cleanup",
   evaluation,
 );

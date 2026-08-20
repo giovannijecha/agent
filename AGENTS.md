@@ -20,7 +20,7 @@ that domain; a summary here never overrides its canonical owner.
 | Change source, tests, declarations, verification, or evaluation practice | [Engineering](docs/ENGINEERING.md) |
 | Update, roll back, remove, release, or diagnose a subsystem | [Maintenance](docs/MAINTENANCE.md) |
 | Change observable operator behavior | [Operator manual](docs/manual/README.md) |
-| Change providers, credentials, catalogs, models, or network origins | [Provider policy](docs/PROVIDERS.md), [privacy policy](PRIVACY.md), and [decision 0072](docs/decisions/0072-owned-ollama-cloud-provider.md) |
+| Change providers, credentials, catalogs, models, or network origins | [Provider policy](docs/PROVIDERS.md), [privacy policy](PRIVACY.md), [decision 0072](docs/decisions/0072-owned-ollama-cloud-provider.md), and [decision 0089](docs/decisions/0089-owned-external-authentication-transition.md) |
 | Change security boundaries or vulnerability handling | [Security policy](SECURITY.md) and [privacy policy](PRIVACY.md) |
 | Inspect a reference project or change provenance rules | [Ownership policy](docs/OWNERSHIP.md) |
 | Change brand identity or visual assets | [Brand guide](docs/BRAND.md) |
@@ -111,14 +111,18 @@ that domain; a summary here never overrides its canonical owner.
   provider, origin, compatibility endpoint, SDK, CLI, local daemon, alias,
   redirect, retry, router, or fallback without a new accepted decision and
   complete contract evidence.
-- Provider credentials, catalog results, provider selection, and model selection
-  are process-only. `agent` starts without a backend.
-- `/providers` is the only interactive credential and provider selection path.
-  `/models` performs one bearer-authenticated request to the exact admitted
-  catalog path and exposes only the current bounded identifiers authorized by
-  that response.
-- Environment variables may preload credentials for automation but never select
-  a provider or model.
+- Ollama Cloud credentials are admitted either from its exact provider-specific
+  owned record under `~/.agent/credentials` or temporarily from
+  `AGENT_OLLAMA_API_KEY`. Catalog results, provider selection, and model
+  selection remain process-only. `agent` starts without a backend.
+- `agent auth` is the sole interactive credential lifecycle and runs outside
+  the alternate-screen TUI. `/providers` does not exist.
+- `/models` first stages one authenticated provider, then performs one
+  bearer-authenticated request to that provider's exact admitted catalog path.
+  Accepting a catalog model atomically selects both provider and model.
+- Environment input never persists or selects a provider or model. A durable
+  record and environment input together fail explicitly as dual authority;
+  neither has precedence and neither is imported.
 - Secrets, credentials, sessions, and personal content never enter source,
   fixtures, logs, errors, receipts, or documentation values.
 

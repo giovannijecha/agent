@@ -444,19 +444,12 @@ class ControlledRuntime implements RuntimeSession<string> {
 }
 
 class ControlledProviders implements ProviderSelectionPort {
-  readonly configurations: Readonly<{ credential: string; id: ProviderId }>[] = [];
   readonly modelSelections: string[] = [];
-  readonly selections: ProviderId[] = [];
   #model = "qwen3-coder:480b-cloud";
 
   clear(): void {}
 
-  configure(id: ProviderId, credential: string) {
-    this.configurations.push(Object.freeze({ credential, id }));
-    return ok(undefined);
-  }
-
-  listModels() {
+  listModels(_id: ProviderId) {
     return Promise.resolve(ok(Object.freeze([
       Object.freeze({
         cost: "cloud" as const,
@@ -475,18 +468,13 @@ class ControlledProviders implements ProviderSelectionPort {
     return true;
   }
 
-  select(id: ProviderId) {
-    this.selections.push(id);
-    return ok(undefined);
-  }
-
   snapshots() {
     return Object.freeze([
       Object.freeze({
         configured: true,
         id: "ollamaCloud" as const,
         presentation: Object.freeze({
-          authentication: "memory-only API key",
+          authentication: "owned credential",
           displayName: "Ollama Cloud",
           model: this.#model,
         }),
@@ -496,9 +484,9 @@ class ControlledProviders implements ProviderSelectionPort {
     ]);
   }
 
-  selectModel(id: string) {
-    this.modelSelections.push(id);
-    this.#model = id;
+  selectProviderModel(_providerId: ProviderId, modelId: string) {
+    this.modelSelections.push(modelId);
+    this.#model = modelId;
     return ok(undefined);
   }
 }
@@ -974,7 +962,7 @@ test("persists a checkpoint settled during cleanup before closing the journal", 
   }
 });
 
-test("keeps the sole configured provider active without a redundant selection", async () => {
+test("selects one provider and model through two serialized stages", async () => {
   const host = new ControlledHost();
   const runtime = new ControlledRuntime();
   const providers = new ControlledProviders();
@@ -982,15 +970,17 @@ test("keeps the sole configured provider active without a redundant selection", 
   await host.started.promise;
   await host.waitForWrites(1);
 
-  host.emit(input("/providers\r"));
+  host.emit(input("/models\r"));
   await host.waitForWrites(2);
   host.emit(input("\r"));
   await host.waitForWrites(3);
+  host.emit(input("\u001B[B\r"));
+  await host.waitForWrites(4);
   host.emit(input("\u0003"));
   const result = await running;
 
   assert.ok(result.ok);
-  assert.deepEqual(providers.selections, []);
+  assert.deepEqual(providers.modelSelections, ["glm-4.7:cloud"]);
   assert.equal(host.writes.join("").includes("Ollama Cloud"), true);
   assert.equal(
     host.writes.join("").includes("qwen3-coder:480b-cloud"),

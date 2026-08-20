@@ -33,29 +33,13 @@ function started(
   }) as unknown as StartedTurn;
 }
 
-function unconfiguredProviders() {
-  return Object.freeze([
-    Object.freeze({
-      configured: false,
-      id: "ollamaCloud" as const,
-      presentation: Object.freeze({
-        authentication: "memory-only API key",
-        displayName: "Ollama Cloud",
-        model: undefined,
-      }),
-      ready: false,
-      selected: false,
-    }),
-  ]);
-}
-
 function configuredProviders() {
   return Object.freeze([
     Object.freeze({
       configured: true,
       id: "ollamaCloud" as const,
       presentation: Object.freeze({
-        authentication: "memory-only API key",
+        authentication: "owned credential",
         displayName: "Ollama Cloud",
         model: "qwen3-coder:480b-cloud",
       }),
@@ -494,7 +478,7 @@ test("keeps transcript pointer input active without routing it to the retained d
       configured: true,
       id: "ollamaCloud" as const,
       presentation: Object.freeze({
-        authentication: "memory-only API key",
+        authentication: "owned credential",
         displayName: "Ollama Cloud",
         model: "qwen3-coder:480b-cloud",
       }),
@@ -529,7 +513,7 @@ test("keeps transcript pointer input active without routing it to the retained d
   application.feed("alpha beta");
   render(application, 32, 12);
   const editorArea = application.projectArea(32, 6);
-  application.applySessionAction(Object.freeze({ kind: "openProviders" }));
+  application.applySessionAction(Object.freeze({ kind: "openModels" }));
   const selectionRender = render(application, 32, 12);
   const hiddenComposerCell = composerBodyCell(selectionRender);
   const visible = selectionRender.frame.rows
@@ -557,12 +541,12 @@ test("keeps transcript pointer input active without routing it to the retained d
   assert.deepEqual(application.projectArea(32, 6), editorArea);
   assert.equal(application.takePendingCopy(), undefined);
 
-  application.applySessionAction(Object.freeze({ kind: "closeProviders" }));
+  application.applySessionAction(Object.freeze({ kind: "closeModelProviders" }));
   const restored = render(application);
   assert.equal(restored.frame.caret === undefined, false);
   assert.deepEqual(application.projectArea(32, 6), editorArea);
 
-  application.applySessionAction(Object.freeze({ kind: "openProviders" }));
+  application.applySessionAction(Object.freeze({ kind: "openModels" }));
   const coalescedRender = render(application, 32, 12);
   application.feed(
     "x" + pointerSequence(composerBodyCell(coalescedRender), "press") + "owned",
@@ -576,8 +560,8 @@ test("keeps transcript pointer input active without routing it to the retained d
   assert.equal(application.project(32).text, "alpha betaowned");
 });
 
-test("keeps concealed credentials out of composer pointer routing", () => {
-  const application = new ApplicationController(true, unconfiguredProviders());
+test("keeps model-provider selection out of composer pointer routing", () => {
+  const application = new ApplicationController(true, configuredProviders());
   assert.ok(application.turnAccepted(started(1, "visible transcript")).ok);
   assert.ok(application.applyRuntime(Object.freeze({
     kind: "assistantDelta",
@@ -597,36 +581,32 @@ test("keeps concealed credentials out of composer pointer routing", () => {
       kind: "committed",
     }).ok,
   );
-  application.applySessionAction(Object.freeze({ kind: "openProviders" }));
-  application.applySessionAction(
-    Object.freeze({ kind: "activateContextSelection" }),
-  );
-  application.feed("ephemeral-key");
-  const credentialRender = render(application, 32, 12);
-  assert.equal(credentialRender.composerPointer, "none");
-  assert.equal(credentialRender.interactionFocus, "editor");
+  application.applySessionAction(Object.freeze({ kind: "openModels" }));
+  const selectionRender = render(application, 32, 12);
+  assert.equal(selectionRender.composerPointer, "none");
+  assert.equal(selectionRender.interactionFocus, "selection");
 
-  const transcriptStart = cellFor(credentialRender, {
+  const transcriptStart = cellFor(selectionRender, {
     document: 0,
     offset: 0,
   });
-  const transcriptEnd = cellFor(credentialRender, {
+  const transcriptEnd = cellFor(selectionRender, {
     document: 0,
     offset: 6,
   });
-  pointer(application, credentialRender, transcriptStart, "press", 50);
-  pointer(application, credentialRender, transcriptEnd, "move", 60);
-  pointer(application, credentialRender, transcriptEnd, "release", 70);
+  pointer(application, selectionRender, transcriptStart, "press", 50);
+  pointer(application, selectionRender, transcriptEnd, "move", 60);
+  pointer(application, selectionRender, transcriptEnd, "release", 70);
   assert.equal(application.takePendingCopy(), "visible");
 
-  const credentialStart = composerBodyCell(credentialRender);
-  const credentialEnd = Object.freeze({
-    column: credentialStart.column + 8,
-    row: credentialStart.row,
+  const selectionStart = composerBodyCell(selectionRender);
+  const selectionEnd = Object.freeze({
+    column: selectionStart.column + 8,
+    row: selectionStart.row,
   });
-  pointer(application, credentialRender, credentialStart, "press", 100);
-  pointer(application, credentialRender, credentialEnd, "move", 110);
-  pointer(application, credentialRender, credentialEnd, "release", 120);
+  pointer(application, selectionRender, selectionStart, "press", 100);
+  pointer(application, selectionRender, selectionEnd, "move", 110);
+  pointer(application, selectionRender, selectionEnd, "release", 120);
   assert.equal(application.takePendingCopy(), undefined);
   assert.deepEqual(application.project(32), { caretColumn: 0, text: "" });
 });

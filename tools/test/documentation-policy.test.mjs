@@ -197,7 +197,7 @@ test("binds the flat namespace tool contract", () => {
   }
 });
 
-test("binds the historical credential boundary and dormant source gate", () => {
+test("binds the historical credential boundary and closed source gate", () => {
   const context = currentContext();
   const decision =
     "docs/decisions/0088-owned-durable-credential-boundary.md";
@@ -230,14 +230,14 @@ test("binds the historical credential boundary and dormant source gate", () => {
     ["docs/ENGINEERING.md", "exact occurrence count"],
     ["docs/ENGINEERING.md", "Closed source-policy inventories are bidirectional"],
     ["docs/ENGINEERING.md", "`node:fs`, `node:child_process`, or `node:https` effect authority"],
-    ["docs/ENGINEERING.md", "complete dormant\\s+CLI product tree and native C/H platform tree"],
+    ["docs/ENGINEERING.md", "complete\\s+CLI product tree and native C/H platform tree"],
     ["docs/ENGINEERING.md", "every TypeScript\\s+module recursively under `packages/agent-cli/src/`"],
     ["docs/ENGINEERING.md", "normalizes only CRLF\\s+to\\s+LF"],
     ["docs/ENGINEERING.md", "exact source digest is the sole verifier authority"],
     ["docs/ENGINEERING.md", "partial string evaluation"],
     ["docs/ENGINEERING.md", "explicit\\s+review and digest"],
     ["docs/ENGINEERING.md", "requires a new\\s+exact authority\\s+record"],
-    ["docs/MAINTENANCE.md", "### Dormant durable credential boundary"],
+    ["docs/MAINTENANCE.md", "### Owned external authentication"],
     ["docs/MAINTENANCE.md", "exact current-path requirement"],
     ["docs/MAINTENANCE.md", "exact module specifier and imported"],
     ["docs/MAINTENANCE.md", "recursively includes every\\s+TypeScript module under `packages/agent-cli/src/`"],
@@ -247,16 +247,16 @@ test("binds the historical credential boundary and dormant source gate", () => {
     ["docs/MAINTENANCE.md", "assignment to an exported binding after declaration"],
     ["docs/MAINTENANCE.md", "unreviewed child-process launch with split path fragments"],
     ["docs/MAINTENANCE.md", "same exact source-integrity boundary"],
-    ["docs/MAINTENANCE.md", "direct, split, and method-composed dormant command"],
+    ["docs/MAINTENANCE.md", "direct, split, and method-composed unregistered command"],
     ["docs/MAINTENANCE.md", "without teaching the verifier each"],
     ["docs/MAINTENANCE.md", "explicit digest\\s+repin"],
-    ["docs/PROVIDERS.md", "Decision 0088 admits no API"],
+    ["docs/PROVIDERS.md", "Decision 0088 remains\\s+historical"],
   ]) {
     assert.match(context.files[file], new RegExp(marker, "u"), file);
   }
 });
 
-test("binds the non-activating external authentication transition", () => {
+test("binds the active external authentication boundary", () => {
   const context = currentContext();
   const decision =
     "docs/decisions/0089-owned-external-authentication-transition.md";
@@ -266,9 +266,9 @@ test("binds the non-activating external authentication transition", () => {
   assert.equal(ownershipPolicy.requiredDocuments.includes(decision), true);
   assert.equal(typeof context.files[decision], "string");
   for (const marker of [
-    /This record changes no shipped behavior/u,
+    /At acceptance, this record changed no shipped behavior/u,
     /supersedes\s+decision 0088's dormant future contract/u,
-    /does not supersede\s+decision 0072/u,
+    /partially supersedes only decision 0072's authentication/u,
     /runs after resolving the exact\s+canonical immutable workspace\s+boundary and before terminal alternate-screen\s+ownership/u,
     /workspace\s+canonicalization and protected-root rejection before credential storage/u,
     /`~\/.agent\/credentials\/ollama-cloud\.api-key`/u,
@@ -281,6 +281,8 @@ test("binds the non-activating external authentication transition", () => {
     /stages the provider choice without changing the active backend/u,
     /same-user processes, administrator or root authority, malware,\s+backups, snapshots, memory inspection, or offline privileged access/u,
     /No intermediate implementation module may be published/u,
+    /activates this decision on 2026-08-21/u,
+    /No OAuth material, generic record, provider addition/u,
   ]) {
     assert.match(context.files[decision], marker);
   }
@@ -288,11 +290,11 @@ test("binds the non-activating external authentication transition", () => {
   assert.match(context.files[superseded], /- Superseded by: 0089/u);
   for (const [file, marker] of [
     ["docs/ARCHITECTURE.md", "Decision 0089 supersedes"],
-    ["docs/MAINTENANCE.md", "decision 0089 owns the accepted replacement"],
-    ["docs/PROVIDERS.md", "Decision 0089 changes no current\\s+provider behavior"],
-    ["PRIVACY.md", "Decision 0089 changes no current retention behavior"],
-    ["SECURITY.md", "Decision 0089 changes no current security behavior"],
-    ["docs/OAUTH-REGISTRATION.md", "Decision 0089 changes no current registration"],
+    ["docs/MAINTENANCE.md", "Decision 0089 owns the active Ollama Cloud API-key record"],
+    ["docs/PROVIDERS.md", "decision 0089 owns the active external-authentication boundary"],
+    ["PRIVACY.md", "registered, replaced, or\\s+removed only by the exact external `agent auth` command"],
+    ["SECURITY.md", "Decision 0089 owns the active provider-specific Ollama Cloud record"],
+    ["docs/OAUTH-REGISTRATION.md", "active\\s+owned store admits only the Ollama Cloud API-key record"],
   ]) {
     assert.match(context.files[file], new RegExp(marker, "u"), file);
   }
@@ -310,8 +312,9 @@ test("binds the non-activating external authentication transition", () => {
   );
   assert.match(
     operatorText,
-    /Decision 0089 records a future replacement\s+contract; `agent auth` is not currently available/u,
+    /Decision 0089's owned credential boundary is active only for the\s+exact Ollama Cloud API-key record/u,
   );
+  assert.doesNotMatch(operatorText, /`\/providers`/u);
 });
 
 test("rejects canonical document structure drift", () => {

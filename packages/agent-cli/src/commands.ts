@@ -5,7 +5,6 @@ export type CommandResult =
   | Readonly<{ kind: "none" }>
   | Readonly<{ kind: "permissions" }>
   | Readonly<{ kind: "models" }>
-  | Readonly<{ kind: "providers" }>
   | Readonly<{ kind: "thinking" }>
   | Readonly<{ kind: "timeline" }>
   | Readonly<{
@@ -19,7 +18,6 @@ export type CommandName =
   | "/exit"
   | "/models"
   | "/permissions"
-  | "/providers"
   | "/thinking"
   | "/timeline";
 
@@ -30,10 +28,6 @@ export type CommandDefinition = Readonly<{
 
 /** Exact, immutable command surface shared by dispatch and completion. */
 export const COMMANDS: readonly CommandDefinition[] = Object.freeze([
-  Object.freeze({
-    command: "/providers" as const,
-    description: "configure or select provider",
-  }),
   Object.freeze({
     command: "/models" as const,
     description: "select provider model",
@@ -96,9 +90,6 @@ export function executeSubmission(
   )?.command;
   if (exact === "/exit") {
     return EXIT;
-  }
-  if (exact === "/providers") {
-    return Object.freeze({ kind: "providers" as const });
   }
   if (exact === "/models") {
     return Object.freeze({ kind: "models" as const });

@@ -1,52 +1,56 @@
 # 05 - Providers and authentication
 
-Agent starts without a provider or model. Provider configuration and model
-selection are explicit, process-local operator actions.
+Agent starts without a provider or model. Authentication is an external local
+operator action; provider and model selection are explicit process-local TUI
+actions.
 
 ## Connect a provider
 
-Run `/providers` while the application is idle. Ollama Cloud is the sole
-admitted choice. Enter its API key in the concealed composer and press Enter;
-Ctrl+C cancels without changing the session. The editor shows only the prompt
-`Enter API key · Ctrl+C cancels`, projects no credential characters, and stores
-no value or length in the transcript.
+Exit the TUI and run exact `agent auth`. It requires TTY input and output and
+accepts no provider, key, option, or other operand. Choose register when the
+record is absent, replace or remove when it is present, or cancel. Register and
+replace use a zero-echo input owner: the key, mask, length, and caret never
+appear in terminal output, shell history, transcript, journal, log, receipt, or
+diagnostic. Registration is local storage admission and makes no network
+request or provider-validity claim.
 
-`AGENT_OLLAMA_API_KEY` may preload the same process-only credential for
-automation. Preloading does not select the provider or a model. A key that
-contains whitespace, control characters, or exceeds the fixed bound is rejected
-before any network request.
-
-The key lives only in the active `agent` process. Exiting releases it. Agent
-does not create a credential file, update the environment, read Ollama
-configuration, or use a local Ollama installation.
+The provider-specific plaintext record is
+`~/.agent/credentials/ollama-cloud.api-key`. `AGENT_OLLAMA_API_KEY` remains a
+temporary automation source only when that record is absent. It is never
+imported. If both exist, startup and `agent auth` fail as dual authority before
+reading the durable payload. If only the environment source exists, unset it
+before using `agent auth`. Neither credential source selects a provider or
+model.
 
 ## Choose a model
 
-After connecting Ollama Cloud, run `/models`. Agent sends one bearer-
-authenticated `GET` request to exactly `https://ollama.com/api/tags`. The
+Run `/models` and first select Ollama Cloud from the authenticated-provider
+stage. Agent then sends one bearer-authenticated `GET` request to exactly
+`https://ollama.com/api/tags`. The
 catalog request sends no conversation, workspace path, file content, tool
 schema, or tool result.
 
 The selector lists only bounded catalog records whose exact non-empty `name`
 equals `model`. Model identifiers are dynamic provider authority, not a local
-allowlist or alias. Selecting one sets the active process-local model with the
-`cloud` cost label. A stale previous catalog cannot authorize a later selection.
+allowlist or alias. Selecting one atomically sets both the active process-local
+provider and model with the `cloud` cost label. A stale previous catalog cannot
+authorize a later selection.
 Every accepted model selection preserves the current process-only `/thinking`
 Stream and Effort values.
 
 ## Switch the session
 
 Run `/models` again to refresh the authenticated catalog and select another
-current Ollama Cloud model. Run `/providers` to return to the provider selector
-or enter the provider credential when it is not configured. Provider and model
-commands are unavailable during generation, tool execution, cancellation, or a
-pending permission decision.
+current Ollama Cloud model. The command always begins with the authenticated-
+provider stage. Provider and model selection are unavailable during generation,
+tool execution, cancellation, or a pending permission decision. Authentication
+changes are visible only after exiting and starting a new TUI session; there is
+no credential hot reload.
 
 Changing a selection affects later turns only. It does not rewrite committed
 conversation history, replay completed tools, copy credentials, or retry a
 failed request. Starting a new process returns to no selected provider and no
-selected model unless the credential environment variable is present; selection
-still remains explicit.
+selected model, regardless of credential source; selection remains explicit.
 
 After selecting a provider and model, run `/thinking` while idle to configure
 two session-only rows. Effort is `Off`, `Low`, `Medium`, or `High`; Stream is
@@ -59,9 +63,14 @@ fallback; an unsupported retained effort fails explicitly and remains selected.
 
 ## Protect credentials and content
 
-Agent accepts the Ollama key only through the concealed editor or
-`AGENT_OLLAMA_API_KEY`. It never accepts the key as a CLI argument, writes it to
-files or logs, projects its value or length, or exposes it in errors.
+Agent accepts the Ollama key only through zero-echo `agent auth` or temporary
+`AGENT_OLLAMA_API_KEY`. It never accepts the key as a CLI argument, projects its
+value or length, or exposes it in errors. The owned record is strict plaintext,
+not an operating-system keychain or encrypted vault. Native owner-only controls
+protect it from ordinary access by another unprivileged account, not from
+same-user processes, administrator or root, malware, backups, snapshots, memory
+inspection, or offline privileged access. Local removal is not secure erasure
+and does not revoke provider-side copies.
 
 The authenticated catalog request necessarily sends the key to Ollama Cloud,
 but no task content. Each chat turn sends the bounded conversation, current user
@@ -76,21 +85,28 @@ and are outside Agent's guarantees.
 Subscription OAuth integrations remain blocked. The
 [OAuth registration dossier](../OAUTH-REGISTRATION.md) owns their current
 registration status, while the [provider policy](../PROVIDERS.md) owns runtime
-admission. The future owned credential boundary is deliberately dormant: Agent
-does not currently create `~/.agent/credentials`, cache a subscription login,
-or expose an `agent auth` command. Decision 0089 records a future replacement
-contract; `agent auth` is not currently available, and `/providers` remains the
-only interactive key path until that contract is implemented.
+admission. Decision 0089's owned credential boundary is active only for the
+exact Ollama Cloud API-key record. It admits no OAuth field, generic credential
+map, placeholder provider, browser flow, or compatibility reader.
 
 ## Recover from provider failures
 
-- A credential rejected during entry failed local bounded-format validation;
-  re-enter the exact key without whitespace or control characters.
+- A credential rejected by `agent auth` failed local bounded-format validation;
+  run the command again with the exact key and no whitespace or control characters.
+- An authentication-busy failure means another TUI holds the shared credential
+  admission or another `agent auth` holds the exclusive admission. Close it and
+  retry; Agent never waits, polls, steals, or retries the lock.
+- A dual-authority failure requires removing either the durable record with
+  `agent auth` after unsetting the variable, or unsetting the variable and
+  starting a new process. Neither source wins implicitly.
+- A store failure means ownership, access, link, inventory, schema, recovery,
+  synchronization, or native-platform validation failed. Agent does not repair,
+  delete, or fall back from unsafe state automatically.
 - `Models could not be loaded` means no fresh catalog authority was created.
   Check the key, connectivity, account state, and Ollama availability, then run
   `/models` again.
 - A prompt rejected before opening a turn means provider or model selection is
-  incomplete; use `/providers` and `/models` first.
+  incomplete; authenticate externally if needed, then use `/models`.
 - `model/open` means no usable response stream opened. No tool ran and the
   attempted exchange was not committed.
 - `model/read` means an opened stream failed while being consumed. If a tool
@@ -154,7 +170,7 @@ fall back to another endpoint after a catalog or chat failure.
 ## References
 
 - [Provider eligibility and exact network boundary](../PROVIDERS.md)
-- [Privacy and process-only secret handling](../../PRIVACY.md)
+- [Privacy and credential handling](../../PRIVACY.md)
 - [Current provider architecture](../ARCHITECTURE.md#provider-boundary)
 - [Provider update and removal procedure](../MAINTENANCE.md#ollama-cloud)
 - [Current authority by domain](../decisions/README.md#current-authority-by-domain)

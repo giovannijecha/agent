@@ -83,7 +83,10 @@ const EXPECTED_DIRECT_PROVIDERS = [
     eligibility: "enabled",
     authorization: "direct-api-key",
     credentialVariable: "AGENT_OLLAMA_API_KEY",
-    credentialPersistence: "memory-only",
+    credentialCommand: "agent auth",
+    credentialRecord: "~/.agent/credentials/ollama-cloud.api-key",
+    credentialAdmission: "shared-session-exclusive-mutation",
+    credentialPersistence: "owned-provider-record-or-environment",
     chatEndpoint: "https://ollama.com/api/chat",
     catalogEndpoint: "https://ollama.com/api/tags",
     catalogAuthentication: "bearer-api-key",
@@ -167,41 +170,51 @@ const APPROVED_SOURCE_LITERALS = Object.freeze({
 });
 
 const EXPECTED_SENSITIVE_STATE_OCCURRENCES = Object.freeze({
+  "packages/agent-cli/native/credential-broker/credential-store.c": "AGENT_CREDENTIAL_ABSENT=1;AGENT_CREDENTIAL_BUSY=1;AGENT_CREDENTIAL_CANCEL=1;AGENT_CREDENTIAL_CANCELLED=1;AGENT_CREDENTIAL_DUAL_AUTHORITY=1;AGENT_CREDENTIAL_FIXTURE=9;AGENT_CREDENTIAL_HEADER_MAX_BYTES=5;AGENT_CREDENTIAL_INVALID_STATE=4;AGENT_CREDENTIAL_INVALID_VALUE=2;AGENT_CREDENTIAL_KEY_MAX_BYTES=2;AGENT_CREDENTIAL_MAX_REVISION=4;AGENT_CREDENTIAL_PRESENT=1;AGENT_CREDENTIAL_RECORD_MAX_BYTES=6;AGENT_CREDENTIAL_REGISTER=5;AGENT_CREDENTIAL_REGISTERED=1;AGENT_CREDENTIAL_REMOVE=2;AGENT_CREDENTIAL_REMOVED=1;AGENT_CREDENTIAL_REPLACE=4;AGENT_CREDENTIAL_REPLACED=1;agent_credential_request_kind=1;agent_credential_response_kind=2;agent_credential_session=20;agent_credential_store_close=21;AGENT_CREDENTIAL_STORE_FAILURE=6;agent_credential_store_mutate=1;agent_credential_store_open=1;AGENT_CREDENTIAL_VALUE=1;credential=3;credentials=31;GetTokenInformation=2;OpenProcessToken=1;token=6;TOKEN_QUERY=1;TOKEN_USER=1;TokenUser=2",
+  "packages/agent-cli/native/credential-broker/credential-store.h": "AGENT_CREDENTIAL_ABSENT=1;AGENT_CREDENTIAL_BUSY=1;AGENT_CREDENTIAL_CANCEL=1;AGENT_CREDENTIAL_CANCELLED=1;AGENT_CREDENTIAL_DUAL_AUTHORITY=1;AGENT_CREDENTIAL_INVALID_STATE=1;AGENT_CREDENTIAL_INVALID_VALUE=1;AGENT_CREDENTIAL_KEY_MAX_BYTES=1;AGENT_CREDENTIAL_OPEN_MUTATION=1;AGENT_CREDENTIAL_PRESENT=1;AGENT_CREDENTIAL_REGISTER=1;AGENT_CREDENTIAL_REGISTERED=1;AGENT_CREDENTIAL_REMOVE=1;AGENT_CREDENTIAL_REMOVED=1;AGENT_CREDENTIAL_REPLACE=1;AGENT_CREDENTIAL_REPLACED=1;agent_credential_request_kind=2;agent_credential_response_kind=3;agent_credential_session=4;AGENT_CREDENTIAL_SNAPSHOT=1;agent_credential_store_close=1;AGENT_CREDENTIAL_STORE_FAILURE=1;AGENT_CREDENTIAL_STORE_H=2;agent_credential_store_mutate=1;agent_credential_store_open=1;AGENT_CREDENTIAL_VALUE=1",
+  "packages/agent-cli/native/credential-broker/main.c": "AGENT_CREDENTIAL_ABSENT=1;AGENT_CREDENTIAL_CANCEL=1;AGENT_CREDENTIAL_HEADER_BYTES=3;AGENT_CREDENTIAL_KEY_MAX_BYTES=2;AGENT_CREDENTIAL_OPEN_MUTATION=2;AGENT_CREDENTIAL_PRESENT=1;AGENT_CREDENTIAL_REGISTER=2;AGENT_CREDENTIAL_REPLACE=1;agent_credential_request=5;agent_credential_request_kind=2;agent_credential_response_kind=2;agent_credential_session=1;AGENT_CREDENTIAL_SNAPSHOT=2;agent_credential_store_close=5;AGENT_CREDENTIAL_STORE_FAILURE=1;agent_credential_store_mutate=1;agent_credential_store_open=1;AGENT_CREDENTIAL_VALUE=2;credential=1",
   "packages/agent-cli/native/process-broker/backend-linux.c": "agent_linux_token_present=2;token=3;token_length=3",
-  "packages/agent-cli/src/application.ts": "authentication=5;cancelProviderCredential=1;createNoticeToken=2;credential=4;credentialProviderId=16;noticeToken=6;NoticeToken=4;projectProviderCredential=1;providerCredential=1;ProviderCredentialProjection=2;submitProviderCredential=1;token=2",
-  "packages/agent-cli/src/chat-view.ts": "createProviderCredentialDocument=2;credential=5;credentialEntry=2;projectProviderCredential=2;providerCredential=6",
-  "packages/agent-cli/src/main.ts": "authentication=1;credential=3",
+  "packages/agent-cli/src/application.ts": "activeAuthenticated=3;auth=2;authenticated=12;authentication=6;createNoticeToken=2;noticeToken=6;NoticeToken=4;token=2",
+  "packages/agent-cli/src/auth-command.ts": "auth=1;AuthCommandError=5;AuthCommandResult=2;AuthCredentialOpener=2;authentication=3;Authentication=1;credential=4;CredentialBoundaryError=3;OllamaCredentialMutationAction=2;OllamaCredentialMutationPort=2;openOllamaCredentialMutation=2;readAuthChoice=2;readConcealedCredential=2;runAuthCommand=1",
+  "packages/agent-cli/src/auth-terminal.ts": "AuthTerminalError=5;AuthTerminalInput=5;readAuthChoice=1;readConcealedCredential=1",
+  "packages/agent-cli/src/credential-broker-protocol.ts": "credential=4;CREDENTIAL_BROKER_LIMITS=6;CredentialBrokerProtocolError=5;CredentialBrokerRequest=3;CredentialBrokerResponse=2;decodeCredentialBrokerResponse=1;encodeCredentialBrokerRequest=1;invalidCredential=2",
+  "packages/agent-cli/src/credential-broker.ts": "credential=5;CREDENTIAL_BROKER_DEADLINES=3;CREDENTIAL_BROKER_LIMITS=3;CredentialBoundaryError=20;CredentialBrokerBoundary=7;CredentialBrokerConnection=7;CredentialBrokerRequest=2;CredentialBrokerResponse=5;decodeCredentialBrokerResponse=2;encodeCredentialBrokerRequest=2;invalidCredential=5;OllamaCredentialAdmission=3;OllamaCredentialMutation=2;OllamaCredentialMutationAction=3;OllamaCredentialMutationPort=2;OllamaCredentialMutationResult=5;OllamaCredentialMutationState=5;OllamaCredentialSnapshot=2;openOllamaCredentialMutation=1;openOllamaCredentialSnapshot=1",
+  "packages/agent-cli/src/launch-command.ts": "auth=4",
+  "packages/agent-cli/src/main.ts": "auth=9;AuthCommandError=2;authDiagnostic=2;authenticated=4;authentication=4;closeCredentialAdmission=3;credential=10;credentialClosed=2;credentialSnapshot=6;invalidCredential=1;OllamaCredentialAdmission=2;openOllamaCredentialSnapshot=2;runAuthCommand=2",
+  "packages/agent-cli/src/model-providers-view.ts": "authenticated=2",
   "packages/agent-cli/src/node-ollama-cloud-transport.ts": "authorization=1;credential=10;isValidOllamaCloudCredential=2",
   "packages/agent-cli/src/node-ollama-model-catalog.ts": "authenticated=1;authorization=1;credential=5;isValidOllamaCloudCredential=2",
   "packages/agent-cli/src/notice-scheduler.ts": "NoticeToken=6;token=19",
   "packages/agent-cli/src/notice.ts": "createNoticeToken=1;noticeToken=2;NoticeToken=2",
-  "packages/agent-cli/src/provider-configuration.ts": "credential=3;invalidCredential=2;isValidOllamaCloudCredential=2;isValidProviderCredential=2",
-  "packages/agent-cli/src/provider-credential-view.ts": "createProviderCredentialDocument=1;credential=1;ProviderCredentialProjection=2",
+  "packages/agent-cli/src/provider-configuration.ts": "credential=2;invalidCredential=2;isValidOllamaCloudCredential=2;isValidProviderCredential=2",
   "packages/agent-cli/src/provider-model-catalog.ts": "authenticated=1;credential=1",
-  "packages/agent-cli/src/provider-session.ts": "authentication=8;credential=19;credentialValid=2;invalidCredential=2;isValidOllamaCloudCredential=2",
-  "packages/agent-cli/src/run.ts": "credential=1;noticeToken=1;token=1",
+  "packages/agent-cli/src/provider-session.ts": "authentication=8;credential=17;credentialValid=2;invalidCredential=2;isValidOllamaCloudCredential=2",
+  "packages/agent-cli/src/run.ts": "noticeToken=1;token=1",
   "packages/agent-cli/src/session-journal.ts": "sessionState=4",
-  "packages/agent-cli/src/session.ts": "cancelProviderCredential=2;credential=2;Credential=1;credentialOutcome=7;providerCredential=2;submitProviderCredential=2",
   "packages/agent-cli/src/shell-execution-policy.ts": "credential=1",
   "packages/agent-cli/src/turn-failure-presentation.ts": "authorization=1",
   "packages/agent-cli/src/workspace-mutation-preview.ts": "logicalRowTokens=3",
   "packages/agent-cli/src/workspace-namespace-preview.ts": "authorized=1",
   "packages/agent-cli/src/workspace-read-policy.ts": "credentials=1",
-  "packages/agent-cli/test/application.test.ts": "authentication=3;authorizing=1;credential=2;credentials=1;noticeToken=8;projectProviderCredential=3;secret=1",
+  "packages/agent-cli/test/application.test.ts": "auth=4;authenticated=12;authentication=5;authorizing=1;credential=3;noticeToken=8",
+  "packages/agent-cli/test/auth-command.test.ts": "auth=2;AuthCredentialOpener=2;credential=3;OllamaCredentialMutationAction=3;OllamaCredentialMutationPort=2;OllamaCredentialMutationResult=2;runAuthCommand=5",
+  "packages/agent-cli/test/auth-terminal.test.ts": "auth=2;readAuthChoice=2;readConcealedCredential=3",
   "packages/agent-cli/test/builtin-tools.test.ts": "authorized=1;credential=2;secret=16;token=3",
-  "packages/agent-cli/test/chat-view.test.ts": "authentication=2;authorized=1;credential=1;secret=2",
+  "packages/agent-cli/test/chat-view.test.ts": "auth=2;authenticated=1;authentication=2;authorized=1;credential=2;unauthenticated=1",
+  "packages/agent-cli/test/credential-broker-protocol.test.ts": "credential=2;CREDENTIAL_BROKER_LIMITS=2;decodeCredentialBrokerResponse=4;encodeCredentialBrokerRequest=8;invalidCredential=1",
+  "packages/agent-cli/test/credential-broker.test.ts": "credential=3;CREDENTIAL_BROKER_DEADLINES=2;CredentialBrokerBoundary=2;openOllamaCredentialMutation=2;openOllamaCredentialSnapshot=5",
   "packages/agent-cli/test/event-arbiter.test.ts": "createNoticeToken=2;token=2",
-  "packages/agent-cli/test/launch-command.test.ts": "secret=1",
+  "packages/agent-cli/test/launch-command.test.ts": "auth=4;secret=1",
   "packages/agent-cli/test/node-ollama-cloud-transport.test.ts": "authorization=1;credentials=1",
   "packages/agent-cli/test/node-ollama-model-catalog.test.ts": "authenticated=1;authorization=1;credentials=1",
   "packages/agent-cli/test/notice-scheduler.test.ts": "createNoticeToken=6;token=10",
   "packages/agent-cli/test/provider-configuration.test.ts": "credential=3;credentials=1;invalidCredential=1;isValidOllamaCloudCredential=2",
   "packages/agent-cli/test/provider-failure-classification.test.ts": "PRIVATE_SECRET=1",
   "packages/agent-cli/test/provider-model-catalog.test.ts": "authenticated=1",
-  "packages/agent-cli/test/provider-session.test.ts": "_credential=1;authentication=2;credential=4;token=3",
-  "packages/agent-cli/test/runtime-integration.test.ts": "authentication=1;credential=3;NoticeToken=4;token=10;tokens=7",
+  "packages/agent-cli/test/provider-session.test.ts": "_credential=2;authentication=3;credential=7;token=4",
+  "packages/agent-cli/test/runtime-integration.test.ts": "authentication=1;credential=1;NoticeToken=4;token=10;tokens=7",
   "packages/agent-cli/test/shell-execution-policy.test.ts": "credential=1;secret=2",
-  "packages/agent-cli/test/terminal-interaction.test.ts": "authentication=3;credentialEnd=3;credentialRender=12;credentials=1;credentialStart=4;noticeToken=1",
+  "packages/agent-cli/test/terminal-interaction.test.ts": "authentication=2;credential=2;noticeToken=1",
   "packages/agent-cli/test/turn-failure-presentation.test.ts": "authorization=2;PRIVATE_SECRET=2;secret=1",
   "packages/agent-cli/test/workspace-ignore.test.ts": "secret=3;Secret=2;secrets=4",
   "packages/agent-cli/test/workspace-read-policy.test.ts": "credentials=3;secret=6;Secret=1;token=1",
@@ -229,6 +242,10 @@ const APPROVED_CLI_NODE_EFFECT_AUTHORITIES = Object.freeze({
   "packages/agent-cli/src/builtin-tools.ts": Object.freeze({
     imports: Object.freeze(["type Dirent", "lstat", "opendir", "readFile"]),
     module: "node:fs/promises",
+  }),
+  "packages/agent-cli/src/credential-broker.ts": Object.freeze({
+    imports: Object.freeze(["spawn", "type ChildProcess", "type SpawnOptions"]),
+    module: "node:child_process",
   }),
   "packages/agent-cli/src/session-journal.ts": Object.freeze({
     imports: Object.freeze([
@@ -306,12 +323,12 @@ const APPROVED_CLI_NODE_EFFECT_AUTHORITIES = Object.freeze({
   }),
 });
 
-const APPROVED_CLI_DORMANT_PRODUCT_TREE = Object.freeze({
-  pathCount: 72,
+const APPROVED_CLI_PRODUCT_TREE = Object.freeze({
+  pathCount: 75,
   pathsSha256:
-    "c98c61c7e385b1aeeb6a4c6534561a5c44086349283cd30fc04933354bcfafac",
+    "5683644d8d122fb98c5438524167644c035f9b9e37a3d16762ffb706cd19fe13",
   sourceSha256:
-    "e47405f9e285e5704a174164f35d1c48fdf7742459dbaef4124445658dc6ef32",
+    "97072653c6a66fa2223be994a8c721d4f917aaa7ddcd752f3cea6f13a7fec39c",
 });
 
 const APPROVED_CLI_NATIVE_PLATFORM_TREE = Object.freeze({
@@ -322,6 +339,9 @@ const APPROVED_CLI_NATIVE_PLATFORM_TREE = Object.freeze({
     "packages/agent-cli/native/clipboard/main.c",
     "packages/agent-cli/native/clipboard/protocol.c",
     "packages/agent-cli/native/clipboard/protocol.h",
+    "packages/agent-cli/native/credential-broker/credential-store.c",
+    "packages/agent-cli/native/credential-broker/credential-store.h",
+    "packages/agent-cli/native/credential-broker/main.c",
     "packages/agent-cli/native/mutation-commit/backend-linux.c",
     "packages/agent-cli/native/mutation-commit/backend-windows.c",
     "packages/agent-cli/native/mutation-commit/main.c",
@@ -343,7 +363,7 @@ const APPROVED_CLI_NATIVE_PLATFORM_TREE = Object.freeze({
     "packages/agent-cli/native/workspace-roots/main.c",
     "packages/agent-cli/native/workspace-roots/workspace-roots.h",
   ]),
-  sourceSha256: "db840e8200885fecea91691db312f6647e14db152aa8c9ad857a3e122968e8d5",
+  sourceSha256: "88db793cb139d88a6ef016e85f7d78b58b8a7ba4d84b28ad7c4362bd1ea71302",
 });
 
 const FORBIDDEN_SOURCE_MARKERS = [
@@ -360,8 +380,6 @@ const FORBIDDEN_SOURCE_MARKERS = [
   [/\b(?:ANTHROPIC_OAUTH_TOKEN|KIMI_CODE_OAUTH_HOST)\b/u, "provider token configuration"],
   [/(?:auth\.json|\.codex|\.claude|\.kimi-code|\.grok)/u, "foreign credential storage"],
   [/(?:originator[^\n]*pi|referrer[^\n]*pi|You are Claude Code|claude-cli\/)/iu, "foreign product identity"],
-  [/["'`]auth["'`]/u, "dormant agent auth command"],
-  [/["'`]credentials["'`]/u, "dormant credential namespace"],
 ];
 
 const FORBIDDEN_COMPACT_MARKERS = [
@@ -381,8 +399,6 @@ const FORBIDDEN_COMPACT_MARKERS = [
   [/\.grok/u, "foreign credential storage"],
   [/(?:identity|originator|referrer)[=:]pi(?:\/|[;,}])/u, "foreign product identity"],
   [/youareclaudecode/u, "foreign product identity"],
-  [/(?:agentauth|(?:argument|command)(?:===|==|:)auth)(?:[^a-z0-9]|$)/u, "dormant agent auth command"],
-  [/(?:\.agent|userstateroot).{0,64}credentials(?:[^a-z0-9]|$)/u, "dormant credential namespace"],
 ];
 
 export class ProviderPolicyError extends Error {
@@ -641,7 +657,7 @@ function validateRegistry(policy) {
     ],
     "provider policy",
   );
-  if (policy.schemaVersion !== 7) {
+  if (policy.schemaVersion !== 8) {
     fail("unsupported provider policy schema");
   }
   if (!Array.isArray(policy.providers)) {
@@ -703,6 +719,9 @@ function validateRegistry(policy) {
         "eligibility",
         "authorization",
         "credentialVariable",
+        "credentialCommand",
+        "credentialRecord",
+        "credentialAdmission",
         "credentialPersistence",
         "chatEndpoint",
         "catalogEndpoint",
@@ -904,10 +923,10 @@ function validateProductSources(productSources) {
   }
   validateExactSourceTree(
     productSources,
-    APPROVED_CLI_DORMANT_PRODUCT_TREE,
+    APPROVED_CLI_PRODUCT_TREE,
     (source) =>
       /^packages\/agent-cli\/src\/(?:[^/]+\/)*[^/]+\.ts$/u.test(source.path),
-    "CLI dormant product tree",
+    "CLI product tree",
   );
   validateExactSourceTree(
     productSources,

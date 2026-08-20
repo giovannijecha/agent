@@ -14,7 +14,7 @@ function configuredProviders() {
       configured: true,
       id: "ollamaCloud" as const,
       presentation: Object.freeze({
-        authentication: "memory-only API key",
+        authentication: "owned credential",
         displayName: "Ollama Cloud",
         model: "qwen3-coder:480b-cloud",
       }),
@@ -30,7 +30,7 @@ function configuredProviderWithoutModel() {
       configured: true,
       id: "ollamaCloud" as const,
       presentation: Object.freeze({
-        authentication: "memory-only API key",
+        authentication: "owned credential",
         displayName: "Ollama Cloud",
         model: undefined,
       }),
@@ -46,7 +46,7 @@ function unconfiguredProviders() {
       configured: false,
       id: "ollamaCloud" as const,
       presentation: Object.freeze({
-        authentication: "memory-only API key",
+        authentication: "owned credential",
         displayName: "Ollama Cloud",
         model: undefined,
       }),
@@ -97,23 +97,26 @@ test("blocks no-runtime input without adding transcript or echoing it", () => {
 test("never presents a provider without an executable runtime", () => {
   const application = new ApplicationController(false, configuredProviders());
 
-  const result = reduceInput(application, "/providers\r");
+  const result = reduceInput(application, "/models\r");
 
   assert.deepEqual(result.effects, []);
   assert.equal(application.provider, undefined);
-  assert.deepEqual(application.notice, ["No providers are available."]);
-  assert.equal(application.noticeLevel, "info");
+  assert.deepEqual(application.notice, [
+    "No authenticated providers. Exit and run agent auth first.",
+  ]);
   assert.ok(application.noticeToken !== undefined);
 });
 
-test("presents the sole configured provider without a redundant switch", () => {
-  const application = new ApplicationController(true, configuredProviders());
+test("stages the authenticated provider before loading one exact catalog", () => {
+  const application = new ApplicationController(
+    true,
+    configuredProviderWithoutModel(),
+  );
 
-  assert.equal(application.provider?.displayName, "Ollama Cloud");
-  const opened = reduceInput(application, "/providers\r");
+  const opened = reduceInput(application, "/models\r");
   assert.deepEqual(opened.effects, []);
   assert.deepEqual(
-    application.projectProviderMenu()?.items.map((provider) => [
+    application.projectModelProviderMenu()?.items.map((provider) => [
       provider.id,
       provider.selected,
     ]),
@@ -121,71 +124,49 @@ test("presents the sole configured provider without a redundant switch", () => {
   );
 
   const confirmed = reduceInput(application, "\r");
-  assert.deepEqual(confirmed.effects, []);
-  assert.equal(application.provider?.displayName, "Ollama Cloud");
-  assert.equal(application.projectProviderMenu(), undefined);
+  assert.deepEqual(confirmed.effects, [
+    { id: "ollamaCloud", kind: "loadModels" },
+  ]);
+  assert.equal(application.projectModelProviderMenu(), undefined);
 });
 
-test("conceals provider credentials and requires an explicit model selection", () => {
+test("requires external authentication and selects provider-model atomically", () => {
   const application = new ApplicationController(true, unconfiguredProviders());
 
   assert.deepEqual(reduceInput(application, "private task\r").effects, []);
   assert.deepEqual(application.notice, [
-    "Configure and select a provider with /providers first.",
+    "No provider and model are selected. Use /models first.",
+  ]);
+  assert.deepEqual(reduceInput(application, "/models\r").effects, []);
+  assert.deepEqual(application.notice, [
+    "No authenticated providers. Exit and run agent auth first.",
   ]);
 
-  reduceInput(application, "/providers\r");
-  const opened = reduceInput(application, "\r");
-  assert.deepEqual(opened.effects, []);
-  assert.deepEqual(application.projectProviderCredential(), {
-    providerName: "Ollama Cloud",
-  });
-
-  const typed = reduceInput(application, "ephemeral-key");
-  assert.deepEqual(typed.effects, []);
-  assert.equal(application.draftLength, 0);
-  assert.deepEqual(application.project(80), { caretColumn: 0, text: "" });
-  assert.deepEqual(application.projectArea(80, 6), {
-    caretColumn: 0,
-    caretRow: 0,
-    rows: [""],
-    selections: [{ end: 0, start: 0 }],
-  });
-  const submitted = reduceInput(application, "\r");
-  assert.deepEqual(submitted.effects, [
-    {
-      credential: "ephemeral-key",
-      id: "ollamaCloud",
-      kind: "configureProvider",
-    },
+  const authenticated = new ApplicationController(
+    true,
+    configuredProviderWithoutModel(),
+  );
+  assert.deepEqual(reduceInput(authenticated, "/models\r\r").effects, [
+    { id: "ollamaCloud", kind: "loadModels" },
   ]);
-  assert.equal(application.projectProviderCredential(), undefined);
-
-  const configured = unconfiguredProviders().map((provider) => ({
-    ...provider,
-    configured: true,
-    selected: true,
-  }));
-  assert.ok(application.providerConfigured(configured, "ollamaCloud").ok);
-  reduceInput(application, "/thinking\r");
-  assert.equal(application.projectThinkingMenu(), undefined);
-  assert.deepEqual(application.notice, ["Select a model with /models first."]);
-  const models = reduceInput(application, "/models\r");
-  assert.deepEqual(models.effects, [{ kind: "loadModels" }]);
   assert.ok(
-    application.modelsLoaded([
+    authenticated.modelsLoaded("ollamaCloud", [
       { cost: "cloud", id: "library/qwen3-coder:480b-cloud", selected: false },
     ]).ok,
   );
-  assert.deepEqual(application.projectModelMenu(), {
+  assert.deepEqual(authenticated.projectModelMenu(), {
     items: [{ cost: "cloud", id: "library/qwen3-coder:480b-cloud", selected: false }],
     providerName: "Ollama Cloud",
     selectedIndex: 0,
   });
-  assert.deepEqual(reduceInput(application, "\r").effects, [
-    { id: "library/qwen3-coder:480b-cloud", kind: "selectModel" },
+  assert.deepEqual(reduceInput(authenticated, "\r").effects, [
+    {
+      kind: "selectProviderModel",
+      modelId: "library/qwen3-coder:480b-cloud",
+      providerId: "ollamaCloud",
+    },
   ]);
-  const ready = configured.map((provider) => ({
+  const ready = configuredProviderWithoutModel().map((provider) => ({
     ...provider,
     presentation: {
       ...provider.presentation,
@@ -194,32 +175,69 @@ test("conceals provider credentials and requires an explicit model selection", (
     ready: true,
   }));
   assert.ok(
-    application.modelSelected(ready, "library/qwen3-coder:480b-cloud").ok,
+    authenticated.providerModelSelected(
+      ready,
+      "ollamaCloud",
+      "library/qwen3-coder:480b-cloud",
+    ).ok,
   );
-  reduceInput(application, "/thinking\r\u001B[C\u001B[B\u001B[C\r");
-  assert.equal(application.thinkingEffort, "low");
-  assert.equal(application.thinkingDisplay, "on");
-  assert.equal(application.provider?.model, "library/qwen3-coder:480b-cloud");
-  assert.deepEqual(reduceInput(application, "private task\r").effects, [
-    { effort: "low", kind: "startTurn", text: "private task" },
+  assert.equal(
+    authenticated.provider?.model,
+    "library/qwen3-coder:480b-cloud",
+  );
+  assert.deepEqual(reduceInput(authenticated, "private task\r").effects, [
+    { effort: "off", kind: "startTurn", text: "private task" },
   ]);
 });
 
-test("credential entry treats slash text as secret and Ctrl+C clears it", () => {
+test("preserves the settled provider-model pair through selector cancellation and failure", () => {
+  const application = new ApplicationController(true, configuredProviders());
+  const expected = application.provider;
+
+  reduceInput(application, "/models\r");
+  application.feed("\u001B", 0, undefined, true);
+  assert.deepEqual(application.provider, expected);
+  assert.equal(application.projectModelProviderMenu(), undefined);
+
+  assert.deepEqual(reduceInput(application, "/models\r\r").effects, [
+    { id: "ollamaCloud", kind: "loadModels" },
+  ]);
+  assert.ok(application.modelsLoaded("ollamaCloud", [
+    { cost: "cloud", id: "qwen3-coder:480b-cloud", selected: true },
+    { cost: "cloud", id: "glm-4.7:cloud", selected: false },
+  ]).ok);
+  application.feed("\u001B", 0, undefined, true);
+  assert.deepEqual(application.provider, expected);
+  assert.equal(application.projectModelMenu(), undefined);
+
+  assert.deepEqual(reduceInput(application, "/models\r\r").effects, [
+    { id: "ollamaCloud", kind: "loadModels" },
+  ]);
+  application.providerOperationFailed("catalog");
+  assert.deepEqual(application.provider, expected);
+
+  assert.deepEqual(reduceInput(application, "/models\r\r").effects, [
+    { id: "ollamaCloud", kind: "loadModels" },
+  ]);
+  assert.ok(application.modelsLoaded("ollamaCloud", [
+    { cost: "cloud", id: "qwen3-coder:480b-cloud", selected: true },
+    { cost: "cloud", id: "glm-4.7:cloud", selected: false },
+  ]).ok);
+  assert.deepEqual(reduceInput(application, "\u001B[B\r").effects, [{
+    kind: "selectProviderModel",
+    modelId: "glm-4.7:cloud",
+    providerId: "ollamaCloud",
+  }]);
+  application.providerOperationFailed("model");
+  assert.deepEqual(application.provider, expected);
+});
+
+test("retired providers command is unknown and cannot capture composer input", () => {
   const application = new ApplicationController(true, unconfiguredProviders());
 
-  reduceInput(application, "/providers\r");
-  reduceInput(application, "\r");
-  const typed = reduceInput(application, "/exit");
-  assert.deepEqual(typed.effects, []);
-  assert.deepEqual(application.project(80), { caretColumn: 0, text: "" });
-
-  const cancelled = reduceInput(application, "\u0003");
-  assert.deepEqual(cancelled.effects, []);
-  assert.equal(application.projectProviderCredential(), undefined);
-  assert.deepEqual(application.notice, [
-    "Provider configuration cancelled.",
-  ]);
+  const retired = reduceInput(application, "/providers\r");
+  assert.deepEqual(retired.effects, []);
+  assert.deepEqual(application.notice, ["Unknown command"]);
   assert.equal(application.draftLength, 0);
 });
 
@@ -251,13 +269,15 @@ test("replaces, dismisses, and expires only the current notice generation", () =
   assert.ok(stale !== undefined);
   assert.equal(application.noticeLevel, "warning");
 
-  reduceInput(application, "/providers\r");
+  reduceInput(application, "/models\r");
   const current = application.noticeToken;
   assert.ok(current !== undefined);
   assert.equal(current === stale, false);
-  assert.equal(application.noticeLevel, "info");
+  assert.equal(application.noticeLevel, "warning");
   assert.equal(application.expireNotice(stale).redraw, false);
-  assert.deepEqual(application.notice, ["No providers are available."]);
+  assert.deepEqual(application.notice, [
+    "No authenticated providers. Exit and run agent auth first.",
+  ]);
   assert.equal(application.expireNotice(current).redraw, true);
   assert.deepEqual(application.notice, []);
   assert.equal(application.noticeToken, undefined);
@@ -568,7 +588,7 @@ test("requires a configured provider and selected model before opening thinking"
     assert.deepEqual(opened.effects, []);
     assert.equal(application.projectThinkingMenu(), undefined);
     assert.deepEqual(application.notice, [
-      "Configure and select a provider with /providers first.",
+      "Provider authentication is unavailable. Exit and run agent auth.",
     ]);
   }
 
@@ -588,15 +608,19 @@ test("preserves both thinking settings through an accepted model selection", () 
   assert.equal(application.thinkingDisplay, "on");
   assert.equal(application.thinkingEffort, "medium");
 
-  assert.deepEqual(reduceInput(application, "/models\r").effects, [
-    { kind: "loadModels" },
+  assert.deepEqual(reduceInput(application, "/models\r\r").effects, [
+    { id: "ollamaCloud", kind: "loadModels" },
   ]);
-  assert.ok(application.modelsLoaded([
+  assert.ok(application.modelsLoaded("ollamaCloud", [
     { cost: "cloud", id: "qwen3-coder:480b-cloud", selected: true },
     { cost: "cloud", id: "glm-4.7:cloud", selected: false },
   ]).ok);
   assert.deepEqual(reduceInput(application, "\u001B[B\r").effects, [
-    { id: "glm-4.7:cloud", kind: "selectModel" },
+    {
+      kind: "selectProviderModel",
+      modelId: "glm-4.7:cloud",
+      providerId: "ollamaCloud",
+    },
   ]);
   const selected = configuredProviders().map((provider) => Object.freeze({
     ...provider,
@@ -605,7 +629,13 @@ test("preserves both thinking settings through an accepted model selection", () 
       model: "glm-4.7:cloud",
     }),
   }));
-  assert.ok(application.modelSelected(selected, "glm-4.7:cloud").ok);
+  assert.ok(
+    application.providerModelSelected(
+      selected,
+      "ollamaCloud",
+      "glm-4.7:cloud",
+    ).ok,
+  );
   assert.equal(application.thinkingDisplay, "on");
   assert.equal(application.thinkingEffort, "medium");
 

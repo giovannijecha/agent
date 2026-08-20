@@ -24,7 +24,6 @@ test("uses one canonical catalog for exact dispatch and completion", () => {
   assert.deepEqual(
     COMMANDS.map((definition) => definition.command),
     [
-      "/providers",
       "/models",
       "/permissions",
       "/thinking",
@@ -32,7 +31,7 @@ test("uses one canonical catalog for exact dispatch and completion", () => {
       "/exit",
     ],
   );
-  assert.equal(executeSubmission("/providers").kind, "providers");
+  assert.equal(executeSubmission("/providers").kind, "notice");
   assert.equal(executeSubmission("/models").kind, "models");
   assert.equal(executeSubmission("/permissions").kind, "permissions");
   assert.equal(executeSubmission("/thinking").kind, "thinking");
@@ -41,7 +40,6 @@ test("uses one canonical catalog for exact dispatch and completion", () => {
   assert.deepEqual(
     commandCompletions("/").map((definition) => definition.command),
     [
-      "/providers",
       "/models",
       "/permissions",
       "/thinking",
@@ -51,7 +49,7 @@ test("uses one canonical catalog for exact dispatch and completion", () => {
   );
   assert.deepEqual(
     commandCompletions("/p").map((definition) => definition.command),
-    ["/providers", "/permissions"],
+    ["/permissions"],
   );
 });
 
@@ -80,12 +78,6 @@ test("keeps documentation outside the command surface", () => {
     level: "warning",
     lines: ["Unknown command"],
   });
-});
-
-test("opens the canonical provider selector", () => {
-  const result = executeSubmission("/providers");
-
-  assert.deepEqual(result, { kind: "providers" });
 });
 
 test("opens the canonical model selector", () => {

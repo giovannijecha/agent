@@ -45,6 +45,14 @@ class Cancellation implements CancellationSignal {
   }
 }
 
+class Admission {
+  activeValue = true;
+
+  active(): boolean {
+    return this.activeValue;
+  }
+}
+
 class Catalog implements ProviderModelCatalog {
   readonly calls: Readonly<{ credential: string; provider: string }>[] = [];
   readonly #ids: readonly string[];
@@ -70,13 +78,13 @@ function definition(
     createModel: (_credential: string, model: string) => models[model],
     id: "ollamaCloud" as const,
     presentation: Object.freeze({
-      authentication: "memory-only API key",
+      authentication: "owned credential",
       displayName: "Ollama Cloud",
     }),
   });
 }
 
-test("provider session configures, catalogs, and delegates after exact selection", async () => {
+test("provider session admits, catalogs, and delegates after atomic pair selection", async () => {
   const selectedModel = new RecordingModel();
   const hiddenModel = new RecordingModel();
   const catalog = new Catalog();
@@ -97,7 +105,7 @@ test("provider session configures, catalogs, and delegates after exact selection
       configured: false,
       id: "ollamaCloud",
       presentation: {
-        authentication: "memory-only API key",
+        authentication: "owned credential",
         displayName: "Ollama Cloud",
         model: undefined,
       },
@@ -106,12 +114,11 @@ test("provider session configures, catalogs, and delegates after exact selection
     },
   ]);
   assert.deepEqual(
-    created.value.configure("ollamaCloud", "fixture-token"),
+    created.value.admit("ollamaCloud", "fixture-token", new Admission()),
     ok(undefined),
   );
-  assert.deepEqual(created.value.select("ollamaCloud"), ok(undefined));
 
-  const listed = await created.value.listModels();
+  const listed = await created.value.listModels("ollamaCloud");
   assert.ok(listed.ok);
   if (!listed.ok) return;
   assert.deepEqual(listed.value, [
@@ -119,7 +126,7 @@ test("provider session configures, catalogs, and delegates after exact selection
     { cost: "cloud", id: "glm-4.7:cloud", selected: false },
   ]);
   assert.deepEqual(
-    created.value.selectModel("glm-4.7:cloud"),
+    created.value.selectProviderModel("ollamaCloud", "glm-4.7:cloud"),
     ok(undefined),
   );
   assert.equal(created.value.ready(), true);
@@ -170,16 +177,74 @@ test("provider session rejects invalid topology and selection order", async () =
   );
   assert.ok(created.ok);
   if (!created.ok) return;
-  const beforeConfiguration = created.value.select("ollamaCloud");
-  assert.equal(beforeConfiguration.ok, false);
-  if (!beforeConfiguration.ok) {
-    assert.equal(beforeConfiguration.error.kind, "providerNotConfigured");
+  const beforeAdmission = await created.value.listModels("ollamaCloud");
+  assert.equal(beforeAdmission.ok, false);
+  if (!beforeAdmission.ok && beforeAdmission.error.kind === "session") {
+    assert.equal(beforeAdmission.error.error.kind, "providerNotConfigured");
   }
-  assert.ok(created.value.configure("ollamaCloud", "fixture-token").ok);
-  assert.ok(created.value.select("ollamaCloud").ok);
-  const unavailable = await created.value.listModels();
+  assert.ok(
+    created.value.admit(
+      "ollamaCloud",
+      "fixture-token",
+      new Admission(),
+    ).ok,
+  );
+  const unavailable = await created.value.listModels("ollamaCloud");
   assert.equal(unavailable.ok, false);
   if (!unavailable.ok) assert.equal(unavailable.error.kind, "session");
+});
+
+test("provider session preserves the settled model when replacement creation fails", async () => {
+  const retained = new RecordingModel();
+  const created = ProviderSession.create<TestError>(
+    [Object.freeze({
+      acceptsModel: (id: string) =>
+        id === "qwen3-coder:480b-cloud" || id === "glm-4.7:cloud",
+      createModel: (_credential: string, model: string) =>
+        model === "qwen3-coder:480b-cloud" ? retained : undefined,
+      id: "ollamaCloud" as const,
+      presentation: Object.freeze({
+        authentication: "owned credential",
+        displayName: "Ollama Cloud",
+      }),
+    })],
+    new Catalog(),
+  );
+  assert.ok(created.ok);
+  if (!created.ok) return;
+  assert.ok(
+    created.value.admit(
+      "ollamaCloud",
+      "fixture-token",
+      new Admission(),
+    ).ok,
+  );
+  assert.ok((await created.value.listModels("ollamaCloud")).ok);
+  assert.ok(
+    created.value.selectProviderModel(
+      "ollamaCloud",
+      "qwen3-coder:480b-cloud",
+    ).ok,
+  );
+
+  const failed = created.value.selectProviderModel(
+    "ollamaCloud",
+    "glm-4.7:cloud",
+  );
+  assert.equal(failed.ok, false);
+  if (!failed.ok) assert.equal(failed.error.kind, "modelCreationFailed");
+  assert.equal(
+    created.value.snapshots().at(0)?.presentation.model,
+    "qwen3-coder:480b-cloud",
+  );
+  assert.equal(created.value.snapshots().at(0)?.selected, true);
+  await created.value.open(
+    Conversation.empty(),
+    new Cancellation(),
+    [],
+    Object.freeze({ thinkingEffort: "off" }),
+  );
+  assert.equal(retained.calls, 1);
 });
 
 test("provider session rejects hostile registration getters without retaining them", () => {
