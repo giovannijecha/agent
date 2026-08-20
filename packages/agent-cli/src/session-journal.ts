@@ -21,6 +21,7 @@ import {
   ok,
   restoreConversationJournal,
   type ConversationJournalTurn,
+  type ConversationJournalSchemaVersion,
   type ConversationTreeTurnSnapshot,
   type Result,
 } from "@agent/core";
@@ -44,7 +45,7 @@ export const SESSION_JOURNAL_LIMITS = Object.freeze({
 
 const DIRECTORY_MODE = 0o700;
 const FILE_MODE = 0o600;
-const JOURNAL_VERSION = 1;
+const JOURNAL_VERSION = 2;
 const SESSION_CREATED_AT_MAX = 9_999_999_999_999;
 const WORKSPACE_ADMISSION =
   /^\.admission-([1-9][0-9]{0,9})-([a-f0-9]{64})$/u;
@@ -88,7 +89,7 @@ type SessionHeader = Readonly<{
   kind: "session";
   resumedFrom: string | null;
   sessionId: string;
-  version: 1;
+  version: ConversationJournalSchemaVersion;
   workspaceKey: string;
 }>;
 
@@ -369,7 +370,7 @@ function parseHeader(input: unknown): SessionHeader | undefined {
   }>;
   if (
     value.kind !== "session" ||
-    value.version !== JOURNAL_VERSION ||
+    (value.version !== 1 && value.version !== JOURNAL_VERSION) ||
     typeof value.createdAt !== "number" ||
     !Number.isSafeInteger(value.createdAt) ||
     value.createdAt < 0 ||
@@ -389,7 +390,7 @@ function parseHeader(input: unknown): SessionHeader | undefined {
     kind: "session" as const,
     resumedFrom: value.resumedFrom,
     sessionId: value.sessionId,
-    version: JOURNAL_VERSION,
+    version: value.version,
     workspaceKey: value.workspaceKey,
   });
 }
@@ -415,7 +416,10 @@ function parsePresentation(input: unknown): SessionTurnPresentation | undefined 
   return undefined;
 }
 
-function parseStoredTurn(input: unknown): Readonly<{
+function parseStoredTurn(
+  input: unknown,
+  version: ConversationJournalSchemaVersion,
+): Readonly<{
   presentation: SessionTurnPresentation;
   turn: ConversationJournalTurn;
 }> | undefined {
@@ -435,7 +439,7 @@ function parseStoredTurn(input: unknown): Readonly<{
     return undefined;
   }
   const presentation = parsePresentation(value.presentation);
-  const turn = conversationJournalTurnFromUnknown(value.turn);
+  const turn = conversationJournalTurnFromUnknown(value.turn, version);
   if (
     presentation === undefined ||
     !turn.ok ||
@@ -447,7 +451,10 @@ function parseStoredTurn(input: unknown): Readonly<{
   return Object.freeze({ presentation, turn: turn.value });
 }
 
-function parseHead(input: unknown): StoredHead | undefined {
+function parseHead(
+  input: unknown,
+  version: ConversationJournalSchemaVersion,
+): StoredHead | undefined {
   if (
     input === null ||
     typeof input !== "object" ||
@@ -462,7 +469,7 @@ function parseHead(input: unknown): StoredHead | undefined {
     version?: unknown;
   }>;
   return value.kind === "head" &&
-      value.version === JOURNAL_VERSION &&
+      value.version === version &&
       typeof value.activeNodeId === "number" &&
       Number.isSafeInteger(value.activeNodeId) &&
       value.activeNodeId >= 0 &&
@@ -485,8 +492,12 @@ function displayTurn(
     return undefined;
   }
   const segments: string[] = [];
+  const reasoningSegments: string[] = [];
   for (const entry of turn.entries) {
     if (entry instanceof ToolExchange) {
+      if (entry.reasoning !== undefined) {
+        reasoningSegments.push(entry.reasoning);
+      }
       const assistant = entry.assistant?.content;
       if (assistant !== undefined && assistant.trim().length > 0) {
         segments.push(assistant);
@@ -497,6 +508,9 @@ function displayTurn(
     const assistant = turn.entries.at(-1);
     if (!(assistant instanceof Message) || assistant.role !== "assistant") {
       return undefined;
+    }
+    if (assistant.reasoning !== undefined) {
+      reasoningSegments.push(assistant.reasoning);
     }
     segments.push(assistant.content);
   } else if (presentation.kind === "cancelled") {
@@ -515,6 +529,9 @@ function displayTurn(
         assistant,
         historyNodeId: turn.id,
         historyParentNodeId: turn.parentId,
+        ...(reasoningSegments.length === 0
+          ? Object.freeze({})
+          : Object.freeze({ reasoning: reasoningSegments.join("\n\n") })),
         settlement: turn.settlement,
         user: user.content,
       });
@@ -560,7 +577,7 @@ async function loadSession(
     } catch (_cause: unknown) {
       return undefined;
     }
-    const stored = parseStoredTurn(unknown);
+    const stored = parseStoredTurn(unknown, header.version);
     if (stored === undefined) {
       return undefined;
     }
@@ -573,7 +590,7 @@ async function loadSession(
   } catch (_cause: unknown) {
     return undefined;
   }
-  const head = parseHead(headUnknown);
+  const head = parseHead(headUnknown, header.version);
   if (head === undefined) {
     return undefined;
   }

@@ -157,7 +157,8 @@ maintenance change; each requires a separate accepted design.
 
 **Owners:** the core journal codec, runtime settled-history projection, CLI
 `SessionJournal`, launch grammar, serialized settlement and selection wiring,
-restored `ChatState`, privacy and security policies, and decision 0076.
+restored `ChatState`, privacy and security policies, and decisions 0076 and
+0085.
 
 For a journal change:
 
@@ -179,25 +180,31 @@ For a journal change:
    remove only an operating-system-proven stale token's unique pathname, and
    derive each publication value as the greater of wall time and the newest
    retained value plus one;
-6. exclude credentials, provider/model state, permissions, drafts,
-   provisional output, activity, notices, foreign causes, and receipts;
-7. prove exact-workspace isolation, active and stale locks, concurrent
+6. decode version one and version two through separate exact shapes, write only
+   version two, and create a separate version-two continuation after a valid
+   version-one resume; never rewrite or append to the source journal;
+7. retain native reasoning only with its settled assistant message or tool
+   exchange; exclude credentials, provider/model state, thinking settings,
+   permissions, drafts, provisional output, activity, notices, foreign causes,
+   and receipts;
+8. prove exact-workspace isolation, active and stale locks, concurrent
    admission at the retention boundary, successor-safe stale reclamation,
    tied and regressed publication clocks, POSIX directory-sync failure,
    truncated final lines, interrupted head replacement, deliberate
    current-revision selection, unreconciled gap rejection, interior corruption,
    independent structured-payload bounds, cleanup settlement, no duplicate
    append, and one composition round trip;
-8. update the public retention and exact deletion instructions in the same
+9. update the public retention and exact deletion instructions in the same
    change.
 
 Rollback first removes `agent resume --latest` and disables new journal
 creation. Existing versioned directories remain untouched until the operator
 uses the privacy-policy deletion route. Then remove controller wiring, the CLI
 storage owner, runtime projection, core codec, display restoration, tests, and
-registries, including head-revision reconciliation. Removal must never
-reinterpret an unknown schema, append to an old journal, or delete an active
-session.
+registries, including head-revision reconciliation. If only thinking is rolled
+back, keep both journal decoders so already settled version-two data remains
+readable. Removal must never reinterpret an unknown schema, append to an old
+journal, rewrite retained reasoning, or delete an active session.
 
 ### Tool engine
 
@@ -476,16 +483,31 @@ declarations, tests, public contract, and decisions 0072, 0080, and 0082 status
 together. The product returns to no admitted provider; do not select a
 replacement implicitly.
 
-### Reserved thinking-stream lifecycle
+### Thinking-stream lifecycle
 
-Decision 0083 currently changes no runtime behavior: requests retain
-`think: false`, `/thinking` is unavailable, and no reasoning is exposed or
-stored. Activation requires one separate accepted journal-schema migration and
-a complete provider-to-TUI implementation with contract and recovery tests.
-Rollback disables the provider request before removing presentation, while
-settled data remains readable until its schema owner defines removal. Abandoning
-the reservation removes decision 0083, its living-document markers, registries,
-ownership row, and regressions together.
+**Owners:** decisions 0086 and 0085, core message and journal codecs, runtime
+model/event/session contracts, Ollama wire translation, CLI `/thinking` state,
+`ChatState`, the shared transcript renderer, and privacy and provider policy.
+
+Change thinking one boundary at a time in that order. Preserve the exact
+session-only Effort values `Off`, `Low`, `Medium`, and `High`, Stream values
+`Off` and `On`, both defaults, provider and model prerequisites,
+model-selection preservation of both values, one immutable per-turn effort,
+display-only transcript filtering, separate reasoning and assistant buffers,
+complete-record atomicity, independent bounds, checkpoint semantics, and exact
+version-selected journal decode. Prove ordinary response, tool continuation,
+unsupported retained effort, failure, cancellation, resume, staged focus,
+dismissal, resize, hidden/revealed transcript, and footer behavior without
+model-name branches or implicit retry.
+
+Rollback first forces native requests to `think: false` and stops accepting new
+reasoning events. Then remove `/thinking`, its footer and transcript projection,
+the runtime field, and the core optional value. Retain version-two decoding and
+ignore already settled reasoning until all supported sessions no longer need
+it; never rewrite or silently reinterpret a journal. Full removal may delete
+the version-two decoder only through a later accepted migration decision, then
+updates decisions 0086 and 0085, living documents, registries, ownership row,
+and regressions together.
 
 ### Workspace trust boundary
 

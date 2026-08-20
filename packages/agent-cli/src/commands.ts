@@ -6,6 +6,7 @@ export type CommandResult =
   | Readonly<{ kind: "permissions" }>
   | Readonly<{ kind: "models" }>
   | Readonly<{ kind: "providers" }>
+  | Readonly<{ kind: "thinking" }>
   | Readonly<{ kind: "timeline" }>
   | Readonly<{
       kind: "notice";
@@ -19,6 +20,7 @@ export type CommandName =
   | "/models"
   | "/permissions"
   | "/providers"
+  | "/thinking"
   | "/timeline";
 
 export type CommandDefinition = Readonly<{
@@ -39,6 +41,10 @@ export const COMMANDS: readonly CommandDefinition[] = Object.freeze([
   Object.freeze({
     command: "/permissions" as const,
     description: "set session tool permissions",
+  }),
+  Object.freeze({
+    command: "/thinking" as const,
+    description: "set thinking effort and stream",
   }),
   Object.freeze({
     command: "/timeline" as const,
@@ -99,6 +105,9 @@ export function executeSubmission(
   }
   if (exact === "/permissions") {
     return Object.freeze({ kind: "permissions" as const });
+  }
+  if (exact === "/thinking") {
+    return Object.freeze({ kind: "thinking" as const });
   }
   if (exact === "/timeline") {
     return Object.freeze({ kind: "timeline" as const });

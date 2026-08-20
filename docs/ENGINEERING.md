@@ -182,15 +182,18 @@ does not prove a contract that names an exact invocation.
 
 ### Thinking-stream contract verification
 
-Decision 0083 is reserved rather than implemented. Current regressions must
-prove that provider requests keep `think: false`, reasoning does not cross a
-public package boundary, and no manual claims that `/thinking` is available.
-Any implementation change must begin red and cover native request encoding,
-bounded incremental decode, whole-record atomicity, selected-path history,
-runtime event order, journal crash recovery, interaction-dock focus, transcript
-rendering, privacy, rollback, and removal in the same change. Text and tags must
-remain non-executable, and no test may introduce an implicit retry, replay,
-fallback, or model-specific compatibility branch.
+Decisions 0086 and 0085 require one complete provider-to-journal-to-TUI proof.
+Regressions cover exact `think: false`, `"low"`, `"medium"`, and `"high"`
+requests, independent reasoning bounds, whole-record atomicity, rejection of
+late or malformed native reasoning, provider-neutral event order, immutable
+turn effort across tool continuations, selected-path history, version-one
+rejection and version-two round trips, crash recovery, two-row staged dock
+navigation, atomic apply and dismissal, hidden and shown transcripts, footer
+truth, provider and model prerequisites, model-selection preservation, explicit
+unsupported-effort failure, privacy, rollback, and removal. Failed or cancelled
+prospective reasoning must not enter core history, the journal, or a settled
+transcript. Text and tags remain non-executable, and no test may introduce an
+implicit retry, replay, fallback, or model-specific compatibility branch.
 
 ## Documentation changes
 

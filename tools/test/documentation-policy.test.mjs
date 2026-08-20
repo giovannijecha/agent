@@ -110,27 +110,65 @@ test("registers every durable decision as required ownership documentation", () 
   }
 });
 
-test("binds the reserved bounded thinking stream contract", () => {
+test("binds two-axis thinking controls and the journal migration", () => {
   const context = currentContext();
-  const decision =
+  const thinkingDecision =
     "docs/decisions/0083-owned-bounded-thinking-stream.md";
-  assert.equal(policy.decisionPaths.includes(decision), true);
-  assert.equal(ownershipPolicy.requiredDocuments.includes(decision), true);
-  assert.equal(typeof context.files[decision], "string");
+  const journalDecision =
+    "docs/decisions/0085-owned-reasoning-journal-migration.md";
+  const controlsDecision =
+    "docs/decisions/0086-owned-thinking-effort-and-display.md";
+  for (const decision of [thinkingDecision, journalDecision, controlsDecision]) {
+    assert.equal(policy.decisionPaths.includes(decision), true);
+    assert.equal(ownershipPolicy.requiredDocuments.includes(decision), true);
+    assert.equal(typeof context.files[decision], "string");
+  }
   assert.match(
-    context.files[decision],
+    context.files[thinkingDecision],
     /The current runtime remains fixed at `think: false`/u,
   );
   assert.match(
-    context.files[decision],
+    context.files[journalDecision],
+    /Session journals advance to version two/u,
+  );
+  assert.match(
+    context.files[journalDecision],
+    /version one continues to accept exactly/u,
+  );
+  assert.match(
+    context.files[thinkingDecision],
     /A separate accepted journal-schema migration decision is required before implementation/u,
   );
+  assert.match(
+    context.files[thinkingDecision],
+    /- Superseded by: 0086/u,
+  );
+  assert.match(
+    context.files[controlsDecision],
+    /`effort` is exactly `off`, `low`, `medium`, or `high`/u,
+  );
+  assert.match(
+    context.files[controlsDecision],
+    /`display` is exactly `off` or `on`/u,
+  );
+  assert.match(
+    context.files[controlsDecision],
+    /editor opens only after one configured provider is selected and that\s+provider has one selected model/u,
+  );
+  assert.match(
+    context.files[controlsDecision],
+    /both values remain unchanged through every accepted\s+model selection in that process/u,
+  );
+  assert.match(
+    context.files[controlsDecision],
+    /If that model rejects the retained effort, the\s+turn fails explicitly and the settings remain unchanged/u,
+  );
   for (const [file, marker] of [
-    ["docs/ARCHITECTURE.md", "### Reserved bounded thinking stream"],
+    ["docs/ARCHITECTURE.md", "### Bounded thinking stream"],
     ["docs/ENGINEERING.md", "### Thinking-stream contract verification"],
-    ["docs/MAINTENANCE.md", "### Reserved thinking-stream lifecycle"],
-    ["docs/PROVIDERS.md", "### Reserved native thinking boundary"],
-    ["PRIVACY.md", "### Reserved thinking data"],
+    ["docs/MAINTENANCE.md", "### Thinking-stream lifecycle"],
+    ["docs/PROVIDERS.md", "### Native thinking boundary"],
+    ["PRIVACY.md", "### Thinking data"],
   ]) {
     assert.match(context.files[file], new RegExp(marker, "u"), file);
   }
@@ -437,7 +475,7 @@ test("rejects invalid current decision authority routes", () => {
       "[0013 single-agent execution](0013-single-agent-execution.md), unregistered authority, [0052 checkpointed failures](0052-owned-checkpointed-turn-failure-classification.md)",
     ],
     [
-      "| architecture | [0083 bounded thinking stream](0083-owned-bounded-thinking-stream.md), [0076 durable session journal](0076-owned-bounded-session-journal.md), [0075 branching conversation tree](0075-owned-branching-conversation-tree.md), [0074 deterministic read overlap](0074-owned-deterministic-read-overlap.md), [0013 single-agent execution](0013-single-agent-execution.md), [0052 checkpointed failures](0052-owned-checkpointed-turn-failure-classification.md), [0061 convergent turns](0061-owned-convergent-tool-turns.md) |\n",
+      "| architecture | [0086 thinking effort and display](0086-owned-thinking-effort-and-display.md), [0085 reasoning journal migration](0085-owned-reasoning-journal-migration.md), [0076 durable session journal](0076-owned-bounded-session-journal.md), [0075 branching conversation tree](0075-owned-branching-conversation-tree.md), [0074 deterministic read overlap](0074-owned-deterministic-read-overlap.md), [0013 single-agent execution](0013-single-agent-execution.md), [0052 checkpointed failures](0052-owned-checkpointed-turn-failure-classification.md), [0061 convergent turns](0061-owned-convergent-tool-turns.md) |\n",
       "",
     ],
   ]) {

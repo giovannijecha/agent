@@ -124,7 +124,12 @@ test("provider session configures, catalogs, and delegates after exact selection
   );
   assert.equal(created.value.ready(), true);
 
-  await created.value.open(Conversation.empty(), new Cancellation(), []);
+  await created.value.open(
+    Conversation.empty(),
+    new Cancellation(),
+    [],
+    Object.freeze({ thinkingEffort: "off" }),
+  );
   assert.equal(selectedModel.calls, 1);
   assert.equal(hiddenModel.calls, 0);
   assert.deepEqual(catalog.calls, [

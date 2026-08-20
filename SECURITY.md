@@ -143,8 +143,9 @@ observation is current; any later mutation is planned and authorized again
 against current workspace state. Node selection is idle-only and accepts only
 an exact retained identity.
 
-Interactive sessions append only complete settled nodes to one versioned
-per-user CLI journal outside the workspace. The state directory is selected
+Interactive sessions append only complete settled nodes, including optional
+separately bounded native reasoning, to one versioned per-user CLI journal
+outside the workspace. The state directory is selected
 from the platform-owned user-state base and an irreversible digest of the exact
 canonical workspace. Resume requires the newest journal to be inactive and
 valid before provider composition. Unknown versions, ambiguous locks, unsafe
@@ -155,10 +156,14 @@ makes the contender report busy, and only an operating-system-proven stale
 token's unique pathname may be removed. Publication values advance beyond the
 newest validated session despite a tied or regressed wall clock. Required
 file synchronization and POSIX directory synchronization fail closed. Only an
-incomplete final line may recover its validated prefix. The journal requests
+incomplete final line may recover its validated prefix. Version-one and
+version-two journals have separate exact decoders; new and continued sessions
+write only version two, and a version-one source is never rewritten. The
+journal requests
 owner-only permissions but is not encrypted, tamper-proof, or protected from
-host-authorized principals. Credentials, provider/model state, permissions,
-drafts, provisional output, and foreign causes are never recorded.
+host-authorized principals. Credentials, provider/model state, thinking effort
+and display settings, permissions, drafts, provisional output, and foreign
+causes are never recorded.
 
 The maintainer-only task evaluator is a separate offline tooling boundary. It
 accepts only the registered strict-text corpus and regular-file run trees,

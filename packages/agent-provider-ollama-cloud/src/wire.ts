@@ -13,7 +13,11 @@ import {
   type Result,
   type StructuredField,
 } from "@agent/core";
-import type { ModelStreamEvent, ModelToolCall } from "@agent/runtime";
+import type {
+  ModelStreamEvent,
+  ModelToolCall,
+  ThinkingEffort,
+} from "@agent/runtime";
 import {
   BooleanSchema,
   IntegerSchema,
@@ -130,7 +134,13 @@ function toolValue(descriptor: ToolDescriptor): unknown {
 function messageValues(entry: ConversationEntry): readonly unknown[] {
   if (entry instanceof Message) {
     return Object.freeze([
-      Object.freeze({ content: entry.content, role: entry.role }),
+      Object.freeze({
+        content: entry.content,
+        role: entry.role,
+        ...(entry.reasoning === undefined
+          ? Object.freeze({})
+          : Object.freeze({ thinking: entry.reasoning })),
+      }),
     ]);
   }
   if (entry instanceof ToolExchange) {
@@ -138,6 +148,9 @@ function messageValues(entry: ConversationEntry): readonly unknown[] {
       Object.freeze({
         content: entry.assistant?.content ?? "",
         role: Role.Assistant,
+        ...(entry.reasoning === undefined
+          ? Object.freeze({})
+          : Object.freeze({ thinking: entry.reasoning })),
         tool_calls: Object.freeze(
           entry.calls.map((call, index) => Object.freeze({
             function: Object.freeze({
@@ -168,6 +181,7 @@ export function encodeRequest(
   instructions: string,
   tools: readonly ToolDescriptor[],
   model: OllamaCloudModelId,
+  thinkingEffort: ThinkingEffort,
 ): Result<string, WireError> {
   try {
     const request = Object.freeze({
@@ -177,7 +191,7 @@ export function encodeRequest(
       ]),
       model,
       stream: true,
-      think: false,
+      think: thinkingEffort === "off" ? false : thinkingEffort,
       ...(tools.length === 0
         ? Object.freeze({})
         : Object.freeze({ tools: tools.map((tool) => toolValue(tool)) })),
@@ -204,7 +218,9 @@ type AcceptedTools = Readonly<{
 
 /** Stateful validator for one native Ollama NDJSON chat response. */
 export class OllamaChatDecoder {
+  readonly #exposeThinking: boolean;
   readonly #model: OllamaCloudModelId;
+  #contentStarted = false;
   #hasContribution = false;
   #rejected = false;
   #terminal = false;
@@ -213,8 +229,9 @@ export class OllamaChatDecoder {
   readonly #tools: ModelToolCall[] = [];
   #wireEvents = 0;
 
-  constructor(model: OllamaCloudModelId) {
+  constructor(model: OllamaCloudModelId, exposeThinking: boolean) {
     this.#model = model;
+    this.#exposeThinking = exposeThinking;
   }
 
   accept(data: string): Result<readonly ModelStreamEvent[], WireError> {
@@ -282,17 +299,29 @@ export class OllamaChatDecoder {
     }
 
     const events: ModelStreamEvent[] = [];
+    if (hasThinking && this.#contentStarted) {
+      return this.#reject("protocolMessage");
+    }
     this.#thinkingCodeUnits = thinkingCodeUnits;
     this.#toolArgumentCodeUnits = acceptedTools.argumentCodeUnits;
     this.#tools.push(...acceptedTools.calls);
     if (hasThinking || acceptedTools.calls.length > 0 || content.length > 0) {
       this.#hasContribution = true;
     }
+    if (hasThinking && this.#exposeThinking) {
+      events.push(Object.freeze({
+        kind: "reasoningDelta" as const,
+        text: thinking as string,
+      }));
+    }
     if (content.length > 0) {
       events.push(Object.freeze({
         kind: "delta" as const,
         text: content,
       }));
+    }
+    if (content.length > 0 || acceptedTools.calls.length > 0) {
+      this.#contentStarted = true;
     }
     if (!parsed.done) {
       return ok(Object.freeze(events));

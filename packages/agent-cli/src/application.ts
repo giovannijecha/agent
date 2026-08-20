@@ -4,6 +4,7 @@ import {
   type RuntimeEvent,
   type StartedTurn,
   type StartTurnError,
+  type ThinkingEffort,
 } from "@agent/runtime";
 import {
   isSafeApprovalPreview,
@@ -66,6 +67,13 @@ import {
   TerminalInteraction,
 } from "./terminal-interaction.js";
 import type { TimelineMenuProjection } from "./timeline-view.js";
+import {
+  THINKING_DISPLAYS,
+  THINKING_EFFORTS,
+  THINKING_SETTINGS,
+  type ThinkingDisplay,
+  type ThinkingMenuProjection,
+} from "./thinking-view.js";
 import { projectTurnFailure } from "./turn-failure-presentation.js";
 
 export type { PointerProjection } from "./terminal-interaction.js";
@@ -113,7 +121,7 @@ export type ApplicationEffect =
   | Readonly<{ kind: "selectProvider"; id: ProviderId }>
   | Readonly<{ kind: "selectModel"; id: string }>
   | Readonly<{ kind: "selectTimelineNode"; nodeId: number }>
-  | Readonly<{ kind: "startTurn"; text: string }>;
+  | Readonly<{ effort: ThinkingEffort; kind: "startTurn"; text: string }>;
 
 export type ApplicationUpdate = Readonly<{
   effects: readonly ApplicationEffect[];
@@ -240,6 +248,12 @@ export class ApplicationController
   #providersVisible = false;
   #timelineSelectionIndex = 0;
   #timelineVisible = false;
+  #thinkingDisplay: ThinkingDisplay = "off";
+  #thinkingDraftDisplay: ThinkingDisplay = "off";
+  #thinkingDraftEffort: ThinkingEffort = "off";
+  #thinkingEffort: ThinkingEffort = "off";
+  #thinkingSelectionIndex = 0;
+  #thinkingVisible = false;
   #transcriptGeometry:
     | Readonly<{ contentRows: number; viewportRows: number }>
     | undefined;
@@ -307,6 +321,14 @@ export class ApplicationController
       : this.#providers.at(this.#activeProviderIndex)?.presentation;
   }
 
+  get thinkingDisplay(): ThinkingDisplay {
+    return this.#thinkingDisplay;
+  }
+
+  get thinkingEffort(): ThinkingEffort {
+    return this.#thinkingEffort;
+  }
+
   get workspace(): string | undefined {
     return this.#workspace;
   }
@@ -360,11 +382,14 @@ export class ApplicationController
   }
 
   transcriptText(): string {
-    return this.#chat.transcriptText();
+    return this.transcriptEntries().map((entry) => entry.content).join("\n\n");
   }
 
   transcriptEntries(): readonly TranscriptEntry[] {
-    return this.#chat.transcriptEntries();
+    const entries = this.#chat.transcriptEntries();
+    return this.#thinkingDisplay === "on"
+      ? entries
+      : Object.freeze(entries.filter((entry) => entry.role !== "reasoning"));
   }
 
   timelineEntries(): readonly TimelineEntry[] {
@@ -456,6 +481,16 @@ export class ApplicationController
       items: this.#chat.timelineEntries(),
       selectedIndex: this.#timelineSelectionIndex,
     });
+  }
+
+  projectThinkingMenu(): ThinkingMenuProjection | undefined {
+    return this.#thinkingVisible && this.#phase === "idle"
+      ? Object.freeze({
+          display: this.#thinkingDraftDisplay,
+          effort: this.#thinkingDraftEffort,
+          selectedIndex: this.#thinkingSelectionIndex,
+        })
+      : undefined;
   }
 
   projectProviderCredential(): ProviderCredentialProjection | undefined {
@@ -608,6 +643,12 @@ export class ApplicationController
     this.#providersVisible = false;
     this.#timelineSelectionIndex = 0;
     this.#timelineVisible = false;
+    this.#thinkingDisplay = "off";
+    this.#thinkingDraftDisplay = "off";
+    this.#thinkingDraftEffort = "off";
+    this.#thinkingEffort = "off";
+    this.#thinkingSelectionIndex = 0;
+    this.#thinkingVisible = false;
     this.#providerSelectionIndex = this.#activeProviderIndex ?? 0;
     this.#transcriptGeometry = undefined;
     this.#transcriptScroll = ScrollState.followEnd();
@@ -632,7 +673,7 @@ export class ApplicationController
         action.event,
         action.timeMilliseconds,
         pointerProjection,
-        this.#chat.transcriptEntries(),
+        this.transcriptEntries(),
         this.#session,
       );
       let redraw = interaction.redraw;
@@ -666,6 +707,7 @@ export class ApplicationController
       this.#modelsVisible = false;
       this.#providersVisible = false;
       this.#timelineVisible = false;
+      this.#thinkingVisible = false;
       this.#setNotice([]);
       return update(true);
     }
@@ -692,6 +734,7 @@ export class ApplicationController
       this.#modelsVisible = false;
       this.#permissionsVisible = false;
       this.#timelineVisible = false;
+      this.#thinkingVisible = false;
       this.#setNotice([]);
       return update(true);
     }
@@ -720,6 +763,7 @@ export class ApplicationController
       this.#providersVisible = false;
       this.#modelsVisible = false;
       this.#timelineVisible = false;
+      this.#thinkingVisible = false;
       this.#models = Object.freeze([]);
       this.#modelSelectionIndex = 0;
       this.#setNotice([]);
@@ -746,6 +790,7 @@ export class ApplicationController
       this.#modelsVisible = false;
       this.#permissionsVisible = false;
       this.#providersVisible = false;
+      this.#thinkingVisible = false;
       this.#setNotice([]);
       return update(true);
     }
@@ -754,6 +799,42 @@ export class ApplicationController
         return update(false);
       }
       this.#timelineVisible = false;
+      return update(true);
+    }
+    if (action.kind === "openThinking") {
+      if (this.#phase !== "idle") {
+        this.#setNotice(["Thinking selection is available only while idle."]);
+        return update(true);
+      }
+      const provider = this.#activeProviderIndex === undefined
+        ? undefined
+        : this.#providers.at(this.#activeProviderIndex);
+      if (provider === undefined || !provider.configured) {
+        this.#setNotice([
+          "Configure and select a provider with /providers first.",
+        ]);
+        return update(true);
+      }
+      if (!provider.ready) {
+        this.#setNotice(["Select a model with /models first."]);
+        return update(true);
+      }
+      this.#thinkingDraftDisplay = this.#thinkingDisplay;
+      this.#thinkingDraftEffort = this.#thinkingEffort;
+      this.#thinkingSelectionIndex = 0;
+      this.#thinkingVisible = true;
+      this.#modelsVisible = false;
+      this.#permissionsVisible = false;
+      this.#providersVisible = false;
+      this.#timelineVisible = false;
+      this.#setNotice([]);
+      return update(true);
+    }
+    if (action.kind === "closeThinking") {
+      if (!this.#thinkingVisible) {
+        return update(false);
+      }
+      this.#thinkingVisible = false;
       return update(true);
     }
     if (action.kind === "cancelProviderCredential") {
@@ -830,6 +911,19 @@ export class ApplicationController
         this.#timelineSelectionIndex = next;
         return update(true);
       }
+      if (this.#thinkingVisible) {
+        const next = action.direction === "previous"
+          ? Math.max(0, this.#thinkingSelectionIndex - 1)
+          : Math.min(
+              THINKING_SETTINGS.length - 1,
+              this.#thinkingSelectionIndex + 1,
+            );
+        if (next === this.#thinkingSelectionIndex) {
+          return update(false);
+        }
+        this.#thinkingSelectionIndex = next;
+        return update(true);
+      }
       if (!this.#permissionsVisible) {
         return update(false);
       }
@@ -857,6 +951,38 @@ export class ApplicationController
         this.#setNotice(["Session permissions could not be updated."]);
         return update(true);
       }
+      return update(true);
+    }
+    if (action.kind === "changeThinkingSetting") {
+      if (!this.#thinkingVisible || this.#phase !== "idle") {
+        return update(false);
+      }
+      const setting = THINKING_SETTINGS.at(this.#thinkingSelectionIndex);
+      if (setting === undefined) {
+        this.#setNotice(["Thinking selection could not be updated."]);
+        return update(true);
+      }
+      if (setting === "stream") {
+        const current = THINKING_DISPLAYS.indexOf(this.#thinkingDraftDisplay);
+        const next = action.direction === "less"
+          ? Math.max(0, current - 1)
+          : Math.min(THINKING_DISPLAYS.length - 1, current + 1);
+        const display = THINKING_DISPLAYS.at(next);
+        if (display === undefined || display === this.#thinkingDraftDisplay) {
+          return update(false);
+        }
+        this.#thinkingDraftDisplay = display;
+        return update(true);
+      }
+      const current = THINKING_EFFORTS.indexOf(this.#thinkingDraftEffort);
+      const next = action.direction === "less"
+        ? Math.max(0, current - 1)
+        : Math.min(THINKING_EFFORTS.length - 1, current + 1);
+      const effort = THINKING_EFFORTS.at(next);
+      if (effort === undefined || effort === this.#thinkingDraftEffort) {
+        return update(false);
+      }
+      this.#thinkingDraftEffort = effort;
       return update(true);
     }
     if (action.kind === "activateContextSelection") {
@@ -911,6 +1037,19 @@ export class ApplicationController
             nodeId: selected.id,
           }),
         ]);
+      }
+      if (this.#thinkingVisible && this.#phase === "idle") {
+        this.#thinkingVisible = false;
+        this.#thinkingDisplay = this.#thinkingDraftDisplay;
+        this.#thinkingEffort = this.#thinkingDraftEffort;
+        this.#setNotice(
+          [
+            "Thinking effort " + this.#thinkingEffort +
+            "; stream " + this.#thinkingDisplay + " for this session.",
+          ],
+          "info",
+        );
+        return update(true);
       }
       const pendingTools = this.#tools.filter(
         (candidate) => candidate.decision === undefined,
@@ -998,7 +1137,11 @@ export class ApplicationController
         return update(true);
       }
       return update(true, [
-        Object.freeze({ kind: "startTurn" as const, text: action.text }),
+        Object.freeze({
+          effort: this.#thinkingEffort,
+          kind: "startTurn" as const,
+          text: action.text,
+        }),
       ]);
     }
     if (action.kind === "interrupt") {
@@ -1060,6 +1203,7 @@ export class ApplicationController
     this.#modelsVisible = false;
     this.#providersVisible = false;
     this.#timelineVisible = false;
+    this.#thinkingVisible = false;
     this.#transcriptGeometry = undefined;
     this.#transcriptScroll = ScrollState.followEnd();
     this.#terminalInteraction.reset();
@@ -1227,6 +1371,8 @@ export class ApplicationController
       ),
     );
     this.#modelsVisible = false;
+    this.#thinkingSelectionIndex = 0;
+    this.#thinkingVisible = false;
     this.#setNotice([id + " selected for this process."], "info");
     return ok(update(true));
   }
@@ -1263,6 +1409,19 @@ export class ApplicationController
         const appended = this.#chat.append(turnId, text);
         return appended.ok
           ? ok(update(true))
+          : err(new ApplicationError("chatInvariant"));
+      }
+      if (eventKind === "reasoningDelta") {
+        const turnId = event.turnId;
+        if (turnId !== this.#chat.activeTurnId) {
+          return ok(update(false));
+        }
+        if (this.#tools.length > 0 || this.#thinkingEffort === "off") {
+          return err(new ApplicationError("invalidRuntimeEvent"));
+        }
+        const appended = this.#chat.appendReasoning(turnId, event.text);
+        return appended.ok
+          ? ok(update(this.#thinkingDisplay === "on"))
           : err(new ApplicationError("chatInvariant"));
       }
       if (eventKind === "toolRequested") {
@@ -1342,6 +1501,7 @@ export class ApplicationController
         this.#modelsVisible = false;
         this.#providersVisible = false;
         this.#timelineVisible = false;
+        this.#thinkingVisible = false;
         this.#toolDecisionIndex = 0;
         this.#phase = mode === "ask" ? "awaitingPermission" : "runningTool";
         this.#setNotice([]);
@@ -1457,7 +1617,11 @@ export class ApplicationController
         }
         const assistant = event.assistant;
         const content = assistant.content;
-        const prepared = this.#chat.prepare(turnId, content);
+        const prepared = this.#chat.prepare(
+          turnId,
+          content,
+          assistant.reasoning,
+        );
         if (!prepared.ok) {
           return err(new ApplicationError("chatInvariant"));
         }
@@ -1651,6 +1815,9 @@ export class ApplicationController
     }
     if (this.#timelineVisible) {
       return "timeline";
+    }
+    if (this.#thinkingVisible) {
+      return "thinking";
     }
     return this.#permissionsVisible ? "permissions" : "composer";
   }

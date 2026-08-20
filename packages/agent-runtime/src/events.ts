@@ -8,6 +8,7 @@ export type StartTurnErrorKind =
   | "emptyInput"
   | "historyTooLong"
   | "inputTooLong"
+  | "invalidThinkingEffort"
   | "turnIdExhausted";
 
 /** Content-free reason why a turn could not start. */
@@ -47,6 +48,7 @@ export type RuntimeSourceError = Readonly<{ kind: RuntimeSourceErrorKind }>;
 
 export type TurnFailure<E> =
   | Readonly<{ kind: "emptyDelta" }>
+  | Readonly<{ kind: "emptyReasoningDelta" }>
   | Readonly<{ kind: "emptyResponse" }>
   | Readonly<{ kind: "eventLimit" }>
   | Readonly<{ kind: "invalidModelResult"; operation: "open" | "read" }>
@@ -61,6 +63,7 @@ export type TurnFailure<E> =
   | Readonly<{ kind: "toolUnavailable" }>
   | Readonly<{ kind: "model"; operation: "open" | "read"; error: E }>
   | Readonly<{ kind: "responseTooLong" }>
+  | Readonly<{ kind: "reasoningTooLong" }>
   | Readonly<{ kind: "unexpected"; operation: "open" | "read" }>;
 
 /** Failure observed while releasing a model stream. */
@@ -81,6 +84,7 @@ export type CommitTurnResult =
 /** Ordered runtime event consumed by the application reducer. */
 export type RuntimeEvent<E> =
   | Readonly<{ kind: "assistantDelta"; turnId: number; text: string }>
+  | Readonly<{ kind: "reasoningDelta"; turnId: number; text: string }>
   | Readonly<{
       kind: "toolRequested";
       turnId: number;

@@ -6,6 +6,7 @@ export {
   conversationJournalTurnRecord,
   restoreConversationJournal,
   type ConversationJournalErrorKind,
+  type ConversationJournalSchemaVersion,
   type ConversationJournalTurn,
   type ConversationJournalTurnRecord,
 } from "./conversation-journal.js";

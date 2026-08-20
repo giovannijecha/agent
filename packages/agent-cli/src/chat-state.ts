@@ -10,7 +10,7 @@ const MAX_COMPLETED_DISPLAY_CODE_UNITS =
     (MAX_CHECKPOINT_MARKER_CODE_UNITS +
       RUNTIME_LIMITS.toolSteps * TRANSCRIPT_SEPARATOR.length);
 
-export type TranscriptRole = "assistant" | "user";
+export type TranscriptRole = "assistant" | "reasoning" | "user";
 
 export type TranscriptEntry = Readonly<{
   content: string;
@@ -32,6 +32,7 @@ export type RestoredChatTurn = Readonly<{
   assistant: string;
   historyNodeId: number;
   historyParentNodeId: number;
+  reasoning?: string;
   settlement: "completed" | "checkpointed";
   user: string;
 }>;
@@ -71,20 +72,27 @@ type CompletedTurn = Readonly<{
   displayCodeUnits: number;
   historyNodeId: number;
   historyParentNodeId: number;
+  reasoning: string | undefined;
+  reasoningDocument: number | undefined;
   settlement: "completed" | "checkpointed";
   user: string;
   userDocument: number;
 }>;
 
 type ActiveTurn = {
-  readonly assistantDocument: number;
+  assistantDocument: number | undefined;
   readonly chunks: string[];
+  readonly reasoningChunks: string[];
+  readonly reasoningSegments: string[];
+  reasoningDocument: number | undefined;
   readonly segments: string[];
   readonly turnId: number;
   readonly historyParentNodeId: number;
   readonly user: string;
   readonly userDocument: number;
   preparedAssistant: string | undefined;
+  preparedReasoning: string | undefined;
+  reasoningCodeUnits: number;
   responseCodeUnits: number;
 };
 
@@ -98,12 +106,17 @@ function entry(
 
 function turnEntries(
   userDocument: number,
-  assistantDocument: number,
+  assistantDocument: number | undefined,
+  reasoningDocument: number | undefined,
   user: string,
+  reasoning: string,
   assistant: string,
 ): readonly TranscriptEntry[] {
   const entries: TranscriptEntry[] = [entry(userDocument, "user", user)];
-  if (assistant.length > 0) {
+  if (reasoning.length > 0 && reasoningDocument !== undefined) {
+    entries.push(entry(reasoningDocument, "reasoning", reasoning));
+  }
+  if (assistant.length > 0 && assistantDocument !== undefined) {
     entries.push(entry(assistantDocument, "assistant", assistant));
   }
   return Object.freeze(entries);
@@ -115,12 +128,16 @@ function tail(text: string, codeUnits: number): string {
 
 function clippedTurnEntries(
   userDocument: number,
-  assistantDocument: number,
+  assistantDocument: number | undefined,
+  reasoningDocument: number | undefined,
   user: string,
+  reasoning: string,
   assistant: string,
 ): readonly TranscriptEntry[] {
-  const fixedCodeUnits =
-    assistant.length > 0 ? TRANSCRIPT_SEPARATOR.length : 0;
+  const entryCount = 1 +
+    (reasoning.length > 0 ? 1 : 0) +
+    (assistant.length > 0 ? 1 : 0);
+  const fixedCodeUnits = (entryCount - 1) * TRANSCRIPT_SEPARATOR.length;
   const contentCodeUnits = Math.max(
     0,
     TUI_LIMITS.displayTextCodeUnits - fixedCodeUnits,
@@ -128,12 +145,18 @@ function clippedTurnEntries(
   const retainedUser = tail(user, Math.min(user.length, contentCodeUnits));
   const retainedAssistant = tail(
     assistant,
-    contentCodeUnits - retainedUser.length,
+    Math.min(assistant.length, contentCodeUnits - retainedUser.length),
+  );
+  const retainedReasoning = tail(
+    reasoning,
+    contentCodeUnits - retainedUser.length - retainedAssistant.length,
   );
   return turnEntries(
     userDocument,
     assistantDocument,
+    reasoningDocument,
     retainedUser,
+    retainedReasoning,
     retainedAssistant,
   );
 }
@@ -207,21 +230,39 @@ export class ChatState {
       ) {
         return err(new ChatStateError("invalidHistoryNode"));
       }
-      const turnCodeUnits = turn.user.length + turn.assistant.length;
+      if (
+        turn.reasoning !== undefined &&
+        (typeof turn.reasoning !== "string" ||
+          turn.reasoning.trim().length === 0)
+      ) {
+        return err(new ChatStateError("invalidHistoryNode"));
+      }
+      const turnCodeUnits =
+        turn.user.length + turn.assistant.length + (turn.reasoning?.length ?? 0);
       displayCodeUnits += turnCodeUnits;
       if (displayCodeUnits > MAX_COMPLETED_DISPLAY_CODE_UNITS) {
         return err(new ChatStateError("invalidHistoryNode"));
       }
+      const userDocument = this.#nextDocument;
+      this.#nextDocument += 1;
+      const reasoningDocument = turn.reasoning === undefined
+        ? undefined
+        : this.#nextDocument;
+      if (reasoningDocument !== undefined) this.#nextDocument += 1;
+      const assistantDocument = this.#nextDocument;
+      this.#nextDocument += 1;
       completed.push(
         Object.freeze({
           assistant: turn.assistant,
-          assistantDocument: index * 2 + 1,
+          assistantDocument,
           displayCodeUnits: turnCodeUnits,
           historyNodeId,
           historyParentNodeId: turn.historyParentNodeId,
+          reasoning: turn.reasoning,
+          reasoningDocument,
           settlement: turn.settlement,
           user: turn.user,
-          userDocument: index * 2,
+          userDocument,
         }),
       );
     }
@@ -235,7 +276,6 @@ export class ChatState {
     this.#completed.push(...completed);
     this.#completedDisplayCodeUnits = displayCodeUnits;
     this.#historyNodeId = snapshot.activeNodeId;
-    this.#nextDocument = completed.length * 2;
     return ok(undefined);
   }
 
@@ -247,6 +287,9 @@ export class ChatState {
           assistant: turn.assistant,
           historyNodeId: turn.historyNodeId,
           historyParentNodeId: turn.historyParentNodeId,
+          ...(turn.reasoning === undefined
+            ? Object.freeze({})
+            : Object.freeze({ reasoning: turn.reasoning })),
           settlement: turn.settlement,
           user: turn.user,
         })
@@ -275,22 +318,27 @@ export class ChatState {
         !this.#completed.some(
           (turn) => turn.historyNodeId === historyParentNodeId,
         )) ||
-      this.#nextDocument > Number.MAX_SAFE_INTEGER - 2
+      this.#nextDocument > Number.MAX_SAFE_INTEGER - 3
     ) {
       return err(new ChatStateError("invalidTurn"));
     }
     this.#active = {
-      assistantDocument: this.#nextDocument + 1,
+      assistantDocument: undefined,
       chunks: [],
       historyParentNodeId,
       segments: [],
+      reasoningChunks: [],
+      reasoningCodeUnits: 0,
+      reasoningDocument: undefined,
+      reasoningSegments: [],
       preparedAssistant: undefined,
+      preparedReasoning: undefined,
       responseCodeUnits: 0,
       turnId,
       user,
       userDocument: this.#nextDocument,
     };
-    this.#nextDocument += 2;
+    this.#nextDocument += 1;
     return ok(undefined);
   }
 
@@ -304,8 +352,14 @@ export class ChatState {
       return err(new ChatStateError("turnNotPrepared"));
     }
     const segment = active.chunks.join("");
+    const reasoning = active.reasoningChunks.join("");
     active.chunks.splice(0);
+    active.reasoningChunks.splice(0);
     active.responseCodeUnits = 0;
+    active.reasoningCodeUnits = 0;
+    if (reasoning.trim().length > 0) {
+      active.reasoningSegments.push(reasoning);
+    }
     if (segment.trim().length > 0) {
       active.segments.push(segment);
     }
@@ -327,17 +381,68 @@ export class ChatState {
     if (text.length > RUNTIME_LIMITS.deltaCodeUnits) {
       return err(new ChatStateError("deltaTooLong"));
     }
-    active.responseCodeUnits += text.length;
-    if (active.responseCodeUnits > RUNTIME_LIMITS.responseCodeUnits) {
-      active.responseCodeUnits -= text.length;
+    const responseCodeUnits = active.responseCodeUnits + text.length;
+    if (responseCodeUnits > RUNTIME_LIMITS.responseCodeUnits) {
       return err(new ChatStateError("responseTooLong"));
     }
+    if (
+      active.assistantDocument === undefined &&
+      this.#nextDocument > Number.MAX_SAFE_INTEGER - 1
+    ) {
+      return err(new ChatStateError("invalidTurn"));
+    }
+    if (active.assistantDocument === undefined) {
+      active.assistantDocument = this.#nextDocument;
+      this.#nextDocument += 1;
+    }
+    active.responseCodeUnits = responseCodeUnits;
     active.chunks.push(text);
     return ok(undefined);
   }
 
+  /** Appends one validated prospective reasoning chunk without joining it to the answer. */
+  appendReasoning(turnId: number, text: string): Result<void, ChatStateError> {
+    const active = this.#active;
+    if (active === undefined || active.turnId !== turnId) {
+      return err(new ChatStateError("staleTurn"));
+    }
+    if (active.preparedAssistant !== undefined) {
+      return err(new ChatStateError("turnNotPrepared"));
+    }
+    if (
+      typeof text !== "string" ||
+      text.length < 1 ||
+      text.length > RUNTIME_LIMITS.reasoningDeltaCodeUnits
+    ) {
+      return err(new ChatStateError("deltaTooLong"));
+    }
+    const reasoningCodeUnits = active.reasoningCodeUnits + text.length;
+    if (
+      reasoningCodeUnits > RUNTIME_LIMITS.reasoningResponseCodeUnits
+    ) {
+      return err(new ChatStateError("responseTooLong"));
+    }
+    if (
+      active.reasoningDocument === undefined &&
+      this.#nextDocument > Number.MAX_SAFE_INTEGER - 1
+    ) {
+      return err(new ChatStateError("invalidTurn"));
+    }
+    if (active.reasoningDocument === undefined) {
+      active.reasoningDocument = this.#nextDocument;
+      this.#nextDocument += 1;
+    }
+    active.reasoningCodeUnits = reasoningCodeUnits;
+    active.reasoningChunks.push(text);
+    return ok(undefined);
+  }
+
   /** Stages one completed response only when it exactly matches streamed text. */
-  prepare(turnId: number, assistant: string): Result<void, ChatStateError> {
+  prepare(
+    turnId: number,
+    assistant: string,
+    reasoning?: string,
+  ): Result<void, ChatStateError> {
     const active = this.#active;
     if (active === undefined || active.turnId !== turnId) {
       return err(new ChatStateError("staleTurn"));
@@ -350,13 +455,27 @@ export class ChatState {
       return err(new ChatStateError("responseTooLong"));
     }
     const streamed = active.chunks.join("");
-    if (streamed !== assistant) {
+    const streamedReasoning = active.reasoningChunks.join("");
+    if (
+      (reasoning !== undefined &&
+        (typeof reasoning !== "string" ||
+          reasoning.trim().length === 0 ||
+          reasoning.length > RUNTIME_LIMITS.reasoningResponseCodeUnits)) ||
+      streamed !== assistant ||
+      streamedReasoning !== (reasoning ?? "")
+    ) {
       active.chunks.splice(0);
+      active.reasoningChunks.splice(0);
       this.#active = undefined;
       return err(new ChatStateError("responseMismatch"));
     }
     active.chunks.splice(0);
+    active.reasoningChunks.splice(0);
     active.preparedAssistant = [...active.segments, assistant].join("\n\n");
+    active.preparedReasoning = [
+      ...active.reasoningSegments,
+      ...(reasoning === undefined ? [] : [reasoning]),
+    ].join("\n\n") || undefined;
     return ok(undefined);
   }
 
@@ -382,9 +501,15 @@ export class ChatState {
       .join("\n\n");
     const assistant =
       partial.length === 0 ? marker : partial + "\n\n" + marker;
+    const reasoning = active.reasoningSegments.join("\n\n") || undefined;
+    if (active.assistantDocument === undefined) {
+      active.assistantDocument = this.#nextDocument;
+      this.#nextDocument += 1;
+    }
     return this.#publish(
       active,
       assistant,
+      reasoning,
       historyNodeId,
       "checkpointed",
     );
@@ -403,7 +528,13 @@ export class ChatState {
     if (assistant === undefined) {
       return err(new ChatStateError("turnNotPrepared"));
     }
-    return this.#publish(active, assistant, historyNodeId, "completed");
+    return this.#publish(
+      active,
+      assistant,
+      active.preparedReasoning,
+      historyNodeId,
+      "completed",
+    );
   }
 
   /** Selects one retained display branch after the runtime accepts it. */
@@ -430,8 +561,11 @@ export class ChatState {
       return err(new ChatStateError("staleTurn"));
     }
     active.chunks.splice(0);
+    active.reasoningChunks.splice(0);
     active.segments.splice(0);
+    active.reasoningSegments.splice(0);
     active.preparedAssistant = undefined;
+    active.preparedReasoning = undefined;
     this.#active = undefined;
     return ok(undefined);
   }
@@ -441,8 +575,11 @@ export class ChatState {
     const active = this.#active;
     if (active !== undefined) {
       active.chunks.splice(0);
+      active.reasoningChunks.splice(0);
       active.segments.splice(0);
+      active.reasoningSegments.splice(0);
       active.preparedAssistant = undefined;
+      active.preparedReasoning = undefined;
     }
     this.#active = undefined;
     this.#completed.splice(0);
@@ -462,10 +599,17 @@ export class ChatState {
         [...active.segments, active.chunks.join("")]
           .filter((segment) => segment.trim().length > 0)
           .join(TRANSCRIPT_SEPARATOR);
+      const reasoning =
+        active.preparedReasoning ??
+        [...active.reasoningSegments, active.reasoningChunks.join("")]
+          .filter((segment) => segment.trim().length > 0)
+          .join(TRANSCRIPT_SEPARATOR);
       const prospective = turnEntries(
         active.userDocument,
         active.assistantDocument,
+        active.reasoningDocument,
         active.user,
+        reasoning,
         assistant,
       );
       const completeProspective = prospective
@@ -475,7 +619,9 @@ export class ChatState {
         const clipped = clippedTurnEntries(
           active.userDocument,
           active.assistantDocument,
+          active.reasoningDocument,
           active.user,
+          reasoning,
           assistant,
         );
         newest.push(clipped);
@@ -494,7 +640,9 @@ export class ChatState {
       const entries = turnEntries(
         turn.userDocument,
         turn.assistantDocument,
+        turn.reasoningDocument,
         turn.user,
+        turn.reasoning ?? "",
         turn.assistant,
       );
       const formattedLength = entryCodeUnits(entries);
@@ -556,6 +704,7 @@ export class ChatState {
   #publish(
     active: ActiveTurn,
     assistant: string,
+    reasoning: string | undefined,
     historyNodeId: number,
     settlement: "completed" | "checkpointed",
   ): Result<void, ChatStateError> {
@@ -563,24 +712,36 @@ export class ChatState {
       !Number.isSafeInteger(historyNodeId) ||
       historyNodeId !== this.#completed.length + 1 ||
       this.#completed.length >= CONVERSATION_TREE_LIMITS.turns ||
-      this.#completedDisplayCodeUnits + active.user.length + assistant.length >
+      this.#completedDisplayCodeUnits +
+          active.user.length +
+          assistant.length +
+          (reasoning?.length ?? 0) >
         MAX_COMPLETED_DISPLAY_CODE_UNITS
     ) {
+      return err(new ChatStateError("invalidHistoryNode"));
+    }
+    if (active.assistantDocument === undefined) {
       return err(new ChatStateError("invalidHistoryNode"));
     }
     const completed = Object.freeze({
       assistant,
       assistantDocument: active.assistantDocument,
-      displayCodeUnits: active.user.length + assistant.length,
+      displayCodeUnits:
+        active.user.length + assistant.length + (reasoning?.length ?? 0),
       historyNodeId,
       historyParentNodeId: active.historyParentNodeId,
+      reasoning,
+      reasoningDocument: active.reasoningDocument,
       settlement,
       user: active.user,
       userDocument: active.userDocument,
     });
     active.chunks.splice(0);
+    active.reasoningChunks.splice(0);
     active.segments.splice(0);
+    active.reasoningSegments.splice(0);
     active.preparedAssistant = undefined;
+    active.preparedReasoning = undefined;
     this.#active = undefined;
     this.#completed.push(completed);
     this.#completedDisplayCodeUnits += completed.displayCodeUnits;

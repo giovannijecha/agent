@@ -40,6 +40,7 @@ import { createPermissionsDocument } from "./permissions-view.js";
 import { createProviderCredentialDocument } from "./provider-credential-view.js";
 import { createProvidersDocument } from "./providers-view.js";
 import { createTimelineDocument } from "./timeline-view.js";
+import { createThinkingDocument } from "./thinking-view.js";
 import {
   createSpacer,
   createSpan,
@@ -80,6 +81,18 @@ function createFooter(
       if (!model.ok) return model;
       center.push(model.value);
     }
+  }
+  if (
+    application.thinkingEffort !== "off" ||
+    application.thinkingDisplay !== "off"
+  ) {
+    const thinking = createSpan(
+      " \u00b7 thinking " + application.thinkingEffort +
+        " \u00b7 stream " + application.thinkingDisplay,
+      "muted",
+    );
+    if (!thinking.ok) return thinking;
+    center.push(thinking.value);
   }
   const right = [];
   if (isMotionActive(application.phase)) {
@@ -207,6 +220,7 @@ export function createChatRender(
   const modelMenu = application.projectModelMenu();
   const providerCredential = application.projectProviderCredential();
   const timelineMenu = application.projectTimelineMenu();
+  const thinkingMenu = application.projectThinkingMenu();
   const contextCount = [
     permissionMenu,
     toolDecision,
@@ -214,6 +228,7 @@ export function createChatRender(
     modelMenu,
     providerCredential,
     timelineMenu,
+    thinkingMenu,
   ].filter((projection) => projection !== undefined).length;
   if (contextCount > 1) {
     return err(new ComponentError("invalidComponent", undefined));
@@ -244,12 +259,16 @@ export function createChatRender(
   if (!credential.ok) return credential;
   const timeline = createTimelineDocument(timelineMenu, interactionStatus);
   if (!timeline.ok) return timeline;
+  const thinking = createThinkingDocument(thinkingMenu, interactionStatus);
+  if (!thinking.ok) return thinking;
   const contextualSelection = providerMenu !== undefined
     ? providers.value
     : modelMenu !== undefined
       ? models.value
       : timelineMenu !== undefined
         ? timeline.value
+        : thinkingMenu !== undefined
+          ? thinking.value
         : permissionMenu !== undefined || toolDecision !== undefined
           ? permissions.value
           : undefined;

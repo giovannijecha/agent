@@ -27,6 +27,7 @@ import type {
   CancellationSignal,
   ModelStream,
   ModelStreamEvent,
+  ThinkingEffort,
 } from "@agent/runtime";
 import {
   ObjectSchema,
@@ -253,8 +254,14 @@ function fixture(stream: OllamaCloudTransportStream): Readonly<{
 async function open(
   model: OllamaCloudModel,
   tools: readonly ToolDescriptor[] = [],
+  thinkingEffort: ThinkingEffort = "off",
 ): Promise<ModelStream<OllamaCloudError>> {
-  const opened = await model.open(conversation(), new Cancellation(), tools);
+  const opened = await model.open(
+    conversation(),
+    new Cancellation(),
+    tools,
+    Object.freeze({ thinkingEffort }),
+  );
   assert.ok(opened.ok);
   return opened.value;
 }
@@ -320,6 +327,30 @@ test("encodes the exact native Ollama chat request and owned tool schema", async
       type: "function",
     },
   ]);
+});
+
+test("rejects every malformed thinking-effort option before transport", async () => {
+  for (const options of [
+    null,
+    Object.freeze({}),
+    Object.freeze({ thinking: "medium" }),
+    Object.freeze({ thinkingEffort: "live" }),
+    Object.freeze({ thinkingEffort: "max" }),
+    Object.freeze({ thinkingEffort: true }),
+    Object.freeze({ extra: true, thinkingEffort: "medium" }),
+  ]) {
+    const provider = fixture(new FakeStream([]));
+    const opened = await provider.model.open(
+      conversation(),
+      new Cancellation(),
+      Object.freeze([]),
+      options as never,
+    );
+
+    assert.equal(opened.ok, false);
+    if (!opened.ok) assert.equal(opened.error.reason, "request");
+    assert.equal(provider.transport.request, undefined);
+  }
 });
 
 test("projects a discriminated tool as one flat object without wire combinators", async () => {
@@ -444,6 +475,7 @@ test("encodes a completed exchange with native assistant and tool messages", asy
     undefined,
     [call.value],
     [result.value],
+    "inspect the file before replying",
   );
   assert.ok(exchange.ok);
   const history = conversation("Inspect the file.").append(exchange.value);
@@ -465,6 +497,7 @@ test("encodes a completed exchange with native assistant and tool messages", asy
   assert.deepEqual(parsed.messages.at(2), {
     content: "",
     role: "assistant",
+    thinking: "inspect the file before replying",
     tool_calls: [
       {
         function: {
@@ -482,6 +515,33 @@ test("encodes a completed exchange with native assistant and tool messages", asy
     tool_name: "read_file",
   });
   assert.equal("tool_call_id" in (parsed.messages.at(3) ?? {}), false);
+});
+
+test("encodes settled final reasoning separately in selected-path history", async () => {
+  const assistant = Message.create(
+    Role.Assistant,
+    "answer",
+    "settled reasoning",
+  );
+  assert.ok(assistant.ok);
+  const history = conversation("Question").append(assistant.value);
+  const provider = fixture(new FakeStream([]));
+
+  const opened = await provider.model.open(
+    history,
+    new Cancellation(),
+    Object.freeze([]),
+    Object.freeze({ thinkingEffort: "off" as const }),
+  );
+  assert.ok(opened.ok);
+  const parsed = JSON.parse(provider.transport.request?.body ?? "{}") as {
+    messages?: Array<Record<string, unknown>>;
+  };
+  assert.deepEqual(parsed.messages?.at(-1), {
+    content: "answer",
+    role: "assistant",
+    thinking: "settled reasoning",
+  });
 });
 
 test("normalizes absent, null, and empty native tool-call contributions", async () => {
@@ -764,6 +824,7 @@ test("does not retain thinking from a rejected native record", async () => {
       }))),
     ])).model,
     [descriptor()],
+    "high",
   );
 
   const rejected = await stream.read();
@@ -853,6 +914,67 @@ test("discards bounded thinking without exposing it as assistant text", async ()
 
   assert.deepEqual(await read(stream), { kind: "delta", text: "answer" });
   assert.deepEqual(await read(stream), { kind: "done" });
+});
+
+test("encodes every exact native thinking effort without fallback", async () => {
+  for (const [effort, expected] of [
+    ["off", false],
+    ["low", "low"],
+    ["medium", "medium"],
+    ["high", "high"],
+  ] as const) {
+    const provider = fixture(
+      new FakeStream([ok(line(response({ content: "answer" }, true)))]),
+    );
+    const stream = await open(provider.model, [], effort);
+    assert.equal(
+      (JSON.parse(provider.transport.request?.body ?? "{}") as {
+        think?: unknown;
+      }).think,
+      expected,
+    );
+    assert.deepEqual(await read(stream), { kind: "delta", text: "answer" });
+    assert.deepEqual(await read(stream), { kind: "done" });
+  }
+});
+
+test("emits native thinking for an explicit enabled effort", async () => {
+  const provider = fixture(
+    new FakeStream([
+      ok(line(response({ content: "", thinking: "private reasoning" }))),
+      ok(line(response({ content: "answer" }, true))),
+    ]),
+  );
+  const stream = await open(provider.model, [], "medium");
+
+  assert.equal(
+    (JSON.parse(provider.transport.request?.body ?? "{}") as { think?: unknown })
+      .think,
+    "medium",
+  );
+  assert.deepEqual(await read(stream), {
+    kind: "reasoningDelta",
+    text: "private reasoning",
+  });
+  assert.deepEqual(await read(stream), { kind: "delta", text: "answer" });
+  assert.deepEqual(await read(stream), { kind: "done" });
+});
+
+test("rejects late native thinking without exposing the rejected record", async () => {
+  const stream = await open(
+    fixture(new FakeStream([
+      ok(line(response({ content: "answer" }))),
+      ok(line(response({ content: "", thinking: "PRIVATE_LATE" }, true))),
+    ])).model,
+    [],
+    "high",
+  );
+
+  assert.deepEqual(await read(stream), { kind: "delta", text: "answer" });
+  const rejected = await stream.read();
+  assert.equal(rejected.ok, false);
+  if (!rejected.ok) assert.equal(rejected.error.reason, "protocolMessage");
+  assert.equal(JSON.stringify(rejected).includes("PRIVATE_LATE"), false);
 });
 
 test("classifies non-success statuses while observing cleanup", async () => {

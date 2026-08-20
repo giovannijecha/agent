@@ -71,7 +71,10 @@ is discarded on exit.
 
 Provider eligibility, model discovery, and failure behavior are covered in
 [Providers and authentication](05-providers-and-authentication.md). Tool modes
-can be changed with `/permissions`.
+can be changed with `/permissions`. Native reasoning effort and its transcript
+stream both remain `Off` by default; after selecting the provider and model,
+use `/thinking` to configure either for later turns in this process. Both values
+remain unchanged if another model is selected.
 
 ## Exit
 

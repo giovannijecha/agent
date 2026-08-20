@@ -25,7 +25,8 @@ cannot leave a partial draft or start a turn.
 ## Run commands
 
 Type `/` or a partial exact command name to open completion. The maintained
-commands are `/providers`, `/models`, `/permissions`, `/timeline`, and `/exit`.
+commands are `/providers`, `/models`, `/permissions`, `/thinking`, `/timeline`,
+and `/exit`.
 
 While completion is visible:
 
@@ -38,8 +39,8 @@ does not enter the transcript.
 
 ## Use selectors
 
-Provider, model, permission, pending-tool, and timeline selectors replace the
-composer body inside the same two rules. The dock shows at most six content
+Provider, model, permission, pending-tool, thinking, and timeline selectors
+replace the composer body inside the same two rules. The dock shows at most six content
 rows: an optional header and up to five windowed choices. The current choice
 stays visible and accented; the composer caret is absent. The draft remains
 unchanged. Printable and editing input is inert while a dismissible selector
@@ -71,6 +72,22 @@ tool decision instead shows `Allow once`, `Allow for session`, and `Deny`; Up
 and Down choose an action and Enter resolves it. See
 [Tools and permissions](04-tools-and-approval.md) for the authority each choice
 grants.
+
+`/thinking` is available only while idle after a provider and model are
+selected, and shows exactly two rows: `Stream` then `Effort`. If the provider is
+missing it directs you to `/providers`; if only the model is missing it directs
+you to `/models`. Up and Down select a row without wrapping. Left and Right
+stage Stream as `Off` or `On`, or Effort as `Off`, `Low`, `Medium`, or `High`,
+without wrapping. Enter applies both staged values atomically. Escape or Ctrl+C
+discards both staged changes. Both settings default to `Off` and remain
+unchanged when another model is selected in the same process.
+
+Effort controls later native thinking requests. Stream only controls transcript
+visibility: `Off` hides all reasoning on the selected conversation path without
+deleting it, while `On` reveals retained and prospective reasoning separately.
+Hidden settled reasoning can still enter provider history and the local session
+journal for tool continuation and resume. If a newly selected model rejects the
+retained Effort, the turn fails without retry, fallback, or settings mutation.
 
 `/timeline` is available only while idle. It navigates the root and every
 retained settled turn in insertion order through a bounded moving window, with
@@ -109,23 +126,26 @@ and confirmation; Agent never launches a browser.
 ## Read the interface
 
 The transcript is the dominant region. User requests use italic steel-blue
-text, assistant prose is neutral, and neither carries a role label or box. The
+text, assistant prose is neutral, native reasoning is muted in a separate
+unboxed segment, and none carries a role label. The
 interaction dock remains fixed between two light-blue rules. In editor focus
 its caret uses the terminal's blinking block cursor; in selection focus the
 caret is absent and the terminal cursor remains hidden rather than moving onto
 the footer or another visible row. Agent does not simulate the blink, and a
 terminal that does not support shape selection may retain its native cursor
 shape while preserving the same visibility contract.
-When a provider, model, permission, or timeline menu occupies the dock, Up and
-Down move its selection and Enter accepts the current choice. Left and Right
-change the highlighted permission only in `/permissions`. Escape or Ctrl+C
-cancels the menu and restores the unchanged draft. Other typing and editing keys
-are ignored while the menu remains open, so an accidental character neither
-closes the menu nor disappears into the composer. Page Up and Page Down continue
-to navigate the transcript.
-The footer shows the workspace and selected provider/model; its right edge
-contains a small moving pulse only while autonomous work advances. Permission
-waiting is not active motion.
+When a provider, model, permission, thinking, or timeline menu occupies the
+dock, Up and Down move its selection and Enter accepts the current choice. Left
+and Right change the highlighted permission in `/permissions` or the staged row
+value in `/thinking`. Escape or Ctrl+C cancels the menu and restores the
+unchanged draft. Cancelling `/thinking` also discards its staged values. Other
+typing and editing keys are ignored while the menu remains open, so an
+accidental character neither closes the menu nor disappears into the composer.
+Page Up and Page Down continue to navigate the transcript.
+The footer shows the workspace and selected provider/model. A non-default
+thinking pair adds its current effort and stream state. The right edge contains
+a small moving pulse only while autonomous work advances. Permission waiting is
+not active motion.
 
 Only the latest tool activity appears near the composer during an active turn.
 Its mark and written state carry success, attention, or failure color. Pending
@@ -172,3 +192,6 @@ display styling never executes code or changes model text.
 - [Interaction-dock focus decision](../decisions/0078-owned-interaction-dock-focus.md)
 - [Explicit-selector dismissal decision](../decisions/0079-owned-explicit-selector-dismissal.md)
 - [Structural manual-policy decision](../decisions/0081-owned-structural-manual-policy.md)
+- [Bounded-thinking decision](../decisions/0083-owned-bounded-thinking-stream.md)
+- [Thinking effort and display decision](../decisions/0086-owned-thinking-effort-and-display.md)
+- [Reasoning-journal decision](../decisions/0085-owned-reasoning-journal-migration.md)

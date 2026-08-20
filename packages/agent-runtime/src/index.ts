@@ -20,7 +20,9 @@ export type {
   ModelStream,
   ModelStreamEvent,
   ModelToolCall,
+  ModelTurnOptions,
   StreamingModel,
+  ThinkingEffort,
 } from "./model.js";
 export { RUNTIME_LIMITS } from "./limits.js";
 export { AgentRuntime } from "./runtime.js";

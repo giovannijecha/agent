@@ -86,6 +86,10 @@ test("selects slash completions without navigating the transcript", () => {
         description: "set session tool permissions",
       },
       {
+        command: "/thinking",
+        description: "set thinking effort and stream",
+      },
+      {
         command: "/timeline",
         description: "select conversation branch",
       },
@@ -99,10 +103,10 @@ test("selects slash completions without navigating the transcript", () => {
 test("bounds completion selection and completes with Tab without executing", () => {
   const session = new SessionController();
   session.feed("/");
-  const bounded = session.feed("\u001B[A[B[B[B[B");
+  const bounded = session.feed("\u001B[A[B[B[B[B[B");
 
   assert.equal(bounded.redraw, true);
-  assert.equal(session.projectCommandCompletion()?.selectedIndex, 4);
+  assert.equal(session.projectCommandCompletion()?.selectedIndex, 5);
   const completed = session.feed("\t");
   assert.deepEqual(completed, { actions: [], redraw: true });
   assert.equal(session.projectEditor(20).text, "/exit");
@@ -166,6 +170,7 @@ test("keeps non-selector keys inert until each contextual selector is dismissed"
     Object.freeze({ close: "closePermissions", context: "permissions" }),
     Object.freeze({ close: "closeProviders", context: "providers" }),
     Object.freeze({ close: "closeModels", context: "models" }),
+    Object.freeze({ close: "closeThinking", context: "thinking" }),
     Object.freeze({ close: "closeTimeline", context: "timeline" }),
   ]);
 
@@ -199,6 +204,26 @@ test("keeps non-selector keys inert until each contextual selector is dismissed"
     assert.equal(session.projectEditor(40).text, "retained draft");
     assert.equal(escaped.redraw, false);
   }
+});
+
+test("routes horizontal thinking changes through the contextual selector", () => {
+  const session = new SessionController();
+  const actions: SessionAction[] = [];
+  const reduction: SessionReductionPort = {
+    apply: (action) => actions.push(action),
+    context: () => "thinking",
+    editorRedrawn: () => undefined,
+  };
+
+  session.feed("\u001B[D\u001B[C\u001B[B\u001B[A\r", 0, reduction);
+
+  assert.deepEqual(actions, [
+    { direction: "less", kind: "changeThinkingSetting" },
+    { direction: "more", kind: "changeThinkingSetting" },
+    { direction: "next", kind: "moveContextSelection" },
+    { direction: "previous", kind: "moveContextSelection" },
+    { kind: "activateContextSelection" },
+  ]);
 });
 
 test("preserves batched shutdown controls after an interrupt", () => {

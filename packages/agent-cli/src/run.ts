@@ -622,7 +622,7 @@ async function applyEffect<E, RE>(
       return Object.freeze({ exit: false, failure: undefined, redraw: true });
     }
     try {
-      const started = runtime.startTurn(effect.text);
+      const started = runtime.startTurn(effect.text, effect.effort);
       if (!started.ok) {
         application.turnRejected(started.error);
         return Object.freeze({ exit: false, failure: undefined, redraw: true });

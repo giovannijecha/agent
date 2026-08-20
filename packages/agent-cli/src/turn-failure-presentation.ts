@@ -61,6 +61,9 @@ function failureCode<E>(failure: TurnFailure<E>): string {
   if (kind === "emptyDelta") {
     return "model/empty-delta";
   }
+  if (kind === "emptyReasoningDelta") {
+    return "model/empty-reasoning-delta";
+  }
   if (kind === "emptyResponse") {
     return "model/empty-response";
   }
@@ -70,11 +73,15 @@ function failureCode<E>(failure: TurnFailure<E>): string {
   if (kind === "responseTooLong") {
     return "model/response-limit";
   }
+  if (kind === "reasoningTooLong") {
+    return "model/reasoning-limit";
+  }
   return "runtime/failure";
 }
 
 const FIXED_TURN_FAILURE_CODES = Object.freeze([
   "model/empty-delta",
+  "model/empty-reasoning-delta",
   "model/empty-response",
   "model/event-limit",
   "model/open/invalid-result",
@@ -84,6 +91,7 @@ const FIXED_TURN_FAILURE_CODES = Object.freeze([
   "model/read/invalid-result",
   "model/read/unexpected",
   "model/response-limit",
+  "model/reasoning-limit",
   "runtime/failure",
   "tool/engine",
   "tool/invalid-call",

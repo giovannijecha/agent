@@ -1,10 +1,10 @@
 # 0083: Owned bounded thinking stream
 
-- Status: accepted
+- Status: superseded
 - Date: 2026-08-19
 - Domain: architecture
 - Supersedes: none
-- Superseded by: none
+- Superseded by: 0086
 
 ## Context
 

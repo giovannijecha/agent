@@ -13,7 +13,11 @@ export const Role = Object.freeze({
 } as const);
 
 export type Role = "assistant" | "system" | "user";
-export type MessageErrorKind = "blank" | "invalidContent" | "invalidRole";
+export type MessageErrorKind =
+  | "blank"
+  | "invalidContent"
+  | "invalidReasoning"
+  | "invalidRole";
 
 export class MessageError {
   readonly #kind: MessageErrorKind;
@@ -30,15 +34,21 @@ export class MessageError {
 
 export class Message {
   readonly #content: string;
+  readonly #reasoning: string | undefined;
   readonly #role: Role;
 
-  private constructor(role: Role, content: string) {
+  private constructor(role: Role, content: string, reasoning?: string) {
     this.#role = role;
     this.#content = content;
+    this.#reasoning = reasoning;
     Object.freeze(this);
   }
 
-  static create(role: Role, content: string): Result<Message, MessageError> {
+  static create(
+    role: Role,
+    content: string,
+    reasoning?: string,
+  ): Result<Message, MessageError> {
     if (
       role !== Role.System &&
       role !== Role.User &&
@@ -52,11 +62,23 @@ export class Message {
     if (content.trim().length === 0) {
       return err(new MessageError("blank"));
     }
-    return ok(new Message(role, content));
+    if (
+      reasoning !== undefined &&
+      (role !== Role.Assistant ||
+        typeof reasoning !== "string" ||
+        reasoning.trim().length === 0)
+    ) {
+      return err(new MessageError("invalidReasoning"));
+    }
+    return ok(new Message(role, content, reasoning));
   }
 
   get content(): string {
     return this.#content;
+  }
+
+  get reasoning(): string | undefined {
+    return this.#reasoning;
   }
 
   get role(): Role {
@@ -202,6 +224,7 @@ export type ToolExchangeErrorKind =
   | "empty"
   | "invalidAssistant"
   | "invalidEntry"
+  | "invalidReasoning"
   | "mismatchedResult"
   | "tooManyCalls";
 
@@ -222,16 +245,19 @@ export class ToolExchangeError {
 export class ToolExchange {
   readonly #assistant: Message | undefined;
   readonly #calls: readonly ToolCall[];
+  readonly #reasoning: string | undefined;
   readonly #results: readonly ToolResult[];
 
   private constructor(
     assistant: Message | undefined,
     calls: readonly ToolCall[],
     results: readonly ToolResult[],
+    reasoning?: string,
   ) {
     this.#assistant = assistant;
     this.#calls = Object.freeze([...calls]);
     this.#results = Object.freeze([...results]);
+    this.#reasoning = reasoning;
     Object.freeze(this);
   }
 
@@ -239,13 +265,22 @@ export class ToolExchange {
     assistant: Message | undefined,
     calls: readonly ToolCall[],
     results: readonly ToolResult[],
+    reasoning?: string,
   ): Result<ToolExchange, ToolExchangeError> {
     try {
       if (
         assistant !== undefined &&
-        (!(assistant instanceof Message) || assistant.role !== Role.Assistant)
+        (!(assistant instanceof Message) ||
+          assistant.role !== Role.Assistant ||
+          assistant.reasoning !== undefined)
       ) {
         return err(new ToolExchangeError("invalidAssistant"));
+      }
+      if (
+        reasoning !== undefined &&
+        (typeof reasoning !== "string" || reasoning.trim().length === 0)
+      ) {
+        return err(new ToolExchangeError("invalidReasoning"));
       }
       if (!Array.isArray(calls) || !Array.isArray(results)) {
         return err(new ToolExchangeError("invalidEntry"));
@@ -278,7 +313,7 @@ export class ToolExchange {
         ownedCalls.push(call);
         ownedResults.push(result);
       }
-      return ok(new ToolExchange(assistant, ownedCalls, ownedResults));
+      return ok(new ToolExchange(assistant, ownedCalls, ownedResults, reasoning));
     } catch (_cause: unknown) {
       return err(new ToolExchangeError("invalidEntry"));
     }
@@ -292,6 +327,10 @@ export class ToolExchange {
     return this.#calls;
   }
 
+  get reasoning(): string | undefined {
+    return this.#reasoning;
+  }
+
   get results(): readonly ToolResult[] {
     return this.#results;
   }
@@ -302,9 +341,10 @@ export type ConversationEntry = Message | ToolExchange;
 /** Returns retained text units for deterministic conversation limits. */
 export function conversationEntryCodeUnits(entry: ConversationEntry): number {
   if (entry instanceof Message) {
-    return entry.content.length;
+    return entry.content.length + (entry.reasoning?.length ?? 0);
   }
-  let codeUnits = entry.assistant?.content.length ?? 0;
+  let codeUnits =
+    (entry.assistant?.content.length ?? 0) + (entry.reasoning?.length ?? 0);
   for (const call of entry.calls) {
     codeUnits += call.callId.length + call.name.length + call.input.codeUnits;
   }
