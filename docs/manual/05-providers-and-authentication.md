@@ -31,6 +31,8 @@ The selector lists only bounded catalog records whose exact non-empty `name`
 equals `model`. Model identifiers are dynamic provider authority, not a local
 allowlist or alias. Selecting one sets the active process-local model with the
 `cloud` cost label. A stale previous catalog cannot authorize a later selection.
+Every accepted model selection preserves the current process-only `/thinking`
+Stream and Effort values.
 
 ## Switch the session
 
@@ -46,6 +48,15 @@ failed request. Starting a new process returns to no selected provider and no
 selected model unless the credential environment variable is present; selection
 still remains explicit.
 
+After selecting a provider and model, run `/thinking` while idle to configure
+two session-only rows. Effort is `Off`, `Low`, `Medium`, or `High`; Stream is
+`Off` or `On`; both default to `Off`. Effort maps exactly to Ollama's native
+`false`, `"low"`, `"medium"`, or `"high"` thinking request and remains fixed
+across tool continuations. Stream controls only whether the separate reasoning
+documents are visible. Both settings survive later model selections in the
+same process. They do not infer model capability or authorize retry or
+fallback; an unsupported retained effort fails explicitly and remains selected.
+
 ## Protect credentials and content
 
 Agent accepts the Ollama key only through the concealed editor or
@@ -54,8 +65,10 @@ files or logs, projects its value or length, or exposes it in errors.
 
 The authenticated catalog request necessarily sends the key to Ollama Cloud,
 but no task content. Each chat turn sends the bounded conversation, current user
-input, lean system instruction, current tool schemas, and checkpointed tool
-results to exactly `https://ollama.com/api/chat`. Do not submit secrets,
+input, lean system instruction, current tool schemas, checkpointed tool results,
+and settled native reasoning needed for selected-path continuity to exactly
+`https://ollama.com/api/chat`. When Effort is enabled, that request also asks
+for new native reasoning even if Stream is `Off`. Do not submit secrets,
 personal data, or confidential content unless Ollama's current terms are
 acceptable. Provider availability, pricing, retention, and data use can change
 and are outside Agent's guarantees.
@@ -79,6 +92,9 @@ admission.
 - `model/read` means an opened stream failed while being consumed. If a tool
   checkpoint had already completed, that tool truth remains committed; do not
   repeat the effect implicitly.
+- `model/empty-reasoning-delta` or `model/reasoning-limit` means native
+  reasoning violated a separate runtime bound; no prospective response segment
+  was committed.
 - `cancelled`, `connectivity`, `lifecycle`, `limit`, `protocol`, `rejected`,
   `request`, and `timeout` are intentionally content-free failure families.
 - For `model/open`, `request` identifies a client-request contract failure;
@@ -141,5 +157,7 @@ fall back to another endpoint after a catalog or chat failure.
 - [Ollama Cloud provider decision](../decisions/0072-owned-ollama-cloud-provider.md)
 - [Provider HTTP outcome decision](../decisions/0080-owned-provider-http-outcome-classification.md)
 - [Ollama tool-stream normalization decision](../decisions/0082-owned-ollama-tool-stream-normalization.md)
+- [Bounded-thinking decision](../decisions/0083-owned-bounded-thinking-stream.md)
+- [Reasoning-journal decision](../decisions/0085-owned-reasoning-journal-migration.md)
 - [Ephemeral provider and model selection decision](../decisions/0068-owned-ephemeral-provider-and-model-selection.md)
 - [Tool-call interoperability decision](../decisions/0069-owned-tool-call-interoperability.md)

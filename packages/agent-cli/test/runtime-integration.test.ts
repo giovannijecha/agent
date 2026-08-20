@@ -800,8 +800,15 @@ test("publishes one settled runtime turn into the resumable CLI journal", async 
   assert.equal(opened.ok, true);
   if (!opened.ok) return;
   let readStep = 0;
+  const thinkingEfforts: string[] = [];
   const runtime = new AgentRuntime<string>({
-    async open(): Promise<Result<ModelStream<string>, string>> {
+    async open(
+      _conversation,
+      _cancellation,
+      _tools,
+      options,
+    ): Promise<Result<ModelStream<string>, string>> {
+      thinkingEfforts.push(options.thinkingEffort);
       return ok({
         async close(): Promise<Result<void, string>> {
           return ok(undefined);
@@ -809,18 +816,24 @@ test("publishes one settled runtime turn into the resumable CLI journal", async 
         async read(): Promise<Result<ModelStreamEvent, string>> {
           readStep += 1;
           return readStep === 1
-            ? ok(Object.freeze({ kind: "delta" as const, text: "answer" }))
-            : ok(Object.freeze({ kind: "done" as const }));
+            ? ok(Object.freeze({
+                kind: "reasoningDelta" as const,
+                text: "bounded reasoning",
+              }))
+            : readStep === 2
+              ? ok(Object.freeze({ kind: "delta" as const, text: "answer" }))
+              : ok(Object.freeze({ kind: "done" as const }));
         },
       });
     },
   });
   const host = new ControlledHost();
+  const providers = new ControlledProviders();
   try {
     const running = run(
       host,
       runtime,
-      undefined,
+      providers,
       workspace,
       undefined,
       undefined,
@@ -832,10 +845,15 @@ test("publishes one settled runtime turn into the resumable CLI journal", async 
     );
     await host.started.promise;
     await host.waitForWrites(1);
+    host.emit(input("/thinking\r"));
+    await host.waitForWrites(2);
+    host.emit(input("\u001B[C\u001B[B\u001B[C\r"));
+    await host.waitForWrites(3);
     host.emit(input("question\r"));
-    await host.waitForWrites(4);
+    await host.waitForWrites(7);
     host.emit(input("\u0003"));
     assert.equal((await running).ok, true);
+    assert.deepEqual(thinkingEfforts, ["low"]);
 
     const resumed = await SessionJournal.resumeLatest(stateRoot, workspace);
     assert.equal(resumed.ok, true);
@@ -847,11 +865,64 @@ test("publishes one settled runtime turn into the resumable CLI journal", async 
         ),
         ["question", "answer"],
       );
+      const assistant = resumed.value.history.conversation.entries.at(1);
+      assert.equal(
+        assistant instanceof Message ? assistant.reasoning : undefined,
+        "bounded reasoning",
+      );
+      assert.deepEqual(
+        resumed.value.chat.turns.at(0)?.reasoning,
+        "bounded reasoning",
+      );
       assert.equal(await resumed.value.journal.close().then((value) => value.ok), true);
     }
   } finally {
     await rm(stateRoot, { force: true, recursive: true });
   }
+});
+
+test("settles all-whitespace reasoning without an application invariant", async () => {
+  let readStep = 0;
+  const runtime = new AgentRuntime<string>({
+    async open(): Promise<Result<ModelStream<string>, string>> {
+      return ok({
+        async close(): Promise<Result<void, string>> {
+          return ok(undefined);
+        },
+        async read(): Promise<Result<ModelStreamEvent, string>> {
+          readStep += 1;
+          return readStep === 1
+            ? ok(Object.freeze({
+                kind: "reasoningDelta" as const,
+                text: " \t",
+              }))
+            : readStep === 2
+              ? ok(Object.freeze({ kind: "delta" as const, text: "answer" }))
+              : ok(Object.freeze({ kind: "done" as const }));
+        },
+      });
+    },
+  });
+  const host = new ControlledHost();
+  const running = run(host, runtime, new ControlledProviders());
+  await host.started.promise;
+  await host.waitForWrites(1);
+
+  host.emit(input("/thinking\r"));
+  await host.waitForWrites(2);
+  host.emit(input("\u001B[B\u001B[C\r"));
+  await host.waitForWrites(3);
+  host.emit(input("question\r"));
+  await host.waitForWrites(6);
+
+  assert.equal(runtime.activeTurnId, undefined);
+  assert.equal(runtime.conversation.length, 0);
+  assert.equal(
+    host.writes.join("").includes("model/empty-reasoning-delta"),
+    true,
+  );
+  host.emit(input("\u0003"));
+  assert.equal((await running).ok, true);
 });
 
 test("persists a checkpoint settled during cleanup before closing the journal", async () => {

@@ -3,7 +3,9 @@ import type {
   CancellationSignal,
   ModelStream,
   ModelStreamEvent,
+  ModelTurnOptions,
   StreamingModel,
+  ThinkingEffort,
 } from "@agent/runtime";
 import type { ToolDescriptor } from "@agent/tools";
 
@@ -151,9 +153,13 @@ class OllamaCloudStream implements ModelStream<OllamaCloudError> {
   #reading = false;
   #terminal = false;
 
-  constructor(transport: OwnedTransportStream, model: OllamaCloudModelId) {
+  constructor(
+    transport: OwnedTransportStream,
+    model: OllamaCloudModelId,
+    thinkingEffort: ThinkingEffort,
+  ) {
     this.#transport = transport;
-    this.#chat = new OllamaChatDecoder(model);
+    this.#chat = new OllamaChatDecoder(model, thinkingEffort !== "off");
   }
 
   read(): Promise<Result<ModelStreamEvent, OllamaCloudError>> {
@@ -194,7 +200,9 @@ class OllamaCloudStream implements ModelStream<OllamaCloudError> {
       while (!this.#closed) {
         const queued = this.#events.shift();
         if (queued !== undefined) {
-          if (queued.kind !== "delta") this.#terminal = true;
+          if (queued.kind === "done" || queued.kind === "toolCalls") {
+            this.#terminal = true;
+          }
           return ok(queued);
         }
 
@@ -308,9 +316,39 @@ export class OllamaCloudModel implements StreamingModel<OllamaCloudError> {
     conversation: Conversation,
     cancellation: CancellationSignal,
     tools: readonly ToolDescriptor[],
+    options: ModelTurnOptions = Object.freeze({ thinkingEffort: "off" }),
   ): Promise<Result<ModelStream<OllamaCloudError>, OllamaCloudError>> {
     if (cancellation.requested) return err(modelError("open", "cancelled"));
-    const body = encodeRequest(conversation, this.#instructions, tools, this.#model);
+    let thinkingEffort: ThinkingEffort;
+    try {
+      if (
+        options === null ||
+        typeof options !== "object" ||
+        Object.keys(options).sort().join(",") !== "thinkingEffort"
+      ) {
+        return err(modelError("open", "request"));
+      }
+      const candidate = (options as Readonly<{ thinkingEffort?: unknown }>)
+        .thinkingEffort;
+      if (
+        candidate !== "off" &&
+        candidate !== "low" &&
+        candidate !== "medium" &&
+        candidate !== "high"
+      ) {
+        return err(modelError("open", "request"));
+      }
+      thinkingEffort = candidate;
+    } catch (_cause: unknown) {
+      return err(modelError("open", "request"));
+    }
+    const body = encodeRequest(
+      conversation,
+      this.#instructions,
+      tools,
+      this.#model,
+      thinkingEffort,
+    );
     if (!body.ok) return err(modelError("open", wireReason(body.error)));
     const request: OllamaCloudTransportRequest = Object.freeze({ body: body.value });
     let opened: Result<OllamaCloudTransportStream, OllamaCloudTransportError> | undefined;
@@ -337,6 +375,6 @@ export class OllamaCloudModel implements StreamingModel<OllamaCloudError> {
     if (!validContentType(stream.contentType)) {
       return err(modelError("open", "contentType", await closeTransport(stream)));
     }
-    return ok(new OllamaCloudStream(stream, this.#model));
+    return ok(new OllamaCloudStream(stream, this.#model, thinkingEffort));
   }
 }

@@ -34,9 +34,11 @@ const CASES = [
   [{ kind: "toolLimit" }, "tool/limit"],
   [{ kind: "toolUnavailable" }, "tool/unavailable"],
   [{ kind: "emptyDelta" }, "model/empty-delta"],
+  [{ kind: "emptyReasoningDelta" }, "model/empty-reasoning-delta"],
   [{ kind: "emptyResponse" }, "model/empty-response"],
   [{ kind: "eventLimit" }, "model/event-limit"],
   [{ kind: "responseTooLong" }, "model/response-limit"],
+  [{ kind: "reasoningTooLong" }, "model/reasoning-limit"],
 ] as const satisfies readonly (readonly [TurnFailure<string>, string])[];
 
 test("maps every admitted turn failure to one content-free closed code", () => {

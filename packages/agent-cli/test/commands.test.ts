@@ -13,6 +13,7 @@ test("exposes the exact owned commands", () => {
     kind: "permissions",
   });
   assert.deepEqual(executeSubmission("/models"), { kind: "models" });
+  assert.deepEqual(executeSubmission("/thinking"), { kind: "thinking" });
   assert.deepEqual(executeSubmission("/timeline"), { kind: "timeline" });
   assert.equal(executeSubmission("/approve").kind, "notice");
   assert.equal(executeSubmission("/deny").kind, "notice");
@@ -22,16 +23,31 @@ test("exposes the exact owned commands", () => {
 test("uses one canonical catalog for exact dispatch and completion", () => {
   assert.deepEqual(
     COMMANDS.map((definition) => definition.command),
-    ["/providers", "/models", "/permissions", "/timeline", "/exit"],
+    [
+      "/providers",
+      "/models",
+      "/permissions",
+      "/thinking",
+      "/timeline",
+      "/exit",
+    ],
   );
   assert.equal(executeSubmission("/providers").kind, "providers");
   assert.equal(executeSubmission("/models").kind, "models");
   assert.equal(executeSubmission("/permissions").kind, "permissions");
+  assert.equal(executeSubmission("/thinking").kind, "thinking");
   assert.equal(executeSubmission("/timeline").kind, "timeline");
   assert.equal(executeSubmission("/exit").kind, "exit");
   assert.deepEqual(
     commandCompletions("/").map((definition) => definition.command),
-    ["/providers", "/models", "/permissions", "/timeline", "/exit"],
+    [
+      "/providers",
+      "/models",
+      "/permissions",
+      "/thinking",
+      "/timeline",
+      "/exit",
+    ],
   );
   assert.deepEqual(
     commandCompletions("/p").map((definition) => definition.command),

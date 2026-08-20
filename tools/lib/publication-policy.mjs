@@ -37,6 +37,9 @@ const EXPECTED_DOCUMENTS = Object.freeze([
   "docs/decisions/0074-owned-deterministic-read-overlap.md",
   "docs/decisions/0075-owned-branching-conversation-tree.md",
   "docs/decisions/0076-owned-bounded-session-journal.md",
+  "docs/decisions/0083-owned-bounded-thinking-stream.md",
+  "docs/decisions/0085-owned-reasoning-journal-migration.md",
+  "docs/decisions/0086-owned-thinking-effort-and-display.md",
   "assets/brand/README.md",
   "docs/BRAND.md",
   "docs/decisions/0037-canonical-agent-brand.md",
@@ -185,8 +188,8 @@ function validateProvenanceLog(policy, context) {
     "[thinking capability](https://docs.ollama.com/capabilities/thinking), " +
     "[tool calling](https://docs.ollama.com/capabilities/tool-calling), and " +
     "[streaming](https://docs.ollama.com/capabilities/streaming) | " +
-    "Native request control, separate streamed reasoning field, and reasoning continuity in assistant history | " +
-    "Independently specified the disabled-by-default, bounded, non-executable thinking-stream reservation under decision 0083 | " +
+    "Native boolean and low, medium, and high request controls, separate streamed reasoning field, and reasoning continuity in assistant history | " +
+    "Independently specified and implemented disabled-by-default bounded reasoning effort, independent transcript display, non-executable reasoning, and exact journal migration under decisions 0086 and 0085 | " +
     "None; no SDK, CLI, executable, source, sample, fixture, prompt, response, model identifier, product identity, or implementation structure reused |";
   if (!entries.includes(ollamaThinkingEntry)) {
     fail("Ollama thinking provenance contract is missing or incomplete");
@@ -412,9 +415,9 @@ function validatePublicDocuments(context) {
       "The Ollama API key is accepted only through the\nzero-projection TUI credential context or `AGENT_OLLAMA_API_KEY` and remains in\nprocess memory.",
       "Fixture inputs may enumerate public numeric status codes solely to prove the\nclosed mapping; those inputs are not returned diagnostics and contain no\ncaptured provider response.",
       "Persistent storage requires a separate accepted\noperating-system vault design.",
-      "An explicit interactive `agent` launch creates a version-one local session\njournal outside the workspace.",
-      "`agent resume --latest` restores the newest\ninactive journal for the exact canonical workspace",
-      "It excludes provider credentials, catalogs, provider/model\nselection, permission policy, drafts, streamed or speculative output",
+      "An explicit interactive `agent` launch creates a version-two local session\njournal outside the workspace.",
+      "`agent resume --latest` restores the newest\ninactive version-one or version-two journal for the exact canonical workspace",
+      "It excludes provider credentials, catalogs, provider/model\nselection, thinking settings, permission policy, drafts, streamed or speculative\noutput",
       "Closing the current process releases its in-memory conversation, display state,\nselection state, key reference, and session lock.",
     ],
     "privacy policy",

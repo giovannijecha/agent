@@ -97,15 +97,24 @@ Provider availability, model availability, pricing, retention, and data use are
 Ollama terms rather than `agent` guarantees and may change. Recheck the official
 terms before submitting sensitive material.
 
-### Reserved native thinking boundary
+### Native thinking boundary
 
-The admitted native contract can carry reasoning separately from assistant
-content, but the current request fixes `think: false` and the product exposes no
-reasoning stream. Decision 0083 reserves a future provider-neutral bounded
-field only. Native reasoning may never be reconstructed from assistant text,
-tags, or call-shaped content, and it cannot activate through a catalog entry or
-model-specific compatibility rule. Activation requires the separate journal
-schema and complete lifecycle evidence named by that decision.
+The admitted native contract carries reasoning separately from assistant
+content. `/thinking` explicitly sets session-only Effort to `Off`, `Low`,
+`Medium`, or `High` and Stream display to `Off` or `On`. The adapter maps effort
+only to native `think: false`, `"low"`, `"medium"`, or `"high"`, validates the
+complete record, and emits native reasoning through the separate
+provider-neutral event. Effort is fixed across a turn and its tool
+continuations. The editor requires a configured provider and selected model;
+both values then remain unchanged through later model selections in that
+process. A model that rejects the retained effort fails explicitly without a
+retry, fallback, or settings mutation.
+
+Native reasoning is never reconstructed from assistant text, tags, or
+call-shaped content, and it cannot activate through a catalog entry or
+model-specific compatibility rule. Decisions 0086 and 0085 own its independent
+bounds, settled selected-path continuity, exact journal migration, privacy,
+rollback, and removal.
 
 ## Blocked subscription OAuth providers
 

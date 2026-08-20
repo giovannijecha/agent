@@ -1,6 +1,7 @@
 import type {
   CancellationSignal,
   ModelStream,
+  ModelTurnOptions,
   StreamingModel,
 } from "@agent/runtime";
 import type { Conversation, Result } from "@agent/core";
@@ -349,12 +350,13 @@ export class ProviderSession<E> implements StreamingModel<E> {
     conversation: Conversation,
     cancellation: CancellationSignal,
     tools: readonly ToolDescriptor[],
+    options: ModelTurnOptions,
   ): Promise<Result<ModelStream<E>, E>> {
     const model = this.#active()?.model;
     if (model === undefined) {
       throw new ProviderSessionError("modelNotSelected");
     }
-    return model.open(conversation, cancellation, tools);
+    return model.open(conversation, cancellation, tools, options);
   }
 
   #active(): RetainedProvider<E> | undefined {

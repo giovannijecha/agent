@@ -1353,6 +1353,83 @@ test("renders the current-session provider selector without a box", () => {
   );
 });
 
+test("renders the exact two-row thinking settings in the interaction dock", () => {
+  const application = new ApplicationController(true, configuredProviders());
+  application.feed("/thinking\r");
+
+  const rendered = frame(application, 72, 16);
+  assert.ok(rendered.ok);
+  const rows = rendered.value.rows;
+  const stream = rows.find((row) => row.text.includes("Stream"));
+  const effort = rows.find((row) => row.text.includes("Effort"));
+
+  assert.equal(rows.some((row) => row.text.includes("Thinking")), true);
+  assert.equal(rows.some((row) => row.text.includes("current session")), true);
+  assert.equal(stream?.text.includes("Off"), true);
+  assert.equal(effort?.text.includes("Off"), true);
+  assert.equal(rendered.value.caret, undefined);
+});
+
+test("renders live reasoning as muted transcript content with footer state", () => {
+  const application = new ApplicationController(true, configuredProviders());
+  application.feed("/thinking\r\u001B[C\u001B[B\u001B[C\r");
+  assert.ok(application.turnAccepted(started(92, "question")).ok);
+  assert.ok(application.applyRuntime(Object.freeze({
+    kind: "reasoningDelta" as const,
+    text: "bounded reasoning",
+    turnId: 92,
+  })).ok);
+  assert.ok(application.applyRuntime(Object.freeze({
+    kind: "assistantDelta" as const,
+    text: "answer",
+    turnId: 92,
+  })).ok);
+
+  const rendered = frame(application, 72, 18);
+  assert.ok(rendered.ok);
+  const reasoning = rendered.value.rows.find((row) =>
+    row.text.includes("bounded reasoning")
+  );
+  assert.ok(reasoning !== undefined);
+  assert.equal(
+    reasoning.spans
+      .filter((span) => span.text.includes("bounded reasoning"))
+      .every((span) => span.tone === "muted"),
+    true,
+  );
+  assert.equal(
+    rendered.value.rows.at(-1)?.text.includes("thinking low · stream on"),
+    true,
+  );
+});
+
+test("keeps reasoning out of the rendered conversation when stream is off", () => {
+  const application = new ApplicationController(true, configuredProviders());
+  application.feed("/thinking\r\u001B[B\u001B[C\r");
+  assert.ok(application.turnAccepted(started(93, "question")).ok);
+  assert.ok(application.applyRuntime(Object.freeze({
+    kind: "reasoningDelta" as const,
+    text: "hidden reasoning",
+    turnId: 93,
+  })).ok);
+  assert.ok(application.applyRuntime(Object.freeze({
+    kind: "assistantDelta" as const,
+    text: "answer",
+    turnId: 93,
+  })).ok);
+
+  const rendered = frame(application, 72, 18);
+  assert.ok(rendered.ok);
+  assert.equal(
+    rendered.value.rows.some((row) => row.text.includes("hidden reasoning")),
+    false,
+  );
+  assert.equal(
+    rendered.value.rows.at(-1)?.text.includes("thinking low · stream off"),
+    true,
+  );
+});
+
 test("keeps composer copy feedback visible while a selector retains the dock", () => {
   const application = new ApplicationController(true, configuredProviders());
   application.feed("retained draft");

@@ -21,6 +21,8 @@ runtime packages.
 - Ask for one explicit permission decision for every planned write or execution.
 - Connect Ollama Cloud and select an available cloud model for the current process.
 - Stream one checkpointed model-and-tool loop through a conversation-first TUI.
+- Set bounded native reasoning effort independently from whether its distinct
+  transcript segment is shown.
 - Retain bounded alternate conversation branches in a local durable journal,
   select one active path, and resume the latest workspace session.
 - Verify the complete repository and grade maintained task fixtures offline.
@@ -71,6 +73,7 @@ for the complete workflow and failure contract.
 | `/providers` | Configure or select a session provider |
 | `/models` | Load and select an admitted provider model |
 | `/permissions` | Edit session-only tool permissions |
+| `/thinking` | Set session thinking `Stream` and `Effort` |
 | `/timeline` | Select a retained conversation branch |
 | `/exit` | Close `agent` |
 
@@ -85,11 +88,20 @@ model, permission, and command choices reuse one compact selection path. The
 [terminal-interface manual](docs/manual/03-terminal-interface.md) owns the full
 editing, layout, pointer, color, motion, and failure behavior.
 
+`/thinking` is session-only and exposes exactly two rows. `Stream` is `Off` or
+`On`; `Effort` is `Off`, `Low`, `Medium`, or `High`. Both default to `Off`.
+The editor opens only after a provider and model are selected. Effort controls
+the exact native request while Stream only hides or shows the separate muted
+reasoning documents. Hidden settled reasoning is still retained when required
+for tool continuation and resume. Both settings remain unchanged when another
+model is selected, but are not persisted across processes.
+
 `/timeline` shows the retained root and settled turns. Selecting an older
 node changes the transcript and the context for the next task; appending then
 creates a sibling branch without deleting later nodes. It never replays tools,
 and an accepted selection updates the local session head. Only settled turns
-are journaled; credentials, provider/model state, permissions, drafts, and
+are journaled, including settled native reasoning from opted-in turns;
+credentials, provider/model state, thinking settings, permissions, drafts, and
 provisional output remain process-only. See [Privacy](PRIVACY.md#local-sessions)
 for storage locations, bounds, and deletion.
 

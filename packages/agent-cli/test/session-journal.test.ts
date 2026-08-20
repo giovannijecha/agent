@@ -21,21 +21,64 @@ import {
   SessionJournal,
 } from "../dist/session-journal.js";
 
-function message(role: "assistant" | "user", content: string) {
-  const created = Message.create(role, content);
+function message(
+  role: "assistant" | "user",
+  content: string,
+  reasoning?: string,
+) {
+  const created = Message.create(role, content, reasoning);
   assert.equal(created.ok, true);
   if (!created.ok) throw new Error("message fixture failed");
   return created.value;
 }
 
-function oneTurn(): ConversationTree {
+function oneTurn(reasoning?: string): ConversationTree {
   const appended = ConversationTree.empty().appendTurn(
-    [message(Role.User, "question"), message(Role.Assistant, "answer")],
+    [
+      message(Role.User, "question"),
+      message(Role.Assistant, "answer", reasoning),
+    ],
     "completed",
   );
   assert.equal(appended.ok, true);
   if (!appended.ok) throw new Error("tree fixture failed");
   return appended.value;
+}
+
+async function rewriteAsVersionOne(directory: string): Promise<void> {
+  const journalPath = path.join(directory, "journal.jsonl");
+  const lines = (await readFile(journalPath, { encoding: "utf8" }))
+    .trimEnd()
+    .split("\n");
+  const header = JSON.parse(lines.at(0) ?? "null") as Record<string, unknown>;
+  header.version = 1;
+  const rewritten = [JSON.stringify(header)];
+  for (let index = 1; index < lines.length; index += 1) {
+    const stored = JSON.parse(lines.at(index) ?? "null") as {
+      turn?: { entries?: Array<Record<string, unknown>> };
+    };
+    for (const entry of stored.turn?.entries ?? []) {
+      delete entry.reasoning;
+      const assistant = entry.assistant;
+      if (assistant !== null && typeof assistant === "object") {
+        delete (assistant as Record<string, unknown>).reasoning;
+      }
+    }
+    rewritten.push(JSON.stringify(stored));
+  }
+  await writeFile(journalPath, rewritten.join("\n") + "\n", {
+    encoding: "utf8",
+    flag: "w",
+  });
+  const headPath = path.join(directory, "head.json");
+  const head = JSON.parse(
+    await readFile(headPath, { encoding: "utf8" }),
+  ) as Record<string, unknown>;
+  head.version = 1;
+  await writeFile(headPath, JSON.stringify(head) + "\n", {
+    encoding: "utf8",
+    flag: "w",
+  });
 }
 
 async function sessionDirectory(stateRoot: string): Promise<string> {
@@ -69,13 +112,36 @@ test("creates and resumes the latest bounded journal for the exact workspace", a
     const created = await SessionJournal.create(root, "C:\\work\\alpha");
     assert.equal(created.ok, true);
     if (!created.ok) return;
-    const tree = oneTurn();
+    const tree = oneTurn("settled reasoning");
     const appended = await created.value.journal.appendTurn(
       tree.turns.at(0)!,
       { kind: "completed" },
     );
     assert.equal(appended.ok, true);
     assert.equal((await created.value.journal.close()).ok, true);
+    const originalDirectory = await sessionDirectory(root);
+    const originalLines = (
+      await readFile(path.join(originalDirectory, "journal.jsonl"), {
+        encoding: "utf8",
+      })
+    ).trimEnd().split("\n");
+    assert.equal(
+      (JSON.parse(originalLines.at(0) ?? "null") as { version?: unknown })
+        .version,
+      2,
+    );
+    const originalTurn = JSON.parse(originalLines.at(1) ?? "null") as {
+      turn?: { entries?: Array<Record<string, unknown>> };
+    };
+    const originalUser = originalTurn.turn?.entries?.at(0);
+    assert.equal(
+      originalUser !== undefined && "reasoning" in originalUser,
+      false,
+    );
+    assert.equal(
+      originalTurn.turn?.entries?.at(-1)?.reasoning,
+      "settled reasoning",
+    );
 
     const resumed = await SessionJournal.resumeLatest(root, "C:\\work\\alpha");
     assert.equal(resumed.ok, true);
@@ -86,6 +152,7 @@ test("creates and resumes the latest bounded journal for the exact workspace", a
       turns: [
         {
           assistant: "answer",
+          reasoning: "settled reasoning",
           historyNodeId: 1,
           historyParentNodeId: 0,
           settlement: "completed",
@@ -99,6 +166,59 @@ test("creates and resumes the latest bounded journal for the exact workspace", a
       (await SessionJournal.resumeLatest(root, "C:\\work\\other")).ok,
       false,
     );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("resumes an exact version-one journal into a version-two continuation", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "agent-journal-v1-migration-"));
+  try {
+    const created = await SessionJournal.create(root, "C:\\work\\alpha");
+    assert.equal(created.ok, true);
+    if (!created.ok) return;
+    const tree = oneTurn();
+    assert.equal(
+      (
+        await created.value.journal.appendTurn(tree.turns.at(0)!, {
+          kind: "completed",
+        })
+      ).ok,
+      true,
+    );
+    assert.equal((await created.value.journal.close()).ok, true);
+    const source = await sessionDirectory(root);
+    await rewriteAsVersionOne(source);
+
+    const resumed = await SessionJournal.resumeLatest(root, "C:\\work\\alpha");
+    assert.equal(resumed.ok, true);
+    if (!resumed.ok) return;
+    assert.deepEqual(resumed.value.history.nodes, tree.nodes);
+    assert.equal((await resumed.value.journal.close()).ok, true);
+
+    const sessions = await sessionDirectories(root);
+    assert.equal(sessions.length, 2);
+    const continuation = sessions.at(-1);
+    assert.ok(continuation !== undefined);
+    const journalLines = (
+      await readFile(path.join(continuation, "journal.jsonl"), {
+        encoding: "utf8",
+      })
+    ).trimEnd().split("\n");
+    assert.equal(
+      (JSON.parse(journalLines.at(0) ?? "null") as { version?: unknown })
+        .version,
+      2,
+    );
+    const migrated = JSON.parse(journalLines.at(1) ?? "null") as {
+      turn?: { entries?: Array<Record<string, unknown>> };
+    };
+    const migratedUser = migrated.turn?.entries?.at(0);
+    assert.equal(
+      migratedUser !== undefined && "reasoning" in migratedUser,
+      false,
+    );
+    assert.equal(migrated.turn?.entries?.at(-1)?.reasoning, null);
   } finally {
     await rm(root, { force: true, recursive: true });
   }

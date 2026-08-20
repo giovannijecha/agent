@@ -52,20 +52,30 @@ type StructuredValueRecord =
     }>
   | Readonly<{ kind: "string"; value: string }>;
 
-type MessageRecord = Readonly<{
+type AssistantMessageRecordV2 = Readonly<{
   content: string;
   kind: "message";
-  role: "assistant" | "system" | "user";
+  reasoning: string | null;
+  role: "assistant";
 }>;
 
-type ToolExchangeRecord = Readonly<{
-  assistant: MessageRecord | null;
+type MessageRecordV2 =
+  | AssistantMessageRecordV2
+  | Readonly<{
+      content: string;
+      kind: "message";
+      role: "system" | "user";
+    }>;
+
+type ToolExchangeRecordV2 = Readonly<{
+  assistant: AssistantMessageRecordV2 | null;
   calls: readonly Readonly<{
     callId: string;
     input: StructuredValueRecord;
     name: string;
   }>[];
   kind: "toolExchange";
+  reasoning: string | null;
   results: readonly Readonly<{
     callId: string;
     name: string;
@@ -74,8 +84,10 @@ type ToolExchangeRecord = Readonly<{
   }>[];
 }>;
 
+export type ConversationJournalSchemaVersion = 1 | 2;
+
 export type ConversationJournalTurnRecord = Readonly<{
-  entries: readonly (MessageRecord | ToolExchangeRecord)[];
+  entries: readonly (MessageRecordV2 | ToolExchangeRecordV2)[];
   id: number;
   kind: "turn";
   parentId: number;
@@ -264,27 +276,46 @@ function structuredValue(
   return StructuredObject.owned(ownedFields, codeUnits);
 }
 
-function messageRecord(message: Message): MessageRecord {
+function messageRecord(message: Message): MessageRecordV2 {
+  if (message.role !== Role.Assistant) {
+    return Object.freeze({
+      content: message.content,
+      kind: "message" as const,
+      role: message.role,
+    });
+  }
+  return assistantMessageRecord(message);
+}
+
+function assistantMessageRecord(message: Message): AssistantMessageRecordV2 {
   return Object.freeze({
     content: message.content,
     kind: "message" as const,
-    role: message.role,
+    reasoning: message.reasoning ?? null,
+    role: Role.Assistant,
   });
 }
 
-function messageFromRecord(input: unknown): Message | undefined {
+function messageFromRecord(
+  input: unknown,
+  version: ConversationJournalSchemaVersion,
+): Message | undefined {
   if (input === null || typeof input !== "object") {
     return undefined;
   }
   const candidate = input as Readonly<{
     content?: unknown;
     kind?: unknown;
+    reasoning?: unknown;
     role?: unknown;
   }>;
-  if (candidate.kind !== "message" || !exactKeys(input, "content,kind,role")) {
+  const role = candidate.role;
+  const expected = version === 2 && role === Role.Assistant
+    ? "content,kind,reasoning,role"
+    : "content,kind,role";
+  if (candidate.kind !== "message" || !exactKeys(input, expected)) {
     return undefined;
   }
-  const role = candidate.role;
   const content = candidate.content;
   if (
     (role !== Role.Assistant && role !== Role.System && role !== Role.User) ||
@@ -292,16 +323,31 @@ function messageFromRecord(input: unknown): Message | undefined {
   ) {
     return undefined;
   }
-  const created = Message.create(role, content);
+  const reasoning = version === 2 && role === Role.Assistant
+    ? candidate.reasoning
+    : null;
+  if (
+    reasoning !== null &&
+    (role !== Role.Assistant ||
+      typeof reasoning !== "string" ||
+      reasoning.trim().length === 0)
+  ) {
+    return undefined;
+  }
+  const created = Message.create(
+    role,
+    content,
+    reasoning === null ? undefined : reasoning,
+  );
   return created.ok ? created.value : undefined;
 }
 
-function exchangeRecord(exchange: ToolExchange): ToolExchangeRecord {
+function exchangeRecord(exchange: ToolExchange): ToolExchangeRecordV2 {
   return Object.freeze({
     assistant:
       exchange.assistant === undefined
         ? null
-        : messageRecord(exchange.assistant),
+        : assistantMessageRecord(exchange.assistant),
     calls: Object.freeze(
       exchange.calls.map((call) =>
         Object.freeze({
@@ -312,6 +358,7 @@ function exchangeRecord(exchange: ToolExchange): ToolExchangeRecord {
       ),
     ),
     kind: "toolExchange" as const,
+    reasoning: exchange.reasoning ?? null,
     results: Object.freeze(
       exchange.results.map((result) =>
         Object.freeze({
@@ -325,7 +372,10 @@ function exchangeRecord(exchange: ToolExchange): ToolExchangeRecord {
   });
 }
 
-function exchangeFromRecord(input: unknown): ToolExchange | undefined {
+function exchangeFromRecord(
+  input: unknown,
+  version: ConversationJournalSchemaVersion,
+): ToolExchange | undefined {
   if (input === null || typeof input !== "object") {
     return undefined;
   }
@@ -333,11 +383,15 @@ function exchangeFromRecord(input: unknown): ToolExchange | undefined {
     assistant?: unknown;
     calls?: unknown;
     kind?: unknown;
+    reasoning?: unknown;
     results?: unknown;
   }>;
+  const expected = version === 1
+    ? "assistant,calls,kind,results"
+    : "assistant,calls,kind,reasoning,results";
   if (
     candidate.kind !== "toolExchange" ||
-    !exactKeys(input, "assistant,calls,kind,results") ||
+    !exactKeys(input, expected) ||
     !Array.isArray(candidate.calls) ||
     !Array.isArray(candidate.results) ||
     candidate.calls.length !== candidate.results.length
@@ -346,8 +400,15 @@ function exchangeFromRecord(input: unknown): ToolExchange | undefined {
   }
   const assistant = candidate.assistant === null
     ? undefined
-    : messageFromRecord(candidate.assistant);
+    : messageFromRecord(candidate.assistant, version);
   if (candidate.assistant !== null && assistant === undefined) {
+    return undefined;
+  }
+  const reasoning = version === 1 ? null : candidate.reasoning;
+  if (
+    reasoning !== null &&
+    (typeof reasoning !== "string" || reasoning.trim().length === 0)
+  ) {
     return undefined;
   }
   const calls: ToolCall[] = [];
@@ -410,7 +471,12 @@ function exchangeFromRecord(input: unknown): ToolExchange | undefined {
     calls.push(createdCall.value);
     results.push(createdResult.value);
   }
-  const created = ToolExchange.create(assistant, calls, results);
+  const created = ToolExchange.create(
+    assistant,
+    calls,
+    results,
+    reasoning === null ? undefined : reasoning,
+  );
   return created.ok ? created.value : undefined;
 }
 
@@ -434,8 +500,12 @@ export function conversationJournalTurnRecord(
 /** Decodes one untrusted storage record into bounded owned conversation state. */
 export function conversationJournalTurnFromUnknown(
   input: unknown,
+  version: ConversationJournalSchemaVersion = 2,
 ): Result<ConversationJournalTurn, ConversationJournalError> {
   try {
+    if (version !== 1 && version !== 2) {
+      return err(failure("invalidRecord"));
+    }
     if (
       input === null ||
       typeof input !== "object" ||
@@ -467,9 +537,9 @@ export function conversationJournalTurnFromUnknown(
     const entries: ConversationEntry[] = [];
     for (let index = 0; index < candidate.entries.length; index += 1) {
       const raw = candidate.entries.at(index);
-      let entry: ConversationEntry | undefined = messageFromRecord(raw);
+      let entry: ConversationEntry | undefined = messageFromRecord(raw, version);
       if (entry === undefined) {
-        entry = exchangeFromRecord(raw);
+        entry = exchangeFromRecord(raw, version);
       }
       if (entry === undefined) {
         return err(failure("invalidRecord"));

@@ -17,7 +17,11 @@ function createEntryComponent(
   selection: TextSelection | undefined,
 ): Result<Component, ComponentError> {
   const markdown = MarkdownBlock.create(entry.content, "head", {
-    baseTone: entry.role === "user" ? "accent" : "plain",
+    baseTone: entry.role === "user"
+      ? "accent"
+      : entry.role === "reasoning"
+        ? "muted"
+        : "plain",
     document: entry.document,
     selection,
   });
@@ -67,11 +71,18 @@ export function createConversationDocument(
     if (entry === undefined) {
       return err(new ComponentError("invalidComponent", position));
     }
-    const next = entries.at(position + 1);
-    const turnEntries =
-      entry.role === "user" && next?.role === "assistant"
-        ? entries.slice(position, position + 2)
-        : entries.slice(position, position + 1);
+    let turnEnd = position + 1;
+    if (entry.role === "user") {
+      const reasoning = entries.at(turnEnd);
+      if (reasoning?.role === "reasoning") {
+        turnEnd += 1;
+      }
+      const assistant = entries.at(turnEnd);
+      if (assistant?.role === "assistant") {
+        turnEnd += 1;
+      }
+    }
+    const turnEntries = entries.slice(position, turnEnd);
     const turn = createTurnComponent(turnEntries, selection);
     if (!turn.ok) return turn;
     components.push(turn.value);

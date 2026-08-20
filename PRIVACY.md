@@ -142,7 +142,9 @@ After the operator selects one available model and submits a turn, `agent`
 sends the system instruction, bounded conversation, owned tool schemas, user
 input, and necessary checkpointed tool calls and results directly to
 `https://ollama.com/api/chat`. Requests use Ollama's native chat contract with
-streaming enabled and reasoning output disabled. They never pass through a
+streaming enabled. Reasoning output is disabled by default; if the operator
+selects `Low`, `Medium`, or `High` Effort with `/thinking`, that turn requests
+native reasoning separately from assistant content. Requests never pass through a
 project-owned backend, local Ollama daemon, SDK, CLI, compatibility endpoint,
 or alternate origin.
 
@@ -186,21 +188,37 @@ and model availability terms can change and are not guarantees made by this
 project; review the current Ollama terms before sending sensitive content. The
 four subscription OAuth connections remain disabled.
 
-### Reserved thinking data
+### Thinking data
 
-Decision 0083 reserves a possible reasoning stream but does not activate one.
-Requests currently keep `think: false`; reasoning is not displayed, journaled,
-logged, diagnosed, retained in receipts, or admitted to evaluation fixtures. A
-future explicit session-only mode must keep reasoning separate from assistant
-content, commit only bounded settled data, and ship with a separately accepted
-journal-schema and deletion contract before any reasoning can persist.
+`/thinking` has two explicit session-only settings. `Effort` is `Off`, `Low`,
+`Medium`, or `High`; `Stream` is `Off` or `On`. Both default to `Off`, can be
+edited only after a provider and model are selected, and remain unchanged
+through later model selections in the same process. They are never persisted.
+Enabled effort requests native Ollama reasoning from the same exact chat origin
+already used for the conversation. The adapter accepts only the provider's
+separate bounded native field; it never derives reasoning from assistant text,
+tags, tool-shaped text, or a model name. A newly selected model that rejects the
+retained effort fails explicitly without changing either setting or causing a
+second request.
+
+With Stream `On`, validated reasoning is displayed in a distinct muted
+transcript segment. Stream `Off` hides all reasoning documents from the selected
+conversation but does not delete them, prevent provider transmission, or refund
+their bounds. Provisional reasoning is discarded if its response segment or
+turn fails or is cancelled. Only reasoning attached to a settled assistant
+message or completed tool exchange enters conversation history and the local
+session journal, including when hidden. It is never logged, diagnosed, retained
+in evaluation receipts, admitted to evaluation fixtures, used as a tool input,
+or shown in a permission preview. Effort and Stream themselves remain
+process-only.
 
 ## Local sessions
 
-An explicit interactive `agent` launch creates a version-one local session
+An explicit interactive `agent` launch creates a version-two local session
 journal outside the workspace. `agent resume --latest` restores the newest
-inactive journal for the exact canonical workspace and creates a separate
-continuation. Resume never runs as a TUI command, never replays tools, never
+inactive version-one or version-two journal for the exact canonical workspace
+and creates a separate version-two continuation. The source is never rewritten
+or appended. Resume never runs as a TUI command, never replays tools, never
 restores old filesystem state, and never uploads or synchronizes an inactive
 branch by itself. Non-TTY runs and `agent --evaluation-receipt` create no
 session journal.
@@ -209,11 +227,12 @@ The journal contains the originating session identity, a monotonic publication
 timestamp seeded by wall time, a SHA-256 workspace key, complete settled user
 and assistant conversation entries,
 complete checkpointed tool calls and results, closed checkpoint settlement or
-failure classification, branch parent identities, and the selected node. It
+failure classification, optional settled native reasoning kept separate from
+assistant content, branch parent identities, and the selected node. It
 therefore contains personal content and source or tool output already admitted
 to conversation. It excludes provider credentials, catalogs, provider/model
-selection, permission policy, drafts, streamed or speculative output, active
-turn state, temporary activity, notices, foreign error causes, and evaluation
+selection, thinking settings, permission policy, drafts, streamed or speculative
+output, active turn state, temporary activity, notices, foreign error causes, and evaluation
 receipts. A resumed process starts with no provider, model, credential, or
 permission grant.
 

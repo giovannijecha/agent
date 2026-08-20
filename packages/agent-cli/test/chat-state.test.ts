@@ -32,7 +32,7 @@ test("publishes a streamed pair only after exact completion", () => {
   assert.equal(chat.transcriptText(), "question\n\nans");
   assert.deepEqual(chat.transcriptEntries(), [
     { content: "question", document: 0, role: "user" },
-    { content: "ans", document: 1, role: "assistant" },
+    { content: "ans", document: 2, role: "assistant" },
   ]);
   assert.ok(chat.append(1, "wer").ok);
   assert.ok(chat.prepare(1, "answer").ok);
@@ -42,8 +42,69 @@ test("publishes a streamed pair only after exact completion", () => {
   assert.equal(chat.transcriptText(), "question\n\nanswer");
   assert.deepEqual(chat.transcriptEntries(), [
     { content: "question", document: 0, role: "user" },
-    { content: "answer", document: 1, role: "assistant" },
+    { content: "answer", document: 2, role: "assistant" },
   ]);
+});
+
+test("keeps live reasoning in its own transcript document", () => {
+  const chat = new ChatState();
+  assert.ok(chat.begin(1, "question", 0).ok);
+  assert.ok(chat.appendReasoning(1, "inspect ").ok);
+  assert.ok(chat.appendReasoning(1, "carefully").ok);
+  assert.ok(chat.append(1, "answer").ok);
+
+  assert.deepEqual(chat.transcriptEntries(), [
+    { content: "question", document: 0, role: "user" },
+    {
+      content: "inspect carefully",
+      document: 1,
+      role: "reasoning",
+    },
+    { content: "answer", document: 2, role: "assistant" },
+  ]);
+  assert.ok(chat.prepare(1, "answer", "inspect carefully").ok);
+  assert.ok(chat.commit(1, 1).ok);
+  assert.equal(chat.settledTurn(1)?.reasoning, "inspect carefully");
+  assert.equal(
+    chat.transcriptText(),
+    "question\n\ninspect carefully\n\nanswer",
+  );
+});
+
+test("keeps document identities in visual order when reasoning follows a checkpoint", () => {
+  const chat = new ChatState();
+  assert.ok(chat.begin(1, "question", 0).ok);
+  assert.ok(chat.append(1, "tool preamble").ok);
+  assert.ok(chat.checkpoint(1).ok);
+  assert.ok(chat.appendReasoning(1, "later reasoning").ok);
+  assert.ok(chat.append(1, "final answer").ok);
+
+  assert.deepEqual(
+    chat.transcriptEntries().map((entry) => [
+      entry.document,
+      entry.role,
+      entry.content,
+    ]),
+    [
+      [0, "user", "question"],
+      [1, "reasoning", "later reasoning"],
+      [2, "assistant", "tool preamble\n\nfinal answer"],
+    ],
+  );
+});
+
+test("discards reasoning when final settlement does not match the stream", () => {
+  const chat = new ChatState();
+  assert.ok(chat.begin(1, "private question", 0).ok);
+  assert.ok(chat.appendReasoning(1, "private trace").ok);
+  assert.ok(chat.append(1, "answer").ok);
+
+  const mismatch = chat.prepare(1, "answer", "different trace");
+
+  assert.equal(mismatch.ok, false);
+  if (!mismatch.ok) assert.equal(mismatch.error.kind, "responseMismatch");
+  assert.equal(chat.hasContent, false);
+  assert.equal(chat.transcriptText(), "");
 });
 
 test("discards prospective personal content on cancellation", () => {
@@ -158,6 +219,23 @@ test("retains a checkpointed display node as an explicit incomplete turn", () =>
     "question\n\ntool preamble\n\nTurn cancelled.",
   );
   assert.equal(chat.timelineEntries().at(1)?.settlement, "checkpointed");
+});
+
+test("creates the checkpoint marker document after a reasoning-only tool step", () => {
+  const chat = new ChatState();
+  assert.ok(chat.begin(1, "question", 0).ok);
+  assert.ok(chat.appendReasoning(1, "inspect first").ok);
+  assert.ok(chat.checkpoint(1).ok);
+  assert.ok(chat.finishCheckpointed(1, "Turn cancelled.", 1).ok);
+
+  assert.deepEqual(
+    chat.transcriptEntries().map((entry) => [entry.document, entry.role, entry.content]),
+    [
+      [0, "user", "question"],
+      [1, "reasoning", "inspect first"],
+      [2, "assistant", "Turn cancelled."],
+    ],
+  );
 });
 
 test("keeps synthetic checkpoint display within authoritative history bounds", () => {

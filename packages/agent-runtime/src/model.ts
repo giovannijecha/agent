@@ -9,9 +9,17 @@ export type ModelToolCall = Readonly<{
   input: StructuredObject;
 }>;
 
+export type ThinkingEffort = "high" | "low" | "medium" | "off";
+
+/** Immutable provider-neutral options captured for one complete model turn. */
+export type ModelTurnOptions = Readonly<{
+  thinkingEffort: ThinkingEffort;
+}>;
+
 /** One ordered item produced by a model stream. */
 export type ModelStreamEvent =
   | Readonly<{ kind: "delta"; text: string }>
+  | Readonly<{ kind: "reasoningDelta"; text: string }>
   | Readonly<{
       kind: "toolCalls";
       calls: readonly ModelToolCall[];
@@ -45,5 +53,6 @@ export interface StreamingModel<E> {
     conversation: Conversation,
     cancellation: CancellationSignal,
     tools: readonly ToolDescriptor[],
+    options: ModelTurnOptions,
   ): Promise<Result<ModelStream<E>, E>>;
 }

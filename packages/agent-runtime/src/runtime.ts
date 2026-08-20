@@ -39,7 +39,13 @@ import type {
   TurnOutcome,
 } from "./events.js";
 import { RUNTIME_LIMITS } from "./limits.js";
-import type { ModelStreamEvent, ModelToolCall, StreamingModel } from "./model.js";
+import type {
+  ModelStreamEvent,
+  ModelToolCall,
+  ModelTurnOptions,
+  StreamingModel,
+  ThinkingEffort,
+} from "./model.js";
 import type {
   RuntimeHistorySource,
   RuntimeSession,
@@ -67,6 +73,7 @@ type TurnState<E> = {
   readonly baseMessageUnits: number;
   candidate: Conversation;
   readonly chunks: string[];
+  readonly reasoningChunks: string[];
   readonly cancellation: CancellationSource;
   readonly historyParentNodeId: number;
   readonly turnId: number;
@@ -81,9 +88,11 @@ type TurnState<E> = {
       }>
     | undefined;
   responseCodeUnits: number;
+  reasoningCodeUnits: number;
   stream: OwnedModelStream<E> | undefined;
   toolFailurePending: boolean;
   toolSteps: number;
+  readonly thinkingEffort: ThinkingEffort;
 };
 
 type ToolDecision = "allowed" | "denied";
@@ -102,6 +111,7 @@ type SequentialToolBatch = {
   readonly executions: ToolExecution[];
   readonly outputBudgets: readonly number[];
   readonly prepared: readonly PreparedToolCall[];
+  readonly reasoning: string | undefined;
   index: number;
   pending: PendingTool | undefined;
 };
@@ -120,6 +130,7 @@ type ParallelReadBatch = {
   readonly kind: "parallelRead";
   readonly assistant: Message | undefined;
   readonly calls: ParallelReadCall[];
+  readonly reasoning: string | undefined;
   finishIndex: number;
   pending: PendingTool | undefined;
   permissionIndex: number;
@@ -221,10 +232,13 @@ function readModelStreamEvent(value: unknown): ModelStreamEvent | undefined {
     if (kind === "done" && keys === "kind") {
       return Object.freeze({ kind: "done" as const });
     }
-    if (kind === "delta" && keys === "kind,text") {
+    if (
+      (kind === "delta" || kind === "reasoningDelta") &&
+      keys === "kind,text"
+    ) {
       const text = candidate.text;
       return typeof text === "string"
-        ? Object.freeze({ kind: "delta" as const, text })
+        ? Object.freeze({ kind, text })
         : undefined;
     }
     if (kind === "toolCalls" && keys === "calls,kind") {
@@ -423,7 +437,10 @@ export class AgentRuntime<E> implements RuntimeHistorySource, RuntimeSession<E> 
   }
 
   /** Validates and starts one prospective turn without committing personal text. */
-  startTurn(input: string): Result<StartedTurn, StartTurnError> {
+  startTurn(
+    input: string,
+    thinkingEffort: ThinkingEffort = "off",
+  ): Result<StartedTurn, StartTurnError> {
     if (this.#closed) {
       return err(startError("closed"));
     }
@@ -432,6 +449,14 @@ export class AgentRuntime<E> implements RuntimeHistorySource, RuntimeSession<E> 
     }
     if (this.#nextTurnId > Number.MAX_SAFE_INTEGER) {
       return err(startError("turnIdExhausted"));
+    }
+    if (
+      thinkingEffort !== "off" &&
+      thinkingEffort !== "low" &&
+      thinkingEffort !== "medium" &&
+      thinkingEffort !== "high"
+    ) {
+      return err(startError("invalidThinkingEffort"));
     }
     if (countCodePoints(input) > RUNTIME_LIMITS.inputCodePoints) {
       return err(startError("inputTooLong"));
@@ -470,6 +495,7 @@ export class AgentRuntime<E> implements RuntimeHistorySource, RuntimeSession<E> 
       baseMessageUnits: this.#conversation.messageUnits,
       candidate,
       chunks: [],
+      reasoningChunks: [],
       cancellation: new CancellationSource(),
       checkpointed: false,
       cleanup: [],
@@ -478,9 +504,11 @@ export class AgentRuntime<E> implements RuntimeHistorySource, RuntimeSession<E> 
       toolBatch: undefined,
       prepared: undefined,
       responseCodeUnits: 0,
+      reasoningCodeUnits: 0,
       stream: undefined,
       toolFailurePending: false,
       toolSteps: 0,
+      thinkingEffort,
       turnId,
     };
     return ok(
@@ -700,6 +728,9 @@ export class AgentRuntime<E> implements RuntimeHistorySource, RuntimeSession<E> 
           state.candidate,
           state.cancellation.signal,
           this.#tools?.descriptors ?? Object.freeze([]),
+          Object.freeze({
+            thinkingEffort: state.thinkingEffort,
+          }) satisfies ModelTurnOptions,
         ),
       );
       const openedResult =
@@ -864,12 +895,64 @@ export class AgentRuntime<E> implements RuntimeHistorySource, RuntimeSession<E> 
       );
     }
 
+    if (event.kind === "reasoningDelta") {
+      if (
+        state.thinkingEffort === "off" ||
+        state.responseCodeUnits > 0
+      ) {
+        return this.#finish(
+          state,
+          failed(Object.freeze({ kind: "invalidModelEvent" })),
+        );
+      }
+      if (event.text.length === 0) {
+        return this.#finish(
+          state,
+          failed(Object.freeze({ kind: "emptyReasoningDelta" })),
+        );
+      }
+      if (event.text.length > RUNTIME_LIMITS.reasoningDeltaCodeUnits) {
+        return this.#finish(
+          state,
+          failed(Object.freeze({ kind: "reasoningTooLong" })),
+        );
+      }
+      state.reasoningCodeUnits += event.text.length;
+      if (
+        state.reasoningCodeUnits > RUNTIME_LIMITS.reasoningResponseCodeUnits
+      ) {
+        return this.#finish(
+          state,
+          failed(Object.freeze({ kind: "reasoningTooLong" })),
+        );
+      }
+      state.reasoningChunks.push(event.text);
+      return ok(
+        Object.freeze({
+          kind: "reasoningDelta" as const,
+          turnId: state.turnId,
+          text: event.text,
+        }),
+      );
+    }
+
     if (event.kind === "toolCalls") {
       return this.#requestTools(state, event);
     }
 
     const response = state.chunks.join("");
-    const assistant = Message.create(Role.Assistant, response);
+    const reasoning = state.reasoningChunks.join("");
+    if (reasoning.length > 0 && reasoning.trim().length === 0) {
+      return this.#finish(
+        state,
+        failed(Object.freeze({ kind: "emptyReasoningDelta" })),
+      );
+    }
+    const assistant = Message.create(
+      Role.Assistant,
+      response,
+      reasoning.length === 0 ? undefined : reasoning,
+    );
     if (!assistant.ok) {
       return this.#finish(
         state,
@@ -879,7 +962,9 @@ export class AgentRuntime<E> implements RuntimeHistorySource, RuntimeSession<E> 
     if (
       state.candidate.messageUnits + 1 >
         RUNTIME_LIMITS.conversationMessages ||
-      state.candidate.codeUnits + assistant.value.content.length >
+      state.candidate.codeUnits +
+          assistant.value.content.length +
+          (assistant.value.reasoning?.length ?? 0) >
       RUNTIME_LIMITS.conversationCodeUnits
     ) {
       return this.#finish(
@@ -894,6 +979,13 @@ export class AgentRuntime<E> implements RuntimeHistorySource, RuntimeSession<E> 
     state: TurnState<E>,
     event: Extract<ModelStreamEvent, { kind: "toolCalls" }>,
   ): Promise<Result<RuntimeEvent<E>, RuntimeSourceError>> {
+    const reasoningText = state.reasoningChunks.join("");
+    if (reasoningText.length > 0 && reasoningText.trim().length === 0) {
+      return this.#finish(
+        state,
+        failed(Object.freeze({ kind: "emptyReasoningDelta" })),
+      );
+    }
     const tools = this.#tools;
     if (tools === undefined) {
       return this.#finish(
@@ -924,6 +1016,9 @@ export class AgentRuntime<E> implements RuntimeHistorySource, RuntimeSession<E> 
       preparedCalls.push(prepared.value);
     }
     const response = state.chunks.join("");
+    const reasoning = reasoningText.length === 0
+      ? undefined
+      : reasoningText;
     let assistant: Message | undefined;
     if (response.trim().length > 0) {
       const preamble = Message.create(Role.Assistant, response);
@@ -966,6 +1061,10 @@ export class AgentRuntime<E> implements RuntimeHistorySource, RuntimeSession<E> 
     let fixedCodeUnits =
       state.candidate.codeUnits +
       (assistant?.content.length ?? 0) +
+      (reasoning?.length ?? 0) +
+      (state.thinkingEffort !== "off"
+        ? RUNTIME_LIMITS.reasoningResponseCodeUnits
+        : 0) +
       RUNTIME_LIMITS.responseCodeUnits;
     for (const prepared of preparedCalls) {
       fixedCodeUnits +=
@@ -979,6 +1078,10 @@ export class AgentRuntime<E> implements RuntimeHistorySource, RuntimeSession<E> 
       this.#history.retainedCodeUnits +
       (state.candidate.codeUnits - state.baseCodeUnits) +
       (assistant?.content.length ?? 0) +
+      (reasoning?.length ?? 0) +
+      (state.thinkingEffort !== "off"
+        ? RUNTIME_LIMITS.reasoningResponseCodeUnits
+        : 0) +
       RUNTIME_LIMITS.responseCodeUnits;
     for (const prepared of preparedCalls) {
       retainedFixedCodeUnits +=
@@ -1019,7 +1122,9 @@ export class AgentRuntime<E> implements RuntimeHistorySource, RuntimeSession<E> 
     const cleanup = await this.#closeStream(state);
     state.cleanup.push(...cleanup);
     state.chunks.splice(0);
+    state.reasoningChunks.splice(0);
     state.responseCodeUnits = 0;
+    state.reasoningCodeUnits = 0;
     state.eventCount = 0;
     state.toolSteps += preparedCalls.length;
     const prepared = Object.freeze(preparedCalls);
@@ -1083,6 +1188,7 @@ export class AgentRuntime<E> implements RuntimeHistorySource, RuntimeSession<E> 
         pending,
         permissionIndex: 0,
         phase: "permissions",
+        reasoning,
         startIndex: 0,
       };
       state.toolBatch = batch;
@@ -1107,6 +1213,7 @@ export class AgentRuntime<E> implements RuntimeHistorySource, RuntimeSession<E> 
       outputBudgets,
       pending,
       prepared,
+      reasoning,
     };
     state.toolBatch = batch;
     return ok(this.#toolRequestedEvent(state, pending));
@@ -1563,6 +1670,7 @@ export class AgentRuntime<E> implements RuntimeHistorySource, RuntimeSession<E> 
       batch.assistant,
       executions.map((execution) => execution.call),
       executions.map((execution) => execution.result),
+      batch.reasoning,
     );
     if (!exchange.ok) {
       return false;
@@ -1607,6 +1715,7 @@ export class AgentRuntime<E> implements RuntimeHistorySource, RuntimeSession<E> 
       );
     }
     state.chunks.splice(0);
+    state.reasoningChunks.splice(0);
     state.prepared = Object.freeze({ assistant, cleanup });
     return ok(
       Object.freeze({
@@ -1642,6 +1751,7 @@ export class AgentRuntime<E> implements RuntimeHistorySource, RuntimeSession<E> 
     cleanup: readonly RuntimeCleanupFailure<E>[],
   ): Result<RuntimeEvent<E>, RuntimeSourceError> {
     state.chunks.splice(0);
+    state.reasoningChunks.splice(0);
     const historyNodeId = state.checkpointed
       ? this.#appendHistory(state, "checkpointed")
       : undefined;
@@ -1741,6 +1851,7 @@ export class AgentRuntime<E> implements RuntimeHistorySource, RuntimeSession<E> 
 
   #discardState(state: TurnState<E>): void {
     state.chunks.splice(0);
+    state.reasoningChunks.splice(0);
     state.cleanup.splice(0);
     state.toolBatch = undefined;
     state.prepared = undefined;

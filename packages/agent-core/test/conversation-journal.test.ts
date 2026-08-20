@@ -15,8 +15,12 @@ import {
   structuredValueFromUnknown,
 } from "../dist/index.js";
 
-function message(role: "assistant" | "user", content: string) {
-  const created = Message.create(role, content);
+function message(
+  role: "assistant" | "user",
+  content: string,
+  reasoning?: string,
+) {
+  const created = Message.create(role, content, reasoning);
   assert.equal(created.ok, true);
   if (!created.ok) throw new Error("message fixture failed");
   return created.value;
@@ -48,6 +52,7 @@ function exchange() {
     message(Role.Assistant, "I will inspect it."),
     [call.value],
     [result.value],
+    "I need the exact file content.",
   );
   assert.equal(created.ok, true);
   if (!created.ok) throw new Error("exchange fixture failed");
@@ -94,7 +99,11 @@ function wideExchange() {
 test("round-trips an immutable branched tree through owned journal records", () => {
   let tree = ConversationTree.empty();
   const first = tree.appendTurn(
-    [message(Role.User, "inspect"), exchange(), message(Role.Assistant, "done")],
+    [
+      message(Role.User, "inspect"),
+      exchange(),
+      message(Role.Assistant, "done", "The inspection is complete."),
+    ],
     "completed",
   );
   assert.equal(first.ok, true);
@@ -113,6 +122,22 @@ test("round-trips an immutable branched tree through owned journal records", () 
 
   const decoded = tree.turns.map((turn) => {
     const record = conversationJournalTurnRecord(turn);
+    assert.equal(
+      record.entries
+        .filter((entry) =>
+          entry.kind === "message" && entry.role !== Role.Assistant
+        )
+        .every((entry) => !("reasoning" in entry)),
+      true,
+    );
+    assert.equal(
+      record.entries
+        .filter((entry) =>
+          entry.kind === "message" && entry.role === Role.Assistant
+        )
+        .every((entry) => "reasoning" in entry),
+      true,
+    );
     const parsed = conversationJournalTurnFromUnknown(
       JSON.parse(JSON.stringify(record)),
     );
@@ -134,11 +159,140 @@ test("round-trips an immutable branched tree through owned journal records", () 
   const restoredInput = restored.value.conversation.entries.at(1);
   assert.equal(restoredInput instanceof ToolExchange, true);
   if (restoredInput instanceof ToolExchange) {
+    assert.equal(restoredInput.reasoning, "I need the exact file content.");
     assert.equal(
       Object.is(restoredInput.calls.at(0)?.input.get("line"), -0),
       true,
     );
   }
+  const restoredAssistant = restored.value.turns.at(0)?.entries.at(-1);
+  assert.equal(restoredAssistant instanceof Message, true);
+  if (restoredAssistant instanceof Message) {
+    assert.equal(restoredAssistant.reasoning, "The inspection is complete.");
+  }
+});
+
+test("selects exact version-one and version-two record schemas", () => {
+  const versionOne = {
+    entries: [
+      { content: "question", kind: "message", role: "user" },
+      { content: "answer", kind: "message", role: "assistant" },
+    ],
+    id: 1,
+    kind: "turn",
+    parentId: 0,
+    settlement: "completed",
+  };
+  assert.equal(conversationJournalTurnFromUnknown(versionOne, 1).ok, true);
+  assert.equal(conversationJournalTurnFromUnknown(versionOne, 2).ok, false);
+
+  const illicitVersionOne = {
+    ...versionOne,
+    entries: [
+      versionOne.entries.at(0),
+      { ...versionOne.entries.at(1), reasoning: null },
+    ],
+  };
+  assert.equal(
+    conversationJournalTurnFromUnknown(illicitVersionOne, 1).ok,
+    false,
+  );
+
+  const versionTwo = {
+    entries: [
+      {
+        content: "question",
+        kind: "message",
+        role: "user",
+      },
+      {
+        content: "answer",
+        kind: "message",
+        reasoning: "trace",
+        role: "assistant",
+      },
+    ],
+    id: 1,
+    kind: "turn",
+    parentId: 0,
+    settlement: "completed",
+  };
+  const decoded = conversationJournalTurnFromUnknown(versionTwo, 2);
+  assert.equal(decoded.ok, true);
+  if (decoded.ok) {
+    const assistant = decoded.value.entries.at(1);
+    assert.equal(assistant instanceof Message, true);
+    if (assistant instanceof Message) assert.equal(assistant.reasoning, "trace");
+  }
+  assert.equal(
+    conversationJournalTurnFromUnknown(
+      {
+        ...versionTwo,
+        entries: [{
+          ...versionTwo.entries.at(0),
+          reasoning: null,
+        }, versionTwo.entries.at(1)],
+      },
+      2,
+    ).ok,
+    false,
+  );
+  assert.equal(
+    conversationJournalTurnFromUnknown(
+      {
+        ...versionTwo,
+        entries: [versionTwo.entries.at(0), {
+          content: "answer",
+          kind: "message",
+          role: "assistant",
+        }],
+      },
+      2,
+    ).ok,
+    false,
+  );
+  assert.equal(
+    conversationJournalTurnFromUnknown(
+      {
+        ...versionTwo,
+        entries: [
+          { content: "policy", kind: "message", role: "system" },
+          versionTwo.entries.at(0),
+          versionTwo.entries.at(1),
+        ],
+      },
+      2,
+    ).ok,
+    true,
+  );
+  assert.equal(
+    conversationJournalTurnFromUnknown(
+      {
+        ...versionTwo,
+        entries: [{
+          content: "policy",
+          kind: "message",
+          reasoning: null,
+          role: "system",
+        }, versionTwo.entries.at(0), versionTwo.entries.at(1)],
+      },
+      2,
+    ).ok,
+    false,
+  );
+  assert.equal(
+    conversationJournalTurnFromUnknown(
+      {
+        ...versionTwo,
+        entries: [versionTwo.entries.at(0), {
+          ...versionTwo.entries.at(1),
+          reasoning: " ",
+        }],
+      },
+      2,
+    ).ok,
+    false,
+  );
 });
 
 test("budgets every structured journal payload independently", () => {

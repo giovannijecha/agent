@@ -144,13 +144,16 @@ The CLI mirror cannot reject an accepted tree transition because of its bounded
 checkpoint markers or separators, and `/timeline` keeps all retained identities
 navigable while projecting at most 32 insertion-ordered rows at once.
 
-Interactive `agent` creates one versioned per-user local journal outside the
-workspace. Only complete settled turns and the selected node identity cross
-that CLI-owned boundary. `agent resume --latest` validates the newest inactive
-journal for the exact workspace, rebuilds the immutable tree and transcript,
-and creates a separate continuation before providers, tools, or terminal
-ownership. Credentials, catalogs, provider/model selection, permissions,
-drafts, provisional turns, activity, and notices remain process-only. A final
+Interactive `agent` creates one version-two per-user local journal outside the
+workspace. Only complete settled turns, their optional separately bounded
+native reasoning, and the selected node identity cross that CLI-owned
+boundary. `agent resume --latest` validates the newest inactive version-one or
+version-two journal for the exact workspace, rebuilds the immutable tree and
+transcript, and creates a separate version-two continuation before providers,
+tools, or terminal ownership. Credentials, catalogs, provider/model selection,
+thinking effort and display settings, permissions, drafts, provisional turns,
+activity, and notices
+remain process-only. A final
 truncated line recovers only its complete prefix. A complete final turn whose
 head is exactly one journal revision behind is selected only when its parent is
 that previous head; current-revision selections remain authoritative and every
@@ -181,6 +184,8 @@ The principal runtime bounds are fixed:
 | user message | 4,096 code points |
 | one streamed text delta | 16,384 code units |
 | one assistant response | 262,144 code units |
+| one streamed reasoning delta | 16,384 code units |
+| one model-response reasoning value | 262,144 code units |
 | one stream | 4,096 events |
 | one parallel read cohort | 2-4 calls |
 | one selected conversation path | 256 messages / 1,048,576 code units |
@@ -282,16 +287,34 @@ documentation.
 See [providers](PROVIDERS.md) and [privacy](../PRIVACY.md) for the public
 contract.
 
-### Reserved bounded thinking stream
+### Bounded thinking stream
 
-Decision 0083 reserves one optional provider-neutral reasoning stream without
-activating it. The current provider request remains `think: false`; core,
-runtime, the version-one journal, and the TUI expose no reasoning value. A
-future implementation must preserve reasoning as bounded non-executable data,
-stage it with the complete native record, retain only settled selected-path
-history required by the provider, and render it through the existing transcript
-model. It cannot ship until a separate accepted journal-schema migration binds
-durability and recovery.
+Decisions 0086 and 0085 define one optional provider-neutral reasoning stream.
+`/thinking` is an idle two-row session editor available only after one
+configured provider and one model are selected. Effort is exactly `off`, `low`,
+`medium`, or `high`; display is exactly `off` or `on`; both default to `off`.
+The controller captures effort with one turn and every continuation in that
+tool loop uses the same value. Both settings remain unchanged through accepted
+model selections in the same process. There is no model-name inference,
+implicit retry, replay, compatibility parsing, router, or fallback; rejection
+by a newly selected model fails the turn without mutating either setting.
+
+Ollama requests map effort exactly to `think: false`, `"low"`, `"medium"`, or
+`"high"`. The adapter validates the entire native record before emitting a
+separate `reasoningDelta`; assistant text never becomes reasoning. Runtime
+stages and bounds reasoning independently from answer text, attaches it to the
+exact assistant message or tool exchange, and commits it only with the
+corresponding settled conversation node. Failed or cancelled prospective
+segments are discarded. Tool-loop and resumed selected-path history preserve
+settled reasoning where the native provider requires it.
+
+Display is owned only by the CLI. `on` projects reasoning as its own muted
+document above assistant text; `off` filters every reasoning document from the
+selected transcript without deleting the underlying state. The TUI remains
+agent-agnostic and uses no parallel renderer. Journal version two is unchanged:
+it requires an explicit string-or-null reasoning member on assistant records;
+the version-one decoder remains exact, and a resumed version-one source
+produces a separate version-two continuation.
 
 ## Terminal boundary
 
@@ -308,7 +331,7 @@ projected from authoritative application state.
 
 `@agent/cli` owns product meaning:
 
-- transcript entries, `/timeline` branch selection, durable journal settlement, command dispatch, and provider/session state;
+- transcript entries, `/thinking` mode, `/timeline` branch selection, durable journal settlement, command dispatch, and provider/session state;
 - one latest ephemeral activity or notice;
 - permission decisions and tool lifecycle projection;
 - terminal/runtime event serialization and cancellation;

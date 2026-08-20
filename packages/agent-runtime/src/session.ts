@@ -10,6 +10,7 @@ import type {
   StartTurnError,
   TurnOutcome,
 } from "./events.js";
+import type { ThinkingEffort } from "./model.js";
 
 /** One checkpointed turn settled while stop owns runtime ordering. */
 export type RuntimeStoppedTurn<E> = Readonly<{
@@ -26,7 +27,10 @@ export type RuntimeStopReport<E> = Readonly<{
 /** Adapter-neutral application capability for one owned runtime session. */
 export interface RuntimeSession<E> {
   /** Starts one prospective turn synchronously without committing it. */
-  startTurn(input: string): Result<StartedTurn, StartTurnError>;
+  startTurn(
+    input: string,
+    thinkingEffort?: ThinkingEffort,
+  ): Result<StartedTurn, StartTurnError>;
   /** Selects one retained conversation node while no turn is active. */
   selectConversationNode(
     nodeId: number,

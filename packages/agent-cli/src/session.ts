@@ -30,6 +30,7 @@ export type SessionAction =
   | Readonly<{ kind: "closeModels" }>
   | Readonly<{ kind: "closeProviders" }>
   | Readonly<{ kind: "closeTimeline" }>
+  | Readonly<{ kind: "closeThinking" }>
   | Readonly<{ kind: "cancelProviderCredential" }>
   | Readonly<{ kind: "exit" }>
   | Readonly<{ kind: "interactionBreak" }>
@@ -48,6 +49,10 @@ export type SessionAction =
       kind: "changePermission";
     }>
   | Readonly<{
+      direction: "less" | "more";
+      kind: "changeThinkingSetting";
+    }>
+  | Readonly<{
       direction: "next" | "previous";
       kind: "moveContextSelection";
     }>
@@ -55,6 +60,7 @@ export type SessionAction =
   | Readonly<{ kind: "openModels" }>
   | Readonly<{ kind: "openProviders" }>
   | Readonly<{ kind: "openTimeline" }>
+  | Readonly<{ kind: "openThinking" }>
   | Readonly<{
       event: PointerEvent;
       kind: "pointer";
@@ -81,12 +87,14 @@ export type SessionInputContext =
   | "providerCredential"
   | "providers"
   | "timeline"
+  | "thinking"
   | "toolDecision";
 
 type ContextualSelectorContext =
   | "models"
   | "permissions"
   | "providers"
+  | "thinking"
   | "timeline";
 
 function contextualSelector(
@@ -96,6 +104,7 @@ function contextualSelector(
     context === "models" ||
     context === "permissions" ||
     context === "providers" ||
+    context === "thinking" ||
     context === "timeline"
   );
 }
@@ -111,6 +120,9 @@ function closeContextualSelector(
   }
   if (context === "models") {
     return Object.freeze({ kind: "closeModels" as const });
+  }
+  if (context === "thinking") {
+    return Object.freeze({ kind: "closeThinking" as const });
   }
   return Object.freeze({ kind: "closeTimeline" as const });
 }
@@ -150,6 +162,8 @@ function dispatchSubmission(
     emit(Object.freeze({ kind: "openProviders" as const }));
   } else if (command.kind === "models") {
     emit(Object.freeze({ kind: "openModels" as const }));
+  } else if (command.kind === "thinking") {
+    emit(Object.freeze({ kind: "openThinking" as const }));
   } else if (command.kind === "timeline") {
     emit(Object.freeze({ kind: "openTimeline" as const }));
   }
@@ -367,6 +381,18 @@ export class SessionController {
             Object.freeze({
               direction: event.kind === "left" ? "less" as const : "more" as const,
               kind: "changePermission" as const,
+            }),
+          );
+          continue;
+        }
+        if (
+          context === "thinking" &&
+          (event.kind === "left" || event.kind === "right")
+        ) {
+          emit(
+            Object.freeze({
+              direction: event.kind === "left" ? "less" as const : "more" as const,
+              kind: "changeThinkingSetting" as const,
             }),
           );
           continue;

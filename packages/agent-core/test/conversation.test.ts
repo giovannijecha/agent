@@ -63,6 +63,31 @@ test("preserves message order", () => {
   assert.ok(Object.isFrozen(conversation.entries));
 });
 
+test("keeps assistant reasoning distinct, bounded by ownership, and role-safe", () => {
+  const assistant = Message.create(
+    Role.Assistant,
+    "public answer",
+    "private working trace",
+  );
+  assert.equal(assistant.ok, true);
+  if (!assistant.ok) return;
+
+  assert.equal(assistant.value.content, "public answer");
+  assert.equal(assistant.value.reasoning, "private working trace");
+  assert.equal(
+    Conversation.empty().append(assistant.value).codeUnits,
+    "public answer".length + "private working trace".length,
+  );
+
+  const user = Message.create(Role.User, "question", "not allowed");
+  assert.equal(user.ok, false);
+  if (!user.ok) assert.equal(user.error.kind, "invalidReasoning");
+
+  const blank = Message.create(Role.Assistant, "answer", " \n");
+  assert.equal(blank.ok, false);
+  if (!blank.ok) assert.equal(blank.error.kind, "invalidReasoning");
+});
+
 test("preserves one complete ordered tool exchange", () => {
   const input = structuredValueFromUnknown({ path: "src/index.ts" });
   const output = structuredValueFromUnknown({ text: "owned" });
@@ -124,5 +149,36 @@ test("rejects incomplete, reordered, and duplicate tool exchanges", () => {
   assert.equal(
     ToolExchange.create(undefined, [first.value], [wrong.value]).ok,
     false,
+  );
+});
+
+test("retains reasoning on a tool exchange without inventing assistant content", () => {
+  const input = structuredValueFromUnknown({ path: "src/index.ts" });
+  const output = structuredValueFromUnknown({ text: "owned" });
+  assert.ok(input.ok && input.value instanceof StructuredObject);
+  assert.ok(output.ok);
+  const call = ToolCall.create("call-1", "read_file", input.value);
+  const result = ToolResult.create(
+    "call-1",
+    "read_file",
+    "success",
+    output.value,
+  );
+  assert.ok(call.ok && result.ok);
+
+  const exchange = ToolExchange.create(
+    undefined,
+    [call.value],
+    [result.value],
+    "inspect the requested path",
+  );
+  assert.equal(exchange.ok, true);
+  if (!exchange.ok) return;
+  assert.equal(exchange.value.assistant, undefined);
+  assert.equal(exchange.value.reasoning, "inspect the requested path");
+  assert.equal(
+    Conversation.empty().append(exchange.value).codeUnits >=
+      "inspect the requested path".length,
+    true,
   );
 });

@@ -4,6 +4,8 @@ export const RUNTIME_LIMITS = Object.freeze({
   conversationMessages: 256,
   deltaCodeUnits: 16_384,
   inputCodePoints: 4_096,
+  reasoningDeltaCodeUnits: 16_384,
+  reasoningResponseCodeUnits: 262_144,
   responseCodeUnits: 262_144,
   parallelReads: 4,
   streamEvents: 4_096,

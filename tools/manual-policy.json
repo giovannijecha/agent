@@ -109,6 +109,7 @@
     "/models",
     "/permissions",
     "/providers",
+    "/thinking",
     "/timeline"
   ],
   "selectorDismissal": {
@@ -139,11 +140,11 @@
       },
       {
         "heading": "Run commands",
-        "sha256": "5212dcf99532006c9c530546d23a03972fd87e360a1455b79b0f5b5edfc5b6b4"
+        "sha256": "7bb6cd2b21a699b850b4b36e4225b90dd1e06f5ad80239b48e5602c0d5d0bff4"
       },
       {
         "heading": "Use selectors",
-        "sha256": "4a5b4055a20e5eecd217f838adea52da4654d233996b386ebbb69158339f197b"
+        "sha256": "9227169873d6dcfb3863c380a581f9d96083cc6cb9c17c383a537f992fc01075"
       },
       {
         "heading": "Navigate and copy",
@@ -151,7 +152,7 @@
       },
       {
         "heading": "Read the interface",
-        "sha256": "b00ae628e5518fa4ac516e0686e6f1af89828895cc028a6a068f2b0e382ad028"
+        "sha256": "31edbe9cf04e4b7814785c5c38b5f656a55e74a6af94076e3528f0b2e35d0ce7"
       },
       {
         "heading": "Recover from terminal problems",
@@ -159,10 +160,10 @@
       },
       {
         "heading": "References",
-        "sha256": "47ae9f2a4d1376c827780f32cdeaf635695ebb973f1d388fe7f891d62ed629fc"
+        "sha256": "3ea5d5448196993d23ad81edd26f506d2e0547943a266a4260e17f60f436c542"
       }
     ],
-    "sha256": "598bdb9c592c1937bb52650b344674e78693e5875ce2b9825beb185d730d6243"
+    "sha256": "ba411a2382d76e3930bd8f978d167b621dc02a173b873e31d942181a054f695f"
   },
   "toolSurface": {
     "tools": [
@@ -288,7 +289,10 @@
     "docs/decisions/0078-owned-interaction-dock-focus.md",
     "docs/decisions/0079-owned-explicit-selector-dismissal.md",
     "docs/decisions/0081-owned-structural-manual-policy.md",
+    "docs/decisions/0083-owned-bounded-thinking-stream.md",
     "docs/decisions/0084-owned-flat-namespace-tool-contract.md",
+    "docs/decisions/0085-owned-reasoning-journal-migration.md",
+    "docs/decisions/0086-owned-thinking-effort-and-display.md",
     "evaluations/README.md",
     "evaluations/failures/registry.json",
     "assets/brand/README.md",

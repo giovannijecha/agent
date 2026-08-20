@@ -6,8 +6,10 @@ import {
   AgentRuntime,
   type ModelStream,
   type ModelStreamEvent,
+  type ModelTurnOptions,
   type RuntimeCleanupFailure,
   type StreamingModel,
+  type ThinkingEffort,
   type TurnOutcome,
 } from "@agent/runtime";
 import {
@@ -69,6 +71,7 @@ class FixedModel<E> implements StreamingModel<E> {
   calls = 0;
   cancellation: CancellationSignal | undefined;
   seen: Conversation | undefined;
+  seenOptions: ModelTurnOptions | undefined;
 
   constructor(opened: Result<ModelStream<E>, E>) {
     this.#opened = opened;
@@ -77,10 +80,13 @@ class FixedModel<E> implements StreamingModel<E> {
   async open(
     conversation: Conversation,
     cancellation: CancellationSignal,
+    _tools: readonly ToolDescriptor[],
+    options: ModelTurnOptions,
   ): Promise<Result<ModelStream<E>, E>> {
     this.calls += 1;
     this.seen = conversation;
     this.cancellation = cancellation;
+    this.seenOptions = options;
     return this.#opened;
   }
 }
@@ -168,6 +174,7 @@ class DeferredFailureCloseStream<E> implements ModelStream<E> {
 class SequenceModel<E> implements StreamingModel<E> {
   readonly #streams: ModelStream<E>[];
   readonly conversations: Conversation[] = [];
+  readonly options: ModelTurnOptions[] = [];
 
   constructor(streams: ModelStream<E>[]) {
     this.#streams = [...streams];
@@ -175,12 +182,16 @@ class SequenceModel<E> implements StreamingModel<E> {
 
   async open(
     conversation: Conversation,
+    _cancellation: CancellationSignal,
+    _tools: readonly ToolDescriptor[],
+    options: ModelTurnOptions,
   ): Promise<Result<ModelStream<E>, E>> {
     const stream = this.#streams.shift();
     if (stream === undefined) {
       throw new Error("stream sequence exhausted");
     }
     this.conversations.push(conversation);
+    this.options.push(options);
     return ok(stream);
   }
 }
@@ -537,6 +548,93 @@ test("streams a prospective turn and commits both messages atomically", async ()
   );
   assert.equal(stream.closeCalls, 1);
   assert.equal(runtime.activeTurnId, undefined);
+});
+
+test("streams reasoning separately and commits it only with the final answer", async () => {
+  const stream = new ScriptedStream<string>([
+    ok(Object.freeze({ kind: "reasoningDelta" as const, text: "inspect " })),
+    ok(Object.freeze({ kind: "reasoningDelta" as const, text: "carefully" })),
+    ok(Object.freeze({ kind: "delta" as const, text: "answer" })),
+    ok(Object.freeze({ kind: "done" as const })),
+  ]);
+  const model = new FixedModel(ok(stream));
+  const runtime = new AgentRuntime(model);
+
+  const started = runtime.startTurn("question", "medium");
+  assert.ok(started.ok);
+  if (!started.ok) return;
+  assert.equal(runtime.conversation.length, 0);
+
+  assert.deepEqual(await next(runtime), {
+    kind: "reasoningDelta",
+    text: "inspect ",
+    turnId: started.value.turnId,
+  });
+  assert.deepEqual(await next(runtime), {
+    kind: "reasoningDelta",
+    text: "carefully",
+    turnId: started.value.turnId,
+  });
+  assert.deepEqual(model.seenOptions, { thinkingEffort: "medium" });
+  assert.equal(runtime.conversation.length, 0);
+
+  assert.equal((await next(runtime)).kind, "assistantDelta");
+  const prepared = await next(runtime);
+  assert.equal(prepared.kind, "turnPrepared");
+  if (prepared.kind !== "turnPrepared") return;
+  assert.equal(prepared.assistant.content, "answer");
+  assert.equal(prepared.assistant.reasoning, "inspect carefully");
+  assert.ok(runtime.commitTurn(prepared.turnId).ok);
+
+  const assistant = runtime.conversation.entries.at(-1);
+  assert.equal(assistant instanceof Message, true);
+  if (assistant instanceof Message) {
+    assert.equal(assistant.content, "answer");
+    assert.equal(assistant.reasoning, "inspect carefully");
+  }
+});
+
+test("rejects all-whitespace reasoning at every segment boundary", async () => {
+  for (const fixture of [
+    Object.freeze({
+      published: Object.freeze(["reasoningDelta", "assistantDelta"]),
+      steps: Object.freeze([
+        ok(Object.freeze({ kind: "reasoningDelta" as const, text: " \t" })),
+        ok(Object.freeze({ kind: "delta" as const, text: "answer" })),
+        ok(Object.freeze({ kind: "done" as const })),
+      ]),
+    }),
+    Object.freeze({
+      published: Object.freeze(["reasoningDelta"]),
+      steps: Object.freeze([
+        ok(Object.freeze({ kind: "reasoningDelta" as const, text: " \t" })),
+        ok(toolCallEvent("call-blank-reasoning")),
+      ]),
+    }),
+  ]) {
+    const runtime = new AgentRuntime(
+      new FixedModel(ok(new ScriptedStream<string>([...fixture.steps]))),
+      toolEngine(),
+    );
+    const started = runtime.startTurn("question", "medium");
+    assert.ok(started.ok);
+    if (!started.ok) continue;
+
+    for (const kind of fixture.published) {
+      assert.equal((await next(runtime)).kind, kind);
+    }
+    const finished = await next(runtime);
+    assert.equal(finished.kind, "turnFinished");
+    if (finished.kind === "turnFinished") {
+      assert.deepEqual(finished.outcome, {
+        failure: { kind: "emptyReasoningDelta" },
+        kind: "failed",
+      });
+      assert.equal(finished.historyNodeId, undefined);
+      assert.ok(runtime.acknowledgeTurn(finished.turnId).ok);
+    }
+    assert.equal(runtime.conversation.length, 0);
+  }
 });
 
 test("branches from a selected node and restores either retained path", async () => {
@@ -1342,6 +1440,138 @@ test("runs a read tool sequentially and checkpoints its structured result", asyn
   assert.equal(runtime.conversation.length, 3);
   assert.equal(runtime.conversation.messageUnits, 4);
   assert.equal(model.conversations.at(1)?.length, 2);
+});
+
+test("checkpoints tool-loop reasoning and reopens the same effort", async () => {
+  const first = new ScriptedStream<string>([
+    ok(Object.freeze({ kind: "reasoningDelta" as const, text: "inspect file" })),
+    ok(toolCallEvent("call-reasoning")),
+  ]);
+  const second = new ScriptedStream<string>([
+    ok(Object.freeze({ kind: "reasoningDelta" as const, text: "use result" })),
+    ok(Object.freeze({ kind: "delta" as const, text: "done" })),
+    ok(Object.freeze({ kind: "done" as const })),
+  ]);
+  const model = new SequenceModel([first, second]);
+  const runtime = new AgentRuntime(model, toolEngine());
+  const started = runtime.startTurn("inspect", "high");
+  assert.ok(started.ok);
+  if (!started.ok) return;
+
+  assert.equal((await next(runtime)).kind, "reasoningDelta");
+  const requested = await next(runtime);
+  assert.equal(requested.kind, "toolRequested");
+  decideTool(runtime, started.value.turnId, "call-reasoning");
+  assert.equal((await next(runtime)).kind, "toolStarted");
+  assert.equal((await next(runtime)).kind, "toolFinished");
+
+  const exchange = runtime.conversation.entries.at(1);
+  assert.equal(exchange instanceof ToolExchange, true);
+  if (exchange instanceof ToolExchange) {
+    assert.equal(exchange.reasoning, "inspect file");
+  }
+  assert.equal((await next(runtime)).kind, "reasoningDelta");
+  const reopenedExchange = model.conversations.at(1)?.entries.at(1);
+  assert.equal(reopenedExchange instanceof ToolExchange, true);
+  if (reopenedExchange instanceof ToolExchange) {
+    assert.equal(reopenedExchange.reasoning, "inspect file");
+  }
+  assert.equal((await next(runtime)).kind, "assistantDelta");
+  const prepared = await next(runtime);
+  assert.equal(prepared.kind, "turnPrepared");
+  if (prepared.kind === "turnPrepared") {
+    assert.equal(prepared.assistant.reasoning, "use result");
+    assert.ok(runtime.commitTurn(prepared.turnId).ok);
+  }
+  assert.deepEqual(model.options, [
+    { thinkingEffort: "high" },
+    { thinkingEffort: "high" },
+  ]);
+});
+
+test("accepts each exact enabled reasoning effort", async () => {
+  for (const effort of ["low", "medium", "high"] as const) {
+    const model = new FixedModel(ok(new ScriptedStream<string>([
+      ok(Object.freeze({ kind: "reasoningDelta" as const, text: effort })),
+      ok(Object.freeze({ kind: "delta" as const, text: "answer" })),
+      ok(Object.freeze({ kind: "done" as const })),
+    ])));
+    const runtime = new AgentRuntime(model);
+    const started = runtime.startTurn("question", effort);
+    assert.ok(started.ok);
+    if (!started.ok) continue;
+    assert.equal((await next(runtime)).kind, "reasoningDelta");
+    assert.equal((await next(runtime)).kind, "assistantDelta");
+    assert.equal((await next(runtime)).kind, "turnPrepared");
+    assert.deepEqual(model.seenOptions, { thinkingEffort: effort });
+  }
+});
+
+test("rejects invalid effort before opening the model", () => {
+  const model = new FixedModel<string>(err("must not open"));
+  const runtime = new AgentRuntime(model);
+  const started = runtime.startTurn("question", "max" as ThinkingEffort);
+
+  assert.deepEqual(started, {
+    error: { kind: "invalidThinkingEffort" },
+    ok: false,
+  });
+  assert.equal(model.calls, 0);
+});
+
+test("rejects off, late, empty, and oversized reasoning without settlement", async () => {
+  const cases = [
+    Object.freeze({
+      mode: "off" as const,
+      steps: [
+        ok(Object.freeze({ kind: "reasoningDelta" as const, text: "hidden" })),
+      ],
+      failure: "invalidModelEvent",
+    }),
+    Object.freeze({
+      mode: "high" as const,
+      steps: [
+        ok(Object.freeze({ kind: "delta" as const, text: "answer" })),
+        ok(Object.freeze({ kind: "reasoningDelta" as const, text: "late" })),
+      ],
+      failure: "invalidModelEvent",
+    }),
+    Object.freeze({
+      mode: "low" as const,
+      steps: [
+        ok(Object.freeze({ kind: "reasoningDelta" as const, text: "" })),
+      ],
+      failure: "emptyReasoningDelta",
+    }),
+    Object.freeze({
+      mode: "medium" as const,
+      steps: [
+        ok(Object.freeze({
+          kind: "reasoningDelta" as const,
+          text: "x".repeat(16_385),
+        })),
+      ],
+      failure: "reasoningTooLong",
+    }),
+  ] as const;
+
+  for (const item of cases) {
+    const runtime = new AgentRuntime(
+      new FixedModel(ok(new ScriptedStream<string>([...item.steps]))),
+    );
+    assert.ok(runtime.startTurn("question", item.mode).ok);
+    let terminal = await next(runtime);
+    if (terminal.kind === "assistantDelta") terminal = await next(runtime);
+    assert.equal(terminal.kind, "turnFinished");
+    if (terminal.kind === "turnFinished") {
+      assert.equal(terminal.outcome.kind, "failed");
+      if (terminal.outcome.kind === "failed") {
+        assert.equal(terminal.outcome.failure.kind, item.failure);
+      }
+      assert.equal(terminal.historyNodeId, undefined);
+    }
+    assert.equal(runtime.conversation.length, 0);
+  }
 });
 
 test("checkpoints an observed tool failure and lets the model continue", async () => {

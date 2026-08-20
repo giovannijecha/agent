@@ -24,6 +24,22 @@ function configuredProviders() {
   ]);
 }
 
+function configuredProviderWithoutModel() {
+  return Object.freeze([
+    Object.freeze({
+      configured: true,
+      id: "ollamaCloud" as const,
+      presentation: Object.freeze({
+        authentication: "memory-only API key",
+        displayName: "Ollama Cloud",
+        model: undefined,
+      }),
+      ready: false,
+      selected: true,
+    }),
+  ]);
+}
+
 function unconfiguredProviders() {
   return Object.freeze([
     Object.freeze({
@@ -151,6 +167,9 @@ test("conceals provider credentials and requires an explicit model selection", (
     selected: true,
   }));
   assert.ok(application.providerConfigured(configured, "ollamaCloud").ok);
+  reduceInput(application, "/thinking\r");
+  assert.equal(application.projectThinkingMenu(), undefined);
+  assert.deepEqual(application.notice, ["Select a model with /models first."]);
   const models = reduceInput(application, "/models\r");
   assert.deepEqual(models.effects, [{ kind: "loadModels" }]);
   assert.ok(
@@ -177,8 +196,13 @@ test("conceals provider credentials and requires an explicit model selection", (
   assert.ok(
     application.modelSelected(ready, "library/qwen3-coder:480b-cloud").ok,
   );
+  reduceInput(application, "/thinking\r\u001B[C\u001B[B\u001B[C\r");
+  assert.equal(application.thinkingEffort, "low");
+  assert.equal(application.thinkingDisplay, "on");
   assert.equal(application.provider?.model, "library/qwen3-coder:480b-cloud");
-  assert.equal(reduceInput(application, "private task\r").effects.at(0)?.kind, "startTurn");
+  assert.deepEqual(reduceInput(application, "private task\r").effects, [
+    { effort: "low", kind: "startTurn", text: "private task" },
+  ]);
 });
 
 test("credential entry treats slash text as secret and Ctrl+C clears it", () => {
@@ -479,6 +503,238 @@ test("publishes exact streamed completion and returns to idle", () => {
   assert.deepEqual(application.notice, []);
 });
 
+test("stages two-axis thinking settings and captures effort per turn", () => {
+  const application = new ApplicationController(true, configuredProviders());
+
+  reduceInput(application, "/thinking\r");
+  assert.deepEqual(application.projectThinkingMenu(), {
+    display: "off",
+    effort: "off",
+    selectedIndex: 0,
+  });
+  reduceInput(application, "\u001B[C\u001B[B\u001B[C\u001B[C");
+  assert.deepEqual(application.projectThinkingMenu(), {
+    display: "on",
+    effort: "medium",
+    selectedIndex: 1,
+  });
+  assert.equal(application.thinkingDisplay, "off");
+  assert.equal(application.thinkingEffort, "off");
+  reduceInput(application, "\r");
+  assert.equal(application.thinkingDisplay, "on");
+  assert.equal(application.thinkingEffort, "medium");
+  assert.equal(application.projectThinkingMenu(), undefined);
+
+  const submitted = reduceInput(application, "question\r");
+  assert.deepEqual(submitted.effects, [
+    { effort: "medium", kind: "startTurn", text: "question" },
+  ]);
+  assert.ok(application.turnAccepted(started(30, "question")).ok);
+  assert.ok(application.applyRuntime(Object.freeze({
+    kind: "reasoningDelta" as const,
+    text: "considering",
+    turnId: 30,
+  })).ok);
+  assert.ok(application.applyRuntime(Object.freeze({
+    kind: "assistantDelta" as const,
+    text: "answer",
+    turnId: 30,
+  })).ok);
+  const prepared = application.applyRuntime(Object.freeze({
+    assistant: Object.freeze({ content: "answer", reasoning: "considering" }),
+    checkpointed: false,
+    cleanup: Object.freeze([]),
+    kind: "turnPrepared" as const,
+    turnId: 30,
+  }) as unknown as RuntimeEvent<string>);
+
+  assert.ok(prepared.ok);
+  assert.deepEqual(
+    application.transcriptEntries().map((entry) => [entry.role, entry.content]),
+    [
+      ["user", "question"],
+      ["reasoning", "considering"],
+      ["assistant", "answer"],
+    ],
+  );
+});
+
+test("requires a configured provider and selected model before opening thinking", () => {
+  for (const application of [
+    new ApplicationController(true),
+    new ApplicationController(true, unconfiguredProviders()),
+  ]) {
+    const opened = reduceInput(application, "/thinking\r");
+    assert.deepEqual(opened.effects, []);
+    assert.equal(application.projectThinkingMenu(), undefined);
+    assert.deepEqual(application.notice, [
+      "Configure and select a provider with /providers first.",
+    ]);
+  }
+
+  const withoutModel = new ApplicationController(
+    true,
+    configuredProviderWithoutModel(),
+  );
+  const opened = reduceInput(withoutModel, "/thinking\r");
+  assert.deepEqual(opened.effects, []);
+  assert.equal(withoutModel.projectThinkingMenu(), undefined);
+  assert.deepEqual(withoutModel.notice, ["Select a model with /models first."]);
+});
+
+test("preserves both thinking settings through an accepted model selection", () => {
+  const application = new ApplicationController(true, configuredProviders());
+  reduceInput(application, "/thinking\r\u001B[C\u001B[B\u001B[C\u001B[C\r");
+  assert.equal(application.thinkingDisplay, "on");
+  assert.equal(application.thinkingEffort, "medium");
+
+  assert.deepEqual(reduceInput(application, "/models\r").effects, [
+    { kind: "loadModels" },
+  ]);
+  assert.ok(application.modelsLoaded([
+    { cost: "cloud", id: "qwen3-coder:480b-cloud", selected: true },
+    { cost: "cloud", id: "glm-4.7:cloud", selected: false },
+  ]).ok);
+  assert.deepEqual(reduceInput(application, "\u001B[B\r").effects, [
+    { id: "glm-4.7:cloud", kind: "selectModel" },
+  ]);
+  const selected = configuredProviders().map((provider) => Object.freeze({
+    ...provider,
+    presentation: Object.freeze({
+      ...provider.presentation,
+      model: "glm-4.7:cloud",
+    }),
+  }));
+  assert.ok(application.modelSelected(selected, "glm-4.7:cloud").ok);
+  assert.equal(application.thinkingDisplay, "on");
+  assert.equal(application.thinkingEffort, "medium");
+
+  assert.deepEqual(reduceInput(application, "question\r").effects, [
+    { effort: "medium", kind: "startTurn", text: "question" },
+  ]);
+  assert.ok(application.turnAccepted(started(32, "question")).ok);
+  const failed = application.applyRuntime(Object.freeze({
+    checkpointed: false,
+    cleanup: Object.freeze([]),
+    historyNodeId: undefined,
+    kind: "turnFinished" as const,
+    outcome: Object.freeze({
+      failure: Object.freeze({
+        error: "unsupported effort",
+        kind: "model" as const,
+        operation: "open" as const,
+      }),
+      kind: "failed" as const,
+    }),
+    turnId: 32,
+  }));
+  assert.ok(failed.ok);
+  assert.equal(application.thinkingDisplay, "on");
+  assert.equal(application.thinkingEffort, "medium");
+  assert.equal(application.notice.at(0)?.includes("model/open"), true);
+});
+
+test("keeps thinking row values inside their closed non-wrapping bounds", () => {
+  const application = new ApplicationController(true, configuredProviders());
+  reduceInput(application, "/thinking\r");
+
+  assert.equal(reduceInput(application, "\u001B[D").redraw, false);
+  reduceInput(application, "\u001B[B");
+  assert.equal(reduceInput(application, "\u001B[D").redraw, false);
+  reduceInput(application, "\u001B[C\u001B[C\u001B[C");
+  assert.deepEqual(application.projectThinkingMenu(), {
+    display: "off",
+    effort: "high",
+    selectedIndex: 1,
+  });
+  assert.equal(reduceInput(application, "\u001B[C").redraw, false);
+});
+
+test("hides retained reasoning without deleting it and discards staged changes", () => {
+  const application = new ApplicationController(true, configuredProviders());
+
+  reduceInput(application, "/thinking\r\u001B[B\u001B[C\r");
+  assert.equal(application.thinkingDisplay, "off");
+  assert.equal(application.thinkingEffort, "low");
+  assert.deepEqual(reduceInput(application, "question\r").effects, [
+    { effort: "low", kind: "startTurn", text: "question" },
+  ]);
+  assert.ok(application.turnAccepted(started(31, "question")).ok);
+  const hiddenDelta = application.applyRuntime(Object.freeze({
+    kind: "reasoningDelta" as const,
+    text: "retained reasoning",
+    turnId: 31,
+  }));
+  assert.ok(hiddenDelta.ok);
+  if (hiddenDelta.ok) assert.equal(hiddenDelta.value.redraw, false);
+  assert.ok(application.applyRuntime(Object.freeze({
+    kind: "assistantDelta" as const,
+    text: "answer",
+    turnId: 31,
+  })).ok);
+  const prepared = application.applyRuntime(Object.freeze({
+    assistant: Object.freeze({ content: "answer", reasoning: "retained reasoning" }),
+    checkpointed: false,
+    cleanup: Object.freeze([]),
+    kind: "turnPrepared" as const,
+    turnId: 31,
+  }) as unknown as RuntimeEvent<string>);
+  assert.ok(prepared.ok);
+  assert.ok(application.turnCommitResolved(31, Object.freeze({
+    historyNodeId: 1,
+    kind: "committed" as const,
+  })).ok);
+  assert.deepEqual(
+    application.transcriptEntries().map((entry) => [entry.role, entry.content]),
+    [["user", "question"], ["assistant", "answer"]],
+  );
+
+  reduceInput(application, "/thinking\r\u001B[C");
+  assert.equal(application.thinkingDisplay, "off");
+  reduceInput(application, "\r");
+  assert.equal(application.thinkingDisplay, "on");
+  assert.deepEqual(
+    application.transcriptEntries().map((entry) => [entry.role, entry.content]),
+    [
+      ["user", "question"],
+      ["reasoning", "retained reasoning"],
+      ["assistant", "answer"],
+    ],
+  );
+
+  reduceInput(application, "/thinking\r\u001B[D\u001B[B\u001B[C\u0003");
+  assert.equal(application.thinkingDisplay, "on");
+  assert.equal(application.thinkingEffort, "low");
+});
+
+test("hides restored reasoning by default and reveals it from the session setting", () => {
+  const application = new ApplicationController(
+    true,
+    configuredProviders(),
+    undefined,
+    Object.freeze({
+      activeNodeId: 1,
+      turns: Object.freeze([
+        Object.freeze({
+          assistant: "restored answer",
+          historyNodeId: 1,
+          historyParentNodeId: 0,
+          reasoning: "restored reasoning",
+          settlement: "completed" as const,
+          user: "restored question",
+        }),
+      ]),
+    }),
+  );
+
+  assert.equal(application.transcriptText(), "restored question\n\nrestored answer");
+  reduceInput(application, "/thinking\r\u001B[C\r");
+  assert.equal(
+    application.transcriptText(),
+    "restored question\n\nrestored reasoning\n\nrestored answer",
+  );
+});
+
 test("selects a timeline node only after the runtime-authoritative effect", () => {
   const application = new ApplicationController(true);
   application.turnAccepted(started(1, "root question"));
@@ -606,7 +862,8 @@ test("discards a second submission while a turn is active", () => {
 });
 
 test("explicitly releases draft, status, and display-only personal content", () => {
-  const application = new ApplicationController(true);
+  const application = new ApplicationController(true, configuredProviders());
+  reduceInput(application, "/thinking\r\u001B[C\u001B[B\u001B[C\r");
   application.turnAccepted(started(1, "private question"));
   application.applyRuntime(
     Object.freeze({
@@ -625,6 +882,8 @@ test("explicitly releases draft, status, and display-only personal content", () 
   assert.equal(application.transcriptText(), "");
   assert.deepEqual(application.activities, []);
   assert.deepEqual(application.notice, []);
+  assert.equal(application.thinkingDisplay, "off");
+  assert.equal(application.thinkingEffort, "off");
 });
 
 test("requires one contextual permission decision and exposes one bounded activity snapshot", () => {
