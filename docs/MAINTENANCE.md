@@ -530,11 +530,14 @@ Treat every closed inventory as an exact current-path requirement. Renaming or
 deleting an inventoried file must fail, as must changing its reviewed filesystem
 or child-process import, network import, or any other source content. Each direct
 Node effect-authority record owns only its exact module specifier and imported
-bindings. The complete dormant CLI product tree and native platform authority
-each own an exact ordered path set and an aggregate SHA-256 digest over
-normalized UTF-8 path/source records after only CRLF-to-LF normalization. Update
-or remove stale records together with the owning decision and mutation evidence;
-never retain a dormant pathname or digest allowance for possible later reuse.
+bindings. The complete dormant CLI product tree recursively includes every
+TypeScript module under `packages/agent-cli/src/`; a module added or moved into
+any child directory must fail until the ordered path set and aggregate digest
+are reviewed. The native platform authority likewise owns its complete tree.
+Both use an aggregate SHA-256 digest over normalized UTF-8 path/source records
+after only CRLF-to-LF normalization. Update or remove stale records together
+with the owning decision and mutation evidence; never retain a dormant pathname
+or digest allowance for possible later reuse.
 
 Do not weaken source integrity into a partial export or alias scanner. Keep
 representative escape recurrences in the source-policy corpus, including direct

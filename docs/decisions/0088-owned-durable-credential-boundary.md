@@ -164,17 +164,19 @@ All closed path sets are bidirectional: every registered path must remain in
 the canonical product-source set. Each approved CLI module with direct
 `node:fs`, `node:child_process`, or `node:https` effect authority must retain its
 exact module specifier and import bindings. The complete dormant CLI product
-tree and native platform authority each retain their exact ordered path set and
-an aggregate digest over path/source records. Both digest forms cover complete
-UTF-8 source after only CRLF-to-LF normalization and use SHA-256. A rename,
-deletion, reduced or expanded effect import, CLI path change, native path change,
-or any other source drift fails closed rather than preserving a dormant
-allowance. These complete source snapshots are the verifier's sole authority
-for code flow inside the CLI product and native trees; the direct Node registry
-owns only exact effect edges. The gate does not execute product code or infer
-partial strings, commands, exports, aliases, assignments, or general capability
-flow. A legitimate edit requires review of the complete owning source tree and
-an explicit digest repin in the same policy change; split literals, method
+tree includes every `packages/agent-cli/src/**/*.ts` module recursively; its
+exact ordered path set and aggregate path/source digest therefore reject a new
+or moved child-directory module. The native platform authority likewise retains
+its complete ordered path set and aggregate path/source digest. Both digest forms
+cover complete UTF-8 source after only CRLF-to-LF normalization and use SHA-256.
+A rename, deletion, reduced or expanded effect import, CLI path change, native
+path change, or any other source drift fails closed rather than preserving a
+dormant allowance. These complete source snapshots are the verifier's sole
+authority for code flow inside the CLI product and native trees; the direct Node
+registry owns only exact effect edges. The gate does not execute product code or
+infer partial strings, commands, exports, aliases, assignments, or general
+capability flow. A legitimate edit requires review of the complete owning source
+tree and an explicit digest repin in the same policy change; split literals, method
 composition such as `.concat()`, and other unfamiliar syntax cannot bypass the
 boundary.
 

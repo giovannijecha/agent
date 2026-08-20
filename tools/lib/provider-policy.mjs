@@ -906,7 +906,7 @@ function validateProductSources(productSources) {
     productSources,
     APPROVED_CLI_DORMANT_PRODUCT_TREE,
     (source) =>
-      /^packages\/agent-cli\/src\/[^/]+\.ts$/u.test(source.path),
+      /^packages\/agent-cli\/src\/(?:[^/]+\/)*[^/]+\.ts$/u.test(source.path),
     "CLI dormant product tree",
   );
   validateExactSourceTree(

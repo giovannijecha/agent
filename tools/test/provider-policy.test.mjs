@@ -505,7 +505,7 @@ test("rejects unsupported dormant command composition through source integrity",
 
 test("pins the exact CLI dormant product tree", () => {
   const sources = currentProductSources.filter((source) =>
-    /^packages\/agent-cli\/src\/[^/]+\.ts$/u.test(source.path)
+    /^packages\/agent-cli\/src\/(?:[^/]+\/)*[^/]+\.ts$/u.test(source.path)
   );
   assert.equal(sources.length, 72);
   const unprivilegedSource = sources.find(
@@ -546,6 +546,17 @@ test("pins the exact CLI dormant product tree", () => {
   };
   assert.throws(
     () => validateProviderPolicy(currentPolicy, contextWithSources(addedSource)),
+    (error) =>
+      error instanceof ProviderPolicyError &&
+      error.message === "CLI dormant product tree path drift",
+  );
+
+  const nestedSource = {
+    path: "packages/agent-cli/src/dormant/entry.ts",
+    text: 'export const command = "a".concat("uth");\n',
+  };
+  assert.throws(
+    () => validateProviderPolicy(currentPolicy, contextWithSources(nestedSource)),
     (error) =>
       error instanceof ProviderPolicyError &&
       error.message === "CLI dormant product tree path drift",

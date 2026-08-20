@@ -83,10 +83,12 @@ separate follow-up unless the adjacent change is necessary for correctness.
   direct `node:fs`, `node:child_process`, or `node:https` effect authority must
   retain its reviewed module specifier and import bindings. The complete dormant
   CLI product tree and native C/H platform tree each retain their exact ordered
-  path set and aggregate source digest. Source integrity normalizes only CRLF to
-  LF and uses SHA-256 over complete UTF-8 path/source records. Renaming,
-  deleting, reducing, expanding, or otherwise changing an inventoried authority
-  fails closed.
+  path set and aggregate source digest. The CLI tree includes every TypeScript
+  module recursively under `packages/agent-cli/src/`; moving authority into a
+  child directory cannot leave it outside the snapshot. Source integrity
+  normalizes only CRLF to LF and uses SHA-256 over complete UTF-8 path/source
+  records. Renaming, deleting, reducing, expanding, or otherwise changing an
+  inventoried authority fails closed.
 - The exact source digest is the sole verifier authority for code flow within an
   approved dormant CLI product or native source tree; the direct Node registry
   owns only exact effect edges. The verifier does not execute product code or
