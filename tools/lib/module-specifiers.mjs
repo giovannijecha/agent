@@ -13,11 +13,26 @@ export class ModuleScanError extends Error {
 }
 
 function isIdentifierStart(character) {
-  return /[A-Za-z_$]/u.test(character);
+  return (
+    character === "$" ||
+    character === "_" ||
+    /\p{ID_Start}/u.test(character)
+  );
 }
 
 function isIdentifierPart(character) {
-  return /[A-Za-z0-9_$]/u.test(character);
+  return (
+    character === "$" ||
+    character === "_" ||
+    character === "\u200C" ||
+    character === "\u200D" ||
+    /\p{ID_Continue}/u.test(character)
+  );
+}
+
+function sourceCharacterAt(source, index) {
+  const codePoint = source.codePointAt(index);
+  return codePoint === undefined ? undefined : String.fromCodePoint(codePoint);
 }
 
 function canStartRegex(tokens) {
@@ -208,15 +223,17 @@ function tokenize(source) {
       throw new ModuleScanError("escaped identifiers are forbidden", line);
     }
 
-    if (isIdentifierStart(character)) {
+    const identifierStart = sourceCharacterAt(source, index);
+    if (identifierStart !== undefined && isIdentifierStart(identifierStart)) {
       const startLine = line;
       let value = "";
       while (index < source.length) {
-        const current = source[index];
+        const current = sourceCharacterAt(source, index);
         if (current === undefined || !isIdentifierPart(current)) {
           break;
         }
-        value += advance();
+        value += current;
+        index += current.length;
       }
       tokens.push({ kind: "identifier", value, line: startLine });
       continue;

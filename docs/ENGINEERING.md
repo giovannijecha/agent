@@ -97,11 +97,13 @@ separate follow-up unless the adjacent change is necessary for correctness.
   creates alias evidence only when its complete delimited expression is a
   direct identifier alias. A named runtime binding literally called `type`
   remains runtime; `type` is a type-only modifier only when it prefixes another
-  local identifier. Multiline calls, member access, tagged templates, and
-  transparent assertions remain expression continuations. The lexer
-  distinguishes runtime exports from nested scopes, comments, standalone
-  string contents, and type-only syntax, and does not infer general capability
-  flow through product execution.
+  local identifier. Identifiers are tokenized by Unicode code point through the
+  ECMAScript `ID_Start` and `ID_Continue` classes, including the admitted join
+  controls; escaped identifiers fail closed. Multiline calls, member access,
+  tagged templates, and transparent assertions remain expression continuations.
+  The lexer distinguishes runtime exports from nested scopes, comments,
+  standalone string contents, and type-only syntax, and does not infer general
+  capability flow through product execution.
 - Put minimal Node declarations in `types/` from authoritative runtime
   contracts.
 - Cross package boundaries only through `src/index.ts`.

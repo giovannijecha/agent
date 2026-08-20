@@ -538,10 +538,11 @@ module as unscannable rather than trying to infer whether a later export carries
 its authority. Require the complete default-export expression to be a direct
 alias before recording it. Include a runtime binding literally named `type`
 beside a type-only export, a separate module-scope direct-alias chain, the
-256-alias bound, cycle rejection, and an omitted-semicolon declaration followed
-by a new statement. Keep negative controls for multiline calls, member access,
-tagged templates, transparent assertions, nested scopes, call results,
-comments, standalone source strings, and type-only exports. A
+256-alias bound, cycle rejection, Unicode aliases in both the basic and astral
+planes, and an omitted-semicolon declaration followed by a new statement. Keep
+negative controls for escaped identifiers, multiline calls, member access,
+tagged templates, transparent assertions, nested scopes, call results, comments,
+standalone source strings, and type-only exports. A
 higher-level owned CLI API remains subject to its ordinary package and source
 review; this gate does not execute product code or infer general data flow.
 

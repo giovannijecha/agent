@@ -570,6 +570,10 @@ test("rejects approved filesystem bindings re-exported to local modules", () => 
       "const type = readFile;\nexport { type as localRead };",
       'import { localRead as readFile } from "./session-journal.js";',
     ],
+    [
+      "const 讀取 = readFile;\nexport { 讀取 };",
+      'import { 讀取 as readFile } from "./session-journal.js";',
+    ],
     ["export default readFile;", 'import readFile from "./session-journal.js";'],
     ["export default ((readFile));", 'import readFile from "./session-journal.js";'],
   ]) {

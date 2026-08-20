@@ -173,11 +173,13 @@ declarators and default expressions at explicit or lexically unambiguous
 automatic-semicolon boundaries; the complete default-export expression must be
 a direct alias before it creates raw-binding evidence. A named runtime binding
 literally called `type` remains runtime; the type-only modifier is recognized
-only when it prefixes another local identifier. Multiline calls, member access,
-tagged templates, and transparent assertions remain continuations. Nested-scope
-aliases, call results, comments, standalone string contents, and type-only
-exports do not create raw-binding evidence; the gate never executes product
-code or claims general capability-flow analysis.
+only when it prefixes another local identifier. Identifiers are tokenized by
+Unicode code point through the ECMAScript `ID_Start` and `ID_Continue` classes,
+including the admitted join controls; escaped identifiers fail closed.
+Multiline calls, member access, tagged templates, and transparent assertions
+remain continuations. Nested-scope aliases, call results, comments, standalone
+string contents, and type-only exports do not create raw-binding evidence; the
+gate never executes product code or claims general capability-flow analysis.
 Before applying dormant literal markers, the gate projects values reconstructed
 only from bounded non-interpolated literals, parentheses, literal `+`, and
 literal arrays joined with a static separator. It never evaluates product code;

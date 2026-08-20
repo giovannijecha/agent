@@ -98,6 +98,20 @@ test("distinguishes runtime bindings named type from type-only exports", () => {
   );
 });
 
+test("collects Unicode runtime binding aliases by code point", () => {
+  assert.deepEqual(
+    collectRuntimeExportBindings(
+      "const 讀取 = readFile;\n" +
+        "const 𐐀 = open;\n" +
+        "export { 讀取, 𐐀 as astralOpen };\n",
+    ),
+    [
+      { exported: "讀取", line: 3, local: "readFile" },
+      { exported: "astralOpen", line: 3, local: "open" },
+    ],
+  );
+});
+
 test("rejects module-scope runtime binding patterns", () => {
   for (const source of [
     "export const { localRead } = { localRead: readFile };\n",
