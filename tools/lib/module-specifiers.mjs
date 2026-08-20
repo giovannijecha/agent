@@ -660,6 +660,12 @@ function collectVariableBindingAliases(tokens) {
       }
       continue;
     }
+    if (["{", "["].includes(tokens[index + 1]?.value)) {
+      throw new ModuleScanError(
+        "module-scope runtime binding patterns are outside owned bounds",
+        tokens[index].line,
+      );
+    }
     const names = [];
     let cursor = index + 1;
     while (cursor < tokens.length) {
@@ -742,12 +748,6 @@ export function collectRuntimeExportBindings(source) {
       continue;
     }
     if (["const", "let", "var"].includes(tokens[cursor]?.value)) {
-      if (["{", "["].includes(tokens[cursor + 1]?.value)) {
-        throw new ModuleScanError(
-          "exported runtime binding patterns are outside owned bounds",
-          tokens[index].line,
-        );
-      }
       for (const declared of declarations.get(cursor) ?? []) {
         appendBinding(declared, tokens[index].line, declared);
       }
@@ -762,7 +762,10 @@ export function collectRuntimeExportBindings(source) {
         cursor += 1;
         continue;
       }
-      const typeOnly = tokens[cursor]?.value === "type";
+      const typeOnly =
+        tokens[cursor]?.value === "type" &&
+        tokens[cursor + 1]?.kind === "identifier" &&
+        tokens[cursor + 1]?.value !== "as";
       if (typeOnly) {
         cursor += 1;
       }

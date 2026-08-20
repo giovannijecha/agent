@@ -166,15 +166,18 @@ No approved runtime filesystem binding may leave its inventoried module through
 a named export, including an identifier or string-literal alias, a default
 export, or an exported variable declaration. The same owned lexer resolves only
 direct identifier aliases at module scope, rejects cycles, and admits at most
-256 alias records. Exported object and array binding patterns fail closed as
-outside that grammar. The lexer delimits variable declarators and default
-expressions at explicit or lexically unambiguous automatic-semicolon boundaries;
-the complete default-export expression must be a direct alias before it creates
-raw-binding evidence. Multiline calls, member access, tagged templates, and
-transparent assertions remain continuations. Nested-scope aliases, call
-results, comments, standalone string contents, and type-only exports do not
-create raw-binding evidence; the gate never executes product code or claims
-general capability-flow analysis.
+256 alias records. Every module-scope object or array binding pattern in an
+inventoried filesystem module fails closed as outside that grammar, whether it
+is exported immediately or by a later declaration. The lexer delimits variable
+declarators and default expressions at explicit or lexically unambiguous
+automatic-semicolon boundaries; the complete default-export expression must be
+a direct alias before it creates raw-binding evidence. A named runtime binding
+literally called `type` remains runtime; the type-only modifier is recognized
+only when it prefixes another local identifier. Multiline calls, member access,
+tagged templates, and transparent assertions remain continuations. Nested-scope
+aliases, call results, comments, standalone string contents, and type-only
+exports do not create raw-binding evidence; the gate never executes product
+code or claims general capability-flow analysis.
 Before applying dormant literal markers, the gate projects values reconstructed
 only from bounded non-interpolated literals, parentheses, literal `+`, and
 literal arrays joined with a static separator. It never evaluates product code;

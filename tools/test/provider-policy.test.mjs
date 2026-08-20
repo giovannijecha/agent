@@ -566,6 +566,10 @@ test("rejects approved filesystem bindings re-exported to local modules", () => 
       "export let localRead: typeof readFile = ((readFile));",
       'import { localRead as readFile } from "./session-journal.js";',
     ],
+    [
+      "const type = readFile;\nexport { type as localRead };",
+      'import { localRead as readFile } from "./session-journal.js";',
+    ],
     ["export default readFile;", 'import readFile from "./session-journal.js";'],
     ["export default ((readFile));", 'import readFile from "./session-journal.js";'],
   ]) {
@@ -594,26 +598,28 @@ test("rejects approved filesystem bindings re-exported to local modules", () => 
   }
 });
 
-test("rejects destructured filesystem exports and admits default call results", () => {
+test("rejects module-scope destructuring and admits default call results", () => {
   const path = "packages/agent-cli/src/session-journal.ts";
   const original = readFileSync(
     new URL("../../" + path, import.meta.url),
     "utf8",
   );
-  assert.throws(
-    () =>
-      validateProviderPolicy(
-        currentPolicy,
-        contextWithSources({
-          path,
-          text: original +
-            "\nexport const { localRead } = { localRead: readFile };\n",
-        }),
-      ),
-    (error) =>
-      error instanceof ProviderPolicyError &&
-      error.message === path + " contains an unscannable runtime export",
-  );
+  for (const mutation of [
+    "export const { localRead } = { localRead: readFile };",
+    "const { localRead } = { localRead: readFile };\n" +
+      "export { localRead };",
+  ]) {
+    assert.throws(
+      () =>
+        validateProviderPolicy(
+          currentPolicy,
+          contextWithSources({ path, text: original + "\n" + mutation + "\n" }),
+        ),
+      (error) =>
+        error instanceof ProviderPolicyError &&
+        error.message === path + " contains an unscannable runtime export",
+    );
+  }
 
   assert.doesNotThrow(() =>
     validateProviderPolicy(

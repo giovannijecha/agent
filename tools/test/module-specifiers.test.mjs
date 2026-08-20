@@ -83,24 +83,42 @@ test("requires the complete default expression to be a direct alias", () => {
   ]);
 });
 
-test("rejects exported runtime binding patterns", () => {
+test("distinguishes runtime bindings named type from type-only exports", () => {
+  assert.deepEqual(
+    collectRuntimeExportBindings(
+      "const type = readFile;\n" +
+        "export { type as localRead };\n" +
+        "export { type };\n" +
+        "export { type Metadata };\n",
+    ),
+    [
+      { exported: "localRead", line: 2, local: "readFile" },
+      { exported: "type", line: 3, local: "readFile" },
+    ],
+  );
+});
+
+test("rejects module-scope runtime binding patterns", () => {
   for (const source of [
     "export const { localRead } = { localRead: readFile };\n",
     "export const [localRead] = [readFile];\n",
+    "const { localRead } = source;\nexport { localRead };\n",
+    "const [localRead] = source;\nexport { localRead };\n",
   ]) {
     assert.throws(
       () => collectRuntimeExportBindings(source),
       (error) =>
         error instanceof ModuleScanError &&
         error.message.endsWith(
-          "exported runtime binding patterns are outside owned bounds",
+          "module-scope runtime binding patterns are outside owned bounds",
         ),
     );
   }
 
   assert.doesNotThrow(() =>
     collectRuntimeExportBindings(
-      "const { localRead } = source;\nexport { ordinary };\n",
+      "function scoped() { const { localRead } = source; }\n" +
+        "export { ordinary };\n",
     ),
   );
 });
