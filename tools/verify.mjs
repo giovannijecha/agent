@@ -733,9 +733,6 @@ function verifyRepositoryLayout() {
     ];
     if (process.platform === "win32") {
       expectedNativeGenerated.push(nativeRoot + "agent-clipboard.exe");
-      expectedNativeGenerated.push(
-        nativeRoot + "agent-credential-profile-fixture.exe",
-      );
     }
     compareObjects(
       actualNativeGenerated,

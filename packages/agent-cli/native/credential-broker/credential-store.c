@@ -481,6 +481,76 @@ static HANDLE agent_windows_open_directory(
   return handle;
 }
 
+#ifdef AGENT_CREDENTIAL_FIXTURE
+static PWSTR agent_windows_fixture_lineage(PSID account) {
+  PWSTR path = NULL;
+  if (
+    FAILED(
+      SHGetKnownFolderPath(&FOLDERID_Public, KF_FLAG_DEFAULT, NULL, &path)
+    )
+  ) {
+    CoTaskMemFree(path);
+    return NULL;
+  }
+  HANDLE metadata = CreateFileW(
+    path,
+    FILE_READ_ATTRIBUTES | READ_CONTROL,
+    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+    NULL,
+    OPEN_EXISTING,
+    FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
+    NULL
+  );
+  PSID owner = NULL;
+  PSECURITY_DESCRIPTOR descriptor = NULL;
+  const DWORD status = metadata == INVALID_HANDLE_VALUE
+    ? ERROR_INVALID_HANDLE
+    : GetSecurityInfo(
+        metadata,
+        SE_FILE_OBJECT,
+        OWNER_SECURITY_INFORMATION,
+        &owner,
+        NULL,
+        NULL,
+        NULL,
+        &descriptor
+      );
+  unsigned char system_buffer[SECURITY_MAX_SID_SIZE];
+  DWORD system_length = sizeof(system_buffer);
+  unsigned char administrators_buffer[SECURITY_MAX_SID_SIZE];
+  DWORD administrators_length = sizeof(administrators_buffer);
+  bool administrative_owner = false;
+  if (
+    status == ERROR_SUCCESS && owner != NULL &&
+    CreateWellKnownSid(
+      WinLocalSystemSid,
+      NULL,
+      system_buffer,
+      &system_length
+    ) != 0 &&
+    CreateWellKnownSid(
+      WinBuiltinAdministratorsSid,
+      NULL,
+      administrators_buffer,
+      &administrators_length
+    ) != 0
+  ) {
+    administrative_owner = EqualSid(owner, system_buffer) != 0 ||
+      EqualSid(owner, administrators_buffer) != 0;
+  }
+  const bool valid = administrative_owner && EqualSid(owner, account) == 0;
+  LocalFree(descriptor);
+  if (metadata != INVALID_HANDLE_VALUE) {
+    CloseHandle(metadata);
+  }
+  if (!valid) {
+    CoTaskMemFree(path);
+    return NULL;
+  }
+  return path;
+}
+#endif
+
 static bool agent_windows_ensure_directory(
   const wchar_t *path,
   PSID account,
@@ -841,33 +911,46 @@ static struct agent_platform_state *agent_platform_open(
   state->lock = INVALID_HANDLE_VALUE;
   state->exclusive = exclusive;
   state->environment_present = environment_present;
-  PWSTR home = NULL;
+  PWSTR lineage = NULL;
+  wchar_t *state_home = NULL;
   if (!agent_windows_account(&state->account)) {
     agent_credential_store_close(&(struct agent_credential_session){ .state = state });
     return NULL;
   }
 #ifdef AGENT_CREDENTIAL_FIXTURE
   const DWORD home_length = GetCurrentDirectoryW(0u, NULL);
-  home = home_length == 0u ? NULL : calloc(home_length, sizeof(wchar_t));
-  if (home == NULL || GetCurrentDirectoryW(home_length, home) == 0u) {
-    free(home);
+  state_home = home_length == 0u
+    ? NULL
+    : calloc(home_length, sizeof(wchar_t));
+  lineage = agent_windows_fixture_lineage(state->account);
+  if (
+    state_home == NULL ||
+    GetCurrentDirectoryW(home_length, state_home) == 0u ||
+    lineage == NULL
+  ) {
+    free(state_home);
+    CoTaskMemFree(lineage);
     agent_credential_store_close(&(struct agent_credential_session){ .state = state });
     return NULL;
   }
 #else
-  if (FAILED(SHGetKnownFolderPath(&FOLDERID_Profile, KF_FLAG_DEFAULT, NULL, &home))) {
-    CoTaskMemFree(home);
+  if (
+    FAILED(
+      SHGetKnownFolderPath(&FOLDERID_Profile, KF_FLAG_DEFAULT, NULL, &lineage)
+    )
+  ) {
+    CoTaskMemFree(lineage);
     agent_credential_store_close(&(struct agent_credential_session){ .state = state });
     return NULL;
   }
+  state_home = lineage;
 #endif
-  HANDLE home_handle = agent_windows_open_lineage_directory(home);
-  state->agent_root = agent_windows_join(home, L".agent");
+  HANDLE home_handle = agent_windows_open_lineage_directory(lineage);
+  state->agent_root = agent_windows_join(state_home, L".agent");
 #ifdef AGENT_CREDENTIAL_FIXTURE
-  free(home);
-#else
-  CoTaskMemFree(home);
+  free(state_home);
 #endif
+  CoTaskMemFree(lineage);
   if (home_handle == INVALID_HANDLE_VALUE || state->agent_root == NULL) {
     if (home_handle != INVALID_HANDLE_VALUE) CloseHandle(home_handle);
     agent_credential_store_close(&(struct agent_credential_session){ .state = state });

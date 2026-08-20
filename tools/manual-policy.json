@@ -382,7 +382,6 @@
     "packages/agent-cli/native/credential-broker/lineage-windows.c",
     "packages/agent-cli/native/credential-broker/lineage-windows.h",
     "packages/agent-cli/native/credential-broker/main.c",
-    "packages/agent-cli/native/credential-broker/profile-owner-fixture.c",
     "packages/agent-cli/native/mutation-commit/backend-linux.c",
     "packages/agent-cli/native/mutation-commit/backend-windows.c",
     "packages/agent-cli/native/mutation-commit/main.c",

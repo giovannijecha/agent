@@ -137,21 +137,6 @@ runCompiler([
   path.join(outputDirectory, "agent-credential-fixture" + executableSuffix),
 ]);
 
-if (process.platform === "win32") {
-  runCompiler([
-    ...commonFlags,
-    ...platformFlags,
-    path.join(credentialBrokerRoot, "profile-owner-fixture.c"),
-    path.join(credentialBrokerRoot, "lineage-windows.c"),
-    "-ladvapi32",
-    "-lshell32",
-    "-lole32",
-    "-luuid",
-    "-o",
-    path.join(outputDirectory, "agent-credential-profile-fixture.exe"),
-  ]);
-}
-
 runCompiler([
   ...commonFlags,
   ...platformFlags,

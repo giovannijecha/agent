@@ -170,10 +170,9 @@ const APPROVED_SOURCE_LITERALS = Object.freeze({
 });
 
 const EXPECTED_SENSITIVE_STATE_OCCURRENCES = Object.freeze({
-  "packages/agent-cli/native/credential-broker/credential-store.c": "AGENT_CREDENTIAL_ABSENT=1;AGENT_CREDENTIAL_BUSY=1;AGENT_CREDENTIAL_CANCEL=1;AGENT_CREDENTIAL_CANCELLED=1;AGENT_CREDENTIAL_DUAL_AUTHORITY=1;AGENT_CREDENTIAL_FIXTURE=9;AGENT_CREDENTIAL_HEADER_MAX_BYTES=5;AGENT_CREDENTIAL_INVALID_STATE=4;AGENT_CREDENTIAL_INVALID_VALUE=2;AGENT_CREDENTIAL_KEY_MAX_BYTES=2;AGENT_CREDENTIAL_MAX_REVISION=4;AGENT_CREDENTIAL_PRESENT=1;AGENT_CREDENTIAL_RECORD_MAX_BYTES=6;AGENT_CREDENTIAL_REGISTER=5;AGENT_CREDENTIAL_REGISTERED=1;AGENT_CREDENTIAL_REMOVE=2;AGENT_CREDENTIAL_REMOVED=1;AGENT_CREDENTIAL_REPLACE=4;AGENT_CREDENTIAL_REPLACED=1;agent_credential_request_kind=1;agent_credential_response_kind=2;agent_credential_session=20;agent_credential_store_close=21;AGENT_CREDENTIAL_STORE_FAILURE=6;agent_credential_store_mutate=1;agent_credential_store_open=1;AGENT_CREDENTIAL_VALUE=1;credential=3;credentials=31;GetTokenInformation=2;OpenProcessToken=1;token=6;TOKEN_QUERY=1;TOKEN_USER=1;TokenUser=2",
+  "packages/agent-cli/native/credential-broker/credential-store.c": "AGENT_CREDENTIAL_ABSENT=1;AGENT_CREDENTIAL_BUSY=1;AGENT_CREDENTIAL_CANCEL=1;AGENT_CREDENTIAL_CANCELLED=1;AGENT_CREDENTIAL_DUAL_AUTHORITY=1;AGENT_CREDENTIAL_FIXTURE=10;AGENT_CREDENTIAL_HEADER_MAX_BYTES=5;AGENT_CREDENTIAL_INVALID_STATE=4;AGENT_CREDENTIAL_INVALID_VALUE=2;AGENT_CREDENTIAL_KEY_MAX_BYTES=2;AGENT_CREDENTIAL_MAX_REVISION=4;AGENT_CREDENTIAL_PRESENT=1;AGENT_CREDENTIAL_RECORD_MAX_BYTES=6;AGENT_CREDENTIAL_REGISTER=5;AGENT_CREDENTIAL_REGISTERED=1;AGENT_CREDENTIAL_REMOVE=2;AGENT_CREDENTIAL_REMOVED=1;AGENT_CREDENTIAL_REPLACE=4;AGENT_CREDENTIAL_REPLACED=1;agent_credential_request_kind=1;agent_credential_response_kind=2;agent_credential_session=20;agent_credential_store_close=21;AGENT_CREDENTIAL_STORE_FAILURE=6;agent_credential_store_mutate=1;agent_credential_store_open=1;AGENT_CREDENTIAL_VALUE=1;credential=3;credentials=31;GetTokenInformation=2;OpenProcessToken=1;token=6;TOKEN_QUERY=1;TOKEN_USER=1;TokenUser=2",
   "packages/agent-cli/native/credential-broker/credential-store.h": "AGENT_CREDENTIAL_ABSENT=1;AGENT_CREDENTIAL_BUSY=1;AGENT_CREDENTIAL_CANCEL=1;AGENT_CREDENTIAL_CANCELLED=1;AGENT_CREDENTIAL_DUAL_AUTHORITY=1;AGENT_CREDENTIAL_INVALID_STATE=1;AGENT_CREDENTIAL_INVALID_VALUE=1;AGENT_CREDENTIAL_KEY_MAX_BYTES=1;AGENT_CREDENTIAL_OPEN_MUTATION=1;AGENT_CREDENTIAL_PRESENT=1;AGENT_CREDENTIAL_REGISTER=1;AGENT_CREDENTIAL_REGISTERED=1;AGENT_CREDENTIAL_REMOVE=1;AGENT_CREDENTIAL_REMOVED=1;AGENT_CREDENTIAL_REPLACE=1;AGENT_CREDENTIAL_REPLACED=1;agent_credential_request_kind=2;agent_credential_response_kind=3;agent_credential_session=4;AGENT_CREDENTIAL_SNAPSHOT=1;agent_credential_store_close=1;AGENT_CREDENTIAL_STORE_FAILURE=1;AGENT_CREDENTIAL_STORE_H=2;agent_credential_store_mutate=1;agent_credential_store_open=1;AGENT_CREDENTIAL_VALUE=1",
   "packages/agent-cli/native/credential-broker/main.c": "AGENT_CREDENTIAL_ABSENT=1;AGENT_CREDENTIAL_CANCEL=1;AGENT_CREDENTIAL_HEADER_BYTES=3;AGENT_CREDENTIAL_KEY_MAX_BYTES=2;AGENT_CREDENTIAL_OPEN_MUTATION=2;AGENT_CREDENTIAL_PRESENT=1;AGENT_CREDENTIAL_REGISTER=2;AGENT_CREDENTIAL_REPLACE=1;agent_credential_request=5;agent_credential_request_kind=2;agent_credential_response_kind=2;agent_credential_session=1;AGENT_CREDENTIAL_SNAPSHOT=2;agent_credential_store_close=5;AGENT_CREDENTIAL_STORE_FAILURE=1;agent_credential_store_mutate=1;agent_credential_store_open=1;AGENT_CREDENTIAL_VALUE=2;credential=1",
-  "packages/agent-cli/native/credential-broker/profile-owner-fixture.c": "GetTokenInformation=2;OpenProcessToken=1;token=7;TOKEN_QUERY=1;TOKEN_USER=3;TokenUser=2",
   "packages/agent-cli/native/process-broker/backend-linux.c": "agent_linux_token_present=2;token=3;token_length=3",
   "packages/agent-cli/src/application.ts": "activeAuthenticated=3;auth=2;authenticated=12;authentication=6;createNoticeToken=2;noticeToken=6;NoticeToken=4;token=2",
   "packages/agent-cli/src/auth-command.ts": "auth=1;AuthCommandError=5;AuthCommandResult=2;AuthCredentialOpener=2;authentication=3;Authentication=1;credential=4;CredentialBoundaryError=3;OllamaCredentialMutationAction=2;OllamaCredentialMutationPort=2;openOllamaCredentialMutation=2;readAuthChoice=2;readConcealedCredential=2;runAuthCommand=1",
@@ -345,7 +344,6 @@ const APPROVED_CLI_NATIVE_PLATFORM_TREE = Object.freeze({
     "packages/agent-cli/native/credential-broker/lineage-windows.c",
     "packages/agent-cli/native/credential-broker/lineage-windows.h",
     "packages/agent-cli/native/credential-broker/main.c",
-    "packages/agent-cli/native/credential-broker/profile-owner-fixture.c",
     "packages/agent-cli/native/mutation-commit/backend-linux.c",
     "packages/agent-cli/native/mutation-commit/backend-windows.c",
     "packages/agent-cli/native/mutation-commit/main.c",
@@ -367,7 +365,7 @@ const APPROVED_CLI_NATIVE_PLATFORM_TREE = Object.freeze({
     "packages/agent-cli/native/workspace-roots/main.c",
     "packages/agent-cli/native/workspace-roots/workspace-roots.h",
   ]),
-  sourceSha256: "15c9423ebdacd02c707108868a1a2fb932201f118b0bb8c0de8c791dc004495a",
+  sourceSha256: "b45baf95a0cda72f98ffb91dd0df383e0aeebd8055af9b7e1857eb58c4649e6f",
 });
 
 const FORBIDDEN_SOURCE_MARKERS = [

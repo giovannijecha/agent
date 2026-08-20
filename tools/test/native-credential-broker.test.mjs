@@ -23,12 +23,6 @@ const broker = path.join(
   process.platform + "-" + process.arch,
   "agent-credential-fixture" + suffix,
 );
-const profileFixture = path.join(
-  projectRoot,
-  "packages/agent-cli/.native-build",
-  process.platform + "-" + process.arch,
-  "agent-credential-profile-fixture.exe",
-);
 
 function request(kind, payload = new Uint8Array()) {
   const frame = new Uint8Array(12 + payload.length);
@@ -92,22 +86,16 @@ function temporaryRoot() {
   return mkdtempSync(path.join(tmpdir(), "agent-credential-fixture-"));
 }
 
-test("Windows profile lineage does not require credential-object ownership", {
+test("native Windows broker admits system-owned profile lineage", {
   skip: process.platform !== "win32",
 }, () => {
   const root = temporaryRoot();
   try {
-    const prepared = spawnSync(profileFixture, [], {
-      cwd: root,
-      env: {},
-      shell: false,
-      timeout: 10_000,
-      windowsHide: true,
-    });
-    assert.equal(prepared.error, undefined);
-    assert.equal(prepared.status, 0);
-    assert.equal(prepared.stdout.length, 0);
-    assert.equal(prepared.stderr.length, 0);
+    const snapshot = launch(root, request(1, Uint8Array.from([0])));
+    assert.equal(snapshot.error, undefined);
+    assert.equal(snapshot.status, 0);
+    assert.equal(snapshot.stderr.length, 0);
+    assert.deepEqual(responses(snapshot.stdout).map((entry) => entry.kind), [1]);
   } finally {
     rmSync(root, { force: true, recursive: true });
   }

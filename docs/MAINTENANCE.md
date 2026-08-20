@@ -555,13 +555,14 @@ strings, exports, commands, or general data flow.
 
 For every change, run the native lifecycle fixtures on Windows and Linux and
 the CLI contract tests without a real credential. Prove Windows owner/DACL and
-profile-lineage behavior with a pre-existing decision-0087 state root that
-retains native owner/DACL metadata, Linux owner/mode enforcement and
-fresh-directory inventory rescans, linked-object rejection, header-before-secret
-parsing, shared/exclusive admission, dual authority, atomic publication,
-interrupted replacement recovery, removal, and secret non-projection. A live
-provider smoke is a separate explicit operator action and must not enter the
-automated gate.
+profile-lineage behavior by driving the complete broker against system-owned
+public-profile lineage and an isolated state root, plus a pre-existing
+decision-0087 state root that retains native owner/DACL metadata. Prove Linux
+owner/mode enforcement and fresh-directory inventory rescans, linked-object
+rejection, header-before-secret parsing, shared/exclusive admission, dual
+authority, atomic publication, interrupted replacement recovery, removal, and
+secret non-projection. A live provider smoke is a separate explicit operator
+action and must not enter the automated gate.
 
 Rollback first closes every running Agent and authentication process, then
 restores the command, selector, native helper, policy, and documentation as one
