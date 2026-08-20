@@ -49,6 +49,22 @@ function unconfiguredProviders() {
   ]);
 }
 
+function configuredProviders() {
+  return Object.freeze([
+    Object.freeze({
+      configured: true,
+      id: "ollamaCloud" as const,
+      presentation: Object.freeze({
+        authentication: "memory-only API key",
+        displayName: "Ollama Cloud",
+        model: "qwen3-coder:480b-cloud",
+      }),
+      ready: true,
+      selected: true,
+    }),
+  ]);
+}
+
 function render(
   application: ApplicationController,
   columns = 40,
@@ -336,7 +352,7 @@ test("copies one logical range across message documents in chronological order",
   );
   const rendered = render(application);
   const first = cellFor(rendered, { document: 0, offset: 3 });
-  const second = cellFor(rendered, { document: 1, offset: 2 });
+  const second = cellFor(rendered, { document: 2, offset: 2 });
 
   pointer(application, rendered, first, "press", 100);
   pointer(application, rendered, second, "move", 120);
@@ -348,6 +364,97 @@ test("copies one logical range across message documents in chronological order",
   pointer(application, rendered, first, "move", 220);
   pointer(application, rendered, first, "release", 230);
   assert.equal(application.takePendingCopy(), "st\n\nsec");
+});
+
+test("copies late tool-loop reasoning before its earlier assistant preamble", () => {
+  const application = new ApplicationController(true, configuredProviders());
+  application.feed("/thinking\r\u001B[C\u001B[B\u001B[C\u001B[C\r");
+  assert.ok(application.turnAccepted(started(1, "question")).ok);
+  assert.ok(application.applyRuntime(Object.freeze({
+    kind: "assistantDelta" as const,
+    text: "tool preamble",
+    turnId: 1,
+  })).ok);
+  assert.ok(application.applyRuntime(Object.freeze({
+    approvalPreview: "",
+    approvalRequired: false,
+    callId: "call-1",
+    kind: "toolRequested" as const,
+    name: "read_file",
+    risk: "read" as const,
+    turnId: 1,
+  })).ok);
+  assert.ok(application.applyRuntime(Object.freeze({
+    callId: "call-1",
+    kind: "toolStarted" as const,
+    name: "read_file",
+    risk: "read" as const,
+    turnId: 1,
+  })).ok);
+  assert.ok(application.applyRuntime(Object.freeze({
+    callId: "call-1",
+    kind: "toolFinished" as const,
+    name: "read_file",
+    risk: "read" as const,
+    status: "success" as const,
+    turnId: 1,
+  })).ok);
+  assert.ok(application.applyRuntime(Object.freeze({
+    kind: "reasoningDelta" as const,
+    text: "later reasoning",
+    turnId: 1,
+  })).ok);
+  assert.ok(application.applyRuntime(Object.freeze({
+    kind: "assistantDelta" as const,
+    text: "final answer",
+    turnId: 1,
+  })).ok);
+  assert.ok(application.applyRuntime(Object.freeze({
+    assistant: Object.freeze({
+      content: "final answer",
+      reasoning: "later reasoning",
+    }),
+    checkpointed: true,
+    cleanup: Object.freeze([]),
+    kind: "turnPrepared" as const,
+    turnId: 1,
+  }) as unknown as RuntimeEvent<string>).ok);
+  assert.ok(application.turnCommitResolved(1, {
+    historyNodeId: 1,
+    kind: "committed",
+  }).ok);
+
+  const entries = application.transcriptEntries();
+  const reasoningEntry = entries.find(
+    (entry) => entry.role === "reasoning",
+  );
+  const assistantEntry = entries.find(
+    (entry) => entry.role === "assistant",
+  );
+  assert.ok(reasoningEntry !== undefined);
+  assert.ok(assistantEntry !== undefined);
+  const rendered = render(application, 48, 18);
+  const reasoning = cellFor(rendered, {
+    document: reasoningEntry.document,
+    offset: 0,
+  });
+  const assistant = cellFor(rendered, {
+    document: assistantEntry.document,
+    offset: assistantEntry.content.length - 1,
+  });
+
+  pointer(application, rendered, reasoning, "press", 100);
+  pointer(application, rendered, assistant, "move", 120);
+  pointer(application, rendered, assistant, "release", 130);
+
+  assert.equal(
+    application.takePendingCopy(),
+    "later reasoning\n\ntool preamble\n\nfinal answer",
+  );
+  assert.deepEqual(
+    entries.map((entry) => [entry.document, entry.role]),
+    [[0, "user"], [1, "reasoning"], [2, "assistant"]],
+  );
 });
 
 test("routes composer double click, replacement, and resize through LineEditor", () => {

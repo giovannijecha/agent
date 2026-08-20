@@ -32,7 +32,7 @@ test("publishes a streamed pair only after exact completion", () => {
   assert.equal(chat.transcriptText(), "question\n\nans");
   assert.deepEqual(chat.transcriptEntries(), [
     { content: "question", document: 0, role: "user" },
-    { content: "ans", document: 1, role: "assistant" },
+    { content: "ans", document: 2, role: "assistant" },
   ]);
   assert.ok(chat.append(1, "wer").ok);
   assert.ok(chat.prepare(1, "answer").ok);
@@ -42,7 +42,7 @@ test("publishes a streamed pair only after exact completion", () => {
   assert.equal(chat.transcriptText(), "question\n\nanswer");
   assert.deepEqual(chat.transcriptEntries(), [
     { content: "question", document: 0, role: "user" },
-    { content: "answer", document: 1, role: "assistant" },
+    { content: "answer", document: 2, role: "assistant" },
   ]);
 });
 
@@ -68,6 +68,28 @@ test("keeps live reasoning in its own transcript document", () => {
   assert.equal(
     chat.transcriptText(),
     "question\n\ninspect carefully\n\nanswer",
+  );
+});
+
+test("keeps document identities in visual order when reasoning follows a checkpoint", () => {
+  const chat = new ChatState();
+  assert.ok(chat.begin(1, "question", 0).ok);
+  assert.ok(chat.append(1, "tool preamble").ok);
+  assert.ok(chat.checkpoint(1).ok);
+  assert.ok(chat.appendReasoning(1, "later reasoning").ok);
+  assert.ok(chat.append(1, "final answer").ok);
+
+  assert.deepEqual(
+    chat.transcriptEntries().map((entry) => [
+      entry.document,
+      entry.role,
+      entry.content,
+    ]),
+    [
+      [0, "user", "question"],
+      [1, "reasoning", "later reasoning"],
+      [2, "assistant", "tool preamble\n\nfinal answer"],
+    ],
   );
 });
 

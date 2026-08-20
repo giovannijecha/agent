@@ -73,18 +73,18 @@ type CompletedTurn = Readonly<{
   historyNodeId: number;
   historyParentNodeId: number;
   reasoning: string | undefined;
-  reasoningDocument: number | undefined;
+  reasoningDocument: number;
   settlement: "completed" | "checkpointed";
   user: string;
   userDocument: number;
 }>;
 
 type ActiveTurn = {
-  assistantDocument: number | undefined;
+  readonly assistantDocument: number;
   readonly chunks: string[];
   readonly reasoningChunks: string[];
   readonly reasoningSegments: string[];
-  reasoningDocument: number | undefined;
+  readonly reasoningDocument: number;
   readonly segments: string[];
   readonly turnId: number;
   readonly historyParentNodeId: number;
@@ -106,17 +106,17 @@ function entry(
 
 function turnEntries(
   userDocument: number,
-  assistantDocument: number | undefined,
-  reasoningDocument: number | undefined,
+  assistantDocument: number,
+  reasoningDocument: number,
   user: string,
   reasoning: string,
   assistant: string,
 ): readonly TranscriptEntry[] {
   const entries: TranscriptEntry[] = [entry(userDocument, "user", user)];
-  if (reasoning.length > 0 && reasoningDocument !== undefined) {
+  if (reasoning.length > 0) {
     entries.push(entry(reasoningDocument, "reasoning", reasoning));
   }
-  if (assistant.length > 0 && assistantDocument !== undefined) {
+  if (assistant.length > 0) {
     entries.push(entry(assistantDocument, "assistant", assistant));
   }
   return Object.freeze(entries);
@@ -128,8 +128,8 @@ function tail(text: string, codeUnits: number): string {
 
 function clippedTurnEntries(
   userDocument: number,
-  assistantDocument: number | undefined,
-  reasoningDocument: number | undefined,
+  assistantDocument: number,
+  reasoningDocument: number,
   user: string,
   reasoning: string,
   assistant: string,
@@ -244,13 +244,9 @@ export class ChatState {
         return err(new ChatStateError("invalidHistoryNode"));
       }
       const userDocument = this.#nextDocument;
-      this.#nextDocument += 1;
-      const reasoningDocument = turn.reasoning === undefined
-        ? undefined
-        : this.#nextDocument;
-      if (reasoningDocument !== undefined) this.#nextDocument += 1;
-      const assistantDocument = this.#nextDocument;
-      this.#nextDocument += 1;
+      const reasoningDocument = this.#nextDocument + 1;
+      const assistantDocument = this.#nextDocument + 2;
+      this.#nextDocument += 3;
       completed.push(
         Object.freeze({
           assistant: turn.assistant,
@@ -323,13 +319,13 @@ export class ChatState {
       return err(new ChatStateError("invalidTurn"));
     }
     this.#active = {
-      assistantDocument: undefined,
+      assistantDocument: this.#nextDocument + 2,
       chunks: [],
       historyParentNodeId,
       segments: [],
       reasoningChunks: [],
       reasoningCodeUnits: 0,
-      reasoningDocument: undefined,
+      reasoningDocument: this.#nextDocument + 1,
       reasoningSegments: [],
       preparedAssistant: undefined,
       preparedReasoning: undefined,
@@ -338,7 +334,7 @@ export class ChatState {
       user,
       userDocument: this.#nextDocument,
     };
-    this.#nextDocument += 1;
+    this.#nextDocument += 3;
     return ok(undefined);
   }
 
@@ -385,16 +381,6 @@ export class ChatState {
     if (responseCodeUnits > RUNTIME_LIMITS.responseCodeUnits) {
       return err(new ChatStateError("responseTooLong"));
     }
-    if (
-      active.assistantDocument === undefined &&
-      this.#nextDocument > Number.MAX_SAFE_INTEGER - 1
-    ) {
-      return err(new ChatStateError("invalidTurn"));
-    }
-    if (active.assistantDocument === undefined) {
-      active.assistantDocument = this.#nextDocument;
-      this.#nextDocument += 1;
-    }
     active.responseCodeUnits = responseCodeUnits;
     active.chunks.push(text);
     return ok(undefined);
@@ -421,16 +407,6 @@ export class ChatState {
       reasoningCodeUnits > RUNTIME_LIMITS.reasoningResponseCodeUnits
     ) {
       return err(new ChatStateError("responseTooLong"));
-    }
-    if (
-      active.reasoningDocument === undefined &&
-      this.#nextDocument > Number.MAX_SAFE_INTEGER - 1
-    ) {
-      return err(new ChatStateError("invalidTurn"));
-    }
-    if (active.reasoningDocument === undefined) {
-      active.reasoningDocument = this.#nextDocument;
-      this.#nextDocument += 1;
     }
     active.reasoningCodeUnits = reasoningCodeUnits;
     active.reasoningChunks.push(text);
@@ -502,10 +478,6 @@ export class ChatState {
     const assistant =
       partial.length === 0 ? marker : partial + "\n\n" + marker;
     const reasoning = active.reasoningSegments.join("\n\n") || undefined;
-    if (active.assistantDocument === undefined) {
-      active.assistantDocument = this.#nextDocument;
-      this.#nextDocument += 1;
-    }
     return this.#publish(
       active,
       assistant,
@@ -718,9 +690,6 @@ export class ChatState {
           (reasoning?.length ?? 0) >
         MAX_COMPLETED_DISPLAY_CODE_UNITS
     ) {
-      return err(new ChatStateError("invalidHistoryNode"));
-    }
-    if (active.assistantDocument === undefined) {
       return err(new ChatStateError("invalidHistoryNode"));
     }
     const completed = Object.freeze({
