@@ -3,6 +3,7 @@
 const STATIC_STRING_DEPTH_LIMIT = 8;
 const STATIC_STRING_FRAGMENT_LIMIT = 32;
 const STATIC_STRING_LENGTH_LIMIT = 1_024;
+const RUNTIME_ALIAS_EXPRESSION_DEPTH_LIMIT = 32;
 const RUNTIME_BINDING_ALIAS_LIMIT = 256;
 
 export class ModuleScanError extends Error {
@@ -492,38 +493,113 @@ export function collectStaticStringValues(source) {
   return Object.freeze(values);
 }
 
-function directAliasSource(tokens, start, end) {
+function closingDelimiterIndex(tokens, openingIndex, opening, closing) {
+  let depth = 0;
+  for (let index = openingIndex; index < tokens.length; index += 1) {
+    const value = tokens[index]?.value;
+    if (value === opening) {
+      depth += 1;
+      continue;
+    }
+    if (value !== closing) {
+      continue;
+    }
+    depth -= 1;
+    if (depth === 0) {
+      return index;
+    }
+  }
+  return undefined;
+}
+
+function directAssertionTypeEnd(tokens, start, end) {
   let cursor = start;
-  let parentheses = 0;
-  while (tokens[cursor]?.value === "(") {
-    parentheses += 1;
+  if (tokens[cursor]?.value === "const") {
+    return cursor + 1 <= end ? cursor + 1 : undefined;
+  }
+  if (tokens[cursor]?.value === "typeof") {
     cursor += 1;
   }
-  const source = tokens[cursor];
-  if (source?.kind !== "identifier") {
+  if (cursor >= end || tokens[cursor]?.kind !== "identifier") {
     return undefined;
   }
   cursor += 1;
+  while (
+    cursor + 1 < end &&
+    tokens[cursor]?.value === "." &&
+    tokens[cursor + 1]?.kind === "identifier"
+  ) {
+    cursor += 2;
+  }
+  return cursor;
+}
+
+function directAliasSource(
+  tokens,
+  start,
+  end,
+  strictAssertions = false,
+  depth = 0,
+) {
+  if (depth > RUNTIME_ALIAS_EXPRESSION_DEPTH_LIMIT) {
+    throw new ModuleScanError(
+      "runtime alias expression exceeds owned bounds",
+      tokens[start]?.line ?? 1,
+    );
+  }
+  const first = tokens[start];
+  let source;
+  let cursor;
+  if (first?.kind === "identifier") {
+    source = first;
+    cursor = start + 1;
+  } else if (first?.value === "(") {
+    const closing = closingDelimiterIndex(tokens, start, "(", ")");
+    if (closing === undefined || closing >= end) {
+      return undefined;
+    }
+    const nested = directAliasSource(
+      tokens,
+      start + 1,
+      closing,
+      strictAssertions,
+      depth + 1,
+    );
+    if (nested === undefined) {
+      return undefined;
+    }
+    source = Object.freeze({ line: first.line, value: nested });
+    cursor = closing + 1;
+  } else {
+    return undefined;
+  }
+  let asserted = false;
   while (cursor < end) {
     if (tokens[cursor]?.value === "!") {
       cursor += 1;
       continue;
     }
-    if (parentheses > 0 && tokens[cursor]?.value === ")") {
-      parentheses -= 1;
-      cursor += 1;
+    if (["as", "satisfies"].includes(tokens[cursor]?.value)) {
+      asserted = true;
+      const next = directAssertionTypeEnd(tokens, cursor + 1, end);
+      if (next === undefined) {
+        if (strictAssertions) {
+          throw new ModuleScanError(
+            "runtime alias assertion is outside owned bounds",
+            tokens[cursor]?.line ?? source.line,
+          );
+        }
+        return undefined;
+      }
+      cursor = next;
       continue;
     }
-    break;
-  }
-  if (parentheses !== 0) {
-    return undefined;
-  }
-  if (
-    cursor !== end &&
-    tokens[cursor]?.value !== "as" &&
-    tokens[cursor]?.value !== "satisfies"
-  ) {
+    if (asserted && strictAssertions) {
+      throw new ModuleScanError(
+        "runtime alias assertion is outside owned bounds",
+        tokens[cursor]?.line ?? source.line,
+      );
+    }
     return undefined;
   }
   return source.value;
@@ -620,7 +696,7 @@ function variableDeclarator(tokens, start) {
         const initializerStart = cursor + 1;
         const next = runtimeExpressionEnd(tokens, initializerStart, true);
         return {
-          alias: directAliasSource(tokens, initializerStart, next),
+          alias: directAliasSource(tokens, initializerStart, next, true),
           next,
         };
       }
@@ -660,6 +736,21 @@ function collectVariableBindingAliases(tokens) {
       brackets -= 1;
     } else if (value === "}" && braces > 0) {
       braces -= 1;
+    }
+    if (
+      value === "var" &&
+      tokens[index - 1]?.value !== "." &&
+      (
+        tokens[index + 1]?.kind === "identifier" ||
+        tokens[index + 1]?.value === "{" ||
+        tokens[index + 1]?.value === "["
+      ) &&
+      (parentheses !== 0 || brackets !== 0 || braces !== 0)
+    ) {
+      throw new ModuleScanError(
+        "delimiter-nested var declarations are outside owned bounds",
+        tokens[index].line,
+      );
     }
     if (
       parentheses !== 0 ||
@@ -754,7 +845,12 @@ export function collectRuntimeExportBindings(source) {
         expressionStart,
         false,
       );
-      const local = directAliasSource(tokens, expressionStart, expressionEnd);
+      const local = directAliasSource(
+        tokens,
+        expressionStart,
+        expressionEnd,
+        true,
+      );
       if (
         local !== undefined &&
         !["async", "class", "function"].includes(local)
@@ -809,22 +905,7 @@ export function collectRuntimeExportBindings(source) {
 }
 
 function closingBracketIndex(tokens, openingIndex) {
-  let depth = 0;
-  for (let index = openingIndex; index < tokens.length; index += 1) {
-    const token = tokens[index];
-    if (token?.value === "[") {
-      depth += 1;
-      continue;
-    }
-    if (token?.value !== "]") {
-      continue;
-    }
-    depth -= 1;
-    if (depth === 0) {
-      return index;
-    }
-  }
-  return undefined;
+  return closingDelimiterIndex(tokens, openingIndex, "[", "]");
 }
 
 function isLiteralToken(token) {

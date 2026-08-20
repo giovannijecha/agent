@@ -90,20 +90,26 @@ separate follow-up unless the adjacent change is necessary for correctness.
   through a named export, including an identifier or string-literal alias, a
   default export, or an exported variable declaration. Module-scope object and
   array binding patterns in an inventoried filesystem module are outside the
-  owned grammar and fail closed, including before a later export. The owned
+  owned grammar and fail closed, including before a later export. A `var`
+  declaration encountered while parentheses, brackets, or braces are open also
+  fails closed rather than requiring surrounding-scope inference. The owned
   lexer resolves at most 256 module-scope direct identifier aliases, rejects
   cycles, and delimits variable declarators and default expressions at explicit
-  or lexically unambiguous automatic-semicolon boundaries. A default export
-  creates alias evidence only when its complete delimited expression is a
-  direct identifier alias. A named runtime binding literally called `type`
+  or lexically unambiguous automatic-semicolon boundaries. The direct-alias
+  grammar admits at most 32 nested balanced parentheses, postfix non-null
+  markers, and `as` or `satisfies` chains whose assertion types are `const`,
+  `typeof` plus a qualified identifier, or a qualified identifier; every other
+  assertion type fails closed. A default
+  export creates alias evidence only when its complete delimited expression is
+  a direct identifier alias. A named runtime binding literally called `type`
   remains runtime; `type` is a type-only modifier only when it prefixes another
   local identifier. Identifiers are tokenized by Unicode code point through the
   ECMAScript `ID_Start` and `ID_Continue` classes, including the admitted join
   controls; escaped identifiers fail closed. Multiline calls, member access,
-  tagged templates, and transparent assertions remain expression continuations.
-  The lexer distinguishes runtime exports from nested scopes, comments,
-  standalone string contents, and type-only syntax, and does not infer general
-  capability flow through product execution.
+  tagged templates, and admitted transparent assertions remain expression
+  continuations. The lexer distinguishes runtime exports from nested scopes,
+  comments, standalone string contents, and type-only syntax, and does not infer
+  general capability flow through product execution.
 - Put minimal Node declarations in `types/` from authoritative runtime
   contracts.
 - Cross package boundaries only through `src/index.ts`.

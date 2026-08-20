@@ -83,6 +83,50 @@ test("requires the complete default expression to be a direct alias", () => {
   ]);
 });
 
+test("follows bounded assertions inside parenthesized aliases", () => {
+  assert.deepEqual(
+    collectRuntimeExportBindings(
+      "const assertedRead = ((readFile) as typeof readFile);\n" +
+        "const satisfiedRead = (assertedRead! satisfies typeof readFile);\n" +
+        "const chainedRead = ((satisfiedRead as unknown as typeof readFile))!;\n" +
+        "export { assertedRead, satisfiedRead, chainedRead };\n",
+    ),
+    [
+      { exported: "assertedRead", line: 4, local: "readFile" },
+      { exported: "satisfiedRead", line: 4, local: "readFile" },
+      { exported: "chainedRead", line: 4, local: "readFile" },
+    ],
+  );
+});
+
+test("rejects assertion types outside the bounded alias grammar", () => {
+  assert.throws(
+    () =>
+      collectRuntimeExportBindings(
+        "const localRead = (readFile as Readonly<{ value: string }>);\n" +
+          "export { localRead };\n",
+      ),
+    (error) =>
+      error instanceof ModuleScanError &&
+      error.message.endsWith("runtime alias assertion is outside owned bounds"),
+  );
+});
+
+test("bounds direct alias expression nesting", () => {
+  const source =
+    "const localRead = " +
+    "(".repeat(33) +
+    "readFile" +
+    ")".repeat(33) +
+    ";\nexport { localRead };\n";
+  assert.throws(
+    () => collectRuntimeExportBindings(source),
+    (error) =>
+      error instanceof ModuleScanError &&
+      error.message.endsWith("runtime alias expression exceeds owned bounds"),
+  );
+});
+
 test("distinguishes runtime bindings named type from type-only exports", () => {
   assert.deepEqual(
     collectRuntimeExportBindings(
@@ -135,6 +179,23 @@ test("rejects module-scope runtime binding patterns", () => {
         "export { ordinary };\n",
     ),
   );
+});
+
+test("rejects delimiter-nested var declarations outside the owned grammar", () => {
+  for (const source of [
+    "if (true) { var localRead = readFile; }\nexport { localRead };\n",
+    "for (var localRead = readFile; false;) {}\nexport { localRead };\n",
+    "function scoped() { var localRead = readFile; }\nexport { ordinary };\n",
+  ]) {
+    assert.throws(
+      () => collectRuntimeExportBindings(source),
+      (error) =>
+        error instanceof ModuleScanError &&
+        error.message.endsWith(
+          "delimiter-nested var declarations are outside owned bounds",
+        ),
+    );
+  }
 });
 
 test("stops runtime alias declarators at automatic semicolon boundaries", () => {

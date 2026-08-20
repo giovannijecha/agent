@@ -168,18 +168,24 @@ export, or an exported variable declaration. The same owned lexer resolves only
 direct identifier aliases at module scope, rejects cycles, and admits at most
 256 alias records. Every module-scope object or array binding pattern in an
 inventoried filesystem module fails closed as outside that grammar, whether it
-is exported immediately or by a later declaration. The lexer delimits variable
+is exported immediately or by a later declaration. A `var` declaration
+encountered while parentheses, brackets, or braces are open fails closed rather
+than requiring surrounding-scope inference. The lexer delimits variable
 declarators and default expressions at explicit or lexically unambiguous
-automatic-semicolon boundaries; the complete default-export expression must be
-a direct alias before it creates raw-binding evidence. A named runtime binding
-literally called `type` remains runtime; the type-only modifier is recognized
-only when it prefixes another local identifier. Identifiers are tokenized by
-Unicode code point through the ECMAScript `ID_Start` and `ID_Continue` classes,
-including the admitted join controls; escaped identifiers fail closed.
-Multiline calls, member access, tagged templates, and transparent assertions
-remain continuations. Nested-scope aliases, call results, comments, standalone
-string contents, and type-only exports do not create raw-binding evidence; the
-gate never executes product code or claims general capability-flow analysis.
+automatic-semicolon boundaries. Its direct-alias grammar admits at most 32
+nested balanced parentheses, postfix non-null markers, and `as` or `satisfies`
+chains whose assertion types are `const`, `typeof` plus a qualified identifier,
+or a qualified identifier; any other assertion type fails closed. The complete
+default-export expression must be a direct alias before it creates raw-binding
+evidence. A named runtime binding literally called `type` remains runtime; the
+type-only modifier is recognized only when it prefixes another local identifier.
+Identifiers are tokenized by Unicode code point through the ECMAScript
+`ID_Start` and `ID_Continue` classes, including the admitted join controls;
+escaped identifiers fail closed. Multiline calls, member access, tagged
+templates, and admitted transparent assertions remain continuations.
+Nested-scope aliases, call results, comments, standalone string contents, and
+type-only exports do not create raw-binding evidence; the gate never executes
+product code or claims general capability-flow analysis.
 Before applying dormant literal markers, the gate projects values reconstructed
 only from bounded non-interpolated literals, parentheses, literal `+`, and
 literal arrays joined with a static separator. It never evaluates product code;

@@ -563,6 +563,11 @@ test("rejects approved filesystem bindings re-exported to local modules", () => 
       'import { localRead as readFile } from "./session-journal.js";',
     ],
     [
+      "const localRead = (readFile as typeof readFile);\n" +
+        "export { localRead };",
+      'import { localRead as readFile } from "./session-journal.js";',
+    ],
+    [
       "export let localRead: typeof readFile = ((readFile));",
       'import { localRead as readFile } from "./session-journal.js";',
     ],
@@ -611,6 +616,12 @@ test("rejects module-scope destructuring and admits default call results", () =>
   for (const mutation of [
     "export const { localRead } = { localRead: readFile };",
     "const { localRead } = { localRead: readFile };\n" +
+      "export { localRead };",
+    "if (true) { var localRead = readFile; }\n" +
+      "export { localRead };",
+    "for (var localRead = readFile; false;) {}\n" +
+      "export { localRead };",
+    "const localRead = (readFile as Readonly<{ value: string }>);\n" +
       "export { localRead };",
   ]) {
     assert.throws(
