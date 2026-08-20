@@ -528,7 +528,7 @@ export function collectRuntimeExportBindings(source) {
       let exported = local.value;
       if (tokens[cursor]?.value === "as") {
         const alias = tokens[cursor + 1];
-        if (alias?.kind !== "identifier") {
+        if (alias?.kind !== "identifier" && alias?.kind !== "string") {
           break;
         }
         exported = alias.value;

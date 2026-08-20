@@ -39,18 +39,19 @@ test("does not apply composition bounds to ordinary static arrays", () => {
   );
 });
 
-test("collects runtime export bindings without comments, strings, or types", () => {
+test("collects runtime export bindings and ignores non-runtime forms", () => {
   const result = collectRuntimeExportBindings(
     "// export { hidden };\n" +
       'const text = "export { concealed };";\n' +
       "export type { Dirent };\n" +
-      "export { type Metadata, readFile, open as localOpen };\n" +
+      'export { type Metadata, readFile, open as localOpen, rename as "local-rename" };\n' +
       "export default ((rename));\n",
   );
 
   assert.deepEqual(result, [
     { exported: "readFile", line: 4, local: "readFile" },
     { exported: "localOpen", line: 4, local: "open" },
+    { exported: "local-rename", line: 4, local: "rename" },
     { exported: "default", line: 5, local: "rename" },
   ]);
 });

@@ -87,9 +87,10 @@ separate follow-up unless the adjacent change is necessary for correctness.
   path must retain exactly its reviewed import statement and bindings. Renaming,
   deleting, or reducing an inventoried authority fails closed.
 - An approved runtime filesystem binding may not leave its inventoried module
-  through a named, aliased, or default export. The owned lexer distinguishes
-  runtime exports from comments, strings, and type-only syntax; it does not infer
-  capability flow through product execution.
+  through a named export, including an identifier or string-literal alias, or a
+  default export. The owned lexer distinguishes runtime exports from comments,
+  standalone string contents, and type-only syntax; it does not infer capability
+  flow through product execution.
 - Put minimal Node declarations in `types/` from authoritative runtime
   contracts.
 - Cross package boundaries only through `src/index.ts`.

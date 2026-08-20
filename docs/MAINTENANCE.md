@@ -531,10 +531,11 @@ entry together with its owning decision and mutation evidence; never retain a
 dormant pathname allowance for possible later reuse.
 
 Do not re-export an approved runtime filesystem binding from its inventoried
-module. Keep direct, aliased, and default export mutations in the source-policy
-corpus, together with negative controls for comments, strings, and type-only
-exports. A higher-level owned CLI API remains subject to its ordinary package
-and source review; this gate does not execute product code or infer data flow.
+module. Keep direct, identifier-aliased, string-literal-aliased, and default
+export mutations in the source-policy corpus, together with negative controls
+for comments, standalone source strings, and type-only exports. A higher-level
+owned CLI API remains subject to its ordinary package and source review; this
+gate does not execute product code or infer data flow.
 
 Keep direct and split dormant literals in the mutation corpus. The static-string
 projection admits only non-interpolated literals, parentheses, literal `+`, and

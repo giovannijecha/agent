@@ -537,21 +537,27 @@ test("rejects approved filesystem bindings re-exported to local modules", () => 
     new URL("../../" + path, import.meta.url),
     "utf8",
   );
-  const consumer = {
-    path: "packages/agent-cli/src/local-state.ts",
-    text:
-      'import { readFile } from "./session-journal.js";\n' +
-      "export async function load(path: string): Promise<string> {\n" +
-      '  return readFile(path, "utf8");\n' +
-      "}\n",
-  };
-
-  for (const reexport of [
-    "export { readFile };",
-    "export { readFile as localRead };",
-    "export default readFile;",
-    "export default ((readFile));",
+  for (const [reexport, importStatement] of [
+    ["export { readFile };", 'import { readFile } from "./session-journal.js";'],
+    [
+      "export { readFile as localRead };",
+      'import { localRead as readFile } from "./session-journal.js";',
+    ],
+    [
+      'export { readFile as "local-read" };',
+      'import { "local-read" as readFile } from "./session-journal.js";',
+    ],
+    ["export default readFile;", 'import readFile from "./session-journal.js";'],
+    ["export default ((readFile));", 'import readFile from "./session-journal.js";'],
   ]) {
+    const consumer = {
+      path: "packages/agent-cli/src/local-state.ts",
+      text:
+        importStatement +
+        "\nexport async function load(path: string): Promise<string> {\n" +
+        '  return readFile(path, "utf8");\n' +
+        "}\n",
+    };
     assert.throws(
       () =>
         validateProviderPolicy(
