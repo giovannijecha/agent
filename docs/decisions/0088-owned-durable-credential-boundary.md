@@ -150,6 +150,10 @@ This dormant decision is verified by repository policy: all subscription OAuth
 providers remain blocked, the current product creates no `credentials`
 namespace, Ollama credential persistence remains forbidden, and no auth package,
 command, endpoint, token field, or generic credential reader enters source.
+The gate maintains a closed inventory of current sensitive-state identifiers and
+the exact production CLI filesystem import authorities. A new sensitive
+identifier, filesystem-capable CLI module, or expanded filesystem binding fails
+closed until the owning decision and policy evidence are updated together.
 
 An activating provider change must add Windows and Linux native contract tests
 for secure creation, exact access validation, reparse and symlink rejection,

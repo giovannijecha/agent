@@ -513,6 +513,12 @@ While every subscription OAuth provider is blocked, verify that no
 token field, or API-key persistence enters the product. Do not implement an
 opaque generic store in anticipation of a provider.
 
+Keep the verifier's closed sensitive-state identifier inventory and exact
+production CLI filesystem-import inventory synchronized with reviewed source.
+Any new auth, credential, secret, session-state, or token identifier and any new
+or expanded CLI filesystem authority must fail until its owning contract and
+mutation evidence are updated in the same change.
+
 To activate the boundary, first admit one independently registered provider and
 define its exact durable record, bounds, native access proof, cross-process
 admission, refresh rotation, revocation, failure recovery, rollback, and removal

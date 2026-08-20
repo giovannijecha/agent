@@ -164,11 +164,23 @@ const APPROVED_SOURCE_LITERALS = Object.freeze({
   "packages/agent-cli/test/node-ollama-model-catalog.test.ts": ["Bearer "],
 });
 
-const EXPECTED_CREDENTIAL_IDENTIFIERS = new Set([
+const EXPECTED_SENSITIVE_STATE_IDENTIFIERS = new Set([
   "Credential",
+  "NoticeToken",
+  "PRIVATE_SECRET",
   "ProviderCredentialProjection",
+  "Secret",
+  "TOOL_EFFECT_PLAN_TOKEN",
+  "TOOL_HANDLER_OUTCOME_TOKEN",
   "_credential",
+  "agent_linux_token_present",
+  "authenticated",
+  "authentication",
+  "authorization",
+  "authorized",
+  "authorizing",
   "cancelProviderCredential",
+  "createNoticeToken",
   "createProviderCredentialDocument",
   "credential",
   "credentialEnd",
@@ -182,10 +194,57 @@ const EXPECTED_CREDENTIAL_IDENTIFIERS = new Set([
   "invalidCredential",
   "isValidOllamaCloudCredential",
   "isValidProviderCredential",
+  "logicalRowTokens",
+  "noticeToken",
   "projectProviderCredential",
   "providerCredential",
+  "secret",
+  "secrets",
+  "sessionState",
   "submitProviderCredential",
+  "token",
+  "token_length",
+  "tokens",
 ]);
+
+const APPROVED_CLI_FILESYSTEM_IMPORTS = Object.freeze({
+  "packages/agent-cli/src/builtin-tools.ts": Object.freeze([
+    "type Dirent",
+    "lstat",
+    "opendir",
+    "readFile",
+  ]),
+  "packages/agent-cli/src/session-journal.ts": Object.freeze([
+    "lstat",
+    "mkdir",
+    "open",
+    "readFile",
+    "readdir",
+    "rename",
+    "rm",
+  ]),
+  "packages/agent-cli/src/workspace-boundary.ts": Object.freeze([
+    "lstat",
+    "realpath",
+  ]),
+  "packages/agent-cli/src/workspace-mutation-plans.ts": Object.freeze([
+    "lstat",
+    "open",
+  ]),
+  "packages/agent-cli/src/workspace-namespace-plans.ts": Object.freeze([
+    "lstat",
+    "opendir",
+  ]),
+  "packages/agent-cli/src/workspace-path.ts": Object.freeze([
+    "lstat",
+    "realpath",
+  ]),
+  "packages/agent-cli/src/workspace-read-policy.ts": Object.freeze([
+    "lstat",
+    "readFile",
+    "realpath",
+  ]),
+});
 
 const FORBIDDEN_SOURCE_MARKERS = [
   [/(?:auth\.openai\.com|chatgpt\.com\/backend-api)/iu, "OpenAI subscription endpoint"],
@@ -592,17 +651,67 @@ function compactSource(text) {
     .toLowerCase();
 }
 
-function validateCredentialIdentifiers(path, text) {
+function isSensitiveStateIdentifier(identifier) {
+  const normalized = identifier.toLowerCase();
+  if (
+    normalized.includes("credential") ||
+    normalized.includes("secret") ||
+    normalized.includes("token") ||
+    (normalized.includes("auth") && !normalized.includes("authorit"))
+  ) {
+    return true;
+  }
+  return normalized.includes("session") && [
+    "auth",
+    "credential",
+    "reader",
+    "secret",
+    "state",
+    "store",
+    "token",
+  ].some((marker) => normalized.includes(marker));
+}
+
+function validateSensitiveStateIdentifiers(path, text) {
   const decoded = decodeScannableEscapes(text);
   for (const match of decoded.matchAll(/[A-Za-z_$][A-Za-z0-9_$]*/gu)) {
     const identifier = match.at(0);
     if (
       identifier !== undefined &&
-      identifier.toLowerCase().includes("credential") &&
-      !EXPECTED_CREDENTIAL_IDENTIFIERS.has(identifier)
+      isSensitiveStateIdentifier(identifier) &&
+      !EXPECTED_SENSITIVE_STATE_IDENTIFIERS.has(identifier)
     ) {
-      fail(path + " contains unregistered credential identifier");
+      fail(path + " contains unregistered sensitive-state identifier");
     }
+  }
+}
+
+function validateCliFilesystemAuthority(path, text) {
+  if (!path.startsWith("packages/agent-cli/src/")) {
+    return;
+  }
+  const decoded = decodeScannableEscapes(text);
+  const references = [
+    ...decoded.matchAll(/["']node:fs(?:\/promises)?["']/gu),
+  ];
+  if (references.length === 0) {
+    return;
+  }
+  const imports = [
+    ...decoded.matchAll(
+      /import\s*\{([^}]*)\}\s*from\s*["']node:fs(?:\/promises)?["']\s*;/gu,
+    ),
+  ];
+  const expected = APPROVED_CLI_FILESYSTEM_IMPORTS[path];
+  if (expected === undefined || imports.length !== 1 || references.length !== 1) {
+    fail(path + " contains unregistered CLI filesystem authority");
+  }
+  const source = imports.at(0)?.at(1);
+  const actual = source?.split(",").map((entry) => entry.trim()).filter(
+    (entry) => entry.length > 0,
+  );
+  if (actual === undefined || JSON.stringify(actual) !== JSON.stringify(expected)) {
+    fail(path + " contains CLI filesystem authority drift");
   }
 }
 
@@ -611,7 +720,6 @@ function validateProductSources(productSources) {
     if (!isRecord(source) || typeof source.path !== "string" || typeof source.text !== "string") {
       fail("product source entries must contain path and text");
     }
-    validateCredentialIdentifiers(source.path, source.text);
     let scannable = source.text;
     const approved = APPROVED_SOURCE_LITERALS[source.path] ?? [];
     for (const literal of approved) {
@@ -622,6 +730,8 @@ function validateProductSources(productSources) {
         fail(source.path + " contains forbidden " + label);
       }
     }
+    validateSensitiveStateIdentifiers(source.path, source.text);
+    validateCliFilesystemAuthority(source.path, source.text);
     const compact = compactSource(scannable);
     if (
       /import(?!\{)[^;]*fromnode:process/u.test(compact) ||

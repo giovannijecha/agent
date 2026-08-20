@@ -210,6 +210,8 @@ test("binds the dormant durable credential boundary", () => {
     /derive the current account SID from the\s+process token/u,
     /directory with mode `0700`\s+and records with mode `0600`/u,
     /It never retries a refresh, replays an authorization\s+exchange/u,
+    /closed inventory of current sensitive-state identifiers/u,
+    /exact production CLI filesystem import authorities/u,
   ]) {
     assert.match(context.files[decision], marker);
   }

@@ -360,7 +360,21 @@ test("rejects every dormant durable credential product surface", () => {
       "readCredential",
       "resolveCredential",
     ].map((reader) => ({
-      label: "credential identifier",
+      label: "sensitive-state identifier",
+      match: "unregistered",
+      path: "packages/agent-cli/src/provider-session.ts",
+      mutate: (text) => text +
+        "\nexport function " + reader + "(): undefined {\n" +
+        "  return undefined;\n" +
+        "}\n",
+    })),
+    ...[
+      "loadSessionState",
+      "openTokenStore",
+      "readAuthState",
+      "readSecretRecord",
+    ].map((reader) => ({
+      label: "sensitive-state identifier",
       match: "unregistered",
       path: "packages/agent-cli/src/provider-session.ts",
       mutate: (text) => text +
@@ -399,6 +413,72 @@ test("rejects every dormant durable credential product surface", () => {
           mutation.path + " contains " + mutation.match + " " + mutation.label,
     );
   }
+});
+
+test("rejects new or expanded CLI filesystem authority", () => {
+  const newSource = {
+    path: "packages/agent-cli/src/local-state.ts",
+    text:
+      'import { readFile } from "node:fs/promises";\n' +
+      "export async function loadState(path: string): Promise<string> {\n" +
+      '  return readFile(path, "utf8");\n' +
+      "}\n",
+  };
+  assert.throws(
+    () =>
+      validateProviderPolicy(currentPolicy, {
+        ...emptyContext,
+        productSources: [newSource],
+      }),
+    ProviderPolicyError,
+  );
+
+  const path = "packages/agent-cli/src/workspace-boundary.ts";
+  const original = readFileSync(
+    new URL("../../" + path, import.meta.url),
+    "utf8",
+  );
+  assert.doesNotThrow(() =>
+    validateProviderPolicy(currentPolicy, {
+      ...emptyContext,
+      productSources: [{ path, text: original }],
+    }),
+  );
+  const expanded = original.replace(
+    'import { lstat, realpath } from "node:fs/promises";',
+    'import { lstat, readFile, realpath } from "node:fs/promises";',
+  );
+  assert.notEqual(expanded, original);
+  assert.throws(
+    () =>
+      validateProviderPolicy(currentPolicy, {
+        ...emptyContext,
+        productSources: [{ path, text: expanded }],
+      }),
+    ProviderPolicyError,
+  );
+});
+
+test("accepts only the exact current CLI filesystem authorities", () => {
+  const paths = [
+    "packages/agent-cli/src/builtin-tools.ts",
+    "packages/agent-cli/src/session-journal.ts",
+    "packages/agent-cli/src/workspace-boundary.ts",
+    "packages/agent-cli/src/workspace-mutation-plans.ts",
+    "packages/agent-cli/src/workspace-namespace-plans.ts",
+    "packages/agent-cli/src/workspace-path.ts",
+    "packages/agent-cli/src/workspace-read-policy.ts",
+  ];
+  const productSources = paths.map((path) => ({
+    path,
+    text: readFileSync(new URL("../../" + path, import.meta.url), "utf8"),
+  }));
+  assert.doesNotThrow(() =>
+    validateProviderPolicy(currentPolicy, {
+      ...emptyContext,
+      productSources,
+    }),
+  );
 });
 
 test("allows only the reviewed direct-provider literals in their exact files", () => {
