@@ -478,6 +478,7 @@ function validatePublicDocuments(context) {
       "Canonical repository: [github.com/giovannijecha/agent]",
       "Registration state: `blocked`.",
       ...OAUTH_REGISTRATION_ROWS,
+      "an accepted provider-specific successor decision,\nthe corresponding decision-0089 credential-store extension",
       "Offline contract tests must\ncover cancellation, expiry, concurrency, malformed responses, secret leakage,\nrollback, and removal.",
       "No registration means no adapter",
     ],

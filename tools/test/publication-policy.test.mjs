@@ -648,6 +648,20 @@ test("rejects OAuth contract-test coverage drift", () => {
   );
 });
 
+test("rejects obsolete OAuth credential-store authority", () => {
+  const context = currentContext();
+  const maintained = context.files["docs/OAUTH-REGISTRATION.md"];
+  context.files["docs/OAUTH-REGISTRATION.md"] = maintained.replace(
+    "an accepted provider-specific successor decision,\nthe corresponding decision-0089 credential-store extension",
+    "decision-0088 storage activation",
+  );
+  assert.notEqual(context.files["docs/OAUTH-REGISTRATION.md"], maintained);
+  assert.throws(
+    () => validatePublicationPolicy(policy, context),
+    PublicationPolicyError,
+  );
+});
+
 test("rejects modified license terms", () => {
   const context = currentContext();
   context.files.LICENSE = context.files.LICENSE.replace(

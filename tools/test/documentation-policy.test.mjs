@@ -269,6 +269,8 @@ test("binds the non-activating external authentication transition", () => {
     /This record changes no shipped behavior/u,
     /supersedes\s+decision 0088's dormant future contract/u,
     /does not supersede\s+decision 0072/u,
+    /runs after resolving the exact\s+canonical immutable workspace\s+boundary and before terminal alternate-screen\s+ownership/u,
+    /workspace\s+canonicalization and protected-root rejection before credential storage/u,
     /`~\/.agent\/credentials\/ollama-cloud\.api-key`/u,
     /`agent auth` accepts no credential or provider identifier in process arguments/u,
     /exact zero-byte regular file; admission locks\s+byte\s+offset 0 for length 1 beyond end of file/u,
@@ -294,6 +296,14 @@ test("binds the non-activating external authentication transition", () => {
   ]) {
     assert.match(context.files[file], new RegExp(marker, "u"), file);
   }
+  assert.match(
+    context.files["docs/OAUTH-REGISTRATION.md"],
+    /an accepted provider-specific successor decision,\s+the corresponding\s+decision-0089 credential-store extension/u,
+  );
+  assert.doesNotMatch(
+    context.files["docs/OAUTH-REGISTRATION.md"],
+    /decision-0088 storage activation/u,
+  );
   const operatorText = readFileSync(
     path.join(projectRoot, "docs/manual/05-providers-and-authentication.md"),
     "utf8",

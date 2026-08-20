@@ -107,7 +107,8 @@ here, request lifecycle metadata in the
 inspection in the [ownership record](OWNERSHIP.md) when required. Complete
 registration evidence does not enable product code by itself. Replace the
 blocking decision and [provider policy](PROVIDERS.md) in the same change as the
-machine gate, first adapter, decision-0088 storage activation, threat model,
+machine gate, first adapter, an accepted provider-specific successor decision,
+the corresponding decision-0089 credential-store extension, threat model,
 revocation path, rollback, and removal procedure. Offline contract tests must
 cover cancellation, expiry, concurrency, malformed responses, secret leakage,
 rollback, and removal.

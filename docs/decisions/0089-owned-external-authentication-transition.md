@@ -40,10 +40,12 @@ authoritative.
 
 ### External authentication surface
 
-The future exact launch form is `agent auth`. It runs before workspace
-resolution and outside terminal alternate-screen ownership. It requires TTY
-input and output, performs no session-journal operation, and never starts the
-conversation controller, runtime, model loop, workspace tools, or TUI.
+The future exact launch form is `agent auth`. It runs after resolving the exact
+canonical immutable workspace boundary and before terminal alternate-screen
+ownership. An unsafe or inaccessible workspace fails content-free before the
+credential store opens. The command requires TTY input and output, performs no
+session-journal operation, and never starts the conversation controller,
+runtime, model loop, workspace tools, or TUI.
 `agent auth` accepts no credential or provider identifier in process arguments.
 Any option or operand beyond that exact subcommand, and any non-TTY or redirected
 standard input or output, fails before credential storage opens.
@@ -320,12 +322,14 @@ object validation, SID/DACL or UID/mode enforcement, link rejection, bounded
 header-before-payload parsing, unexpected entries, shared/exclusive contention,
 environment dual authority, create, replace, remove, every recovery state,
 atomic visibility, synchronization failure, process death, cancellation, and
-secret non-projection. CLI tests cover exact launch grammar, zero-echo input,
-no workspace or journal ownership, `/providers` absence, startup snapshots, and
-new-session visibility. Selector tests cover no-credential notice, both serial
-stages, one catalog request, atomic pair selection, cancellation, stale results,
-and absence of aggregation, overlap, retry, or fallback. Canonical verification
-uses synthetic keys and no network.
+secret non-projection. CLI tests cover exact launch grammar, workspace
+canonicalization and protected-root rejection before credential storage,
+zero-echo input, no session-journal operation or alternate-screen ownership,
+`/providers` absence, startup snapshots, and new-session visibility. Selector
+tests cover no-credential notice, both serial stages, one catalog request,
+atomic pair selection, cancellation, stale results, and absence of aggregation,
+overlap, retry, or fallback. Canonical verification uses synthetic keys and no
+network.
 
 ## Update, rollback, and removal
 
