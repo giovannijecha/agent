@@ -156,6 +156,14 @@ imported automatically. Links, unexpected inventory, unsafe ownership or
 access, invalid schema, concurrency, or ambiguous recovery state fail closed
 before secret payload bytes are read.
 
+On Windows, the native-resolved profile directory is validated as real
+non-reparse lineage but is not assigned credential-object ownership: a valid
+profile may retain a built-in administrative owner. The current account SID and
+DACL contract begin at the shared `.agent` root and become exact for the
+credential directory, lock, and records. On Linux, every inventory and
+post-recovery rescan uses a fresh validated directory description so directory
+offset state cannot hide a committed record.
+
 The record is owned plaintext, not an OS keychain or encrypted vault. It does
 not protect from same-user processes, administrators or root, backup authority,
 malware, snapshots, memory inspection, or privileged offline access. Native

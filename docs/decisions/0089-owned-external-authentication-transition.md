@@ -127,9 +127,10 @@ extra field, reordered field, trailing byte, malformed number, unsupported
 version, invalid UTF-8, or invalid key fails closed.
 
 Before reading any secret payload byte, the native boundary validates the
-complete registered directory inventory, absolute account-root lineage,
-object kinds, ownership, access controls, link state, record header and declared
-payload extent, provider admission, and absence of an ambiguous recovery state.
+complete registered directory inventory, native-resolved home lineage kind and
+link state, state-root and credential-object ownership and access controls,
+record header and declared payload extent, provider admission, and absence of
+an ambiguous recovery state.
 It reads only the bounded non-secret header needed to validate that schema and
 extent. The API-key payload is exposed to the CLI only after the complete
 record validates; malformed payload is never returned as a credential.
@@ -137,12 +138,16 @@ record validates; malformed payload is never returned as a credential.
 The store is called the owned credential store. It is not an encrypted vault,
 operating-system keychain, Credential Manager, DPAPI, libsecret, or a claim of
 tamper resistance. On Windows, the native broker derives the current account
-SID from the process token. It creates the lock, directory, committed record,
-and recovery records as real non-reparse objects with protected non-inherited
-security descriptors, that SID as owner, and one exact allow entry for that
-SID. Every open revalidates owner, DACL, object kind, reparse state, and a record
-link count of one before payload access. Node mode bits are not a Windows
-security boundary.
+SID from the process token. The native-resolved profile directory is lineage,
+not a credential object: it must be a real non-reparse directory but may retain
+its operating-system owner, including a built-in administrative owner. The
+shared `.agent` root remains compatible with decision 0087 and must be a real
+directory with the current SID as owner and a present DACL. The broker creates
+the credential directory, lock, committed record, and recovery records as real
+non-reparse objects with protected non-inherited security descriptors, that SID
+as owner, and one exact allow entry for that SID. Every credential-object open
+revalidates owner, DACL, object kind, reparse state, and a record link count of
+one before payload access. Node mode bits are not a Windows security boundary.
 
 On Linux, the broker uses native-home directory handles, handle-relative
 no-follow opens, effective-user ownership, directory mode `0700`, file mode
@@ -237,12 +242,15 @@ surface when remote invalidation is required.
 On Linux, creation and retirement use same-directory `renameat2` no-replace,
 replacement uses same-directory `renameat`, every record is synchronized before
 publication, and the containing directory is synchronized after staging,
-publication, retirement, and cleanup. Missing directory synchronization fails
-closed. On Windows, initial and retirement publication use a same-volume native
-no-replace move, replacement uses `ReplaceFileW` without a backup path, and
-record handles are flushed before publication. Windows claims atomic namespace
-visibility and recoverability from the exact named artifacts, not POSIX
-directory-fsync durability. Every native result is content-free.
+publication, retirement, and cleanup. Each Linux inventory scan opens a fresh
+validated directory description, so recovery cleanup cannot leave a shared
+directory offset at end-of-directory before the required settled-state rescan.
+Missing directory synchronization fails closed. On Windows, initial and
+retirement publication use a same-volume native no-replace move, replacement
+uses `ReplaceFileW` without a backup path, and record handles are flushed before
+publication. Windows claims atomic namespace visibility and recoverability from
+the exact named artifacts, not POSIX directory-fsync durability. Every native
+result is content-free.
 
 A failed or interrupted operation settles as one validated predecessor,
 successor, settled absence, or metadata-safe `.pending` or `.retired` recovery
@@ -334,12 +342,15 @@ credential-broker effect authority, registered native tree, and absence of
 `/providers`; it rejects any second command, generic credential namespace,
 unregistered effect, or source/native drift.
 
-Activation evidence includes offline Windows and Linux native tests for exact root and
-object validation, SID/DACL or UID/mode enforcement, link rejection, bounded
-header-before-payload parsing, unexpected entries, shared/exclusive contention,
-environment dual authority, create, replace, remove, every recovery state,
-atomic visibility, synchronization failure, process death, cancellation, and
-secret non-projection. CLI tests cover exact launch grammar, workspace
+Activation evidence includes offline Windows and Linux native tests for exact
+root and object validation, a pre-existing shared state root, Windows profile
+lineage whose operating-system owner differs from the current SID, SID/DACL or
+UID/mode enforcement, link rejection, bounded header-before-payload parsing,
+unexpected entries, shared/exclusive contention, environment dual authority,
+create, replace, remove, every recovery state including an interrupted Linux
+replacement followed by a fresh settled-state rescan, atomic visibility,
+synchronization failure, process death, cancellation, and secret non-projection.
+CLI tests cover exact launch grammar, workspace
 canonicalization and protected-root rejection before credential storage,
 zero-echo input, no session-journal operation or alternate-screen ownership,
 `/providers` absence, startup snapshots, and new-session visibility. Selector

@@ -479,6 +479,36 @@ static HANDLE agent_windows_open_directory(
   return handle;
 }
 
+static HANDLE agent_windows_open_lineage_directory(const wchar_t *path) {
+  HANDLE handle = CreateFileW(
+    path,
+    FILE_READ_ATTRIBUTES | SYNCHRONIZE,
+    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+    NULL,
+    OPEN_EXISTING,
+    FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
+    NULL
+  );
+  FILE_ATTRIBUTE_TAG_INFO tags;
+  if (
+    handle == INVALID_HANDLE_VALUE ||
+    GetFileInformationByHandleEx(
+      handle,
+      FileAttributeTagInfo,
+      &tags,
+      sizeof(tags)
+    ) == 0 ||
+    (tags.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0 ||
+    (tags.FileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0
+  ) {
+    if (handle != INVALID_HANDLE_VALUE) {
+      CloseHandle(handle);
+    }
+    return INVALID_HANDLE_VALUE;
+  }
+  return handle;
+}
+
 static bool agent_windows_ensure_directory(
   const wchar_t *path,
   PSID account,
@@ -857,7 +887,7 @@ static struct agent_platform_state *agent_platform_open(
     return NULL;
   }
 #endif
-  HANDLE home_handle = agent_windows_open_directory(home, state->account, false);
+  HANDLE home_handle = agent_windows_open_lineage_directory(home);
   state->agent_root = agent_windows_join(home, L".agent");
 #ifdef AGENT_CREDENTIAL_FIXTURE
   free(home);
@@ -1039,13 +1069,20 @@ static bool agent_linux_inventory(
   bool *pending,
   bool *retired
 ) {
-  const int copied = dup(state->credentials);
-  if (copied < 0) {
+  const int opened = openat(
+    state->credentials,
+    ".",
+    O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW
+  );
+  if (!agent_linux_validate(opened, true, true, false, false)) {
+    if (opened >= 0) {
+      close(opened);
+    }
     return false;
   }
-  DIR *directory = fdopendir(copied);
+  DIR *directory = fdopendir(opened);
   if (directory == NULL) {
-    close(copied);
+    close(opened);
     return false;
   }
   *committed = false;

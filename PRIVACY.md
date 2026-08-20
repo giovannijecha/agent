@@ -188,6 +188,9 @@ errors, receipts, or documentation values. The owned plaintext record is
 protected by native owner-only filesystem controls; it is not an encrypted
 vault and does not protect against same-user processes, administrators or root,
 malware, backups, snapshots, memory inspection, or privileged offline access.
+On Windows those credential controls begin at the user-owned `.agent` root;
+the native-resolved profile directory is non-reparse lineage and may retain its
+operating-system administrative owner without becoming a credential authority.
 
 An interactive Agent holds one immutable process-memory credential snapshot
 under a shared native admission lock for its full lifetime. `agent auth` holds

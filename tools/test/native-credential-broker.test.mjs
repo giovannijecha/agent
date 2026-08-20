@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import {
+  existsSync,
   linkSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -83,6 +85,40 @@ function launch(root, input, arguments_ = []) {
 function temporaryRoot() {
   return mkdtempSync(path.join(tmpdir(), "agent-credential-fixture-"));
 }
+
+test("Windows profile lineage does not require credential-object ownership", {
+  skip: process.platform !== "win32",
+}, () => {
+  const source = readFileSync(path.join(
+    projectRoot,
+    "packages/agent-cli/native/credential-broker/credential-store.c",
+  ), "utf8");
+  assert.match(
+    source,
+    /home_handle = agent_windows_open_lineage_directory\(home\)/u,
+  );
+  assert.doesNotMatch(
+    source,
+    /home_handle = agent_windows_open_directory\(home, state->account, false\)/u,
+  );
+});
+
+test("native credential broker admits the existing shared state root", () => {
+  const root = temporaryRoot();
+  try {
+    const sessions = path.join(root, ".agent", "sessions");
+    mkdirSync(sessions, { mode: 0o700, recursive: true });
+
+    const snapshot = launch(root, request(1, Uint8Array.from([0])));
+    assert.equal(snapshot.error, undefined);
+    assert.equal(snapshot.status, 0);
+    assert.equal(snapshot.stderr.length, 0);
+    assert.deepEqual(responses(snapshot.stdout).map((entry) => entry.kind), [1]);
+    assert.equal(existsSync(sessions), true);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
 
 test("native credential broker rejects arguments and malformed requests silently", () => {
   const root = temporaryRoot();
@@ -313,6 +349,55 @@ test("exclusive admission recovers only pending and retired interruption states"
     assert.deepEqual(
       responses(recoveredAbsence.stdout).map((entry) => entry.kind),
       [1, 7],
+    );
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("replacement recovery retains the committed credential", () => {
+  const root = temporaryRoot();
+  try {
+    const registered = launch(root, frames(
+      request(2, Uint8Array.from([0])),
+      request(3, ascii("synthetic-first")),
+    ));
+    assert.equal(registered.status, 0);
+    assert.deepEqual(
+      responses(registered.stdout).map((entry) => entry.kind),
+      [1, 4],
+    );
+
+    const stageMarker = path.join(root, ".fixture-stop-after-stage");
+    writeFileSync(stageMarker, "", { encoding: "utf8" });
+    const interruptedReplace = launch(root, frames(
+      request(2, Uint8Array.from([0])),
+      request(4, ascii("synthetic-second")),
+    ));
+    assert.equal(interruptedReplace.status, 0);
+    assert.deepEqual(
+      responses(interruptedReplace.stdout).map((entry) => entry.kind),
+      [3, 12],
+    );
+    rmSync(stageMarker, { force: true });
+
+    const recoveredReplace = launch(root, frames(
+      request(2, Uint8Array.from([0])),
+      request(4, ascii("synthetic-third")),
+    ));
+    assert.equal(recoveredReplace.status, 0);
+    assert.deepEqual(
+      responses(recoveredReplace.stdout).map((entry) => entry.kind),
+      [3, 5],
+    );
+    assert.match(
+      readFileSync(path.join(
+        root,
+        ".agent",
+        "credentials",
+        "ollama-cloud.api-key",
+      ), "utf8"),
+      /revision=2\nlength=15\n\nsynthetic-third$/u,
     );
   } finally {
     rmSync(root, { force: true, recursive: true });
