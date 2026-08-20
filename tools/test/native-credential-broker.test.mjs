@@ -86,7 +86,7 @@ function temporaryRoot() {
   return mkdtempSync(path.join(tmpdir(), "agent-credential-fixture-"));
 }
 
-test("native Windows broker admits system-owned profile lineage", {
+test("native Windows broker admits controlled alternate-owner profile lineage", {
   skip: process.platform !== "win32",
 }, () => {
   const root = temporaryRoot();

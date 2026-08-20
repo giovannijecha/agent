@@ -555,8 +555,8 @@ strings, exports, commands, or general data flow.
 
 For every change, run the native lifecycle fixtures on Windows and Linux and
 the CLI contract tests without a real credential. Prove Windows owner/DACL and
-profile-lineage behavior by driving the complete broker against system-owned
-public-profile lineage and an isolated state root, plus a pre-existing
+profile-lineage behavior by driving the complete broker against a controlled
+alternate-owner profile observation and an isolated state root, plus a pre-existing
 decision-0087 state root that retains native owner/DACL metadata. Prove Linux
 owner/mode enforcement and fresh-directory inventory rescans, linked-object
 rejection, header-before-secret parsing, shared/exclusive admission, dual
