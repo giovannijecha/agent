@@ -1,23 +1,26 @@
 import assert from "node:assert/strict";
 import {
   chmod,
+  lstat,
   mkdir,
   mkdtemp,
   readFile,
   readdir,
   rename,
   rm,
+  symlink,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { platform } from "node:process";
+import { pid, platform } from "node:process";
 import test from "node:test";
 
 import { ConversationTree, Message, Role } from "@agent/core";
 
 import {
-  resolveSessionJournalRoot,
+  prepareSessionJournalRoot,
+  resolveSessionJournalRoots,
   SessionJournal,
 } from "../dist/session-journal.js";
 
@@ -606,25 +609,408 @@ test("removes an exact stale process lock before continuing", async () => {
   }
 });
 
-test("resolves only absolute platform-owned state bases", () => {
+test("resolves the owned user state root and exact legacy session source", () => {
   assert.deepEqual(
-    resolveSessionJournalRoot(
+    resolveSessionJournalRoots(
       "win32",
       { LOCALAPPDATA: "C:\\Users\\owner\\AppData\\Local" },
       "C:\\Users\\owner",
     ),
     {
       ok: true,
-      value: "C:\\Users\\owner\\AppData\\Local\\agent\\sessions",
+      value: {
+        currentRoot: "C:\\Users\\owner\\.agent\\sessions",
+        legacyRoot: "C:\\Users\\owner\\AppData\\Local\\agent\\sessions",
+      },
+    },
+  );
+  assert.deepEqual(
+    resolveSessionJournalRoots("win32", {}, "C:\\Users\\owner"),
+    {
+      ok: true,
+      value: {
+        currentRoot: "C:\\Users\\owner\\.agent\\sessions",
+        legacyRoot: null,
+      },
+    },
+  );
+  assert.deepEqual(
+    resolveSessionJournalRoots("linux", {}, "/home/owner"),
+    {
+      ok: true,
+      value: {
+        currentRoot: "/home/owner/.agent/sessions",
+        legacyRoot: "/home/owner/.local/state/agent/sessions",
+      },
     },
   );
   assert.equal(
-    resolveSessionJournalRoot("win32", {}, "C:\\Users\\owner").ok,
-    false,
-  );
-  assert.equal(
-    resolveSessionJournalRoot("linux", { XDG_STATE_HOME: "relative" }, "/home/owner")
+    resolveSessionJournalRoots(
+      "linux",
+      { XDG_STATE_HOME: "relative" },
+      "/home/owner",
+    )
       .ok,
     false,
   );
+  assert.equal(resolveSessionJournalRoots("linux", {}, "relative").ok, false);
+  assert.equal(
+    resolveSessionJournalRoots("unsupported", {}, "/home/owner").ok,
+    false,
+  );
+  assert.equal(
+    resolveSessionJournalRoots(
+      "win32",
+      new Proxy({}, {
+        get: () => {
+          throw new Error("foreign environment getter");
+        },
+      }),
+      "C:\\Users\\owner",
+    ).ok,
+    false,
+  );
+  assert.equal(
+    resolveSessionJournalRoots(
+      "win32",
+      { LOCALAPPDATA: 7 } as unknown as Readonly<{
+        LOCALAPPDATA?: string;
+        XDG_STATE_HOME?: string;
+      }>,
+      "C:\\Users\\owner",
+    ).ok,
+    false,
+  );
+});
+
+test("creates only the admitted sessions namespace under the owned root", async () => {
+  const container = await mkdtemp(path.join(tmpdir(), "agent-user-state-root-"));
+  const home = path.join(container, "home");
+  const currentRoot = path.join(home, ".agent", "sessions");
+  try {
+    await mkdir(home);
+    const prepared = await prepareSessionJournalRoot(
+      Object.freeze({ currentRoot, legacyRoot: null }),
+      path.join(container, "workspace"),
+    );
+    assert.deepEqual(prepared, {
+      ok: true,
+      value: Object.freeze({ migrated: false, root: currentRoot }),
+    });
+    assert.deepEqual(
+      (await readdir(path.join(home, ".agent"), { withFileTypes: true })).map(
+        (entry) => entry.name,
+      ),
+      ["sessions"],
+    );
+  } finally {
+    await rm(container, { force: true, recursive: true });
+  }
+});
+
+test("migrates only the exact legacy workspace and preserves resume", async () => {
+  const container = await mkdtemp(path.join(tmpdir(), "agent-state-migrate-"));
+  const currentRoot = path.join(container, "home", ".agent", "sessions");
+  const legacyRoot = path.join(container, "legacy", "agent", "sessions");
+  const alpha = path.join(container, "alpha");
+  const beta = path.join(container, "beta");
+  try {
+    await mkdir(path.join(container, "home"));
+    const alphaJournal = await SessionJournal.create(legacyRoot, alpha);
+    assert.equal(alphaJournal.ok, true);
+    if (!alphaJournal.ok) return;
+    const tree = oneTurn("migrated reasoning");
+    assert.equal(
+      (
+        await alphaJournal.value.journal.appendTurn(tree.turns.at(0)!, {
+          kind: "completed",
+        })
+      ).ok,
+      true,
+    );
+    assert.equal((await alphaJournal.value.journal.close()).ok, true);
+    const betaJournal = await SessionJournal.create(legacyRoot, beta);
+    assert.equal(betaJournal.ok, true);
+    if (!betaJournal.ok) return;
+    assert.equal((await betaJournal.value.journal.close()).ok, true);
+
+    const prepared = await prepareSessionJournalRoot(
+      Object.freeze({ currentRoot, legacyRoot }),
+      alpha,
+    );
+    assert.equal(prepared.ok, true);
+    if (!prepared.ok) return;
+    assert.equal(prepared.value.migrated, true);
+    assert.equal(prepared.value.root, currentRoot);
+    assert.equal((await readdir(currentRoot, { withFileTypes: true })).length, 1);
+    assert.equal((await readdir(legacyRoot, { withFileTypes: true })).length, 1);
+
+    const resumed = await SessionJournal.resumeLatest(currentRoot, alpha);
+    assert.equal(resumed.ok, true);
+    if (!resumed.ok) return;
+    assert.deepEqual(resumed.value.history.nodes, tree.nodes);
+    assert.equal((await resumed.value.journal.close()).ok, true);
+    const legacyBeta = await SessionJournal.resumeLatest(legacyRoot, beta);
+    assert.equal(legacyBeta.ok, true);
+    if (legacyBeta.ok) {
+      assert.equal((await legacyBeta.value.journal.close()).ok, true);
+    }
+    const repeated = await prepareSessionJournalRoot(
+      Object.freeze({ currentRoot, legacyRoot }),
+      alpha,
+    );
+    assert.equal(repeated.ok, true);
+    if (repeated.ok) assert.equal(repeated.value.migrated, false);
+  } finally {
+    await rm(container, { force: true, recursive: true });
+  }
+});
+
+test("moves a version-one workspace without rewriting its journal bytes", async () => {
+  const container = await mkdtemp(path.join(tmpdir(), "agent-state-v1-move-"));
+  const currentRoot = path.join(container, "home", ".agent", "sessions");
+  const legacyRoot = path.join(container, "legacy", "agent", "sessions");
+  const workspace = path.join(container, "workspace");
+  try {
+    await mkdir(path.join(container, "home"));
+    const legacy = await SessionJournal.create(legacyRoot, workspace);
+    assert.equal(legacy.ok, true);
+    if (!legacy.ok) return;
+    const tree = oneTurn();
+    assert.equal(
+      (
+        await legacy.value.journal.appendTurn(tree.turns.at(0)!, {
+          kind: "completed",
+        })
+      ).ok,
+      true,
+    );
+    assert.equal((await legacy.value.journal.close()).ok, true);
+    const legacySession = await sessionDirectory(legacyRoot);
+    await rewriteAsVersionOne(legacySession);
+    const journalBefore = await readFile(
+      path.join(legacySession, "journal.jsonl"),
+    );
+    const headBefore = await readFile(path.join(legacySession, "head.json"));
+
+    const prepared = await prepareSessionJournalRoot(
+      Object.freeze({ currentRoot, legacyRoot }),
+      workspace,
+    );
+    assert.equal(prepared.ok, true);
+    if (!prepared.ok) return;
+    const currentSession = await sessionDirectory(currentRoot);
+    assert.deepEqual(
+      await readFile(path.join(currentSession, "journal.jsonl")),
+      journalBefore,
+    );
+    assert.deepEqual(
+      await readFile(path.join(currentSession, "head.json")),
+      headBefore,
+    );
+
+    const resumed = await SessionJournal.resumeLatest(currentRoot, workspace);
+    assert.equal(resumed.ok, true);
+    if (resumed.ok) {
+      assert.deepEqual(resumed.value.history.nodes, tree.nodes);
+      assert.equal((await resumed.value.journal.close()).ok, true);
+    }
+  } finally {
+    await rm(container, { force: true, recursive: true });
+  }
+});
+
+test("rejects active or dual-root legacy migration without moving data", async () => {
+  const container = await mkdtemp(path.join(tmpdir(), "agent-state-conflict-"));
+  const currentRoot = path.join(container, "home", ".agent", "sessions");
+  const legacyRoot = path.join(container, "legacy", "agent", "sessions");
+  const workspace = path.join(container, "workspace");
+  try {
+    await mkdir(path.join(container, "home"));
+    const legacy = await SessionJournal.create(legacyRoot, workspace);
+    assert.equal(legacy.ok, true);
+    if (!legacy.ok) return;
+    const active = await prepareSessionJournalRoot(
+      Object.freeze({ currentRoot, legacyRoot }),
+      workspace,
+    );
+    assert.equal(active.ok, false);
+    if (!active.ok) assert.equal(active.error.kind, "migration");
+    assert.equal((await legacy.value.journal.close()).ok, true);
+
+    const legacyWorkspace = (
+      await readdir(legacyRoot, { withFileTypes: true })
+    ).find((entry) => entry.isDirectory());
+    assert.ok(legacyWorkspace !== undefined);
+    const admissionPath = path.join(
+      legacyRoot,
+      legacyWorkspace?.name ?? "missing",
+      ".admission-" + String(pid) + "-" + "a".repeat(64),
+    );
+    await writeFile(admissionPath, String(pid) + "\n", {
+      encoding: "utf8",
+      flag: "wx",
+    });
+    const busy = await prepareSessionJournalRoot(
+      Object.freeze({ currentRoot, legacyRoot }),
+      workspace,
+    );
+    assert.equal(busy.ok, false);
+    if (!busy.ok) assert.equal(busy.error.kind, "busy");
+    await rm(admissionPath, { force: true, recursive: false });
+
+    const current = await SessionJournal.create(currentRoot, workspace);
+    assert.equal(current.ok, true);
+    if (!current.ok) return;
+    assert.equal((await current.value.journal.close()).ok, true);
+    const conflict = await prepareSessionJournalRoot(
+      Object.freeze({ currentRoot, legacyRoot }),
+      workspace,
+    );
+    assert.equal(conflict.ok, false);
+    if (!conflict.ok) assert.equal(conflict.error.kind, "migration");
+    assert.equal((await readdir(legacyRoot, { withFileTypes: true })).length, 1);
+    assert.equal((await readdir(currentRoot, { withFileTypes: true })).length, 1);
+  } finally {
+    await rm(container, { force: true, recursive: true });
+  }
+});
+
+test("preserves the legacy authority when its exact move fails", async () => {
+  const container = await mkdtemp(path.join(tmpdir(), "agent-state-move-fail-"));
+  const currentRoot = path.join(container, "home", ".agent", "sessions");
+  const legacyRoot = path.join(container, "legacy", "agent", "sessions");
+  const workspace = path.join(container, "workspace");
+  try {
+    await mkdir(path.join(container, "home"));
+    const legacy = await SessionJournal.create(legacyRoot, workspace);
+    assert.equal(legacy.ok, true);
+    if (!legacy.ok) return;
+    assert.equal((await legacy.value.journal.close()).ok, true);
+    const before = (await readdir(legacyRoot, { withFileTypes: true })).map(
+      (entry) => entry.name,
+    );
+
+    const failed = await prepareSessionJournalRoot(
+      Object.freeze({ currentRoot, legacyRoot }),
+      workspace,
+      Object.freeze({
+        move: async () => {
+          throw new Error("synthetic move failure");
+        },
+      }),
+    );
+    assert.equal(failed.ok, false);
+    if (!failed.ok) assert.equal(failed.error.kind, "migration");
+    assert.deepEqual(
+      (await readdir(legacyRoot, { withFileTypes: true })).map(
+        (entry) => entry.name,
+      ),
+      before,
+    );
+    assert.deepEqual(
+      (await readdir(currentRoot, { withFileTypes: true })).map(
+        (entry) => entry.name,
+      ),
+      [],
+    );
+  } finally {
+    await rm(container, { force: true, recursive: true });
+  }
+});
+
+test("rejects linked or non-directory owned state namespaces", async () => {
+  const container = await mkdtemp(path.join(tmpdir(), "agent-state-path-"));
+  const home = path.join(container, "home");
+  const external = path.join(container, "external");
+  const workspace = path.join(container, "workspace");
+  try {
+    await mkdir(home);
+    await writeFile(path.join(home, ".agent"), "not a directory", {
+      encoding: "utf8",
+      flag: "wx",
+    });
+    const invalid = await prepareSessionJournalRoot(
+      Object.freeze({
+        currentRoot: path.join(home, ".agent", "sessions"),
+        legacyRoot: null,
+      }),
+      workspace,
+    );
+    assert.equal(invalid.ok, false);
+    if (!invalid.ok) assert.equal(invalid.error.kind, "storage");
+    assert.equal((await lstat(path.join(home, ".agent"))).isFile(), true);
+
+    await rm(path.join(home, ".agent"), { force: true, recursive: false });
+    await mkdir(external);
+    await symlink(
+      external,
+      path.join(home, ".agent"),
+      "junction",
+    );
+    const linked = await prepareSessionJournalRoot(
+      Object.freeze({
+        currentRoot: path.join(home, ".agent", "sessions"),
+        legacyRoot: null,
+      }),
+      workspace,
+    );
+    assert.equal(linked.ok, false);
+    if (!linked.ok) assert.equal(linked.error.kind, "storage");
+
+    await rm(path.join(home, ".agent"), { force: true, recursive: false });
+    const legacyLink = path.join(container, "legacy-sessions");
+    await symlink(external, legacyLink, "junction");
+    const linkedLegacy = await prepareSessionJournalRoot(
+      Object.freeze({
+        currentRoot: path.join(home, ".agent", "sessions"),
+        legacyRoot: legacyLink,
+      }),
+      workspace,
+    );
+    assert.equal(linkedLegacy.ok, false);
+    if (!linkedLegacy.ok) assert.equal(linkedLegacy.error.kind, "storage");
+  } finally {
+    await rm(container, { force: true, recursive: true });
+  }
+});
+
+test("contains hostile user-state and migration boundary accessors", async () => {
+  const hostileLayout = new Proxy(
+    {},
+    {
+      get: () => {
+        throw new Error("foreign layout getter");
+      },
+    },
+  );
+  const containedLayout = await prepareSessionJournalRoot(
+    hostileLayout as never,
+    path.resolve("workspace"),
+  );
+  assert.equal(containedLayout.ok, false);
+  if (!containedLayout.ok) {
+    assert.equal(containedLayout.error.kind, "storage");
+  }
+
+  const hostileBoundary = new Proxy(
+    {},
+    {
+      get: () => {
+        throw new Error("foreign migration getter");
+      },
+    },
+  );
+  const containedBoundary = await prepareSessionJournalRoot(
+    Object.freeze({
+      currentRoot: path.join(path.resolve("workspace"), ".agent", "sessions"),
+      legacyRoot: null,
+    }),
+    path.resolve("workspace"),
+    hostileBoundary as never,
+  );
+  assert.equal(containedBoundary.ok, false);
+  if (!containedBoundary.ok) {
+    assert.equal(containedBoundary.error.kind, "storage");
+  }
 });

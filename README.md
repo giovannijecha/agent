@@ -56,8 +56,9 @@ agent resume --latest
 ```
 
 The directory in which `agent` starts becomes its immutable workspace boundary.
-Volume roots, the exact user home, and the shared temporary directory are
-rejected. An optional root `.agentignore` adds deny-only read exclusions.
+Volume roots, the exact user home, the shared temporary directory, and every
+workspace overlapping the native-home `.agent` state root are rejected. An
+optional root `.agentignore` adds deny-only read exclusions.
 
 Inside the TUI, run `/providers` to enter an Ollama Cloud API key and select the
 provider, then `/models` to load the authenticated catalog and choose one

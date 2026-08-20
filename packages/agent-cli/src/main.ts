@@ -45,7 +45,8 @@ import { writeProcessText } from "./process-output.js";
 import { ShellExecutionPolicy } from "./shell-execution-policy.js";
 import { resolveOllamaCloudConfiguration } from "./provider-configuration.js";
 import {
-  resolveSessionJournalRoot,
+  prepareSessionJournalRoot,
+  resolveSessionJournalRoots,
   SessionJournal,
   type OpenedSessionJournal,
   type SessionJournalErrorKind,
@@ -104,6 +105,9 @@ function sessionJournalDiagnostic(kind: SessionJournalErrorKind): string {
   }
   if (kind === "limit") {
     return "agent could not retain another bounded session\n";
+  }
+  if (kind === "migration") {
+    return "agent could not migrate legacy session state\n";
   }
   return "agent could not open the session journal\n";
 }
@@ -253,16 +257,19 @@ const evaluation =
     : undefined;
 let openedSession: OpenedSessionJournal | undefined;
 if (terminalHost.interactive && evaluation === undefined) {
-  const stateRoot = resolveSessionJournalRoot(
+  const stateRoots = resolveSessionJournalRoots(
     platform,
     env,
-    env.HOME ?? "",
+    workspaceProtection.homeDirectory,
   );
-  const sessionRoot = stateRoot.ok
-    ? stateRoot.value
+  const preparedState = stateRoots.ok
+    ? await prepareSessionJournalRoot(stateRoots.value, workspaceRoot)
+    : stateRoots;
+  const sessionRoot = preparedState.ok
+    ? preparedState.value.root
     : await writeAndExit(
         stderr,
-        sessionJournalDiagnostic(stateRoot.error.kind),
+        sessionJournalDiagnostic(preparedState.error.kind),
         1,
       );
   const opened = launch.ok && launch.command === "resume"

@@ -49,6 +49,7 @@
     "docs/decisions/0083-owned-bounded-thinking-stream.md",
     "docs/decisions/0085-owned-reasoning-journal-migration.md",
     "docs/decisions/0086-owned-thinking-effort-and-display.md",
+    "docs/decisions/0087-owned-user-scoped-state-root.md",
     "assets/brand/README.md",
     "docs/BRAND.md",
     "docs/decisions/0037-canonical-agent-brand.md",

@@ -50,6 +50,43 @@ function samePath(left: string, right: string): boolean {
   return path.relative(left, right) === "";
 }
 
+function containsPath(parent: string, candidate: string): boolean {
+  const relative = path.relative(parent, candidate);
+  return relative.length === 0 ||
+    (!path.isAbsolute(relative) &&
+      relative !== ".." &&
+      !relative.startsWith(".." + path.sep));
+}
+
+function pathsOverlap(left: string, right: string): boolean {
+  return containsPath(left, right) || containsPath(right, left);
+}
+
+function causeCode(cause: unknown): string | undefined {
+  if (cause === null || typeof cause !== "object") {
+    return undefined;
+  }
+  try {
+    const code = (cause as Readonly<{ code?: unknown }>).code;
+    return typeof code === "string" ? code : undefined;
+  } catch (_cause: unknown) {
+    return undefined;
+  }
+}
+
+async function optionalOwnedDirectory(
+  candidate: string,
+): Promise<"absent" | "directory" | "invalid"> {
+  try {
+    const observed = await lstat(candidate);
+    return observed.isDirectory() && !observed.isSymbolicLink()
+      ? "directory"
+      : "invalid";
+  } catch (cause: unknown) {
+    return causeCode(cause) === "ENOENT" ? "absent" : "invalid";
+  }
+}
+
 function decodeProtection(
   value: unknown,
 ): Result<WorkspaceBoundaryProtection, WorkspaceBoundaryError> {
@@ -142,18 +179,37 @@ export class WorkspaceBoundary {
     if (path.dirname(root) === root) {
       return err(new WorkspaceBoundaryError("unsafeRoot"));
     }
-    const protectedCandidates = Object.freeze([
+    const canonicalHome = await canonicalDirectory(
       decodedProtection.value.homeDirectory,
+    );
+    if (!canonicalHome.ok) {
+      return canonicalHome;
+    }
+    const canonicalTemporary = await canonicalDirectory(
       decodedProtection.value.temporaryDirectory,
-    ]);
-    for (const protectedCandidate of protectedCandidates) {
-      const canonicalProtected = await canonicalDirectory(protectedCandidate);
-      if (!canonicalProtected.ok) {
-        return canonicalProtected;
-      }
-      if (samePath(root, canonicalProtected.value)) {
+    );
+    if (!canonicalTemporary.ok) {
+      return canonicalTemporary;
+    }
+    const userStateRoot = path.join(canonicalHome.value, ".agent");
+    const userState = await optionalOwnedDirectory(userStateRoot);
+    if (userState === "invalid") {
+      return err(new WorkspaceBoundaryError("unsafeRoot"));
+    }
+    if (userState === "directory") {
+      const sessions = await optionalOwnedDirectory(
+        path.join(userStateRoot, "sessions"),
+      );
+      if (sessions === "invalid") {
         return err(new WorkspaceBoundaryError("unsafeRoot"));
       }
+    }
+    if (
+      samePath(root, canonicalHome.value) ||
+      samePath(root, canonicalTemporary.value) ||
+      pathsOverlap(root, userStateRoot)
+    ) {
+      return err(new WorkspaceBoundaryError("unsafeRoot"));
     }
     return ok(new WorkspaceBoundary(root, workspaceBoundaryAuthority));
   }

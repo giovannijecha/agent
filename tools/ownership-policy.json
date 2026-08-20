@@ -105,6 +105,7 @@
     "docs/decisions/0084-owned-flat-namespace-tool-contract.md",
     "docs/decisions/0085-owned-reasoning-journal-migration.md",
     "docs/decisions/0086-owned-thinking-effort-and-display.md",
+    "docs/decisions/0087-owned-user-scoped-state-root.md",
     "evaluations/README.md"
   ],
   "workspaces": [
