@@ -169,47 +169,63 @@ const APPROVED_SOURCE_LITERALS = Object.freeze({
   "packages/agent-cli/test/node-ollama-model-catalog.test.ts": ["Bearer "],
 });
 
-const EXPECTED_SENSITIVE_STATE_IDENTIFIERS = new Set([
-  "Credential",
-  "NoticeToken",
-  "PRIVATE_SECRET",
-  "ProviderCredentialProjection",
-  "Secret",
-  "TOOL_EFFECT_PLAN_TOKEN",
-  "TOOL_HANDLER_OUTCOME_TOKEN",
-  "_credential",
-  "agent_linux_token_present",
-  "authenticated",
-  "authentication",
-  "authorization",
-  "authorized",
-  "authorizing",
-  "cancelProviderCredential",
-  "createNoticeToken",
-  "createProviderCredentialDocument",
-  "credential",
-  "credentialEnd",
-  "credentialEntry",
-  "credentialOutcome",
-  "credentialProviderId",
-  "credentialRender",
-  "credentialStart",
-  "credentialValid",
-  "credentials",
-  "invalidCredential",
-  "isValidOllamaCloudCredential",
-  "isValidProviderCredential",
-  "logicalRowTokens",
-  "noticeToken",
-  "projectProviderCredential",
-  "providerCredential",
-  "secret",
-  "secrets",
-  "sessionState",
-  "submitProviderCredential",
-  "token",
-  "token_length",
-  "tokens",
+const EXPECTED_SENSITIVE_STATE_OCCURRENCES = Object.freeze({
+  "packages/agent-cli/native/process-broker/backend-linux.c": "agent_linux_token_present=2;token=3;token_length=3",
+  "packages/agent-cli/src/application.ts": "authentication=5;cancelProviderCredential=1;createNoticeToken=2;credential=4;credentialProviderId=16;noticeToken=6;NoticeToken=4;projectProviderCredential=1;providerCredential=1;ProviderCredentialProjection=2;submitProviderCredential=1;token=2",
+  "packages/agent-cli/src/chat-view.ts": "createProviderCredentialDocument=2;credential=5;credentialEntry=2;projectProviderCredential=2;providerCredential=6",
+  "packages/agent-cli/src/main.ts": "authentication=1;credential=3",
+  "packages/agent-cli/src/node-ollama-cloud-transport.ts": "authorization=1;credential=10;isValidOllamaCloudCredential=2",
+  "packages/agent-cli/src/node-ollama-model-catalog.ts": "authenticated=1;authorization=1;credential=5;isValidOllamaCloudCredential=2",
+  "packages/agent-cli/src/notice-scheduler.ts": "NoticeToken=6;token=19",
+  "packages/agent-cli/src/notice.ts": "createNoticeToken=1;noticeToken=2;NoticeToken=2",
+  "packages/agent-cli/src/provider-configuration.ts": "credential=3;invalidCredential=2;isValidOllamaCloudCredential=2;isValidProviderCredential=2",
+  "packages/agent-cli/src/provider-credential-view.ts": "createProviderCredentialDocument=1;credential=1;ProviderCredentialProjection=2",
+  "packages/agent-cli/src/provider-model-catalog.ts": "authenticated=1;credential=1",
+  "packages/agent-cli/src/provider-session.ts": "authentication=8;credential=19;credentialValid=2;invalidCredential=2;isValidOllamaCloudCredential=2",
+  "packages/agent-cli/src/run.ts": "credential=1;noticeToken=1;token=1",
+  "packages/agent-cli/src/session-journal.ts": "sessionState=4",
+  "packages/agent-cli/src/session.ts": "cancelProviderCredential=2;credential=2;Credential=1;credentialOutcome=7;providerCredential=2;submitProviderCredential=2",
+  "packages/agent-cli/src/shell-execution-policy.ts": "credential=1",
+  "packages/agent-cli/src/turn-failure-presentation.ts": "authorization=1",
+  "packages/agent-cli/src/workspace-mutation-preview.ts": "logicalRowTokens=3",
+  "packages/agent-cli/src/workspace-namespace-preview.ts": "authorized=1",
+  "packages/agent-cli/src/workspace-read-policy.ts": "credentials=1",
+  "packages/agent-cli/test/application.test.ts": "authentication=3;authorizing=1;credential=2;credentials=1;noticeToken=8;projectProviderCredential=3;secret=1",
+  "packages/agent-cli/test/builtin-tools.test.ts": "authorized=1;credential=2;secret=16;token=3",
+  "packages/agent-cli/test/chat-view.test.ts": "authentication=2;authorized=1;credential=1;secret=2",
+  "packages/agent-cli/test/event-arbiter.test.ts": "createNoticeToken=2;token=2",
+  "packages/agent-cli/test/launch-command.test.ts": "secret=1",
+  "packages/agent-cli/test/node-ollama-cloud-transport.test.ts": "authorization=1;credentials=1",
+  "packages/agent-cli/test/node-ollama-model-catalog.test.ts": "authenticated=1;authorization=1;credentials=1",
+  "packages/agent-cli/test/notice-scheduler.test.ts": "createNoticeToken=6;token=10",
+  "packages/agent-cli/test/provider-configuration.test.ts": "credential=3;credentials=1;invalidCredential=1;isValidOllamaCloudCredential=2",
+  "packages/agent-cli/test/provider-failure-classification.test.ts": "PRIVATE_SECRET=1",
+  "packages/agent-cli/test/provider-model-catalog.test.ts": "authenticated=1",
+  "packages/agent-cli/test/provider-session.test.ts": "_credential=1;authentication=2;credential=4;token=3",
+  "packages/agent-cli/test/runtime-integration.test.ts": "authentication=1;credential=3;NoticeToken=4;token=10;tokens=7",
+  "packages/agent-cli/test/shell-execution-policy.test.ts": "credential=1;secret=2",
+  "packages/agent-cli/test/terminal-interaction.test.ts": "authentication=3;credentialEnd=3;credentialRender=12;credentials=1;credentialStart=4;noticeToken=1",
+  "packages/agent-cli/test/turn-failure-presentation.test.ts": "authorization=2;PRIVATE_SECRET=2;secret=1",
+  "packages/agent-cli/test/workspace-ignore.test.ts": "secret=3;Secret=2;secrets=4",
+  "packages/agent-cli/test/workspace-read-policy.test.ts": "credentials=3;secret=6;Secret=1;token=1",
+  "packages/agent-core/test/structured-value.test.ts": "secret=1",
+  "packages/agent-provider-ollama-cloud/test/model.test.ts": "PRIVATE_SECRET=8;secret=1",
+  "packages/agent-runtime/test/runtime.test.ts": "secret=2",
+  "packages/agent-tools/src/engine.ts": "token=4;TOOL_EFFECT_PLAN_TOKEN=3;TOOL_HANDLER_OUTCOME_TOKEN=4",
+  "packages/agent-tools/test/schema.test.ts": "secret=1",
+  "packages/agent-tui/test/rich-row.test.ts": "credentials=2;secret=1",
+  "packages/agent-tui/test/split-line.test.ts": "secret=2",
+  "types/node-runtime/index.d.ts": "authorization=1",
+});
+
+const REVIEWED_SENSITIVE_STATE_IDENTIFIERS = Object.freeze([
+  ...new Set(
+    Object.values(EXPECTED_SENSITIVE_STATE_OCCURRENCES).flatMap((inventory) =>
+      inventory.split(";").map((entry) =>
+        entry.slice(0, entry.lastIndexOf("=")),
+      ),
+    ),
+  ),
 ]);
 
 const APPROVED_CLI_FILESYSTEM_IMPORTS = Object.freeze({
@@ -692,15 +708,27 @@ function isSensitiveStateIdentifier(identifier) {
 
 function validateSensitiveStateIdentifiers(path, text) {
   const decoded = decodeScannableEscapes(text);
+  const occurrences = new Map();
   for (const match of decoded.matchAll(/[A-Za-z_$][A-Za-z0-9_$]*/gu)) {
     const identifier = match.at(0);
     if (
       identifier !== undefined &&
       isSensitiveStateIdentifier(identifier) &&
-      !EXPECTED_SENSITIVE_STATE_IDENTIFIERS.has(identifier)
+      !REVIEWED_SENSITIVE_STATE_IDENTIFIERS.includes(identifier)
     ) {
       fail(path + " contains unregistered sensitive-state identifier");
     }
+    if (identifier !== undefined && isSensitiveStateIdentifier(identifier)) {
+      occurrences.set(identifier, (occurrences.get(identifier) ?? 0) + 1);
+    }
+  }
+  const actual = [...occurrences]
+    .sort((left, right) => left.at(0).localeCompare(right.at(0)))
+    .map((entry) => entry.at(0) + "=" + String(entry.at(1)))
+    .join(";");
+  const expected = EXPECTED_SENSITIVE_STATE_OCCURRENCES[path] ?? "";
+  if (actual !== expected) {
+    fail(path + " contains sensitive-state identifier occurrence drift");
   }
 }
 

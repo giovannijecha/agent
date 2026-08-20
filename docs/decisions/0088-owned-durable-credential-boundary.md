@@ -154,6 +154,10 @@ The gate maintains a closed inventory of current sensitive-state identifiers and
 the exact production CLI filesystem import authorities. A new sensitive
 identifier, filesystem-capable CLI module, or expanded filesystem binding fails
 closed until the owning decision and policy evidence are updated together.
+The identifier inventory grants no global spelling allowance: each
+case-sensitive spelling is bound to one reviewed path and exact occurrence
+count. Adding a known spelling at a new use or removing an admitted occurrence
+fails closed until that path record and its evidence change together.
 Before applying dormant literal markers, the gate projects values reconstructed
 only from bounded non-interpolated literals, parentheses, literal `+`, and
 literal arrays joined with a static separator. It never evaluates product code;

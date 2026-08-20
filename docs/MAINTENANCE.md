@@ -519,6 +519,11 @@ Any new auth, credential, secret, session-state, or token identifier and any new
 or expanded CLI filesystem authority must fail until its owning contract and
 mutation evidence are updated in the same change.
 
+Sensitive spelling alone never authorizes a use. Each admitted spelling is
+bound to one reviewed path and exact occurrence count; update only the affected
+path record when its owning evidence changes. Prove both an added known spelling
+and a removed occurrence fail before repinning that record.
+
 Keep direct and split dormant literals in the mutation corpus. The static-string
 projection admits only non-interpolated literals, parentheses, literal `+`, and
 literal arrays joined with a static separator under its fixed bounds; never

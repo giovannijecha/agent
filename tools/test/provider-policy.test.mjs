@@ -477,6 +477,48 @@ test("rejects new or expanded CLI filesystem authority", () => {
   );
 });
 
+test("rejects an allowed sensitive identifier at an unreviewed occurrence", () => {
+  const path = "packages/agent-cli/src/session-journal.ts";
+  const original = readFileSync(
+    new URL("../../" + path, import.meta.url),
+    "utf8",
+  );
+  assert.doesNotThrow(() =>
+    validateProviderPolicy(currentPolicy, {
+      ...emptyContext,
+      productSources: [{ path, text: original }],
+    }),
+  );
+  const mutated = original +
+    "\nexport async function token(file: string): Promise<string> {\n" +
+    '  return readFile(file, "utf8");\n' +
+    "}\n";
+  assert.throws(
+    () =>
+      validateProviderPolicy(currentPolicy, {
+        ...emptyContext,
+        productSources: [{ path, text: mutated }],
+      }),
+    (error) =>
+      error instanceof ProviderPolicyError &&
+      error.message ===
+        path + " contains sensitive-state identifier occurrence drift",
+  );
+  const reduced = original.replace("let sessionState:", "let state:");
+  assert.notEqual(reduced, original);
+  assert.throws(
+    () =>
+      validateProviderPolicy(currentPolicy, {
+        ...emptyContext,
+        productSources: [{ path, text: reduced }],
+      }),
+    (error) =>
+      error instanceof ProviderPolicyError &&
+      error.message ===
+        path + " contains sensitive-state identifier occurrence drift",
+  );
+});
+
 test("fails closed when static string projection exceeds its bounds", () => {
   const path = "packages/agent-cli/src/provider-session.ts";
   const fragments = Array.from({ length: 33 }, () => '"a"').join(", ");
@@ -522,15 +564,12 @@ test("accepts only the exact current CLI filesystem authorities", () => {
 
 test("allows only the reviewed direct-provider literals in their exact files", () => {
   const admitted = [
-    {
-      path: "packages/agent-cli/src/node-ollama-cloud-transport.ts",
-      text: "const authorization = 'Bearer ' + credential;\n",
-    },
-    {
-      path: "packages/agent-cli/src/node-ollama-model-catalog.ts",
-      text: "const authorization = 'Bearer ' + credential;\n",
-    },
-  ];
+    "packages/agent-cli/src/node-ollama-cloud-transport.ts",
+    "packages/agent-cli/src/node-ollama-model-catalog.ts",
+  ].map((path) => ({
+    path,
+    text: readFileSync(new URL("../../" + path, import.meta.url), "utf8"),
+  }));
   assert.doesNotThrow(() =>
     validateProviderPolicy(currentPolicy, {
       ...emptyContext,

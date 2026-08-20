@@ -79,6 +79,9 @@ separate follow-up unless the adjacent change is necessary for correctness.
   compositions from non-interpolated literals, parentheses, literal `+`, and
   literal arrays joined with a static separator. It never executes or imports
   product code, and an over-bound candidate fails closed.
+- Source-policy identifier allowances bind each case-sensitive spelling to its
+  reviewed path and exact occurrence count. A spelling admitted elsewhere never
+  authorizes a new declaration or use.
 - Put minimal Node declarations in `types/` from authoritative runtime
   contracts.
 - Cross package boundaries only through `src/index.ts`.
