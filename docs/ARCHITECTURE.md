@@ -213,14 +213,17 @@ The runtime does not infer concurrency from the `read` risk alone; mixed,
 single, unregistered, and oversized batches remain serial.
 
 `apply_patch` binds approval to the observed object or absence, exact ordered
-hunks, and state digests. `manage_path` owns only
-`create_directory`, `move`, and `remove`; Linux currently admits only
-directory creation. `shell` admits one exact command and a workspace-relative
-working directory. The CLI fixes Bash without profiles on Linux or Windows
-PowerShell without profiles on Windows, projects only the decision-0073
-environment allowlist, excludes provider credentials, and retains fixed
-whole-tree containment and execution bounds. Approved shell code has the
-launching user's filesystem and network authority.
+hunks, and state digests. `manage_path` exposes `operation`, `path`, and the
+move-only `destination` directly in one flat closed object. One provider-neutral
+bounded discriminant validates the three exact operation field sets during
+complete batch preflight while the provider projects no nested request envelope
+or schema combinator. The tool owns only `create_directory`, `move`, and
+`remove`; Linux currently admits only directory creation. `shell` admits one
+exact command and a workspace-relative working directory. The CLI fixes Bash
+without profiles on Linux or Windows PowerShell without profiles on Windows,
+projects only the decision-0073 environment allowlist, excludes provider
+credentials, and retains fixed whole-tree containment and execution bounds.
+Approved shell code has the launching user's filesystem and network authority.
 
 The read tools share one deny-only disclosure policy. Sensitive built-in paths
 are always denied; an optional root `.agentignore` can add denials but cannot

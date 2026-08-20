@@ -219,6 +219,15 @@ The exact inventory is `read_file`, `list_directory`, `search_text`,
 `apply_patch`, `manage_path`, and `shell`. A new tool or shell-policy change
 requires an accepted decision and current evaluation evidence.
 
+`manage_path` accepts only the flat `{ operation, path, destination? }` shape.
+Its bounded schema discriminant admits `destination` exactly for `move` and
+rejects every inexact variant during complete batch preflight; the provider
+projection contains neither a `request` envelope nor `oneOf`. Change the flat
+descriptor, discriminant, planner extraction, provider request fixture, CLI
+regressions, manual, and decision 0084 together. Rollback restores the nested
+union everywhere in one change. Never accept both forms, rewrite arguments in
+an adapter, or migrate and replay settled historical calls.
+
 To change read overlap, update registration validation, the four-call runtime
 bound, ordered permission and lifecycle events, complete-settlement
 cancellation, deterministic checkpoint reduction, instructions, privacy and
@@ -246,7 +255,7 @@ manual inventory before deleting its committer and native protocol.
 
 To remove namespace mutation, remove `manage_path` advertisement and manual
 inventory before deleting its planner, preview, committer, protocol, native
-sources, focused tests, decision, and policy entries.
+sources, focused tests, decisions 0054 and 0084, and policy entries.
 
 If the complete inventory is retired, replace manual-policy schema 12 with a
 schema that removes the advertised tool inventory; do not leave an empty or

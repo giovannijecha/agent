@@ -44,6 +44,8 @@ export {
   TOOL_SCHEMA_LIMITS,
   validateSchema,
   type ObjectSchemaField,
+  type ObjectSchemaDiscriminant,
+  type ObjectSchemaDiscriminantVariant,
   type ObjectSchemaProjection,
   type ListSchemaOptions,
   type SchemaError,

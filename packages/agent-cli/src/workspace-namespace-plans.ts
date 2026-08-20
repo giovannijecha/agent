@@ -71,20 +71,16 @@ function text(input: StructuredObject, name: string): string {
   return value;
 }
 
-function request(input: StructuredObject): NamespaceRequest {
-  const value = input.get("request");
-  if (!(value instanceof StructuredObject)) {
-    throw new Error("validated namespace request invariant");
-  }
-  const operation = text(value, "operation");
+function namespaceRequest(input: StructuredObject): NamespaceRequest {
+  const operation = text(input, "operation");
   if (operation === "create_directory" || operation === "remove") {
-    return Object.freeze({ operation, path: text(value, "path") });
+    return Object.freeze({ operation, path: text(input, "path") });
   }
   if (operation === "move") {
     return Object.freeze({
-      destination: text(value, "destination"),
+      destination: text(input, "destination"),
       operation,
-      path: text(value, "path"),
+      path: text(input, "path"),
     });
   }
   throw new Error("validated namespace operation invariant");
@@ -345,7 +341,7 @@ export function managePathPlanner(
     if (cancellation.requested) {
       return failure("cancelled");
     }
-    const selected = request(input);
+    const selected = namespaceRequest(input);
     const capability = requireCapability(committer, selected.operation);
     if (!capability.ok) {
       return capability;

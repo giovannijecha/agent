@@ -105,6 +105,13 @@ Tests prove contracts at the narrowest owner. Avoid end-to-end tests for a
 condition that a pure library test can prove, but retain one composition smoke
 path for each shipped integration.
 
+Discriminated model-facing inputs expose capability fields directly. When a
+wire schema omits a cross-field combinator for interoperability, one immutable
+provider-neutral schema constraint must still reject unknown discriminants and
+inexact field sets during complete batch preflight. Prove the local validator,
+the exact provider projection, and one composed tool path separately. Never
+move structural rejection into a planner or add a provider argument rewrite.
+
 ## Verification
 
 Canonical repository checks are:

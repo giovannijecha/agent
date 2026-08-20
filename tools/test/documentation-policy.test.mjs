@@ -136,6 +136,29 @@ test("binds the reserved bounded thinking stream contract", () => {
   }
 });
 
+test("binds the flat namespace tool contract", () => {
+  const context = currentContext();
+  const decision =
+    "docs/decisions/0084-owned-flat-namespace-tool-contract.md";
+  assert.equal(policy.decisionPaths.includes(decision), true);
+  assert.equal(ownershipPolicy.requiredDocuments.includes(decision), true);
+  assert.match(
+    context.files[decision],
+    /Replace the model-facing `manage_path` input with one flat closed object/u,
+  );
+  assert.match(
+    context.files[decision],
+    /rejects the complete batch before any planner/u,
+  );
+  for (const [file, marker] of [
+    ["docs/ARCHITECTURE.md", "one flat closed object"],
+    ["docs/ENGINEERING.md", "Discriminated model-facing inputs"],
+    ["docs/MAINTENANCE.md", "accepts only the flat"],
+  ]) {
+    assert.match(context.files[file], new RegExp(marker, "u"), file);
+  }
+});
+
 test("rejects canonical document structure drift", () => {
   for (const [file, before, after] of [
     ["README.md", "## Quick start", "## Getting started"],

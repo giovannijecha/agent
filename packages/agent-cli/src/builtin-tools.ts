@@ -16,8 +16,8 @@ import {
   IntegerSchema,
   ListSchema,
   type ListSchemaOptions,
-  LiteralStringSchema,
   ObjectSchema,
+  type ObjectSchemaDiscriminant,
   type ObjectSchemaField,
   type ObjectSchemaProjection,
   StringSchema,
@@ -32,7 +32,6 @@ import {
   ToolRegistry,
   type ToolRisk,
   type ToolSchema,
-  UnionSchema,
 } from "@agent/tools";
 
 import type { ProcessRunner } from "./process-runner.js";
@@ -565,8 +564,9 @@ function stringSchema(
 function objectSchema(
   fields: readonly ObjectSchemaField[],
   projection?: ObjectSchemaProjection,
+  discriminant?: ObjectSchemaDiscriminant,
 ): ObjectSchema {
-  const schema = ObjectSchema.create(fields, projection);
+  const schema = ObjectSchema.create(fields, projection, discriminant);
   if (!schema.ok) {
     throw new Error("owned object schema invariant");
   }
@@ -590,22 +590,6 @@ function listSchema(
   const schema = ListSchema.create(item, minimum, maximum, options);
   if (!schema.ok) {
     throw new Error("owned list schema invariant");
-  }
-  return schema.value;
-}
-
-function literalStringSchema(value: string): LiteralStringSchema {
-  const schema = LiteralStringSchema.create(value);
-  if (!schema.ok) {
-    throw new Error("owned literal string schema invariant");
-  }
-  return schema.value;
-}
-
-function unionSchema(variants: readonly ToolSchema[]): UnionSchema {
-  const schema = UnionSchema.create(variants);
-  if (!schema.ok) {
-    throw new Error("owned union schema invariant");
   }
   return schema.value;
 }
@@ -679,8 +663,28 @@ const SHELL_APPROVAL_FIELDS: readonly ToolApprovalField[] =
 
 const MANAGE_PATH_APPROVAL_FIELDS: readonly ToolApprovalField[] =
   Object.freeze([
-    Object.freeze({ mode: "exact" as const, name: "request" }),
+    Object.freeze({ mode: "exact" as const, name: "operation" }),
+    Object.freeze({ mode: "exact" as const, name: "path" }),
+    Object.freeze({ mode: "exact" as const, name: "destination" }),
   ]);
+
+const MANAGE_PATH_DISCRIMINANT: ObjectSchemaDiscriminant = Object.freeze({
+  field: "operation",
+  variants: Object.freeze([
+    Object.freeze({
+      fields: Object.freeze(["operation", "path"]),
+      value: "create_directory",
+    }),
+    Object.freeze({
+      fields: Object.freeze(["operation", "path", "destination"]),
+      value: "move",
+    }),
+    Object.freeze({
+      fields: Object.freeze(["operation", "path"]),
+      value: "remove",
+    }),
+  ]),
+});
 
 const SHELL_COMMAND_SCHEMA_OPTIONS: StringSchemaOptions = Object.freeze({
   maximumUtf8Bytes: SHELL_LIMITS.commandUtf8Bytes,
@@ -840,51 +844,28 @@ function registrations(
         "manage_path",
         "Create one directory, move one file or directory, or remove one file or empty directory within the workspace.",
         "write",
-        objectSchema([
+        objectSchema(
+          [
+            {
+              description: "Exact operation: create_directory, move, or remove.",
+              name: "operation",
+              required: true,
+              schema: stringSchema(4, 16),
+            },
+            namespacePathField,
+            {
+              description: "Absent workspace-relative destination path; required only for move.",
+              name: "destination",
+              required: false,
+              schema: namespacePathSchema,
+            },
+          ],
           {
-            description: "One exact non-recursive namespace operation.",
-            name: "request",
-            required: true,
-            schema: unionSchema([
-              objectSchema([
-                {
-                  description: "Create exactly one absent directory.",
-                  name: "operation",
-                  required: true,
-                  schema: literalStringSchema("create_directory"),
-                },
-                namespacePathField,
-              ]),
-              objectSchema([
-                {
-                  description: "Move one existing file or directory without replacement.",
-                  name: "operation",
-                  required: true,
-                  schema: literalStringSchema("move"),
-                },
-                namespacePathField,
-                {
-                  description: "Absent workspace-relative destination path.",
-                  name: "destination",
-                  required: true,
-                  schema: namespacePathSchema,
-                },
-              ]),
-              objectSchema([
-                {
-                  description: "Remove one regular file or empty directory.",
-                  name: "operation",
-                  required: true,
-                  schema: literalStringSchema("remove"),
-                },
-                namespacePathField,
-              ]),
-            ]),
+            fields: MANAGE_PATH_APPROVAL_FIELDS,
+            maximumCodeUnits: TOOL_ENGINE_LIMITS.approvalPreviewCodeUnits,
           },
-        ], {
-          fields: MANAGE_PATH_APPROVAL_FIELDS,
-          maximumCodeUnits: TOOL_ENGINE_LIMITS.approvalPreviewCodeUnits,
-        }),
+          MANAGE_PATH_DISCRIMINANT,
+        ),
         MANAGE_PATH_APPROVAL_FIELDS,
       ),
       planner: managePathPlanner(root, platform.namespaceCommitter),
