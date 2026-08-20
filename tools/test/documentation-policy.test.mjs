@@ -197,6 +197,68 @@ test("binds the flat namespace tool contract", () => {
   }
 });
 
+test("binds the dormant durable credential boundary", () => {
+  const context = currentContext();
+  const decision =
+    "docs/decisions/0088-owned-durable-credential-boundary.md";
+  assert.equal(policy.decisionPaths.includes(decision), true);
+  assert.equal(ownershipPolicy.requiredDocuments.includes(decision), true);
+  for (const marker of [
+    /It creates no credential namespace, record, command,/u,
+    /API keys, including the Ollama Cloud key[\s\S]+remain process-only/u,
+    /local plain text protected by an owned native\s+filesystem boundary/u,
+    /derive the current account SID from the\s+process token/u,
+    /directory with mode `0700`\s+and records with mode `0600`/u,
+    /It never retries a refresh, replays an authorization\s+exchange/u,
+    /closed inventory of current sensitive-state identifiers/u,
+    /exact dormant CLI product tree/u,
+    /exact production CLI Node\s+effect and native platform authorities/u,
+    /grants no global spelling allowance/u,
+    /bound to one reviewed path and exact occurrence\s+count/u,
+    /All closed path sets are bidirectional/u,
+    /`node:fs`, `node:child_process`, or `node:https` effect authority/u,
+    /complete dormant CLI product\s+tree includes every `packages\/agent-cli\/src\/\*\*\/\*\.ts` module recursively/u,
+    /digest forms\s+cover complete\s+UTF-8 source after only CRLF-to-LF normalization and use SHA-256/u,
+    /complete source\s+snapshots are the\s+verifier's sole\s+authority/u,
+    /does not execute\s+product code or\s+infer partial strings, commands, exports, aliases, assignments, or general\s+capability flow/u,
+    /legitimate edit requires review of the complete owning source\s+tree/u,
+    /split literals, method\s+composition such as `\.concat\(\)`, and other unfamiliar\s+syntax cannot bypass the\s+boundary/u,
+  ]) {
+    assert.match(context.files[decision], marker);
+  }
+  for (const [file, marker] of [
+    ["docs/ARCHITECTURE.md", "Decision 0088 reserves"],
+    ["docs/ENGINEERING.md", "exact occurrence count"],
+    ["docs/ENGINEERING.md", "Closed source-policy inventories are bidirectional"],
+    ["docs/ENGINEERING.md", "`node:fs`, `node:child_process`, or `node:https` effect authority"],
+    ["docs/ENGINEERING.md", "complete dormant\\s+CLI product tree and native C/H platform tree"],
+    ["docs/ENGINEERING.md", "every TypeScript\\s+module recursively under `packages/agent-cli/src/`"],
+    ["docs/ENGINEERING.md", "normalizes only CRLF\\s+to\\s+LF"],
+    ["docs/ENGINEERING.md", "exact source digest is the sole verifier authority"],
+    ["docs/ENGINEERING.md", "partial string evaluation"],
+    ["docs/ENGINEERING.md", "explicit\\s+review and digest"],
+    ["docs/ENGINEERING.md", "requires a new\\s+exact authority\\s+record"],
+    ["docs/MAINTENANCE.md", "### Dormant durable credential boundary"],
+    ["docs/MAINTENANCE.md", "exact current-path requirement"],
+    ["docs/MAINTENANCE.md", "exact module specifier and imported"],
+    ["docs/MAINTENANCE.md", "recursively includes every\\s+TypeScript module under `packages/agent-cli/src/`"],
+    ["docs/MAINTENANCE.md", "CRLF-to-LF\\s+normalization"],
+    ["docs/MAINTENANCE.md", "Do not weaken source integrity into a partial export"],
+    ["docs/MAINTENANCE.md", "representative escape recurrences"],
+    ["docs/MAINTENANCE.md", "assignment to an exported binding after declaration"],
+    ["docs/MAINTENANCE.md", "unreviewed child-process launch with split path fragments"],
+    ["docs/MAINTENANCE.md", "same exact source-integrity boundary"],
+    ["docs/MAINTENANCE.md", "direct, split, and method-composed dormant command"],
+    ["docs/MAINTENANCE.md", "without teaching the verifier each"],
+    ["docs/MAINTENANCE.md", "explicit digest\\s+repin"],
+    ["docs/PROVIDERS.md", "Decision 0088 admits no API"],
+    ["PRIVACY.md", "Decision 0088 defines a dormant"],
+    ["SECURITY.md", "Decision 0088 selects the security boundary"],
+  ]) {
+    assert.match(context.files[file], new RegExp(marker, "u"), file);
+  }
+});
+
 test("rejects canonical document structure drift", () => {
   for (const [file, before, after] of [
     ["README.md", "## Quick start", "## Getting started"],
@@ -1828,7 +1890,7 @@ test("routes completed OAuth registration status to the OAuth dossier", () => {
   }
 
   for (const routeSummary of [
-    "OpenAI documents subscription login for its Codex clients and managed browser or device login through Codex App Server.",
+    "OpenAI documents subscription browser and device login for its Codex clients.",
     "Anthropic documents subscription login for Claude Code and subscription-backed third-party use through the Claude Agent SDK.",
     "Kimi documents device OAuth for Kimi Code CLI and subscription-backed API keys for third-party development tools.",
     "xAI documents browser and device login for Grok Build plus headless and ACP integration, while its direct API has a separate key path.",

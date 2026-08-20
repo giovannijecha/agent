@@ -502,6 +502,66 @@ declarations, tests, public contract, and decisions 0072, 0080, and 0082 status
 together. The product returns to no admitted provider; do not select a
 replacement implicitly.
 
+### Dormant durable credential boundary
+
+**Owners:** CLI native platform boundary, decision 0088,
+[providers](PROVIDERS.md), [OAuth registration](OAUTH-REGISTRATION.md),
+[privacy](../PRIVACY.md), and [security](../SECURITY.md).
+
+While every subscription OAuth provider is blocked, verify that no
+`~/.agent/credentials` namespace, credential reader, `agent auth` command,
+token field, or API-key persistence enters the product. Do not implement an
+opaque generic store in anticipation of a provider.
+
+Keep the verifier's closed sensitive-state identifier inventory, exact dormant
+CLI product tree, and exact production CLI effect-authority registries
+synchronized with reviewed source.
+Any new auth, credential, secret, session-state, or token identifier and any new
+or expanded CLI filesystem, child-process, network, activation, or native
+authority must fail until its owning contract and mutation evidence are updated
+in the same change.
+
+Sensitive spelling alone never authorizes a use. Each admitted spelling is
+bound to one reviewed path and exact occurrence count; update only the affected
+path record when its owning evidence changes. Prove both an added known spelling
+and a removed occurrence fail before repinning that record.
+
+Treat every closed inventory as an exact current-path requirement. Renaming or
+deleting an inventoried file must fail, as must changing its reviewed filesystem
+or child-process import, network import, or any other source content. Each direct
+Node effect-authority record owns only its exact module specifier and imported
+bindings. The complete dormant CLI product tree recursively includes every
+TypeScript module under `packages/agent-cli/src/`; a module added or moved into
+any child directory must fail until the ordered path set and aggregate digest
+are reviewed. The native platform authority likewise owns its complete tree.
+Both use an aggregate SHA-256 digest over normalized UTF-8 path/source records
+after only CRLF-to-LF normalization. Update or remove stale records together
+with the owning decision and mutation evidence; never retain a dormant pathname
+or digest allowance for possible later reuse.
+
+Do not weaken source integrity into a partial export or alias scanner. Keep
+representative escape recurrences in the source-policy corpus, including direct
+and aliased exports, variable declarations, assertions, destructuring, Unicode
+bindings, assignment to an exported binding after declaration, and an
+unreviewed child-process launch with split path fragments. They all must fail
+through the same exact source-integrity boundary, independent of surface syntax.
+Keep direct, split, and method-composed dormant command and namespace
+recurrences in the mutation corpus. They must fail through the exact dormant CLI
+product-tree boundary without teaching the verifier each new string syntax. Any
+legitimate CLI or native source edit requires review of the complete owning tree
+and an explicit digest repin in the same change; effect-edge changes also update
+the exact Node registry. The gate does not execute product code or infer partial
+strings, exports, commands, or general data flow.
+
+To activate the boundary, first admit one independently registered provider and
+define its exact durable record, bounds, native access proof, cross-process
+admission, refresh rotation, revocation, failure recovery, rollback, and removal
+contract in the same change. Test Windows ACL and Linux owner/mode enforcement,
+linked-object rejection, atomic publication, concurrent refresh, lost-response
+failure, and secret non-projection offline on both platforms. Never repair an
+unsafe record silently, retry a refresh, restore superseded material, or borrow
+another client's credential store.
+
 ### Thinking-stream lifecycle
 
 **Owners:** decisions 0086 and 0085, core message and journal codecs, runtime

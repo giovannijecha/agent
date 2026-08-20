@@ -379,7 +379,7 @@ test("rejects privacy and bounded local retention drift", () => {
     "The policy is never persisted or sent to a provider.",
     "The Ollama API key is accepted only through the\nzero-projection TUI credential context or `AGENT_OLLAMA_API_KEY` and remains in\nprocess memory.",
     "Fixture inputs may enumerate public numeric status codes solely to prove the\nclosed mapping; those inputs are not returned diagnostics and contain no\ncaptured provider response.",
-    "Persistent storage requires a separate accepted\noperating-system vault design.",
+    "Decision 0088 defines a dormant owned plaintext\nfilesystem boundary for future durable OAuth material; it creates no directory\nor record and never admits API keys.",
     "An explicit interactive `agent` launch creates a version-two local session\njournal outside the workspace.",
     "`agent resume --latest` restores the newest\ninactive version-one or version-two journal for the exact canonical workspace",
     "It excludes provider credentials, catalogs, provider/model\nselection, thinking settings, permission policy, drafts, streamed or speculative\noutput",
@@ -605,7 +605,7 @@ test("rejects provider-specific OAuth registration conclusion drift", () => {
   for (const [provider, row] of [
     [
       "ChatGPT Plus/Pro",
-      "| ChatGPT Plus/Pro | OpenAI documents subscription login for its Codex clients and managed browser or device login through Codex App Server. | App Server is a foreign executable; no accepted process registers `agent` as a direct independent client. |",
+      "| ChatGPT Plus/Pro | OpenAI documents subscription browser and device login for its Codex clients. | Those flows identify OpenAI's clients; no accepted process registers `agent` as a direct independent client. |",
     ],
     [
       "Claude Pro/Max",
@@ -638,7 +638,7 @@ test("rejects OAuth contract-test coverage drift", () => {
   const context = currentContext();
   const maintained = context.files["docs/OAUTH-REGISTRATION.md"];
   context.files["docs/OAUTH-REGISTRATION.md"] = maintained.replace(
-    "Offline contract tests must cover cancellation, expiry, concurrency,\nmalformed responses, secret leakage, rollback, and removal.",
+    "Offline contract tests must\ncover cancellation, expiry, concurrency, malformed responses, secret leakage,\nrollback, and removal.",
     "Offline contract tests must cover the happy path.",
   );
   assert.notEqual(context.files["docs/OAUTH-REGISTRATION.md"], maintained);

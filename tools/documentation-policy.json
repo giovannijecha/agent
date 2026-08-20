@@ -89,7 +89,8 @@
     "docs/decisions/0084-owned-flat-namespace-tool-contract.md",
     "docs/decisions/0085-owned-reasoning-journal-migration.md",
     "docs/decisions/0086-owned-thinking-effort-and-display.md",
-    "docs/decisions/0087-owned-user-scoped-state-root.md"
+    "docs/decisions/0087-owned-user-scoped-state-root.md",
+    "docs/decisions/0088-owned-durable-credential-boundary.md"
   ],
   "decisionIndexLifecycleDigest": {
     "algorithm": "sha256",
@@ -149,7 +150,8 @@
     "0084": "2026-08-20",
     "0085": "2026-08-20",
     "0086": "2026-08-20",
-    "0087": "2026-08-20"
+    "0087": "2026-08-20",
+    "0088": "2026-08-20"
   },
   "historicalDecisionStatusExceptions": {
     "0009": "accepted"
@@ -210,7 +212,7 @@
   ],
   "decisionRecordDigest": {
     "algorithm": "sha256",
-    "value": "375526f07ed3c8fcbe8d608d1a9ee25398bc21b26c1ae78453ef3a7984449bf9"
+    "value": "e8703e8fc298fbc1c5a78c1009996fb7401b15cea7437b1465d05c545d4dfdee"
   },
   "decisionDomainMembers": {
     "architecture": [
@@ -268,7 +270,8 @@
       "0015",
       "0016",
       "0042",
-      "0058"
+      "0058",
+      "0088"
     ],
     "terminal": [
       "0004",
@@ -363,6 +366,7 @@
       "0069"
     ],
     "security": [
+      "0088",
       "0016",
       "0042",
       "0058"

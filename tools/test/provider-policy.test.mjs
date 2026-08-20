@@ -1,11 +1,45 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
+import path from "node:path";
 import test from "node:test";
 
 import {
   ProviderPolicyError,
   validateProviderPolicy,
 } from "../lib/provider-policy.mjs";
+import { projectRoot } from "../lib/project.mjs";
+
+function collectFiles(directory) {
+  const files = [];
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    if (
+      entry.name === ".git" ||
+      entry.name === "node_modules" ||
+      entry.name === "dist" ||
+      entry.name === ".test-dist"
+    ) {
+      continue;
+    }
+    const absolute = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...collectFiles(absolute));
+    } else if (entry.isFile()) {
+      files.push(path.relative(projectRoot, absolute).split(path.sep).join("/"));
+    }
+  }
+  return files;
+}
+
+const currentProductSources = collectFiles(projectRoot)
+  .filter((file) =>
+    /^packages\/[a-z0-9-]+\/(?:src|test)\/.*\.ts$/u.test(file) ||
+    /^types\/.*\.d\.ts$/u.test(file) ||
+    /^packages\/agent-cli\/native\/.*\.(?:c|h)$/u.test(file)
+  )
+  .map((file) => ({
+    path: file,
+    text: readFileSync(path.join(projectRoot, file), "utf8"),
+  }));
 
 const currentPolicy = JSON.parse(
   readFileSync(new URL("../provider-policy.json", import.meta.url), "utf8"),
@@ -23,9 +57,22 @@ const emptyContext = {
     "@agent/tui",
     "@agent/cli",
   ],
-  productSources: [],
+  productSources: currentProductSources,
   applicationText: currentApplications,
 };
+
+function contextWithSources(...sources) {
+  const replacements = new Map(sources.map((source) => [source.path, source]));
+  const productSources = currentProductSources.map(
+    (source) => replacements.get(source.path) ?? source,
+  );
+  for (const source of sources) {
+    if (!currentProductSources.some((current) => current.path === source.path)) {
+      productSources.push(source);
+    }
+  }
+  return { ...emptyContext, productSources };
+}
 
 test("accepts the canonical blocked and direct provider registry", () => {
   assert.doesNotThrow(() => validateProviderPolicy(currentPolicy, emptyContext));
@@ -333,33 +380,583 @@ test("rejects every provider or auth workspace that was not admitted", () => {
   }
 });
 
+test("rejects every dormant durable credential product surface", () => {
+  const mutations = [
+    {
+      failure:
+        "packages/agent-cli/src/launch-command.ts contains forbidden " +
+        "dormant agent auth command",
+      path: "packages/agent-cli/src/launch-command.ts",
+      mutate: (text) => text.replace(
+        'if (argument === "--help") {',
+        'if (argument === "auth") {',
+      ),
+    },
+    {
+      failure: "CLI dormant product tree source-integrity drift",
+      path: "packages/agent-cli/src/launch-command.ts",
+      mutate: (text) => text.replace(
+        'if (argument === "--help") {',
+        'if (argument === ["a", "uth"].join("")) {',
+      ),
+    },
+    {
+      failure:
+        "packages/agent-cli/src/workspace-boundary.ts contains forbidden " +
+        "dormant credential namespace",
+      path: "packages/agent-cli/src/workspace-boundary.ts",
+      mutate: (text) => text.replace(
+        'path.join(userStateRoot, "sessions")',
+        'path.join(userStateRoot, "credentials")',
+      ),
+    },
+    {
+      failure:
+        "CLI dormant product tree source-integrity drift",
+      path: "packages/agent-cli/src/workspace-boundary.ts",
+      mutate: (text) => text.replace(
+        'path.join(userStateRoot, "sessions")',
+        'path.join(userStateRoot, ["cre", "dentials"].join(""))',
+      ),
+    },
+    ...[
+      "getCredential",
+      "loadCredential",
+      "openCredential",
+      "readCredential",
+      "resolveCredential",
+    ].map((reader) => ({
+      failure:
+        "packages/agent-cli/src/provider-session.ts contains unregistered " +
+        "sensitive-state identifier",
+      path: "packages/agent-cli/src/provider-session.ts",
+      mutate: (text) => text +
+        "\nexport function " + reader + "(): undefined {\n" +
+        "  return undefined;\n" +
+        "}\n",
+    })),
+    ...[
+      "loadSessionState",
+      "openTokenStore",
+      "readAuthState",
+      "readSecretRecord",
+    ].map((reader) => ({
+      failure:
+        "packages/agent-cli/src/provider-session.ts contains unregistered " +
+        "sensitive-state identifier",
+      path: "packages/agent-cli/src/provider-session.ts",
+      mutate: (text) => text +
+        "\nexport function " + reader + "(): undefined {\n" +
+        "  return undefined;\n" +
+        "}\n",
+    })),
+  ];
+
+  for (const mutation of mutations) {
+    const original = readFileSync(
+      new URL("../../" + mutation.path, import.meta.url),
+      "utf8",
+    );
+    assert.doesNotThrow(() =>
+      validateProviderPolicy(currentPolicy, emptyContext),
+    );
+    const mutated = mutation.mutate(original);
+    assert.notEqual(
+      mutated,
+      original,
+      "mutation did not change " + mutation.path,
+    );
+    assert.throws(
+      () =>
+        validateProviderPolicy(
+          currentPolicy,
+          contextWithSources({ path: mutation.path, text: mutated }),
+        ),
+      (error) =>
+        error instanceof ProviderPolicyError &&
+        error.message === mutation.failure,
+    );
+  }
+});
+
+test("rejects unsupported dormant command composition through source integrity", () => {
+  const path = "packages/agent-cli/src/launch-command.ts";
+  const original = readFileSync(
+    new URL("../../" + path, import.meta.url),
+    "utf8",
+  );
+  const mutated = original.replace(
+    'if (argument === "--help") {',
+    'if (argument === "a".concat("uth")) {',
+  );
+  assert.notEqual(mutated, original);
+  assert.throws(
+    () =>
+      validateProviderPolicy(
+        currentPolicy,
+        contextWithSources({ path, text: mutated }),
+      ),
+    (error) =>
+      error instanceof ProviderPolicyError &&
+      error.message ===
+        "CLI dormant product tree source-integrity drift",
+  );
+});
+
+test("pins the exact CLI dormant product tree", () => {
+  const sources = currentProductSources.filter((source) =>
+    /^packages\/agent-cli\/src\/(?:[^/]+\/)*[^/]+\.ts$/u.test(source.path)
+  );
+  assert.equal(sources.length, 72);
+  const unprivilegedSource = sources.find(
+    (source) => source.path === "packages/agent-cli/src/models-view.ts",
+  );
+  assert.notEqual(unprivilegedSource, undefined);
+  assert.throws(
+    () =>
+      validateProviderPolicy(
+        currentPolicy,
+        contextWithSources({
+          path: unprivilegedSource.path,
+          text: unprivilegedSource.text + "\n// unreviewed activation drift\n",
+        }),
+      ),
+    (error) =>
+      error instanceof ProviderPolicyError &&
+      error.message === "CLI dormant product tree source-integrity drift",
+  );
+
+  const missingPath = "packages/agent-cli/src/launch-command.ts";
+  assert.throws(
+    () =>
+      validateProviderPolicy(currentPolicy, {
+        ...emptyContext,
+        productSources: currentProductSources.filter(
+          (source) => source.path !== missingPath,
+        ),
+      }),
+    (error) =>
+      error instanceof ProviderPolicyError &&
+      error.message === "CLI dormant product tree path drift",
+  );
+
+  const addedSource = {
+    path: "packages/agent-cli/src/dormant-auth.ts",
+    text: "export const dormant = true;\n",
+  };
+  assert.throws(
+    () => validateProviderPolicy(currentPolicy, contextWithSources(addedSource)),
+    (error) =>
+      error instanceof ProviderPolicyError &&
+      error.message === "CLI dormant product tree path drift",
+  );
+
+  const nestedSource = {
+    path: "packages/agent-cli/src/dormant/entry.ts",
+    text: 'export const command = "a".concat("uth");\n',
+  };
+  assert.throws(
+    () => validateProviderPolicy(currentPolicy, contextWithSources(nestedSource)),
+    (error) =>
+      error instanceof ProviderPolicyError &&
+      error.message === "CLI dormant product tree path drift",
+  );
+});
+
+test("rejects new or expanded CLI Node effect authority", () => {
+  const newSource = {
+    path: "packages/agent-cli/src/local-state.ts",
+    text:
+      'import { readFile } from "node:fs/promises";\n' +
+      "export async function loadState(path: string): Promise<string> {\n" +
+      '  return readFile(path, "utf8");\n' +
+      "}\n",
+  };
+  assert.throws(
+    () =>
+      validateProviderPolicy(currentPolicy, contextWithSources(newSource)),
+    ProviderPolicyError,
+  );
+  const newProcessSource = {
+    path: "packages/agent-cli/src/local-process.ts",
+    text:
+      'import { spawn } from "node:child_process";\n' +
+      "export function launch(): void {\n" +
+      "  spawn('/bin/sh', []);\n" +
+      "}\n",
+  };
+  assert.throws(
+    () =>
+      validateProviderPolicy(
+        currentPolicy,
+        contextWithSources(newProcessSource),
+      ),
+    (error) =>
+      error instanceof ProviderPolicyError &&
+      error.message ===
+        newProcessSource.path +
+          " contains unregistered CLI Node effect authority",
+  );
+  const newNetworkSource = {
+    path: "packages/agent-cli/src/local-network.ts",
+    text:
+      'import { request } from "node:https";\n' +
+      "export function open(): void {\n" +
+      "  request({});\n" +
+      "}\n",
+  };
+  assert.throws(
+    () =>
+      validateProviderPolicy(
+        currentPolicy,
+        contextWithSources(newNetworkSource),
+      ),
+    (error) =>
+      error instanceof ProviderPolicyError &&
+      error.message ===
+        newNetworkSource.path +
+          " contains unregistered CLI Node effect authority",
+  );
+
+  const path = "packages/agent-cli/src/workspace-boundary.ts";
+  const original = readFileSync(
+    new URL("../../" + path, import.meta.url),
+    "utf8",
+  );
+  assert.doesNotThrow(() =>
+    validateProviderPolicy(currentPolicy, emptyContext),
+  );
+  const expanded = original.replace(
+    'import { lstat, realpath } from "node:fs/promises";',
+    'import { lstat, readFile, realpath } from "node:fs/promises";',
+  );
+  assert.notEqual(expanded, original);
+  assert.throws(
+    () =>
+      validateProviderPolicy(
+        currentPolicy,
+        contextWithSources({ path, text: expanded }),
+      ),
+    ProviderPolicyError,
+  );
+
+  const reduced = original.replace(
+    'import { lstat, realpath } from "node:fs/promises";\n',
+    "",
+  );
+  assert.notEqual(reduced, original);
+  assert.throws(
+    () =>
+      validateProviderPolicy(
+        currentPolicy,
+        contextWithSources({ path, text: reduced }),
+      ),
+    (error) =>
+      error instanceof ProviderPolicyError &&
+      error.message === path + " contains CLI Node effect authority drift",
+  );
+});
+
+test("rejects reviewed filesystem escape recurrences as source drift", () => {
+  const path = "packages/agent-cli/src/session-journal.ts";
+  const original = readFileSync(
+    new URL("../../" + path, import.meta.url),
+    "utf8",
+  );
+  for (const [reexport, importStatement] of [
+    ["export { readFile };", 'import { readFile } from "./session-journal.js";'],
+    [
+      "export { readFile as localRead };",
+      'import { localRead as readFile } from "./session-journal.js";',
+    ],
+    [
+      'export { readFile as "local-read" };',
+      'import { "local-read" as readFile } from "./session-journal.js";',
+    ],
+    [
+      "export const localRead = readFile;",
+      'import { localRead as readFile } from "./session-journal.js";',
+    ],
+    [
+      "export const localRead = readFile\n" +
+        "export const marker = 1;",
+      'import { localRead as readFile } from "./session-journal.js";',
+    ],
+    [
+      "const firstRead = readFile;\n" +
+        "const localRead = firstRead;\n" +
+        "export { localRead };",
+      'import { localRead as readFile } from "./session-journal.js";',
+    ],
+    [
+      "const localRead = (readFile as typeof readFile);\n" +
+        "export { localRead };",
+      'import { localRead as readFile } from "./session-journal.js";',
+    ],
+    [
+      "const localRead = <typeof readFile>readFile;\n" +
+        "export { localRead };",
+      'import { localRead as readFile } from "./session-journal.js";',
+    ],
+    [
+      "export const ordinary: Map<string, { value: string }> = new Map(), " +
+        "localRead = readFile;",
+      'import { localRead as readFile } from "./session-journal.js";',
+    ],
+    [
+      "export let localRead: typeof readFile = ((readFile));",
+      'import { localRead as readFile } from "./session-journal.js";',
+    ],
+    [
+      "let localRead: typeof readFile;\n" +
+        "localRead = readFile;\n" +
+        "export { localRead };",
+      'import { localRead as readFile } from "./session-journal.js";',
+    ],
+    [
+      "const type = readFile;\nexport { type as localRead };",
+      'import { localRead as readFile } from "./session-journal.js";',
+    ],
+    [
+      "const 讀取 = readFile;\nexport { 讀取 };",
+      'import { 讀取 as readFile } from "./session-journal.js";',
+    ],
+    ["export default readFile;", 'import readFile from "./session-journal.js";'],
+    ["export default ((readFile));", 'import readFile from "./session-journal.js";'],
+  ]) {
+    const consumer = {
+      path: "packages/agent-cli/src/local-state.ts",
+      text:
+        importStatement +
+        "\nexport async function load(path: string): Promise<string> {\n" +
+        '  return readFile(path, "utf8");\n' +
+        "}\n",
+    };
+    assert.throws(
+      () =>
+        validateProviderPolicy(
+          currentPolicy,
+          contextWithSources(
+            { path, text: original + "\n" + reexport + "\n" },
+            consumer,
+          ),
+        ),
+      (error) =>
+        error instanceof ProviderPolicyError &&
+        error.message ===
+          "CLI dormant product tree path drift",
+    );
+  }
+});
+
+test("registers every direct CLI Node effect authority", () => {
+  const expectedPaths = [
+    "packages/agent-cli/src/builtin-tools.ts",
+    "packages/agent-cli/src/node-ollama-cloud-transport.ts",
+    "packages/agent-cli/src/node-ollama-model-catalog.ts",
+    "packages/agent-cli/src/node-process-runner.ts",
+    "packages/agent-cli/src/platform-clipboard.ts",
+    "packages/agent-cli/src/platform-workspace-mutation.ts",
+    "packages/agent-cli/src/platform-workspace-namespace.ts",
+    "packages/agent-cli/src/platform-workspace-roots.ts",
+    "packages/agent-cli/src/session-journal.ts",
+    "packages/agent-cli/src/workspace-boundary.ts",
+    "packages/agent-cli/src/workspace-mutation-plans.ts",
+    "packages/agent-cli/src/workspace-namespace-plans.ts",
+    "packages/agent-cli/src/workspace-path.ts",
+    "packages/agent-cli/src/workspace-read-policy.ts",
+  ];
+  const sources = currentProductSources.filter((source) =>
+    source.path.startsWith("packages/agent-cli/src/") &&
+    /["']node:(?:child_process|fs(?:\/promises)?|https)["']/u.test(source.text)
+  );
+  assert.deepEqual(
+    sources.map((source) => source.path).sort(),
+    expectedPaths,
+  );
+});
+
+test("rejects unreviewed child-process launch behavior", () => {
+  const path = "packages/agent-cli/src/platform-workspace-roots.ts";
+  const original = readFileSync(
+    new URL("../../" + path, import.meta.url),
+    "utf8",
+  );
+  const mutated = original +
+    "\nspawn('/bin/sh', ['-c', " +
+    "'cat ~/.agent/cred'.concat('entials')]);\n";
+  assert.throws(
+    () =>
+      validateProviderPolicy(
+        currentPolicy,
+        contextWithSources({ path, text: mutated }),
+      ),
+    (error) =>
+      error instanceof ProviderPolicyError &&
+      error.message ===
+        "CLI dormant product tree source-integrity drift",
+  );
+});
+
+test("normalizes approved CLI boundary source line endings", () => {
+  const path = "packages/agent-cli/src/session-journal.ts";
+  const original = readFileSync(
+    new URL("../../" + path, import.meta.url),
+    "utf8",
+  );
+  assert.doesNotThrow(() =>
+    validateProviderPolicy(
+      currentPolicy,
+      contextWithSources({
+        path,
+        text: original.replaceAll("\r\n", "\n").replaceAll("\n", "\r\n"),
+      }),
+    ),
+  );
+
+  const activationPath = "packages/agent-cli/src/launch-command.ts";
+  const activationOriginal = readFileSync(
+    new URL("../../" + activationPath, import.meta.url),
+    "utf8",
+  );
+  assert.doesNotThrow(() =>
+    validateProviderPolicy(
+      currentPolicy,
+      contextWithSources({
+        path: activationPath,
+        text: activationOriginal
+          .replaceAll("\r\n", "\n")
+          .replaceAll("\n", "\r\n"),
+      }),
+    ),
+  );
+
+  const nativePath = "packages/agent-cli/native/workspace-roots/main.c";
+  const nativeOriginal = readFileSync(
+    new URL("../../" + nativePath, import.meta.url),
+    "utf8",
+  );
+  assert.doesNotThrow(() =>
+    validateProviderPolicy(
+      currentPolicy,
+      contextWithSources({
+        path: nativePath,
+        text: nativeOriginal
+          .replaceAll("\r\n", "\n")
+          .replaceAll("\n", "\r\n"),
+      }),
+    ),
+  );
+});
+
+test("rejects an allowed sensitive identifier at an unreviewed occurrence", () => {
+  const path = "packages/agent-cli/src/session-journal.ts";
+  const original = readFileSync(
+    new URL("../../" + path, import.meta.url),
+    "utf8",
+  );
+  assert.doesNotThrow(() =>
+    validateProviderPolicy(currentPolicy, emptyContext),
+  );
+  const mutated = original +
+    "\nexport async function token(file: string): Promise<string> {\n" +
+    '  return readFile(file, "utf8");\n' +
+    "}\n";
+  assert.throws(
+    () =>
+      validateProviderPolicy(
+        currentPolicy,
+        contextWithSources({ path, text: mutated }),
+      ),
+    (error) =>
+      error instanceof ProviderPolicyError &&
+      error.message ===
+        path + " contains sensitive-state identifier occurrence drift",
+  );
+  const reduced = original.replace("let sessionState:", "let state:");
+  assert.notEqual(reduced, original);
+  assert.throws(
+    () =>
+      validateProviderPolicy(
+        currentPolicy,
+        contextWithSources({ path, text: reduced }),
+      ),
+    (error) =>
+      error instanceof ProviderPolicyError &&
+      error.message ===
+        path + " contains sensitive-state identifier occurrence drift",
+  );
+});
+
+test("pins the exact CLI native platform source tree", () => {
+  const path = "packages/agent-cli/native/workspace-roots/main.c";
+  const original = readFileSync(
+    new URL("../../" + path, import.meta.url),
+    "utf8",
+  );
+  assert.throws(
+    () =>
+      validateProviderPolicy(
+        currentPolicy,
+        contextWithSources({ path, text: original + "\n/* source drift */\n" }),
+      ),
+    (error) =>
+      error instanceof ProviderPolicyError &&
+      error.message ===
+        "CLI native platform authority source-integrity drift",
+  );
+
+  for (const productSources of [
+    currentProductSources.filter((source) => source.path !== path),
+    [
+      ...currentProductSources,
+      {
+        path: "packages/agent-cli/native/unregistered.c",
+        text: "int unregistered(void) { return 0; }\n",
+      },
+    ],
+  ]) {
+    assert.throws(
+      () =>
+        validateProviderPolicy(currentPolicy, {
+          ...emptyContext,
+          productSources,
+        }),
+      (error) =>
+        error instanceof ProviderPolicyError &&
+        error.message === "CLI native platform authority path drift",
+    );
+  }
+});
+
+test("accepts only the exact current CLI boundary authorities", () => {
+  assert.doesNotThrow(() =>
+    validateProviderPolicy(currentPolicy, emptyContext),
+  );
+});
+
 test("allows only the reviewed direct-provider literals in their exact files", () => {
   const admitted = [
-    {
-      path: "packages/agent-cli/src/node-ollama-cloud-transport.ts",
-      text: "const authorization = 'Bearer ' + credential;\n",
-    },
-    {
-      path: "packages/agent-cli/src/node-ollama-model-catalog.ts",
-      text: "const authorization = 'Bearer ' + credential;\n",
-    },
-  ];
+    "packages/agent-cli/src/node-ollama-cloud-transport.ts",
+    "packages/agent-cli/src/node-ollama-model-catalog.ts",
+  ].map((path) => ({
+    path,
+    text: readFileSync(new URL("../../" + path, import.meta.url), "utf8"),
+  }));
   assert.doesNotThrow(() =>
-    validateProviderPolicy(currentPolicy, {
-      ...emptyContext,
-      productSources: admitted,
-    }),
+    validateProviderPolicy(currentPolicy, emptyContext),
   );
 
   for (const source of admitted) {
     assert.throws(
       () =>
-        validateProviderPolicy(currentPolicy, {
-          ...emptyContext,
-          productSources: [
-            { path: "packages/example/src/provider.ts", text: source.text },
-          ],
-        }),
+        validateProviderPolicy(
+          currentPolicy,
+          contextWithSources({
+            path: "packages/example/src/provider.ts",
+            text: source.text,
+          }),
+        ),
       ProviderPolicyError,
     );
   }
@@ -388,10 +985,10 @@ test("rejects subscription endpoints, OAuth identifiers, and foreign identities"
   for (const text of forbidden) {
     assert.throws(
       () =>
-        validateProviderPolicy(currentPolicy, {
-          ...emptyContext,
-          productSources: [{ path: "packages/example/src/provider.ts", text }],
-        }),
+        validateProviderPolicy(
+          currentPolicy,
+          contextWithSources({ path: "packages/example/src/provider.ts", text }),
+        ),
       ProviderPolicyError,
     );
   }
@@ -424,10 +1021,7 @@ test("rejects broad process imports, ambient network declarations, and test fixt
   for (const source of sources) {
     assert.throws(
       () =>
-        validateProviderPolicy(currentPolicy, {
-          ...emptyContext,
-          productSources: [source],
-        }),
+        validateProviderPolicy(currentPolicy, contextWithSources(source)),
       ProviderPolicyError,
     );
   }
@@ -443,10 +1037,10 @@ test("accepts unrelated low-entropy source tokens", () => {
 
   for (const text of legitimate) {
     assert.doesNotThrow(() =>
-      validateProviderPolicy(currentPolicy, {
-        ...emptyContext,
-        productSources: [{ path: "packages/example/src/local.ts", text }],
-      }),
+      validateProviderPolicy(
+        currentPolicy,
+        contextWithSources({ path: "packages/example/src/local.ts", text }),
+      ),
     );
   }
 });

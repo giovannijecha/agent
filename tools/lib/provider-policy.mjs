@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 const OPENAI_SUBMISSION_URL =
   "https://community.openai.com/t/independent-native-oauth-public-client-registration-request-for-agent/1389585";
 const CLAUDE_SUBMISSION_REFERENCE =
@@ -164,6 +166,186 @@ const APPROVED_SOURCE_LITERALS = Object.freeze({
   "packages/agent-cli/test/node-ollama-model-catalog.test.ts": ["Bearer "],
 });
 
+const EXPECTED_SENSITIVE_STATE_OCCURRENCES = Object.freeze({
+  "packages/agent-cli/native/process-broker/backend-linux.c": "agent_linux_token_present=2;token=3;token_length=3",
+  "packages/agent-cli/src/application.ts": "authentication=5;cancelProviderCredential=1;createNoticeToken=2;credential=4;credentialProviderId=16;noticeToken=6;NoticeToken=4;projectProviderCredential=1;providerCredential=1;ProviderCredentialProjection=2;submitProviderCredential=1;token=2",
+  "packages/agent-cli/src/chat-view.ts": "createProviderCredentialDocument=2;credential=5;credentialEntry=2;projectProviderCredential=2;providerCredential=6",
+  "packages/agent-cli/src/main.ts": "authentication=1;credential=3",
+  "packages/agent-cli/src/node-ollama-cloud-transport.ts": "authorization=1;credential=10;isValidOllamaCloudCredential=2",
+  "packages/agent-cli/src/node-ollama-model-catalog.ts": "authenticated=1;authorization=1;credential=5;isValidOllamaCloudCredential=2",
+  "packages/agent-cli/src/notice-scheduler.ts": "NoticeToken=6;token=19",
+  "packages/agent-cli/src/notice.ts": "createNoticeToken=1;noticeToken=2;NoticeToken=2",
+  "packages/agent-cli/src/provider-configuration.ts": "credential=3;invalidCredential=2;isValidOllamaCloudCredential=2;isValidProviderCredential=2",
+  "packages/agent-cli/src/provider-credential-view.ts": "createProviderCredentialDocument=1;credential=1;ProviderCredentialProjection=2",
+  "packages/agent-cli/src/provider-model-catalog.ts": "authenticated=1;credential=1",
+  "packages/agent-cli/src/provider-session.ts": "authentication=8;credential=19;credentialValid=2;invalidCredential=2;isValidOllamaCloudCredential=2",
+  "packages/agent-cli/src/run.ts": "credential=1;noticeToken=1;token=1",
+  "packages/agent-cli/src/session-journal.ts": "sessionState=4",
+  "packages/agent-cli/src/session.ts": "cancelProviderCredential=2;credential=2;Credential=1;credentialOutcome=7;providerCredential=2;submitProviderCredential=2",
+  "packages/agent-cli/src/shell-execution-policy.ts": "credential=1",
+  "packages/agent-cli/src/turn-failure-presentation.ts": "authorization=1",
+  "packages/agent-cli/src/workspace-mutation-preview.ts": "logicalRowTokens=3",
+  "packages/agent-cli/src/workspace-namespace-preview.ts": "authorized=1",
+  "packages/agent-cli/src/workspace-read-policy.ts": "credentials=1",
+  "packages/agent-cli/test/application.test.ts": "authentication=3;authorizing=1;credential=2;credentials=1;noticeToken=8;projectProviderCredential=3;secret=1",
+  "packages/agent-cli/test/builtin-tools.test.ts": "authorized=1;credential=2;secret=16;token=3",
+  "packages/agent-cli/test/chat-view.test.ts": "authentication=2;authorized=1;credential=1;secret=2",
+  "packages/agent-cli/test/event-arbiter.test.ts": "createNoticeToken=2;token=2",
+  "packages/agent-cli/test/launch-command.test.ts": "secret=1",
+  "packages/agent-cli/test/node-ollama-cloud-transport.test.ts": "authorization=1;credentials=1",
+  "packages/agent-cli/test/node-ollama-model-catalog.test.ts": "authenticated=1;authorization=1;credentials=1",
+  "packages/agent-cli/test/notice-scheduler.test.ts": "createNoticeToken=6;token=10",
+  "packages/agent-cli/test/provider-configuration.test.ts": "credential=3;credentials=1;invalidCredential=1;isValidOllamaCloudCredential=2",
+  "packages/agent-cli/test/provider-failure-classification.test.ts": "PRIVATE_SECRET=1",
+  "packages/agent-cli/test/provider-model-catalog.test.ts": "authenticated=1",
+  "packages/agent-cli/test/provider-session.test.ts": "_credential=1;authentication=2;credential=4;token=3",
+  "packages/agent-cli/test/runtime-integration.test.ts": "authentication=1;credential=3;NoticeToken=4;token=10;tokens=7",
+  "packages/agent-cli/test/shell-execution-policy.test.ts": "credential=1;secret=2",
+  "packages/agent-cli/test/terminal-interaction.test.ts": "authentication=3;credentialEnd=3;credentialRender=12;credentials=1;credentialStart=4;noticeToken=1",
+  "packages/agent-cli/test/turn-failure-presentation.test.ts": "authorization=2;PRIVATE_SECRET=2;secret=1",
+  "packages/agent-cli/test/workspace-ignore.test.ts": "secret=3;Secret=2;secrets=4",
+  "packages/agent-cli/test/workspace-read-policy.test.ts": "credentials=3;secret=6;Secret=1;token=1",
+  "packages/agent-core/test/structured-value.test.ts": "secret=1",
+  "packages/agent-provider-ollama-cloud/test/model.test.ts": "PRIVATE_SECRET=8;secret=1",
+  "packages/agent-runtime/test/runtime.test.ts": "secret=2",
+  "packages/agent-tools/src/engine.ts": "token=4;TOOL_EFFECT_PLAN_TOKEN=3;TOOL_HANDLER_OUTCOME_TOKEN=4",
+  "packages/agent-tools/test/schema.test.ts": "secret=1",
+  "packages/agent-tui/test/rich-row.test.ts": "credentials=2;secret=1",
+  "packages/agent-tui/test/split-line.test.ts": "secret=2",
+  "types/node-runtime/index.d.ts": "authorization=1",
+});
+
+const REVIEWED_SENSITIVE_STATE_IDENTIFIERS = Object.freeze([
+  ...new Set(
+    Object.values(EXPECTED_SENSITIVE_STATE_OCCURRENCES).flatMap((inventory) =>
+      inventory.split(";").map((entry) =>
+        entry.slice(0, entry.lastIndexOf("=")),
+      ),
+    ),
+  ),
+]);
+
+const APPROVED_CLI_NODE_EFFECT_AUTHORITIES = Object.freeze({
+  "packages/agent-cli/src/builtin-tools.ts": Object.freeze({
+    imports: Object.freeze(["type Dirent", "lstat", "opendir", "readFile"]),
+    module: "node:fs/promises",
+  }),
+  "packages/agent-cli/src/session-journal.ts": Object.freeze({
+    imports: Object.freeze([
+      "lstat",
+      "mkdir",
+      "open",
+      "readFile",
+      "readdir",
+      "rename",
+      "rm",
+    ]),
+    module: "node:fs/promises",
+  }),
+  "packages/agent-cli/src/workspace-boundary.ts": Object.freeze({
+    imports: Object.freeze(["lstat", "realpath"]),
+    module: "node:fs/promises",
+  }),
+  "packages/agent-cli/src/workspace-mutation-plans.ts": Object.freeze({
+    imports: Object.freeze(["lstat", "open"]),
+    module: "node:fs/promises",
+  }),
+  "packages/agent-cli/src/workspace-namespace-plans.ts": Object.freeze({
+    imports: Object.freeze(["lstat", "opendir"]),
+    module: "node:fs/promises",
+  }),
+  "packages/agent-cli/src/workspace-path.ts": Object.freeze({
+    imports: Object.freeze(["lstat", "realpath"]),
+    module: "node:fs/promises",
+  }),
+  "packages/agent-cli/src/workspace-read-policy.ts": Object.freeze({
+    imports: Object.freeze(["lstat", "readFile", "realpath"]),
+    module: "node:fs/promises",
+  }),
+  "packages/agent-cli/src/node-process-runner.ts": Object.freeze({
+    imports: Object.freeze(["spawn", "type ChildProcess"]),
+    module: "node:child_process",
+  }),
+  "packages/agent-cli/src/platform-clipboard.ts": Object.freeze({
+    imports: Object.freeze(["spawn", "type ChildProcess", "type SpawnOptions"]),
+    module: "node:child_process",
+  }),
+  "packages/agent-cli/src/platform-workspace-mutation.ts": Object.freeze({
+    imports: Object.freeze(["spawn", "type ChildProcess", "type SpawnOptions"]),
+    module: "node:child_process",
+  }),
+  "packages/agent-cli/src/platform-workspace-namespace.ts": Object.freeze({
+    imports: Object.freeze(["spawn", "type ChildProcess", "type SpawnOptions"]),
+    module: "node:child_process",
+  }),
+  "packages/agent-cli/src/platform-workspace-roots.ts": Object.freeze({
+    imports: Object.freeze([
+      "spawn",
+      "type ReadOnlyChildProcess",
+      "type SpawnReadOptions",
+    ]),
+    module: "node:child_process",
+  }),
+  "packages/agent-cli/src/node-ollama-cloud-transport.ts": Object.freeze({
+    imports: Object.freeze([
+      "request as nodeHttpsRequest",
+      "type ClientRequest",
+      "type IncomingMessage",
+      "type RequestOptions",
+    ]),
+    module: "node:https",
+  }),
+  "packages/agent-cli/src/node-ollama-model-catalog.ts": Object.freeze({
+    imports: Object.freeze([
+      "request as nodeHttpsRequest",
+      "type ClientRequest",
+      "type IncomingMessage",
+      "type RequestOptions",
+    ]),
+    module: "node:https",
+  }),
+});
+
+const APPROVED_CLI_DORMANT_PRODUCT_TREE = Object.freeze({
+  pathCount: 72,
+  pathsSha256:
+    "c98c61c7e385b1aeeb6a4c6534561a5c44086349283cd30fc04933354bcfafac",
+  sourceSha256:
+    "e47405f9e285e5704a174164f35d1c48fdf7742459dbaef4124445658dc6ef32",
+});
+
+const APPROVED_CLI_NATIVE_PLATFORM_TREE = Object.freeze({
+  paths: Object.freeze([
+    "packages/agent-cli/native/clipboard/backend-fixture.c",
+    "packages/agent-cli/native/clipboard/backend-windows.c",
+    "packages/agent-cli/native/clipboard/clipboard.h",
+    "packages/agent-cli/native/clipboard/main.c",
+    "packages/agent-cli/native/clipboard/protocol.c",
+    "packages/agent-cli/native/clipboard/protocol.h",
+    "packages/agent-cli/native/mutation-commit/backend-linux.c",
+    "packages/agent-cli/native/mutation-commit/backend-windows.c",
+    "packages/agent-cli/native/mutation-commit/main.c",
+    "packages/agent-cli/native/mutation-commit/mutation-commit.h",
+    "packages/agent-cli/native/mutation-commit/protocol.c",
+    "packages/agent-cli/native/namespace-commit/backend-linux.c",
+    "packages/agent-cli/native/namespace-commit/backend-windows.c",
+    "packages/agent-cli/native/namespace-commit/main.c",
+    "packages/agent-cli/native/namespace-commit/namespace-commit.h",
+    "packages/agent-cli/native/namespace-commit/protocol.c",
+    "packages/agent-cli/native/process-broker/backend-linux.c",
+    "packages/agent-cli/native/process-broker/backend-windows.c",
+    "packages/agent-cli/native/process-broker/broker.h",
+    "packages/agent-cli/native/process-broker/main.c",
+    "packages/agent-cli/native/process-broker/protocol.c",
+    "packages/agent-cli/native/process-broker/test-fixture.c",
+    "packages/agent-cli/native/workspace-roots/backend-linux.c",
+    "packages/agent-cli/native/workspace-roots/backend-windows.c",
+    "packages/agent-cli/native/workspace-roots/main.c",
+    "packages/agent-cli/native/workspace-roots/workspace-roots.h",
+  ]),
+  sourceSha256: "db840e8200885fecea91691db312f6647e14db152aa8c9ad857a3e122968e8d5",
+});
+
 const FORBIDDEN_SOURCE_MARKERS = [
   [/(?:auth\.openai\.com|chatgpt\.com\/backend-api)/iu, "OpenAI subscription endpoint"],
   [/(?:claude\.ai\/oauth|platform\.claude\.com\/v1\/oauth)/iu, "Claude subscription endpoint"],
@@ -178,6 +360,8 @@ const FORBIDDEN_SOURCE_MARKERS = [
   [/\b(?:ANTHROPIC_OAUTH_TOKEN|KIMI_CODE_OAUTH_HOST)\b/u, "provider token configuration"],
   [/(?:auth\.json|\.codex|\.claude|\.kimi-code|\.grok)/u, "foreign credential storage"],
   [/(?:originator[^\n]*pi|referrer[^\n]*pi|You are Claude Code|claude-cli\/)/iu, "foreign product identity"],
+  [/["'`]auth["'`]/u, "dormant agent auth command"],
+  [/["'`]credentials["'`]/u, "dormant credential namespace"],
 ];
 
 const FORBIDDEN_COMPACT_MARKERS = [
@@ -197,6 +381,8 @@ const FORBIDDEN_COMPACT_MARKERS = [
   [/\.grok/u, "foreign credential storage"],
   [/(?:identity|originator|referrer)[=:]pi(?:\/|[;,}])/u, "foreign product identity"],
   [/youareclaudecode/u, "foreign product identity"],
+  [/(?:agentauth|(?:argument|command)(?:===|==|:)auth)(?:[^a-z0-9]|$)/u, "dormant agent auth command"],
+  [/(?:\.agent|userstateroot).{0,64}credentials(?:[^a-z0-9]|$)/u, "dormant credential namespace"],
 ];
 
 export class ProviderPolicyError extends Error {
@@ -565,9 +751,130 @@ function compactSource(text) {
     .toLowerCase();
 }
 
+function isSensitiveStateIdentifier(identifier) {
+  const normalized = identifier.toLowerCase();
+  if (
+    normalized.includes("credential") ||
+    normalized.includes("secret") ||
+    normalized.includes("token") ||
+    (normalized.includes("auth") && !normalized.includes("authorit"))
+  ) {
+    return true;
+  }
+  return normalized.includes("session") && [
+    "auth",
+    "credential",
+    "reader",
+    "secret",
+    "state",
+    "store",
+    "token",
+  ].some((marker) => normalized.includes(marker));
+}
+
+function validateSensitiveStateIdentifiers(path, text) {
+  const decoded = decodeScannableEscapes(text);
+  const occurrences = new Map();
+  for (const match of decoded.matchAll(/[A-Za-z_$][A-Za-z0-9_$]*/gu)) {
+    const identifier = match.at(0);
+    if (
+      identifier !== undefined &&
+      isSensitiveStateIdentifier(identifier) &&
+      !REVIEWED_SENSITIVE_STATE_IDENTIFIERS.includes(identifier)
+    ) {
+      fail(path + " contains unregistered sensitive-state identifier");
+    }
+    if (identifier !== undefined && isSensitiveStateIdentifier(identifier)) {
+      occurrences.set(identifier, (occurrences.get(identifier) ?? 0) + 1);
+    }
+  }
+  const actual = [...occurrences]
+    .sort((left, right) => left.at(0).localeCompare(right.at(0)))
+    .map((entry) => entry.at(0) + "=" + String(entry.at(1)))
+    .join(";");
+  const expected = EXPECTED_SENSITIVE_STATE_OCCURRENCES[path] ?? "";
+  if (actual !== expected) {
+    fail(path + " contains sensitive-state identifier occurrence drift");
+  }
+}
+
+function validateCliNodeEffectAuthority(path, text) {
+  if (!path.startsWith("packages/agent-cli/src/")) {
+    return;
+  }
+  const decoded = decodeScannableEscapes(text);
+  const references = [
+    ...decoded.matchAll(
+      /["']node:(?:child_process|fs(?:\/promises)?|https)["']/gu,
+    ),
+  ];
+  const expected = APPROVED_CLI_NODE_EFFECT_AUTHORITIES[path];
+  if (expected === undefined && references.length === 0) {
+    return;
+  }
+  if (expected === undefined) {
+    fail(path + " contains unregistered CLI Node effect authority");
+  }
+  const imports = [
+    ...decoded.matchAll(
+      /import\s*\{([^}]*)\}\s*from\s*["'](node:(?:child_process|fs(?:\/promises)?|https))["']\s*;/gu,
+    ),
+  ];
+  if (imports.length !== 1 || references.length !== 1) {
+    fail(path + " contains CLI Node effect authority drift");
+  }
+  const source = imports.at(0)?.at(1);
+  const module = imports.at(0)?.at(2);
+  const actual = source?.split(",").map((entry) => entry.trim()).filter(
+    (entry) => entry.length > 0,
+  );
+  if (
+    module !== expected.module ||
+    actual === undefined ||
+    JSON.stringify(actual) !== JSON.stringify(expected.imports)
+  ) {
+    fail(path + " contains CLI Node effect authority drift");
+  }
+}
+
+function validateExactSourceTree(productSources, expected, select, label) {
+  const sources = productSources
+    .filter(select)
+    .sort((left, right) => left.path.localeCompare(right.path));
+  const paths = sources.map((source) => source.path);
+  const expectedPathCount = expected.paths?.length ?? expected.pathCount;
+  const expectedPathsSha256 = expected.pathsSha256 ??
+    createHash("sha256")
+      .update(JSON.stringify(expected.paths), "utf8")
+      .digest("hex");
+  const pathsSha256 = createHash("sha256")
+    .update(JSON.stringify(paths), "utf8")
+    .digest("hex");
+  if (
+    paths.length !== expectedPathCount ||
+    pathsSha256 !== expectedPathsSha256
+  ) {
+    fail(label + " path drift");
+  }
+  const records = sources.map((source) => Object.freeze({
+    path: source.path,
+    source: source.text.replaceAll("\r\n", "\n"),
+  }));
+  const sourceSha256 = createHash("sha256")
+    .update(JSON.stringify(records), "utf8")
+    .digest("hex");
+  if (sourceSha256 !== expected.sourceSha256) {
+    fail(label + " source-integrity drift");
+  }
+}
+
 function validateProductSources(productSources) {
   for (const source of productSources) {
-    if (!isRecord(source) || typeof source.path !== "string" || typeof source.text !== "string") {
+    if (
+      !isRecord(source) ||
+      typeof source.path !== "string" ||
+      typeof source.text !== "string"
+    ) {
       fail("product source entries must contain path and text");
     }
     let scannable = source.text;
@@ -580,6 +887,8 @@ function validateProductSources(productSources) {
         fail(source.path + " contains forbidden " + label);
       }
     }
+    validateSensitiveStateIdentifiers(source.path, source.text);
+    validateCliNodeEffectAuthority(source.path, source.text);
     const compact = compactSource(scannable);
     if (
       /import(?!\{)[^;]*fromnode:process/u.test(compact) ||
@@ -593,6 +902,20 @@ function validateProductSources(productSources) {
       }
     }
   }
+  validateExactSourceTree(
+    productSources,
+    APPROVED_CLI_DORMANT_PRODUCT_TREE,
+    (source) =>
+      /^packages\/agent-cli\/src\/(?:[^/]+\/)*[^/]+\.ts$/u.test(source.path),
+    "CLI dormant product tree",
+  );
+  validateExactSourceTree(
+    productSources,
+    APPROVED_CLI_NATIVE_PLATFORM_TREE,
+    (source) =>
+      /^packages\/agent-cli\/native\/.*\.(?:c|h)$/u.test(source.path),
+    "CLI native platform authority",
+  );
 }
 
 export function validateProviderPolicy(policy, context) {

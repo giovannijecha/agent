@@ -170,6 +170,12 @@ and renames the complete directory into the current root. Both locations,
 cross-device movement, an active session, or any ambiguous path or storage
 state fail closed without copy, merge, overwrite, deletion, or fallback.
 
+Decision 0088 reserves an owned native protection and lifecycle contract for a
+future `~/.agent/credentials` authority. It does not activate that namespace:
+the first admitted OAuth provider must supply one exact closed record and all
+refresh, revocation, concurrency, rollback, and removal semantics in its own
+replacing decision. No generic key store or API-key persistence exists.
+
 Every accepted journal file is synchronized before publication. On POSIX, the
 CLI also synchronizes a staged session directory before publishing it and the
 containing directory after every head replacement, session publication,

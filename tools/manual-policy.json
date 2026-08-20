@@ -294,6 +294,7 @@
     "docs/decisions/0085-owned-reasoning-journal-migration.md",
     "docs/decisions/0086-owned-thinking-effort-and-display.md",
     "docs/decisions/0087-owned-user-scoped-state-root.md",
+    "docs/decisions/0088-owned-durable-credential-boundary.md",
     "evaluations/README.md",
     "evaluations/failures/registry.json",
     "assets/brand/README.md",
