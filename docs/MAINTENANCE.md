@@ -545,7 +545,10 @@ omitted-semicolon declaration followed by a new statement. Keep negative
 controls for escaped identifiers, assertion types outside the bounded alias
 grammar, the 32-parenthesis depth bound, multiline calls, member access, tagged
 templates, nested scopes, call results, comments, standalone source strings,
-and type-only exports. A
+and type-only exports. Exercise typed variable declarations separately with a
+nested generic comma, a function-type arrow, a multiline import type, an
+automatic-semicolon boundary, unbalanced delimiters, and both the 32-delimiter
+and 256-token bounds. A
 higher-level owned CLI API remains subject to its ordinary package and source
 review; this gate does not execute product code or infer general data flow.
 

@@ -5,6 +5,8 @@ const STATIC_STRING_FRAGMENT_LIMIT = 32;
 const STATIC_STRING_LENGTH_LIMIT = 1_024;
 const RUNTIME_ALIAS_EXPRESSION_DEPTH_LIMIT = 32;
 const RUNTIME_BINDING_ALIAS_LIMIT = 256;
+const RUNTIME_TYPE_ANNOTATION_DEPTH_LIMIT = 32;
+const RUNTIME_TYPE_ANNOTATION_TOKEN_LIMIT = 256;
 
 export class ModuleScanError extends Error {
   constructor(message, line) {
@@ -676,6 +678,139 @@ function runtimeExpressionEnd(tokens, start, commaTerminates) {
   return cursor;
 }
 
+const TYPE_ANNOTATION_STATEMENT_STARTERS = Object.freeze([
+  "class",
+  "const",
+  "declare",
+  "enum",
+  "export",
+  "function",
+  "interface",
+  "let",
+  "namespace",
+  "type",
+  "var",
+]);
+
+function isAutomaticSemicolonTypeBoundary(tokens, start, cursor) {
+  const current = tokens[cursor];
+  const previous = tokens[cursor - 1];
+  return (
+    cursor > start &&
+    current?.kind === "identifier" &&
+    previous !== undefined &&
+    current.line > previous.line &&
+    TYPE_ANNOTATION_STATEMENT_STARTERS.includes(current.value)
+  );
+}
+
+function typeAnnotationClosing(value) {
+  if (value === "(") {
+    return ")";
+  }
+  if (value === "[") {
+    return "]";
+  }
+  if (value === "{") {
+    return "}";
+  }
+  return value === "<" ? ">" : undefined;
+}
+
+function isPunctuationToken(tokens, index, value) {
+  const token = tokens[index];
+  return token?.kind === "punctuation" && token.value === value;
+}
+
+function isArrowPunctuation(tokens, index) {
+  return (
+    isPunctuationToken(tokens, index, "=") &&
+    isPunctuationToken(tokens, index + 1, ">")
+  );
+}
+
+function isAssignmentPunctuation(tokens, index) {
+  return (
+    isPunctuationToken(tokens, index, "=") &&
+    !isPunctuationToken(tokens, index - 1, "=") &&
+    !isPunctuationToken(tokens, index + 1, "=") &&
+    !isPunctuationToken(tokens, index + 1, ">")
+  );
+}
+
+function typeAnnotationEnd(tokens, start) {
+  const expectedClosings = [];
+  let cursor = start;
+  let tokenCount = 0;
+  while (cursor < tokens.length) {
+    const token = tokens[cursor];
+    const value = token?.value;
+    const punctuation = token?.kind === "punctuation";
+    if (
+      expectedClosings.length === 0 &&
+      (
+        (punctuation && (value === "," || value === ";")) ||
+        isAutomaticSemicolonTypeBoundary(tokens, start, cursor)
+      )
+    ) {
+      break;
+    }
+    if (
+      expectedClosings.length === 0 &&
+      isAssignmentPunctuation(tokens, cursor)
+    ) {
+      break;
+    }
+    if (isArrowPunctuation(tokens, cursor)) {
+      tokenCount += 2;
+      if (tokenCount > RUNTIME_TYPE_ANNOTATION_TOKEN_LIMIT) {
+        throw new ModuleScanError(
+          "runtime variable type annotation exceeds owned bounds",
+          token?.line ?? 1,
+        );
+      }
+      cursor += 2;
+      continue;
+    }
+    tokenCount += 1;
+    if (tokenCount > RUNTIME_TYPE_ANNOTATION_TOKEN_LIMIT) {
+      throw new ModuleScanError(
+        "runtime variable type annotation exceeds owned bounds",
+        token?.line ?? 1,
+      );
+    }
+    const closing = typeAnnotationClosing(punctuation ? value : undefined);
+    if (closing !== undefined) {
+      expectedClosings.push(closing);
+      if (expectedClosings.length > RUNTIME_TYPE_ANNOTATION_DEPTH_LIMIT) {
+        throw new ModuleScanError(
+          "runtime variable type annotation exceeds owned bounds",
+          token?.line ?? 1,
+        );
+      }
+    } else if (
+      punctuation &&
+      [")", "]", "}", ">"].includes(value)
+    ) {
+      if (expectedClosings.at(-1) !== value) {
+        throw new ModuleScanError(
+          "runtime variable type annotation is outside owned bounds",
+          token?.line ?? 1,
+        );
+      }
+      expectedClosings.pop();
+    }
+    cursor += 1;
+  }
+  if (tokenCount === 0 || expectedClosings.length !== 0) {
+    throw new ModuleScanError(
+      "runtime variable type annotation is outside owned bounds",
+      tokens[start]?.line ?? 1,
+    );
+  }
+  return cursor;
+}
+
 function variableDeclarator(tokens, start) {
   let cursor = start + 1;
   let parentheses = 0;
@@ -684,15 +819,17 @@ function variableDeclarator(tokens, start) {
   while (cursor < tokens.length) {
     const value = tokens[cursor]?.value;
     if (parentheses === 0 && brackets === 0 && braces === 0) {
-      if (value === "," || value === ";") {
-        return { alias: undefined, next: cursor };
+      if (isPunctuationToken(tokens, cursor, ":")) {
+        cursor = typeAnnotationEnd(tokens, cursor + 1);
+        continue;
       }
       if (
-        value === "=" &&
-        tokens[cursor - 1]?.value !== "=" &&
-        tokens[cursor + 1]?.value !== "=" &&
-        tokens[cursor + 1]?.value !== ">"
+        isPunctuationToken(tokens, cursor, ",") ||
+        isPunctuationToken(tokens, cursor, ";")
       ) {
+        return { alias: undefined, next: cursor };
+      }
+      if (isAssignmentPunctuation(tokens, cursor)) {
         const initializerStart = cursor + 1;
         const next = runtimeExpressionEnd(tokens, initializerStart, true);
         return {

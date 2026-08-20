@@ -198,6 +198,98 @@ test("rejects delimiter-nested var declarations outside the owned grammar", () =
   }
 });
 
+test("tracks bounded typed declarators without confusing nested commas", () => {
+  assert.deepEqual(
+    collectRuntimeExportBindings(
+      "export const ordinary: Map<string, { value: string }> = new Map(), " +
+        "localRead: typeof readFile = readFile;\n",
+    ),
+    [
+      { exported: "ordinary", line: 1, local: "ordinary" },
+      { exported: "localRead", line: 1, local: "readFile" },
+    ],
+  );
+
+  assert.deepEqual(
+    collectRuntimeExportBindings(
+      "export const functionRead: " +
+        "(value: string) => Map<string, { value: string }> = readFile, " +
+        "localRead = readFile;\n",
+    ),
+    [
+      { exported: "functionRead", line: 1, local: "readFile" },
+      { exported: "localRead", line: 1, local: "readFile" },
+    ],
+  );
+
+  assert.deepEqual(
+    collectRuntimeExportBindings(
+      "export const importRead: typeof\n" +
+        '  import("./fs.js").readFile = readFile, localRead = readFile;\n',
+    ),
+    [
+      { exported: "importRead", line: 1, local: "readFile" },
+      { exported: "localRead", line: 1, local: "readFile" },
+    ],
+  );
+
+  assert.deepEqual(
+    collectRuntimeExportBindings(
+      "let ordinary: Map<string, { value: string }>\n" +
+        "export const localRead = readFile;\n",
+    ),
+    [{ exported: "localRead", line: 2, local: "readFile" }],
+  );
+});
+
+test("fails closed outside the bounded type-annotation grammar", () => {
+  const atDepthBound =
+    "Box<".repeat(32) + "string" + ">".repeat(32);
+  const atTokenBound = "keyof Type" + " | Type".repeat(127);
+  const overDepth =
+    "export const localRead: " +
+    "Box<".repeat(33) +
+    "string" +
+    ">".repeat(33) +
+    " = readFile;\n";
+  const overTokens =
+    "export const localRead: " +
+    Array.from({ length: 129 }, () => "Type").join(" | ") +
+    " = readFile;\n";
+
+  for (const annotation of [atDepthBound, atTokenBound]) {
+    assert.deepEqual(
+      collectRuntimeExportBindings(
+        "export const localRead: " + annotation + " = readFile;\n",
+      ),
+      [{ exported: "localRead", line: 1, local: "readFile" }],
+    );
+  }
+
+  for (const source of [overDepth, overTokens]) {
+    assert.throws(
+      () => collectRuntimeExportBindings(source),
+      (error) =>
+        error instanceof ModuleScanError &&
+        error.message.endsWith(
+          "runtime variable type annotation exceeds owned bounds",
+        ),
+    );
+  }
+
+  assert.throws(
+    () =>
+      collectRuntimeExportBindings(
+        "export const localRead: Map<string] = readFile;\n",
+      ),
+    (error) =>
+      error instanceof ModuleScanError &&
+      error.message.endsWith(
+        "runtime variable type annotation is outside owned bounds",
+      ),
+  );
+});
+
 test("stops runtime alias declarators at automatic semicolon boundaries", () => {
   const result = collectRuntimeExportBindings(
     "export const localRead = readFile\n" +

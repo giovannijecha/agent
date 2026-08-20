@@ -172,7 +172,11 @@ is exported immediately or by a later declaration. A `var` declaration
 encountered while parentheses, brackets, or braces are open fails closed rather
 than requiring surrounding-scope inference. The lexer delimits variable
 declarators and default expressions at explicit or lexically unambiguous
-automatic-semicolon boundaries. Its direct-alias grammar admits at most 32
+automatic-semicolon boundaries. Variable type annotations occupy a separate
+bounded lexical region of at most 256 tokens and 32 nested balanced parentheses,
+brackets, braces, or generic angle pairs. Function-type arrows are consumed
+atomically, nested commas never delimit declarations, and unbalanced or
+over-bound annotations fail closed. Its direct-alias grammar admits at most 32
 nested balanced parentheses, postfix non-null markers, and `as` or `satisfies`
 chains whose assertion types are `const`, `typeof` plus a qualified identifier,
 or a qualified identifier; any other assertion type fails closed. The complete

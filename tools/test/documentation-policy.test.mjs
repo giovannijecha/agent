@@ -221,6 +221,8 @@ test("binds the dormant durable credential boundary", () => {
     /admits at most\s+256 alias records/u,
     /Every module-scope object or array binding pattern/u,
     /A `var` declaration\s+encountered while parentheses, brackets, or braces are open fails closed/u,
+    /Variable type annotations occupy a separate\s+bounded lexical region of at most 256 tokens and 32 nested balanced parentheses/u,
+    /Function-type arrows are consumed\s+atomically, nested commas never delimit declarations/u,
     /direct-alias grammar admits at most 32\s+nested balanced parentheses/u,
     /assertion types are `const`, `typeof` plus a qualified identifier/u,
     /any other assertion type fails closed/u,

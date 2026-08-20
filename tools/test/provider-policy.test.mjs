@@ -568,6 +568,11 @@ test("rejects approved filesystem bindings re-exported to local modules", () => 
       'import { localRead as readFile } from "./session-journal.js";',
     ],
     [
+      "export const ordinary: Map<string, { value: string }> = new Map(), " +
+        "localRead = readFile;",
+      'import { localRead as readFile } from "./session-journal.js";',
+    ],
+    [
       "export let localRead: typeof readFile = ((readFile));",
       'import { localRead as readFile } from "./session-journal.js";',
     ],

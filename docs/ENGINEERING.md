@@ -95,11 +95,15 @@ separate follow-up unless the adjacent change is necessary for correctness.
   fails closed rather than requiring surrounding-scope inference. The owned
   lexer resolves at most 256 module-scope direct identifier aliases, rejects
   cycles, and delimits variable declarators and default expressions at explicit
-  or lexically unambiguous automatic-semicolon boundaries. The direct-alias
-  grammar admits at most 32 nested balanced parentheses, postfix non-null
-  markers, and `as` or `satisfies` chains whose assertion types are `const`,
-  `typeof` plus a qualified identifier, or a qualified identifier; every other
-  assertion type fails closed. A default
+  or lexically unambiguous automatic-semicolon boundaries. A variable type
+  annotation is a separate bounded lexical region: it admits at most 256 tokens
+  and 32 nested balanced parentheses, brackets, braces, or generic angle pairs,
+  consumes function-type arrows atomically, and never treats a nested comma as
+  a declarator boundary. Unbalanced or over-bound annotations fail closed. The
+  direct-alias grammar admits at most 32 nested balanced parentheses, postfix
+  non-null markers, and `as` or `satisfies` chains whose assertion types are
+  `const`, `typeof` plus a qualified identifier, or a qualified identifier;
+  every other assertion type fails closed. A default
   export creates alias evidence only when its complete delimited expression is
   a direct identifier alias. A named runtime binding literally called `type`
   remains runtime; `type` is a type-only modifier only when it prefixes another
