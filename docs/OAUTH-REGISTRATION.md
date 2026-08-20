@@ -52,9 +52,10 @@ identity, user agent, prompt, or credential store.
 
 The browser remains provider-hosted. `agent` will not request a password,
 cookie, recovery code, payment detail, or one-time code. Initial credentials
-remain in process memory. Decision 0088 defines a dormant owned filesystem
-boundary for future durable OAuth material, but persistence remains blocked
-until one admitted provider supplies the exact record and lifecycle contract.
+remain in process memory. Decision 0089 changes no current registration or
+OAuth admission result. Its future owned store can admit OAuth material only
+after a separate provider decision supplies the exact public-client identity,
+record, refresh, revocation, recovery, and removal contract.
 
 ## Data flow
 
@@ -106,7 +107,8 @@ here, request lifecycle metadata in the
 inspection in the [ownership record](OWNERSHIP.md) when required. Complete
 registration evidence does not enable product code by itself. Replace the
 blocking decision and [provider policy](PROVIDERS.md) in the same change as the
-machine gate, first adapter, decision-0088 storage activation, threat model,
+machine gate, first adapter, an accepted provider-specific successor decision,
+the corresponding decision-0089 credential-store extension, threat model,
 revocation path, rollback, and removal procedure. Offline contract tests must
 cover cancellation, expiry, concurrency, malformed responses, secret leakage,
 rollback, and removal.

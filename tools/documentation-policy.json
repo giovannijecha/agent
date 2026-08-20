@@ -90,7 +90,8 @@
     "docs/decisions/0085-owned-reasoning-journal-migration.md",
     "docs/decisions/0086-owned-thinking-effort-and-display.md",
     "docs/decisions/0087-owned-user-scoped-state-root.md",
-    "docs/decisions/0088-owned-durable-credential-boundary.md"
+    "docs/decisions/0088-owned-durable-credential-boundary.md",
+    "docs/decisions/0089-owned-external-authentication-transition.md"
   ],
   "decisionIndexLifecycleDigest": {
     "algorithm": "sha256",
@@ -151,7 +152,8 @@
     "0085": "2026-08-20",
     "0086": "2026-08-20",
     "0087": "2026-08-20",
-    "0088": "2026-08-20"
+    "0088": "2026-08-20",
+    "0089": "2026-08-20"
   },
   "historicalDecisionStatusExceptions": {
     "0009": "accepted"
@@ -208,11 +210,15 @@
     {
       "superseder": "0086",
       "superseded": "0083"
+    },
+    {
+      "superseder": "0089",
+      "superseded": "0088"
     }
   ],
   "decisionRecordDigest": {
     "algorithm": "sha256",
-    "value": "e8703e8fc298fbc1c5a78c1009996fb7401b15cea7437b1465d05c545d4dfdee"
+    "value": "dd0ac4d23060288c6297cfaedc9b4f939f1acb220044238de24657f62e3cce8a"
   },
   "decisionDomainMembers": {
     "architecture": [
@@ -271,7 +277,8 @@
       "0016",
       "0042",
       "0058",
-      "0088"
+      "0088",
+      "0089"
     ],
     "terminal": [
       "0004",
@@ -366,7 +373,7 @@
       "0069"
     ],
     "security": [
-      "0088",
+      "0089",
       "0016",
       "0042",
       "0058"

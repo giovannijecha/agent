@@ -140,15 +140,16 @@ sandbox; approved code retains the launching user's operating-system
 authority. Reports about provider traffic should identify the
 exact CLI transport, wire decoder, or configuration boundary involved.
 
-Decision 0088 selects the security boundary for future durable OAuth material
-without activating it. `~/.agent/credentials` remains absent while every
-subscription provider is blocked, and API keys remain process-only. A future
-admitted provider must use owned native user-only ACL or mode validation and
-atomic replacement under one cross-process admission. The record will be plain
-text, not an OS keychain or encrypted vault, and will not claim protection from
-same-user processes, administrators or root, backup authority, malware,
-snapshots, or offline privileged access. Unsafe ownership, access, link, schema,
-or concurrency state fails closed before secret bytes are read.
+Decision 0089 changes no current security behavior. It supersedes decision
+0088's future OAuth-only design but does not activate the accepted Ollama-first
+external-authentication transition. `~/.agent/credentials` remains absent,
+`/providers` remains process-only, and the source gate continues to reject
+`agent auth` and persistent readers until implementation. The future record is
+owned plaintext, not an OS keychain or encrypted vault, and does not claim
+protection from same-user processes, administrators or root, backup authority,
+malware, snapshots, memory inspection, or offline privileged access. Its later
+native implementation must reject unsafe ownership, access, link, schema,
+concurrency, or recovery state before exposing secret payload bytes.
 
 The conversation tree exposes only one selected root-to-node path to the model.
 Alternate branches cannot execute, request permission, or emit output.

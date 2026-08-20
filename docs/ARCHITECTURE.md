@@ -170,11 +170,12 @@ and renames the complete directory into the current root. Both locations,
 cross-device movement, an active session, or any ambiguous path or storage
 state fail closed without copy, merge, overwrite, deletion, or fallback.
 
-Decision 0088 reserves an owned native protection and lifecycle contract for a
-future `~/.agent/credentials` authority. It does not activate that namespace:
-the first admitted OAuth provider must supply one exact closed record and all
-refresh, revocation, concurrency, rollback, and removal semantics in its own
-replacing decision. No generic key store or API-key persistence exists.
+Decision 0089 supersedes decision 0088's OAuth-only future design and fixes a
+provider-specific external-authentication transition beginning with Ollama
+Cloud. It changes no current composition: `~/.agent/credentials` remains
+absent, `/providers` remains the interactive process-only key path, and no API
+key is persisted until the later implementation modules change source, native
+policy, tests, and living documentation together.
 
 Every accepted journal file is synchronized before publication. On POSIX, the
 CLI also synchronizes a staged session directory before publishing it and the

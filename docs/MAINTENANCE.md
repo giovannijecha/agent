@@ -504,11 +504,13 @@ replacement implicitly.
 
 ### Dormant durable credential boundary
 
-**Owners:** CLI native platform boundary, decision 0088,
+**Owners:** CLI native platform boundary, decision 0089, superseded decision
+0088,
 [providers](PROVIDERS.md), [OAuth registration](OAUTH-REGISTRATION.md),
 [privacy](../PRIVACY.md), and [security](../SECURITY.md).
 
-While every subscription OAuth provider is blocked, verify that no
+The decision 0089 owns the accepted replacement contract but remains
+unimplemented. While the current decision-0072 behavior is shipped, verify that no
 `~/.agent/credentials` namespace, credential reader, `agent auth` command,
 token field, or API-key persistence enters the product. Do not implement an
 opaque generic store in anticipation of a provider.
@@ -553,14 +555,17 @@ and an explicit digest repin in the same change; effect-edge changes also update
 the exact Node registry. The gate does not execute product code or infer partial
 strings, exports, commands, or general data flow.
 
-To activate the boundary, first admit one independently registered provider and
-define its exact durable record, bounds, native access proof, cross-process
-admission, refresh rotation, revocation, failure recovery, rollback, and removal
-contract in the same change. Test Windows ACL and Linux owner/mode enforcement,
-linked-object rejection, atomic publication, concurrent refresh, lost-response
-failure, and secret non-projection offline on both platforms. Never repair an
-unsafe record silently, retry a refresh, restore superseded material, or borrow
-another client's credential store.
+Activation follows decision 0089's ordered modules: the exact Ollama record and
+native lifecycle; external `agent auth` with complete `/providers` removal; the
+two-stage `/models` replacement; then Windows/Linux verification and a bounded
+operator smoke. Keep the current dormant source gate until each owning module
+has red-green evidence, and do not publish an intermediate storage owner without
+its command, removal path, and truthful living documentation. Test Windows ACL
+and Linux owner/mode enforcement, linked-object rejection, header-before-secret
+parsing, shared/exclusive admission, dual authority, atomic publication,
+recovery, removal, and secret non-projection offline on both platforms. Never
+repair an unsafe record silently, retry a mutation, restore superseded material,
+or borrow another client's credential store.
 
 ### Thinking-stream lifecycle
 

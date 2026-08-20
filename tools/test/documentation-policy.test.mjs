@@ -197,7 +197,7 @@ test("binds the flat namespace tool contract", () => {
   }
 });
 
-test("binds the dormant durable credential boundary", () => {
+test("binds the historical credential boundary and dormant source gate", () => {
   const context = currentContext();
   const decision =
     "docs/decisions/0088-owned-durable-credential-boundary.md";
@@ -227,7 +227,6 @@ test("binds the dormant durable credential boundary", () => {
     assert.match(context.files[decision], marker);
   }
   for (const [file, marker] of [
-    ["docs/ARCHITECTURE.md", "Decision 0088 reserves"],
     ["docs/ENGINEERING.md", "exact occurrence count"],
     ["docs/ENGINEERING.md", "Closed source-policy inventories are bidirectional"],
     ["docs/ENGINEERING.md", "`node:fs`, `node:child_process`, or `node:https` effect authority"],
@@ -252,11 +251,67 @@ test("binds the dormant durable credential boundary", () => {
     ["docs/MAINTENANCE.md", "without teaching the verifier each"],
     ["docs/MAINTENANCE.md", "explicit digest\\s+repin"],
     ["docs/PROVIDERS.md", "Decision 0088 admits no API"],
-    ["PRIVACY.md", "Decision 0088 defines a dormant"],
-    ["SECURITY.md", "Decision 0088 selects the security boundary"],
   ]) {
     assert.match(context.files[file], new RegExp(marker, "u"), file);
   }
+});
+
+test("binds the non-activating external authentication transition", () => {
+  const context = currentContext();
+  const decision =
+    "docs/decisions/0089-owned-external-authentication-transition.md";
+  const superseded =
+    "docs/decisions/0088-owned-durable-credential-boundary.md";
+  assert.equal(policy.decisionPaths.includes(decision), true);
+  assert.equal(ownershipPolicy.requiredDocuments.includes(decision), true);
+  assert.equal(typeof context.files[decision], "string");
+  for (const marker of [
+    /This record changes no shipped behavior/u,
+    /supersedes\s+decision 0088's dormant future contract/u,
+    /does not supersede\s+decision 0072/u,
+    /runs after resolving the exact\s+canonical immutable workspace\s+boundary and before terminal alternate-screen\s+ownership/u,
+    /workspace\s+canonicalization and protected-root rejection before credential storage/u,
+    /`~\/.agent\/credentials\/ollama-cloud\.api-key`/u,
+    /`agent auth` accepts no credential or provider identifier in process arguments/u,
+    /exact zero-byte regular file; admission locks\s+byte\s+offset 0 for length 1 beyond end of file/u,
+    /one\s+non-waiting shared or exclusive provider-record admission/u,
+    /Register requires settled absence; replace\s+and remove require one validated committed record/u,
+    /A metadata-safe `\.pending` may\s+contain zero, partial, complete, or malformed record bytes/u,
+    /committed pathname and\s+`AGENT_OLLAMA_API_KEY` are both present/u,
+    /stages the provider choice without changing the active backend/u,
+    /same-user processes, administrator or root authority, malware,\s+backups, snapshots, memory inspection, or offline privileged access/u,
+    /No intermediate implementation module may be published/u,
+  ]) {
+    assert.match(context.files[decision], marker);
+  }
+  assert.match(context.files[superseded], /- Status: superseded/u);
+  assert.match(context.files[superseded], /- Superseded by: 0089/u);
+  for (const [file, marker] of [
+    ["docs/ARCHITECTURE.md", "Decision 0089 supersedes"],
+    ["docs/MAINTENANCE.md", "decision 0089 owns the accepted replacement"],
+    ["docs/PROVIDERS.md", "Decision 0089 changes no current\\s+provider behavior"],
+    ["PRIVACY.md", "Decision 0089 changes no current retention behavior"],
+    ["SECURITY.md", "Decision 0089 changes no current security behavior"],
+    ["docs/OAUTH-REGISTRATION.md", "Decision 0089 changes no current registration"],
+  ]) {
+    assert.match(context.files[file], new RegExp(marker, "u"), file);
+  }
+  assert.match(
+    context.files["docs/OAUTH-REGISTRATION.md"],
+    /an accepted provider-specific successor decision,\s+the corresponding\s+decision-0089 credential-store extension/u,
+  );
+  assert.doesNotMatch(
+    context.files["docs/OAUTH-REGISTRATION.md"],
+    /decision-0088 storage activation/u,
+  );
+  const operatorText = readFileSync(
+    path.join(projectRoot, "docs/manual/05-providers-and-authentication.md"),
+    "utf8",
+  );
+  assert.match(
+    operatorText,
+    /Decision 0089 records a future replacement\s+contract; `agent auth` is not currently available/u,
+  );
 });
 
 test("rejects canonical document structure drift", () => {

@@ -178,8 +178,10 @@ may never enter source, tests, logs, errors, documentation values, process
 arguments, or command history. It is read only from
 `AGENT_OLLAMA_API_KEY` or the zero-projection TUI credential editor, remains in
 one memory slot, and is released with the process. Decision 0088 admits no API
-key persistence: its owned filesystem boundary remains dormant until an
-independently registered OAuth provider activates one exact durable record.
+key persistence in its historical boundary. Decision 0089 changes no current
+provider behavior: it accepts a future provider-specific external-authentication
+transition, while `/providers`, process-only Ollama credentials, and the absent
+`~/.agent/credentials` namespace remain authoritative until implementation.
 
 ## Primary references
 

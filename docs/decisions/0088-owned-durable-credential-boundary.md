@@ -1,10 +1,10 @@
 # 0088: Owned durable credential boundary
 
-- Status: accepted
+- Status: superseded
 - Date: 2026-08-20
 - Domain: security
 - Supersedes: none
-- Superseded by: none
+- Superseded by: 0089
 
 ## Context
 
