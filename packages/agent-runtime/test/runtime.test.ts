@@ -594,6 +594,49 @@ test("streams reasoning separately and commits it only with the final answer", a
   }
 });
 
+test("rejects all-whitespace reasoning at every segment boundary", async () => {
+  for (const fixture of [
+    Object.freeze({
+      published: Object.freeze(["reasoningDelta", "assistantDelta"]),
+      steps: Object.freeze([
+        ok(Object.freeze({ kind: "reasoningDelta" as const, text: " \t" })),
+        ok(Object.freeze({ kind: "delta" as const, text: "answer" })),
+        ok(Object.freeze({ kind: "done" as const })),
+      ]),
+    }),
+    Object.freeze({
+      published: Object.freeze(["reasoningDelta"]),
+      steps: Object.freeze([
+        ok(Object.freeze({ kind: "reasoningDelta" as const, text: " \t" })),
+        ok(toolCallEvent("call-blank-reasoning")),
+      ]),
+    }),
+  ]) {
+    const runtime = new AgentRuntime(
+      new FixedModel(ok(new ScriptedStream<string>([...fixture.steps]))),
+      toolEngine(),
+    );
+    const started = runtime.startTurn("question", "medium");
+    assert.ok(started.ok);
+    if (!started.ok) continue;
+
+    for (const kind of fixture.published) {
+      assert.equal((await next(runtime)).kind, kind);
+    }
+    const finished = await next(runtime);
+    assert.equal(finished.kind, "turnFinished");
+    if (finished.kind === "turnFinished") {
+      assert.deepEqual(finished.outcome, {
+        failure: { kind: "emptyReasoningDelta" },
+        kind: "failed",
+      });
+      assert.equal(finished.historyNodeId, undefined);
+      assert.ok(runtime.acknowledgeTurn(finished.turnId).ok);
+    }
+    assert.equal(runtime.conversation.length, 0);
+  }
+});
+
 test("branches from a selected node and restores either retained path", async () => {
   const model = new SequenceModel<string>([
     new ScriptedStream([

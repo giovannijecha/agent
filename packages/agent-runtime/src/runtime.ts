@@ -942,10 +942,16 @@ export class AgentRuntime<E> implements RuntimeHistorySource, RuntimeSession<E> 
 
     const response = state.chunks.join("");
     const reasoning = state.reasoningChunks.join("");
+    if (reasoning.length > 0 && reasoning.trim().length === 0) {
+      return this.#finish(
+        state,
+        failed(Object.freeze({ kind: "emptyReasoningDelta" })),
+      );
+    }
     const assistant = Message.create(
       Role.Assistant,
       response,
-      reasoning.trim().length === 0 ? undefined : reasoning,
+      reasoning.length === 0 ? undefined : reasoning,
     );
     if (!assistant.ok) {
       return this.#finish(
@@ -973,6 +979,13 @@ export class AgentRuntime<E> implements RuntimeHistorySource, RuntimeSession<E> 
     state: TurnState<E>,
     event: Extract<ModelStreamEvent, { kind: "toolCalls" }>,
   ): Promise<Result<RuntimeEvent<E>, RuntimeSourceError>> {
+    const reasoningText = state.reasoningChunks.join("");
+    if (reasoningText.length > 0 && reasoningText.trim().length === 0) {
+      return this.#finish(
+        state,
+        failed(Object.freeze({ kind: "emptyReasoningDelta" })),
+      );
+    }
     const tools = this.#tools;
     if (tools === undefined) {
       return this.#finish(
@@ -1003,8 +1016,7 @@ export class AgentRuntime<E> implements RuntimeHistorySource, RuntimeSession<E> 
       preparedCalls.push(prepared.value);
     }
     const response = state.chunks.join("");
-    const reasoningText = state.reasoningChunks.join("");
-    const reasoning = reasoningText.trim().length === 0
+    const reasoning = reasoningText.length === 0
       ? undefined
       : reasoningText;
     let assistant: Message | undefined;

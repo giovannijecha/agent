@@ -881,6 +881,50 @@ test("publishes one settled runtime turn into the resumable CLI journal", async 
   }
 });
 
+test("settles all-whitespace reasoning without an application invariant", async () => {
+  let readStep = 0;
+  const runtime = new AgentRuntime<string>({
+    async open(): Promise<Result<ModelStream<string>, string>> {
+      return ok({
+        async close(): Promise<Result<void, string>> {
+          return ok(undefined);
+        },
+        async read(): Promise<Result<ModelStreamEvent, string>> {
+          readStep += 1;
+          return readStep === 1
+            ? ok(Object.freeze({
+                kind: "reasoningDelta" as const,
+                text: " \t",
+              }))
+            : readStep === 2
+              ? ok(Object.freeze({ kind: "delta" as const, text: "answer" }))
+              : ok(Object.freeze({ kind: "done" as const }));
+        },
+      });
+    },
+  });
+  const host = new ControlledHost();
+  const running = run(host, runtime, new ControlledProviders());
+  await host.started.promise;
+  await host.waitForWrites(1);
+
+  host.emit(input("/thinking\r"));
+  await host.waitForWrites(2);
+  host.emit(input("\u001B[B\u001B[C\r"));
+  await host.waitForWrites(3);
+  host.emit(input("question\r"));
+  await host.waitForWrites(6);
+
+  assert.equal(runtime.activeTurnId, undefined);
+  assert.equal(runtime.conversation.length, 0);
+  assert.equal(
+    host.writes.join("").includes("model/empty-reasoning-delta"),
+    true,
+  );
+  host.emit(input("\u0003"));
+  assert.equal((await running).ok, true);
+});
+
 test("persists a checkpoint settled during cleanup before closing the journal", async () => {
   const stateRoot = await mkdtemp(path.join(tmpdir(), "agent-stop-journal-"));
   const workspace = path.join(stateRoot, "workspace");
