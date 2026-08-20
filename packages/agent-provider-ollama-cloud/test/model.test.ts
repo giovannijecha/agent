@@ -353,6 +353,32 @@ test("rejects every malformed thinking-effort option before transport", async ()
   }
 });
 
+test("captures one thinking-effort accessor value for the native request", async () => {
+  let reads = 0;
+  const options = Object.create(null) as Record<string, unknown>;
+  Object.defineProperty(options, "thinkingEffort", {
+    enumerable: true,
+    get(): unknown {
+      reads += 1;
+      return reads === 1 ? "off" : "max";
+    },
+  });
+  const provider = fixture(new FakeStream([]));
+
+  const opened = await provider.model.open(
+    conversation(),
+    new Cancellation(),
+    Object.freeze([]),
+    options as never,
+  );
+
+  assert.ok(opened.ok);
+  assert.equal(reads, 1);
+  const body = provider.transport.request?.body;
+  assert.ok(body !== undefined);
+  assert.equal((JSON.parse(body) as { think?: unknown }).think, false);
+});
+
 test("projects a discriminated tool as one flat object without wire combinators", async () => {
   const provider = fixture(
     new FakeStream([ok(line(response({ content: "done" }, true)))]),

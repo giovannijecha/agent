@@ -324,15 +324,21 @@ export class OllamaCloudModel implements StreamingModel<OllamaCloudError> {
       if (
         options === null ||
         typeof options !== "object" ||
-        Object.keys(options).sort().join(",") !== "thinkingEffort" ||
-        (options.thinkingEffort !== "off" &&
-          options.thinkingEffort !== "low" &&
-          options.thinkingEffort !== "medium" &&
-          options.thinkingEffort !== "high")
+        Object.keys(options).sort().join(",") !== "thinkingEffort"
       ) {
         return err(modelError("open", "request"));
       }
-      thinkingEffort = options.thinkingEffort;
+      const candidate = (options as Readonly<{ thinkingEffort?: unknown }>)
+        .thinkingEffort;
+      if (
+        candidate !== "off" &&
+        candidate !== "low" &&
+        candidate !== "medium" &&
+        candidate !== "high"
+      ) {
+        return err(modelError("open", "request"));
+      }
+      thinkingEffort = candidate;
     } catch (_cause: unknown) {
       return err(modelError("open", "request"));
     }
