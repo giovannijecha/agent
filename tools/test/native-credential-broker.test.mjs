@@ -23,6 +23,12 @@ const broker = path.join(
   process.platform + "-" + process.arch,
   "agent-credential-fixture" + suffix,
 );
+const profileFixture = path.join(
+  projectRoot,
+  "packages/agent-cli/.native-build",
+  process.platform + "-" + process.arch,
+  "agent-credential-profile-fixture.exe",
+);
 
 function request(kind, payload = new Uint8Array()) {
   const frame = new Uint8Array(12 + payload.length);
@@ -89,18 +95,22 @@ function temporaryRoot() {
 test("Windows profile lineage does not require credential-object ownership", {
   skip: process.platform !== "win32",
 }, () => {
-  const source = readFileSync(path.join(
-    projectRoot,
-    "packages/agent-cli/native/credential-broker/credential-store.c",
-  ), "utf8");
-  assert.match(
-    source,
-    /home_handle = agent_windows_open_lineage_directory\(home\)/u,
-  );
-  assert.doesNotMatch(
-    source,
-    /home_handle = agent_windows_open_directory\(home, state->account, false\)/u,
-  );
+  const root = temporaryRoot();
+  try {
+    const prepared = spawnSync(profileFixture, [], {
+      cwd: root,
+      env: {},
+      shell: false,
+      timeout: 10_000,
+      windowsHide: true,
+    });
+    assert.equal(prepared.error, undefined);
+    assert.equal(prepared.status, 0);
+    assert.equal(prepared.stdout.length, 0);
+    assert.equal(prepared.stderr.length, 0);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
 });
 
 test("native credential broker admits the existing shared state root", () => {

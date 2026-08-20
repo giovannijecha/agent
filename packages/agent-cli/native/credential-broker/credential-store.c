@@ -255,6 +255,8 @@ static bool agent_encode_record(
 
 #ifdef _WIN32
 
+#include "lineage-windows.h"
+
 #include <aclapi.h>
 #include <sddl.h>
 #include <shlobj.h>
@@ -479,36 +481,6 @@ static HANDLE agent_windows_open_directory(
   return handle;
 }
 
-static HANDLE agent_windows_open_lineage_directory(const wchar_t *path) {
-  HANDLE handle = CreateFileW(
-    path,
-    FILE_READ_ATTRIBUTES | SYNCHRONIZE,
-    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-    NULL,
-    OPEN_EXISTING,
-    FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
-    NULL
-  );
-  FILE_ATTRIBUTE_TAG_INFO tags;
-  if (
-    handle == INVALID_HANDLE_VALUE ||
-    GetFileInformationByHandleEx(
-      handle,
-      FileAttributeTagInfo,
-      &tags,
-      sizeof(tags)
-    ) == 0 ||
-    (tags.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0 ||
-    (tags.FileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0
-  ) {
-    if (handle != INVALID_HANDLE_VALUE) {
-      CloseHandle(handle);
-    }
-    return INVALID_HANDLE_VALUE;
-  }
-  return handle;
-}
-
 static bool agent_windows_ensure_directory(
   const wchar_t *path,
   PSID account,
@@ -526,7 +498,9 @@ static bool agent_windows_ensure_directory(
   if (created == 0 && error != ERROR_ALREADY_EXISTS) {
     return false;
   }
-  HANDLE handle = agent_windows_open_directory(path, account, exact);
+  HANDLE handle = exact
+    ? agent_windows_open_directory(path, account, true)
+    : agent_windows_open_lineage_directory(path);
   if (handle == INVALID_HANDLE_VALUE) {
     return false;
   }

@@ -272,10 +272,11 @@ home text and owns the exact Ollama record, strict schema, filesystem controls,
 shared/exclusive byte-range admission, atomic mutation, recovery, and removal.
 The resolved Windows profile is validated as non-reparse lineage without
 requiring it to share the credential SID owner; ownership enforcement begins at
-the decision-0087-compatible `.agent` root and becomes exact on the credential
-directory, lock, and records. Linux recovery opens a fresh validated credential
-directory description for every inventory scan. The store is owned plaintext,
-not an OS keychain or encrypted vault.
+the exact credential lock and `credentials` child. The decision-0087 `.agent`
+root remains shared non-reparse lineage and may retain its operating-system
+owner and DACL. Linux recovery opens a fresh validated credential directory
+description for every inventory scan. The store is owned plaintext, not an OS
+keychain or encrypted vault.
 
 Every TUI process snapshots the durable record or the temporary environment
 source while holding a shared admission through provider cleanup. Auth mutation

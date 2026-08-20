@@ -127,8 +127,8 @@ extra field, reordered field, trailing byte, malformed number, unsupported
 version, invalid UTF-8, or invalid key fails closed.
 
 Before reading any secret payload byte, the native boundary validates the
-complete registered directory inventory, native-resolved home lineage kind and
-link state, state-root and credential-object ownership and access controls,
+complete registered directory inventory, native-resolved home and state-root
+lineage kind and link state, credential-object ownership and access controls,
 record header and declared payload extent, provider admission, and absence of
 an ambiguous recovery state.
 It reads only the bounded non-secret header needed to validate that schema and
@@ -141,13 +141,16 @@ tamper resistance. On Windows, the native broker derives the current account
 SID from the process token. The native-resolved profile directory is lineage,
 not a credential object: it must be a real non-reparse directory but may retain
 its operating-system owner, including a built-in administrative owner. The
-shared `.agent` root remains compatible with decision 0087 and must be a real
-directory with the current SID as owner and a present DACL. The broker creates
-the credential directory, lock, committed record, and recovery records as real
-non-reparse objects with protected non-inherited security descriptors, that SID
-as owner, and one exact allow entry for that SID. Every credential-object open
-revalidates owner, DACL, object kind, reparse state, and a record link count of
-one before payload access. Node mode bits are not a Windows security boundary.
+shared `.agent` root is also lineage owned by decision 0087: it must be a real
+non-reparse directory but an existing root retains its operating-system owner
+and DACL. When absent, the broker requests creation under the current SID; it
+never rewrites an existing root. Credential-object controls begin at the exact
+lock and `credentials` child. The broker creates those objects and the committed
+and recovery records with protected non-inherited security descriptors, that
+SID as owner, and one exact allow entry for that SID. Every credential-object
+open revalidates owner, DACL, object kind, reparse state, and a record link count
+of one before payload access. Node mode bits are not a Windows security
+boundary.
 
 On Linux, the broker uses native-home directory handles, handle-relative
 no-follow opens, effective-user ownership, directory mode `0700`, file mode
