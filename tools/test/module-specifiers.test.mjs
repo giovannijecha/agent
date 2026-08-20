@@ -45,6 +45,12 @@ test("collects runtime export bindings and ignores non-runtime forms", () => {
       'const text = "export { concealed };";\n' +
       "export type { Dirent };\n" +
       'export { type Metadata, readFile, open as localOpen, rename as "local-rename" };\n' +
+      "const firstRead = readFile;\n" +
+      "const secondRead = firstRead;\n" +
+      "export { secondRead as chainedRead };\n" +
+      "export const localRead = ((readFile));\n" +
+      "export let localOpenDeclaration: typeof open = open;\n" +
+      "export var readResult = readFile(path);\n" +
       "export default ((rename));\n",
   );
 
@@ -52,8 +58,50 @@ test("collects runtime export bindings and ignores non-runtime forms", () => {
     { exported: "readFile", line: 4, local: "readFile" },
     { exported: "localOpen", line: 4, local: "open" },
     { exported: "local-rename", line: 4, local: "rename" },
-    { exported: "default", line: 5, local: "rename" },
+    { exported: "chainedRead", line: 7, local: "readFile" },
+    { exported: "localRead", line: 8, local: "readFile" },
+    { exported: "localOpenDeclaration", line: 9, local: "open" },
+    { exported: "readResult", line: 10, local: "readResult" },
+    { exported: "default", line: 11, local: "rename" },
   ]);
+});
+
+test("bounds direct runtime binding aliases", () => {
+  const source = Array.from(
+    { length: 257 },
+    (_, index) => "const alias" + String(index) + " = source" + String(index) + ";",
+  ).join("\n");
+  assert.throws(
+    () => collectRuntimeExportBindings(source),
+    (error) =>
+      error instanceof ModuleScanError &&
+      error.message.endsWith("runtime binding alias count exceeds owned bounds"),
+  );
+});
+
+test("scopes direct runtime aliases to module bindings", () => {
+  assert.deepEqual(
+    collectRuntimeExportBindings(
+      "const localRead = ordinary;\n" +
+        "function scoped() { const localRead = readFile; }\n" +
+        "export { localRead };\n",
+    ),
+    [{ exported: "localRead", line: 3, local: "ordinary" }],
+  );
+});
+
+test("rejects direct runtime binding alias cycles", () => {
+  assert.throws(
+    () =>
+      collectRuntimeExportBindings(
+        "let firstRead = secondRead;\n" +
+          "let secondRead = firstRead;\n" +
+          "export { firstRead };\n",
+      ),
+    (error) =>
+      error instanceof ModuleScanError &&
+      error.message.endsWith("runtime binding alias cycle"),
+  );
 });
 
 test("extracts static imports and re-exports", () => {

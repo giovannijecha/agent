@@ -3,6 +3,7 @@
 const STATIC_STRING_DEPTH_LIMIT = 8;
 const STATIC_STRING_FRAGMENT_LIMIT = 32;
 const STATIC_STRING_LENGTH_LIMIT = 1_024;
+const RUNTIME_BINDING_ALIAS_LIMIT = 256;
 
 export class ModuleScanError extends Error {
   constructor(message, line) {
@@ -474,10 +475,170 @@ export function collectStaticStringValues(source) {
   return Object.freeze(values);
 }
 
-/** Returns runtime bindings named directly by export lists or default exports. */
+function directAliasSource(tokens, start, end) {
+  let cursor = start;
+  let parentheses = 0;
+  while (tokens[cursor]?.value === "(") {
+    parentheses += 1;
+    cursor += 1;
+  }
+  const source = tokens[cursor];
+  if (source?.kind !== "identifier") {
+    return undefined;
+  }
+  cursor += 1;
+  while (cursor < end) {
+    if (tokens[cursor]?.value === "!") {
+      cursor += 1;
+      continue;
+    }
+    if (parentheses > 0 && tokens[cursor]?.value === ")") {
+      parentheses -= 1;
+      cursor += 1;
+      continue;
+    }
+    break;
+  }
+  if (parentheses !== 0) {
+    return undefined;
+  }
+  if (
+    cursor !== end &&
+    tokens[cursor]?.value !== "as" &&
+    tokens[cursor]?.value !== "satisfies"
+  ) {
+    return undefined;
+  }
+  return source.value;
+}
+
+function variableDeclarator(tokens, start) {
+  let cursor = start + 1;
+  let equals;
+  let parentheses = 0;
+  let brackets = 0;
+  let braces = 0;
+  while (cursor < tokens.length) {
+    const value = tokens[cursor]?.value;
+    if (value === "(") {
+      parentheses += 1;
+    } else if (value === ")" && parentheses > 0) {
+      parentheses -= 1;
+    } else if (value === "[") {
+      brackets += 1;
+    } else if (value === "]" && brackets > 0) {
+      brackets -= 1;
+    } else if (value === "{") {
+      braces += 1;
+    } else if (value === "}" && braces > 0) {
+      braces -= 1;
+    } else if (parentheses === 0 && brackets === 0 && braces === 0) {
+      if (value === "," || value === ";") {
+        break;
+      }
+      if (
+        value === "=" &&
+        tokens[cursor - 1]?.value !== "=" &&
+        tokens[cursor + 1]?.value !== "=" &&
+        tokens[cursor + 1]?.value !== ">"
+      ) {
+        equals = cursor;
+      }
+    }
+    cursor += 1;
+  }
+  return {
+    alias: equals === undefined
+      ? undefined
+      : directAliasSource(tokens, equals + 1, cursor),
+    next: cursor,
+  };
+}
+
+function collectVariableBindingAliases(tokens) {
+  const aliases = new Map();
+  const declarations = new Map();
+  let parentheses = 0;
+  let brackets = 0;
+  let braces = 0;
+  for (let index = 0; index < tokens.length; index += 1) {
+    const value = tokens[index]?.value;
+    if (value === ")" && parentheses > 0) {
+      parentheses -= 1;
+    } else if (value === "]" && brackets > 0) {
+      brackets -= 1;
+    } else if (value === "}" && braces > 0) {
+      braces -= 1;
+    }
+    if (
+      parentheses !== 0 ||
+      brackets !== 0 ||
+      braces !== 0 ||
+      !["const", "let", "var"].includes(value) ||
+      tokens[index - 1]?.value === "."
+    ) {
+      if (value === "(") {
+        parentheses += 1;
+      } else if (value === "[") {
+        brackets += 1;
+      } else if (value === "{") {
+        braces += 1;
+      }
+      continue;
+    }
+    const names = [];
+    let cursor = index + 1;
+    while (cursor < tokens.length) {
+      const name = tokens[cursor];
+      if (name?.kind !== "identifier") {
+        break;
+      }
+      const declarator = variableDeclarator(tokens, cursor);
+      names.push(name.value);
+      if (declarator.alias !== undefined) {
+        if (!aliases.has(name.value) && aliases.size >= RUNTIME_BINDING_ALIAS_LIMIT) {
+          throw new ModuleScanError(
+            "runtime binding alias count exceeds owned bounds",
+            name.line,
+          );
+        }
+        aliases.set(name.value, declarator.alias);
+      }
+      if (tokens[declarator.next]?.value !== ",") {
+        break;
+      }
+      cursor = declarator.next + 1;
+    }
+    declarations.set(index, Object.freeze(names));
+  }
+  return { aliases, declarations };
+}
+
+function resolveDirectBindingAlias(aliases, local, line) {
+  const visited = new Set();
+  let current = local;
+  while (aliases.has(current)) {
+    if (visited.has(current) || visited.size >= RUNTIME_BINDING_ALIAS_LIMIT) {
+      throw new ModuleScanError("runtime binding alias cycle", line);
+    }
+    visited.add(current);
+    current = aliases.get(current);
+  }
+  return current;
+}
+
+/** Returns runtime bindings named or directly aliased by runtime exports. */
 export function collectRuntimeExportBindings(source) {
   const tokens = tokenize(source);
+  const { aliases, declarations } = collectVariableBindingAliases(tokens);
   const bindings = [];
+  function appendBinding(exported, line, local) {
+    bindings.push(Object.freeze({
+      exported,
+      line,
+      local: resolveDirectBindingAlias(aliases, local, line),
+    }));
+  }
   for (let index = 0; index < tokens.length; index += 1) {
     if (tokens[index]?.value !== "export") {
       continue;
@@ -499,11 +660,13 @@ export function collectRuntimeExportBindings(source) {
         local?.kind === "identifier" &&
         !["async", "class", "function"].includes(local.value)
       ) {
-        bindings.push(Object.freeze({
-          exported: "default",
-          line: tokens[index].line,
-          local: local.value,
-        }));
+        appendBinding("default", tokens[index].line, local.value);
+      }
+      continue;
+    }
+    if (["const", "let", "var"].includes(tokens[cursor]?.value)) {
+      for (const declared of declarations.get(cursor) ?? []) {
+        appendBinding(declared, tokens[index].line, declared);
       }
       continue;
     }
@@ -535,11 +698,7 @@ export function collectRuntimeExportBindings(source) {
         cursor += 2;
       }
       if (!typeOnly) {
-        bindings.push(Object.freeze({
-          exported,
-          line: tokens[index].line,
-          local: local.value,
-        }));
+        appendBinding(exported, tokens[index].line, local.value);
       }
     }
   }

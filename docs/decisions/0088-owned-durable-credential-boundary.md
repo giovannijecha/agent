@@ -163,10 +163,12 @@ the canonical product-source set, and each approved CLI filesystem path must
 retain its exact import statement and bindings. A rename, deletion, or reduced
 filesystem import fails closed rather than preserving a dormant path allowance.
 No approved runtime filesystem binding may leave its inventoried module through
-a named export, including an identifier or string-literal alias, or a default
-export. The same owned lexer ignores comments, standalone string contents, and
-type-only exports; it never executes product code or claims general
-capability-flow analysis.
+a named export, including an identifier or string-literal alias, a default
+export, or an exported variable declaration. The same owned lexer resolves only
+direct identifier aliases at module scope, rejects cycles, and admits at most
+256 alias records. Nested-scope aliases, call results, comments, standalone
+string contents, and type-only exports do not create raw-binding evidence; the
+gate never executes product code or claims general capability-flow analysis.
 Before applying dormant literal markers, the gate projects values reconstructed
 only from bounded non-interpolated literals, parentheses, literal `+`, and
 literal arrays joined with a static separator. It never evaluates product code;
