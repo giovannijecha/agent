@@ -164,6 +164,29 @@ const APPROVED_SOURCE_LITERALS = Object.freeze({
   "packages/agent-cli/test/node-ollama-model-catalog.test.ts": ["Bearer "],
 });
 
+const EXPECTED_CREDENTIAL_IDENTIFIERS = new Set([
+  "Credential",
+  "ProviderCredentialProjection",
+  "_credential",
+  "cancelProviderCredential",
+  "createProviderCredentialDocument",
+  "credential",
+  "credentialEnd",
+  "credentialEntry",
+  "credentialOutcome",
+  "credentialProviderId",
+  "credentialRender",
+  "credentialStart",
+  "credentialValid",
+  "credentials",
+  "invalidCredential",
+  "isValidOllamaCloudCredential",
+  "isValidProviderCredential",
+  "projectProviderCredential",
+  "providerCredential",
+  "submitProviderCredential",
+]);
+
 const FORBIDDEN_SOURCE_MARKERS = [
   [/(?:auth\.openai\.com|chatgpt\.com\/backend-api)/iu, "OpenAI subscription endpoint"],
   [/(?:claude\.ai\/oauth|platform\.claude\.com\/v1\/oauth)/iu, "Claude subscription endpoint"],
@@ -201,7 +224,6 @@ const FORBIDDEN_COMPACT_MARKERS = [
   [/youareclaudecode/u, "foreign product identity"],
   [/(?:agentauth|(?:argument|command)(?:===|==|:)auth)(?:[^a-z0-9]|$)/u, "dormant agent auth command"],
   [/(?:\.agent|userstateroot).{0,64}credentials(?:[^a-z0-9]|$)/u, "dormant credential namespace"],
-  [/(?:read|load)(?:durable|owned|provider|stored)*credentials?(?:file|record)?(?:[^a-z0-9]|$)/u, "generic credential reader"],
 ];
 
 export class ProviderPolicyError extends Error {
@@ -570,11 +592,26 @@ function compactSource(text) {
     .toLowerCase();
 }
 
+function validateCredentialIdentifiers(path, text) {
+  const decoded = decodeScannableEscapes(text);
+  for (const match of decoded.matchAll(/[A-Za-z_$][A-Za-z0-9_$]*/gu)) {
+    const identifier = match.at(0);
+    if (
+      identifier !== undefined &&
+      identifier.toLowerCase().includes("credential") &&
+      !EXPECTED_CREDENTIAL_IDENTIFIERS.has(identifier)
+    ) {
+      fail(path + " contains unregistered credential identifier");
+    }
+  }
+}
+
 function validateProductSources(productSources) {
   for (const source of productSources) {
     if (!isRecord(source) || typeof source.path !== "string" || typeof source.text !== "string") {
       fail("product source entries must contain path and text");
     }
+    validateCredentialIdentifiers(source.path, source.text);
     let scannable = source.text;
     const approved = APPROVED_SOURCE_LITERALS[source.path] ?? [];
     for (const literal of approved) {

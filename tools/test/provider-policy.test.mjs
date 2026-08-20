@@ -353,15 +353,21 @@ test("rejects every dormant durable credential product surface", () => {
         'path.join(userStateRoot, "credentials")',
       ),
     },
-    {
-      label: "generic credential reader",
-      match: "obfuscated",
+    ...[
+      "getCredential",
+      "loadCredential",
+      "openCredential",
+      "readCredential",
+      "resolveCredential",
+    ].map((reader) => ({
+      label: "credential identifier",
+      match: "unregistered",
       path: "packages/agent-cli/src/provider-session.ts",
       mutate: (text) => text +
-        "\nexport function readCredential(): undefined {\n" +
+        "\nexport function " + reader + "(): undefined {\n" +
         "  return undefined;\n" +
         "}\n",
-    },
+    })),
   ];
 
   for (const mutation of mutations) {
