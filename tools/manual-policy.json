@@ -295,6 +295,7 @@
     "docs/decisions/0086-owned-thinking-effort-and-display.md",
     "docs/decisions/0087-owned-user-scoped-state-root.md",
     "docs/decisions/0088-owned-durable-credential-boundary.md",
+    "docs/decisions/0089-owned-external-authentication-transition.md",
     "evaluations/README.md",
     "evaluations/failures/registry.json",
     "assets/brand/README.md",

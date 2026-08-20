@@ -62,6 +62,12 @@ Follow this order:
 Do not widen the task because an adjacent cleanup is attractive. Record a
 separate follow-up unless the adjacent change is necessary for correctness.
 
+Decision 0089 is a non-activating design contract. Until its complete external-
+authentication implementation changes the owned source and living contracts,
+the memory-only provider policy and dormant CLI/native source inventories remain
+exact. No intermediate implementation may be published with an unreachable
+credential owner or both `/providers` and `agent auth` credential entry.
+
 ## Source rules
 
 - Use Node.js `>=22.19.0`, npm workspaces, ESM, ES2022, external TypeScript

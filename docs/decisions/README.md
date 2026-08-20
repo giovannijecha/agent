@@ -50,7 +50,7 @@ belong here.
 | foundation | [0002 TypeScript foundation](0002-owned-zero-dependency-typescript.md) |
 | governance | [0010 public identity](0010-public-project-identity.md), [0037 canonical brand](0037-canonical-agent-brand.md) |
 | providers | [0082 tool-stream normalization](0082-owned-ollama-tool-stream-normalization.md), [0080 HTTP outcome classification](0080-owned-provider-http-outcome-classification.md), [0072 Ollama Cloud](0072-owned-ollama-cloud-provider.md), [0069 tool interoperability](0069-owned-tool-call-interoperability.md) |
-| security | [0088 durable credential boundary](0088-owned-durable-credential-boundary.md), [0016 native containment](0016-owned-native-process-containment.md), [0042 workspace boundary](0042-owned-workspace-trust-boundary.md), [0058 Linux namespace boundary](0058-owned-linux-namespace-fail-closed-boundary.md) |
+| security | [0089 external authentication transition](0089-owned-external-authentication-transition.md), [0016 native containment](0016-owned-native-process-containment.md), [0042 workspace boundary](0042-owned-workspace-trust-boundary.md), [0058 Linux namespace boundary](0058-owned-linux-namespace-fail-closed-boundary.md) |
 | terminal | [0079 selector dismissal](0079-owned-explicit-selector-dismissal.md), [0078 interaction dock](0078-owned-interaction-dock-focus.md), [0077 blinking block cursor](0077-owned-terminal-blinking-block-cursor.md), [0023 Markdown](0023-owned-bounded-markdown.md), [0045 interaction](0045-owned-terminal-interaction.md), [0059 conversation focus](0059-owned-accented-conversation-focus.md) |
 | tools | [0084 flat namespace contract](0084-owned-flat-namespace-tool-contract.md), [0073 shell execution](0073-owned-capability-complete-shell-execution.md), [0050 capability surface](0050-owned-minimal-coding-capability-surface.md), [0053 text patch](0053-owned-structured-text-patch.md), [0054 namespace management](0054-owned-workspace-namespace-management.md), [0055 permissions](0055-owned-session-tool-permissions.md) |
 
@@ -145,4 +145,5 @@ belong here.
 | [0085](0085-owned-reasoning-journal-migration.md) | accepted | architecture | current |
 | [0086](0086-owned-thinking-effort-and-display.md) | accepted | architecture | supersedes 0083 |
 | [0087](0087-owned-user-scoped-state-root.md) | accepted | architecture | current |
-| [0088](0088-owned-durable-credential-boundary.md) | accepted | security | current |
+| [0088](0088-owned-durable-credential-boundary.md) | superseded | security | superseded by 0089 |
+| [0089](0089-owned-external-authentication-transition.md) | accepted | security | supersedes 0088 |

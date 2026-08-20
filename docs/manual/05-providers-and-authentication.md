@@ -78,7 +78,9 @@ Subscription OAuth integrations remain blocked. The
 registration status, while the [provider policy](../PROVIDERS.md) owns runtime
 admission. The future owned credential boundary is deliberately dormant: Agent
 does not currently create `~/.agent/credentials`, cache a subscription login,
-or expose an `agent auth` command.
+or expose an `agent auth` command. Decision 0089 records a future replacement
+contract; `agent auth` is not currently available, and `/providers` remains the
+only interactive key path until that contract is implemented.
 
 ## Recover from provider failures
 
@@ -157,6 +159,7 @@ fall back to another endpoint after a catalog or chat failure.
 - [Provider update and removal procedure](../MAINTENANCE.md#ollama-cloud)
 - [Current authority by domain](../decisions/README.md#current-authority-by-domain)
 - [Ollama Cloud provider decision](../decisions/0072-owned-ollama-cloud-provider.md)
+- [External authentication transition decision](../decisions/0089-owned-external-authentication-transition.md)
 - [Provider HTTP outcome decision](../decisions/0080-owned-provider-http-outcome-classification.md)
 - [Ollama tool-stream normalization decision](../decisions/0082-owned-ollama-tool-stream-normalization.md)
 - [Bounded-thinking decision](../decisions/0083-owned-bounded-thinking-stream.md)

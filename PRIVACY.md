@@ -182,9 +182,10 @@ details, or one-time codes. The Ollama API key is accepted only through the
 zero-projection TUI credential context or `AGENT_OLLAMA_API_KEY` and remains in
 process memory. The credential context writes no key, mask, or length into the
 frame, notice, transcript, or terminal history. Environment preloading never
-selects a provider or model. Decision 0088 defines a dormant owned plaintext
-filesystem boundary for future durable OAuth material; it creates no directory
-or record and never admits API keys. Provider data-use, retention, billing,
+selects a provider or model. Decision 0089 changes no current retention behavior:
+it supersedes decision 0088's future design without creating a directory,
+record, or `agent auth` command and without admitting API-key persistence in the
+current product. Provider data-use, retention, billing,
 quota, and model availability terms can change and are not guarantees made by
 this project; review the current Ollama terms before sending sensitive content.
 The four subscription OAuth connections remain disabled.
@@ -246,12 +247,13 @@ not encryption or an operating-system vault. Other principals already
 authorized by the host, backups, or malware may still observe it. No
 `credentials` or `settings` sibling is created by the session feature.
 
-The reserved credential boundary is separately governed by decision 0088. It
-remains absent until an admitted OAuth provider defines the minimum durable
-material, exact schema, retention, rotation, revocation, and removal contract.
-When activated it will use owned native user-only filesystem controls, not an OS
+The accepted future credential transition is separately governed by decision
+0089. It remains absent until its later implementation activates the exact
+Ollama record, external command, concurrency, recovery, and removal contract.
+Activation will use owned native user-only filesystem controls, not an OS
 credential container or a claim of encryption; same-user processes, privileged
-principals, backups, malware, and offline access remain outside that protection.
+principals, backups, snapshots, malware, memory inspection, and offline access
+remain outside that protection.
 
 For existing installations, an ordinary interactive launch considers only the
 exact current workspace under the former `%LOCALAPPDATA%\agent\sessions`

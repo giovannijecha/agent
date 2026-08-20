@@ -52,9 +52,10 @@ identity, user agent, prompt, or credential store.
 
 The browser remains provider-hosted. `agent` will not request a password,
 cookie, recovery code, payment detail, or one-time code. Initial credentials
-remain in process memory. Decision 0088 defines a dormant owned filesystem
-boundary for future durable OAuth material, but persistence remains blocked
-until one admitted provider supplies the exact record and lifecycle contract.
+remain in process memory. Decision 0089 changes no current registration or
+OAuth admission result. Its future owned store can admit OAuth material only
+after a separate provider decision supplies the exact public-client identity,
+record, refresh, revocation, recovery, and removal contract.
 
 ## Data flow
 
