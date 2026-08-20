@@ -66,6 +66,45 @@ test("collects runtime export bindings and ignores non-runtime forms", () => {
   ]);
 });
 
+test("requires the complete default expression to be a direct alias", () => {
+  const result = collectRuntimeExportBindings(
+    "export default readFile;\n" +
+      "export default ((open));\n" +
+      "export default readFile(path);\n" +
+      "export default readFile.bind(owner);\n" +
+      "export default readFile[name];\n" +
+      "export default readFile`path`;\n" +
+      "export default readFile + marker;\n",
+  );
+
+  assert.deepEqual(result, [
+    { exported: "default", line: 1, local: "readFile" },
+    { exported: "default", line: 2, local: "open" },
+  ]);
+});
+
+test("rejects exported runtime binding patterns", () => {
+  for (const source of [
+    "export const { localRead } = { localRead: readFile };\n",
+    "export const [localRead] = [readFile];\n",
+  ]) {
+    assert.throws(
+      () => collectRuntimeExportBindings(source),
+      (error) =>
+        error instanceof ModuleScanError &&
+        error.message.endsWith(
+          "exported runtime binding patterns are outside owned bounds",
+        ),
+    );
+  }
+
+  assert.doesNotThrow(() =>
+    collectRuntimeExportBindings(
+      "const { localRead } = source;\nexport { ordinary };\n",
+    ),
+  );
+});
+
 test("stops runtime alias declarators at automatic semicolon boundaries", () => {
   const result = collectRuntimeExportBindings(
     "export const localRead = readFile\n" +

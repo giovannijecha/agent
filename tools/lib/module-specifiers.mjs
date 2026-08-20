@@ -546,9 +546,8 @@ function isAutomaticSemicolonAliasBoundary(tokens, start, cursor) {
     /[0-9]/u.test(tokens[cursor + 1]?.value ?? "");
 }
 
-function variableDeclarator(tokens, start) {
-  let cursor = start + 1;
-  let equals;
+function runtimeExpressionEnd(tokens, start, commaTerminates) {
+  let cursor = start;
   let parentheses = 0;
   let brackets = 0;
   let braces = 0;
@@ -558,8 +557,11 @@ function variableDeclarator(tokens, start) {
       parentheses === 0 &&
       brackets === 0 &&
       braces === 0 &&
-      equals !== undefined &&
-      isAutomaticSemicolonAliasBoundary(tokens, equals + 1, cursor)
+      (
+        value === ";" ||
+        (commaTerminates && value === ",") ||
+        isAutomaticSemicolonAliasBoundary(tokens, start, cursor)
+      )
     ) {
       break;
     }
@@ -575,9 +577,22 @@ function variableDeclarator(tokens, start) {
       braces += 1;
     } else if (value === "}" && braces > 0) {
       braces -= 1;
-    } else if (parentheses === 0 && brackets === 0 && braces === 0) {
+    }
+    cursor += 1;
+  }
+  return cursor;
+}
+
+function variableDeclarator(tokens, start) {
+  let cursor = start + 1;
+  let parentheses = 0;
+  let brackets = 0;
+  let braces = 0;
+  while (cursor < tokens.length) {
+    const value = tokens[cursor]?.value;
+    if (parentheses === 0 && brackets === 0 && braces === 0) {
       if (value === "," || value === ";") {
-        break;
+        return { alias: undefined, next: cursor };
       }
       if (
         value === "=" &&
@@ -585,15 +600,31 @@ function variableDeclarator(tokens, start) {
         tokens[cursor + 1]?.value !== "=" &&
         tokens[cursor + 1]?.value !== ">"
       ) {
-        equals = cursor;
+        const initializerStart = cursor + 1;
+        const next = runtimeExpressionEnd(tokens, initializerStart, true);
+        return {
+          alias: directAliasSource(tokens, initializerStart, next),
+          next,
+        };
       }
+    }
+    if (value === "(") {
+      parentheses += 1;
+    } else if (value === ")" && parentheses > 0) {
+      parentheses -= 1;
+    } else if (value === "[") {
+      brackets += 1;
+    } else if (value === "]" && brackets > 0) {
+      brackets -= 1;
+    } else if (value === "{") {
+      braces += 1;
+    } else if (value === "}" && braces > 0) {
+      braces -= 1;
     }
     cursor += 1;
   }
   return {
-    alias: equals === undefined
-      ? undefined
-      : directAliasSource(tokens, equals + 1, cursor),
+    alias: undefined,
     next: cursor,
   };
 }
@@ -694,20 +725,29 @@ export function collectRuntimeExportBindings(source) {
       continue;
     }
     if (tokens[cursor]?.value === "default") {
-      cursor += 1;
-      while (tokens[cursor]?.value === "(") {
-        cursor += 1;
-      }
-      const local = tokens[cursor];
+      const expressionStart = cursor + 1;
+      const expressionEnd = runtimeExpressionEnd(
+        tokens,
+        expressionStart,
+        false,
+      );
+      const local = directAliasSource(tokens, expressionStart, expressionEnd);
       if (
-        local?.kind === "identifier" &&
-        !["async", "class", "function"].includes(local.value)
+        local !== undefined &&
+        !["async", "class", "function"].includes(local)
       ) {
-        appendBinding("default", tokens[index].line, local.value);
+        appendBinding("default", tokens[index].line, local);
       }
+      index = Math.max(index, expressionEnd - 1);
       continue;
     }
     if (["const", "let", "var"].includes(tokens[cursor]?.value)) {
+      if (["{", "["].includes(tokens[cursor + 1]?.value)) {
+        throw new ModuleScanError(
+          "exported runtime binding patterns are outside owned bounds",
+          tokens[index].line,
+        );
+      }
       for (const declared of declarations.get(cursor) ?? []) {
         appendBinding(declared, tokens[index].line, declared);
       }

@@ -88,11 +88,14 @@ separate follow-up unless the adjacent change is necessary for correctness.
   deleting, or reducing an inventoried authority fails closed.
 - An approved runtime filesystem binding may not leave its inventoried module
   through a named export, including an identifier or string-literal alias, a
-  default export, or an exported variable declaration. The owned lexer resolves
-  at most 256 module-scope direct identifier aliases, rejects cycles, and
-  delimits variable declarators at explicit or lexically unambiguous
-  automatic-semicolon boundaries. Multiline calls, member access, tagged
-  templates, and transparent assertions remain expression continuations. The lexer
+  default export, or an exported variable declaration. Exported object and
+  array binding patterns are outside the owned grammar and fail closed. The
+  owned lexer resolves at most 256 module-scope direct identifier aliases,
+  rejects cycles, and delimits variable declarators and default expressions at
+  explicit or lexically unambiguous automatic-semicolon boundaries. A default
+  export creates alias evidence only when its complete delimited expression is
+  a direct identifier alias. Multiline calls, member access, tagged templates,
+  and transparent assertions remain expression continuations. The lexer
   distinguishes runtime exports from nested scopes, comments, standalone
   string contents, and type-only syntax, and does not infer general capability
   flow through product execution.

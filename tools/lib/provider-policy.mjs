@@ -768,7 +768,15 @@ function validateCliFilesystemAuthority(path, text) {
       .filter((entry) => !entry.startsWith("type "))
       .map((entry) => entry.split(/\s+as\s+/u).at(-1)),
   );
-  const exportedBindings = collectRuntimeExportBindings(text);
+  let exportedBindings;
+  try {
+    exportedBindings = collectRuntimeExportBindings(text);
+  } catch (error) {
+    if (error instanceof ModuleScanError) {
+      fail(path + " contains an unscannable runtime export");
+    }
+    throw error;
+  }
   if (exportedBindings.some((entry) => runtimeBindings.has(entry.local))) {
     fail(path + " exports an approved CLI filesystem binding");
   }

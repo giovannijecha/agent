@@ -532,14 +532,17 @@ dormant pathname allowance for possible later reuse.
 
 Do not re-export an approved runtime filesystem binding from its inventoried
 module. Keep direct, identifier-aliased, string-literal-aliased, default, and
-exported variable declaration mutations in the source-policy corpus. Include a
-separate module-scope direct-alias chain, the 256-alias bound, cycle rejection,
-an omitted-semicolon declaration followed by a new statement, and negative
+exported variable declaration mutations in the source-policy corpus. Reject
+exported object and array binding patterns as unscannable rather than trying to
+infer destructuring flow. Require the complete default-export expression to be
+a direct alias before recording it. Include a separate module-scope
+direct-alias chain, the 256-alias bound, cycle rejection, and an
+omitted-semicolon declaration followed by a new statement. Keep negative
 controls for multiline calls, member access, tagged templates, transparent
-assertions, nested scopes, call results, comments, standalone source strings,
-and type-only exports. A higher-level owned CLI API remains subject to its
-ordinary package and source review; this gate does not execute product code or
-infer general data flow.
+assertions, nested scopes,
+call results, comments, standalone source strings, and type-only exports. A
+higher-level owned CLI API remains subject to its ordinary package and source
+review; this gate does not execute product code or infer general data flow.
 
 Keep direct and split dormant literals in the mutation corpus. The static-string
 projection admits only non-interpolated literals, parentheses, literal `+`, and

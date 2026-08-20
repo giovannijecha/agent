@@ -594,6 +594,38 @@ test("rejects approved filesystem bindings re-exported to local modules", () => 
   }
 });
 
+test("rejects destructured filesystem exports and admits default call results", () => {
+  const path = "packages/agent-cli/src/session-journal.ts";
+  const original = readFileSync(
+    new URL("../../" + path, import.meta.url),
+    "utf8",
+  );
+  assert.throws(
+    () =>
+      validateProviderPolicy(
+        currentPolicy,
+        contextWithSources({
+          path,
+          text: original +
+            "\nexport const { localRead } = { localRead: readFile };\n",
+        }),
+      ),
+    (error) =>
+      error instanceof ProviderPolicyError &&
+      error.message === path + " contains an unscannable runtime export",
+  );
+
+  assert.doesNotThrow(() =>
+    validateProviderPolicy(
+      currentPolicy,
+      contextWithSources({
+        path,
+        text: original + "\nexport default readFile(path);\n",
+      }),
+    ),
+  );
+});
+
 test("rejects an allowed sensitive identifier at an unreviewed occurrence", () => {
   const path = "packages/agent-cli/src/session-journal.ts";
   const original = readFileSync(
