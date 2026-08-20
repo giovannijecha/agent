@@ -22,8 +22,8 @@
   },
   "provenanceLog": {
     "path": "docs/OWNERSHIP.md",
-    "entryCount": 38,
-    "sha256": "d4ccfa4b024d164a426e3549ff3e644896a3b6f48ecda6cc6ed0962b6f8f994b"
+    "entryCount": 42,
+    "sha256": "d050238a930e758721763408f6db880a513d6c494e5eb84206b5952d85bdf611"
   },
   "documents": [
     ".gitattributes",
@@ -50,6 +50,7 @@
     "docs/decisions/0085-owned-reasoning-journal-migration.md",
     "docs/decisions/0086-owned-thinking-effort-and-display.md",
     "docs/decisions/0087-owned-user-scoped-state-root.md",
+    "docs/decisions/0088-owned-durable-credential-boundary.md",
     "assets/brand/README.md",
     "docs/BRAND.md",
     "docs/decisions/0037-canonical-agent-brand.md",

@@ -502,6 +502,26 @@ declarations, tests, public contract, and decisions 0072, 0080, and 0082 status
 together. The product returns to no admitted provider; do not select a
 replacement implicitly.
 
+### Dormant durable credential boundary
+
+**Owners:** CLI native platform boundary, decision 0088,
+[providers](PROVIDERS.md), [OAuth registration](OAUTH-REGISTRATION.md),
+[privacy](../PRIVACY.md), and [security](../SECURITY.md).
+
+While every subscription OAuth provider is blocked, verify that no
+`~/.agent/credentials` namespace, credential reader, `agent auth` command,
+token field, or API-key persistence enters the product. Do not implement an
+opaque generic store in anticipation of a provider.
+
+To activate the boundary, first admit one independently registered provider and
+define its exact durable record, bounds, native access proof, cross-process
+admission, refresh rotation, revocation, failure recovery, rollback, and removal
+contract in the same change. Test Windows ACL and Linux owner/mode enforcement,
+linked-object rejection, atomic publication, concurrent refresh, lost-response
+failure, and secret non-projection offline on both platforms. Never repair an
+unsafe record silently, retry a refresh, restore superseded material, or borrow
+another client's credential store.
+
 ### Thinking-stream lifecycle
 
 **Owners:** decisions 0086 and 0085, core message and journal codecs, runtime

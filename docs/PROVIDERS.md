@@ -177,8 +177,9 @@ one-time codes, recovery codes, cookies, or payment details. The Ollama API key
 may never enter source, tests, logs, errors, documentation values, process
 arguments, or command history. It is read only from
 `AGENT_OLLAMA_API_KEY` or the zero-projection TUI credential editor, remains in
-one memory slot, and is released with the process. Persistent storage requires a
-separate accepted operating-system vault design.
+one memory slot, and is released with the process. Decision 0088 admits no API
+key persistence: its owned filesystem boundary remains dormant until an
+independently registered OAuth provider activates one exact durable record.
 
 ## Primary references
 

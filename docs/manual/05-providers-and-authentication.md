@@ -76,7 +76,9 @@ and are outside Agent's guarantees.
 Subscription OAuth integrations remain blocked. The
 [OAuth registration dossier](../OAUTH-REGISTRATION.md) owns their current
 registration status, while the [provider policy](../PROVIDERS.md) owns runtime
-admission.
+admission. The future owned credential boundary is deliberately dormant: Agent
+does not currently create `~/.agent/credentials`, cache a subscription login,
+or expose an `agent auth` command.
 
 ## Recover from provider failures
 

@@ -197,6 +197,33 @@ test("binds the flat namespace tool contract", () => {
   }
 });
 
+test("binds the dormant durable credential boundary", () => {
+  const context = currentContext();
+  const decision =
+    "docs/decisions/0088-owned-durable-credential-boundary.md";
+  assert.equal(policy.decisionPaths.includes(decision), true);
+  assert.equal(ownershipPolicy.requiredDocuments.includes(decision), true);
+  for (const marker of [
+    /It creates no credential namespace, record, command,/u,
+    /API keys, including the Ollama Cloud key[\s\S]+remain process-only/u,
+    /local plain text protected by an owned native\s+filesystem boundary/u,
+    /derive the current account SID from the\s+process token/u,
+    /directory with mode `0700`\s+and records with mode `0600`/u,
+    /It never retries a refresh, replays an authorization\s+exchange/u,
+  ]) {
+    assert.match(context.files[decision], marker);
+  }
+  for (const [file, marker] of [
+    ["docs/ARCHITECTURE.md", "Decision 0088 reserves"],
+    ["docs/MAINTENANCE.md", "### Dormant durable credential boundary"],
+    ["docs/PROVIDERS.md", "Decision 0088 admits no API"],
+    ["PRIVACY.md", "Decision 0088 defines a dormant"],
+    ["SECURITY.md", "Decision 0088 selects the security boundary"],
+  ]) {
+    assert.match(context.files[file], new RegExp(marker, "u"), file);
+  }
+});
+
 test("rejects canonical document structure drift", () => {
   for (const [file, before, after] of [
     ["README.md", "## Quick start", "## Getting started"],
@@ -1828,7 +1855,7 @@ test("routes completed OAuth registration status to the OAuth dossier", () => {
   }
 
   for (const routeSummary of [
-    "OpenAI documents subscription login for its Codex clients and managed browser or device login through Codex App Server.",
+    "OpenAI documents subscription browser and device login for its Codex clients.",
     "Anthropic documents subscription login for Claude Code and subscription-backed third-party use through the Claude Agent SDK.",
     "Kimi documents device OAuth for Kimi Code CLI and subscription-backed API keys for third-party development tools.",
     "xAI documents browser and device login for Grok Build plus headless and ACP integration, while its direct API has a separate key path.",

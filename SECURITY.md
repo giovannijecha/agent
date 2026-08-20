@@ -140,6 +140,16 @@ sandbox; approved code retains the launching user's operating-system
 authority. Reports about provider traffic should identify the
 exact CLI transport, wire decoder, or configuration boundary involved.
 
+Decision 0088 selects the security boundary for future durable OAuth material
+without activating it. `~/.agent/credentials` remains absent while every
+subscription provider is blocked, and API keys remain process-only. A future
+admitted provider must use owned native user-only ACL or mode validation and
+atomic replacement under one cross-process admission. The record will be plain
+text, not an OS keychain or encrypted vault, and will not claim protection from
+same-user processes, administrators or root, backup authority, malware,
+snapshots, or offline privileged access. Unsafe ownership, access, link, schema,
+or concurrency state fails closed before secret bytes are read.
+
 The conversation tree exposes only one selected root-to-node path to the model.
 Alternate branches cannot execute, request permission, or emit output.
 Selecting an older checkpoint does not replay its tool call or assert that its
