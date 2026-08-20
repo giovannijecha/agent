@@ -1,9 +1,42 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { analyzeModule, ModuleScanError } from "../lib/module-specifiers.mjs";
+import {
+  analyzeModule,
+  collectStaticStringValues,
+  ModuleScanError,
+} from "../lib/module-specifiers.mjs";
 
 const reflectiveName = ["con", "structor"].join("");
+
+test("collects only bounded static string compositions", () => {
+  const result = collectStaticStringValues(
+    'const command = (["a", "u" + "th",].join(""));\n' +
+      'const namespace = "cre" + ("dential" + "s");\n' +
+      "const dynamic = [prefix, 'suffix'].join('');\n",
+  );
+
+  assert.deepEqual(
+    result.map((entry) => entry.value),
+    ["auth", "credentials"],
+  );
+});
+
+test("rejects static string compositions beyond the owned fragment bound", () => {
+  const fragments = Array.from({ length: 33 }, () => '"a"').join(", ");
+  assert.throws(
+    () => collectStaticStringValues("const value = [" + fragments + '].join("");\n'),
+    ModuleScanError,
+  );
+});
+
+test("does not apply composition bounds to ordinary static arrays", () => {
+  const fragments = Array.from({ length: 33 }, () => '"a"').join(", ");
+  assert.deepEqual(
+    collectStaticStringValues("const value = [" + fragments + "];\n"),
+    [],
+  );
+});
 
 test("extracts static imports and re-exports", () => {
   const result = analyzeModule(

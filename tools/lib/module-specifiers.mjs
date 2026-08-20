@@ -1,5 +1,9 @@
 /** Conservative lexical analysis for owned JavaScript and TypeScript modules. */
 
+const STATIC_STRING_DEPTH_LIMIT = 8;
+const STATIC_STRING_FRAGMENT_LIMIT = 32;
+const STATIC_STRING_LENGTH_LIMIT = 1_024;
+
 export class ModuleScanError extends Error {
   constructor(message, line) {
     super("line " + String(line) + ": " + message);
@@ -303,6 +307,171 @@ function decodeScannableEscapes(value) {
     return undefined;
   }
   return decoded;
+}
+
+function staticStringLimit(line) {
+  throw new ModuleScanError("static string expression exceeds owned bounds", line);
+}
+
+function combineStaticStrings(left, right, line) {
+  const fragments = left.fragments + right.fragments;
+  const value = left.value + right.value;
+  if (
+    fragments > STATIC_STRING_FRAGMENT_LIMIT ||
+    value.length > STATIC_STRING_LENGTH_LIMIT
+  ) {
+    staticStringLimit(line);
+  }
+  return {
+    composed: true,
+    fragments,
+    line,
+    next: right.next,
+    value,
+  };
+}
+
+function parseStaticStringArrayJoin(tokens, openingIndex, depth) {
+  const opening = tokens[openingIndex];
+  if (opening?.value !== "[") {
+    return undefined;
+  }
+  const closingIndex = closingBracketIndex(tokens, openingIndex);
+  if (
+    closingIndex === undefined ||
+    tokens[closingIndex + 1]?.value !== "." ||
+    tokens[closingIndex + 2]?.kind !== "identifier" ||
+    tokens[closingIndex + 2]?.value !== "join" ||
+    tokens[closingIndex + 3]?.value !== "("
+  ) {
+    return undefined;
+  }
+  const values = [];
+  let fragments = 0;
+  let cursor = openingIndex + 1;
+  if (tokens[cursor]?.value !== "]") {
+    while (cursor < tokens.length) {
+      const element = parseStaticStringExpression(tokens, cursor, depth + 1);
+      if (element === undefined) {
+        return undefined;
+      }
+      values.push(element.value);
+      fragments += element.fragments;
+      cursor = element.next;
+      if (tokens[cursor]?.value === "]") {
+        break;
+      }
+      if (tokens[cursor]?.value !== ",") {
+        return undefined;
+      }
+      cursor += 1;
+      if (tokens[cursor]?.value === "]") {
+        break;
+      }
+    }
+  }
+  if (
+    cursor !== closingIndex ||
+    values.length > STATIC_STRING_FRAGMENT_LIMIT
+  ) {
+    staticStringLimit(opening.line);
+  }
+  cursor = closingIndex + 4;
+  let separator = ",";
+  if (tokens[cursor]?.value !== ")") {
+    const parsedSeparator = parseStaticStringExpression(
+      tokens,
+      cursor,
+      depth + 1,
+    );
+    if (
+      parsedSeparator === undefined ||
+      tokens[parsedSeparator.next]?.value !== ")"
+    ) {
+      return undefined;
+    }
+    separator = parsedSeparator.value;
+    fragments += parsedSeparator.fragments;
+    cursor = parsedSeparator.next;
+  }
+  const value = values.join(separator);
+  if (
+    fragments > STATIC_STRING_FRAGMENT_LIMIT ||
+    value.length > STATIC_STRING_LENGTH_LIMIT
+  ) {
+    staticStringLimit(opening.line);
+  }
+  return {
+    composed: true,
+    fragments,
+    line: opening.line,
+    next: cursor + 1,
+    value,
+  };
+}
+
+function parseStaticStringPrimary(tokens, index, depth) {
+  if (depth > STATIC_STRING_DEPTH_LIMIT) {
+    staticStringLimit(tokens[index]?.line ?? 1);
+  }
+  const token = tokens[index];
+  if (isLiteralToken(token)) {
+    const value = decodeScannableEscapes(token.value);
+    return value === undefined
+      ? undefined
+      : {
+          composed: false,
+          fragments: 1,
+          line: token.line,
+          next: index + 1,
+          value,
+        };
+  }
+  if (token?.value === "[") {
+    return parseStaticStringArrayJoin(tokens, index, depth);
+  }
+  if (token?.value !== "(") {
+    return undefined;
+  }
+  const nested = parseStaticStringExpression(tokens, index + 1, depth + 1);
+  if (nested === undefined || tokens[nested.next]?.value !== ")") {
+    return undefined;
+  }
+  return {
+    ...nested,
+    line: token.line,
+    next: nested.next + 1,
+  };
+}
+
+function parseStaticStringExpression(tokens, index, depth) {
+  let current = parseStaticStringPrimary(tokens, index, depth);
+  if (current === undefined) {
+    return undefined;
+  }
+  while (tokens[current.next]?.value === "+") {
+    const right = parseStaticStringPrimary(tokens, current.next + 1, depth);
+    if (right === undefined) {
+      return undefined;
+    }
+    current = combineStaticStrings(current, right, current.line);
+  }
+  return current;
+}
+
+/** Returns bounded values reconstructed entirely from static string syntax. */
+export function collectStaticStringValues(source) {
+  const tokens = tokenize(source);
+  const values = [];
+  for (let index = 0; index < tokens.length; index += 1) {
+    const parsed = parseStaticStringExpression(tokens, index, 0);
+    if (parsed?.composed !== true) {
+      continue;
+    }
+    values.push(Object.freeze({ line: parsed.line, value: parsed.value }));
+    index = parsed.next - 1;
+  }
+  return Object.freeze(values);
 }
 
 function closingBracketIndex(tokens, openingIndex) {

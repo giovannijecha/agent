@@ -1,3 +1,8 @@
+import {
+  collectStaticStringValues,
+  ModuleScanError,
+} from "./module-specifiers.mjs";
+
 const OPENAI_SUBMISSION_URL =
   "https://community.openai.com/t/independent-native-oauth-public-client-registration-request-for-agent/1389585";
 const CLAUDE_SUBMISSION_REFERENCE =
@@ -651,6 +656,19 @@ function compactSource(text) {
     .toLowerCase();
 }
 
+function projectStaticStringValues(path, text) {
+  let values;
+  try {
+    values = collectStaticStringValues(text);
+  } catch (error) {
+    if (error instanceof ModuleScanError) {
+      fail(path + " contains an unscannable static string expression");
+    }
+    throw error;
+  }
+  return values.map((entry) => JSON.stringify(entry.value)).join("\n");
+}
+
 function isSensitiveStateIdentifier(identifier) {
   const normalized = identifier.toLowerCase();
   if (
@@ -724,6 +742,10 @@ function validateProductSources(productSources) {
     const approved = APPROVED_SOURCE_LITERALS[source.path] ?? [];
     for (const literal of approved) {
       scannable = scannable.split(literal).join("");
+    }
+    const staticProjection = projectStaticStringValues(source.path, scannable);
+    if (staticProjection.length > 0) {
+      scannable += "\n" + staticProjection;
     }
     for (const [pattern, label] of FORBIDDEN_SOURCE_MARKERS) {
       if (pattern.test(scannable)) {

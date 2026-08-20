@@ -519,6 +519,12 @@ Any new auth, credential, secret, session-state, or token identifier and any new
 or expanded CLI filesystem authority must fail until its owning contract and
 mutation evidence are updated in the same change.
 
+Keep direct and split dormant literals in the mutation corpus. The static-string
+projection admits only non-interpolated literals, parentheses, literal `+`, and
+literal arrays joined with a static separator under its fixed bounds; never
+replace it with code evaluation or an imported parser. Change its grammar,
+bounds, projection, and lexer/provider regressions together.
+
 To activate the boundary, first admit one independently registered provider and
 define its exact durable record, bounds, native access proof, cross-process
 admission, refresh rotation, revocation, failure recovery, rollback, and removal

@@ -75,6 +75,10 @@ separate follow-up unless the adjacent change is necessary for correctness.
   `npm exec`.
 - Access runtime-selected collection members through explicit APIs such as
   `.at()`; shipped modules admit only statically proven computed names.
+- Verifier-only lexical analysis reconstructs bounded static string
+  compositions from non-interpolated literals, parentheses, literal `+`, and
+  literal arrays joined with a static separator. It never executes or imports
+  product code, and an over-bound candidate fails closed.
 - Put minimal Node declarations in `types/` from authoritative runtime
   contracts.
 - Cross package boundaries only through `src/index.ts`.

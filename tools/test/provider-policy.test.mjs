@@ -345,12 +345,30 @@ test("rejects every dormant durable credential product surface", () => {
       ),
     },
     {
+      label: "dormant agent auth command",
+      match: "forbidden",
+      path: "packages/agent-cli/src/launch-command.ts",
+      mutate: (text) => text.replace(
+        'if (argument === "--help") {',
+        'if (argument === ["a", "uth"].join("")) {',
+      ),
+    },
+    {
       label: "dormant credential namespace",
       match: "forbidden",
       path: "packages/agent-cli/src/workspace-boundary.ts",
       mutate: (text) => text.replace(
         'path.join(userStateRoot, "sessions")',
         'path.join(userStateRoot, "credentials")',
+      ),
+    },
+    {
+      label: "dormant credential namespace",
+      match: "forbidden",
+      path: "packages/agent-cli/src/workspace-boundary.ts",
+      mutate: (text) => text.replace(
+        'path.join(userStateRoot, "sessions")',
+        'path.join(userStateRoot, ["cre", "dentials"].join(""))',
       ),
     },
     ...[
@@ -456,6 +474,27 @@ test("rejects new or expanded CLI filesystem authority", () => {
         productSources: [{ path, text: expanded }],
       }),
     ProviderPolicyError,
+  );
+});
+
+test("fails closed when static string projection exceeds its bounds", () => {
+  const path = "packages/agent-cli/src/provider-session.ts";
+  const fragments = Array.from({ length: 33 }, () => '"a"').join(", ");
+  assert.throws(
+    () =>
+      validateProviderPolicy(currentPolicy, {
+        ...emptyContext,
+        productSources: [
+          {
+            path,
+            text: "const value = [" + fragments + '].join("");\n',
+          },
+        ],
+      }),
+    (error) =>
+      error instanceof ProviderPolicyError &&
+      error.message ===
+        path + " contains an unscannable static string expression",
   );
 });
 

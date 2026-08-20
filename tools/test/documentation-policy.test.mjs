@@ -212,11 +212,13 @@ test("binds the dormant durable credential boundary", () => {
     /It never retries a refresh, replays an authorization\s+exchange/u,
     /closed inventory of current sensitive-state identifiers/u,
     /exact production CLI filesystem import authorities/u,
+    /projects values reconstructed\s+only from bounded non-interpolated literals/u,
   ]) {
     assert.match(context.files[decision], marker);
   }
   for (const [file, marker] of [
     ["docs/ARCHITECTURE.md", "Decision 0088 reserves"],
+    ["docs/ENGINEERING.md", "bounded static string"],
     ["docs/MAINTENANCE.md", "### Dormant durable credential boundary"],
     ["docs/PROVIDERS.md", "Decision 0088 admits no API"],
     ["PRIVACY.md", "Decision 0088 defines a dormant"],
