@@ -230,9 +230,10 @@ const REVIEWED_SENSITIVE_STATE_IDENTIFIERS = Object.freeze([
   ),
 ]);
 
-const APPROVED_CLI_FILESYSTEM_AUTHORITIES = Object.freeze({
+const APPROVED_CLI_NODE_PLATFORM_AUTHORITIES = Object.freeze({
   "packages/agent-cli/src/builtin-tools.ts": Object.freeze({
     imports: Object.freeze(["type Dirent", "lstat", "opendir", "readFile"]),
+    module: "node:fs/promises",
     sourceSha256: "fe6f38a1a91c7a3738b44e02564db69f8d4af8208ac543ffe05b264de21bfc37",
   }),
   "packages/agent-cli/src/session-journal.ts": Object.freeze({
@@ -245,28 +246,95 @@ const APPROVED_CLI_FILESYSTEM_AUTHORITIES = Object.freeze({
       "rename",
       "rm",
     ]),
+    module: "node:fs/promises",
     sourceSha256: "8730b91db3136c00998d31cf582cbf5bd90443e599738cc72b5fdc9af059c8c1",
   }),
   "packages/agent-cli/src/workspace-boundary.ts": Object.freeze({
     imports: Object.freeze(["lstat", "realpath"]),
+    module: "node:fs/promises",
     sourceSha256: "3840784307299b14ae8f86b0c7c132a5d22574e70f332b41091a481f3985ebe7",
   }),
   "packages/agent-cli/src/workspace-mutation-plans.ts": Object.freeze({
     imports: Object.freeze(["lstat", "open"]),
+    module: "node:fs/promises",
     sourceSha256: "fc7ec4869d05fb1272aa54771d1917b74594a27cf54889381f5035cda9e921de",
   }),
   "packages/agent-cli/src/workspace-namespace-plans.ts": Object.freeze({
     imports: Object.freeze(["lstat", "opendir"]),
+    module: "node:fs/promises",
     sourceSha256: "0721527b3fed371d0f530cd064bedb846c747ae7d136e548c90e9b2e95197d27",
   }),
   "packages/agent-cli/src/workspace-path.ts": Object.freeze({
     imports: Object.freeze(["lstat", "realpath"]),
+    module: "node:fs/promises",
     sourceSha256: "461169a100be3561ce7a86148f533418fd79b7dd052998863052bac652a41020",
   }),
   "packages/agent-cli/src/workspace-read-policy.ts": Object.freeze({
     imports: Object.freeze(["lstat", "readFile", "realpath"]),
+    module: "node:fs/promises",
     sourceSha256: "5f469faf1792645e8ee8f44b0de17c2dd55f656ce4de31d7e80538dd7e17ad5e",
   }),
+  "packages/agent-cli/src/node-process-runner.ts": Object.freeze({
+    imports: Object.freeze(["spawn", "type ChildProcess"]),
+    module: "node:child_process",
+    sourceSha256: "2a01998b2b3c03d0b5bf2f3b8a2ac59655a903718b2ea122101fc4ae8bc6402c",
+  }),
+  "packages/agent-cli/src/platform-clipboard.ts": Object.freeze({
+    imports: Object.freeze(["spawn", "type ChildProcess", "type SpawnOptions"]),
+    module: "node:child_process",
+    sourceSha256: "5b23d7f895231f2d90794dc2a37b977a31eb0444ecbc4b30604c67ce6970e679",
+  }),
+  "packages/agent-cli/src/platform-workspace-mutation.ts": Object.freeze({
+    imports: Object.freeze(["spawn", "type ChildProcess", "type SpawnOptions"]),
+    module: "node:child_process",
+    sourceSha256: "03756575344ca010631706c6afa0805669af280e93509c733e6bb972d0e9354a",
+  }),
+  "packages/agent-cli/src/platform-workspace-namespace.ts": Object.freeze({
+    imports: Object.freeze(["spawn", "type ChildProcess", "type SpawnOptions"]),
+    module: "node:child_process",
+    sourceSha256: "f339d1d3c87508aee4f911da258d23e640145f2b36d95c7137ac735042f012f0",
+  }),
+  "packages/agent-cli/src/platform-workspace-roots.ts": Object.freeze({
+    imports: Object.freeze([
+      "spawn",
+      "type ReadOnlyChildProcess",
+      "type SpawnReadOptions",
+    ]),
+    module: "node:child_process",
+    sourceSha256: "fd5b064e4e521ee70d416ac1a1dcee128ca694b0e4010a4071237e972ccb6a15",
+  }),
+});
+
+const APPROVED_CLI_NATIVE_PLATFORM_TREE = Object.freeze({
+  paths: Object.freeze([
+    "packages/agent-cli/native/clipboard/backend-fixture.c",
+    "packages/agent-cli/native/clipboard/backend-windows.c",
+    "packages/agent-cli/native/clipboard/clipboard.h",
+    "packages/agent-cli/native/clipboard/main.c",
+    "packages/agent-cli/native/clipboard/protocol.c",
+    "packages/agent-cli/native/clipboard/protocol.h",
+    "packages/agent-cli/native/mutation-commit/backend-linux.c",
+    "packages/agent-cli/native/mutation-commit/backend-windows.c",
+    "packages/agent-cli/native/mutation-commit/main.c",
+    "packages/agent-cli/native/mutation-commit/mutation-commit.h",
+    "packages/agent-cli/native/mutation-commit/protocol.c",
+    "packages/agent-cli/native/namespace-commit/backend-linux.c",
+    "packages/agent-cli/native/namespace-commit/backend-windows.c",
+    "packages/agent-cli/native/namespace-commit/main.c",
+    "packages/agent-cli/native/namespace-commit/namespace-commit.h",
+    "packages/agent-cli/native/namespace-commit/protocol.c",
+    "packages/agent-cli/native/process-broker/backend-linux.c",
+    "packages/agent-cli/native/process-broker/backend-windows.c",
+    "packages/agent-cli/native/process-broker/broker.h",
+    "packages/agent-cli/native/process-broker/main.c",
+    "packages/agent-cli/native/process-broker/protocol.c",
+    "packages/agent-cli/native/process-broker/test-fixture.c",
+    "packages/agent-cli/native/workspace-roots/backend-linux.c",
+    "packages/agent-cli/native/workspace-roots/backend-windows.c",
+    "packages/agent-cli/native/workspace-roots/main.c",
+    "packages/agent-cli/native/workspace-roots/workspace-roots.h",
+  ]),
+  sourceSha256: "db840e8200885fecea91691db312f6647e14db152aa8c9ad857a3e122968e8d5",
 });
 
 const FORBIDDEN_SOURCE_MARKERS = [
@@ -734,44 +802,73 @@ function validateSensitiveStateIdentifiers(path, text) {
   }
 }
 
-function validateCliFilesystemAuthority(path, text) {
+function validateCliNodePlatformAuthority(path, text) {
   if (!path.startsWith("packages/agent-cli/src/")) {
     return;
   }
   const decoded = decodeScannableEscapes(text);
   const references = [
-    ...decoded.matchAll(/["']node:fs(?:\/promises)?["']/gu),
+    ...decoded.matchAll(
+      /["']node:(?:child_process|fs(?:\/promises)?)["']/gu,
+    ),
   ];
-  const expected = APPROVED_CLI_FILESYSTEM_AUTHORITIES[path];
+  const expected = APPROVED_CLI_NODE_PLATFORM_AUTHORITIES[path];
   if (expected === undefined && references.length === 0) {
     return;
   }
   if (expected === undefined) {
-    fail(path + " contains unregistered CLI filesystem authority");
+    fail(path + " contains unregistered CLI Node platform authority");
   }
   const imports = [
     ...decoded.matchAll(
-      /import\s*\{([^}]*)\}\s*from\s*["']node:fs(?:\/promises)?["']\s*;/gu,
+      /import\s*\{([^}]*)\}\s*from\s*["'](node:(?:child_process|fs(?:\/promises)?))["']\s*;/gu,
     ),
   ];
   if (imports.length !== 1 || references.length !== 1) {
-    fail(path + " contains CLI filesystem authority drift");
+    fail(path + " contains CLI Node platform authority drift");
   }
   const source = imports.at(0)?.at(1);
+  const module = imports.at(0)?.at(2);
   const actual = source?.split(",").map((entry) => entry.trim()).filter(
     (entry) => entry.length > 0,
   );
   if (
+    module !== expected.module ||
     actual === undefined ||
     JSON.stringify(actual) !== JSON.stringify(expected.imports)
   ) {
-    fail(path + " contains CLI filesystem authority drift");
+    fail(path + " contains CLI Node platform authority drift");
   }
   const sourceSha256 = createHash("sha256")
     .update(text.replaceAll("\r\n", "\n"), "utf8")
     .digest("hex");
   if (sourceSha256 !== expected.sourceSha256) {
-    fail(path + " contains CLI filesystem source-integrity drift");
+    fail(path + " contains CLI platform authority source-integrity drift");
+  }
+}
+
+function validateCliNativePlatformAuthority(productSources) {
+  const sources = productSources
+    .filter((source) =>
+      /^packages\/agent-cli\/native\/.*\.(?:c|h)$/u.test(source.path)
+    )
+    .sort((left, right) => left.path.localeCompare(right.path));
+  const paths = sources.map((source) => source.path);
+  if (
+    JSON.stringify(paths) !==
+      JSON.stringify(APPROVED_CLI_NATIVE_PLATFORM_TREE.paths)
+  ) {
+    fail("CLI native platform authority path drift");
+  }
+  const records = sources.map((source) => Object.freeze({
+    path: source.path,
+    source: source.text.replaceAll("\r\n", "\n"),
+  }));
+  const sourceSha256 = createHash("sha256")
+    .update(JSON.stringify(records), "utf8")
+    .digest("hex");
+  if (sourceSha256 !== APPROVED_CLI_NATIVE_PLATFORM_TREE.sourceSha256) {
+    fail("CLI native platform authority source-integrity drift");
   }
 }
 
@@ -805,7 +902,7 @@ function validateProductSources(productSources) {
       }
     }
     validateSensitiveStateIdentifiers(source.path, source.text);
-    validateCliFilesystemAuthority(source.path, source.text);
+    validateCliNodePlatformAuthority(source.path, source.text);
     const compact = compactSource(scannable);
     if (
       /import(?!\{)[^;]*fromnode:process/u.test(compact) ||
@@ -819,6 +916,7 @@ function validateProductSources(productSources) {
       }
     }
   }
+  validateCliNativePlatformAuthority(productSources);
   validateInventoryPaths(
     encounteredPaths,
     EXPECTED_SENSITIVE_STATE_OCCURRENCES,
@@ -826,8 +924,8 @@ function validateProductSources(productSources) {
   );
   validateInventoryPaths(
     encounteredPaths,
-    APPROVED_CLI_FILESYSTEM_AUTHORITIES,
-    "CLI filesystem authority inventory",
+    APPROVED_CLI_NODE_PLATFORM_AUTHORITIES,
+    "CLI Node platform authority inventory",
   );
 }
 

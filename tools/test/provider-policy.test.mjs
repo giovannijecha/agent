@@ -477,7 +477,7 @@ test("rejects every dormant durable credential product surface", () => {
   }
 });
 
-test("rejects new or expanded CLI filesystem authority", () => {
+test("rejects new or expanded CLI Node platform authority", () => {
   const newSource = {
     path: "packages/agent-cli/src/local-state.ts",
     text:
@@ -490,6 +490,26 @@ test("rejects new or expanded CLI filesystem authority", () => {
     () =>
       validateProviderPolicy(currentPolicy, contextWithSources(newSource)),
     ProviderPolicyError,
+  );
+  const newProcessSource = {
+    path: "packages/agent-cli/src/local-process.ts",
+    text:
+      'import { spawn } from "node:child_process";\n' +
+      "export function launch(): void {\n" +
+      "  spawn('/bin/sh', []);\n" +
+      "}\n",
+  };
+  assert.throws(
+    () =>
+      validateProviderPolicy(
+        currentPolicy,
+        contextWithSources(newProcessSource),
+      ),
+    (error) =>
+      error instanceof ProviderPolicyError &&
+      error.message ===
+        newProcessSource.path +
+          " contains unregistered CLI Node platform authority",
   );
 
   const path = "packages/agent-cli/src/workspace-boundary.ts";
@@ -527,7 +547,7 @@ test("rejects new or expanded CLI filesystem authority", () => {
       ),
     (error) =>
       error instanceof ProviderPolicyError &&
-      error.message === path + " contains CLI filesystem authority drift",
+      error.message === path + " contains CLI Node platform authority drift",
   );
 });
 
@@ -618,23 +638,35 @@ test("rejects reviewed filesystem escape recurrences as source drift", () => {
       (error) =>
         error instanceof ProviderPolicyError &&
         error.message ===
-          path + " contains CLI filesystem source-integrity drift",
+          path + " contains CLI platform authority source-integrity drift",
     );
   }
 });
 
-test("pins every approved CLI filesystem authority to its reviewed source", () => {
-  for (const source of currentProductSources.filter((candidate) =>
-    [
-      "packages/agent-cli/src/builtin-tools.ts",
-      "packages/agent-cli/src/session-journal.ts",
-      "packages/agent-cli/src/workspace-boundary.ts",
-      "packages/agent-cli/src/workspace-mutation-plans.ts",
-      "packages/agent-cli/src/workspace-namespace-plans.ts",
-      "packages/agent-cli/src/workspace-path.ts",
-      "packages/agent-cli/src/workspace-read-policy.ts",
-    ].includes(candidate.path)
-  )) {
+test("pins every approved CLI Node platform authority to its reviewed source", () => {
+  const expectedPaths = [
+    "packages/agent-cli/src/builtin-tools.ts",
+    "packages/agent-cli/src/node-process-runner.ts",
+    "packages/agent-cli/src/platform-clipboard.ts",
+    "packages/agent-cli/src/platform-workspace-mutation.ts",
+    "packages/agent-cli/src/platform-workspace-namespace.ts",
+    "packages/agent-cli/src/platform-workspace-roots.ts",
+    "packages/agent-cli/src/session-journal.ts",
+    "packages/agent-cli/src/workspace-boundary.ts",
+    "packages/agent-cli/src/workspace-mutation-plans.ts",
+    "packages/agent-cli/src/workspace-namespace-plans.ts",
+    "packages/agent-cli/src/workspace-path.ts",
+    "packages/agent-cli/src/workspace-read-policy.ts",
+  ];
+  const sources = currentProductSources.filter((source) =>
+    source.path.startsWith("packages/agent-cli/src/") &&
+    /["']node:(?:child_process|fs(?:\/promises)?)["']/u.test(source.text)
+  );
+  assert.deepEqual(
+    sources.map((source) => source.path).sort(),
+    expectedPaths,
+  );
+  for (const source of sources) {
     assert.throws(
       () =>
         validateProviderPolicy(
@@ -647,12 +679,34 @@ test("pins every approved CLI filesystem authority to its reviewed source", () =
       (error) =>
         error instanceof ProviderPolicyError &&
         error.message ===
-          source.path + " contains CLI filesystem source-integrity drift",
+          source.path + " contains CLI platform authority source-integrity drift",
     );
   }
 });
 
-test("normalizes approved CLI filesystem source line endings", () => {
+test("rejects unreviewed child-process launch behavior", () => {
+  const path = "packages/agent-cli/src/platform-workspace-roots.ts";
+  const original = readFileSync(
+    new URL("../../" + path, import.meta.url),
+    "utf8",
+  );
+  const mutated = original +
+    "\nspawn('/bin/sh', ['-c', " +
+    "'cat ~/.agent/cred'.concat('entials')]);\n";
+  assert.throws(
+    () =>
+      validateProviderPolicy(
+        currentPolicy,
+        contextWithSources({ path, text: mutated }),
+      ),
+    (error) =>
+      error instanceof ProviderPolicyError &&
+      error.message ===
+        path + " contains CLI platform authority source-integrity drift",
+  );
+});
+
+test("normalizes approved CLI platform source line endings", () => {
   const path = "packages/agent-cli/src/session-journal.ts";
   const original = readFileSync(
     new URL("../../" + path, import.meta.url),
@@ -664,6 +718,23 @@ test("normalizes approved CLI filesystem source line endings", () => {
       contextWithSources({
         path,
         text: original.replaceAll("\r\n", "\n").replaceAll("\n", "\r\n"),
+      }),
+    ),
+  );
+
+  const nativePath = "packages/agent-cli/native/workspace-roots/main.c";
+  const nativeOriginal = readFileSync(
+    new URL("../../" + nativePath, import.meta.url),
+    "utf8",
+  );
+  assert.doesNotThrow(() =>
+    validateProviderPolicy(
+      currentPolicy,
+      contextWithSources({
+        path: nativePath,
+        text: nativeOriginal
+          .replaceAll("\r\n", "\n")
+          .replaceAll("\n", "\r\n"),
       }),
     ),
   );
@@ -725,21 +796,62 @@ test("rejects missing paths from the closed source inventories", () => {
           sensitivePath,
   );
 
-  const filesystemPath = "packages/agent-cli/src/workspace-boundary.ts";
+  const nodePlatformPath = "packages/agent-cli/src/workspace-boundary.ts";
   assert.throws(
     () =>
       validateProviderPolicy(currentPolicy, {
         ...emptyContext,
         productSources: currentProductSources.filter(
-          (source) => source.path !== filesystemPath,
+          (source) => source.path !== nodePlatformPath,
         ),
       }),
     (error) =>
       error instanceof ProviderPolicyError &&
       error.message ===
-        "CLI filesystem authority inventory path is missing from product sources: " +
-          filesystemPath,
+        "CLI Node platform authority inventory path is missing from product sources: " +
+          nodePlatformPath,
   );
+});
+
+test("pins the exact CLI native platform source tree", () => {
+  const path = "packages/agent-cli/native/workspace-roots/main.c";
+  const original = readFileSync(
+    new URL("../../" + path, import.meta.url),
+    "utf8",
+  );
+  assert.throws(
+    () =>
+      validateProviderPolicy(
+        currentPolicy,
+        contextWithSources({ path, text: original + "\n/* source drift */\n" }),
+      ),
+    (error) =>
+      error instanceof ProviderPolicyError &&
+      error.message ===
+        "CLI native platform authority source-integrity drift",
+  );
+
+  for (const productSources of [
+    currentProductSources.filter((source) => source.path !== path),
+    [
+      ...currentProductSources,
+      {
+        path: "packages/agent-cli/native/unregistered.c",
+        text: "int unregistered(void) { return 0; }\n",
+      },
+    ],
+  ]) {
+    assert.throws(
+      () =>
+        validateProviderPolicy(currentPolicy, {
+          ...emptyContext,
+          productSources,
+        }),
+      (error) =>
+        error instanceof ProviderPolicyError &&
+        error.message === "CLI native platform authority path drift",
+    );
+  }
 });
 
 test("fails closed when static string projection exceeds its bounds", () => {
@@ -761,7 +873,7 @@ test("fails closed when static string projection exceeds its bounds", () => {
   );
 });
 
-test("accepts only the exact current CLI filesystem authorities", () => {
+test("accepts only the exact current CLI platform authorities", () => {
   assert.doesNotThrow(() =>
     validateProviderPolicy(currentPolicy, emptyContext),
   );

@@ -83,17 +83,19 @@ separate follow-up unless the adjacent change is necessary for correctness.
   reviewed path and exact occurrence count. A spelling admitted elsewhere never
   authorizes a new declaration or use.
 - Closed source-policy inventories are bidirectional. Every registered path must
-  remain in the canonical product-source set, and each approved CLI filesystem
-  path must retain its reviewed import statement, bindings, and normalized
-  source digest. Source integrity normalizes only CRLF to LF, then hashes the
-  complete UTF-8 module with SHA-256. Renaming, deleting, reducing, expanding,
-  or otherwise changing an inventoried authority fails closed.
+  remain in the canonical product-source set. Each approved CLI module with a
+  direct `node:fs` or `node:child_process` authority must retain its reviewed
+  module specifier, import bindings, and normalized source digest. The native
+  C/H platform tree retains its exact ordered path set and aggregate source
+  digest. Source integrity normalizes only CRLF to LF and uses SHA-256 over
+  complete UTF-8 source records. Renaming, deleting, reducing, expanding, or
+  otherwise changing an inventoried authority fails closed.
 - The exact source digest is the sole verifier authority for code flow within an
-  approved filesystem-capable CLI module. The verifier does not execute product
-  code or attempt partial export, alias, assignment, or capability-flow
-  inference. Any legitimate source edit requires an explicit review and digest
-  update in the same policy change; a new filesystem-capable CLI path requires
-  a new exact authority record.
+  approved direct Node or native platform module. The verifier does not execute
+  product code or attempt partial command, export, alias, assignment, or
+  capability-flow inference. Any legitimate source edit requires an explicit
+  review and digest update in the same policy change; a new direct filesystem,
+  child-process, or native platform path requires a new exact authority record.
 - Put minimal Node declarations in `types/` from authoritative runtime
   contracts.
 - Cross package boundaries only through `src/index.ts`.

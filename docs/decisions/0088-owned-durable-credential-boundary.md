@@ -151,24 +151,29 @@ providers remain blocked, the current product creates no `credentials`
 namespace, Ollama credential persistence remains forbidden, and no auth package,
 command, endpoint, token field, or generic credential reader enters source.
 The gate maintains a closed inventory of current sensitive-state identifiers and
-the exact production CLI filesystem authorities. A new sensitive
-identifier, filesystem-capable CLI module, or expanded filesystem binding fails
-closed until the owning decision and policy evidence are updated together.
+the exact production CLI Node and native platform authorities. A new sensitive
+identifier, direct filesystem or child-process CLI module, native C/H path, or
+expanded platform binding fails closed until the owning decision and policy
+evidence are updated together.
 The identifier inventory grants no global spelling allowance: each
 case-sensitive spelling is bound to one reviewed path and exact occurrence
 count. Adding a known spelling at a new use or removing an admitted occurrence
 fails closed until that path record and its evidence change together.
-Both inventory key sets are bidirectional: every registered path must remain in
-the canonical product-source set, and each approved CLI filesystem path must
-retain its exact import statement, bindings, and normalized source digest. The
-digest covers the complete UTF-8 module after only CRLF-to-LF normalization and
-uses SHA-256. A rename, deletion, reduced or expanded filesystem import, or any
-other source drift fails closed rather than preserving a dormant allowance.
-This complete source snapshot is the verifier's sole authority for code flow
-inside an approved filesystem-capable module. The gate does not execute product
-code or infer exports, aliases, assignments, or general capability flow. A
-legitimate edit requires review of the complete module and an explicit digest
-repin in the same policy change; unfamiliar syntax cannot bypass the boundary.
+All closed path sets are bidirectional: every registered path must remain in
+the canonical product-source set. Each approved CLI module with direct
+`node:fs` or `node:child_process` authority must retain its exact module
+specifier, import bindings, and normalized source digest. The native platform
+authority retains the exact ordered C/H path set and an aggregate digest over
+its path/source records. Both digest forms cover complete UTF-8 source after
+only CRLF-to-LF normalization and use SHA-256. A rename, deletion, reduced or
+expanded platform import, native path change, or any other source drift fails
+closed rather than preserving a dormant allowance. These complete source
+snapshots are the verifier's sole authority for code flow inside approved direct
+Node and native platform modules. The gate does not execute product code or
+infer commands, exports, aliases, assignments, or general capability flow. A
+legitimate edit requires review of the complete authority-bearing source and an
+explicit digest repin in the same policy change; unfamiliar syntax and split
+command or path fragments cannot bypass the boundary.
 Before applying dormant literal markers, the gate projects values reconstructed
 only from bounded non-interpolated literals, parentheses, literal `+`, and
 literal arrays joined with a static separator. It never evaluates product code;
