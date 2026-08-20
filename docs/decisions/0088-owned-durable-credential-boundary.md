@@ -158,6 +158,10 @@ The identifier inventory grants no global spelling allowance: each
 case-sensitive spelling is bound to one reviewed path and exact occurrence
 count. Adding a known spelling at a new use or removing an admitted occurrence
 fails closed until that path record and its evidence change together.
+Both inventory key sets are bidirectional: every registered path must remain in
+the canonical product-source set, and each approved CLI filesystem path must
+retain its exact import statement and bindings. A rename, deletion, or reduced
+filesystem import fails closed rather than preserving a dormant path allowance.
 Before applying dormant literal markers, the gate projects values reconstructed
 only from bounded non-interpolated literals, parentheses, literal `+`, and
 literal arrays joined with a static separator. It never evaluates product code;

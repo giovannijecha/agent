@@ -1,11 +1,45 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
+import path from "node:path";
 import test from "node:test";
 
 import {
   ProviderPolicyError,
   validateProviderPolicy,
 } from "../lib/provider-policy.mjs";
+import { projectRoot } from "../lib/project.mjs";
+
+function collectFiles(directory) {
+  const files = [];
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    if (
+      entry.name === ".git" ||
+      entry.name === "node_modules" ||
+      entry.name === "dist" ||
+      entry.name === ".test-dist"
+    ) {
+      continue;
+    }
+    const absolute = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...collectFiles(absolute));
+    } else if (entry.isFile()) {
+      files.push(path.relative(projectRoot, absolute).split(path.sep).join("/"));
+    }
+  }
+  return files;
+}
+
+const currentProductSources = collectFiles(projectRoot)
+  .filter((file) =>
+    /^packages\/[a-z0-9-]+\/(?:src|test)\/.*\.ts$/u.test(file) ||
+    /^types\/.*\.d\.ts$/u.test(file) ||
+    /^packages\/agent-cli\/native\/.*\.(?:c|h)$/u.test(file)
+  )
+  .map((file) => ({
+    path: file,
+    text: readFileSync(path.join(projectRoot, file), "utf8"),
+  }));
 
 const currentPolicy = JSON.parse(
   readFileSync(new URL("../provider-policy.json", import.meta.url), "utf8"),
@@ -23,9 +57,22 @@ const emptyContext = {
     "@agent/tui",
     "@agent/cli",
   ],
-  productSources: [],
+  productSources: currentProductSources,
   applicationText: currentApplications,
 };
+
+function contextWithSources(...sources) {
+  const replacements = new Map(sources.map((source) => [source.path, source]));
+  const productSources = currentProductSources.map(
+    (source) => replacements.get(source.path) ?? source,
+  );
+  for (const source of sources) {
+    if (!currentProductSources.some((current) => current.path === source.path)) {
+      productSources.push(source);
+    }
+  }
+  return { ...emptyContext, productSources };
+}
 
 test("accepts the canonical blocked and direct provider registry", () => {
   assert.doesNotThrow(() => validateProviderPolicy(currentPolicy, emptyContext));
@@ -408,10 +455,7 @@ test("rejects every dormant durable credential product surface", () => {
       "utf8",
     );
     assert.doesNotThrow(() =>
-      validateProviderPolicy(currentPolicy, {
-        ...emptyContext,
-        productSources: [{ path: mutation.path, text: original }],
-      }),
+      validateProviderPolicy(currentPolicy, emptyContext),
     );
     const mutated = mutation.mutate(original);
     assert.notEqual(
@@ -421,10 +465,10 @@ test("rejects every dormant durable credential product surface", () => {
     );
     assert.throws(
       () =>
-        validateProviderPolicy(currentPolicy, {
-          ...emptyContext,
-          productSources: [{ path: mutation.path, text: mutated }],
-        }),
+        validateProviderPolicy(
+          currentPolicy,
+          contextWithSources({ path: mutation.path, text: mutated }),
+        ),
       (error) =>
         error instanceof ProviderPolicyError &&
         error.message ===
@@ -444,10 +488,7 @@ test("rejects new or expanded CLI filesystem authority", () => {
   };
   assert.throws(
     () =>
-      validateProviderPolicy(currentPolicy, {
-        ...emptyContext,
-        productSources: [newSource],
-      }),
+      validateProviderPolicy(currentPolicy, contextWithSources(newSource)),
     ProviderPolicyError,
   );
 
@@ -457,10 +498,7 @@ test("rejects new or expanded CLI filesystem authority", () => {
     "utf8",
   );
   assert.doesNotThrow(() =>
-    validateProviderPolicy(currentPolicy, {
-      ...emptyContext,
-      productSources: [{ path, text: original }],
-    }),
+    validateProviderPolicy(currentPolicy, emptyContext),
   );
   const expanded = original.replace(
     'import { lstat, realpath } from "node:fs/promises";',
@@ -469,11 +507,27 @@ test("rejects new or expanded CLI filesystem authority", () => {
   assert.notEqual(expanded, original);
   assert.throws(
     () =>
-      validateProviderPolicy(currentPolicy, {
-        ...emptyContext,
-        productSources: [{ path, text: expanded }],
-      }),
+      validateProviderPolicy(
+        currentPolicy,
+        contextWithSources({ path, text: expanded }),
+      ),
     ProviderPolicyError,
+  );
+
+  const reduced = original.replace(
+    'import { lstat, realpath } from "node:fs/promises";\n',
+    "",
+  );
+  assert.notEqual(reduced, original);
+  assert.throws(
+    () =>
+      validateProviderPolicy(
+        currentPolicy,
+        contextWithSources({ path, text: reduced }),
+      ),
+    (error) =>
+      error instanceof ProviderPolicyError &&
+      error.message === path + " contains CLI filesystem authority drift",
   );
 });
 
@@ -484,10 +538,7 @@ test("rejects an allowed sensitive identifier at an unreviewed occurrence", () =
     "utf8",
   );
   assert.doesNotThrow(() =>
-    validateProviderPolicy(currentPolicy, {
-      ...emptyContext,
-      productSources: [{ path, text: original }],
-    }),
+    validateProviderPolicy(currentPolicy, emptyContext),
   );
   const mutated = original +
     "\nexport async function token(file: string): Promise<string> {\n" +
@@ -495,10 +546,10 @@ test("rejects an allowed sensitive identifier at an unreviewed occurrence", () =
     "}\n";
   assert.throws(
     () =>
-      validateProviderPolicy(currentPolicy, {
-        ...emptyContext,
-        productSources: [{ path, text: mutated }],
-      }),
+      validateProviderPolicy(
+        currentPolicy,
+        contextWithSources({ path, text: mutated }),
+      ),
     (error) =>
       error instanceof ProviderPolicyError &&
       error.message ===
@@ -508,14 +559,48 @@ test("rejects an allowed sensitive identifier at an unreviewed occurrence", () =
   assert.notEqual(reduced, original);
   assert.throws(
     () =>
-      validateProviderPolicy(currentPolicy, {
-        ...emptyContext,
-        productSources: [{ path, text: reduced }],
-      }),
+      validateProviderPolicy(
+        currentPolicy,
+        contextWithSources({ path, text: reduced }),
+      ),
     (error) =>
       error instanceof ProviderPolicyError &&
       error.message ===
         path + " contains sensitive-state identifier occurrence drift",
+  );
+});
+
+test("rejects missing paths from the closed source inventories", () => {
+  const sensitivePath = "packages/agent-cli/src/notice.ts";
+  assert.throws(
+    () =>
+      validateProviderPolicy(currentPolicy, {
+        ...emptyContext,
+        productSources: currentProductSources.filter(
+          (source) => source.path !== sensitivePath,
+        ),
+      }),
+    (error) =>
+      error instanceof ProviderPolicyError &&
+      error.message ===
+        "sensitive-state identifier inventory path is missing from product sources: " +
+          sensitivePath,
+  );
+
+  const filesystemPath = "packages/agent-cli/src/workspace-boundary.ts";
+  assert.throws(
+    () =>
+      validateProviderPolicy(currentPolicy, {
+        ...emptyContext,
+        productSources: currentProductSources.filter(
+          (source) => source.path !== filesystemPath,
+        ),
+      }),
+    (error) =>
+      error instanceof ProviderPolicyError &&
+      error.message ===
+        "CLI filesystem authority inventory path is missing from product sources: " +
+          filesystemPath,
   );
 });
 
@@ -524,15 +609,13 @@ test("fails closed when static string projection exceeds its bounds", () => {
   const fragments = Array.from({ length: 33 }, () => '"a"').join(", ");
   assert.throws(
     () =>
-      validateProviderPolicy(currentPolicy, {
-        ...emptyContext,
-        productSources: [
-          {
+      validateProviderPolicy(
+        currentPolicy,
+        contextWithSources({
             path,
             text: "const value = [" + fragments + '].join("");\n',
-          },
-        ],
-      }),
+        }),
+      ),
     (error) =>
       error instanceof ProviderPolicyError &&
       error.message ===
@@ -541,24 +624,8 @@ test("fails closed when static string projection exceeds its bounds", () => {
 });
 
 test("accepts only the exact current CLI filesystem authorities", () => {
-  const paths = [
-    "packages/agent-cli/src/builtin-tools.ts",
-    "packages/agent-cli/src/session-journal.ts",
-    "packages/agent-cli/src/workspace-boundary.ts",
-    "packages/agent-cli/src/workspace-mutation-plans.ts",
-    "packages/agent-cli/src/workspace-namespace-plans.ts",
-    "packages/agent-cli/src/workspace-path.ts",
-    "packages/agent-cli/src/workspace-read-policy.ts",
-  ];
-  const productSources = paths.map((path) => ({
-    path,
-    text: readFileSync(new URL("../../" + path, import.meta.url), "utf8"),
-  }));
   assert.doesNotThrow(() =>
-    validateProviderPolicy(currentPolicy, {
-      ...emptyContext,
-      productSources,
-    }),
+    validateProviderPolicy(currentPolicy, emptyContext),
   );
 });
 
@@ -571,21 +638,19 @@ test("allows only the reviewed direct-provider literals in their exact files", (
     text: readFileSync(new URL("../../" + path, import.meta.url), "utf8"),
   }));
   assert.doesNotThrow(() =>
-    validateProviderPolicy(currentPolicy, {
-      ...emptyContext,
-      productSources: admitted,
-    }),
+    validateProviderPolicy(currentPolicy, emptyContext),
   );
 
   for (const source of admitted) {
     assert.throws(
       () =>
-        validateProviderPolicy(currentPolicy, {
-          ...emptyContext,
-          productSources: [
-            { path: "packages/example/src/provider.ts", text: source.text },
-          ],
-        }),
+        validateProviderPolicy(
+          currentPolicy,
+          contextWithSources({
+            path: "packages/example/src/provider.ts",
+            text: source.text,
+          }),
+        ),
       ProviderPolicyError,
     );
   }
@@ -614,10 +679,10 @@ test("rejects subscription endpoints, OAuth identifiers, and foreign identities"
   for (const text of forbidden) {
     assert.throws(
       () =>
-        validateProviderPolicy(currentPolicy, {
-          ...emptyContext,
-          productSources: [{ path: "packages/example/src/provider.ts", text }],
-        }),
+        validateProviderPolicy(
+          currentPolicy,
+          contextWithSources({ path: "packages/example/src/provider.ts", text }),
+        ),
       ProviderPolicyError,
     );
   }
@@ -650,10 +715,7 @@ test("rejects broad process imports, ambient network declarations, and test fixt
   for (const source of sources) {
     assert.throws(
       () =>
-        validateProviderPolicy(currentPolicy, {
-          ...emptyContext,
-          productSources: [source],
-        }),
+        validateProviderPolicy(currentPolicy, contextWithSources(source)),
       ProviderPolicyError,
     );
   }
@@ -669,10 +731,10 @@ test("accepts unrelated low-entropy source tokens", () => {
 
   for (const text of legitimate) {
     assert.doesNotThrow(() =>
-      validateProviderPolicy(currentPolicy, {
-        ...emptyContext,
-        productSources: [{ path: "packages/example/src/local.ts", text }],
-      }),
+      validateProviderPolicy(
+        currentPolicy,
+        contextWithSources({ path: "packages/example/src/local.ts", text }),
+      ),
     );
   }
 });

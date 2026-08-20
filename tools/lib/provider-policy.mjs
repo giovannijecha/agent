@@ -740,17 +740,20 @@ function validateCliFilesystemAuthority(path, text) {
   const references = [
     ...decoded.matchAll(/["']node:fs(?:\/promises)?["']/gu),
   ];
-  if (references.length === 0) {
+  const expected = APPROVED_CLI_FILESYSTEM_IMPORTS[path];
+  if (expected === undefined && references.length === 0) {
     return;
+  }
+  if (expected === undefined) {
+    fail(path + " contains unregistered CLI filesystem authority");
   }
   const imports = [
     ...decoded.matchAll(
       /import\s*\{([^}]*)\}\s*from\s*["']node:fs(?:\/promises)?["']\s*;/gu,
     ),
   ];
-  const expected = APPROVED_CLI_FILESYSTEM_IMPORTS[path];
-  if (expected === undefined || imports.length !== 1 || references.length !== 1) {
-    fail(path + " contains unregistered CLI filesystem authority");
+  if (imports.length !== 1 || references.length !== 1) {
+    fail(path + " contains CLI filesystem authority drift");
   }
   const source = imports.at(0)?.at(1);
   const actual = source?.split(",").map((entry) => entry.trim()).filter(
@@ -761,11 +764,21 @@ function validateCliFilesystemAuthority(path, text) {
   }
 }
 
+function validateInventoryPaths(encounteredPaths, inventory, label) {
+  for (const path of Object.keys(inventory)) {
+    if (!encounteredPaths.has(path)) {
+      fail(label + " path is missing from product sources: " + path);
+    }
+  }
+}
+
 function validateProductSources(productSources) {
+  const encounteredPaths = new Set();
   for (const source of productSources) {
     if (!isRecord(source) || typeof source.path !== "string" || typeof source.text !== "string") {
       fail("product source entries must contain path and text");
     }
+    encounteredPaths.add(source.path);
     let scannable = source.text;
     const approved = APPROVED_SOURCE_LITERALS[source.path] ?? [];
     for (const literal of approved) {
@@ -795,6 +808,16 @@ function validateProductSources(productSources) {
       }
     }
   }
+  validateInventoryPaths(
+    encounteredPaths,
+    EXPECTED_SENSITIVE_STATE_OCCURRENCES,
+    "sensitive-state identifier inventory",
+  );
+  validateInventoryPaths(
+    encounteredPaths,
+    APPROVED_CLI_FILESYSTEM_IMPORTS,
+    "CLI filesystem authority inventory",
+  );
 }
 
 export function validateProviderPolicy(policy, context) {

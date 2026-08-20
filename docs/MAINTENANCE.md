@@ -524,6 +524,12 @@ bound to one reviewed path and exact occurrence count; update only the affected
 path record when its owning evidence changes. Prove both an added known spelling
 and a removed occurrence fail before repinning that record.
 
+Treat both inventory key sets as exact current-path requirements. Renaming or
+deleting an inventoried file must fail, as must removing the reviewed filesystem
+import from an otherwise retained approved CLI path. Update or remove the stale
+entry together with its owning decision and mutation evidence; never retain a
+dormant pathname allowance for possible later reuse.
+
 Keep direct and split dormant literals in the mutation corpus. The static-string
 projection admits only non-interpolated literals, parentheses, literal `+`, and
 literal arrays joined with a static separator under its fixed bounds; never

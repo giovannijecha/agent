@@ -82,6 +82,10 @@ separate follow-up unless the adjacent change is necessary for correctness.
 - Source-policy identifier allowances bind each case-sensitive spelling to its
   reviewed path and exact occurrence count. A spelling admitted elsewhere never
   authorizes a new declaration or use.
+- Closed source-policy inventories are bidirectional. Every registered path must
+  remain in the canonical product-source set, and each approved CLI filesystem
+  path must retain exactly its reviewed import statement and bindings. Renaming,
+  deleting, or reducing an inventoried authority fails closed.
 - Put minimal Node declarations in `types/` from authoritative runtime
   contracts.
 - Cross package boundaries only through `src/index.ts`.
