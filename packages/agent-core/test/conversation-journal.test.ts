@@ -122,6 +122,22 @@ test("round-trips an immutable branched tree through owned journal records", () 
 
   const decoded = tree.turns.map((turn) => {
     const record = conversationJournalTurnRecord(turn);
+    assert.equal(
+      record.entries
+        .filter((entry) =>
+          entry.kind === "message" && entry.role !== Role.Assistant
+        )
+        .every((entry) => !("reasoning" in entry)),
+      true,
+    );
+    assert.equal(
+      record.entries
+        .filter((entry) =>
+          entry.kind === "message" && entry.role === Role.Assistant
+        )
+        .every((entry) => "reasoning" in entry),
+      true,
+    );
     const parsed = conversationJournalTurnFromUnknown(
       JSON.parse(JSON.stringify(record)),
     );
@@ -187,7 +203,6 @@ test("selects exact version-one and version-two record schemas", () => {
       {
         content: "question",
         kind: "message",
-        reasoning: null,
         role: "user",
       },
       {
@@ -209,6 +224,62 @@ test("selects exact version-one and version-two record schemas", () => {
     assert.equal(assistant instanceof Message, true);
     if (assistant instanceof Message) assert.equal(assistant.reasoning, "trace");
   }
+  assert.equal(
+    conversationJournalTurnFromUnknown(
+      {
+        ...versionTwo,
+        entries: [{
+          ...versionTwo.entries.at(0),
+          reasoning: null,
+        }, versionTwo.entries.at(1)],
+      },
+      2,
+    ).ok,
+    false,
+  );
+  assert.equal(
+    conversationJournalTurnFromUnknown(
+      {
+        ...versionTwo,
+        entries: [versionTwo.entries.at(0), {
+          content: "answer",
+          kind: "message",
+          role: "assistant",
+        }],
+      },
+      2,
+    ).ok,
+    false,
+  );
+  assert.equal(
+    conversationJournalTurnFromUnknown(
+      {
+        ...versionTwo,
+        entries: [
+          { content: "policy", kind: "message", role: "system" },
+          versionTwo.entries.at(0),
+          versionTwo.entries.at(1),
+        ],
+      },
+      2,
+    ).ok,
+    true,
+  );
+  assert.equal(
+    conversationJournalTurnFromUnknown(
+      {
+        ...versionTwo,
+        entries: [{
+          content: "policy",
+          kind: "message",
+          reasoning: null,
+          role: "system",
+        }, versionTwo.entries.at(0), versionTwo.entries.at(1)],
+      },
+      2,
+    ).ok,
+    false,
+  );
   assert.equal(
     conversationJournalTurnFromUnknown(
       {

@@ -52,15 +52,23 @@ type StructuredValueRecord =
     }>
   | Readonly<{ kind: "string"; value: string }>;
 
-type MessageRecordV2 = Readonly<{
+type AssistantMessageRecordV2 = Readonly<{
   content: string;
   kind: "message";
   reasoning: string | null;
-  role: "assistant" | "system" | "user";
+  role: "assistant";
 }>;
 
+type MessageRecordV2 =
+  | AssistantMessageRecordV2
+  | Readonly<{
+      content: string;
+      kind: "message";
+      role: "system" | "user";
+    }>;
+
 type ToolExchangeRecordV2 = Readonly<{
-  assistant: MessageRecordV2 | null;
+  assistant: AssistantMessageRecordV2 | null;
   calls: readonly Readonly<{
     callId: string;
     input: StructuredValueRecord;
@@ -269,11 +277,22 @@ function structuredValue(
 }
 
 function messageRecord(message: Message): MessageRecordV2 {
+  if (message.role !== Role.Assistant) {
+    return Object.freeze({
+      content: message.content,
+      kind: "message" as const,
+      role: message.role,
+    });
+  }
+  return assistantMessageRecord(message);
+}
+
+function assistantMessageRecord(message: Message): AssistantMessageRecordV2 {
   return Object.freeze({
     content: message.content,
     kind: "message" as const,
     reasoning: message.reasoning ?? null,
-    role: message.role,
+    role: Role.Assistant,
   });
 }
 
@@ -290,13 +309,13 @@ function messageFromRecord(
     reasoning?: unknown;
     role?: unknown;
   }>;
-  const expected = version === 1
-    ? "content,kind,role"
-    : "content,kind,reasoning,role";
+  const role = candidate.role;
+  const expected = version === 2 && role === Role.Assistant
+    ? "content,kind,reasoning,role"
+    : "content,kind,role";
   if (candidate.kind !== "message" || !exactKeys(input, expected)) {
     return undefined;
   }
-  const role = candidate.role;
   const content = candidate.content;
   if (
     (role !== Role.Assistant && role !== Role.System && role !== Role.User) ||
@@ -304,7 +323,9 @@ function messageFromRecord(
   ) {
     return undefined;
   }
-  const reasoning = version === 1 ? null : candidate.reasoning;
+  const reasoning = version === 2 && role === Role.Assistant
+    ? candidate.reasoning
+    : null;
   if (
     reasoning !== null &&
     (role !== Role.Assistant ||
@@ -326,7 +347,7 @@ function exchangeRecord(exchange: ToolExchange): ToolExchangeRecordV2 {
     assistant:
       exchange.assistant === undefined
         ? null
-        : messageRecord(exchange.assistant),
+        : assistantMessageRecord(exchange.assistant),
     calls: Object.freeze(
       exchange.calls.map((call) =>
         Object.freeze({

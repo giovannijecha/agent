@@ -133,6 +133,11 @@ test("creates and resumes the latest bounded journal for the exact workspace", a
     const originalTurn = JSON.parse(originalLines.at(1) ?? "null") as {
       turn?: { entries?: Array<Record<string, unknown>> };
     };
+    const originalUser = originalTurn.turn?.entries?.at(0);
+    assert.equal(
+      originalUser !== undefined && "reasoning" in originalUser,
+      false,
+    );
     assert.equal(
       originalTurn.turn?.entries?.at(-1)?.reasoning,
       "settled reasoning",
@@ -208,6 +213,11 @@ test("resumes an exact version-one journal into a version-two continuation", asy
     const migrated = JSON.parse(journalLines.at(1) ?? "null") as {
       turn?: { entries?: Array<Record<string, unknown>> };
     };
+    const migratedUser = migrated.turn?.entries?.at(0);
+    assert.equal(
+      migratedUser !== undefined && "reasoning" in migratedUser,
+      false,
+    );
     assert.equal(migrated.turn?.entries?.at(-1)?.reasoning, null);
   } finally {
     await rm(root, { force: true, recursive: true });
