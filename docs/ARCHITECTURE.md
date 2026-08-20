@@ -160,6 +160,16 @@ that previous head; current-revision selections remain authoritative and every
 other mismatch fails closed. Evaluation-receipt and non-TTY runs create no
 journal.
 
+The current session authority is the exact `~/.agent/sessions` child of the
+native-resolved account home. This change creates no `credentials` or `settings`
+namespace and persists no additional process state. Before creation or resume,
+the CLI considers only the current workspace digest under the former
+platform-state root. When only that legacy directory exists, the CLI holds its
+cross-version workspace admission, validates its bounded inactive inventory,
+and renames the complete directory into the current root. Both locations,
+cross-device movement, an active session, or any ambiguous path or storage
+state fail closed without copy, merge, overwrite, deletion, or fallback.
+
 Every accepted journal file is synchronized before publication. On POSIX, the
 CLI also synchronizes a staged session directory before publishing it and the
 containing directory after every head replacement, session publication,
@@ -383,8 +393,11 @@ the `diffAdded` green foreground for added rows.
 ## Platform and security boundary
 
 The CLI establishes the workspace boundary before credentials, provider
-selection, tools, or terminal ownership. Volume roots, the exact user home, and
-the shared temporary directory fail closed.
+selection, tools, or terminal ownership. Volume roots, the exact user home, the
+shared temporary directory, and every workspace overlapping the native-home
+`.agent` state root fail closed. Ordinary non-overlapping project descendants
+of the home remain valid. Existing `.agent` and `sessions` namespaces must be
+real directories rather than symbolic links before any workspace tool opens.
 
 Portable TypeScript never performs pathname mutation after authorization.
 Owned native C17 brokers provide:

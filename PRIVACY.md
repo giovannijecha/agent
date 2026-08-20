@@ -236,13 +236,24 @@ output, active turn state, temporary activity, notices, foreign error causes, an
 receipts. A resumed process starts with no provider, model, credential, or
 permission grant.
 
-Windows stores sessions under `%LOCALAPPDATA%\agent\sessions`. POSIX systems
-use `${XDG_STATE_HOME}/agent/sessions` when set and otherwise
-`${HOME}/.local/state/agent/sessions`. Each canonical workspace has one hashed
-directory; its raw path is not stored in the journal. Directories request
-owner-only mode `0700` and files request `0600` where supported. This is local
-plain-text JSONL, not encryption or an operating-system vault. Other principals
-already authorized by the host, backups, or malware may still observe it.
+All platforms store current sessions under the exact `~/.agent/sessions`
+directory selected from the credential-free native account-home resolver, not
+from inherited home text. Each canonical workspace has one hashed directory;
+its raw path is not stored in the journal. Directories request owner-only mode
+`0700` and files request `0600` where supported. This is local plain-text JSONL,
+not encryption or an operating-system vault. Other principals already
+authorized by the host, backups, or malware may still observe it. No
+`credentials` or `settings` sibling is created by the session feature.
+
+For existing installations, an ordinary interactive launch considers only the
+exact current workspace under the former `%LOCALAPPDATA%\agent\sessions`
+Windows root or `${XDG_STATE_HOME:-$HOME/.local/state}/agent/sessions` POSIX
+root. When only the legacy directory exists and all of its bounded sessions are
+inactive, Agent renames that complete workspace directory into
+`~/.agent/sessions`. It does not read unrelated workspace directories, rewrite
+journal content, copy across filesystems, merge roots, overwrite a destination,
+or delete either side of a conflict. Empty legacy parent directories and
+unaccessed legacy workspaces remain until explicit removal.
 
 The hashed workspace directory can briefly hold exact
 `.admission-<process>-<identity>` files while launches validate retention and
@@ -317,8 +328,11 @@ Closing the current process releases its in-memory conversation, display state,
 selection state, key reference, and session lock. The settled local journal
 remains until bounded retirement or explicit removal. To remove all session
 content owned by Agent, first close every `agent` process and then delete the
-exact `%LOCALAPPDATA%\agent\sessions` directory on Windows or the exact
-`${XDG_STATE_HOME:-$HOME/.local/state}/agent/sessions` directory on POSIX.
+exact `~/.agent/sessions` directory. During the migration era, also delete the
+former `%LOCALAPPDATA%\agent\sessions` directory on Windows or
+`${XDG_STATE_HOME:-$HOME/.local/state}/agent/sessions` directory on POSIX to
+remove unaccessed legacy workspaces. Delete neither the surrounding `.agent`
+root nor a future sibling authority as part of session removal.
 Removing only one hashed workspace directory removes all retained sessions for
 that workspace, but the digest is intentionally not reversible to a displayed
 path; inspect the versioned session headers before selective deletion.

@@ -23,9 +23,11 @@ canonicalizes that exact directory once; it does not search upward for a Git
 root. The accepted absolute path appears in the footer and is shared by every
 built-in tool.
 
-A volume root, the exact user home, and the shared temporary directory are
-rejected before credentials, providers, tools, or terminal ownership. Startup
-then loads the built-in sensitive-path denials and the optional root
+A volume root, the exact user home, the shared temporary directory, and any
+workspace containing `~/.agent` or located inside it are rejected before
+credentials, providers, tools, or terminal ownership. An ordinary project
+directory elsewhere under the home remains valid. Startup then loads the
+built-in sensitive-path denials and the optional root
 `.agentignore`. Its deny-only grammar is documented in
 [Tools and permissions](04-tools-and-approval.md). The policy remains fixed
 until restart.
@@ -33,8 +35,8 @@ until restart.
 ## Start or resume a session
 
 Run `agent` to start a new durable local session. Agent stores only settled
-conversation turns and the selected timeline node in the platform-owned user
-state directory, outside the workspace. Run this exact form from the same
+conversation turns and the selected timeline node under
+`~/.agent/sessions`, outside the workspace. Run this exact form from the same
 canonical workspace to continue the newest inactive session:
 
 ```powershell
@@ -60,6 +62,14 @@ discards only that line, restores the validated complete prefix, and shows a
 recovery notice. Any earlier corruption fails closed. See the
 [privacy policy](../../PRIVACY.md#local-sessions) for retained data, locations,
 bounds, and deletion.
+
+On the first launch of an existing workspace after this storage change, Agent
+moves only that workspace's inactive session directory from the former Windows
+LocalAppData or POSIX XDG state location into `~/.agent/sessions`. It does not
+copy or merge session trees. If a legacy session is active, both locations hold
+that workspace, or the move crosses filesystems or otherwise fails, startup
+stops without changing the retained journals. Close every Agent process and
+resolve the exact directory conflict before trying again.
 
 ## Configure the session
 
@@ -109,6 +119,15 @@ The evaluation workflow and interpretation rules live in
   `agent resume --latest` fail without printing its path or content.
 - A simultaneous session admission for the same workspace reports that session
   admission is busy and exits without opening a journal.
+- An active legacy session, dual-root workspace, cross-filesystem move, or
+  failed legacy rename reports that Agent could not migrate legacy session
+  state and exits without copying, merging, or overwriting either location.
+- A linked or non-directory `.agent` or `sessions` namespace is rejected with
+  the content-free workspace-root diagnostic before any tool opens.
+- Do not run an older Agent executable after a workspace has migrated. Roll its
+  exact session directory back first using the maintenance procedure; otherwise
+  the older executable can recreate legacy state and the current executable
+  will reject the resulting dual-root conflict.
 - Credential, provider, input, rendering, and cleanup failures expose only a
   short content-safe classification and return a nonzero status when startup
   or shutdown cannot complete.
@@ -119,5 +138,6 @@ The evaluation workflow and interpretation rules live in
 - [Workspace trust-boundary decision](../decisions/0042-owned-workspace-trust-boundary.md)
 - [Evaluation-receipt decision](../decisions/0048-owned-content-free-evaluation-receipt.md)
 - [Durable-session decision](../decisions/0076-owned-bounded-session-journal.md)
+- [User-scoped state-root decision](../decisions/0087-owned-user-scoped-state-root.md)
 - [Architecture](../ARCHITECTURE.md)
 - [Maintenance and removal](../MAINTENANCE.md)

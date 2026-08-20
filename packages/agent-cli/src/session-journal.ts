@@ -56,6 +56,7 @@ export type SessionJournalErrorKind =
   | "busy"
   | "corrupt"
   | "limit"
+  | "migration"
   | "missing"
   | "storage";
 
@@ -121,6 +122,20 @@ type SessionEntry = Readonly<{
 type WorkspaceAdmission = Readonly<{
   owner: number;
   path: string;
+}>;
+
+export type SessionJournalRootLayout = Readonly<{
+  currentRoot: string;
+  legacyRoot: string | null;
+}>;
+
+export type SessionJournalRootPreparation = Readonly<{
+  migrated: boolean;
+  root: string;
+}>;
+
+export type SessionJournalMigrationBoundary = Readonly<{
+  move(source: string, destination: string): Promise<void>;
 }>;
 
 function failure(kind: SessionJournalErrorKind): SessionJournalError {
@@ -191,6 +206,19 @@ async function ensureDirectory(directory: string): Promise<boolean> {
     return observed.isDirectory() && !observed.isSymbolicLink();
   } catch (_cause: unknown) {
     return false;
+  }
+}
+
+async function directoryState(
+  directory: string,
+): Promise<"absent" | "directory" | "invalid"> {
+  try {
+    const observed = await lstat(directory);
+    return observed.isDirectory() && !observed.isSymbolicLink()
+      ? "directory"
+      : "invalid";
+  } catch (cause: unknown) {
+    return causeCode(cause) === "ENOENT" ? "absent" : "invalid";
   }
 }
 
@@ -912,28 +940,193 @@ function headText(activeNodeId: number, journalTurnCount: number): string {
   }) + "\n";
 }
 
-/** Resolves the private per-user state root without using the workspace. */
-export function resolveSessionJournalRoot(
-  platform: string,
+/** Resolves the current owned root and the exact former session source. */
+export function resolveSessionJournalRoots(
+  targetPlatform: string,
   environment: Readonly<{
     LOCALAPPDATA?: string;
     XDG_STATE_HOME?: string;
   }>,
   homeDirectory: string,
-): Result<string, SessionJournalError> {
-  const pathApi = platform === "win32" ? path.win32 : path.posix;
-  const base = platform === "win32"
-    ? environment.LOCALAPPDATA
-    : environment.XDG_STATE_HOME ??
-      pathApi.join(homeDirectory, ".local", "state");
+): Result<SessionJournalRootLayout, SessionJournalError> {
+  if (targetPlatform !== "win32" && targetPlatform !== "linux") {
+    return err(failure("storage"));
+  }
+  const pathApi = targetPlatform === "win32" ? path.win32 : path.posix;
   if (
-    typeof base !== "string" ||
-    base.trim().length === 0 ||
-    !pathApi.isAbsolute(base)
+    typeof homeDirectory !== "string" ||
+    homeDirectory.trim().length === 0 ||
+    !pathApi.isAbsolute(homeDirectory)
   ) {
     return err(failure("storage"));
   }
-  return ok(pathApi.join(pathApi.resolve(base), "agent", "sessions"));
+  const resolvedHome = pathApi.resolve(homeDirectory);
+  const currentRoot = pathApi.join(resolvedHome, ".agent", "sessions");
+  let legacyBase: string | undefined;
+  try {
+    legacyBase = targetPlatform === "win32"
+      ? environment.LOCALAPPDATA
+      : environment.XDG_STATE_HOME ??
+        pathApi.join(resolvedHome, ".local", "state");
+  } catch (_cause: unknown) {
+    return err(failure("storage"));
+  }
+  if (legacyBase === undefined) {
+    return ok(Object.freeze({ currentRoot, legacyRoot: null }));
+  }
+  if (
+    typeof legacyBase !== "string" ||
+    legacyBase.trim().length === 0 ||
+    !pathApi.isAbsolute(legacyBase)
+  ) {
+    return err(failure("storage"));
+  }
+  const legacyRoot = pathApi.join(
+    pathApi.resolve(legacyBase),
+    "agent",
+    "sessions",
+  );
+  return ok(Object.freeze({
+    currentRoot,
+    legacyRoot: pathApi.relative(currentRoot, legacyRoot).length === 0
+      ? null
+      : legacyRoot,
+  }));
+}
+
+const sessionJournalMigrationBoundary: SessionJournalMigrationBoundary =
+  Object.freeze({
+    move: (source, destination) => rename(source, destination),
+  });
+
+/** Establishes the current root and relocates only the exact legacy workspace. */
+export async function prepareSessionJournalRoot(
+  layout: SessionJournalRootLayout,
+  workspaceRoot: string,
+  boundary: SessionJournalMigrationBoundary = sessionJournalMigrationBoundary,
+): Promise<Result<SessionJournalRootPreparation, SessionJournalError>> {
+  let currentRoot: string;
+  let legacyRoot: string | null;
+  let move: SessionJournalMigrationBoundary["move"];
+  try {
+    currentRoot = layout.currentRoot;
+    legacyRoot = layout.legacyRoot;
+    move = boundary.move;
+  } catch (_cause: unknown) {
+    return err(failure("storage"));
+  }
+  if (
+    typeof currentRoot !== "string" ||
+    (typeof legacyRoot !== "string" && legacyRoot !== null) ||
+    typeof workspaceRoot !== "string" ||
+    typeof move !== "function"
+  ) {
+    return err(failure("storage"));
+  }
+  const stateParent = path.dirname(currentRoot);
+  if (
+    !path.isAbsolute(currentRoot) ||
+    path.basename(currentRoot) !== "sessions" ||
+    path.basename(stateParent) !== ".agent" ||
+    !(await ensureDirectory(stateParent)) ||
+    !(await ensureDirectory(currentRoot))
+  ) {
+    return err(failure("storage"));
+  }
+  if (legacyRoot === null) {
+    return ok(Object.freeze({ migrated: false, root: currentRoot }));
+  }
+  if (!path.isAbsolute(legacyRoot)) {
+    return err(failure("storage"));
+  }
+
+  const legacyRootState = await directoryState(legacyRoot);
+  if (legacyRootState === "invalid") {
+    return err(failure("storage"));
+  }
+  if (legacyRootState === "absent") {
+    return ok(Object.freeze({ migrated: false, root: currentRoot }));
+  }
+
+  const key = workspaceKey(workspaceRoot);
+  const legacyWorkspace = path.join(legacyRoot, key);
+  const currentWorkspace = path.join(currentRoot, key);
+  const legacyState = await directoryState(legacyWorkspace);
+  const currentState = await directoryState(currentWorkspace);
+  if (legacyState === "invalid" || currentState === "invalid") {
+    return err(failure("storage"));
+  }
+  if (legacyState === "absent") {
+    return ok(Object.freeze({ migrated: false, root: currentRoot }));
+  }
+  if (currentState === "directory") {
+    return err(failure("migration"));
+  }
+
+  const admitted = await acquireWorkspaceAdmission(legacyWorkspace);
+  if (!admitted.ok) {
+    return admitted;
+  }
+  const legacyAdmissionPath = admitted.value;
+  let moved = false;
+  let outcome: Result<SessionJournalRootPreparation, SessionJournalError> =
+    err(failure("migration"));
+
+  const sessions = await scanSessions(legacyWorkspace, key);
+  if (sessions === undefined) {
+    outcome = err(failure("corrupt"));
+  } else {
+    let sessionState: "free" | "invalid" | "active" = "free";
+    for (const session of sessions) {
+      const observed = await sessionLocked(session.path);
+      if (observed !== "free") {
+        sessionState = observed;
+        break;
+      }
+    }
+    if (sessionState === "invalid") {
+      outcome = err(failure("corrupt"));
+    } else if (sessionState === "active") {
+      outcome = err(failure("migration"));
+    } else if (
+      await directoryState(legacyWorkspace) !== "directory" ||
+      await directoryState(currentWorkspace) !== "absent"
+    ) {
+      outcome = err(failure("migration"));
+    } else {
+      try {
+        await move(legacyWorkspace, currentWorkspace);
+        moved = true;
+        outcome = ok(Object.freeze({
+          migrated: true,
+          root: currentRoot,
+        }));
+      } catch (_cause: unknown) {
+        outcome = err(failure("migration"));
+      }
+    }
+  }
+
+  const admissionName = path.basename(legacyAdmissionPath);
+  const admissionDirectory = moved ? currentWorkspace : legacyWorkspace;
+  const admissionPath = moved
+    ? path.join(currentWorkspace, admissionName)
+    : legacyAdmissionPath;
+  const released = await releaseWorkspaceAdmission(
+    admissionPath,
+    admissionDirectory,
+  );
+  if (!released) {
+    return err(failure("storage"));
+  }
+  if (
+    moved &&
+    (!(await synchronizeDirectory(currentRoot)) ||
+      !(await synchronizeDirectory(legacyRoot)))
+  ) {
+    return err(failure("storage"));
+  }
+  return outcome;
 }
 
 /** CLI-owned append-only journal plus replaceable active-node pointer. */

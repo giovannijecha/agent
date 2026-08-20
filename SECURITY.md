@@ -30,7 +30,11 @@ and verification bypasses.
 
 Normal startup canonicalizes the exact current directory once and rejects a
 filesystem volume root, the exact user home, and the exact shared temporary
-directory before credentials or terminal ownership. It never widens authority
+directory before credentials or terminal ownership. It also rejects every
+workspace containing the native-home `.agent` state root and every workspace
+inside that root. An existing `.agent` or `sessions` namespace that is linked
+or not a directory also fails at this pre-tool boundary, including for launches
+that do not create a journal. It never widens authority
 by discovering a parent Git repository. The same immutable absolute root feeds
 the footer and every built-in tool. An owned bounded native resolver obtains the
 protected roots from operating-system account and known-folder contracts with
@@ -145,9 +149,11 @@ an exact retained identity.
 
 Interactive sessions append only complete settled nodes, including optional
 separately bounded native reasoning, to one versioned per-user CLI journal
-outside the workspace. The state directory is selected
-from the platform-owned user-state base and an irreversible digest of the exact
-canonical workspace. Resume requires the newest journal to be inactive and
+outside the workspace. The state directory is the exact
+`~/.agent/sessions` child of the credential-free native-resolved account home,
+followed by an irreversible digest of the exact canonical workspace. Exact
+`.agent` and `sessions` symlinks or non-directories fail closed. Resume requires
+the newest journal to be inactive and
 valid before provider composition. Unknown versions, ambiguous locks, unsafe
 retirement targets, interior corruption, and all bound failures stop
 content-free. One unique never-reused token per launcher serializes scan,
@@ -164,6 +170,20 @@ owner-only permissions but is not encrypted, tamper-proof, or protected from
 host-authorized principals. Credentials, provider/model state, thinking effort
 and display settings, permissions, drafts, provisional output, and foreign
 causes are never recorded.
+
+Migration from the former platform-state root is limited to the exact accessed
+workspace. It reuses the cross-version admission token, rejects active sessions
+and any simultaneous legacy/current authority, and performs one same-filesystem
+directory rename without copying, merging, overwriting, or deleting conflict
+data. The current root remains outside every admitted workspace because
+overlapping ancestors and descendants are invalid; built-in workspace tools
+cannot traverse to it. An approved shell retains the launching user's ordinary
+host authority and is not a filesystem sandbox.
+
+The admission protects the migration itself, not a later downgrade. An older
+executable must not run after migration until the exact workspace has been
+rolled back. If it recreates legacy state, the current executable detects both
+authorities and fails closed rather than selecting one.
 
 The maintainer-only task evaluator is a separate offline tooling boundary. It
 accepts only the registered strict-text corpus and regular-file run trees,

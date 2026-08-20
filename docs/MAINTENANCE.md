@@ -157,44 +157,53 @@ maintenance change; each requires a separate accepted design.
 
 **Owners:** the core journal codec, runtime settled-history projection, CLI
 `SessionJournal`, launch grammar, serialized settlement and selection wiring,
-restored `ChatState`, privacy and security policies, and decisions 0076 and
-0085.
+restored `ChatState`, privacy and security policies, and decisions 0076, 0085,
+and 0087.
 
 For a journal change:
 
-1. change the versioned core codec and its exact rejection tests first;
-2. keep filesystem, platform state roots, locking, retention, and recovery in
+1. when the record shape changes, change the versioned core codec and its exact
+   rejection tests first;
+2. keep filesystem, native-home user-state resolution, legacy-root lookup,
+   locking, retention, migration, and recovery in
    the CLI; never move Node I/O into core, runtime, or TUI;
-3. append only after authoritative runtime and display settlement, update the
+3. migrate only the exact accessed workspace while holding its legacy
+   cross-version admission; require an inactive bounded inventory and an absent
+   current destination, use one same-filesystem rename, synchronize both
+   namespaces, and never copy, merge, overwrite, delete, or fall back between
+   roots;
+4. append only after authoritative runtime and display settlement, update the
    head only after runtime selection, record its exact journal turn count, and
    keep both in the sole controller; recover only one synchronized final turn
    whose parent is the immediately preceding head; if stop settles a
    checkpointed turn, append its immutable handoff before journal close and
    never retry a node whose append was already attempted;
-4. synchronize every file before publication; on POSIX synchronize the staged
+5. synchronize every file before publication; on POSIX synchronize the staged
    session directory before its rename and the containing directory after head
    replacement, publication, retirement, and lock transitions;
-5. serialize scan, retention, resume selection, and publication with one
+6. serialize scan, retention, resume selection, and publication with one
    unique never-reused admission token per launcher; proceed only when no
    other live token exists, fail overlapping contenders busy without waiting,
    remove only an operating-system-proven stale token's unique pathname, and
    derive each publication value as the greater of wall time and the newest
    retained value plus one;
-6. decode version one and version two through separate exact shapes, write only
+7. decode version one and version two through separate exact shapes, write only
    version two, and create a separate version-two continuation after a valid
    version-one resume; never rewrite or append to the source journal;
-7. retain native reasoning only with its settled assistant message or tool
+8. retain native reasoning only with its settled assistant message or tool
    exchange; exclude credentials, provider/model state, thinking settings,
    permissions, drafts, provisional output, activity, notices, foreign causes,
    and receipts;
-8. prove exact-workspace isolation, active and stale locks, concurrent
+9. prove exact-workspace isolation, native-home root selection, exact legacy
+   relocation, unrelated-workspace isolation, active and dual-root rejection,
+   failed-move preservation, active and stale locks, concurrent
    admission at the retention boundary, successor-safe stale reclamation,
    tied and regressed publication clocks, POSIX directory-sync failure,
    truncated final lines, interrupted head replacement, deliberate
    current-revision selection, unreconciled gap rejection, interior corruption,
    independent structured-payload bounds, cleanup settlement, no duplicate
    append, and one composition round trip;
-9. update the public retention and exact deletion instructions in the same
+10. update the public retention and exact deletion instructions in the same
    change.
 
 Rollback first removes `agent resume --latest` and disables new journal
@@ -205,6 +214,16 @@ registries, including head-revision reconciliation. If only thinking is rolled
 back, keep both journal decoders so already settled version-two data remains
 readable. Removal must never reinterpret an unknown schema, append to an old
 journal, rewrite retained reasoning, or delete an active session.
+
+To roll back only the user-state relocation, first disable creation and resume.
+After every `agent` process is closed, move an exact workspace digest directory
+back to its former platform-state root only when that destination is absent.
+Never run old and new storage authorities concurrently, merge directories, or
+guess which copy is newer. Do not start an older executable after migration and
+before this explicit rollback: it can recreate the legacy workspace authority,
+which the current executable then rejects as a dual-root conflict. During the
+migration era, complete removal checks both the current and former roots
+documented by the privacy policy.
 
 ### Tool engine
 
