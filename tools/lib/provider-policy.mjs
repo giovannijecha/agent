@@ -1,5 +1,6 @@
+import { createHash } from "node:crypto";
+
 import {
-  collectRuntimeExportBindings,
   collectStaticStringValues,
   ModuleScanError,
 } from "./module-specifiers.mjs";
@@ -229,43 +230,43 @@ const REVIEWED_SENSITIVE_STATE_IDENTIFIERS = Object.freeze([
   ),
 ]);
 
-const APPROVED_CLI_FILESYSTEM_IMPORTS = Object.freeze({
-  "packages/agent-cli/src/builtin-tools.ts": Object.freeze([
-    "type Dirent",
-    "lstat",
-    "opendir",
-    "readFile",
-  ]),
-  "packages/agent-cli/src/session-journal.ts": Object.freeze([
-    "lstat",
-    "mkdir",
-    "open",
-    "readFile",
-    "readdir",
-    "rename",
-    "rm",
-  ]),
-  "packages/agent-cli/src/workspace-boundary.ts": Object.freeze([
-    "lstat",
-    "realpath",
-  ]),
-  "packages/agent-cli/src/workspace-mutation-plans.ts": Object.freeze([
-    "lstat",
-    "open",
-  ]),
-  "packages/agent-cli/src/workspace-namespace-plans.ts": Object.freeze([
-    "lstat",
-    "opendir",
-  ]),
-  "packages/agent-cli/src/workspace-path.ts": Object.freeze([
-    "lstat",
-    "realpath",
-  ]),
-  "packages/agent-cli/src/workspace-read-policy.ts": Object.freeze([
-    "lstat",
-    "readFile",
-    "realpath",
-  ]),
+const APPROVED_CLI_FILESYSTEM_AUTHORITIES = Object.freeze({
+  "packages/agent-cli/src/builtin-tools.ts": Object.freeze({
+    imports: Object.freeze(["type Dirent", "lstat", "opendir", "readFile"]),
+    sourceSha256: "fe6f38a1a91c7a3738b44e02564db69f8d4af8208ac543ffe05b264de21bfc37",
+  }),
+  "packages/agent-cli/src/session-journal.ts": Object.freeze({
+    imports: Object.freeze([
+      "lstat",
+      "mkdir",
+      "open",
+      "readFile",
+      "readdir",
+      "rename",
+      "rm",
+    ]),
+    sourceSha256: "8730b91db3136c00998d31cf582cbf5bd90443e599738cc72b5fdc9af059c8c1",
+  }),
+  "packages/agent-cli/src/workspace-boundary.ts": Object.freeze({
+    imports: Object.freeze(["lstat", "realpath"]),
+    sourceSha256: "3840784307299b14ae8f86b0c7c132a5d22574e70f332b41091a481f3985ebe7",
+  }),
+  "packages/agent-cli/src/workspace-mutation-plans.ts": Object.freeze({
+    imports: Object.freeze(["lstat", "open"]),
+    sourceSha256: "fc7ec4869d05fb1272aa54771d1917b74594a27cf54889381f5035cda9e921de",
+  }),
+  "packages/agent-cli/src/workspace-namespace-plans.ts": Object.freeze({
+    imports: Object.freeze(["lstat", "opendir"]),
+    sourceSha256: "0721527b3fed371d0f530cd064bedb846c747ae7d136e548c90e9b2e95197d27",
+  }),
+  "packages/agent-cli/src/workspace-path.ts": Object.freeze({
+    imports: Object.freeze(["lstat", "realpath"]),
+    sourceSha256: "461169a100be3561ce7a86148f533418fd79b7dd052998863052bac652a41020",
+  }),
+  "packages/agent-cli/src/workspace-read-policy.ts": Object.freeze({
+    imports: Object.freeze(["lstat", "readFile", "realpath"]),
+    sourceSha256: "5f469faf1792645e8ee8f44b0de17c2dd55f656ce4de31d7e80538dd7e17ad5e",
+  }),
 });
 
 const FORBIDDEN_SOURCE_MARKERS = [
@@ -741,7 +742,7 @@ function validateCliFilesystemAuthority(path, text) {
   const references = [
     ...decoded.matchAll(/["']node:fs(?:\/promises)?["']/gu),
   ];
-  const expected = APPROVED_CLI_FILESYSTEM_IMPORTS[path];
+  const expected = APPROVED_CLI_FILESYSTEM_AUTHORITIES[path];
   if (expected === undefined && references.length === 0) {
     return;
   }
@@ -760,25 +761,17 @@ function validateCliFilesystemAuthority(path, text) {
   const actual = source?.split(",").map((entry) => entry.trim()).filter(
     (entry) => entry.length > 0,
   );
-  if (actual === undefined || JSON.stringify(actual) !== JSON.stringify(expected)) {
+  if (
+    actual === undefined ||
+    JSON.stringify(actual) !== JSON.stringify(expected.imports)
+  ) {
     fail(path + " contains CLI filesystem authority drift");
   }
-  const runtimeBindings = new Set(
-    expected
-      .filter((entry) => !entry.startsWith("type "))
-      .map((entry) => entry.split(/\s+as\s+/u).at(-1)),
-  );
-  let exportedBindings;
-  try {
-    exportedBindings = collectRuntimeExportBindings(text);
-  } catch (error) {
-    if (error instanceof ModuleScanError) {
-      fail(path + " contains an unscannable runtime export");
-    }
-    throw error;
-  }
-  if (exportedBindings.some((entry) => runtimeBindings.has(entry.local))) {
-    fail(path + " exports an approved CLI filesystem binding");
+  const sourceSha256 = createHash("sha256")
+    .update(text.replaceAll("\r\n", "\n"), "utf8")
+    .digest("hex");
+  if (sourceSha256 !== expected.sourceSha256) {
+    fail(path + " contains CLI filesystem source-integrity drift");
   }
 }
 
@@ -833,7 +826,7 @@ function validateProductSources(productSources) {
   );
   validateInventoryPaths(
     encounteredPaths,
-    APPROVED_CLI_FILESYSTEM_IMPORTS,
+    APPROVED_CLI_FILESYSTEM_AUTHORITIES,
     "CLI filesystem authority inventory",
   );
 }

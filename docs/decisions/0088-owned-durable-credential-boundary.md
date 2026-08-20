@@ -151,7 +151,7 @@ providers remain blocked, the current product creates no `credentials`
 namespace, Ollama credential persistence remains forbidden, and no auth package,
 command, endpoint, token field, or generic credential reader enters source.
 The gate maintains a closed inventory of current sensitive-state identifiers and
-the exact production CLI filesystem import authorities. A new sensitive
+the exact production CLI filesystem authorities. A new sensitive
 identifier, filesystem-capable CLI module, or expanded filesystem binding fails
 closed until the owning decision and policy evidence are updated together.
 The identifier inventory grants no global spelling allowance: each
@@ -160,37 +160,15 @@ count. Adding a known spelling at a new use or removing an admitted occurrence
 fails closed until that path record and its evidence change together.
 Both inventory key sets are bidirectional: every registered path must remain in
 the canonical product-source set, and each approved CLI filesystem path must
-retain its exact import statement and bindings. A rename, deletion, or reduced
-filesystem import fails closed rather than preserving a dormant path allowance.
-No approved runtime filesystem binding may leave its inventoried module through
-a named export, including an identifier or string-literal alias, a default
-export, or an exported variable declaration. The same owned lexer resolves only
-direct identifier aliases at module scope, rejects cycles, and admits at most
-256 alias records. Every module-scope object or array binding pattern in an
-inventoried filesystem module fails closed as outside that grammar, whether it
-is exported immediately or by a later declaration. A `var` declaration
-encountered while parentheses, brackets, or braces are open fails closed rather
-than requiring surrounding-scope inference. The lexer delimits variable
-declarators and default expressions at explicit or lexically unambiguous
-automatic-semicolon boundaries. Variable type annotations occupy a separate
-bounded lexical region of at most 256 tokens and 32 nested balanced parentheses,
-brackets, braces, or generic angle pairs. Function-type arrows are consumed
-atomically, nested commas never delimit declarations, and unbalanced or
-over-bound annotations fail closed. Its direct-alias grammar admits at most 32
-nested balanced parentheses or legacy angle-bracket assertions, postfix
-non-null markers, and `as` or `satisfies` chains. Assertion types are limited to
-`const`, `typeof` plus a qualified identifier, or a qualified identifier; any
-other assertion type fails closed. The complete
-default-export expression must be a direct alias before it creates raw-binding
-evidence. A named runtime binding literally called `type` remains runtime; the
-type-only modifier is recognized only when it prefixes another local identifier.
-Identifiers are tokenized by Unicode code point through the ECMAScript
-`ID_Start` and `ID_Continue` classes, including the admitted join controls;
-escaped identifiers fail closed. Multiline calls, member access, tagged
-templates, and admitted transparent assertions remain continuations.
-Nested-scope aliases, call results, comments, standalone string contents, and
-type-only exports do not create raw-binding evidence; the gate never executes
-product code or claims general capability-flow analysis.
+retain its exact import statement, bindings, and normalized source digest. The
+digest covers the complete UTF-8 module after only CRLF-to-LF normalization and
+uses SHA-256. A rename, deletion, reduced or expanded filesystem import, or any
+other source drift fails closed rather than preserving a dormant allowance.
+This complete source snapshot is the verifier's sole authority for code flow
+inside an approved filesystem-capable module. The gate does not execute product
+code or infer exports, aliases, assignments, or general capability flow. A
+legitimate edit requires review of the complete module and an explicit digest
+repin in the same policy change; unfamiliar syntax cannot bypass the boundary.
 Before applying dormant literal markers, the gate projects values reconstructed
 only from bounded non-interpolated literals, parentheses, literal `+`, and
 literal arrays joined with a static separator. It never evaluates product code;

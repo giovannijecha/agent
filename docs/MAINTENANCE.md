@@ -514,7 +514,7 @@ token field, or API-key persistence enters the product. Do not implement an
 opaque generic store in anticipation of a provider.
 
 Keep the verifier's closed sensitive-state identifier inventory and exact
-production CLI filesystem-import inventory synchronized with reviewed source.
+production CLI filesystem-authority registry synchronized with reviewed source.
 Any new auth, credential, secret, session-state, or token identifier and any new
 or expanded CLI filesystem authority must fail until its owning contract and
 mutation evidence are updated in the same change.
@@ -525,33 +525,22 @@ path record when its owning evidence changes. Prove both an added known spelling
 and a removed occurrence fail before repinning that record.
 
 Treat both inventory key sets as exact current-path requirements. Renaming or
-deleting an inventoried file must fail, as must removing the reviewed filesystem
-import from an otherwise retained approved CLI path. Update or remove the stale
-entry together with its owning decision and mutation evidence; never retain a
-dormant pathname allowance for possible later reuse.
+deleting an inventoried file must fail, as must changing its reviewed filesystem
+import or any other source content. Each filesystem authority record owns the
+exact imported bindings and the SHA-256 digest of the complete UTF-8 module
+after only CRLF-to-LF normalization. Update or remove the stale record together
+with its owning decision and mutation evidence; never retain a dormant pathname
+or digest allowance for possible later reuse.
 
-Do not re-export an approved runtime filesystem binding from its inventoried
-module. Keep direct, identifier-aliased, string-literal-aliased, default, and
-exported variable declaration mutations in the source-policy corpus. Reject
-every module-scope object or array binding pattern in an inventoried filesystem
-module as unscannable rather than trying to infer whether a later export carries
-its authority. Reject `var` declarations in blocks, loops, and functions rather
-than inferring function scope. Require the complete default-export expression to
-be a direct alias before recording it. Include a runtime binding literally named
-`type` beside a type-only export, a separate module-scope direct-alias chain, the
-256-alias bound, cycle rejection, Unicode aliases in both the basic and astral
-planes, parenthesized bounded `as` and `satisfies` chains, bounded legacy
-angle-bracket assertions, and an omitted-semicolon declaration followed by a
-new statement. Keep negative
-controls for escaped identifiers, assertion types outside the bounded alias
-grammar, the 32-level direct-alias depth bound, multiline calls, member access,
-tagged templates, nested scopes, call results, comments, standalone source strings,
-and type-only exports. Exercise typed variable declarations separately with a
-nested generic comma, a function-type arrow, a multiline import type, an
-automatic-semicolon boundary, unbalanced delimiters, and both the 32-delimiter
-and 256-token bounds. A
-higher-level owned CLI API remains subject to its ordinary package and source
-review; this gate does not execute product code or infer general data flow.
+Do not weaken source integrity into a partial export or alias scanner. Keep
+representative escape recurrences in the source-policy corpus, including direct
+and aliased exports, variable declarations, assertions, destructuring, Unicode
+bindings, and assignment to an exported binding after declaration. They all
+must fail through the same exact source-integrity boundary, independent of
+surface syntax. Any legitimate edit to an approved filesystem-capable module
+requires review of the complete authority-bearing source and an explicit digest
+repin in the same change. The gate does not execute product code or infer
+general data flow.
 
 Keep direct and split dormant literals in the mutation corpus. The static-string
 projection admits only non-interpolated literals, parentheses, literal `+`, and

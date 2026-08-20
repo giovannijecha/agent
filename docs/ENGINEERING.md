@@ -84,37 +84,16 @@ separate follow-up unless the adjacent change is necessary for correctness.
   authorizes a new declaration or use.
 - Closed source-policy inventories are bidirectional. Every registered path must
   remain in the canonical product-source set, and each approved CLI filesystem
-  path must retain exactly its reviewed import statement and bindings. Renaming,
-  deleting, or reducing an inventoried authority fails closed.
-- An approved runtime filesystem binding may not leave its inventoried module
-  through a named export, including an identifier or string-literal alias, a
-  default export, or an exported variable declaration. Module-scope object and
-  array binding patterns in an inventoried filesystem module are outside the
-  owned grammar and fail closed, including before a later export. A `var`
-  declaration encountered while parentheses, brackets, or braces are open also
-  fails closed rather than requiring surrounding-scope inference. The owned
-  lexer resolves at most 256 module-scope direct identifier aliases, rejects
-  cycles, and delimits variable declarators and default expressions at explicit
-  or lexically unambiguous automatic-semicolon boundaries. A variable type
-  annotation is a separate bounded lexical region: it admits at most 256 tokens
-  and 32 nested balanced parentheses, brackets, braces, or generic angle pairs,
-  consumes function-type arrows atomically, and never treats a nested comma as
-  a declarator boundary. Unbalanced or over-bound annotations fail closed. The
-  direct-alias grammar admits at most 32 nested balanced parentheses or legacy
-  angle-bracket assertions, postfix non-null markers, and `as` or `satisfies`
-  chains. Every assertion type is limited to `const`, `typeof` plus a qualified
-  identifier, or a qualified identifier; every other assertion type fails
-  closed. A default
-  export creates alias evidence only when its complete delimited expression is
-  a direct identifier alias. A named runtime binding literally called `type`
-  remains runtime; `type` is a type-only modifier only when it prefixes another
-  local identifier. Identifiers are tokenized by Unicode code point through the
-  ECMAScript `ID_Start` and `ID_Continue` classes, including the admitted join
-  controls; escaped identifiers fail closed. Multiline calls, member access,
-  tagged templates, and admitted transparent assertions remain expression
-  continuations. The lexer distinguishes runtime exports from nested scopes,
-  comments, standalone string contents, and type-only syntax, and does not infer
-  general capability flow through product execution.
+  path must retain its reviewed import statement, bindings, and normalized
+  source digest. Source integrity normalizes only CRLF to LF, then hashes the
+  complete UTF-8 module with SHA-256. Renaming, deleting, reducing, expanding,
+  or otherwise changing an inventoried authority fails closed.
+- The exact source digest is the sole verifier authority for code flow within an
+  approved filesystem-capable CLI module. The verifier does not execute product
+  code or attempt partial export, alias, assignment, or capability-flow
+  inference. Any legitimate source edit requires an explicit review and digest
+  update in the same policy change; a new filesystem-capable CLI path requires
+  a new exact authority record.
 - Put minimal Node declarations in `types/` from authoritative runtime
   contracts.
 - Cross package boundaries only through `src/index.ts`.

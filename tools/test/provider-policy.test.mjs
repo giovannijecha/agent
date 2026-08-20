@@ -531,7 +531,7 @@ test("rejects new or expanded CLI filesystem authority", () => {
   );
 });
 
-test("rejects approved filesystem bindings re-exported to local modules", () => {
+test("rejects reviewed filesystem escape recurrences as source drift", () => {
   const path = "packages/agent-cli/src/session-journal.ts";
   const original = readFileSync(
     new URL("../../" + path, import.meta.url),
@@ -582,6 +582,12 @@ test("rejects approved filesystem bindings re-exported to local modules", () => 
       'import { localRead as readFile } from "./session-journal.js";',
     ],
     [
+      "let localRead: typeof readFile;\n" +
+        "localRead = readFile;\n" +
+        "export { localRead };",
+      'import { localRead as readFile } from "./session-journal.js";',
+    ],
+    [
       "const type = readFile;\nexport { type as localRead };",
       'import { localRead as readFile } from "./session-journal.js";',
     ],
@@ -612,46 +618,52 @@ test("rejects approved filesystem bindings re-exported to local modules", () => 
       (error) =>
         error instanceof ProviderPolicyError &&
         error.message ===
-          path + " exports an approved CLI filesystem binding",
+          path + " contains CLI filesystem source-integrity drift",
     );
   }
 });
 
-test("rejects module-scope destructuring and admits default call results", () => {
+test("pins every approved CLI filesystem authority to its reviewed source", () => {
+  for (const source of currentProductSources.filter((candidate) =>
+    [
+      "packages/agent-cli/src/builtin-tools.ts",
+      "packages/agent-cli/src/session-journal.ts",
+      "packages/agent-cli/src/workspace-boundary.ts",
+      "packages/agent-cli/src/workspace-mutation-plans.ts",
+      "packages/agent-cli/src/workspace-namespace-plans.ts",
+      "packages/agent-cli/src/workspace-path.ts",
+      "packages/agent-cli/src/workspace-read-policy.ts",
+    ].includes(candidate.path)
+  )) {
+    assert.throws(
+      () =>
+        validateProviderPolicy(
+          currentPolicy,
+          contextWithSources({
+            path: source.path,
+            text: source.text + "\n// unreviewed source drift\n",
+          }),
+        ),
+      (error) =>
+        error instanceof ProviderPolicyError &&
+        error.message ===
+          source.path + " contains CLI filesystem source-integrity drift",
+    );
+  }
+});
+
+test("normalizes approved CLI filesystem source line endings", () => {
   const path = "packages/agent-cli/src/session-journal.ts";
   const original = readFileSync(
     new URL("../../" + path, import.meta.url),
     "utf8",
   );
-  for (const mutation of [
-    "export const { localRead } = { localRead: readFile };",
-    "const { localRead } = { localRead: readFile };\n" +
-      "export { localRead };",
-    "if (true) { var localRead = readFile; }\n" +
-      "export { localRead };",
-    "for (var localRead = readFile; false;) {}\n" +
-      "export { localRead };",
-    "const localRead = (readFile as Readonly<{ value: string }>);\n" +
-      "export { localRead };",
-  ]) {
-    assert.throws(
-      () =>
-        validateProviderPolicy(
-          currentPolicy,
-          contextWithSources({ path, text: original + "\n" + mutation + "\n" }),
-        ),
-      (error) =>
-        error instanceof ProviderPolicyError &&
-        error.message === path + " contains an unscannable runtime export",
-    );
-  }
-
   assert.doesNotThrow(() =>
     validateProviderPolicy(
       currentPolicy,
       contextWithSources({
         path,
-        text: original + "\nexport default readFile(path);\n",
+        text: original.replaceAll("\r\n", "\n").replaceAll("\n", "\r\n"),
       }),
     ),
   );
