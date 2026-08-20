@@ -333,6 +333,68 @@ test("rejects every provider or auth workspace that was not admitted", () => {
   }
 });
 
+test("rejects every dormant durable credential product surface", () => {
+  const mutations = [
+    {
+      label: "dormant agent auth command",
+      match: "forbidden",
+      path: "packages/agent-cli/src/launch-command.ts",
+      mutate: (text) => text.replace(
+        'if (argument === "--help") {',
+        'if (argument === "auth") {',
+      ),
+    },
+    {
+      label: "dormant credential namespace",
+      match: "forbidden",
+      path: "packages/agent-cli/src/workspace-boundary.ts",
+      mutate: (text) => text.replace(
+        'path.join(userStateRoot, "sessions")',
+        'path.join(userStateRoot, "credentials")',
+      ),
+    },
+    {
+      label: "generic credential reader",
+      match: "obfuscated",
+      path: "packages/agent-cli/src/provider-session.ts",
+      mutate: (text) => text +
+        "\nexport function readCredential(): undefined {\n" +
+        "  return undefined;\n" +
+        "}\n",
+    },
+  ];
+
+  for (const mutation of mutations) {
+    const original = readFileSync(
+      new URL("../../" + mutation.path, import.meta.url),
+      "utf8",
+    );
+    assert.doesNotThrow(() =>
+      validateProviderPolicy(currentPolicy, {
+        ...emptyContext,
+        productSources: [{ path: mutation.path, text: original }],
+      }),
+    );
+    const mutated = mutation.mutate(original);
+    assert.notEqual(
+      mutated,
+      original,
+      "mutation did not change " + mutation.path,
+    );
+    assert.throws(
+      () =>
+        validateProviderPolicy(currentPolicy, {
+          ...emptyContext,
+          productSources: [{ path: mutation.path, text: mutated }],
+        }),
+      (error) =>
+        error instanceof ProviderPolicyError &&
+        error.message ===
+          mutation.path + " contains " + mutation.match + " " + mutation.label,
+    );
+  }
+});
+
 test("allows only the reviewed direct-provider literals in their exact files", () => {
   const admitted = [
     {

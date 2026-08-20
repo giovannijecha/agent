@@ -178,6 +178,8 @@ const FORBIDDEN_SOURCE_MARKERS = [
   [/\b(?:ANTHROPIC_OAUTH_TOKEN|KIMI_CODE_OAUTH_HOST)\b/u, "provider token configuration"],
   [/(?:auth\.json|\.codex|\.claude|\.kimi-code|\.grok)/u, "foreign credential storage"],
   [/(?:originator[^\n]*pi|referrer[^\n]*pi|You are Claude Code|claude-cli\/)/iu, "foreign product identity"],
+  [/["'`]auth["'`]/u, "dormant agent auth command"],
+  [/["'`]credentials["'`]/u, "dormant credential namespace"],
 ];
 
 const FORBIDDEN_COMPACT_MARKERS = [
@@ -197,6 +199,9 @@ const FORBIDDEN_COMPACT_MARKERS = [
   [/\.grok/u, "foreign credential storage"],
   [/(?:identity|originator|referrer)[=:]pi(?:\/|[;,}])/u, "foreign product identity"],
   [/youareclaudecode/u, "foreign product identity"],
+  [/(?:agentauth|(?:argument|command)(?:===|==|:)auth)(?:[^a-z0-9]|$)/u, "dormant agent auth command"],
+  [/(?:\.agent|userstateroot).{0,64}credentials(?:[^a-z0-9]|$)/u, "dormant credential namespace"],
+  [/(?:read|load)(?:durable|owned|provider|stored)*credentials?(?:file|record)?(?:[^a-z0-9]|$)/u, "generic credential reader"],
 ];
 
 export class ProviderPolicyError extends Error {
