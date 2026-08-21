@@ -155,12 +155,14 @@ exact minimum and maximum code-unit bounds and NUL policy in the closed
 `x-agent-constraints` annotation, together with any UTF-8 byte or structured-
 projection bounds it owns; NUL rejection is additionally expressed by a
 standard pattern when active. A list with aggregate text bounds carries those
-exact values in the same annotation. Because the function tool remains
-`strict: false` and the standard schema vocabulary cannot express all of those
-units exactly, Agent's existing `ToolSchema` validator remains the sole
-argument-admission authority. The annotations preserve the complete advertised
-contract for inspection; they do not claim provider enforcement and never
-weaken local validation.
+exact values in the same annotation. An object with a structured projection
+carries the exact ordered field names, each `exact` or `size` mode, and the
+maximum projection code units in one nested `projection` member. Because the
+function tool remains `strict: false` and the standard schema vocabulary cannot
+express all of those units exactly, Agent's existing `ToolSchema` validator
+remains the sole argument-admission authority. The annotations preserve the
+complete advertised contract for inspection; they do not claim provider
+enforcement and never weaken local validation.
 
 Instructions are 1 through 4,096 code units, the model ID obeys the catalog
 grammar, and the serialized body is at most 8,388,608 code units. Construction,

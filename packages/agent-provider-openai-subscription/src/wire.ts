@@ -70,6 +70,22 @@ function schemaEntry(field: ObjectSchemaField, literal?: string) {
   ] as const);
 }
 
+function objectSchemaConstraints(schema: ObjectSchema): object {
+  const projection = schema.projection;
+  if (projection === undefined) return Object.freeze({});
+  return Object.freeze({
+    "x-agent-constraints": Object.freeze({
+      projection: Object.freeze({
+        fields: Object.freeze(projection.fields.map((field) => Object.freeze({
+          mode: field.mode,
+          name: field.name,
+        }))),
+        maximumCodeUnits: projection.maximumCodeUnits,
+      }),
+    }),
+  });
+}
+
 function objectSchemaValue(schema: ObjectSchema): unknown {
   const discriminant = schema.discriminant;
   if (discriminant === undefined) {
@@ -78,6 +94,7 @@ function objectSchemaValue(schema: ObjectSchema): unknown {
       properties: Object.fromEntries(schema.fields.map((field) => schemaEntry(field))),
       required: schema.fields.filter((field) => field.required).map((field) => field.name),
       type: "object",
+      ...objectSchemaConstraints(schema),
     });
   }
   return Object.freeze({
@@ -97,6 +114,7 @@ function objectSchemaValue(schema: ObjectSchema): unknown {
         type: "object",
       });
     })),
+    ...objectSchemaConstraints(schema),
   });
 }
 

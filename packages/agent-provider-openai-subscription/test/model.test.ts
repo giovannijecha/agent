@@ -319,13 +319,23 @@ function constrainedDescriptor(): ToolDescriptor {
       required: true,
       schema: texts.value,
     },
-  ]);
+  ], Object.freeze({
+    fields: Object.freeze([
+      Object.freeze({ mode: "exact" as const, name: "text" }),
+      Object.freeze({ mode: "size" as const, name: "texts" }),
+    ]),
+    maximumCodeUnits: 8_192,
+  }));
   assert.ok(input.ok);
   const tool = ToolDescriptor.create(
     "search_text",
     "Search with exact owned string constraints.",
     "read",
     input.value,
+    Object.freeze([
+      Object.freeze({ mode: "exact" as const, name: "text" }),
+      Object.freeze({ mode: "size" as const, name: "texts" }),
+    ]),
   );
   assert.ok(tool.ok);
   return tool.value;
@@ -580,6 +590,15 @@ test("preserves exact owned string and aggregate-text constraints in tool schema
       },
       required: ["text", "texts"],
       type: "object",
+      "x-agent-constraints": {
+        projection: {
+          fields: [
+            { mode: "exact", name: "text" },
+            { mode: "size", name: "texts" },
+          ],
+          maximumCodeUnits: 8_192,
+        },
+      },
     },
     strict: false,
     type: "function",

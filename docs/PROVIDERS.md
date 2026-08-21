@@ -171,8 +171,9 @@ function-call item as the name authority even when the argument-done event
 omits its redundant name. Its tool projection preserves owned code-unit, UTF-8,
 projection, NUL, and aggregate-text constraints as explicit annotations: every
 non-literal string exposes its exact minimum and maximum code-unit bounds even
-when it owns no auxiliary string constraint. The provider-neutral validator
-remains the sole argument-admission authority.
+when it owns no auxiliary string constraint, and every projected object exposes
+the exact ordered field names, field modes, and aggregate maximum. The provider-
+neutral validator remains the sole argument-admission authority.
 It treats `response.completed` as provisional: the complete provider-ordered
 output must match the accumulated completed items, and `done` or `toolCalls` is
 published only after clean SSE and transport EOF with no trailing frame.
