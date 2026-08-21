@@ -461,6 +461,21 @@ test("rejects clean-room provenance contract drift", () => {
   }
 });
 
+test("requires stale public documentation before reference-source inspection", () => {
+  const ownership = readFileSync(
+    path.join(projectRoot, "docs/OWNERSHIP.md"),
+    "utf8",
+  );
+  for (const marker of [
+    "Reference-project implementation source may be inspected only after current public\ndocumentation is demonstrated stale",
+    "[Pi provider documentation](https://pi.dev/docs/latest/providers)",
+    "[OpenCode provider documentation](https://opencode.ai/docs/providers/)",
+    "OpenCode's page documents browser login but omits the current headless device flow",
+  ]) {
+    assert.equal(ownership.includes(marker), true, marker);
+  }
+});
+
 test("rejects removal or modification of maintained provenance entries", () => {
   const maintained = currentContext().files["docs/OWNERSHIP.md"];
   const entries = maintained

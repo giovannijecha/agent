@@ -25,13 +25,17 @@ Codex-specific device, token, catalog, and Responses route details needed to
 specify an independent implementation. The metadata publishes no dynamic
 client-registration endpoint.
 
-The maintainer also authorized a clean-room inspection of current Pi and
-OpenCode source. Both independently implement the same device or browser OAuth
-family, proving that a separate harness can interoperate technically. Both also
-use the public-client identity registered to OpenAI Codex. That observation
-does not transfer the registration to `agent`, and no source, client
-identifier, implementation structure, fixture, prompt, product header, or
-credential schema from either project is admitted.
+Current public documentation was inspected first and proved stale for this
+question. Pi documents subscription login, storage, and refresh but omits its
+OpenAI ceremony and client identity. OpenCode documents browser login but omits
+the current headless device flow, refresh, transport, and client identity. The
+maintainer then authorized a clean-room inspection limited to those gaps at the
+pinned commits. Both projects independently implement the device or browser
+OAuth family, proving that a separate harness can interoperate technically.
+Both also use the public-client identity registered to OpenAI Codex. That
+observation does not transfer the registration to `agent`, and no source,
+client identifier, implementation structure, fixture, prompt, product header,
+or credential schema from either project is admitted.
 
 Public endpoints and public-client identity are separate authorities. This
 decision accepts the public protocol as the intended OpenAI direction and

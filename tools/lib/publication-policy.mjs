@@ -198,6 +198,20 @@ function validateProvenanceLog(policy, context) {
   if (!entries.includes(ollamaThinkingEntry)) {
     fail("Ollama thinking provenance contract is missing or incomplete");
   }
+  const openAiReferenceInspectionEntry =
+    "| 2026-08-21 | [Pi provider documentation](https://pi.dev/docs/latest/providers) and OpenAI OAuth source at " +
+    "[`5cd93f688aaab89dbb6dfa4aca535f21796ae185`](https://github.com/earendil-works/pi/blob/5cd93f688aaab89dbb6dfa4aca535f21796ae185/packages/ai/src/auth/oauth/openai-codex.ts), plus " +
+    "[OpenCode provider documentation](https://opencode.ai/docs/providers/) and OpenAI provider source at " +
+    "[`e11dbd02068aa36723dd43da43c247ade82d2fe7`](https://github.com/anomalyco/opencode/blob/e11dbd02068aa36723dd43da43c247ade82d2fe7/packages/core/src/plugin/provider/openai.ts) | " +
+    "Pi's public provider page documents subscription login, storage, and refresh but omits the OpenAI ceremony and client identity; " +
+    "OpenCode's page documents browser login but omits the current headless device flow, refresh, transport, and client identity; " +
+    "source inspection was limited to those concrete stale-documentation gaps | " +
+    "Technical feasibility and identity-transfer risk only; corroboration that public endpoint access does not itself create an independent client registration | " +
+    "None; no code, structure, test, fixture, prompt, endpoint, scope, header, client identifier, credential schema, model identifier, or product identity reused; " +
+    "official OpenAI sources remain the sole protocol authority |";
+  if (!entries.includes(openAiReferenceInspectionEntry)) {
+    fail("OpenAI reference-source provenance contract is missing or incomplete");
+  }
   const digest = createHash("sha256")
     .update(entries.join("\n") + "\n", "utf8")
     .digest("hex");
@@ -449,6 +463,7 @@ function validatePublicDocuments(context) {
       "We do not copy, translate, port, adapt,\nvendor, or regenerate project code from third parties.",
       "External documentation or current public source may establish observable\nbehavior or a protocol. Record the commit, material, and allowed facts below\nbefore implementation.",
       "Never reuse registered\nidentifiers, prompts, fixtures, headers that assert foreign identity, or source\nstructure.",
+      "Reference-project implementation source may be inspected only after current public\ndocumentation is demonstrated stale",
       "| Date | Reference | Material inspected | Allowed influence | Code copied |",
       "Later TUI comparison remains restricted to observable outcomes and does not\nadmit a foreign hierarchy, module boundary, name, style literal, animation\ntiming, redraw algorithm, or source structure.",
       "Development tools may assist repository work, but every accepted artifact is\nreviewed against this project's rules, tests, and provenance contract.",

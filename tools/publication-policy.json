@@ -23,7 +23,7 @@
   "provenanceLog": {
     "path": "docs/OWNERSHIP.md",
     "entryCount": 44,
-    "sha256": "3c800896d6ec6bd7f8cc5a1017cc3954fa84e59a2839afaccca0b4d247f9f85b"
+    "sha256": "d96cf5424d01c323bf35fb149087324eab4d27977a6d488bbe174a8db0778e9d"
   },
   "documents": [
     ".gitattributes",
