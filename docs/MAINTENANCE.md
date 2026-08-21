@@ -566,6 +566,8 @@ inside each asynchronous callback's containment boundary. A throwing or
 malformed metadata source must produce a content-free protocol failure, destroy
 both request and response, and combine cleanup failure; never reread response
 metadata in a stream constructor or at catalog EOF.
+Admit a content-type array only when it contains exactly one string member;
+regress a non-string member with hostile coercion and never invoke that coercion.
 Treat listener registration and initial `pause` or `resume` as one atomic
 admission step inside that callback. On any throw, detach every listener that
 may have been registered, destroy both exact handles, and settle once. For an
@@ -616,6 +618,9 @@ For OpenAI byte-chunk changes, snapshot the length, enforce the 1-through-65,536
 bound, and copy into a fresh typed array with `set` before retention or UTF-8
 decoding. Regress both HTTPS and injected chunks with overridden iterators;
 never spread or call an untrusted byte iterator.
+Apply the same once-read, no-throw length-and-copy transaction at the exported
+catalog decoder's one-megabyte boundary. Regress a throwing length getter and
+return the content-free limit result rather than exposing its cause.
 
 For ChatGPT, Kimi, or xAI compatibility changes, recheck first-party protocol
 and client-ownership evidence, pin any necessary bounded clean-room inspection

@@ -200,6 +200,8 @@ inside callback-local containment. Throwing or malformed metadata produces a
 content-free protocol failure, destroys both request and response, and combines
 either cleanup failure; admitted metadata is never reread at catalog EOF or
 inside the Responses stream constructor.
+A content-type header array is valid only with exactly one string member; a
+non-string member is never coerced and rejects the complete response admission.
 Listener registration and initial flow control form the same atomic response-
 admission transaction. Any throw rolls back every partially registered
 listener, destroys both handles, and settles one content-free protocol result.
@@ -221,6 +223,9 @@ malformed getter without encoding or sending a request.
 Catalog and Responses HTTPS chunks, and injected Responses chunks, must contain
 1 through 65,536 bytes. Each is copied into a fresh typed array with `set`
 before retention or UTF-8 decoding; a source iterator is never consulted.
+The exported catalog decoder likewise snapshots its untrusted byte length once
+inside the same no-throw boundary as its bounded copy. A throwing, malformed,
+empty, or oversized length returns only the content-free limit result.
 SSE boundary discovery examines each new chunk with only the retained three-
 code-unit suffix; repeated `needMore` outcomes never rescan the whole partial
 frame.

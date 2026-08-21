@@ -450,6 +450,37 @@ test("copies catalog bytes without consulting an overridden iterator", async () 
   assert.equal(iteratorCalls, 0);
 });
 
+test("contains hostile catalog byte-bound access", () => {
+  const body = ascii(JSON.stringify({ models: [
+    { slug: MODEL, visibility: "list", supported_in_api: true },
+  ] }));
+  let lengthReads = 0;
+  Object.defineProperty(body, "length", {
+    get: () => {
+      lengthReads += 1;
+      throw new Error("private catalog byte-bound failure");
+    },
+  });
+  let escaped = false;
+  let decoded: unknown;
+  try {
+    decoded = decodeOpenAIModelCatalog(body);
+  } catch (_cause: unknown) {
+    escaped = true;
+  }
+  assert.equal(escaped, false);
+  assert.deepEqual(decoded, {
+    error: {
+      cleanupFailed: false,
+      kind: "openaiSubscription",
+      operation: "catalog",
+      reason: "limit",
+    },
+    ok: false,
+  });
+  assert.equal(lengthReads, 1);
+});
+
 test("rejects a non-boolean catalog cancellation snapshot", async () => {
   const cancellation = Object.freeze({
     requested: 0,

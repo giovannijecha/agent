@@ -78,6 +78,23 @@ function validContentType(value: string | undefined): boolean {
     /^application\/json(?:\s*;\s*charset=utf-8)?$/iu.test(value);
 }
 
+function snapshotCatalogBytes(
+  value: unknown,
+  minimumLength: 0 | 1,
+): Uint8Array | undefined {
+  try {
+    if (!(value instanceof Uint8Array)) return undefined;
+    const length = value.length;
+    if (!Number.isSafeInteger(length) || length < minimumLength ||
+      length > OPENAI_PROVIDER_LIMITS.catalogBodyBytes) return undefined;
+    const snapshot = new Uint8Array(length);
+    snapshot.set(value);
+    return snapshot;
+  } catch (_cause: unknown) {
+    return undefined;
+  }
+}
+
 function snapshotCapture(value: unknown): OpenAICatalogCapture | undefined {
   try {
     if (!isRecord(value)) return undefined;
@@ -85,18 +102,13 @@ function snapshotCapture(value: unknown): OpenAICatalogCapture | undefined {
     const cleanupFailed = value.cleanupFailed;
     const contentType = value.contentType;
     const statusCode = value.statusCode;
-    if (!(body instanceof Uint8Array)) return undefined;
-    const bodyLength = body.length;
-    if (!Number.isSafeInteger(bodyLength) || bodyLength < 0 ||
-      bodyLength > OPENAI_PROVIDER_LIMITS.catalogBodyBytes ||
-      typeof cleanupFailed !== "boolean" ||
+    const bodySnapshot = snapshotCatalogBytes(body, 0);
+    if (bodySnapshot === undefined || typeof cleanupFailed !== "boolean" ||
       (contentType !== undefined && typeof contentType !== "string") ||
       typeof statusCode !== "number" || !Number.isSafeInteger(statusCode) ||
       statusCode < 100 || statusCode > 599) {
       return undefined;
     }
-    const bodySnapshot = new Uint8Array(bodyLength);
-    bodySnapshot.set(body);
     return Object.freeze({
       body: bodySnapshot,
       cleanupFailed,
@@ -112,12 +124,10 @@ function snapshotCapture(value: unknown): OpenAICatalogCapture | undefined {
 export function decodeOpenAIModelCatalog(
   bytes: Uint8Array,
 ): Result<readonly OpenAIModelId[], OpenAIError> {
-  if (!(bytes instanceof Uint8Array) || bytes.length < 1 ||
-    bytes.length > OPENAI_PROVIDER_LIMITS.catalogBodyBytes) {
-    return err(failure("limit"));
-  }
+  const snapshot = snapshotCatalogBytes(bytes, 1);
+  if (snapshot === undefined) return err(failure("limit"));
   const utf8 = new Utf8Decoder();
-  const decoded = utf8.decode(bytes);
+  const decoded = utf8.decode(snapshot);
   if (!decoded.ok) return err(failure("encoding"));
   const tail = utf8.finish();
   if (!tail.ok) return err(failure("encoding"));

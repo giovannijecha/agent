@@ -372,6 +372,46 @@ test("contains throwing HTTPS response metadata and destroys both handles", asyn
   }
 });
 
+test("rejects a non-string singleton content-type without coercion", async () => {
+  for (const operation of ["catalog", "responses"] as const) {
+    const response = new FakeResponse();
+    let coercions = 0;
+    const hostile = Object.create(null) as Record<string, unknown>;
+    Object.defineProperty(hostile, Symbol.toPrimitive, {
+      value: () => {
+        coercions += 1;
+        throw new Error("private content-type coercion");
+      },
+    });
+    Object.freeze(hostile);
+    Object.defineProperty(response, "headers", {
+      value: Object.freeze({ "content-type": Object.freeze([hostile]) }),
+    });
+    const client = new FakeClient(response);
+    client.deferResponses = true;
+    const pending = operation === "catalog"
+      ? create(client).catalog(new Cancellation())
+      : create(client).open(Object.freeze({ body: "{}" }), new Cancellation());
+    const request = client.requests.at(0);
+    assert.ok(request !== undefined);
+    request.destroyFailure = operation === "responses";
+    let escaped = false;
+    try {
+      client.flushResponse();
+    } catch (_cause: unknown) {
+      escaped = true;
+    }
+    assert.equal(escaped, false);
+    assert.deepEqual(await pending, {
+      error: { cleanupFailed: operation === "responses", kind: "protocol" },
+      ok: false,
+    });
+    assert.equal(coercions, 0);
+    assert.equal(response.destroyed, 1);
+    assert.equal(request.destroyed, 1);
+  }
+});
+
 test("contains asynchronous response wiring failures and rolls back listeners", async () => {
   for (const [operation, method] of [
     ["catalog", "on"],

@@ -104,6 +104,10 @@ the same bounded body snapshot into a fresh `Uint8Array` with typed-array `set`;
 the source's overridable iterator is never consulted. Catalog list also reads
 `CancellationSignal.requested` once inside containment, requires a boolean, and
 rejects malformed state before invoking the transport.
+The exported decoder reads an untrusted catalog byte length once inside the
+same no-throw transaction as its one-megabyte bound and typed-array copy. A
+throwing, malformed, empty, or oversized length returns only a content-free
+limit result.
 The Node catalog transport applies the same bounded typed-array copy to every
 HTTPS body chunk before aggregate retention.
 Its response callback snapshots status and content type once inside local
@@ -111,6 +115,9 @@ containment. Throwing or malformed metadata fails as a content-free protocol
 result, destroys request and response, and combines either cleanup failure. An
 accepted catalog response retains that snapshot through EOF without rereading
 the response object.
+A content-type header array is admitted only with exactly one string member.
+A non-string singleton is rejected without coercion under the same paired-
+cleanup protocol boundary.
 Listener registration and initial flow control are one atomic callback-local
 admission transaction. Failure rolls back partial registration, destroys both
 handles, and settles one content-free protocol result. Later catalog and stream
@@ -341,8 +348,10 @@ Red-green regression must prove:
   and no body, and rejects redirect, status, content-type, encoding, size,
   schema, duplicate, and eligibility drift while retaining only once-read
   validated capture fields, containing throwing response-metadata getters with
-  paired cleanup, ignoring an overridden body iterator, and refusing non-boolean
-  cancellation state before transport;
+  paired cleanup, rejecting a non-string singleton content type without
+  coercion, ignoring an overridden body iterator, containing a throwing catalog
+  byte-length getter, and refusing non-boolean cancellation state before
+  transport;
 - the request encoder preserves ordered messages, tool calls and outputs,
   provider call IDs, exact tool schemas including owned string and aggregate-
   text annotations, thinking mapping, `store: false`, `stream: true`, and the

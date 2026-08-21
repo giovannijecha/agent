@@ -83,10 +83,18 @@ function visibleAscii(value: unknown, maximum: number): value is string {
     /^[\x21-\x7E]+$/u.test(value);
 }
 
-function contentType(response: HttpsResponse): string | undefined {
+type ContentTypeSnapshot = Readonly<{
+  value: string | undefined;
+}>;
+
+function contentType(response: HttpsResponse): ContentTypeSnapshot | undefined {
   const value = response.headers["content-type"];
-  if (typeof value === "string") return value;
-  if (Array.isArray(value) && value.length === 1) return value.at(0);
+  if (value === undefined) return Object.freeze({ value: undefined });
+  if (typeof value === "string") return Object.freeze({ value });
+  if (Array.isArray(value) && value.length === 1) {
+    const member = value.at(0);
+    if (typeof member === "string") return Object.freeze({ value: member });
+  }
   return undefined;
 }
 
@@ -103,7 +111,9 @@ function snapshotResponseMetadata(response: HttpsResponse): ResponseMetadata | u
   const statusCode = response.statusCode;
   if (statusCode === undefined || !Number.isSafeInteger(statusCode) ||
     statusCode < 100 || statusCode > 599) return undefined;
-  return Object.freeze({ contentType: contentType(response), statusCode });
+  const contentTypeSnapshot = contentType(response);
+  if (contentTypeSnapshot === undefined) return undefined;
+  return Object.freeze({ contentType: contentTypeSnapshot.value, statusCode });
 }
 
 function validJsonContentType(value: string | undefined): boolean {
