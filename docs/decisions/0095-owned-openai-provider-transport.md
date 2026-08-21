@@ -243,15 +243,20 @@ that loses the race to cancellation, timeout, or request failure still destroys
 its response under a no-throw cleanup boundary; it cannot reopen the settled
 operation or escape a private cleanup cause. One read may be pending and a
 concurrent second read fails closed.
-The callback snapshots status and content type once inside local containment
-before constructing a stream. Throwing or malformed metadata produces a
-content-free protocol failure with paired request-response cleanup, and the
-stream receives only the admitted snapshots rather than reading the response.
-The stream is published only after all listeners are registered and the
-response is paused. A failure in either step rolls back partial registration
-and pairs response destruction with request destruction. Once published, every
-`pause`, `resume`, and listener detach is contained across read, data, EOF,
-failure, and close, without skipping any remaining cleanup operation.
+The first callback claims the sole response before reading status or content
+type inside local containment. A callback re-entered by either metadata accessor
+is a protocol conflict: it destroys the duplicate response, the claimed
+response, and the request before the outer callback can read another property,
+wire a listener, or publish a stream. Throwing or malformed metadata likewise
+produces a content-free protocol failure with paired request-response cleanup,
+and the stream receives only the admitted snapshots rather than reading the
+response. The constructed stream candidate becomes the sole cleanup authority
+before listener registration can invoke another response callback. It is
+published only after all listeners are registered and the response is paused.
+A conflict or failure in either step rolls back partial registration and pairs
+response destruction with request destruction exactly once. Once published,
+every `pause`, `resume`, and listener detach is contained across read, data,
+EOF, failure, and close, without skipping any remaining cleanup operation.
 Both the Node transport and Node-free Responses adapter snapshot each chunk's
 length, require 1 through 65,536 bytes, and copy into a fresh `Uint8Array` with
 typed-array `set` before UTF-8 decoding. No source iterator participates in the
@@ -346,6 +351,13 @@ After a nominally successful stream open, the adapter snapshots valid close
 authority before inspecting each remaining stream property once. Malformed
 metadata or read authority invokes that retained close before protocol failure
 is published, including any cleanup failure in the result.
+Model-stream close clears queued events and completion, releases every retained
+Responses item and text fragment, resets SSE framing and partial UTF-8, and only
+then awaits transport cleanup. A read that was already pending checks the closed
+state before inspecting or decoding its returned value, so bytes delivered after
+close cannot repopulate released state. The closed stream therefore retains no
+candidate conversation or partial provider response even while transport close
+is pending.
 
 This inactive module transmits nothing in the current product. After later
 integration, a catalog request will disclose the access token, account ID,
@@ -420,6 +432,11 @@ Red-green regression must prove:
 - synchronous terminal callbacks invoked by response-listener registration stop
   the remaining catalog admission actions, while Responses rejects the
   pre-publication stream and performs its paired rollback exactly once;
+- reentrant response callbacks invoked by status or content-type access fail the
+  claimed catalog or Responses operation before another metadata read, listener,
+  or publication; a Responses stream candidate owns cleanup before listener
+  registration can re-enter, and every exact response and request is destroyed
+  once;
 - an added reasoning item rejects pre-populated or malformed content before any
   later item projection can omit or replace it, and any reasoning item or delta
   is rejected when the captured effort is off;
@@ -443,6 +460,9 @@ Red-green regression must prove:
   before rejection; injected transport results snapshot their discriminant,
   selected payload, error kind, and cleanup flag exactly once through the same
   catalog/open/read/close helper;
+- model-stream close releases queued events, staged completion, Responses state,
+  bounded text chunks, SSE fragments, and partial UTF-8 before awaiting transport
+  cleanup, while a pending read rejects bytes returned after close before decode;
 - source policy admits only the new reviewed provider and CLI files and rejects
   another OpenAI origin, identity, credential authority, Node effect, retry,
   redirect, SDK, foreign runtime, or provider composition; and

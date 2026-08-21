@@ -107,11 +107,16 @@ type NodeOpenAIStreamAdmissionError = Readonly<{
   cleanupFailed: boolean;
 }>;
 
-function snapshotResponseMetadata(response: HttpsResponse): ResponseMetadata | undefined {
+function snapshotResponseMetadata(
+  response: HttpsResponse,
+  current: () => boolean,
+): ResponseMetadata | undefined {
   const statusCode = response.statusCode;
+  if (!current()) return undefined;
   if (statusCode === undefined || !Number.isSafeInteger(statusCode) ||
     statusCode < 100 || statusCode > 599) return undefined;
   const contentTypeSnapshot = contentType(response);
+  if (!current()) return undefined;
   if (contentTypeSnapshot === undefined) return undefined;
   return Object.freeze({ contentType: contentTypeSnapshot.value, statusCode });
 }
@@ -189,44 +194,48 @@ class NodeOpenAIStream implements OpenAITransportStream {
     this.#destroyRequest = destroyRequest;
   }
 
-  static admit(
+  static create(
     response: HttpsResponse,
     statusCode: number,
     responseContentType: string | undefined,
     onTerminal: () => void,
     destroyRequest: () => boolean,
-  ): Result<NodeOpenAIStream, NodeOpenAIStreamAdmissionError> {
-    const stream = new NodeOpenAIStream(
+  ): NodeOpenAIStream {
+    return new NodeOpenAIStream(
       response,
       statusCode,
       responseContentType,
       onTerminal,
       destroyRequest,
     );
+  }
+
+  admit(): Result<void, NodeOpenAIStreamAdmissionError> {
+    const response = this.#response;
     try {
-      response.on("aborted", stream.#onAborted);
-      if (stream.#admissionTerminated()) {
-        return err(Object.freeze({ cleanupFailed: stream.#rejectAdmission() }));
+      response.on("aborted", this.#onAborted);
+      if (this.#admissionTerminated()) {
+        return err(Object.freeze({ cleanupFailed: this.#rejectAdmission() }));
       }
-      response.on("data", stream.#onData);
-      if (stream.#admissionTerminated()) {
-        return err(Object.freeze({ cleanupFailed: stream.#rejectAdmission() }));
+      response.on("data", this.#onData);
+      if (this.#admissionTerminated()) {
+        return err(Object.freeze({ cleanupFailed: this.#rejectAdmission() }));
       }
-      response.on("end", stream.#onEnd);
-      if (stream.#admissionTerminated()) {
-        return err(Object.freeze({ cleanupFailed: stream.#rejectAdmission() }));
+      response.on("end", this.#onEnd);
+      if (this.#admissionTerminated()) {
+        return err(Object.freeze({ cleanupFailed: this.#rejectAdmission() }));
       }
-      response.on("error", stream.#onError);
-      if (stream.#admissionTerminated()) {
-        return err(Object.freeze({ cleanupFailed: stream.#rejectAdmission() }));
+      response.on("error", this.#onError);
+      if (this.#admissionTerminated()) {
+        return err(Object.freeze({ cleanupFailed: this.#rejectAdmission() }));
       }
       response.pause();
-      if (stream.#admissionTerminated()) {
-        return err(Object.freeze({ cleanupFailed: stream.#rejectAdmission() }));
+      if (this.#admissionTerminated()) {
+        return err(Object.freeze({ cleanupFailed: this.#rejectAdmission() }));
       }
-      return ok(stream);
+      return ok(undefined);
     } catch (_cause: unknown) {
-      return err(Object.freeze({ cleanupFailed: stream.#rejectAdmission() }));
+      return err(Object.freeze({ cleanupFailed: this.#rejectAdmission() }));
     }
   }
 
@@ -607,11 +616,15 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
         activeResponse = response;
         let metadata: ResponseMetadata | undefined;
         try {
-          metadata = snapshotResponseMetadata(response);
+          metadata = snapshotResponseMetadata(
+            response,
+            () => !settled && !terminating,
+          );
         } catch (_cause: unknown) {
-          fail("protocol");
+          if (!settled && !terminating) fail("protocol");
           return;
         }
+        if (settled || terminating) return;
         if (metadata === undefined) return fail("protocol");
         if (metadata.statusCode !== 200 || !validJsonContentType(metadata.contentType)) {
           terminating = true;
@@ -726,6 +739,9 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
     let requestCleanupFailed = false;
     let requestDestroyed = false;
     let requestPrepared = false;
+    let claimedResponse: HttpsResponse | undefined;
+    let responseClaimed = false;
+    let responseConflictCleanupFailed = false;
     let stagedResponse: HttpsResponse | undefined;
     let stagedResponseConflict = false;
     let stagedResponseCleanupFailed = false;
@@ -786,9 +802,26 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
         earlierCleanupFailed = false,
       ): void => {
         terminating = true;
+        if (claimedResponse === response) claimedResponse = undefined;
         let cleanupFailed = destroyRequest() || earlierCleanupFailed;
         if (destroyResponse(response)) cleanupFailed = true;
         settle(err(failure(kind, cleanupFailed)));
+      };
+      const rejectResponseConflict = (response: HttpsResponse): void => {
+        terminating = true;
+        let cleanupFailed = destroyResponse(response);
+        const stream = activeStream;
+        if (stream !== undefined) {
+          stream.protocol(cleanupFailed);
+          return;
+        }
+        const claimed = claimedResponse;
+        claimedResponse = undefined;
+        if (claimed !== undefined && claimed !== response && destroyResponse(claimed)) {
+          cleanupFailed = true;
+        }
+        if (destroyRequest()) cleanupFailed = true;
+        responseConflictCleanupFailed = cleanupFailed;
       };
       const acceptResponse = (response: HttpsResponse): void => {
         if (settled) {
@@ -798,28 +831,47 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
           }
           return;
         }
+        if (responseClaimed) {
+          rejectResponseConflict(response);
+          return;
+        }
+        responseClaimed = true;
+        claimedResponse = response;
         let metadata: ResponseMetadata | undefined;
         try {
-          metadata = snapshotResponseMetadata(response);
+          metadata = snapshotResponseMetadata(
+            response,
+            () => !settled && !terminating,
+          );
         } catch (_cause: unknown) {
+          if (terminating) {
+            settle(err(failure("protocol", responseConflictCleanupFailed)));
+            return;
+          }
           rejectResponse(response, "protocol");
           return;
         }
+        if (terminating) {
+          settle(err(failure("protocol", responseConflictCleanupFailed)));
+          return;
+        }
         if (metadata === undefined) return rejectResponse(response, "protocol");
-        const admission = NodeOpenAIStream.admit(
+        const stream = NodeOpenAIStream.create(
           response,
           metadata.statusCode,
           metadata.contentType,
           settleLifecycle,
           destroyRequest,
         );
+        activeStream = stream;
+        claimedResponse = undefined;
+        const admission = stream.admit();
         if (!admission.ok) {
           terminating = true;
           settle(err(failure("protocol", admission.error.cleanupFailed)));
           return;
         }
-        activeStream = admission.value;
-        settle(ok(activeStream));
+        settle(ok(stream));
       };
       const receiveResponse = (response: HttpsResponse): void => {
         if (requestPrepared) {

@@ -32,4 +32,9 @@ export class BoundedTextChunks {
     this.#chunks.delete(id);
     return chunks.join("");
   }
+
+  release(): void {
+    this.#chunks.clear();
+    this.#codeUnits = 0;
+  }
 }

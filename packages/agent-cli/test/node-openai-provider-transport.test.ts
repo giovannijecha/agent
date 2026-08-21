@@ -25,6 +25,7 @@ class FakeResponse implements IncomingMessage {
   destroyed = 0;
   destroyFailure = false;
   pauses = 0;
+  synchronousRegistrationHook: ((event: string) => void) | undefined;
   synchronousRegistrationEvent: "aborted" | "end" | "error" | undefined;
   resumes = 0;
 
@@ -48,6 +49,7 @@ class FakeResponse implements IncomingMessage {
       this.synchronousRegistrationEvent = undefined;
       listener(new Error("synthetic response registration event"));
     }
+    this.synchronousRegistrationHook?.(event);
     return this;
   }
 
@@ -433,6 +435,66 @@ test("retains the request before rejecting a synchronous response", async () => 
     assert.equal(request.ended, 1);
     assert.equal(response.destroyed, 1);
   }
+});
+
+test("claims a response before reentrant metadata admission", async () => {
+  for (const operation of ["catalog", "responses"] as const) {
+    const response = new FakeResponse(200, operation === "catalog"
+      ? "application/json"
+      : "text/event-stream");
+    const duplicate = new FakeResponse(200, operation === "catalog"
+      ? "application/json"
+      : "text/event-stream");
+    const client = new FakeClient(response);
+    client.deferResponses = true;
+    Object.defineProperty(response, "statusCode", {
+      get: () => {
+        client.respondAgain(duplicate);
+        return 200;
+      },
+    });
+    const pending = operation === "catalog"
+      ? create(client).catalog(new Cancellation())
+      : create(client).open(Object.freeze({ body: "{}" }), new Cancellation());
+    const request = client.requests.at(0);
+    assert.ok(request !== undefined);
+    client.flushResponse();
+    assert.deepEqual(await pending, {
+      error: { cleanupFailed: false, kind: "protocol" },
+      ok: false,
+    });
+    assert.equal(response.listenerCount(), 0);
+    assert.equal(duplicate.listenerCount(), 0);
+    assert.equal(response.resumes, 0);
+    assert.equal(response.destroyed, 1);
+    assert.equal(duplicate.destroyed, 1);
+    assert.equal(request.destroyed, 1);
+  }
+});
+
+test("claims the Responses stream candidate before reentrant listener admission", async () => {
+  const response = new FakeResponse(200, "text/event-stream");
+  const duplicate = new FakeResponse(200, "text/event-stream");
+  const client = new FakeClient(response);
+  client.deferResponses = true;
+  response.synchronousRegistrationHook = (event) => {
+    if (event !== "data") return;
+    response.synchronousRegistrationHook = undefined;
+    client.respondAgain(duplicate);
+  };
+  const pending = create(client).open(Object.freeze({ body: "{}" }), new Cancellation());
+  const request = client.requests.at(0);
+  assert.ok(request !== undefined);
+  client.flushResponse();
+  assert.deepEqual(await pending, {
+    error: { cleanupFailed: false, kind: "protocol" },
+    ok: false,
+  });
+  assert.equal(response.listenerCount(), 0);
+  assert.equal(duplicate.listenerCount(), 0);
+  assert.equal(response.destroyed, 1);
+  assert.equal(duplicate.destroyed, 1);
+  assert.equal(request.destroyed, 1);
 });
 
 test("admits valid synchronous responses only after request setup", async () => {

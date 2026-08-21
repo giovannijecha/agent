@@ -514,6 +514,27 @@ export class OpenAIResponsesDecoder {
       : err(failure("protocolTerminal"));
   }
 
+  release(): void {
+    this.#answerStarted = false;
+    this.#created = false;
+    this.#inProgress = false;
+    this.#responseId = undefined;
+    this.#reasoningCodeUnits = 0;
+    this.#argumentCodeUnits = 0;
+    this.#argumentDoneCount = 0;
+    this.#argumentDeltas.release();
+    this.#answerDeltas.release();
+    this.#rejected = false;
+    this.#terminal = false;
+    this.#calls.clear();
+    this.#callIds.clear();
+    this.#outputs.clear();
+    this.#outputsByIndex.clear();
+    this.#publishIndex = 0;
+    this.#reasoningContentDeltas.release();
+    this.#reasoningSummaryDeltas.release();
+  }
+
   #textDelta(
     parsed: Record<string, unknown>,
     reasoning: boolean,

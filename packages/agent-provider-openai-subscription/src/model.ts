@@ -189,6 +189,11 @@ class OpenAIStream implements ModelStream<OpenAIError> {
   async close(): Promise<Result<void, OpenAIError>> {
     if (this.#closed) return ok(undefined);
     this.#closed = true;
+    this.#events.length = 0;
+    this.#completion = undefined;
+    this.#responses.release();
+    this.#sse.release();
+    this.#utf8.release();
     try {
       const closed = snapshotTransportResult<void>(await this.#transport.close());
       if (closed === undefined) return err(modelError("close", "transportProtocol"));
@@ -237,14 +242,14 @@ class OpenAIStream implements ModelStream<OpenAIError> {
           this.#terminal = true;
           return ok(completion);
         }
-        let received: Result<Uint8Array | null, OpenAITransportError> | undefined;
+        let rawReceived: unknown;
         try {
-          received = snapshotTransportResult<Uint8Array | null>(
-            await this.#transport.read(),
-          );
+          rawReceived = await this.#transport.read();
         } catch (_cause: unknown) {
-          received = undefined;
+          rawReceived = undefined;
         }
+        if (this.#closed) return err(modelError("read", "closed"));
+        const received = snapshotTransportResult<Uint8Array | null>(rawReceived);
         if (received === undefined) return this.#fail("transportProtocol");
         if (!received.ok) {
           return this.#fail(

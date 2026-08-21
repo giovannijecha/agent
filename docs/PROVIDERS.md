@@ -203,8 +203,11 @@ neutral validator remains the sole argument-admission authority.
 It treats `response.completed` as provisional: the complete provider-ordered
 output must match the accumulated completed items, and `done` or `toolCalls` is
 published only after clean SSE and transport EOF with no trailing frame.
-Closing a Responses stream destroys its exact request and response once and
-combines either cleanup failure. Catalog and Responses callbacks that arrive
+Closing a Responses stream first releases its queued events, staged completion,
+Responses item and bounded text state, SSE fragments, and partial UTF-8, then
+destroys its exact request and response once and combines either cleanup failure.
+A read already pending at close rejects a later transport value before inspecting
+or decoding it. Catalog and Responses callbacks that arrive
 after an earlier settlement destroy their response inside the content-free
 cleanup boundary and cannot escape a private cause or reopen the operation.
 Each callback that arrives before its request factory returns or while request
@@ -225,16 +228,21 @@ and retires the authority atomically, so a duplicate already dispatched after
 `end` cannot leave the first stream authoritative.
 Every rejected catalog response also destroys both its request and response and
 combines cleanup failure from either handle before publishing its empty capture.
-Each catalog and Responses callback snapshots status and content type once
-inside callback-local containment. Throwing or malformed metadata produces a
-content-free protocol failure, destroys both request and response, and combines
-either cleanup failure; admitted metadata is never reread at catalog EOF or
-inside the Responses stream constructor.
+The first catalog and Responses callback claims its response before it snapshots
+status and content type once inside callback-local containment. Reentry from a
+metadata accessor is a protocol conflict that destroys the duplicate, claimed
+response, and request before another property read or admission action.
+Throwing or malformed metadata produces a content-free protocol failure,
+destroys both request and response, and combines either cleanup failure;
+admitted metadata is never reread at catalog EOF or inside the Responses stream
+constructor.
 A content-type header array is valid only with exactly one string member; a
 non-string member is never coerced and rejects the complete response admission.
 Listener registration and initial flow control form the same atomic response-
 admission transaction. Any throw rolls back every partially registered
 listener, destroys both handles, and settles one content-free protocol result.
+The Responses stream candidate owns paired cleanup before a listener can invoke
+a reentrant response callback, but remains unpublished until admission completes.
 After each registration, a synchronous terminal callback stops every remaining
 admission action. Catalog retains that callback's single settled result without
 registering later listeners or calling the initial `resume`; Responses refuses

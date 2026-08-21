@@ -15,6 +15,10 @@ export class Utf8Decoder {
     return this.#decode(new Uint8Array(), true);
   }
 
+  release(): void {
+    this.#pending = [];
+  }
+
   #decode(bytes: Uint8Array, final: boolean): Result<string, Utf8Error> {
     let ownedBytes: Uint8Array;
     try {

@@ -53,6 +53,17 @@ export class SseDecoder {
     this.#finished = true;
   }
 
+  release(): void {
+    this.#boundaries.length = 0;
+    this.#boundaryIndex = 0;
+    this.#buffer = "";
+    this.#bufferOffset = 0;
+    this.#events = 0;
+    this.#finished = false;
+    this.#scanTail = "";
+    this.#terminal = false;
+  }
+
   next(): Result<SseRead, SseError> {
     if (this.#terminal) return ok(Object.freeze({ kind: "end" as const }));
     const boundary = this.#boundaries.at(this.#boundaryIndex);

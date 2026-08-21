@@ -568,7 +568,11 @@ transport. For catalog rejection changes, retain the content-type snapshot,
 detach owned listeners, destroy both request and response, and combine either
 cleanup failure before publishing the empty capture.
 For HTTPS response-admission changes, snapshot status and content type once
-inside each asynchronous callback's containment boundary. A throwing or
+inside each asynchronous callback's containment boundary, but claim the sole
+response before the first property read. Regress reentry from both status and
+content-type access: the duplicate, claimed response, and request must be
+destroyed before any later property read, listener wiring, flow control, or
+publication. A throwing or
 malformed metadata source must produce a content-free protocol failure, destroy
 both request and response, and combine cleanup failure; never reread response
 metadata in a stream constructor or at catalog EOF.
@@ -594,13 +598,15 @@ may have been registered, destroy both exact handles, and settle once. For an
 event emitter that invokes a newly registered terminal listener synchronously,
 check settlement after every registration and stop before the next listener or
 initial flow-control call. Preserve the catalog callback's terminal result; for
-Responses, reject the pre-publication stream, detach all possible listeners,
-destroy the retained request and response exactly once, and report protocol.
-Regress catalog error and Responses aborted and EOF registration callbacks
-separately. For an admitted stream, contain later `pause`, `resume`, and every
-individual listener
-detach across read, data, EOF, failure, and close; attempt the remaining cleanup
-after any one cleanup throw and combine the result without exposing its cause.
+Responses, install the stream candidate as sole cleanup authority before the
+first listener registration, then reject the pre-publication stream, detach all
+possible listeners, destroy the retained request and response exactly once, and
+report protocol. Regress catalog error, Responses aborted and EOF registration
+callbacks, and a listener that re-enters the response callback separately. For
+an admitted stream, contain later `pause`, `resume`, and every individual
+listener detach across read, data, EOF, failure, and close; attempt the remaining
+cleanup after any one cleanup throw and combine the result without exposing its
+cause.
 For successful transport-open validation, snapshot valid close authority first,
 read each remaining stream property once, and invoke the retained close before
 rejecting malformed metadata or read authority. Preserve cleanup failure without
@@ -645,6 +651,12 @@ stream close and every failure path. Destroy each exact handle idempotently,
 combine either cleanup failure without replacing the primary reason, and wrap
 late response-callback destruction after cancellation, timeout, or request
 failure so a private cleanup cause cannot escape or reopen settled authority.
+Before awaiting transport close, clear the model stream's queued events and
+completion and explicitly release Responses item and text state, SSE fragments,
+and partial UTF-8. A read already pending must check close before it snapshots or
+decodes a returned transport value. Regress both state reuse after release and a
+late successful read so closed streams cannot retain or repopulate partial
+provider content while cleanup is pending.
 For SSE framing changes, retain incremental boundary discovery across LF and
 CRLF chunk splits. Regress a large single frame delivered one code unit at a
 time under the bounded deadline; never restart delimiter searches at the

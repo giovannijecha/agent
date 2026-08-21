@@ -16,6 +16,9 @@ import {
 import type { CancellationSignal } from "@agent/runtime";
 import { ListSchema, ObjectSchema, StringSchema, ToolDescriptor } from "@agent/tools";
 
+import { SseDecoder } from "../dist/sse.js";
+import { OpenAIResponsesDecoder } from "../dist/wire.js";
+
 const MODEL = "model-alpha";
 
 class Cancellation implements CancellationSignal {
@@ -816,6 +819,124 @@ test("encodes the exact stateless Responses request without opaque reasoning", a
   assert.deepEqual(await opened.value.read(), { ok: true, value: { kind: "done" } });
   assert.equal((await opened.value.read()).ok, false);
   assert.deepEqual(await opened.value.close(), { ok: true, value: undefined });
+});
+
+test("closes over partial response state before transport cleanup settles", async () => {
+  let settleClose: () => void = () => undefined;
+  const transportClose = new Promise<Result<void, OpenAITransportError>>((resolve) => {
+    settleClose = () => resolve(ok(undefined));
+  });
+  try {
+    const stream = new FakeStream([ok(ascii(textEvents("private partial text")))]);
+    Object.defineProperty(stream, "close", { value: () => transportClose });
+    const model = OpenAISubscriptionModel.create(
+      new FakeTransport(ok(stream)),
+      "Inspect safely.",
+      MODEL,
+    );
+    assert.ok(model.ok);
+    const opened = await model.value.open(
+      conversation(),
+      new Cancellation(),
+      [],
+      Object.freeze({ thinkingEffort: "off" as const }),
+    );
+    assert.ok(opened.ok);
+    assert.deepEqual(await opened.value.read(), {
+      ok: true,
+      value: { kind: "delta", text: "private partial text" },
+    });
+    const closing = opened.value.close();
+    assert.deepEqual(await opened.value.read(), {
+      error: {
+        cleanupFailed: false,
+        kind: "openaiSubscription",
+        operation: "read",
+        reason: "closed",
+      },
+      ok: false,
+    });
+    settleClose();
+    assert.deepEqual(await closing, { ok: true, value: undefined });
+  } finally {
+    settleClose();
+  }
+});
+
+test("rejects a pending transport read before admitting bytes returned after close", async () => {
+  let settleRead = (
+    _result: Result<Uint8Array | null, OpenAITransportError>,
+  ): void => undefined;
+  try {
+    const stream = new FakeStream([]);
+    Object.defineProperty(stream, "read", {
+      value: () => new Promise<Result<Uint8Array | null, OpenAITransportError>>((resolve) => {
+        settleRead = resolve;
+      }),
+    });
+    const model = OpenAISubscriptionModel.create(
+      new FakeTransport(ok(stream)),
+      "Inspect safely.",
+      MODEL,
+    );
+    assert.ok(model.ok);
+    const opened = await model.value.open(
+      conversation(),
+      new Cancellation(),
+      [],
+      Object.freeze({ thinkingEffort: "off" as const }),
+    );
+    assert.ok(opened.ok);
+    const reading = opened.value.read();
+    const closing = opened.value.close();
+    settleRead(ok(ascii(textEvents("late private text"))));
+    assert.deepEqual(await reading, {
+      error: {
+        cleanupFailed: false,
+        kind: "openaiSubscription",
+        operation: "read",
+        reason: "closed",
+      },
+      ok: false,
+    });
+    assert.deepEqual(await closing, { ok: true, value: undefined });
+  } finally {
+    settleRead(err(Object.freeze({ cleanupFailed: false, kind: "closed" as const })));
+  }
+});
+
+test("releases partial Responses decoder state for a fresh lifecycle", () => {
+  const decoder = new OpenAIResponsesDecoder(false);
+  const partial = new SseDecoder();
+  assert.ok(partial.push(textEvents("private partial text")).ok);
+  while (true) {
+    const framed = partial.next();
+    assert.ok(framed.ok);
+    if (framed.value.kind !== "data") continue;
+    const accepted = decoder.accept(framed.value.event);
+    assert.ok(accepted.ok);
+    if (accepted.value.some((entry) => entry.kind === "delta")) break;
+  }
+
+  decoder.release();
+  const fresh = new SseDecoder();
+  assert.ok(fresh.push(textEvents("fresh")).ok);
+  fresh.finish();
+  const events: unknown[] = [];
+  while (true) {
+    const framed = fresh.next();
+    assert.ok(framed.ok);
+    if (framed.value.kind === "end") break;
+    if (framed.value.kind === "needMore") continue;
+    const accepted = decoder.accept(framed.value.event);
+    assert.ok(accepted.ok);
+    events.push(...accepted.value);
+  }
+  assert.deepEqual(decoder.end(), { ok: true, value: [] });
+  assert.deepEqual(events, [
+    { kind: "delta", text: "fresh" },
+    { kind: "done" },
+  ]);
 });
 
 test("preserves exact owned string and aggregate-text constraints in tool schemas", async () => {

@@ -28,4 +28,15 @@ test("joins a maximum-fragment text only at completion", () => {
   assert.equal(chunks.pending, false);
 });
 
+test("releases every retained text fragment", () => {
+  const chunks = new BoundedTextChunks(32);
+  assert.equal(chunks.append("item-alpha", "private partial text"), true);
+  assert.equal(chunks.pending, true);
+  chunks.release();
+  assert.equal(chunks.pending, false);
+  assert.equal(chunks.complete("item-alpha"), undefined);
+  assert.equal(chunks.append("item-alpha", "fresh"), true);
+  assert.equal(chunks.complete("item-alpha"), "fresh");
+});
+
 const OPEN_FRAGMENT_COUNT = 16_384;
