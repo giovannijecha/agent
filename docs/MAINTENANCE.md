@@ -563,6 +563,9 @@ For successful transport-open validation, snapshot valid close authority first,
 read each remaining stream property once, and invoke the retained close before
 rejecting malformed metadata or read authority. Preserve cleanup failure without
 exposing the transport value or its cause.
+For model-open cancellation changes, read `requested` once inside containment,
+require a boolean snapshot, and regress throwing and malformed accessors before
+request encoding or transport invocation.
 For terminal-stream changes, require exact empty output arrays on pre-terminal
 response snapshots, admit null usage only before completion, keep the added
 function-call item authoritative when the argument-done event omits its

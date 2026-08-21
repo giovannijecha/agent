@@ -347,7 +347,15 @@ export class OpenAISubscriptionModel implements StreamingModel<OpenAIError> {
     tools: readonly ToolDescriptor[],
     options: ModelTurnOptions = Object.freeze({ thinkingEffort: "off" }),
   ): Promise<Result<ModelStream<OpenAIError>, OpenAIError>> {
-    if (cancellation.requested) return err(modelError("open", "cancelled"));
+    let cancellationRequested: boolean;
+    try {
+      const requested = cancellation.requested;
+      if (typeof requested !== "boolean") return err(modelError("open", "protocol"));
+      cancellationRequested = requested;
+    } catch (_cause: unknown) {
+      return err(modelError("open", "protocol"));
+    }
+    if (cancellationRequested) return err(modelError("open", "cancelled"));
     let thinkingEffort: ThinkingEffort;
     try {
       if (options === null || typeof options !== "object" ||

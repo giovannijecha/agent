@@ -451,6 +451,43 @@ test("rejects duplicate, malformed, empty-eligible, and extra-root catalogs", ()
   }
 });
 
+test("contains malformed cancellation state before opening transport", async () => {
+  const throwing = Object.create(null) as CancellationSignal;
+  Object.defineProperty(throwing, "requested", {
+    get(): never {
+      throw new Error("private cancellation cause");
+    },
+  });
+  const malformed = Object.freeze({
+    requested: "false",
+    whenRequested: () => new Promise<void>(() => undefined),
+  }) as unknown as CancellationSignal;
+  for (const cancellation of [throwing, malformed]) {
+    const transport = new FakeTransport(ok(new FakeStream([])));
+    const model = OpenAISubscriptionModel.create(
+      transport,
+      "Inspect safely.",
+      MODEL,
+    );
+    assert.ok(model.ok);
+    assert.deepEqual(await model.value.open(
+      conversation(),
+      cancellation,
+      [],
+      Object.freeze({ thinkingEffort: "off" as const }),
+    ), {
+      error: {
+        cleanupFailed: false,
+        kind: "openaiSubscription",
+        operation: "open",
+        reason: "protocol",
+      },
+      ok: false,
+    });
+    assert.equal(transport.request, undefined);
+  }
+});
+
 test("encodes the exact stateless Responses request without opaque reasoning", async () => {
   const stream = new FakeStream([
     ok(ascii(textEvents("Done."))),

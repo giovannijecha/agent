@@ -177,6 +177,9 @@ Instructions are 1 through 4,096 code units, the model ID obeys the catalog
 grammar, and the serialized body is at most 8,388,608 code units. Construction,
 conversation projection, schema projection, serialization, or bound failures
 are content-free and occur before transport authority.
+Model open reads `CancellationSignal.requested` exactly once inside its
+containment boundary and requires a boolean snapshot. A throwing or malformed
+getter fails content-free before request encoding or transport invocation.
 
 ### Responses stream contract
 
@@ -306,7 +309,8 @@ Red-green regression must prove:
 - the request encoder preserves ordered messages, tool calls and outputs,
   provider call IDs, exact tool schemas including owned string and aggregate-
   text annotations, thinking mapping, `store: false`, `stream: true`, and the
-  empty include list within fixed bounds;
+  empty include list within fixed bounds, while model open contains throwing or
+  malformed cancellation-state access before transport;
 - the SSE decoder handles chunk splits, CRLF, optional matching event names,
   reasoning, text, function calls with absent or matching repeated done-event
   names, rejection of a missing argument-done phase, early completed-argument

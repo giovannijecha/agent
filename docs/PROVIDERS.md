@@ -201,6 +201,9 @@ proxy cannot replace validated metadata or bytes through a later read.
 After a transport reports a successful stream open, the adapter retains valid
 close authority first and closes through it if any other stream property is
 malformed; the protocol failure records whether that cleanup failed.
+Before opening that transport, the model snapshots the cancellation `requested`
+property once inside containment, requires a boolean, and rejects a throwing or
+malformed getter without encoding or sending a request.
 SSE boundary discovery examines each new chunk with only the retained three-
 code-unit suffix; repeated `needMore` outcomes never rescan the whole partial
 frame.
