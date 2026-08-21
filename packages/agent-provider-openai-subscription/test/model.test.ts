@@ -375,6 +375,61 @@ test("normalizes reasoning before answer and one bounded function-call batch", a
   assert.equal(completed.value.calls.at(0)?.name, "read_file");
 });
 
+test("preserves provider output-index order when tool items complete out of order", async () => {
+  const added = (id: string, callId: string, outputIndex: number) => event(
+    "response.output_item.added",
+    {
+      item: {
+        arguments: "",
+        call_id: callId,
+        id,
+        name: "read_file",
+        status: "in_progress",
+        type: "function_call",
+      },
+      output_index: outputIndex,
+    },
+  );
+  const done = (id: string, callId: string, path: string, outputIndex: number) => event(
+    "response.output_item.done",
+    {
+      item: {
+        arguments: JSON.stringify({ path }),
+        call_id: callId,
+        id,
+        name: "read_file",
+        status: "completed",
+        type: "function_call",
+      },
+      output_index: outputIndex,
+    },
+  );
+  const stream = new FakeStream([ok(ascii(
+    event("response.created", { response: response("in_progress") }) +
+    added("function-zero", "call-zero", 0) +
+    added("function-one", "call-one", 1) +
+    done("function-one", "call-one", "one.md", 1) +
+    done("function-zero", "call-zero", "zero.md", 0) +
+    event("response.completed", { response: response("completed") }),
+  )), ok(null)]);
+  const model = OpenAISubscriptionModel.create(
+    new FakeTransport(ok(stream)),
+    "Inspect safely.",
+    MODEL,
+  );
+  assert.ok(model.ok);
+  const opened = await model.value.open(
+    conversation(),
+    new Cancellation(),
+    [descriptor()],
+    Object.freeze({ thinkingEffort: "off" as const }),
+  );
+  assert.ok(opened.ok);
+  const completed = await opened.value.read();
+  assert.ok(completed.ok && completed.value.kind === "toolCalls");
+  assert.deepEqual(completed.value.calls.map((call) => call.callId), ["call-zero", "call-one"]);
+});
+
 test("fails closed on terminal errors, unknown events, and invalid response metadata", async () => {
   for (const wire of [
     event("response.failed"),
@@ -421,6 +476,23 @@ test("rejects incomplete and contradictory Responses lifecycle events", async ()
         delta: "{}",
         item_id: "message-alpha",
         output_index: 0,
+      }),
+    created + event("response.output_item.added", { item: {
+      arguments: "",
+      call_id: "call-alpha",
+      id: "function-alpha",
+      name: "read_file",
+      status: "in_progress",
+      type: "function_call",
+    }, output_index: 0 }) + event("response.output_item.done", { item: {
+      arguments: "{}",
+      call_id: "call-alpha",
+      id: "function-alpha",
+      name: "read_file",
+      status: "completed",
+      type: "function_call",
+    }, output_index: 1 }) + event("response.completed", {
+      response: response("completed"),
     }),
     created + event("response.completed", {
       response: { ...response("completed"), usage: { units: -1 } },

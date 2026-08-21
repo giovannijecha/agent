@@ -251,7 +251,7 @@ export class OpenAIResponsesDecoder {
   readonly #argumentDeltas = new Map<string, string>();
   #rejected = false;
   #terminal = false;
-  readonly #calls: ModelToolCall[] = [];
+  readonly #calls = new Map<number, ModelToolCall>();
   readonly #callIds = new Set<string>();
   readonly #outputs = new Map<string, OutputState>();
   readonly #outputIndices = new Set<number>();
@@ -347,7 +347,7 @@ export class OpenAIResponsesDecoder {
       return ok(Object.freeze([]));
     }
     if (type === "response.output_item.done") {
-      return this.#outputItem(parsed.item);
+      return this.#outputItem(parsed.item, parsed.output_index);
     }
     if (type === "response.completed") {
       if (this.#argumentDeltas.size !== 0 ||
@@ -356,10 +356,14 @@ export class OpenAIResponsesDecoder {
         return this.#reject("protocolTerminal");
       }
       this.#terminal = true;
+      const calls = [...this.#calls]
+        .map(([outputIndex, call]) => Object.freeze({ call, outputIndex }))
+        .sort((left, right) => left.outputIndex - right.outputIndex)
+        .map((entry) => entry.call);
       return ok(Object.freeze([
-        this.#calls.length === 0
+        calls.length === 0
           ? Object.freeze({ kind: "done" as const })
-          : Object.freeze({ calls: Object.freeze([...this.#calls]), kind: "toolCalls" as const }),
+          : Object.freeze({ calls: Object.freeze(calls), kind: "toolCalls" as const }),
       ]));
     }
     if (type === "response.failed" || type === "response.incomplete" || type === "error") {
@@ -523,13 +527,19 @@ export class OpenAIResponsesDecoder {
     return ok(Object.freeze([]));
   }
 
-  #outputItem(value: unknown): Result<readonly ModelStreamEvent[], OpenAIWireError> {
-    if (!isRecord(value) || !outputKind(value.type) || !validWireId(value.id)) {
+  #outputItem(
+    value: unknown,
+    outputIndex: unknown,
+  ): Result<readonly ModelStreamEvent[], OpenAIWireError> {
+    if (!isRecord(value) || !outputKind(value.type) || !validWireId(value.id) ||
+      !validIndex(outputIndex)) {
       return this.#reject("protocolMessage");
     }
     const state = this.#outputs.get(value.id);
     if (state === undefined || state.done || state.kind !== value.type ||
-      value.status !== "completed") return this.#reject("protocolMessage");
+      state.outputIndex !== outputIndex || value.status !== "completed") {
+      return this.#reject("protocolMessage");
+    }
     if (value.type === "reasoning") {
       if (value.encrypted_content !== undefined || !Array.isArray(value.summary) ||
         (state.summaryPhase !== "none" && state.summaryPhase !== "done") ||
@@ -555,7 +565,7 @@ export class OpenAIResponsesDecoder {
       value.call_id !== state.callId || value.name !== state.name ||
       (state.argumentDone !== undefined && value.arguments !== state.argumentDone) ||
       this.#callIds.has(value.call_id) ||
-      this.#calls.length >= OPENAI_PROVIDER_LIMITS.toolCallsPerBatch) {
+      this.#calls.size >= OPENAI_PROVIDER_LIMITS.toolCallsPerBatch) {
       return this.#reject("protocolToolCall");
     }
     this.#argumentCodeUnits += value.arguments.length;
@@ -573,7 +583,7 @@ export class OpenAIResponsesDecoder {
       return this.#reject("protocolToolCall");
     }
     this.#callIds.add(value.call_id);
-    this.#calls.push(Object.freeze({
+    this.#calls.set(state.outputIndex, Object.freeze({
       callId: value.call_id,
       input: structured.value,
       name: value.name,
