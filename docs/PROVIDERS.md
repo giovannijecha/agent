@@ -169,8 +169,10 @@ Its strict decoder requires exact empty output arrays on pre-terminal response
 snapshots, accepts null usage only before completion, and keeps each added
 function-call item as the name authority even when the argument-done event
 omits its redundant name. Its tool projection preserves owned code-unit, UTF-8,
-projection, NUL, and aggregate-text constraints as explicit annotations while
-the provider-neutral validator remains the sole argument-admission authority.
+projection, NUL, and aggregate-text constraints as explicit annotations: every
+non-literal string exposes its exact minimum and maximum code-unit bounds even
+when it owns no auxiliary string constraint. The provider-neutral validator
+remains the sole argument-admission authority.
 It treats `response.completed` as provisional: the complete provider-ordered
 output must match the accumulated completed items, and `done` or `toolCalls` is
 published only after clean SSE and transport EOF with no trailing frame.

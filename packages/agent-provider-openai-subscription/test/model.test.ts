@@ -434,6 +434,11 @@ test("encodes the exact stateless Responses request without opaque reasoning", a
               maxLength: 4_096,
               minLength: 1,
               type: "string",
+              "x-agent-constraints": {
+                maximumCodeUnits: 4_096,
+                minimumCodeUnits: 1,
+                rejectNul: false,
+              },
             },
           },
           required: ["operation", "path"],
@@ -447,6 +452,11 @@ test("encodes the exact stateless Responses request without opaque reasoning", a
               maxLength: 4_096,
               minLength: 1,
               type: "string",
+              "x-agent-constraints": {
+                maximumCodeUnits: 4_096,
+                minimumCodeUnits: 1,
+                rejectNul: false,
+              },
             },
             operation: {
               const: "move",
@@ -458,6 +468,11 @@ test("encodes the exact stateless Responses request without opaque reasoning", a
               maxLength: 4_096,
               minLength: 1,
               type: "string",
+              "x-agent-constraints": {
+                maximumCodeUnits: 4_096,
+                minimumCodeUnits: 1,
+                rejectNul: false,
+              },
             },
           },
           required: ["operation", "path", "destination"],
@@ -476,6 +491,11 @@ test("encodes the exact stateless Responses request without opaque reasoning", a
               maxLength: 4_096,
               minLength: 1,
               type: "string",
+              "x-agent-constraints": {
+                maximumCodeUnits: 4_096,
+                minimumCodeUnits: 1,
+                rejectNul: false,
+              },
             },
           },
           required: ["operation", "path"],
@@ -564,6 +584,43 @@ test("preserves exact owned string and aggregate-text constraints in tool schema
     strict: false,
     type: "function",
   });
+});
+
+test("advertises code-unit bounds for a plain string tool field", async () => {
+  const transport = new FakeTransport(ok(new FakeStream([
+    ok(ascii(textEvents("Done."))),
+    ok(null),
+  ])));
+  const model = OpenAISubscriptionModel.create(
+    transport,
+    "Follow the owned instruction.",
+    MODEL,
+  );
+  assert.ok(model.ok);
+  const opened = await model.value.open(
+    conversation(),
+    new Cancellation(),
+    [descriptor()],
+    Object.freeze({ thinkingEffort: "off" as const }),
+  );
+  assert.ok(opened.ok);
+  const body = JSON.parse(transport.request?.body ?? "null") as {
+    readonly tools: readonly [{
+      readonly parameters: {
+        readonly properties: {
+          readonly path: { readonly "x-agent-constraints"?: unknown };
+        };
+      };
+    }];
+  };
+  assert.deepEqual(
+    body.tools.at(0)?.parameters.properties.path["x-agent-constraints"],
+    {
+      maximumCodeUnits: 4_096,
+      minimumCodeUnits: 1,
+      rejectNul: false,
+    },
+  );
 });
 
 test("normalizes reasoning before answer and one bounded function-call batch", async () => {

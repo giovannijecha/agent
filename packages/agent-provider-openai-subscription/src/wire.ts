@@ -103,23 +103,19 @@ function objectSchemaValue(schema: ObjectSchema): unknown {
 const REJECT_NUL_PATTERN = "^(?![\\s\\S]*\\u0000)[\\s\\S]*$";
 
 function stringSchemaValue(schema: StringSchema): unknown {
-  const hasOwnedConstraints = schema.maximumProjectionCodeUnits !== undefined ||
-    schema.maximumUtf8Bytes !== undefined || schema.rejectNul;
-  const constraints = hasOwnedConstraints
-    ? Object.freeze({
-        maximumCodeUnits: schema.maximum,
-        ...(schema.maximumProjectionCodeUnits === undefined
-          ? Object.freeze({})
-          : Object.freeze({
-              maximumProjectionCodeUnits: schema.maximumProjectionCodeUnits,
-            })),
-        ...(schema.maximumUtf8Bytes === undefined
-          ? Object.freeze({})
-          : Object.freeze({ maximumUtf8Bytes: schema.maximumUtf8Bytes })),
-        minimumCodeUnits: schema.minimum,
-        rejectNul: schema.rejectNul,
-      })
-    : undefined;
+  const constraints = Object.freeze({
+    maximumCodeUnits: schema.maximum,
+    ...(schema.maximumProjectionCodeUnits === undefined
+      ? Object.freeze({})
+      : Object.freeze({
+          maximumProjectionCodeUnits: schema.maximumProjectionCodeUnits,
+        })),
+    ...(schema.maximumUtf8Bytes === undefined
+      ? Object.freeze({})
+      : Object.freeze({ maximumUtf8Bytes: schema.maximumUtf8Bytes })),
+    minimumCodeUnits: schema.minimum,
+    rejectNul: schema.rejectNul,
+  });
   return Object.freeze({
     maxLength: schema.maximum,
     minLength: schema.minimum,
@@ -127,9 +123,7 @@ function stringSchemaValue(schema: StringSchema): unknown {
       ? Object.freeze({ pattern: REJECT_NUL_PATTERN })
       : Object.freeze({})),
     type: "string",
-    ...(constraints === undefined
-      ? Object.freeze({})
-      : Object.freeze({ "x-agent-constraints": constraints })),
+    "x-agent-constraints": constraints,
   });
 }
 

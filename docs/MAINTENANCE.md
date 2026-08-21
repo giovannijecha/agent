@@ -558,8 +558,10 @@ compare its provider-ordered output with every completed item, and regress
 missing, malformed, contradictory, reordered, and trailing-frame cases before
 publishing `done` or `toolCalls`. For tool-schema changes, preserve every owned
 string, NUL, UTF-8, projection, and aggregate-text constraint in the advertised
-schema, but never treat provider-facing character limits or annotations as a
-replacement for the exact provider-neutral argument validator.
+schema; every non-literal string must expose its exact minimum and maximum code-
+unit bounds even without an auxiliary constraint. Never treat provider-facing
+character limits or annotations as a replacement for the exact provider-
+neutral argument validator.
 For OpenAI HTTPS cleanup, keep request and response ownership paired through
 stream close and every failure path. Destroy each exact handle idempotently,
 combine either cleanup failure without replacing the primary reason, and wrap
