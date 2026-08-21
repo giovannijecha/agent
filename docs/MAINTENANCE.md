@@ -554,6 +554,12 @@ When changing the inactive transport constructor, read each admitted credential
 property once, validate the resulting local snapshots, and freeze those same
 values. Regress accessor-backed values that change across reads and accessor or
 proxy failures; never validate one value and retain another.
+Keep catalog, open, read, and close result admission on the shared Node-free
+snapshot helper. Read `ok` once, then read only its matching value or error
+object once; for an error, read kind and cleanup flag once and validate and
+retain those same values. Regress changing and throwing accessors at both
+catalog and model paths, and reject malformed or array-shaped result records as
+content-free protocol failures.
 For catalog capture changes, read body, cleanup flag, content type, and status
 exactly once, validate those local snapshots, and copy only the same bounded
 body into a fresh typed array without consulting the source iterator. Snapshot

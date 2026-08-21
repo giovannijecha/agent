@@ -10,6 +10,7 @@ import type {
   OpenAITransportError,
   OpenAITransportErrorKind,
 } from "./transport.js";
+import { snapshotTransportResult } from "./transport-result.js";
 import { Utf8Decoder } from "./utf8.js";
 
 type CatalogOperation = OpenAIProviderTransport["catalog"];
@@ -25,29 +26,6 @@ function failure(reason: OpenAIFailureReason, cleanupFailed = false): OpenAIErro
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
-function transportKind(value: unknown): value is OpenAITransportErrorKind {
-  return value === "cancelled" || value === "closed" ||
-    value === "concurrentRead" || value === "connection" || value === "limit" ||
-    value === "protocol" || value === "timeout";
-}
-
-function transportResult<T>(value: unknown): Result<T, OpenAITransportError> | undefined {
-  try {
-    if (!isRecord(value)) return undefined;
-    if (value.ok === true) return ok(value.value as T);
-    if (value.ok === false && isRecord(value.error) &&
-      typeof value.error.cleanupFailed === "boolean" && transportKind(value.error.kind)) {
-      return err(Object.freeze({
-        cleanupFailed: value.error.cleanupFailed,
-        kind: value.error.kind,
-      }));
-    }
-    return undefined;
-  } catch (_cause: unknown) {
-    return undefined;
-  }
 }
 
 function transportReason(kind: OpenAITransportErrorKind): OpenAIFailureReason {
@@ -198,7 +176,9 @@ export class OpenAIModelCatalog {
     if (requested) return err(failure("cancelled"));
     let received: Result<OpenAICatalogCapture, OpenAITransportError> | undefined;
     try {
-      received = transportResult<OpenAICatalogCapture>(await this.#catalog(cancellation));
+      received = snapshotTransportResult<OpenAICatalogCapture>(
+        await this.#catalog(cancellation),
+      );
     } catch (_cause: unknown) {
       received = undefined;
     }

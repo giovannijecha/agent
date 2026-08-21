@@ -519,6 +519,62 @@ test("preserves a catalog transport reason when cleanup also fails", async () =>
   });
 });
 
+test("snapshots a catalog transport error exactly once", async () => {
+  let cleanupReads = 0;
+  let errorReads = 0;
+  let kindReads = 0;
+  let okReads = 0;
+  const transportError = Object.create(null) as OpenAITransportError;
+  Object.defineProperties(transportError, {
+    cleanupFailed: {
+      get(): unknown {
+        cleanupReads += 1;
+        return cleanupReads === 1 ? false : "invalid";
+      },
+    },
+    kind: {
+      get(): unknown {
+        kindReads += 1;
+        return kindReads === 1 ? "timeout" : "connection";
+      },
+    },
+  });
+  const transportResult = Object.create(null) as Result<
+    OpenAICatalogCapture,
+    OpenAITransportError
+  >;
+  Object.defineProperties(transportResult, {
+    error: {
+      get(): OpenAITransportError {
+        errorReads += 1;
+        return transportError;
+      },
+    },
+    ok: {
+      get(): boolean {
+        okReads += 1;
+        return false;
+      },
+    },
+  });
+  const transport = new FakeTransport(ok(new FakeStream([])), transportResult);
+  const catalog = OpenAIModelCatalog.create(transport);
+  assert.ok(catalog.ok);
+  assert.deepEqual(await catalog.value.list(new Cancellation()), {
+    error: {
+      cleanupFailed: false,
+      kind: "openaiSubscription",
+      operation: "catalog",
+      reason: "transportTimeout",
+    },
+    ok: false,
+  });
+  assert.deepEqual(
+    { cleanupReads, errorReads, kindReads, okReads },
+    { cleanupReads: 1, errorReads: 1, kindReads: 1, okReads: 1 },
+  );
+});
+
 test("rejects duplicate, malformed, empty-eligible, and extra-root catalogs", () => {
   for (const value of [
     { models: [
@@ -568,6 +624,67 @@ test("contains malformed cancellation state before opening transport", async () 
     });
     assert.equal(transport.request, undefined);
   }
+});
+
+test("snapshots a model transport error exactly once", async () => {
+  let cleanupReads = 0;
+  let errorReads = 0;
+  let kindReads = 0;
+  let okReads = 0;
+  const transportError = Object.create(null) as OpenAITransportError;
+  Object.defineProperties(transportError, {
+    cleanupFailed: {
+      get(): unknown {
+        cleanupReads += 1;
+        return cleanupReads === 1 ? false : "invalid";
+      },
+    },
+    kind: {
+      get(): unknown {
+        kindReads += 1;
+        return kindReads === 1 ? "timeout" : "connection";
+      },
+    },
+  });
+  const transportResult = Object.create(null) as Result<
+    OpenAITransportStream,
+    OpenAITransportError
+  >;
+  Object.defineProperties(transportResult, {
+    error: {
+      get(): OpenAITransportError {
+        errorReads += 1;
+        return transportError;
+      },
+    },
+    ok: {
+      get(): boolean {
+        okReads += 1;
+        return false;
+      },
+    },
+  });
+  const transport = new FakeTransport(transportResult);
+  const model = OpenAISubscriptionModel.create(transport, "Inspect safely.", MODEL);
+  assert.ok(model.ok);
+  assert.deepEqual(await model.value.open(
+    conversation(),
+    new Cancellation(),
+    [],
+    Object.freeze({ thinkingEffort: "off" as const }),
+  ), {
+    error: {
+      cleanupFailed: false,
+      kind: "openaiSubscription",
+      operation: "open",
+      reason: "transportTimeout",
+    },
+    ok: false,
+  });
+  assert.deepEqual(
+    { cleanupReads, errorReads, kindReads, okReads },
+    { cleanupReads: 1, errorReads: 1, kindReads: 1, okReads: 1 },
+  );
 });
 
 test("encodes the exact stateless Responses request without opaque reasoning", async () => {

@@ -73,6 +73,13 @@ lifetime and never returns, logs, formats, or includes them in an error.
 Construction reads each credential property exactly once, validates those two
 local values, and freezes the same values for every later request. An accessor
 or proxy failure rejects the configuration without retaining a partial value.
+The Node-free adapter admits every injected transport result through one shared
+no-throw snapshot transaction used by catalog, open, read, and close. It reads
+the `ok` discriminant once, then reads only its matching value or error object
+once. An error's kind and cleanup flag are each read once and the same validated
+snapshots form the immutable result. Throwing, malformed, or array-shaped
+results fail as content-free protocol rather than changing authority across
+validation and publication.
 
 No request accepts an origin, host, port, path, method, arbitrary header, proxy,
 retry policy, or caller identity from configuration. Node's HTTPS client does
@@ -412,7 +419,9 @@ Red-green regression must prove:
   duplicate callback after stream publication destroys the extra response,
   propagates its cleanup failure, and terminates the active stream as protocol; a
   malformed successful stream is closed through its retained close authority
-  before rejection;
+  before rejection; injected transport results snapshot their discriminant,
+  selected payload, error kind, and cleanup flag exactly once through the same
+  catalog/open/read/close helper;
 - source policy admits only the new reviewed provider and CLI files and rejects
   another OpenAI origin, identity, credential authority, Node effect, retry,
   redirect, SDK, foreign runtime, or provider composition; and

@@ -25,6 +25,7 @@ import type {
   OpenAITransportRequest,
   OpenAITransportStream,
 } from "./transport.js";
+import { snapshotTransportResult } from "./transport-result.js";
 import { Utf8Decoder } from "./utf8.js";
 import {
   encodeOpenAIRequest,
@@ -57,33 +58,6 @@ function modelError(
     operation,
     reason,
   });
-}
-
-function validTransportErrorKind(value: unknown): value is OpenAITransportErrorKind {
-  return value === "cancelled" || value === "closed" || value === "concurrentRead" ||
-    value === "connection" || value === "limit" || value === "protocol" ||
-    value === "timeout";
-}
-
-function transportResult<T>(value: unknown): Result<T, OpenAITransportError> | undefined {
-  try {
-    if (value === null || typeof value !== "object") return undefined;
-    const candidate = value as Readonly<{ error?: unknown; ok?: unknown; value?: unknown }>;
-    if (candidate.ok === true) return ok(candidate.value as T);
-    if (candidate.ok === false && candidate.error !== null &&
-      typeof candidate.error === "object") {
-      const kind = (candidate.error as Readonly<{ kind?: unknown }>).kind;
-      const cleanupFailed = (candidate.error as Readonly<{
-        cleanupFailed?: unknown;
-      }>).cleanupFailed;
-      return validTransportErrorKind(kind) && typeof cleanupFailed === "boolean"
-        ? err(Object.freeze({ cleanupFailed, kind }))
-        : undefined;
-    }
-    return undefined;
-  } catch (_cause: unknown) {
-    return undefined;
-  }
 }
 
 function transportReason(kind: OpenAITransportErrorKind): OpenAIFailureReason {
@@ -165,7 +139,7 @@ function snapshotTransportStream(
 
 async function closeTransport(stream: OwnedTransportCloser): Promise<boolean> {
   try {
-    const closed = transportResult<void>(await stream.close());
+    const closed = snapshotTransportResult<void>(await stream.close());
     return closed === undefined || !closed.ok;
   } catch (_cause: unknown) {
     return true;
@@ -216,7 +190,7 @@ class OpenAIStream implements ModelStream<OpenAIError> {
     if (this.#closed) return ok(undefined);
     this.#closed = true;
     try {
-      const closed = transportResult<void>(await this.#transport.close());
+      const closed = snapshotTransportResult<void>(await this.#transport.close());
       if (closed === undefined) return err(modelError("close", "transportProtocol"));
       return closed.ok
         ? ok(undefined)
@@ -265,7 +239,9 @@ class OpenAIStream implements ModelStream<OpenAIError> {
         }
         let received: Result<Uint8Array | null, OpenAITransportError> | undefined;
         try {
-          received = transportResult<Uint8Array | null>(await this.#transport.read());
+          received = snapshotTransportResult<Uint8Array | null>(
+            await this.#transport.read(),
+          );
         } catch (_cause: unknown) {
           received = undefined;
         }
@@ -395,7 +371,7 @@ export class OpenAISubscriptionModel implements StreamingModel<OpenAIError> {
     const request: OpenAITransportRequest = Object.freeze({ body: body.value });
     let opened: Result<OpenAITransportStream, OpenAITransportError> | undefined;
     try {
-      opened = transportResult<OpenAITransportStream>(
+      opened = snapshotTransportResult<OpenAITransportStream>(
         await this.#openTransport(request, cancellation),
       );
     } catch (_cause: unknown) {

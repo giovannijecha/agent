@@ -168,6 +168,12 @@ construction, or conversation-runtime composition.
 The inactive CLI transport reads the access-token and account-ID properties
 exactly once during construction, validates those snapshots, and retains those
 same frozen values; accessor or proxy failure rejects the configuration.
+The Node-free adapter admits every injected transport result through one shared
+no-throw snapshot boundary. It reads the `ok` discriminant once and then the
+matching value or error object once; an error's kind and cleanup flag are each
+read once, validated, and retained from those same snapshots. Catalog, open,
+read, and close therefore cannot validate one accessor-backed result and later
+publish another; malformed, throwing, or array-shaped results fail as protocol.
 Its strict decoder requires exact empty output arrays on pre-terminal response
 snapshots, accepts null usage only before completion, and keeps each added
 function-call item as the name authority even when the argument-done event
