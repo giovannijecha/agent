@@ -233,6 +233,15 @@ function validateProvenanceLog(policy, context) {
   if (!entries.includes(openAiAuthInspectionEntry)) {
     fail("OpenAI authentication provenance contract is missing or incomplete");
   }
+  const reopenedPiOpenAiInspectionEntry =
+    "| 2026-08-21 | Reopened bounded Pi OpenAI OAuth source at " +
+    "[`5cd93f688aaab89dbb6dfa4aca535f21796ae185`](https://github.com/earendil-works/pi/blob/5cd93f688aaab89dbb6dfa4aca535f21796ae185/packages/ai/src/auth/oauth/openai-codex.ts) after repeated content-safe Agent login failures | " +
+    "Current public OpenAI material and the earlier first-party inspection did not explain why a provider-approved live device ceremony was rejected before token exchange. At the user's request, only Pi's OpenAI token-response admission, access-token account extraction, and device-flow composition were reopened; no tests or other modules were inspected. A later temporary diagnostic retained only the failing phase and classified the bounded poll success as containing the valid required projection plus an additional member; it retained no member name, type, or value. | " +
+    "Pi projects the required poll-success values without rejecting additional members. Together with the independently reproduced live classification and the same first-party decoding posture, this supports Agent's independently authored bounded projection-only poll decoder. Pi's separate token and account choices remain differential feasibility evidence only. | " +
+    "None; no code, structure, identifier, endpoint, scope, prompt, test, fixture, error text, response value, credential path, or product identity reused |";
+  if (!entries.includes(reopenedPiOpenAiInspectionEntry)) {
+    fail("reopened Pi OpenAI provenance contract is missing or incomplete");
+  }
   const digest = createHash("sha256")
     .update(entries.join("\n") + "\n", "utf8")
     .digest("hex");
@@ -578,7 +587,8 @@ function validatePublicDocuments(context) {
       "`transport-implementation-required`",
       "The first poll is immediate.",
       "requires exact equality before exchange",
-      "sole optional\nmatching poll challenge",
+      "sole optional\ninterpreted matching poll challenge",
+      "bounded discarded additional poll\nmembers",
       "`chatgpt_account_id`",
       "admits only `expires_at` as one optional bounded member",
       "provider authorization was not revoked",

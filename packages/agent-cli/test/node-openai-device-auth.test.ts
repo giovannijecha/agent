@@ -364,12 +364,13 @@ test("admits an absent access-token account claim but rejects a malformed one", 
   assert.deepEqual(rejected, { error: { kind: "protocol" }, ok: false });
 });
 
-test("admits only optional bounded poll challenge metadata", async () => {
+test("validates optional poll challenge and discards additional members", async () => {
   const responses = successResponses();
   const poll = JSON.parse(
     responses.at(1)?.body ?? "{}",
   ) as Record<string, unknown>;
   delete poll.code_challenge;
+  poll.synthetic_metadata = { ignored: true };
   responses.splice(1, 1, new FakeResponse(200, JSON.stringify(poll)));
 
   const result = await new NodeOpenAIDeviceAuth(
@@ -379,27 +380,34 @@ test("admits only optional bounded poll challenge metadata", async () => {
 
   assert.ok(result.ok);
 
-  for (const additional of [
-    { code_challenge: "" },
-    { unexpected: "field" },
-  ]) {
-    const rejectedResponses = successResponses();
-    const rejectedPoll = JSON.parse(
-      rejectedResponses.at(1)?.body ?? "{}",
-    ) as Record<string, unknown>;
-    delete rejectedPoll.code_challenge;
-    Object.assign(rejectedPoll, additional);
-    rejectedResponses.splice(
-      1,
-      1,
-      new FakeResponse(200, JSON.stringify(rejectedPoll)),
-    );
-    const rejected = await new NodeOpenAIDeviceAuth(
-      new SequenceClient(rejectedResponses),
-      new ManualClock(),
-    ).authenticate(new Cancellation(), () => Promise.resolve(true));
-    assert.deepEqual(rejected, { error: { kind: "protocol" }, ok: false });
-  }
+  const malformedResponses = successResponses();
+  const malformedPoll = JSON.parse(
+    malformedResponses.at(1)?.body ?? "{}",
+  ) as Record<string, unknown>;
+  malformedPoll.code_challenge = "";
+  malformedResponses.splice(
+    1,
+    1,
+    new FakeResponse(200, JSON.stringify(malformedPoll)),
+  );
+  const malformed = await new NodeOpenAIDeviceAuth(
+    new SequenceClient(malformedResponses),
+    new ManualClock(),
+  ).authenticate(new Cancellation(), () => Promise.resolve(true));
+  assert.deepEqual(malformed, { error: { kind: "protocol" }, ok: false });
+
+  const duplicateResponses = successResponses();
+  duplicateResponses.splice(1, 1, new FakeResponse(
+    200,
+    '{"authorization_code":"synthetic-authorization",' +
+      '"code_verifier":"' + "A".repeat(43) + '",' +
+      '"synthetic_metadata":"first","synthetic_metadata":"second"}',
+  ));
+  const duplicate = await new NodeOpenAIDeviceAuth(
+    new SequenceClient(duplicateResponses),
+    new ManualClock(),
+  ).authenticate(new Cancellation(), () => Promise.resolve(true));
+  assert.deepEqual(duplicate, { error: { kind: "protocol" }, ok: false });
 });
 
 test("admits only bounded optional device expiration metadata", async () => {

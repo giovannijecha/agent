@@ -133,7 +133,7 @@ test("rejects contradictory authentication network documentation", () => {
   ] = pollSchema.files[
     "docs/decisions/0094-owned-openai-device-authentication.md"
   ].replace(
-    "sole optional\nmatching poll challenge",
+    "sole optional\ninterpreted matching poll challenge",
     "arbitrary poll metadata",
   );
   assert.throws(

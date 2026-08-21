@@ -166,6 +166,7 @@ const EXPECTED_SUBSCRIPTION_CONTRACTS = [
     pollRequestFields: ["device_auth_id", "user_code"],
     pollResponseFields: ["authorization_code", "code_verifier"],
     pollOptionalResponseFields: ["code_challenge"],
+    pollAdditionalResponseMembers: "bounded-discarded-after-complete-decode",
     tokenRequestFields: [
       "grant_type",
       "code",
@@ -345,7 +346,7 @@ const EXPECTED_SENSITIVE_STATE_OCCURRENCES = Object.freeze({
   "packages/agent-cli/src/model-providers-view.ts": "authenticated=2",
   "packages/agent-cli/src/node-ollama-cloud-transport.ts": "authorization=1;credential=10;isValidOllamaCloudCredential=2",
   "packages/agent-cli/src/node-ollama-model-catalog.ts": "authenticated=1;authorization=1;credential=5;isValidOllamaCloudCredential=2",
-  "packages/agent-cli/src/node-openai-device-auth.ts": "access_token=1;accessToken=4;auth=5;authenticate=4;authentication=1;authorization_code=5;authorizationCode=3;authorizationCodeBytes=2;AuthorizationGrant=4;credential=5;decodeAuthorizationGrant=2;decodeCredential=2;device_auth_id=5;deviceauth=3;id_token=1;idToken=3;NodeOpenAIDeviceAuth=1;oauth=1;OPENAI_AUTH_ORIGIN=1;OPENAI_DEVICE_AUTH_LIMITS=15;OPENAI_TOKEN_PATH=2;OpenAIAuthSession=2;OpenAICredential=6;OpenAIDeviceAuthCancellation=5;OpenAIDeviceAuthError=17;OpenAIDeviceAuthErrorKind=10;OpenAIDeviceAuthPort=2;refresh_token=1;refreshToken=3;token=7;tokenBody=2;tokenBodyBytes=2;tokenBytes=4",
+  "packages/agent-cli/src/node-openai-device-auth.ts": "access_token=1;accessToken=4;auth=5;authenticate=4;authentication=1;authorization_code=3;authorizationCode=3;authorizationCodeBytes=2;AuthorizationGrant=4;credential=5;decodeAuthorizationGrant=2;decodeCredential=2;device_auth_id=5;deviceauth=3;id_token=1;idToken=3;NodeOpenAIDeviceAuth=1;oauth=1;OPENAI_AUTH_ORIGIN=1;OPENAI_DEVICE_AUTH_LIMITS=15;OPENAI_TOKEN_PATH=2;OpenAIAuthSession=2;OpenAICredential=6;OpenAIDeviceAuthCancellation=5;OpenAIDeviceAuthError=17;OpenAIDeviceAuthErrorKind=10;OpenAIDeviceAuthPort=2;refresh_token=1;refreshToken=3;token=7;tokenBody=2;tokenBodyBytes=2;tokenBytes=4",
   "packages/agent-cli/src/notice-scheduler.ts": "NoticeToken=6;token=19",
   "packages/agent-cli/src/notice.ts": "createNoticeToken=1;noticeToken=2;NoticeToken=2",
   "packages/agent-cli/src/provider-configuration.ts": "credential=2;invalidCredential=2;isValidOllamaCloudCredential=2;isValidProviderCredential=2",
@@ -369,7 +370,7 @@ const EXPECTED_SENSITIVE_STATE_OCCURRENCES = Object.freeze({
   "packages/agent-cli/test/launch-command.test.ts": "auth=4;secret=1",
   "packages/agent-cli/test/node-ollama-cloud-transport.test.ts": "authorization=1;credentials=1",
   "packages/agent-cli/test/node-ollama-model-catalog.test.ts": "authenticated=1;authorization=1;credentials=1",
-  "packages/agent-cli/test/node-openai-device-auth.test.ts": "access_token=5;auth=11;authenticate=17;authorization=3;authorization_code=2;device_auth_id=7;Fauth=1;Fdeviceauth=1;id_token=5;NodeOpenAIDeviceAuth=18;OPENAI_DEVICE_AUTH_LIMITS=5;OPENAI_TOKEN_PATH=2;OpenAIDeviceAuthCancellation=2;refresh_token=5;token=3",
+  "packages/agent-cli/test/node-openai-device-auth.test.ts": "access_token=5;auth=11;authenticate=18;authorization=4;authorization_code=3;device_auth_id=7;Fauth=1;Fdeviceauth=1;id_token=5;NodeOpenAIDeviceAuth=19;OPENAI_DEVICE_AUTH_LIMITS=5;OPENAI_TOKEN_PATH=2;OpenAIDeviceAuthCancellation=2;refresh_token=5;token=3",
   "packages/agent-cli/test/notice-scheduler.test.ts": "createNoticeToken=6;token=10",
   "packages/agent-cli/test/provider-configuration.test.ts": "credential=3;credentials=1;invalidCredential=1;isValidOllamaCloudCredential=2",
   "packages/agent-cli/test/provider-failure-classification.test.ts": "PRIVATE_SECRET=1",
@@ -500,7 +501,7 @@ const APPROVED_CLI_PRODUCT_TREE = Object.freeze({
   pathsSha256:
     "69ad22eed03887d5ff4215b1050ebb75a48528f9881142364f5361ac91fd8f4f",
   sourceSha256:
-    "70a24849e3865579e6d3d5b646f57e275f45fad31c032bdc17bd949dffd6449a",
+    "a29708bca6959cbd30d9b55bb349925725a01940e0806ae58377a9ba017791d3",
 });
 
 const APPROVED_CLI_NATIVE_PLATFORM_TREE = Object.freeze({
@@ -833,7 +834,7 @@ function validateRegistry(policy) {
     ],
     "provider policy",
   );
-  if (policy.schemaVersion !== 12) {
+  if (policy.schemaVersion !== 13) {
     fail("unsupported provider policy schema");
   }
   assertExactKeys(
@@ -999,6 +1000,7 @@ function validateRegistry(policy) {
         "pollRequestFields",
         "pollResponseFields",
         "pollOptionalResponseFields",
+        "pollAdditionalResponseMembers",
         "tokenRequestFields",
         "tokenResponseFields",
         "accountClaimNamespace",

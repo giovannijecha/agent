@@ -153,9 +153,10 @@ PKCE exchange, account and expiry validation, sign-in-again, and local removal
 through `agent auth`. Device success requires the three registered fields and
 may contain only bounded optional `expires_at` metadata, which is discarded;
 every other member fails closed.
-Poll success requires the authorization code and verifier and may contain only
-an optional challenge, which must match the verifier when present; every other
-member fails closed.
+Poll success requires the authorization code and verifier and may contain one
+interpreted optional challenge, which must match the verifier when present.
+After bounded decoding and duplicate-name rejection, every other member is
+discarded without timing, authorization, projection, or persistence effect.
 The contract is now `auth-compatible-inactive`: auth can create or replace the
 owned record, but there is still no runtime snapshot,
 refresh, revocation, provider workspace, catalog, provider/model row, Responses
@@ -169,7 +170,7 @@ Claude remains subject to the original independent-registration gate.
 
 ## Machine gate
 
-`tools/provider-policy.json` schema version 12 records the four runtime-inactive OAuth
+`tools/provider-policy.json` schema version 13 records the four runtime-inactive OAuth
 providers, the one exact enabled direct provider, the accepted-runtime-inactive
 compatibility category, and one exact `auth-compatible-inactive` OpenAI
 subscription contract. It pins the fixed chat and
@@ -180,7 +181,7 @@ shared/exclusive admission, external auth command, exact provider workspace,
 and the OpenAI decisions, routes, implemented record and authentication,
 exclusive admission, exact provider-owned public client, one-field device
 request, closed device-response schema, empty requested-scope set, callback,
-closed poll-response schema and settlement, public-client token authentication,
+bounded projection-only poll-response schema and settlement, public-client token authentication,
 claims, limits, truthful `agent` caller
 identity, inactive provider runtime, and compatibility disclosure. Canonical verification
 rejects unregistered provider workspaces, OAuth identifiers, subscription

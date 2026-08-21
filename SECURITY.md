@@ -146,9 +146,10 @@ verifier, optional returned-challenge verification, and one exact token
 exchange. Device success requires the three protocol fields;
 only optional bounded `expires_at` metadata may accompany them, and it is
 discarded without timing or authorization effect. Every other member fails
-closed. Poll success requires the authorization code and verifier; only an
-optional matching challenge may accompany them, and every other member fails
-closed. The native decision-0093 mutation is exclusive from
+closed. Poll success requires the authorization code and verifier. One optional
+matching challenge is interpreted and verified; after complete bounded decoding
+and duplicate-name rejection, every other member is discarded without timing,
+authorization, projection, or persistence effect. The native decision-0093 mutation is exclusive from
 before the first request through cancellation or atomic publication. Requests
 omit authorization, cookies, client secrets, foreign caller fields, redirect
 following, discovery, retry, and fallback; every controllable caller identity

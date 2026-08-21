@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 12,
+  "schemaVersion": 13,
   "applicationDocument": "docs/PROVIDER-APPLICATIONS.md",
   "researchedOn": "2026-08-08",
   "subscriptionCompatibility": {
@@ -181,6 +181,7 @@
       "pollOptionalResponseFields": [
         "code_challenge"
       ],
+      "pollAdditionalResponseMembers": "bounded-discarded-after-complete-decode",
       "tokenRequestFields": [
         "grant_type",
         "code",

@@ -40,12 +40,18 @@ this decision admits only `expires_at` as one optional bounded member and gives
 it no timing, display, persistence, or authorization role.
 
 A later pre-merge operator smoke reached code presentation and provider-side
-browser approval, then failed closed before credential publication. The
+browser approval, then failed closed before credential publication. A temporary
+content-safe diagnostic retained only the failing phase and established that
+the bounded poll-success object contained the valid required projection plus at
+least one additional member; it retained no member name, type, or value. The
 authorization code and verifier are the two values required for the token
 exchange; a returned challenge is validation metadata, not exchange authority.
-The poll decoder therefore keeps a closed schema with those two required
-members and only `code_challenge` optional. It never admits an open response
-object.
+Both the already authorized first-party decoder and the separately recorded
+bounded Pi inspection project only their required poll-success fields without
+rejecting additional members. Agent therefore admits poll success by bounded
+projection: duplicate names still fail closed, required values and an optional
+`code_challenge` are validated, and every other member is discarded without
+timing, authorization, projection, or persistence effect.
 
 ## Decision
 
@@ -107,8 +113,11 @@ server interval following a pending result. A poll sends one UTF-8
 to `POST https://auth.openai.com/api/accounts/deviceauth/token`. HTTP 403 and
 404 are the only pending outcomes and their bodies are not read. HTTP 200 must
 carry one bounded JSON object with required `authorization_code` and
-`code_verifier` strings and, optionally, `code_challenge`. Every other member
-is ambiguous and fails closed. Every other status is terminal.
+`code_verifier` strings and, optionally, `code_challenge`. After the complete
+bounded object passes duplicate-name validation, additional members are
+ignored and never projected, persisted, or interpreted. A malformed required
+value or malformed present challenge fails closed. Every other status is
+terminal.
 
 The verifier is 43 through 128 RFC 7636 unreserved ASCII characters. The
 optional challenge is canonical unpadded base64url. When it is present, Agent
@@ -216,11 +225,12 @@ fake HTTPS, clock, input, output, and broker boundaries. They bind exact request
 origins, paths, methods, headers, bodies, field order, content types, response
 bounds, interval parsing, first and later poll timing, pending statuses, single
 exchange, the sole optional `expires_at` device member, the sole optional
-matching poll challenge, JWT syntax, duplicate response and nested claim
-authorities, account binding, expiration, cancellation, deadline, inactivity,
-cleanup, and no replay. They reject redirects, malformed or oversized values,
-unknown response members, wrong content types, every unexpected status, expired
-tokens, account conflicts, late events, and double settlement.
+interpreted matching poll challenge, bounded discarded additional poll
+members, JWT syntax, duplicate response and nested claim authorities, account
+binding, expiration, cancellation, deadline, inactivity, cleanup, and no
+replay. They reject redirects, malformed or oversized values, unknown device
+response members, duplicate poll members, wrong content types, every unexpected
+status, expired tokens, account conflicts, late events, and double settlement.
 
 Command tests bind provider selection before credential admission, unchanged
 Ollama environment dual-authority behavior, absent and present OpenAI actions,
@@ -241,8 +251,9 @@ pass offline.
 ## Update, rollback, and removal
 
 Changing the client identifier, origin, route, request or response fields,
-optional device-expiration or poll-challenge admission, interval representation
-or range, pending statuses, first-poll timing, PKCE, redirect, token
+optional device-expiration, poll-challenge interpretation, additional poll-
+member admission, interval representation or range, pending statuses, first-
+poll timing, PKCE, redirect, token
 authentication, claim source, account binding, expiration, bounds, deadline,
 cancellation, admission, record, caller identity, disclosure, failure family,
 refresh posture, revocation posture, or local-removal semantics requires a

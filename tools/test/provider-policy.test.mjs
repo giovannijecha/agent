@@ -163,6 +163,7 @@ test("binds OpenAI device authentication without activating provider runtime", (
       pollRequestFields: ["device_auth_id", "user_code"],
       pollResponseFields: ["authorization_code", "code_verifier"],
       pollOptionalResponseFields: ["code_challenge"],
+      pollAdditionalResponseMembers: "bounded-discarded-after-complete-decode",
       tokenRequestFields: [
         "grant_type",
         "code",
@@ -214,6 +215,7 @@ test("rejects drift that would activate or misidentify the OpenAI OAuth contract
     ["deviceRedirect", "http://localhost:1455/auth/callback"],
     ["devicePollPendingStatuses", [404]],
     ["pollOptionalResponseFields", []],
+    ["pollAdditionalResponseMembers", "rejected"],
     ["tokenEndpointAuthMethod", "client_secret_post"],
     ["pkceMethod", "plain"],
     ["disclosure", "official-openai-client"],

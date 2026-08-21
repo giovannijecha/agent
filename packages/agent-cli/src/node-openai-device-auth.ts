@@ -477,16 +477,7 @@ function decodeAuthorizationGrant(
 ): Result<AuthorizationGrant, OpenAIDeviceAuthError> {
   const parsed = parseJsonBody(body);
   if (!parsed.ok) return parsed;
-  const exactResponse = exactKeys(parsed.value, [
-    "authorization_code",
-    "code_verifier",
-  ]) || exactKeys(parsed.value, [
-    "authorization_code",
-    "code_challenge",
-    "code_verifier",
-  ]);
   if (
-    !exactResponse ||
     !visibleAscii(
       parsed.value.authorization_code,
       OPENAI_DEVICE_AUTH_LIMITS.authorizationCodeBytes,

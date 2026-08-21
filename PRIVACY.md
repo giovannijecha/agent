@@ -219,7 +219,9 @@ identifier, and access-token expiration in the exact
 `~/.agent/credentials/openai.oauth` plaintext record. The ID token, device
 identity, displayed code, provider `expires_at` metadata, authorization code,
 verifier, challenge, complete responses, and account claims are not persisted
-or projected. The private boundary has no environment input and protects
+or projected. Additional poll-success members are decoded only inside the
+fixed body bound after duplicate-name validation, then discarded without local
+authority. The private boundary has no environment input and protects
 ordinary cross-account access with the same native owner-only controls and
 same-user, administrator/root,
 malware, backup, snapshot, memory, and offline-access limitations as the Ollama

@@ -533,11 +533,13 @@ required device-response fields plus only bounded optional `expires_at`
 metadata and discard that metadata; poll immediately and then only after each
 admitted server interval; accept only 403 and 404 as pending; require the
 authorization code and verifier, admit only an optional S256 challenge, and
-verify that challenge when present; exchange once; derive the account from the
+verify that challenge when present; discard every other bounded poll member
+after complete duplicate-name validation; exchange once; derive the account from the
 ID token and expiration from the access token; close terminal input; then
 publish one complete record. Never add a browser launch, redirect, retry,
-fallback, scope, alternate caller field, environment source, open response
-schema, or response-body diagnostic. Do not add refresh, revocation, provider
+fallback, scope, alternate caller field, environment source, unbounded response
+schema, interpretation of an unregistered member, or response-body diagnostic.
+Do not add refresh, revocation, provider
 workspace or row, catalog, Responses transport, runtime snapshot, or `/models`
 integration before their separate module.
 
@@ -594,7 +596,8 @@ For every change, run the native lifecycle fixtures on Windows and Linux and
 the CLI contract tests without a real credential. OpenAI auth tests use fake
 HTTPS, clock, terminal, and broker boundaries and synthetic non-credential
 values; they must prove exact requests, the sole optional device-expiration
-member, the sole optional matching poll challenge, bounds, timing,
+member, the sole optional interpreted matching poll challenge, bounded
+discarded additional poll members, bounds, timing,
 cancellation, PKCE, account binding, expiry, one settlement, and zero secret
 projection without a live provider. Prove Windows owner/DACL and
 profile-lineage behavior by driving the complete broker against a controlled
