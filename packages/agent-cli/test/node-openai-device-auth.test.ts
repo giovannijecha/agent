@@ -321,6 +321,49 @@ test("performs one exact device, poll, and token exchange", async () => {
   assert.equal(clock.registrations.at(0)?.cancelled, true);
 });
 
+test("admits an absent access-token account claim but rejects a malformed one", async () => {
+  const account = "synthetic-account";
+  const expiration = Math.floor(Date.now() / 1_000) + 3_600;
+  const withoutAccessAccount = successResponses(account);
+  withoutAccessAccount.splice(2, 1, new FakeResponse(200, JSON.stringify({
+    access_token: jwt({
+      exp: expiration,
+      "https://api.openai.com/auth": { workspace_id: "synthetic-workspace" },
+    }),
+    id_token: jwt({
+      "https://api.openai.com/auth": { chatgpt_account_id: account },
+    }),
+    refresh_token: "synthetic-refresh-value",
+  })));
+
+  const accepted = await new NodeOpenAIDeviceAuth(
+    new SequenceClient(withoutAccessAccount),
+    new ManualClock(),
+  ).authenticate(new Cancellation(), () => Promise.resolve(true));
+
+  assert.ok(accepted.ok);
+  assert.equal(accepted.value.accountId, account);
+
+  const malformedAccessAccount = successResponses(account);
+  malformedAccessAccount.splice(2, 1, new FakeResponse(200, JSON.stringify({
+    access_token: jwt({
+      exp: expiration,
+      "https://api.openai.com/auth": { chatgpt_account_id: 7 },
+    }),
+    id_token: jwt({
+      "https://api.openai.com/auth": { chatgpt_account_id: account },
+    }),
+    refresh_token: "synthetic-refresh-value",
+  })));
+
+  const rejected = await new NodeOpenAIDeviceAuth(
+    new SequenceClient(malformedAccessAccount),
+    new ManualClock(),
+  ).authenticate(new Cancellation(), () => Promise.resolve(true));
+
+  assert.deepEqual(rejected, { error: { kind: "protocol" }, ok: false });
+});
+
 test("admits only optional bounded poll challenge metadata", async () => {
   const responses = successResponses();
   const poll = JSON.parse(

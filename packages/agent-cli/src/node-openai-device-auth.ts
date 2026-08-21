@@ -422,6 +422,7 @@ function accountClaim(
   if (namespace === undefined) return ok(undefined);
   if (!isRecord(namespace)) return err(failure("protocol"));
   const account = namespace.chatgpt_account_id;
+  if (account === undefined) return ok(undefined);
   return visibleAscii(account, 256)
     ? ok(account)
     : err(failure("protocol"));
