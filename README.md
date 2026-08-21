@@ -55,15 +55,22 @@ To continue the newest inactive session for the same exact workspace:
 agent resume --latest
 ```
 
+Before entering the TUI, register, replace, or remove the local Ollama Cloud
+credential through the exact zero-echo command:
+
+```powershell
+agent auth
+```
+
 The directory in which `agent` starts becomes its immutable workspace boundary.
 Volume roots, the exact user home, the shared temporary directory, and every
 workspace overlapping the native-home `.agent` state root are rejected. An
 optional root `.agentignore` adds deny-only read exclusions.
 
-Inside the TUI, run `/providers` to enter an Ollama Cloud API key and select the
-provider, then `/models` to load the authenticated catalog and choose one
-available model. Credentials, provider state, model catalogs, and selections
-remain in process memory and disappear on exit. See
+Inside the TUI, run `/models`, choose one authenticated provider, then choose
+one model from that provider's fresh catalog. The provider-model pair, catalog,
+and process snapshot disappear on exit; the provider-specific credential record
+remains until `agent auth` removes it. See
 [providers and authentication](docs/manual/05-providers-and-authentication.md)
 for the complete workflow and failure contract.
 
@@ -71,8 +78,7 @@ for the complete workflow and failure contract.
 
 | Command | Action |
 | --- | --- |
-| `/providers` | Configure or select a session provider |
-| `/models` | Load and select an admitted provider model |
+| `/models` | Select an authenticated provider and one fresh catalog model |
 | `/permissions` | Edit session-only tool permissions |
 | `/thinking` | Set session thinking `Stream` and `Effort` |
 | `/timeline` | Select a retained conversation branch |
@@ -118,8 +124,9 @@ for storage locations, bounds, and deletion.
 - `shell` runs one exact approved command through the fixed native shell with a
   controlled credential-free environment, fixed limits, and owned descendant
   cleanup. It is host-full execution, not filesystem or network sandboxing.
-- Secrets stay memory-only and never enter source, fixtures, logs, transcripts,
-  or documentation.
+- The owned Ollama credential record is local plaintext protected by native
+  owner-only controls, not an encrypted vault. Secret bytes never enter source,
+  fixtures, logs, transcripts, command arguments, or documentation values.
 - A completed tool checkpoint remains conversation truth if a later model
   continuation fails; completed effects are not retried implicitly.
 

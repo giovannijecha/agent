@@ -10,6 +10,10 @@ const clipboardRoot = path.join(
   projectRoot,
   "packages/agent-cli/native/clipboard",
 );
+const credentialBrokerRoot = path.join(
+  projectRoot,
+  "packages/agent-cli/native/credential-broker",
+);
 const processBrokerRoot = path.join(
   projectRoot,
   "packages/agent-cli/native/process-broker",
@@ -95,6 +99,43 @@ const platformFlags = process.platform === "win32"
 const backend = process.platform === "win32"
   ? "backend-windows.c"
   : "backend-linux.c";
+
+runCompiler([
+  ...commonFlags,
+  ...platformFlags,
+  path.join(credentialBrokerRoot, "main.c"),
+  path.join(credentialBrokerRoot, "credential-store.c"),
+  ...(process.platform === "win32"
+    ? [
+        path.join(credentialBrokerRoot, "lineage-windows.c"),
+        "-ladvapi32",
+        "-lshell32",
+        "-lole32",
+        "-luuid",
+      ]
+    : []),
+  "-o",
+  path.join(outputDirectory, "agent-credential-broker" + executableSuffix),
+]);
+
+runCompiler([
+  ...commonFlags,
+  ...platformFlags,
+  "-DAGENT_CREDENTIAL_FIXTURE",
+  path.join(credentialBrokerRoot, "main.c"),
+  path.join(credentialBrokerRoot, "credential-store.c"),
+  ...(process.platform === "win32"
+    ? [
+        path.join(credentialBrokerRoot, "lineage-windows.c"),
+        "-ladvapi32",
+        "-lshell32",
+        "-lole32",
+        "-luuid",
+      ]
+    : []),
+  "-o",
+  path.join(outputDirectory, "agent-credential-fixture" + executableSuffix),
+]);
 
 runCompiler([
   ...commonFlags,

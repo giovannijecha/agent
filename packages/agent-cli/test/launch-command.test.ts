@@ -27,6 +27,10 @@ test("accepts the exact lean executable command surface", () => {
     latest: true,
     ok: true,
   });
+  assert.deepEqual(parseLaunchCommand(["auth"]), {
+    command: "auth",
+    ok: true,
+  });
 });
 
 test("rejects unknown, combined, and malformed arguments without retention", () => {
@@ -37,6 +41,8 @@ test("rejects unknown, combined, and malformed arguments without retention", () 
     ["resume"],
     ["resume", "--lates"],
     ["resume", "--latest", "extra"],
+    ["auth", "ollama-cloud"],
+    ["auth", "synthetic-key"],
     {},
   ]) {
     assert.deepEqual(parseLaunchCommand(value as readonly string[]), {

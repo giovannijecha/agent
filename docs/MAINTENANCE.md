@@ -342,9 +342,9 @@ dock or footer. Regress visible-to-absent-to-visible ownership and clipped
 carets at the renderer boundary.
 
 The ruled interaction dock owns one body, one focus kind, and an absolute six
-content-row maximum. Keep editor focus for the draft and concealed credential
-entry; keep provider, model, permission, pending-tool, and timeline lists in
-selection focus. Selection focus has no caret, consumes a closing editor event,
+content-row maximum. Keep editor focus for the draft; keep provider, model,
+permission, pending-tool, and timeline lists in selection focus. Selection
+focus has no caret, consumes a closing editor event,
 and blocks composer pointer effects without resetting or blocking transcript
 pointer selection and scrolling. Change focus routing in the CLI reducer only
 after generic dock tests cover header allocation, selected-row visibility,
@@ -352,13 +352,10 @@ caret admission, narrow viewports, hostile children, and accessor-backed
 options.
 Snapshot focus, header, and height exactly once before validation and construct
 the frozen dock contract from that same snapshot; never reread caller-owned
-options after validation. Carry the focus and separate
-composer-pointer authority rendered with each pointer projection; never infer
-either from application state that may have changed earlier in the same decoded
-input chunk. A concealed credential editor keeps editor focus for keyboard and
-caret ownership but must publish no composer-pointer target. Its regression must
-prove credential drags cannot queue clipboard content while transcript pointer
-selection remains available.
+options after validation. Carry the focus and separate composer-pointer
+authority rendered with each pointer projection; never infer either from
+application state that may have changed earlier in the same decoded input
+chunk.
 
 Provider, model, session-permission, and timeline selection must close only
 through its existing Enter acceptance or explicit Escape/Ctrl+C cancellation.
@@ -389,11 +386,9 @@ When selection focus replaces the composer, project any active composer-placed
 transient notice through the selector header's trailing edge. The notice
 temporarily replaces ordinary header context and may add the optional header to
 a headerless pending-tool decision. Give the notice side retention priority over
-the title only while status is present. During concealed credential entry, let
-the same notice temporarily replace the non-secret entry guidance. Neither path
-may expose retained draft or credential text, admit an additional caret, or
-create another notice authority. Regress an existing selector header at narrow
-width, the headerless pending-tool path, and concealed credential entry.
+the title only while status is present. Neither path may expose retained draft
+text, admit an additional caret, or create another notice authority. Regress an
+existing selector header at narrow width and the headerless pending-tool path.
 
 Rollback must restore renderer and CLI event assumptions together. Removal of
 an interaction deletes its decoder event, reducer route, layout projection,
@@ -434,7 +429,8 @@ For an adapter or transport change:
 2. update request, catalog, stream framing, native message and tool-call
    normalization, canonical history, bounds, inactivity, wall-clock deadline,
    cancellation, and cleanup contracts;
-3. keep credentials and catalog state process-only;
+3. keep the durable credential record provider-specific and keep admitted
+   credential snapshots and catalog state process-only;
 4. add offline request/response and adversarial transport tests;
 5. run the canonical verifier without a credential;
 6. perform any live smoke manually and never record its secret or body.
@@ -502,21 +498,23 @@ declarations, tests, public contract, and decisions 0072, 0080, and 0082 status
 together. The product returns to no admitted provider; do not select a
 replacement implicitly.
 
-### Dormant durable credential boundary
+### Owned external authentication
 
 **Owners:** CLI native platform boundary, decision 0089, superseded decision
-0088,
+0088, and the authentication and selection clauses of decision 0072,
 [providers](PROVIDERS.md), [OAuth registration](OAUTH-REGISTRATION.md),
 [privacy](../PRIVACY.md), and [security](../SECURITY.md).
 
-The decision 0089 owns the accepted replacement contract but remains
-unimplemented. While the current decision-0072 behavior is shipped, verify that no
-`~/.agent/credentials` namespace, credential reader, `agent auth` command,
-token field, or API-key persistence enters the product. Do not implement an
-opaque generic store in anticipation of a provider.
+Decision 0089 owns the active Ollama Cloud API-key record, the native
+shared/exclusive admission lifecycle, external `agent auth`, and the two-stage
+`/models` selector. Keep the store closed and provider-specific. Do not add an
+opaque generic record, another credential type, OAuth material, another
+provider, hot reload, or a second credential lifecycle in anticipation of
+future work.
 
-Keep the verifier's closed sensitive-state identifier inventory, exact dormant
-CLI product tree, and exact production CLI effect-authority registries
+Keep the verifier's closed sensitive-state identifier inventory, exact CLI
+product tree, exact native platform tree, and exact production CLI
+effect-authority registries
 synchronized with reviewed source.
 Any new auth, credential, secret, session-state, or token identifier and any new
 or expanded CLI filesystem, child-process, network, activation, or native
@@ -532,7 +530,7 @@ Treat every closed inventory as an exact current-path requirement. Renaming or
 deleting an inventoried file must fail, as must changing its reviewed filesystem
 or child-process import, network import, or any other source content. Each direct
 Node effect-authority record owns only its exact module specifier and imported
-bindings. The complete dormant CLI product tree recursively includes every
+bindings. The complete CLI product tree recursively includes every
 TypeScript module under `packages/agent-cli/src/`; a module added or moved into
 any child directory must fail until the ordered path set and aggregate digest
 are reviewed. The native platform authority likewise owns its complete tree.
@@ -547,25 +545,34 @@ and aliased exports, variable declarations, assertions, destructuring, Unicode
 bindings, assignment to an exported binding after declaration, and an
 unreviewed child-process launch with split path fragments. They all must fail
 through the same exact source-integrity boundary, independent of surface syntax.
-Keep direct, split, and method-composed dormant command and namespace
-recurrences in the mutation corpus. They must fail through the exact dormant CLI
+Keep direct, split, and method-composed unregistered command and namespace
+recurrences in the mutation corpus. They must fail through the exact CLI
 product-tree boundary without teaching the verifier each new string syntax. Any
 legitimate CLI or native source edit requires review of the complete owning tree
 and an explicit digest repin in the same change; effect-edge changes also update
 the exact Node registry. The gate does not execute product code or infer partial
 strings, exports, commands, or general data flow.
 
-Activation follows decision 0089's ordered modules: the exact Ollama record and
-native lifecycle; external `agent auth` with complete `/providers` removal; the
-two-stage `/models` replacement; then Windows/Linux verification and a bounded
-operator smoke. Keep the current dormant source gate until each owning module
-has red-green evidence, and do not publish an intermediate storage owner without
-its command, removal path, and truthful living documentation. Test Windows ACL
-and Linux owner/mode enforcement, linked-object rejection, header-before-secret
-parsing, shared/exclusive admission, dual authority, atomic publication,
-recovery, removal, and secret non-projection offline on both platforms. Never
-repair an unsafe record silently, retry a mutation, restore superseded material,
-or borrow another client's credential store.
+For every change, run the native lifecycle fixtures on Windows and Linux and
+the CLI contract tests without a real credential. Prove Windows owner/DACL and
+profile-lineage behavior by driving the complete broker against a controlled
+alternate-owner profile observation and an isolated state root, plus a pre-existing
+decision-0087 state root that retains native owner/DACL metadata. Prove Linux
+owner/mode enforcement and fresh-directory inventory rescans, linked-object
+rejection, header-before-secret parsing, shared/exclusive admission, dual
+authority, atomic publication, interrupted replacement recovery, removal, and
+secret non-projection. A live provider smoke is a separate explicit operator
+action and must not enter the automated gate.
+
+Rollback first closes every running Agent and authentication process, then
+restores the command, selector, native helper, policy, and documentation as one
+reviewed unit. Never leave a record reader without its mutation/removal path or
+restore `/providers` as a second authority. Full local credential removal uses
+`agent auth` to remove the Ollama Cloud record, verifies no process holds the
+store lock, and may then remove only the empty credentials directory and exact
+Ollama lock file. It is not secure erasure and does not revoke a provider key.
+Never repair an unsafe record silently, retry a mutation, restore superseded
+material, or borrow another client's credential store.
 
 ### Thinking-stream lifecycle
 

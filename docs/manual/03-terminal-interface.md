@@ -25,8 +25,7 @@ cannot leave a partial draft or start a turn.
 ## Run commands
 
 Type `/` or a partial exact command name to open completion. The maintained
-commands are `/providers`, `/models`, `/permissions`, `/thinking`, `/timeline`,
-and `/exit`.
+commands are `/models`, `/permissions`, `/thinking`, `/timeline`, and `/exit`.
 
 While completion is visible:
 
@@ -39,7 +38,7 @@ does not enter the transcript.
 
 ## Use selectors
 
-Provider, model, permission, pending-tool, thinking, and timeline selectors
+Provider-model, permission, pending-tool, thinking, and timeline selectors
 replace the composer body inside the same two rules. The dock shows at most six content
 rows: an optional header and up to five windowed choices. The current choice
 stays visible and accented; the composer caret is absent. The draft remains
@@ -54,15 +53,14 @@ selector header's right edge until it expires; it does not reveal the retained
 draft or restore a composer caret. On a narrow terminal, that feedback takes
 display priority over the selector title.
 
-`/providers` and `/models` use the same list controls: Up and Down move without
-wrapping, and Enter selects the current row. Selecting an unconfigured provider
-opens a concealed credential editor. Its context identifies the provider and
-marks the credential as process-only; the composer prompt reads
-`Enter API key · Ctrl+C cancels`. Enter accepts the key and Ctrl+C cancels the
-credential edit. The caret remains keyboard-owned, but pointer input cannot
-position, select, or copy concealed credential text; transcript selection and
-copying remain available. Clipboard settlement feedback temporarily replaces
-the entry prompt without revealing the credential. See
+`/models` uses two serial lists with the same controls: Up and Down move without
+wrapping, and Enter accepts the current row. The first list contains only
+authenticated providers. Acceptance loads exactly that provider's fresh
+catalog and opens the second list. Accepting a model replaces the settled
+provider and model together; Escape, Ctrl+C, or either operation failing
+preserves the prior pair. With no authenticated provider, the dock stays closed
+and a content-safe notice directs the operator to exit and run `agent auth`.
+See
 [Providers and authentication](05-providers-and-authentication.md) for provider
 and model rules.
 
@@ -75,8 +73,8 @@ grants.
 
 `/thinking` is available only while idle after a provider and model are
 selected, and shows exactly two rows: `Stream` then `Effort`. If the provider is
-missing it directs you to `/providers`; if only the model is missing it directs
-you to `/models`. Up and Down select a row without wrapping. Left and Right
+missing it directs you to exit and run `agent auth`; if only the model is
+missing it directs you to `/models`. Up and Down select a row without wrapping. Left and Right
 stage Stream as `Off` or `On`, or Effort as `Off`, `Low`, `Medium`, or `High`,
 without wrapping. Enter applies both staged values atomically. Escape or Ctrl+C
 discards both staged changes. Both settings default to `Off` and remain

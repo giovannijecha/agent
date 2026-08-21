@@ -24,7 +24,7 @@ function configuredProviders() {
       configured: true,
       id: "ollamaCloud" as const,
       presentation: Object.freeze({
-        authentication: "memory-only API key",
+        authentication: "owned credential",
         displayName: "Ollama Cloud",
         model: "qwen3-coder:480b-cloud",
       }),
@@ -40,7 +40,7 @@ function unconfiguredProviders() {
       configured: false,
       id: "ollamaCloud" as const,
       presentation: Object.freeze({
-        authentication: "memory-only API key",
+        authentication: "owned credential",
         displayName: "Ollama Cloud",
         model: undefined,
       }),
@@ -1171,7 +1171,7 @@ test("places compact phase-independent notices between activity and composer", (
   assert.equal(warningSpan?.tone, "attention");
   assert.equal(warningSpan?.surface, "none");
 
-  application.feed("/providers\r");
+  application.feed("/models\r");
   const info = frame(application, 72, 22);
   assert.ok(info.ok);
   const infoRows = info.value.rows;
@@ -1179,10 +1179,10 @@ test("places compact phase-independent notices between activity and composer", (
   const providerRows = infoRows.filter(
     (row, index) =>
       index < infoComposerTop &&
-      row.text.includes("Provider selection is available only while idle."),
+      row.text.includes("Model selection is available only while idle."),
   );
   const infoSpan = providerRows.at(0)?.spans.find((span) =>
-    span.text.includes("Provider selection"),
+    span.text.includes("Model selection"),
   );
 
   assert.equal(providerRows.length, 1);
@@ -1285,23 +1285,23 @@ test("renders bounded slash completion above the composer", () => {
   const rendered = frame(application, 64, 14);
   assert.ok(rendered.ok);
   const rows = rendered.value.rows;
-  const providers = rows.find((row) => row.text.includes("/providers"));
+  const models = rows.find((row) => row.text.includes("/models"));
   const permissions = rows.find((row) => row.text.includes("/permissions"));
   const composerTop = rendered.value.caret?.row ?? -1;
-  const providersIndex = rows.findIndex((row) => row === providers);
-  assert.ok(providers !== undefined);
+  const modelsIndex = rows.findIndex((row) => row === models);
+  assert.ok(models !== undefined);
   assert.ok(permissions !== undefined);
-  assert.equal(providersIndex < composerTop, true);
+  assert.equal(modelsIndex < composerTop, true);
   assert.equal(
-    providers.text.trim(),
-    "/providers  configure or select provider",
+    models.text.trim(),
+    "/models  select provider model",
   );
   assert.equal(
-    providers.text.indexOf("configure or select provider"),
-    providers.text.indexOf("/providers") + "/providers".length + 2,
+    models.text.indexOf("select provider model"),
+    models.text.indexOf("/models") + "/models".length + 2,
   );
   assert.equal(
-    providers.spans
+    models.spans
       .filter((span) => span.text.trim().length > 0)
       .every((span) => span.surface === "none"),
     true,
@@ -1318,9 +1318,9 @@ test("renders bounded slash completion above the composer", () => {
   );
 });
 
-test("renders the current-session provider selector without a box", () => {
+test("renders the authenticated-provider model stage without a box", () => {
   const application = new ApplicationController(true, configuredProviders());
-  application.feed("/providers\r");
+  application.feed("/models\r");
 
   const rendered = frame(application, 72, 16);
   assert.ok(rendered.ok);
@@ -1331,12 +1331,12 @@ test("renders the current-session provider selector without a box", () => {
     .map((row, index) => isComposerRule(row) ? index : -1)
     .filter((index) => index >= 0);
 
-  assert.equal(rows.some((row) => row.text.includes("Providers")), true);
+  assert.equal(rows.some((row) => row.text.includes("choose provider")), true);
   assert.equal(ruleIndexes.length, 2);
   assert.equal(providerIndex > (ruleIndexes.at(0) ?? providerIndex), true);
   assert.equal(providerIndex < (ruleIndexes.at(1) ?? providerIndex), true);
   assert.equal(rendered.value.caret, undefined);
-  assert.equal(provider?.text.includes("qwen3-coder:480b-cloud"), true);
+  assert.equal(provider?.text.includes("qwen3-coder:480b-cloud"), false);
   assert.equal(provider?.text.includes("active"), true);
   assert.equal(
     provider?.spans
@@ -1433,7 +1433,7 @@ test("keeps reasoning out of the rendered conversation when stream is off", () =
 test("keeps composer copy feedback visible while a selector retains the dock", () => {
   const application = new ApplicationController(true, configuredProviders());
   application.feed("retained draft");
-  application.applySessionAction(Object.freeze({ kind: "openProviders" }));
+  application.applySessionAction(Object.freeze({ kind: "openModels" }));
   const size = viewport(72, 16);
   const before = createChatRender(application, size);
   assert.ok(before.ok);
@@ -1444,7 +1444,7 @@ test("keeps composer copy feedback visible while a selector retains the dock", (
   assert.deepEqual(after.value.composer, before.value.composer);
   assert.equal(after.value.frame.caret, undefined);
   assert.equal(
-    after.value.frame.rows.some((row) => row.text.includes("Providers")),
+    after.value.frame.rows.some((row) => row.text.includes("Models")),
     true,
   );
   assert.equal(
@@ -1464,12 +1464,12 @@ test("keeps composer copy feedback visible while a selector retains the dock", (
   );
 });
 
-test("renders concealed credential entry guidance inside the composer", () => {
+test("directs an unauthenticated session to external auth without key entry", () => {
   const application = new ApplicationController(
     true,
     unconfiguredProviders(),
   );
-  application.feed("/providers\r\r");
+  application.feed("/models\r");
 
   const rendered = frame(application, 72, 16);
   assert.ok(rendered.ok);
@@ -1477,9 +1477,9 @@ test("renders concealed credential entry guidance inside the composer", () => {
 
   assert.equal(
     rows.some((row) => row.text.includes("Connect Ollama Cloud")),
-    true,
+    false,
   );
-  assert.equal(rows.some((row) => row.text.includes("process only")), true);
+  assert.equal(rows.some((row) => row.text.includes("process only")), false);
   assert.equal(
     rows.some((row) =>
       row.text.includes("API key is concealed and discarded on exit.")),
@@ -1489,19 +1489,13 @@ test("renders concealed credential entry guidance inside the composer", () => {
     rows.some((row) => row.text.includes("Enter confirms; Ctrl+C cancels.")),
     false,
   );
-  const guidance = rows.find((row) =>
-    row.text.includes("Enter API key · Ctrl+C cancels"));
-  assert.ok(guidance !== undefined);
   assert.equal(
-    guidance.spans.some((span) =>
-      span.text === "Enter API key · Ctrl+C cancels" &&
-      span.tone === "muted" &&
-      span.surface === "none"),
+    rows.some((row) => row.text.includes("run agent auth first")),
     true,
   );
   assert.equal(rendered.value.caret?.column, 2);
 
-  application.feed("process-secret");
+  application.feed("retained draft");
   application.clipboardSettled("failed");
   const withStatus = frame(application, 72, 16);
   assert.ok(withStatus.ok);
@@ -1510,8 +1504,8 @@ test("renders concealed credential entry guidance inside the composer", () => {
     true,
   );
   assert.equal(
-    withStatus.value.rows.some((row) => row.text.includes("process-secret")),
-    false,
+    withStatus.value.rows.some((row) => row.text.includes("retained draft")),
+    true,
   );
 });
 
@@ -1567,7 +1561,7 @@ test("moves slash selection, hides exact completion, and coexists with activity"
     risk: "read",
     turnId: 9,
   });
-  application.feed("/\u001B[B\u001B[B");
+  application.feed("/\u001B[B");
 
   const active = frame(application, 72, 18);
   assert.ok(active.ok);
@@ -1582,7 +1576,7 @@ test("moves slash selection, hides exact completion, and coexists with activity"
   const permissions = rows.find((row) => row.text.includes("/permissions"));
   const permissionsIndex = rows.findIndex((row) => row === permissions);
   const firstCompletionIndex = rows.findIndex((row) =>
-    row.text.includes("/providers"),
+    row.text.includes("/models"),
   );
   assert.equal(activityIndexes.length, 1);
   const firstActivityIndex = activityIndexes.at(0);
@@ -1592,7 +1586,7 @@ test("moves slash selection, hides exact completion, and coexists with activity"
   assert.equal(rows[firstActivityIndex - 1]?.text.trim(), "");
   assert.equal(rows[lastActivityIndex + 1]?.text.trim(), "");
   assert.equal(firstCompletionIndex, lastActivityIndex + 2);
-  assert.equal(permissionsIndex, firstCompletionIndex + 2);
+  assert.equal(permissionsIndex, firstCompletionIndex + 1);
   assert.equal(
     permissions?.spans
       .filter((span) => span.text.trim().length > 0)
@@ -1605,9 +1599,9 @@ test("moves slash selection, hides exact completion, and coexists with activity"
       .every((span) => span.tone === "accent"),
     true,
   );
-  const providers = rows.find((row) => row.text.includes("/providers"));
+  const models = rows.find((row) => row.text.includes("/models"));
   assert.equal(
-    providers?.spans.find((span) => span.text.includes("/providers"))?.tone,
+    models?.spans.find((span) => span.text.includes("/models"))?.tone,
     "plain",
   );
   const lastCompletionIndex = rows.findIndex((row) =>
@@ -1618,12 +1612,12 @@ test("moves slash selection, hides exact completion, and coexists with activity"
   assert.equal(composerTopIndex, lastCompletionIndex + 2);
 
   const exact = new ApplicationController(false);
-  exact.feed("/providers");
+  exact.feed("/models");
   const hidden = frame(exact, 72, 14);
   assert.ok(hidden.ok);
   assert.equal(
     hidden.value.rows.some((row) =>
-      row.text.includes("configure or select provider"),
+      row.text.includes("select provider model"),
     ),
     false,
   );

@@ -57,18 +57,20 @@ export type ProviderModelSnapshot = Readonly<{
 
 export type ProviderSelectionPort = Readonly<{
   clear(): void;
-  configure(
+  listModels(
     id: ProviderId,
-    credential: string,
-  ): Result<void, ProviderSessionError>;
-  listModels(): Promise<
+  ): Promise<
     Result<readonly ProviderModelSnapshot[], ProviderSessionModelsError>
   >;
   ready(): boolean;
-  select(id: ProviderId): Result<void, ProviderSessionError>;
-  selectModel(id: string): Result<void, ProviderSessionError>;
+  selectProviderModel(
+    providerId: ProviderId,
+    modelId: string,
+  ): Result<void, ProviderSessionError>;
   snapshots(): readonly ProviderSelectionSnapshot[];
 }>;
+
+export type ProviderAdmission = Readonly<{ active(): boolean }>;
 
 export type ProviderSessionErrorKind =
   | "invalidCredential"
@@ -79,6 +81,7 @@ export type ProviderSessionErrorKind =
   | "modelNotAvailable"
   | "modelNotSelected"
   | "noActiveProvider"
+  | "providerAdmissionLost"
   | "providerNotConfigured"
   | "unknownProvider";
 
@@ -108,6 +111,7 @@ type RetainedProvider<E> = {
     model: string,
   ): StreamingModel<E> | undefined;
   credential: string | undefined;
+  admission: ProviderAdmission | undefined;
   id: ProviderId;
   model: StreamingModel<E> | undefined;
   modelId: string | undefined;
@@ -131,7 +135,7 @@ function sessionModelsError(
 }
 
 /**
- * Owns one ephemeral provider credential and one active model port.
+ * Owns one admitted process-memory credential snapshot and one active model port.
  * Configuration, catalogs, selections, and adapters are released on clear.
  */
 export class ProviderSession<E> implements StreamingModel<E> {
@@ -181,6 +185,7 @@ export class ProviderSession<E> implements StreamingModel<E> {
         }
         copied.push({
           acceptsModel: acceptsModel.bind(definition) as (id: string) => boolean,
+          admission: undefined,
           catalog: undefined,
           createModel,
           credential: undefined,
@@ -202,6 +207,7 @@ export class ProviderSession<E> implements StreamingModel<E> {
   clear(): void {
     for (const provider of this.#providers) {
       provider.catalog = undefined;
+      provider.admission = undefined;
       provider.credential = undefined;
       provider.model = undefined;
       provider.modelId = undefined;
@@ -209,15 +215,22 @@ export class ProviderSession<E> implements StreamingModel<E> {
     this.#selectedIndex = undefined;
   }
 
-  configure(
+  admit(
     id: ProviderId,
     credential: string,
+    admission: ProviderAdmission,
   ): Result<void, ProviderSessionError> {
     const index = this.#providers.findIndex((entry) => entry.id === id);
     if (index < 0) {
       return err(new ProviderSessionError("unknownProvider"));
     }
-    if (!credentialValid(id, credential)) {
+    let active = false;
+    try {
+      active = admission?.active() === true;
+    } catch (_cause: unknown) {
+      active = false;
+    }
+    if (!credentialValid(id, credential) || !active) {
       return err(new ProviderSessionError("invalidCredential"));
     }
     const provider = this.#providers.at(index);
@@ -225,6 +238,7 @@ export class ProviderSession<E> implements StreamingModel<E> {
       return err(new ProviderSessionError("unknownProvider"));
     }
     provider.catalog = undefined;
+    provider.admission = admission;
     provider.credential = credential;
     provider.model = undefined;
     provider.modelId = undefined;
@@ -232,48 +246,42 @@ export class ProviderSession<E> implements StreamingModel<E> {
   }
 
   ready(): boolean {
-    return this.#active()?.model !== undefined;
+    const provider = this.#active();
+    return provider?.model !== undefined && this.#admissionActive(provider);
   }
 
   snapshots(): readonly ProviderSelectionSnapshot[] {
     return Object.freeze(
-      this.#providers.map((provider, index) =>
-        Object.freeze({
-          configured: provider.credential !== undefined,
+      this.#providers.map((provider, index) => {
+        const active = provider.credential !== undefined &&
+          this.#admissionActive(provider);
+        return Object.freeze({
+          configured: active,
           id: provider.id,
           presentation: Object.freeze({
             authentication: provider.presentation.authentication,
             displayName: provider.presentation.displayName,
-            model: provider.modelId,
+            model: active ? provider.modelId : undefined,
           }),
-          ready: provider.model !== undefined,
-          selected: index === this.#selectedIndex,
-        }),
-      ),
+          ready: active && provider.model !== undefined,
+          selected: active && index === this.#selectedIndex,
+        });
+      }),
     );
   }
 
-  select(id: ProviderId): Result<void, ProviderSessionError> {
-    const index = this.#providers.findIndex((entry) => entry.id === id);
-    if (index < 0) {
-      return err(new ProviderSessionError("unknownProvider"));
-    }
-    if (this.#providers.at(index)?.credential === undefined) {
-      return err(new ProviderSessionError("providerNotConfigured"));
-    }
-    this.#selectedIndex = index;
-    return ok(undefined);
-  }
-
-  async listModels(): Promise<
+  async listModels(id: ProviderId): Promise<
     Result<readonly ProviderModelSnapshot[], ProviderSessionModelsError>
   > {
-    const provider = this.#active();
+    const provider = this.#providers.find((entry) => entry.id === id);
     if (provider === undefined) {
-      return err(sessionModelsError("noActiveProvider"));
+      return err(sessionModelsError("unknownProvider"));
     }
     if (provider.credential === undefined) {
       return err(sessionModelsError("providerNotConfigured"));
+    }
+    if (!this.#admissionActive(provider)) {
+      return err(sessionModelsError("providerAdmissionLost"));
     }
     provider.catalog = undefined;
     let listed: Result<readonly string[], ProviderModelCatalogError>;
@@ -312,20 +320,29 @@ export class ProviderSession<E> implements StreamingModel<E> {
     );
   }
 
-  selectModel(id: string): Result<void, ProviderSessionError> {
-    const provider = this.#active();
+  selectProviderModel(
+    providerId: ProviderId,
+    modelId: string,
+  ): Result<void, ProviderSessionError> {
+    const index = this.#providers.findIndex((entry) => entry.id === providerId);
+    const provider = index < 0 ? undefined : this.#providers.at(index);
     if (provider === undefined) {
-      return err(new ProviderSessionError("noActiveProvider"));
+      return err(new ProviderSessionError("unknownProvider"));
     }
     if (provider.credential === undefined) {
       return err(new ProviderSessionError("providerNotConfigured"));
     }
-    if (provider.catalog === undefined || !provider.catalog.includes(id)) {
+    if (!this.#admissionActive(provider)) {
+      return err(new ProviderSessionError("providerAdmissionLost"));
+    }
+    if (
+      provider.catalog === undefined || !provider.catalog.includes(modelId)
+    ) {
       return err(new ProviderSessionError("modelNotAvailable"));
     }
     let accepted = false;
     try {
-      accepted = provider.acceptsModel(id);
+      accepted = provider.acceptsModel(modelId);
     } catch (_cause: unknown) {
       accepted = false;
     }
@@ -334,7 +351,7 @@ export class ProviderSession<E> implements StreamingModel<E> {
     }
     let model: StreamingModel<E> | undefined;
     try {
-      model = provider.createModel(provider.credential, id);
+      model = provider.createModel(provider.credential, modelId);
     } catch (_cause: unknown) {
       model = undefined;
     }
@@ -342,7 +359,8 @@ export class ProviderSession<E> implements StreamingModel<E> {
       return err(new ProviderSessionError("modelCreationFailed"));
     }
     provider.model = model;
-    provider.modelId = id;
+    provider.modelId = modelId;
+    this.#selectedIndex = index;
     return ok(undefined);
   }
 
@@ -353,7 +371,11 @@ export class ProviderSession<E> implements StreamingModel<E> {
     options: ModelTurnOptions,
   ): Promise<Result<ModelStream<E>, E>> {
     const model = this.#active()?.model;
-    if (model === undefined) {
+    const provider = this.#active();
+    if (
+      model === undefined || provider === undefined ||
+      !this.#admissionActive(provider)
+    ) {
       throw new ProviderSessionError("modelNotSelected");
     }
     return model.open(conversation, cancellation, tools, options);
@@ -363,5 +385,13 @@ export class ProviderSession<E> implements StreamingModel<E> {
     return this.#selectedIndex === undefined
       ? undefined
       : this.#providers.at(this.#selectedIndex);
+  }
+
+  #admissionActive(provider: RetainedProvider<E>): boolean {
+    try {
+      return provider.admission?.active() === true;
+    } catch (_cause: unknown) {
+      return false;
+    }
   }
 }

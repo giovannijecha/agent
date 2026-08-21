@@ -117,6 +117,9 @@ test("rejects drift in the admitted direct provider", () => {
       ["chatEndpoint", "https://example.com/v1"],
       ["catalogEndpoint", "https://example.com/v1/models"],
       ["credentialVariable", "UNREVIEWED_KEY"],
+      ["credentialCommand", "agent login"],
+      ["credentialRecord", "~/.agent/credentials/provider.key"],
+      ["credentialAdmission", "unlocked"],
       ["credentialPersistence", "disk"],
     ]) {
       const drifted = structuredClone(currentPolicy);
@@ -380,12 +383,12 @@ test("rejects every provider or auth workspace that was not admitted", () => {
   }
 });
 
-test("rejects every dormant durable credential product surface", () => {
+test("rejects every second or unregistered credential authority", () => {
   const mutations = [
     {
       failure:
-        "packages/agent-cli/src/launch-command.ts contains forbidden " +
-        "dormant agent auth command",
+        "packages/agent-cli/src/launch-command.ts contains " +
+        "sensitive-state identifier occurrence drift",
       path: "packages/agent-cli/src/launch-command.ts",
       mutate: (text) => text.replace(
         'if (argument === "--help") {',
@@ -393,7 +396,7 @@ test("rejects every dormant durable credential product surface", () => {
       ),
     },
     {
-      failure: "CLI dormant product tree source-integrity drift",
+      failure: "CLI product tree source-integrity drift",
       path: "packages/agent-cli/src/launch-command.ts",
       mutate: (text) => text.replace(
         'if (argument === "--help") {',
@@ -402,8 +405,8 @@ test("rejects every dormant durable credential product surface", () => {
     },
     {
       failure:
-        "packages/agent-cli/src/workspace-boundary.ts contains forbidden " +
-        "dormant credential namespace",
+        "packages/agent-cli/src/workspace-boundary.ts contains " +
+        "sensitive-state identifier occurrence drift",
       path: "packages/agent-cli/src/workspace-boundary.ts",
       mutate: (text) => text.replace(
         'path.join(userStateRoot, "sessions")',
@@ -412,7 +415,7 @@ test("rejects every dormant durable credential product surface", () => {
     },
     {
       failure:
-        "CLI dormant product tree source-integrity drift",
+        "CLI product tree source-integrity drift",
       path: "packages/agent-cli/src/workspace-boundary.ts",
       mutate: (text) => text.replace(
         'path.join(userStateRoot, "sessions")',
@@ -479,7 +482,7 @@ test("rejects every dormant durable credential product surface", () => {
   }
 });
 
-test("rejects unsupported dormant command composition through source integrity", () => {
+test("rejects unsupported command composition through source integrity", () => {
   const path = "packages/agent-cli/src/launch-command.ts";
   const original = readFileSync(
     new URL("../../" + path, import.meta.url),
@@ -499,15 +502,15 @@ test("rejects unsupported dormant command composition through source integrity",
     (error) =>
       error instanceof ProviderPolicyError &&
       error.message ===
-        "CLI dormant product tree source-integrity drift",
+        "CLI product tree source-integrity drift",
   );
 });
 
-test("pins the exact CLI dormant product tree", () => {
+test("pins the exact CLI product tree", () => {
   const sources = currentProductSources.filter((source) =>
     /^packages\/agent-cli\/src\/(?:[^/]+\/)*[^/]+\.ts$/u.test(source.path)
   );
-  assert.equal(sources.length, 72);
+  assert.equal(sources.length, 75);
   const unprivilegedSource = sources.find(
     (source) => source.path === "packages/agent-cli/src/models-view.ts",
   );
@@ -523,7 +526,7 @@ test("pins the exact CLI dormant product tree", () => {
       ),
     (error) =>
       error instanceof ProviderPolicyError &&
-      error.message === "CLI dormant product tree source-integrity drift",
+      error.message === "CLI product tree source-integrity drift",
   );
 
   const missingPath = "packages/agent-cli/src/launch-command.ts";
@@ -537,29 +540,29 @@ test("pins the exact CLI dormant product tree", () => {
       }),
     (error) =>
       error instanceof ProviderPolicyError &&
-      error.message === "CLI dormant product tree path drift",
+      error.message === "CLI product tree path drift",
   );
 
   const addedSource = {
-    path: "packages/agent-cli/src/dormant-auth.ts",
-    text: "export const dormant = true;\n",
+    path: "packages/agent-cli/src/alternate-auth.ts",
+    text: "export const alternate = true;\n",
   };
   assert.throws(
     () => validateProviderPolicy(currentPolicy, contextWithSources(addedSource)),
     (error) =>
       error instanceof ProviderPolicyError &&
-      error.message === "CLI dormant product tree path drift",
+      error.message === "CLI product tree path drift",
   );
 
   const nestedSource = {
-    path: "packages/agent-cli/src/dormant/entry.ts",
+    path: "packages/agent-cli/src/alternate/entry.ts",
     text: 'export const command = "a".concat("uth");\n',
   };
   assert.throws(
     () => validateProviderPolicy(currentPolicy, contextWithSources(nestedSource)),
     (error) =>
       error instanceof ProviderPolicyError &&
-      error.message === "CLI dormant product tree path drift",
+      error.message === "CLI product tree path drift",
   );
 });
 
@@ -744,7 +747,7 @@ test("rejects reviewed filesystem escape recurrences as source drift", () => {
       (error) =>
         error instanceof ProviderPolicyError &&
         error.message ===
-          "CLI dormant product tree path drift",
+          "CLI product tree path drift",
     );
   }
 });
@@ -752,6 +755,7 @@ test("rejects reviewed filesystem escape recurrences as source drift", () => {
 test("registers every direct CLI Node effect authority", () => {
   const expectedPaths = [
     "packages/agent-cli/src/builtin-tools.ts",
+    "packages/agent-cli/src/credential-broker.ts",
     "packages/agent-cli/src/node-ollama-cloud-transport.ts",
     "packages/agent-cli/src/node-ollama-model-catalog.ts",
     "packages/agent-cli/src/node-process-runner.ts",
@@ -794,7 +798,7 @@ test("rejects unreviewed child-process launch behavior", () => {
     (error) =>
       error instanceof ProviderPolicyError &&
       error.message ===
-        "CLI dormant product tree source-integrity drift",
+        "CLI product tree source-integrity drift",
   );
 });
 

@@ -17,53 +17,37 @@ import {
   type InteractionStatusProjection,
 } from "./view-components.js";
 
-export type ProviderMenuProjection = Readonly<{
+export type ModelProviderMenuProjection = Readonly<{
   items: readonly ProviderSelectionSnapshot[];
   selectedIndex: number;
 }>;
 
-/** Projects the closed current-session provider selector. */
-export function createProvidersDocument(
-  projection: ProviderMenuProjection | undefined,
+/** Projects the authenticated-provider stage of atomic model selection. */
+export function createModelProvidersDocument(
+  projection: ModelProviderMenuProjection | undefined,
   status?: InteractionStatusProjection,
 ): Result<Component, ComponentError> {
-  if (projection === undefined) {
-    return createStack([]);
-  }
-  const header = createInteractionHeader("Providers", "current session", status);
+  if (projection === undefined) return createStack([]);
+  const header = createInteractionHeader("Models", "choose provider", status);
   if (!header.ok) return header;
 
   const rows: Component[] = [];
   for (let position = 0; position < projection.items.length; position += 1) {
     const item = projection.items.at(position);
-    if (item === undefined) {
+    if (item === undefined || !item.configured) {
       return err(new ComponentError("invalidComponent", position));
     }
     const name = createSpan(item.presentation.displayName, "plain");
-    const model = createSpan(
-      item.presentation.model === undefined
-        ? ""
-        : "  " + item.presentation.model,
-      "muted",
-    );
     const state = createSpan(
-      item.selected && item.ready
-        ? "active"
-        : item.selected
-          ? "selected"
-          : item.configured
-            ? "configured"
-            : "not configured",
+      item.selected && item.ready ? "active" : "authenticated",
       "muted",
     );
     if (!name.ok) return name;
-    if (!model.ok) return model;
     if (!state.ok) return state;
-    const row = SplitLine.create(
-      [name.value, model.value],
-      [state.value],
-      { gap: 2, priority: "left" },
-    );
+    const row = SplitLine.create([name.value], [state.value], {
+      gap: 2,
+      priority: "left",
+    });
     if (!row.ok) return row;
     rows.push(row.value);
   }

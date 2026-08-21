@@ -34,7 +34,7 @@ the linked owner is where the complete contract lives.
 - To participate or report a problem, begin with the
   [contributing guide](../CONTRIBUTING.md).
 - To report a vulnerability, use the [security policy](../SECURITY.md).
-- To understand data handling, retention, and process-only secrets, use the
+- To understand data handling, durable credentials, and process-only state, use the
   [privacy policy](../PRIVACY.md).
 - To inspect a reference project or audit clean-room provenance, use the
   [ownership record](OWNERSHIP.md).

@@ -1,4 +1,4 @@
-export type LaunchCommand = "help" | "resume" | "run" | "version";
+export type LaunchCommand = "auth" | "help" | "resume" | "run" | "version";
 
 export type LaunchCommandError = Readonly<{ kind: "invalidArguments" }>;
 
@@ -7,6 +7,7 @@ export function parseLaunchCommand(
   arguments_: readonly string[],
 ): Readonly<
   | { command: "help" | "version"; ok: true }
+  | { command: "auth"; ok: true }
   | { command: "resume"; latest: true; ok: true }
   | { command: "run"; evaluationReceipt: boolean; ok: true }
   | { error: LaunchCommandError; ok: false }
@@ -35,6 +36,9 @@ export function parseLaunchCommand(
         latest: true as const,
         ok: true as const,
       });
+    }
+    if (arguments_.length === 1 && arguments_.at(0) === "auth") {
+      return Object.freeze({ command: "auth" as const, ok: true as const });
     }
     if (arguments_.length !== 1) {
       return Object.freeze({

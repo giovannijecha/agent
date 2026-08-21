@@ -122,6 +122,7 @@
       "docs/PROVIDERS.md",
       "PRIVACY.md",
       "docs/decisions/0072-owned-ollama-cloud-provider.md",
+      "docs/decisions/0089-owned-external-authentication-transition.md",
       "SECURITY.md",
       "docs/OWNERSHIP.md",
       "docs/BRAND.md",
@@ -218,7 +219,7 @@
   ],
   "decisionRecordDigest": {
     "algorithm": "sha256",
-    "value": "dd0ac4d23060288c6297cfaedc9b4f939f1acb220044238de24657f62e3cce8a"
+    "value": "20c219c499c7702ac58f40857fd4e7dccac6c556127766a8a419fe218b1306db"
   },
   "decisionDomainMembers": {
     "architecture": [

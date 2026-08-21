@@ -62,11 +62,11 @@ Follow this order:
 Do not widen the task because an adjacent cleanup is attractive. Record a
 separate follow-up unless the adjacent change is necessary for correctness.
 
-Decision 0089 is a non-activating design contract. Until its complete external-
-authentication implementation changes the owned source and living contracts,
-the memory-only provider policy and dormant CLI/native source inventories remain
-exact. No intermediate implementation may be published with an unreachable
-credential owner or both `/providers` and `agent auth` credential entry.
+Decision 0089's external-authentication contract is active. Its complete source,
+native broker, policy, manual, privacy, security, maintenance, rollback, and
+removal evidence remain one publication unit. No revision may restore
+`/providers`, leave `agent auth` without its record removal path, or create a
+second credential authority.
 
 ## Source rules
 
@@ -87,7 +87,7 @@ credential owner or both `/providers` and `agent auth` credential entry.
 - Closed source-policy inventories are bidirectional. Every registered path must
   remain in the canonical product-source set. Each approved CLI module with a
   direct `node:fs`, `node:child_process`, or `node:https` effect authority must
-  retain its reviewed module specifier and import bindings. The complete dormant
+  retain its reviewed module specifier and import bindings. The complete
   CLI product tree and native C/H platform tree each retain their exact ordered
   path set and aggregate source digest. The CLI tree includes every TypeScript
   module recursively under `packages/agent-cli/src/`; moving authority into a
@@ -96,7 +96,7 @@ credential owner or both `/providers` and `agent auth` credential entry.
   records. Renaming, deleting, reducing, expanding, or otherwise changing an
   inventoried authority fails closed.
 - The exact source digest is the sole verifier authority for code flow within an
-  approved dormant CLI product or native source tree; the direct Node registry
+  approved CLI product or native source tree; the direct Node registry
   owns only exact effect edges. The verifier does not execute product code or
   attempt partial string evaluation, command, export, alias, assignment, or
   capability-flow inference. Any legitimate source edit requires an explicit

@@ -6,6 +6,12 @@
 - Supersedes: 0017, 0067, and 0068
 - Superseded by: none
 
+Activation note (2026-08-21): decision 0089 supersedes this record's
+authentication, credential-retention, and provider/model-selection clauses.
+The exact Ollama identity, origins, paths, native protocol, transport bounds,
+and failure contracts below remain current. This is a prose-qualified partial
+supersession, not a complete decision-ledger edge.
+
 ## Context
 
 OpenCode Go and OpenCode Zen are no longer maintained integrations for
@@ -28,12 +34,13 @@ is `ollamaCloud`. The CLI owns exactly these HTTPS boundaries:
 - `GET https://ollama.com/api/tags` for the authenticated model catalog;
 - `POST https://ollama.com/api/chat` for native Ollama chat turns.
 
-Both requests send one process-memory API key as `Authorization: Bearer
-<credential>`. The exact optional automation preload is
-`AGENT_OLLAMA_API_KEY`. `/providers` remains the sole interactive credential
-and provider-selection path. `/models` performs one authenticated catalog read
-and selects an exact identifier from that most recent bounded snapshot. No
-credential, catalog, provider, or model choice survives process exit.
+Both requests send one process-memory API-key snapshot as `Authorization:
+Bearer <credential>`. The exact optional automation preload is
+`AGENT_OLLAMA_API_KEY`. At acceptance, `/providers` was the sole interactive
+credential and provider-selection path, while `/models` queried the active
+provider and selected one catalog identifier. Decision 0089 supersedes those
+historical authentication, retention, and selection clauses. Catalogs and
+provider/model choices still do not survive process exit.
 
 The catalog decoder accepts only one bounded JSON object containing a bounded
 nonempty `models` array. Every row must contain equal `name` and `model`

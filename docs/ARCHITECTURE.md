@@ -100,11 +100,14 @@ The CLI composition root performs startup in this order:
 
 1. resolve the exact startup directory into one immutable canonical workspace;
 2. load the built-in and optional root `.agentignore` read-denial policy;
-3. create a new bounded local journal or restore the exact latest inactive one;
-4. register the fixed tool inventory and session permission policy;
-5. acquire terminal ownership and enter the conversation-first TUI;
-6. accept an explicit provider and credential through `/providers`;
-7. accept a model returned by the authenticated `/models` catalog.
+3. route exact `agent auth` before journal, provider, tool, runtime, or terminal
+   composition, or continue ordinary startup;
+4. create a new bounded local journal or restore the exact latest inactive one;
+5. register the fixed provider and tool inventories plus session permissions;
+6. acquire one shared native credential admission and immutable startup snapshot;
+7. acquire terminal ownership and enter the conversation-first TUI;
+8. use `/models` to stage an authenticated provider, load its exact catalog,
+   and atomically accept the provider-model pair.
 
 A submitted user message is prospective until the complete turn settles. One
 model response may contain one bounded ordered tool-call batch. The runtime:
@@ -150,10 +153,10 @@ native reasoning, and the selected node identity cross that CLI-owned
 boundary. `agent resume --latest` validates the newest inactive version-one or
 version-two journal for the exact workspace, rebuilds the immutable tree and
 transcript, and creates a separate version-two continuation before providers,
-tools, or terminal ownership. Credentials, catalogs, provider/model selection,
-thinking effort and display settings, permissions, drafts, provisional turns,
-activity, and notices
-remain process-only. A final
+tools, or terminal ownership. Credential snapshots, catalogs, provider/model
+selection, thinking effort and display settings, permissions, drafts,
+provisional turns, activity, and notices remain process-only. Durable provider
+records are a separate credential-store authority and never enter the journal. A final
 truncated line recovers only its complete prefix. A complete final turn whose
 head is exactly one journal revision behind is selected only when its parent is
 that previous head; current-revision selections remain authoritative and every
@@ -161,8 +164,8 @@ other mismatch fails closed. Evaluation-receipt and non-TTY runs create no
 journal.
 
 The current session authority is the exact `~/.agent/sessions` child of the
-native-resolved account home. This change creates no `credentials` or `settings`
-namespace and persists no additional process state. Before creation or resume,
+native-resolved account home. Session code creates no `settings` namespace and
+never owns the separate `credentials` sibling. Before creation or resume,
 the CLI considers only the current workspace digest under the former
 platform-state root. When only that legacy directory exists, the CLI holds its
 cross-version workspace admission, validates its bounded inactive inventory,
@@ -170,12 +173,11 @@ and renames the complete directory into the current root. Both locations,
 cross-device movement, an active session, or any ambiguous path or storage
 state fail closed without copy, merge, overwrite, deletion, or fallback.
 
-Decision 0089 supersedes decision 0088's OAuth-only future design and fixes a
-provider-specific external-authentication transition beginning with Ollama
-Cloud. It changes no current composition: `~/.agent/credentials` remains
-absent, `/providers` remains the interactive process-only key path, and no API
-key is persisted until the later implementation modules change source, native
-policy, tests, and living documentation together.
+Decision 0089 supersedes decision 0088's OAuth-only future design and the
+credential-selection portions of decision 0072. Its Ollama-first transition is
+active: `agent auth`, the provider-specific owned record, shared/exclusive
+native admission, complete `/providers` removal, and two-stage `/models`
+selection ship as one authority. No OAuth record or second provider is implied.
 
 Every accepted journal file is synchronized before publication. On POSIX, the
 CLI also synchronizes a staged session directory before publishing it and the
@@ -262,12 +264,31 @@ between:
 - the CLI transport, which owns HTTPS, exact origins, bearer authentication,
   response limits, inactivity limits, and wall-clock deadlines.
 
-The session has no default provider or model. `/providers` is the only
-interactive credential and provider-selection path. `/models` performs one
-authenticated catalog request and exposes only bounded entries whose returned
-`name` and `model` fields are equal. The latest process-memory catalog is
-the model-availability authority; it does not locally infer account entitlement,
-credit, quota, or per-request provider capacity.
+The session has no default provider or model. `agent auth` is the sole
+interactive credential lifecycle and runs after workspace validation but before
+the alternate screen, with no operands, journal, runtime, tools, or network.
+The CLI-owned C17 broker resolves the native account home without inherited
+home text and owns the exact Ollama record, strict schema, filesystem controls,
+shared/exclusive byte-range admission, atomic mutation, recovery, and removal.
+The resolved Windows profile is validated as non-reparse lineage without
+requiring it to share the credential SID owner; ownership enforcement begins at
+the exact credential lock and `credentials` child. The decision-0087 `.agent`
+root remains shared non-reparse lineage and may retain its operating-system
+owner and DACL. Linux recovery opens a fresh validated credential directory
+description for every inventory scan. The store is owned plaintext, not an OS
+keychain or encrypted vault.
+
+Every TUI process snapshots the durable record or the temporary environment
+source while holding a shared admission through provider cleanup. Auth mutation
+holds the exclusive admission. Lock conflicts fail busy without waiting or
+retry. A durable record and `AGENT_OLLAMA_API_KEY` together fail as dual
+authority after safe-envelope validation and before secret payload read; unsafe
+state never falls back to the environment. `/models` lists only authenticated
+providers, stages one without changing the active backend, performs one exact
+catalog request, and atomically replaces provider and model only when a fresh
+catalog model is accepted. Failure or cancellation preserves the prior pair.
+The latest process-memory catalog is the model-availability authority; it does
+not locally infer account entitlement, credit, quota, or provider capacity.
 
 There is no redirect, alias, retry, router, or fallback. Provider errors cross
 the product boundary only through closed content-free failure families. A
@@ -355,19 +376,16 @@ projected from authoritative application state.
 - filesystem, process, clipboard, and native-platform effects.
 
 The ruled interaction dock has one focus owner. Editor focus renders the draft
-or concealed provider credential and admits the frame's one caret. Selection
-focus replaces that editor body with the provider, model, permission,
+and admits the frame's one caret. Selection focus replaces that editor body with
+the authenticated-provider, model, permission,
 pending-tool, or timeline list, retains at most one header plus five visible
 items, and admits no caret. A composer-placed transient notice remains visible
 in selection focus through that header's trailing edge, temporarily replacing
 its ordinary context without restoring the hidden draft or another editor. The
 notice side has retention priority over the selector title when width is scarce.
-During concealed credential entry, the same notice temporarily replaces the
-non-secret entry guidance without exposing credential text.
 Focus and composer-pointer authority are separate:
-only a visible draft admits composer pointer effects; selection focus and the
-concealed credential editor admit none while transcript selection and scrolling
-remain active. Slash completion stays above the dock because it remains an
+only a visible draft admits composer pointer effects; selection focus admits
+none while transcript selection and scrolling remain active. Slash completion stays above the dock because it remains an
 editor-owned draft operation. The immutable render projection carries both the
 visible dock focus and composer-pointer authority into pointer reduction; one
  coalesced input chunk never reclassifies stale geometry from newer application

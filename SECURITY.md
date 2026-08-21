@@ -118,20 +118,25 @@ the owned renderer emits fixed ANSI and resets it during row output and cleanup.
 Interrupted OSC strings are conservatively closed before later renderer output.
 Native root, content-mutation, namespace-mutation, and clipboard helpers have
 hard operation and post-kill cleanup deadlines; late events cannot change
-settled content-free results.
+settled content-free results. The separate credential helper is a long-lived
+native admission boundary: its shared session lock remains held until the CLI
+closes the private pipe, while each exclusive authentication operation has a
+bounded opening and cleanup deadline.
 
 The project enables exactly `https://ollama.com/api/tags` and
 `https://ollama.com/api/chat`. Both requests use bearer authentication through
-one process-memory credential. Catalog rows are bounded and selectable only
+one immutable process-memory credential snapshot. Catalog rows are bounded and selectable only
 when their `name` and `model` fields are equal; catalog content cannot change
 the registered origin, paths, authentication, chat protocol, or tool schemas.
 The adapter never follows redirects, discovers an origin, retries, aliases a
-model, or falls back to another backend. The TUI credential context reuses the
-bounded editor while projecting zero secret text and zero secret caret offset.
-It enables no provider OAuth login, arbitrary network transport, local Ollama
-daemon, persistent provider credential or catalog store, or automatic provider
-or model selection. The bounded session journal is a separate
-CLI-owned local state boundary and never stores those provider values. The
+model, or falls back to another backend. Credentials are registered, replaced,
+or removed only by external `agent auth` with zero-echo TTY input, never inside
+the TUI. `/models` admits only authenticated providers, fetches only the chosen
+provider's catalog, and settles provider and model together. No provider OAuth
+login, arbitrary network transport, local Ollama daemon, persistent catalog,
+or automatic provider/model selection is enabled. The bounded session journal
+is a separate CLI-owned local state boundary and never stores those provider
+values. The
 single `shell` capability admits one exactly
 approved bounded command through the fixed profile-free platform shell, a
 controlled environment that excludes provider credentials, and owned
@@ -140,16 +145,32 @@ sandbox; approved code retains the launching user's operating-system
 authority. Reports about provider traffic should identify the
 exact CLI transport, wire decoder, or configuration boundary involved.
 
-Decision 0089 changes no current security behavior. It supersedes decision
-0088's future OAuth-only design but does not activate the accepted Ollama-first
-external-authentication transition. `~/.agent/credentials` remains absent,
-`/providers` remains process-only, and the source gate continues to reject
-`agent auth` and persistent readers until implementation. The future record is
-owned plaintext, not an OS keychain or encrypted vault, and does not claim
-protection from same-user processes, administrators or root, backup authority,
-malware, snapshots, memory inspection, or offline privileged access. Its later
-native implementation must reject unsafe ownership, access, link, schema,
-concurrency, or recovery state before exposing secret payload bytes.
+Decision 0089 owns the active provider-specific Ollama Cloud record under
+`~/.agent/credentials`, the exact adjacent lock, and native shared/exclusive
+admission. Every interactive Agent holds one shared lock and immutable snapshot
+for its full process lifetime, including an absent record or environment-only
+credential. `agent auth` holds the exclusive lock across recovery, secret input,
+mutation, atomic publication, and cleanup. A simultaneous durable record and
+`AGENT_OLLAMA_API_KEY` fails as dual authority; neither wins and neither is
+imported automatically. Links, unexpected inventory, unsafe ownership or
+access, invalid schema, concurrency, or ambiguous recovery state fail closed
+before secret payload bytes are read.
+
+On Windows, the native-resolved profile directory is validated as real
+non-reparse lineage but is not assigned credential-object ownership: a valid
+profile may retain a built-in administrative owner. The current account SID and
+DACL contract begin at the exact credential lock and `credentials` child. The
+shared decision-0087 `.agent` root remains non-reparse lineage and may retain
+its operating-system owner and DACL; the broker never rewrites it. On Linux,
+every inventory and post-recovery rescan uses a fresh validated directory
+description so directory offset state cannot hide a committed record.
+
+The record is owned plaintext, not an OS keychain or encrypted vault. It does
+not protect from same-user processes, administrators or root, backup authority,
+malware, snapshots, memory inspection, or privileged offline access. Native
+owner-only protections narrow accidental cross-account disclosure and prevent
+ambiguous authority; they do not make the credential cryptographically secret
+from an already authorized principal.
 
 The conversation tree exposes only one selected root-to-node path to the model.
 Alternate branches cannot execute, request permission, or emit output.

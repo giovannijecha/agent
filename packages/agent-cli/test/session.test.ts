@@ -74,10 +74,6 @@ test("selects slash completions without navigating the transcript", () => {
   assert.deepEqual(session.projectCommandCompletion(), {
     items: [
       {
-        command: "/providers",
-        description: "configure or select provider",
-      },
-      {
         command: "/models",
         description: "select provider model",
       },
@@ -103,10 +99,10 @@ test("selects slash completions without navigating the transcript", () => {
 test("bounds completion selection and completes with Tab without executing", () => {
   const session = new SessionController();
   session.feed("/");
-  const bounded = session.feed("\u001B[A[B[B[B[B[B");
+  const bounded = session.feed("\u001B[A[B[B[B[B");
 
   assert.equal(bounded.redraw, true);
-  assert.equal(session.projectCommandCompletion()?.selectedIndex, 5);
+  assert.equal(session.projectCommandCompletion()?.selectedIndex, 4);
   const completed = session.feed("\t");
   assert.deepEqual(completed, { actions: [], redraw: true });
   assert.equal(session.projectEditor(20).text, "/exit");
@@ -118,7 +114,7 @@ test("bounds completion selection and completes with Tab without executing", () 
 
 test("dispatches the selected slash completion with Enter", () => {
   const session = new SessionController();
-  session.feed("/\u001B[B\u001B[B");
+  session.feed("/\u001B[B");
 
   const submitted = session.feed("\r");
 
@@ -139,10 +135,6 @@ test("recomputes completion after editing and keeps unsupported Tab explicit", (
   session.feed("p");
   assert.deepEqual(session.projectCommandCompletion(), {
     items: [
-      {
-        command: "/providers",
-        description: "configure or select provider",
-      },
       {
         command: "/permissions",
         description: "set session tool permissions",
@@ -168,7 +160,10 @@ test("keeps non-selector keys inert until each contextual selector is dismissed"
     context: SessionInputContext;
   }>[] = Object.freeze([
     Object.freeze({ close: "closePermissions", context: "permissions" }),
-    Object.freeze({ close: "closeProviders", context: "providers" }),
+    Object.freeze({
+      close: "closeModelProviders",
+      context: "modelProviders",
+    }),
     Object.freeze({ close: "closeModels", context: "models" }),
     Object.freeze({ close: "closeThinking", context: "thinking" }),
     Object.freeze({ close: "closeTimeline", context: "timeline" }),
@@ -293,17 +288,17 @@ test("returns ordered actions from a multi-submission chunk", () => {
 
   assert.deepEqual(update.actions, [
     { kind: "submit", text: "one" },
-    { kind: "openProviders" },
+    { kind: "notice", level: "warning", lines: ["Unknown command"] },
     { kind: "exit" },
   ]);
   assert.equal(session.draftLength, 0);
 });
 
-test("opens provider selection without changing command ownership", () => {
+test("opens the two-stage model selection without changing command ownership", () => {
   const session = new SessionController();
 
-  assert.deepEqual(session.feed("/providers\r").actions, [
-    { kind: "openProviders" },
+  assert.deepEqual(session.feed("/models\r").actions, [
+    { kind: "openModels" },
   ]);
 });
 

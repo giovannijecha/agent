@@ -5,9 +5,11 @@
 `agent` is local-first software maintained by Giovanni Jecha. It has no project
 cloud service, analytics, advertising, crash-reporting endpoint, or telemetry.
 The production executable starts with no provider or model selected and
-persists no credential, catalog, provider/model selection, or permission
-policy. An explicit interactive launch keeps the bounded settled conversation
-journal described under [Local sessions](#local-sessions).
+may persist only the exact provider-specific Ollama Cloud API-key record under
+`~/.agent/credentials`. Catalogs, provider/model selection, thinking settings,
+and permission policy remain process-only. An explicit interactive launch also
+keeps the bounded settled conversation journal described under
+[Local sessions](#local-sessions).
 
 Without a configured runtime, submitted text is discarded after a generic
 notice. It is not added to conversation state, displayed in the transcript,
@@ -178,14 +180,27 @@ Catalog membership never causes agent to infer or persist account entitlement,
 credit, quota, or capacity.
 
 `agent` never asks for provider passwords, cookies, recovery codes, payment
-details, or one-time codes. The Ollama API key is accepted only through the
-zero-projection TUI credential context or `AGENT_OLLAMA_API_KEY` and remains in
-process memory. The credential context writes no key, mask, or length into the
-frame, notice, transcript, or terminal history. Environment preloading never
-selects a provider or model. Decision 0089 changes no current retention behavior:
-it supersedes decision 0088's future design without creating a directory,
-record, or `agent auth` command and without admitting API-key persistence in the
-current product. Provider data-use, retention, billing,
+details, or one-time codes. The Ollama API key is registered, replaced, or
+removed only by the exact external `agent auth` command in a TTY, outside the
+alternate-screen UI. Input is zero-echo and the key, mask, and length do not
+enter command arguments, shell history, frames, notices, transcripts, logs,
+errors, receipts, or documentation values. The owned plaintext record is
+protected by native owner-only filesystem controls; it is not an encrypted
+vault and does not protect against same-user processes, administrators or root,
+malware, backups, snapshots, memory inspection, or privileged offline access.
+On Windows those credential controls begin at the exact lock and `credentials`
+child. The native-resolved profile and shared `.agent` root are non-reparse
+lineage and may retain their operating-system owner and DACL without becoming
+credential authorities.
+
+An interactive Agent holds one immutable process-memory credential snapshot
+under a shared native admission lock for its full lifetime. `agent auth` holds
+the exclusive lock across recovery, input, mutation, publication, and cleanup.
+Unsafe metadata, links, ownership, permissions, schema, inventory, concurrency,
+or recovery state fails closed before secret payload bytes are read. The
+temporary `AGENT_OLLAMA_API_KEY` input is never persisted and never selects a
+provider or model. If both authorities are present, startup fails explicitly;
+there is no precedence or automatic import. Provider data-use, retention, billing,
 quota, and model availability terms can change and are not guarantees made by
 this project; review the current Ollama terms before sending sensitive content.
 The four subscription OAuth connections remain disabled.
@@ -235,8 +250,9 @@ therefore contains personal content and source or tool output already admitted
 to conversation. It excludes provider credentials, catalogs, provider/model
 selection, thinking settings, permission policy, drafts, streamed or speculative
 output, active turn state, temporary activity, notices, foreign error causes, and evaluation
-receipts. A resumed process starts with no provider, model, credential, or
-permission grant.
+receipts. A resumed process starts with no provider/model selection or
+permission grant; it independently admits a current credential snapshot through
+the same startup boundary as a new session.
 
 All platforms store current sessions under the exact `~/.agent/sessions`
 directory selected from the credential-free native account-home resolver, not
@@ -244,16 +260,10 @@ from inherited home text. Each canonical workspace has one hashed directory;
 its raw path is not stored in the journal. Directories request owner-only mode
 `0700` and files request `0600` where supported. This is local plain-text JSONL,
 not encryption or an operating-system vault. Other principals already
-authorized by the host, backups, or malware may still observe it. No
-`credentials` or `settings` sibling is created by the session feature.
-
-The accepted future credential transition is separately governed by decision
-0089. It remains absent until its later implementation activates the exact
-Ollama record, external command, concurrency, recovery, and removal contract.
-Activation will use owned native user-only filesystem controls, not an OS
-credential container or a claim of encryption; same-user processes, privileged
-principals, backups, snapshots, malware, memory inspection, and offline access
-remain outside that protection.
+authorized by the host, backups, or malware may still observe it. The session
+feature does not read or create a `credentials` or `settings` sibling. The
+separate decision-0089 credential boundary owns only the exact Ollama Cloud
+record and lock inventory under `~/.agent`.
 
 For existing installations, an ordinary interactive launch considers only the
 exact current workspace under the former `%LOCALAPPDATA%\agent\sessions`
@@ -335,8 +345,9 @@ a product diagnosis.
 ## Removal
 
 Closing the current process releases its in-memory conversation, display state,
-selection state, key reference, and session lock. The settled local journal
-remains until bounded retirement or explicit removal. To remove all session
+selection state, credential snapshot, credential admission lock, and session
+lock. The settled local journal and durable Ollama record remain until their
+separate bounded retirement or explicit removal. To remove all session
 content owned by Agent, first close every `agent` process and then delete the
 exact `~/.agent/sessions` directory. During the migration era, also delete the
 former `%LOCALAPPDATA%\agent\sessions` directory on Windows or
@@ -349,8 +360,15 @@ path; inspect the versioned session headers before selective deletion.
 
 Clipboard content accepted by the terminal
 is external host state and must be cleared through that terminal or operating
-system. The operator must also remove the environment variable from
-any still-running parent shell. Removing the workspace removes all owned source
-and generated artifacts but does not remove the external hashed session
-directory. Installed toolchain software remains outside the project. Future
-credential features must add exact deletion instructions here before they ship.
+system. To remove the Ollama Cloud credential, first close every `agent`
+process, unset `AGENT_OLLAMA_API_KEY` in every relevant parent environment, and
+run `agent auth` to select removal. After no process holds the credential lock,
+the operator may remove only an empty `~/.agent/credentials` directory and the
+exact `~/.agent/.ollama-cloud-credential.lock` file. Do not recursively remove
+the surrounding `.agent` root because it also owns sessions. Local deletion is
+not secure erasure and does not revoke the key at the provider; provider-side
+revocation remains an independent account action.
+
+Removing the workspace removes all owned source and generated artifacts but
+does not remove the external hashed session directory or credential record.
+Installed toolchain software remains outside the project.

@@ -19,8 +19,8 @@ independent clients. Decision 0072 admits exactly:
 | Field | Ollama Cloud |
 |---|---|
 | Authentication | Bearer API key supplied by the operator |
-| Credential input | `AGENT_OLLAMA_API_KEY` or the concealed TUI editor |
-| Persistence | Process memory only |
+| Credential input | Zero-echo `agent auth`, or temporary `AGENT_OLLAMA_API_KEY` when no record exists |
+| Persistence | Exact provider-specific owned plaintext record, with a process-memory startup snapshot |
 | Origin | `https://ollama.com` |
 | Chat path | `/api/chat` |
 | Authenticated catalog path | `/api/tags` |
@@ -31,7 +31,7 @@ independent clients. Decision 0072 admits exactly:
 
 The implementation is independent. It does not install or invoke Ollama, use an
 Ollama SDK or CLI, contact a local daemon, read Ollama configuration, discover
-origins, follow model aliases, or persist the key. The CLI owns the fixed HTTPS
+origins, follow model aliases, or read foreign credential stores. The CLI owns the fixed HTTPS
 boundary and bearer header. The provider workspace is Node-free and sees only
 bounded response bytes and metadata.
 
@@ -57,11 +57,13 @@ When present and non-null, `done_reason` is validated before any contribution:
 only `stop` on the same `done: true` record is admitted. Non-terminal finish
 metadata and truncation reasons fail closed for every catalog model.
 
-`/providers` enters or selects the process-local Ollama Cloud credential.
-`/models` performs one authenticated fixed-origin catalog request and exposes
-only the exact current model identifiers that pass the bounded decoder. Neither
-provider nor model has an automatic default. Environment input may preload the
-credential but never selects the provider or model.
+`agent auth` is the sole interactive credential lifecycle and runs outside the
+alternate-screen TUI. `/models` first stages one authenticated provider, then
+performs one authenticated fixed-origin catalog request and exposes only the
+exact current model identifiers that pass the bounded decoder. Accepting one
+model atomically selects both provider and model. Neither has an automatic
+default. Environment input may provide a temporary credential only when the
+durable record is absent and never selects the provider or model.
 
 A catalog row proves only that the exact identifier is currently advertised by
 the authenticated API. It does not prove account entitlement, available credit,
@@ -140,12 +142,12 @@ model, offline contract tests, revocation path, rollback, and removal procedure.
 
 ## Machine gate
 
-`tools/provider-policy.json` schema version 7 records the four blocked OAuth
+`tools/provider-policy.json` schema version 8 records the four blocked OAuth
 providers and the one exact enabled direct provider. It pins the fixed chat and
 authenticated catalog endpoints, bearer authentication, dynamic catalog
 authority, cloud cost class, native `application/json` streaming transport,
-line-delimited object contract, environment variable,
-memory-only persistence, and exact provider workspace. Canonical verification
+line-delimited object contract, environment variable, exact owned record,
+shared/exclusive admission, external auth command, and exact provider workspace. Canonical verification
 rejects unregistered provider workspaces, OAuth identifiers, subscription
 endpoints, ambient network capabilities, foreign credential stores, borrowed
 product identity, endpoint drift, model-authority drift, and credential-
@@ -153,7 +155,7 @@ persistence drift. Reviewed provider literals are admitted only in their exact
 source files.
 
 One concrete provider does not authorize a generic provider framework,
-arbitrary base URL, unregistered model selector, key store, local-server mode,
+arbitrary base URL, unregistered model selector, generic key store, local-server mode,
 or additional integration. Each new trust boundary requires its own decision,
 policy entry, adapter, tests, documentation, and independent removal path.
 
@@ -175,13 +177,14 @@ and credential constraints.
 `agent` never creates provider accounts, purchases plans, or asks for passwords,
 one-time codes, recovery codes, cookies, or payment details. The Ollama API key
 may never enter source, tests, logs, errors, documentation values, process
-arguments, or command history. It is read only from
-`AGENT_OLLAMA_API_KEY` or the zero-projection TUI credential editor, remains in
-one memory slot, and is released with the process. Decision 0088 admits no API
-key persistence in its historical boundary. Decision 0089 changes no current
-provider behavior: it accepts a future provider-specific external-authentication
-transition, while `/providers`, process-only Ollama credentials, and the absent
-`~/.agent/credentials` namespace remain authoritative until implementation.
+arguments, command history, terminal output, transcript, journal, receipt, or
+diagnostic. Zero-echo `agent auth` writes only the exact provider-specific record
+under `~/.agent/credentials`; startup holds a shared native admission and keeps
+one process-memory snapshot until provider cleanup. Auth mutation holds the
+exclusive admission and never waits, polls, steals, or retries. A durable record
+and `AGENT_OLLAMA_API_KEY` together fail as dual authority before payload read;
+neither source has precedence and neither is imported. Decision 0088 remains
+historical and decision 0089 owns the active external-authentication boundary.
 
 ## Primary references
 

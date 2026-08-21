@@ -44,8 +44,7 @@ import type {
   ProviderSelectionSnapshot,
 } from "./provider-session.js";
 import type { ModelMenuProjection } from "./models-view.js";
-import type { ProviderCredentialProjection } from "./provider-credential-view.js";
-import type { ProviderMenuProjection } from "./providers-view.js";
+import type { ModelProviderMenuProjection } from "./model-providers-view.js";
 import {
   SessionController,
   type CommandCompletionProjection,
@@ -104,13 +103,8 @@ export type ApplicationEffect =
   | Readonly<{ kind: "acknowledgeTurn"; turnId: number }>
   | Readonly<{ kind: "cancelTurn"; turnId: number }>
   | Readonly<{ kind: "commitTurn"; turnId: number }>
-  | Readonly<{
-      credential: string;
-      id: ProviderId;
-      kind: "configureProvider";
-    }>
   | Readonly<{ kind: "exit" }>
-  | Readonly<{ kind: "loadModels" }>
+  | Readonly<{ id: ProviderId; kind: "loadModels" }>
   | Readonly<{
       kind: "resolveToolPermission";
       turnId: number;
@@ -118,8 +112,11 @@ export type ApplicationEffect =
       allowed: boolean;
       operatorApproved: boolean;
     }>
-  | Readonly<{ kind: "selectProvider"; id: ProviderId }>
-  | Readonly<{ kind: "selectModel"; id: string }>
+  | Readonly<{
+      kind: "selectProviderModel";
+      modelId: string;
+      providerId: ProviderId;
+    }>
   | Readonly<{ kind: "selectTimelineNode"; nodeId: number }>
   | Readonly<{ effort: ThinkingEffort; kind: "startTurn"; text: string }>;
 
@@ -240,12 +237,12 @@ export class ApplicationController
   #permissionSelectionIndex = 0;
   #permissionsVisible = false;
   #activeProviderIndex: number | undefined;
-  #credentialProviderId: ProviderId | undefined;
+  #modelProviderId: ProviderId | undefined;
   #models: readonly ProviderModelSnapshot[] = Object.freeze([]);
   #modelSelectionIndex = 0;
   #modelsVisible = false;
   #providerSelectionIndex = 0;
-  #providersVisible = false;
+  #modelProvidersVisible = false;
   #timelineSelectionIndex = 0;
   #timelineVisible = false;
   #thinkingDisplay: ThinkingDisplay = "off";
@@ -285,7 +282,15 @@ export class ApplicationController
       (provider) => provider.selected,
     );
     this.#activeProviderIndex = selectedIndex < 0 ? undefined : selectedIndex;
-    this.#providerSelectionIndex = this.#activeProviderIndex ?? 0;
+    const authenticated = this.#providers.filter(
+      (provider) => provider.configured,
+    );
+    const activeAuthenticated = authenticated.findIndex(
+      (provider) => provider.selected,
+    );
+    this.#providerSelectionIndex = activeAuthenticated < 0
+      ? 0
+      : activeAuthenticated;
     this.#runtimeAvailable = runtimeAvailable;
     this.#workspace = workspace;
     this.#session = new SessionController();
@@ -334,9 +339,7 @@ export class ApplicationController
   }
 
   get draftLength(): number {
-    return this.#credentialProviderId === undefined
-      ? this.#session.draftLength
-      : 0;
+    return this.#session.draftLength;
   }
 
   get activities(): readonly ToolActivitySnapshot[] {
@@ -397,25 +400,14 @@ export class ApplicationController
   }
 
   project(columns: number): EditorProjection {
-    return this.#credentialProviderId === undefined
-      ? this.#session.projectEditor(columns)
-      : Object.freeze({ caretColumn: 0, text: "" });
+    return this.#session.projectEditor(columns);
   }
 
   projectArea(
     columns: number,
     maximumRows: number,
   ): EditorAreaProjection {
-    return this.#credentialProviderId === undefined
-      ? this.#session.projectEditorArea(columns, maximumRows)
-      : Object.freeze({
-          caretColumn: 0,
-          caretRow: 0,
-          rows: Object.freeze([""]),
-          selections: Object.freeze([
-            Object.freeze({ end: 0, start: 0 }),
-          ]),
-        });
+    return this.#session.projectEditorArea(columns, maximumRows);
   }
 
   projectCommandCompletion(): CommandCompletionProjection | undefined {
@@ -434,19 +426,22 @@ export class ApplicationController
     });
   }
 
-  projectProviderMenu(): ProviderMenuProjection | undefined {
-    if (!this.#providersVisible || this.#phase !== "idle") {
+  projectModelProviderMenu(): ModelProviderMenuProjection | undefined {
+    if (!this.#modelProvidersVisible || this.#phase !== "idle") {
       return undefined;
     }
+    const authenticated = this.#providers.filter(
+      (provider) => provider.configured,
+    );
     return Object.freeze({
       items: Object.freeze(
-        this.#providers.map((provider, index) =>
+        authenticated.map((provider) =>
           Object.freeze({
             configured: provider.configured,
             id: provider.id,
             presentation: provider.presentation,
             ready: provider.ready,
-            selected: index === this.#activeProviderIndex,
+            selected: provider.selected,
           }),
         ),
       ),
@@ -455,9 +450,9 @@ export class ApplicationController
   }
 
   projectModelMenu(): ModelMenuProjection | undefined {
-    const provider = this.#activeProviderIndex === undefined
-      ? undefined
-      : this.#providers.at(this.#activeProviderIndex);
+    const provider = this.#providers.find(
+      (entry) => entry.id === this.#modelProviderId,
+    );
     if (
       !this.#modelsVisible ||
       this.#phase !== "idle" ||
@@ -491,18 +486,6 @@ export class ApplicationController
           selectedIndex: this.#thinkingSelectionIndex,
         })
       : undefined;
-  }
-
-  projectProviderCredential(): ProviderCredentialProjection | undefined {
-    if (this.#credentialProviderId === undefined || this.#phase !== "idle") {
-      return undefined;
-    }
-    const provider = this.#providers.find(
-      (entry) => entry.id === this.#credentialProviderId,
-    );
-    return provider === undefined
-      ? undefined
-      : Object.freeze({ providerName: provider.presentation.displayName });
   }
 
   projectToolDecision(): ToolDecisionProjection | undefined {
@@ -636,11 +619,11 @@ export class ApplicationController
     this.#permissionSelectionIndex = 0;
     this.#permissions.reset();
     this.#permissionsVisible = false;
-    this.#credentialProviderId = undefined;
+    this.#modelProviderId = undefined;
     this.#models = Object.freeze([]);
     this.#modelSelectionIndex = 0;
     this.#modelsVisible = false;
-    this.#providersVisible = false;
+    this.#modelProvidersVisible = false;
     this.#timelineSelectionIndex = 0;
     this.#timelineVisible = false;
     this.#thinkingDisplay = "off";
@@ -705,7 +688,7 @@ export class ApplicationController
       }
       this.#permissionsVisible = true;
       this.#modelsVisible = false;
-      this.#providersVisible = false;
+      this.#modelProvidersVisible = false;
       this.#timelineVisible = false;
       this.#thinkingVisible = false;
       this.#setNotice([]);
@@ -718,31 +701,12 @@ export class ApplicationController
       this.#permissionsVisible = false;
       return update(true);
     }
-    if (action.kind === "openProviders") {
-      if (this.#providers.length === 0) {
-        this.#setNotice(["No providers are available."], "info");
-        return update(true);
-      }
-      if (this.#phase !== "idle") {
-        this.#setNotice([
-          "Provider selection is available only while idle.",
-        ]);
-        return update(true);
-      }
-      this.#providersVisible = true;
-      this.#providerSelectionIndex = this.#activeProviderIndex ?? 0;
-      this.#modelsVisible = false;
-      this.#permissionsVisible = false;
-      this.#timelineVisible = false;
-      this.#thinkingVisible = false;
-      this.#setNotice([]);
-      return update(true);
-    }
-    if (action.kind === "closeProviders") {
-      if (!this.#providersVisible) {
+    if (action.kind === "closeModelProviders") {
+      if (!this.#modelProvidersVisible) {
         return update(false);
       }
-      this.#providersVisible = false;
+      this.#modelProvidersVisible = false;
+      this.#modelProviderId = undefined;
       return update(true);
     }
     if (action.kind === "openModels") {
@@ -750,30 +714,35 @@ export class ApplicationController
         this.#setNotice(["Model selection is available only while idle."]);
         return update(true);
       }
-      const provider = this.#activeProviderIndex === undefined
-        ? undefined
-        : this.#providers.at(this.#activeProviderIndex);
-      if (provider === undefined || !provider.configured) {
+      const authenticated = this.#providers.filter(
+        (provider) => provider.configured,
+      );
+      if (authenticated.length === 0) {
         this.#setNotice([
-          "Configure and select a provider with /providers first.",
+          "No authenticated providers. Exit and run agent auth first.",
         ]);
         return update(true);
       }
       this.#permissionsVisible = false;
-      this.#providersVisible = false;
+      this.#modelProvidersVisible = true;
       this.#modelsVisible = false;
       this.#timelineVisible = false;
       this.#thinkingVisible = false;
       this.#models = Object.freeze([]);
+      this.#modelProviderId = undefined;
+      const active = authenticated.findIndex((provider) => provider.selected);
+      this.#providerSelectionIndex = active < 0 ? 0 : active;
       this.#modelSelectionIndex = 0;
       this.#setNotice([]);
-      return update(true, [Object.freeze({ kind: "loadModels" as const })]);
+      return update(true);
     }
     if (action.kind === "closeModels") {
       if (!this.#modelsVisible) {
         return update(false);
       }
       this.#modelsVisible = false;
+      this.#models = Object.freeze([]);
+      this.#modelProviderId = undefined;
       return update(true);
     }
     if (action.kind === "openTimeline") {
@@ -789,7 +758,7 @@ export class ApplicationController
       this.#timelineVisible = true;
       this.#modelsVisible = false;
       this.#permissionsVisible = false;
-      this.#providersVisible = false;
+      this.#modelProvidersVisible = false;
       this.#thinkingVisible = false;
       this.#setNotice([]);
       return update(true);
@@ -811,7 +780,7 @@ export class ApplicationController
         : this.#providers.at(this.#activeProviderIndex);
       if (provider === undefined || !provider.configured) {
         this.#setNotice([
-          "Configure and select a provider with /providers first.",
+          "Provider authentication is unavailable. Exit and run agent auth.",
         ]);
         return update(true);
       }
@@ -825,7 +794,7 @@ export class ApplicationController
       this.#thinkingVisible = true;
       this.#modelsVisible = false;
       this.#permissionsVisible = false;
-      this.#providersVisible = false;
+      this.#modelProvidersVisible = false;
       this.#timelineVisible = false;
       this.#setNotice([]);
       return update(true);
@@ -836,29 +805,6 @@ export class ApplicationController
       }
       this.#thinkingVisible = false;
       return update(true);
-    }
-    if (action.kind === "cancelProviderCredential") {
-      if (this.#credentialProviderId === undefined) {
-        return update(false);
-      }
-      this.#credentialProviderId = undefined;
-      this.#setNotice(["Provider configuration cancelled."], "info");
-      return update(true);
-    }
-    if (action.kind === "submitProviderCredential") {
-      const id = this.#credentialProviderId;
-      this.#credentialProviderId = undefined;
-      if (id === undefined) {
-        return update(false);
-      }
-      this.#setNotice([]);
-      return update(true, [
-        Object.freeze({
-          credential: action.credential,
-          id,
-          kind: "configureProvider" as const,
-        }),
-      ]);
     }
     if (action.kind === "moveContextSelection") {
       if (this.#phase === "awaitingPermission") {
@@ -874,11 +820,14 @@ export class ApplicationController
         this.#toolDecisionIndex = next;
         return update(true);
       }
-      if (this.#providersVisible) {
+      if (this.#modelProvidersVisible) {
+        const authenticated = this.#providers.filter(
+          (provider) => provider.configured,
+        );
         const next = action.direction === "previous"
           ? Math.max(0, this.#providerSelectionIndex - 1)
           : Math.min(
-              this.#providers.length - 1,
+              authenticated.length - 1,
               this.#providerSelectionIndex + 1,
             );
         if (next === this.#providerSelectionIndex) {
@@ -986,39 +935,37 @@ export class ApplicationController
       return update(true);
     }
     if (action.kind === "activateContextSelection") {
-      if (this.#providersVisible && this.#phase === "idle") {
-        const selected = this.#providers.at(this.#providerSelectionIndex);
-        this.#providersVisible = false;
+      if (this.#modelProvidersVisible && this.#phase === "idle") {
+        const authenticated = this.#providers.filter(
+          (provider) => provider.configured,
+        );
+        const selected = authenticated.at(this.#providerSelectionIndex);
+        this.#modelProvidersVisible = false;
         if (selected === undefined) {
           this.#setNotice(["Provider selection could not be updated."]);
           return update(true);
         }
-        if (!selected.configured) {
-          this.#credentialProviderId = selected.id;
-          this.#setNotice([]);
-          return update(true);
-        }
-        if (this.#providerSelectionIndex === this.#activeProviderIndex) {
-          return update(true);
-        }
+        this.#modelProviderId = selected.id;
         return update(true, [
           Object.freeze({
             id: selected.id,
-            kind: "selectProvider" as const,
+            kind: "loadModels" as const,
           }),
         ]);
       }
       if (this.#modelsVisible && this.#phase === "idle") {
         const selected = this.#models.at(this.#modelSelectionIndex);
+        const providerId = this.#modelProviderId;
         this.#modelsVisible = false;
-        if (selected === undefined) {
+        if (selected === undefined || providerId === undefined) {
           this.#setNotice(["Model selection could not be updated."]);
           return update(true);
         }
         return update(true, [
           Object.freeze({
-            id: selected.id,
-            kind: "selectModel" as const,
+            kind: "selectProviderModel" as const,
+            modelId: selected.id,
+            providerId,
           }),
         ]);
       }
@@ -1124,7 +1071,7 @@ export class ApplicationController
           : this.#providers.at(this.#activeProviderIndex);
         if (provider === undefined || !provider.configured) {
           this.#setNotice([
-            "Configure and select a provider with /providers first.",
+            "No provider and model are selected. Use /models first.",
           ]);
           return update(true);
         }
@@ -1199,9 +1146,9 @@ export class ApplicationController
       return err(new ApplicationError("invalidStartedTurn"));
     }
     this.#phase = "generating";
-    this.#credentialProviderId = undefined;
+    this.#modelProviderId = undefined;
     this.#modelsVisible = false;
-    this.#providersVisible = false;
+    this.#modelProvidersVisible = false;
     this.#timelineVisible = false;
     this.#thinkingVisible = false;
     this.#transcriptGeometry = undefined;
@@ -1265,56 +1212,17 @@ export class ApplicationController
     return ok(update(true));
   }
 
-  /** Confirms concealed provider configuration and selection for this process. */
-  providerConfigured(
-    providers: readonly ProviderSelectionSnapshot[],
-    id: ProviderId,
-  ): Result<ApplicationUpdate, ApplicationError> {
-    const accepted = this.#acceptProviders(providers, id);
-    if (!accepted.ok) {
-      return accepted;
-    }
-    const provider = this.#providers.at(this.#activeProviderIndex ?? -1);
-    if (provider === undefined || !provider.configured) {
-      return err(new ApplicationError("providerInvariant"));
-    }
-    this.#models = Object.freeze([]);
-    this.#modelsVisible = false;
-    this.#setNotice(
-      [provider.presentation.displayName + " configured for this process."],
-      "info",
-    );
-    return ok(update(true));
-  }
-
-  /** Confirms one CLI-owned provider selection after the router accepts it. */
-  providerSelected(
-    providers: readonly ProviderSelectionSnapshot[],
-    id: ProviderId,
-  ): Result<ApplicationUpdate, ApplicationError> {
-    const accepted = this.#acceptProviders(providers, id);
-    if (!accepted.ok) {
-      return accepted;
-    }
-    const provider = this.#providers.at(this.#activeProviderIndex ?? -1);
-    if (provider === undefined) {
-      return err(new ApplicationError("providerInvariant"));
-    }
-    this.#models = Object.freeze([]);
-    this.#modelsVisible = false;
-    this.#setNotice(
-      [provider.presentation.displayName + " selected for this process."],
-      "info",
-    );
-    return ok(update(true));
-  }
-
-  /** Opens one bounded compatible model list returned by the active provider. */
+  /** Opens one bounded compatible model list for the staged provider. */
   modelsLoaded(
+    providerId: ProviderId,
     models: readonly ProviderModelSnapshot[],
   ): Result<ApplicationUpdate, ApplicationError> {
     if (
       this.#phase !== "idle" ||
+      providerId !== this.#modelProviderId ||
+      !this.#providers.some(
+        (provider) => provider.id === providerId && provider.configured,
+      ) ||
       !Array.isArray(models) ||
       models.length < 1 ||
       models.length > 256
@@ -1347,18 +1255,23 @@ export class ApplicationController
   }
 
   /** Confirms one model selection and refreshes provider readiness. */
-  modelSelected(
+  providerModelSelected(
     providers: readonly ProviderSelectionSnapshot[],
-    id: string,
+    providerId: ProviderId,
+    modelId: string,
   ): Result<ApplicationUpdate, ApplicationError> {
     if (
-      !isProviderModelId(id) ||
-      !this.#models.some((model) => model.id === id)
+      providerId !== this.#modelProviderId ||
+      !isProviderModelId(modelId) ||
+      !this.#models.some((model) => model.id === modelId)
     ) {
       return err(new ApplicationError("providerInvariant"));
     }
     const active = providers.find((provider) => provider.selected);
-    if (active === undefined || active.presentation.model !== id) {
+    if (
+      active === undefined || active.id !== providerId ||
+      active.presentation.model !== modelId
+    ) {
       return err(new ApplicationError("providerInvariant"));
     }
     const accepted = this.#acceptProviders(providers, active.id);
@@ -1367,26 +1280,28 @@ export class ApplicationController
     }
     this.#models = Object.freeze(
       this.#models.map((model) =>
-        Object.freeze({ ...model, selected: model.id === id }),
+        Object.freeze({ ...model, selected: model.id === modelId }),
       ),
     );
     this.#modelsVisible = false;
     this.#thinkingSelectionIndex = 0;
     this.#thinkingVisible = false;
-    this.#setNotice([id + " selected for this process."], "info");
+    this.#setNotice(
+      [active.presentation.displayName + " · " + modelId + " selected for this process."],
+      "info",
+    );
     return ok(update(true));
   }
 
   /** Reports a content-free provider or catalog failure without leaving the TUI. */
-  providerOperationFailed(operation: "catalog" | "configuration" | "model"): ApplicationUpdate {
-    this.#credentialProviderId = undefined;
+  providerOperationFailed(operation: "catalog" | "model"): ApplicationUpdate {
+    this.#modelProviderId = undefined;
+    this.#modelProvidersVisible = false;
     this.#modelsVisible = false;
     this.#models = Object.freeze([]);
     const line = operation === "catalog"
       ? "Models could not be loaded."
-      : operation === "configuration"
-        ? "The provider key was rejected by local validation."
-        : "The model could not be selected.";
+      : "The provider and model could not be selected.";
     this.#setNotice([line]);
     return update(true);
   }
@@ -1499,7 +1414,7 @@ export class ApplicationController
         });
         this.#permissionsVisible = false;
         this.#modelsVisible = false;
-        this.#providersVisible = false;
+        this.#modelProvidersVisible = false;
         this.#timelineVisible = false;
         this.#thinkingVisible = false;
         this.#toolDecisionIndex = 0;
@@ -1804,14 +1719,11 @@ export class ApplicationController
     if (this.#phase === "awaitingPermission") {
       return "toolDecision";
     }
-    if (this.#credentialProviderId !== undefined) {
-      return "providerCredential";
-    }
     if (this.#modelsVisible) {
       return "models";
     }
-    if (this.#providersVisible) {
-      return "providers";
+    if (this.#modelProvidersVisible) {
+      return "modelProviders";
     }
     if (this.#timelineVisible) {
       return "timeline";
@@ -1842,8 +1754,7 @@ export class ApplicationController
     this.#providers = copied;
     this.#activeProviderIndex = index;
     this.#providerSelectionIndex = index;
-    this.#providersVisible = false;
-    this.#credentialProviderId = undefined;
+    this.#modelProvidersVisible = false;
     return ok(undefined);
   }
 

@@ -28,10 +28,9 @@ export type SessionAction =
   | Readonly<{ kind: "activateContextSelection" }>
   | Readonly<{ kind: "closePermissions" }>
   | Readonly<{ kind: "closeModels" }>
-  | Readonly<{ kind: "closeProviders" }>
+  | Readonly<{ kind: "closeModelProviders" }>
   | Readonly<{ kind: "closeTimeline" }>
   | Readonly<{ kind: "closeThinking" }>
-  | Readonly<{ kind: "cancelProviderCredential" }>
   | Readonly<{ kind: "exit" }>
   | Readonly<{ kind: "interactionBreak" }>
   | Readonly<{ kind: "interrupt" }>
@@ -58,7 +57,6 @@ export type SessionAction =
     }>
   | Readonly<{ kind: "openPermissions" }>
   | Readonly<{ kind: "openModels" }>
-  | Readonly<{ kind: "openProviders" }>
   | Readonly<{ kind: "openTimeline" }>
   | Readonly<{ kind: "openThinking" }>
   | Readonly<{
@@ -66,8 +64,7 @@ export type SessionAction =
       kind: "pointer";
       timeMilliseconds: number;
     }>
-  | Readonly<{ kind: "submit"; text: string }>
-  | Readonly<{ credential: string; kind: "submitProviderCredential" }>;
+  | Readonly<{ kind: "submit"; text: string }>;
 
 export type SessionUpdate = Readonly<{
   actions: readonly SessionAction[];
@@ -82,18 +79,17 @@ export type SessionReductionPort = Readonly<{
 
 export type SessionInputContext =
   | "composer"
+  | "modelProviders"
   | "models"
   | "permissions"
-  | "providerCredential"
-  | "providers"
   | "timeline"
   | "thinking"
   | "toolDecision";
 
 type ContextualSelectorContext =
   | "models"
+  | "modelProviders"
   | "permissions"
-  | "providers"
   | "thinking"
   | "timeline";
 
@@ -102,8 +98,8 @@ function contextualSelector(
 ): context is ContextualSelectorContext {
   return (
     context === "models" ||
+    context === "modelProviders" ||
     context === "permissions" ||
-    context === "providers" ||
     context === "thinking" ||
     context === "timeline"
   );
@@ -115,8 +111,8 @@ function closeContextualSelector(
   if (context === "permissions") {
     return Object.freeze({ kind: "closePermissions" as const });
   }
-  if (context === "providers") {
-    return Object.freeze({ kind: "closeProviders" as const });
+  if (context === "modelProviders") {
+    return Object.freeze({ kind: "closeModelProviders" as const });
   }
   if (context === "models") {
     return Object.freeze({ kind: "closeModels" as const });
@@ -158,8 +154,6 @@ function dispatchSubmission(
     );
   } else if (command.kind === "permissions") {
     emit(Object.freeze({ kind: "openPermissions" as const }));
-  } else if (command.kind === "providers") {
-    emit(Object.freeze({ kind: "openProviders" as const }));
   } else if (command.kind === "models") {
     emit(Object.freeze({ kind: "openModels" as const }));
   } else if (command.kind === "thinking") {
@@ -416,37 +410,6 @@ export class SessionController {
         ) {
           continue;
         }
-      }
-      if (context === "providerCredential") {
-        if (event.kind === "interrupt") {
-          if (this.#editor.clear()) {
-            markEditorRedrawn();
-          }
-          emit(Object.freeze({ kind: "cancelProviderCredential" as const }));
-          continue;
-        }
-        const credentialOutcome = this.#editor.apply(event);
-        if (credentialOutcome.kind === "changed") {
-          markEditorRedrawn();
-        } else if (credentialOutcome.kind === "submitted") {
-          markEditorRedrawn();
-          emit(
-            Object.freeze({
-              credential: credentialOutcome.text,
-              kind: "submitProviderCredential" as const,
-            }),
-          );
-        } else if (credentialOutcome.kind === "eof") {
-          emit(Object.freeze({ kind: "exit" as const }));
-          stopChunk = true;
-        } else if (credentialOutcome.kind === "limit") {
-          markEditorRedrawn();
-          emit(notice("Credential limit reached; additional text was ignored."));
-        } else if (credentialOutcome.kind === "unsupported") {
-          markEditorRedrawn();
-          emit(notice("Unsupported key sequence was ignored."));
-        }
-        continue;
       }
       if (
         event.kind === "up" ||
