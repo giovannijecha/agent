@@ -13,7 +13,7 @@ const EXPECTED_PROVIDERS = [
     id: "chatgpt",
     displayName: "ChatGPT Plus/Pro",
     eligibility: "blocked",
-    blocker: "auth-implementation-required",
+    blocker: "transport-implementation-required",
     request: {
       state: "submitted",
       kind: "public-client-authorization-inquiry",
@@ -117,7 +117,8 @@ const EXPECTED_SUBSCRIPTION_CONTRACTS = [
     decision: "0090",
     identityDecision: "0092",
     credentialDecision: "0093",
-    state: "credential-compatible-inactive",
+    authDecision: "0094",
+    state: "auth-compatible-inactive",
     flow: "openai-device-code-plus-oauth-pkce",
     issuer: "https://auth.openai.com",
     deviceCodeEndpoint:
@@ -152,6 +153,34 @@ const EXPECTED_SUBSCRIPTION_CONTRACTS = [
     ],
     credentialEnvironment: null,
     credentialAdmission: "exclusive-session-and-mutation",
+    credentialCommand: "agent auth",
+    authCapability: "device-login-relogin-local-remove",
+    providerRuntime: "inactive",
+    refreshRuntime: "inactive",
+    revocationRuntime: "inactive",
+    deviceResponseFields: ["device_auth_id", "user_code", "interval"],
+    deviceIntervalEncoding: "canonical-decimal-string",
+    deviceIntervalSeconds: { minimum: 1, maximum: 30 },
+    pollRequestFields: ["device_auth_id", "user_code"],
+    pollResponseFields: [
+      "authorization_code",
+      "code_challenge",
+      "code_verifier",
+    ],
+    tokenRequestFields: [
+      "grant_type",
+      "code",
+      "redirect_uri",
+      "client_id",
+      "code_verifier",
+    ],
+    tokenResponseFields: ["id_token", "access_token", "refresh_token"],
+    accountClaimNamespace: "https://api.openai.com/auth",
+    accountClaim: "chatgpt_account_id",
+    expirationClaim: "exp",
+    authenticationDeadlineMilliseconds: 900000,
+    firstPoll: "immediate",
+    credentialRemoval: "local-only-no-provider-revocation",
     credentialProtocol: {
       requestKinds: [7, 8, 9, 10, 11, 12],
       responseKind: 13,
@@ -236,6 +265,7 @@ const EXPECTED_WORKSPACES = [
 ];
 
 const APPROVED_SOURCE_LITERALS = Object.freeze({
+  "packages/agent-cli/src/auth-command.ts": ["OpenAI", "openAI", "openai"],
   "packages/agent-cli/native/credential-broker/credential-store.c": [
     "OPENAI",
     "openai",
@@ -252,6 +282,20 @@ const APPROVED_SOURCE_LITERALS = Object.freeze({
     "refreshToken",
   ],
   "packages/agent-cli/src/credential-broker.ts": ["OpenAI", "openAI"],
+  "packages/agent-cli/src/main.ts": ["OpenAI"],
+  "packages/agent-cli/src/node-openai-device-auth.ts": [
+    "OPENAI",
+    "OpenAI",
+    "openAI",
+    "openai",
+    "oauth",
+    "CLIENT_ID",
+    "client_id",
+    "accessToken",
+    "access_token",
+    "refreshToken",
+    "refresh_token",
+  ],
   "packages/agent-cli/test/credential-broker-protocol.test.ts": [
     "OpenAI",
     "openAI",
@@ -263,6 +307,23 @@ const APPROVED_SOURCE_LITERALS = Object.freeze({
     "openAI",
     "accessToken",
     "refreshToken",
+  ],
+  "packages/agent-cli/test/auth-command.test.ts": [
+    "OpenAI",
+    "openAI",
+    "openai",
+    "accessToken",
+    "refreshToken",
+  ],
+  "packages/agent-cli/test/node-openai-device-auth.test.ts": [
+    "OPENAI",
+    "OpenAI",
+    "openai",
+    "oauth",
+    "PKCE",
+    "client_id",
+    "access_token",
+    "refresh_token",
   ],
   "packages/agent-cli/src/node-ollama-cloud-transport.ts": ["Bearer "],
   "packages/agent-cli/test/node-ollama-cloud-transport.test.ts": ["Bearer "],
@@ -276,15 +337,16 @@ const EXPECTED_SENSITIVE_STATE_OCCURRENCES = Object.freeze({
   "packages/agent-cli/native/credential-broker/main.c": "AGENT_CREDENTIAL_ABSENT=1;AGENT_CREDENTIAL_HEADER_BYTES=3;AGENT_CREDENTIAL_KEY_MAX_BYTES=1;AGENT_CREDENTIAL_OPEN_MUTATION=3;AGENT_CREDENTIAL_OPENAI_CANCEL=1;AGENT_CREDENTIAL_OPENAI_OPEN_MUTATION=2;AGENT_CREDENTIAL_OPENAI_PAYLOAD_MAX_BYTES=2;AGENT_CREDENTIAL_OPENAI_REGISTER=1;AGENT_CREDENTIAL_OPENAI_REPLACE=1;AGENT_CREDENTIAL_OPENAI_SNAPSHOT=3;AGENT_CREDENTIAL_OPENAI_VALUE=2;AGENT_CREDENTIAL_PRESENT=1;AGENT_CREDENTIAL_REGISTER=2;AGENT_CREDENTIAL_REPLACE=1;agent_credential_request=5;agent_credential_request_kind=2;agent_credential_response_kind=2;agent_credential_session=1;AGENT_CREDENTIAL_SNAPSHOT=4;agent_credential_store_close=5;AGENT_CREDENTIAL_STORE_FAILURE=1;agent_credential_store_mutate=1;agent_credential_store_open=1;AGENT_CREDENTIAL_VALUE=3;credential=1",
   "packages/agent-cli/native/process-broker/backend-linux.c": "agent_linux_token_present=2;token=3;token_length=3",
   "packages/agent-cli/src/application.ts": "activeAuthenticated=3;auth=2;authenticated=12;authentication=6;createNoticeToken=2;noticeToken=6;NoticeToken=4;token=2",
-  "packages/agent-cli/src/auth-command.ts": "auth=1;AuthCommandError=5;AuthCommandResult=2;AuthCredentialOpener=2;authentication=3;Authentication=1;credential=4;CredentialBoundaryError=3;OllamaCredentialMutationAction=2;OllamaCredentialMutationPort=2;openOllamaCredentialMutation=2;readAuthChoice=2;readConcealedCredential=2;runAuthCommand=1",
-  "packages/agent-cli/src/auth-terminal.ts": "AuthTerminalError=5;AuthTerminalInput=5;readAuthChoice=1;readConcealedCredential=1",
+  "packages/agent-cli/src/auth-command.ts": "auth=2;AuthCancellationMonitor=2;AuthCancellationStarter=2;AuthCommandDependencies=4;AuthCommandError=10;AuthCommandResult=6;AuthCredentialOpener=3;authenticate=2;authenticated=7;authentication=6;Authentication=1;AuthMutationCancellationPort=2;authorization=1;AuthTerminalError=2;credential=8;CredentialBoundaryError=5;NodeOpenAIDeviceAuth=2;OllamaCredentialMutationAction=2;OllamaCredentialMutationPort=2;OpenAIAuthCredentialOpener=2;OpenAICredentialMutationPort=3;openAIDeviceAuth=3;OpenAIDeviceAuthErrorKind=2;OpenAIDeviceAuthPort=3;openOllamaCredentialMutation=2;openOpenAICredentialMutation=2;readAuthChoice=4;readConcealedCredential=2;runAuthCommand=1;runOllamaAuthentication=2;runOpenAIAuthentication=2;startAuthCancellationMonitor=2",
+  "packages/agent-cli/src/auth-terminal.ts": "AuthCancellationMonitor=2;AuthCancellationPort=3;AuthTerminalError=8;AuthTerminalInput=5;readAuthChoice=1;readConcealedCredential=1;startAuthCancellationMonitor=1",
   "packages/agent-cli/src/credential-broker-protocol.ts": "accessToken=6;credential=24;CREDENTIAL_BROKER_LIMITS=14;CredentialBrokerProtocolError=5;CredentialBrokerRequest=3;CredentialBrokerResponse=2;decodeCredentialBrokerResponse=1;decodeOpenAICredential=2;encodeCredentialBrokerRequest=1;encodeOpenAICredential=2;invalidCredential=2;openAICredential=4;OpenAICredential=5;openAITokenBytes=5;refreshToken=6",
   "packages/agent-cli/src/credential-broker.ts": "credential=11;CREDENTIAL_BROKER_DEADLINES=3;CREDENTIAL_BROKER_LIMITS=3;CredentialBoundaryError=27;CredentialBrokerBoundary=9;CredentialBrokerConnection=11;CredentialBrokerRequest=3;CredentialBrokerResponse=5;decodeCredentialBrokerResponse=2;encodeCredentialBrokerRequest=2;invalidCredential=5;OllamaCredentialAdmission=3;OllamaCredentialMutation=2;OllamaCredentialMutationAction=3;OllamaCredentialMutationPort=2;OllamaCredentialMutationResult=5;OllamaCredentialMutationState=5;OllamaCredentialSnapshot=2;openAICredential=2;OpenAICredential=3;OpenAICredentialAdmission=3;OpenAICredentialMutation=2;OpenAICredentialMutationAction=3;OpenAICredentialMutationPort=2;OpenAICredentialMutationResult=5;OpenAICredentialMutationState=5;OpenAICredentialSnapshot=2;openOllamaCredentialMutation=1;openOllamaCredentialSnapshot=1;openOpenAICredentialMutation=1;openOpenAICredentialSnapshot=1",
   "packages/agent-cli/src/launch-command.ts": "auth=4",
-  "packages/agent-cli/src/main.ts": "auth=9;AuthCommandError=2;authDiagnostic=2;authenticated=4;authentication=4;closeCredentialAdmission=3;credential=10;credentialClosed=2;credentialSnapshot=6;invalidCredential=1;OllamaCredentialAdmission=2;openOllamaCredentialSnapshot=2;runAuthCommand=2",
+  "packages/agent-cli/src/main.ts": "auth=9;AuthCommandError=2;authDiagnostic=2;authenticated=4;authentication=11;closeCredentialAdmission=3;credential=9;credentialClosed=2;credentials=1;credentialSnapshot=6;invalidCredential=1;OllamaCredentialAdmission=2;openOllamaCredentialSnapshot=2;runAuthCommand=2",
   "packages/agent-cli/src/model-providers-view.ts": "authenticated=2",
   "packages/agent-cli/src/node-ollama-cloud-transport.ts": "authorization=1;credential=10;isValidOllamaCloudCredential=2",
   "packages/agent-cli/src/node-ollama-model-catalog.ts": "authenticated=1;authorization=1;credential=5;isValidOllamaCloudCredential=2",
+  "packages/agent-cli/src/node-openai-device-auth.ts": "access_token=1;accessToken=4;auth=5;authenticate=4;authentication=1;authorization_code=4;authorizationCode=3;authorizationCodeBytes=2;AuthorizationGrant=4;credential=5;decodeAuthorizationGrant=2;decodeCredential=2;device_auth_id=4;deviceauth=3;id_token=1;idToken=3;NodeOpenAIDeviceAuth=1;oauth=1;OPENAI_AUTH_ORIGIN=1;OPENAI_DEVICE_AUTH_LIMITS=14;OPENAI_TOKEN_PATH=2;OpenAIAuthSession=2;OpenAICredential=6;OpenAIDeviceAuthCancellation=5;OpenAIDeviceAuthError=17;OpenAIDeviceAuthErrorKind=10;OpenAIDeviceAuthPort=2;refresh_token=1;refreshToken=3;token=7;tokenBody=2;tokenBodyBytes=2;tokenBytes=4",
   "packages/agent-cli/src/notice-scheduler.ts": "NoticeToken=6;token=19",
   "packages/agent-cli/src/notice.ts": "createNoticeToken=1;noticeToken=2;NoticeToken=2",
   "packages/agent-cli/src/provider-configuration.ts": "credential=2;invalidCredential=2;isValidOllamaCloudCredential=2;isValidProviderCredential=2",
@@ -298,8 +360,8 @@ const EXPECTED_SENSITIVE_STATE_OCCURRENCES = Object.freeze({
   "packages/agent-cli/src/workspace-namespace-preview.ts": "authorized=1",
   "packages/agent-cli/src/workspace-read-policy.ts": "credentials=1",
   "packages/agent-cli/test/application.test.ts": "auth=4;authenticated=12;authentication=5;authorizing=1;credential=3;noticeToken=8",
-  "packages/agent-cli/test/auth-command.test.ts": "auth=2;AuthCredentialOpener=2;credential=3;OllamaCredentialMutationAction=3;OllamaCredentialMutationPort=2;OllamaCredentialMutationResult=2;runAuthCommand=5",
-  "packages/agent-cli/test/auth-terminal.test.ts": "auth=2;readAuthChoice=2;readConcealedCredential=3",
+  "packages/agent-cli/test/auth-command.test.ts": "accessToken=1;auth=6;AuthCancellationMonitor=2;AuthCancellationPort=2;AuthCommandDependencies=2;AuthCredentialOpener=2;authenticate=2;credential=4;FakeDeviceAuth=4;OllamaCredentialMutationAction=3;OllamaCredentialMutationPort=2;OllamaCredentialMutationResult=2;OpenAICredential=2;OpenAICredentialMutationAction=3;OpenAICredentialMutationPort=2;OpenAICredentialMutationResult=2;openAIDeviceAuth=1;OpenAIDeviceAuthCancellation=2;OpenAIDeviceAuthPort=3;refreshToken=1;runAuthCommand=9;SYNTHETIC_OPENAI_CREDENTIAL=3",
+  "packages/agent-cli/test/auth-terminal.test.ts": "auth=2;readAuthChoice=2;readConcealedCredential=3;startAuthCancellationMonitor=5",
   "packages/agent-cli/test/builtin-tools.test.ts": "authorized=1;credential=2;secret=16;token=3",
   "packages/agent-cli/test/chat-view.test.ts": "auth=2;authenticated=1;authentication=2;authorized=1;credential=2;unauthenticated=1",
   "packages/agent-cli/test/credential-broker-protocol.test.ts": "accessToken=8;credential=23;CREDENTIAL_BROKER_LIMITS=6;decodeCredentialBrokerResponse=6;encodeCredentialBrokerRequest=12;invalidCredential=1;openAICredential=3;openAITokenBytes=2;refreshToken=8",
@@ -308,6 +370,7 @@ const EXPECTED_SENSITIVE_STATE_OCCURRENCES = Object.freeze({
   "packages/agent-cli/test/launch-command.test.ts": "auth=4;secret=1",
   "packages/agent-cli/test/node-ollama-cloud-transport.test.ts": "authorization=1;credentials=1",
   "packages/agent-cli/test/node-ollama-model-catalog.test.ts": "authenticated=1;authorization=1;credentials=1",
+  "packages/agent-cli/test/node-openai-device-auth.test.ts": "access_token=3;auth=7;authenticate=11;authorization=3;authorization_code=2;device_auth_id=4;Fauth=1;Fdeviceauth=1;id_token=3;NodeOpenAIDeviceAuth=12;OPENAI_DEVICE_AUTH_LIMITS=4;OPENAI_TOKEN_PATH=2;OpenAIDeviceAuthCancellation=2;refresh_token=3;token=2",
   "packages/agent-cli/test/notice-scheduler.test.ts": "createNoticeToken=6;token=10",
   "packages/agent-cli/test/provider-configuration.test.ts": "credential=3;credentials=1;invalidCredential=1;isValidOllamaCloudCredential=2",
   "packages/agent-cli/test/provider-failure-classification.test.ts": "PRIVATE_SECRET=1",
@@ -422,14 +485,23 @@ const APPROVED_CLI_NODE_EFFECT_AUTHORITIES = Object.freeze({
     ]),
     module: "node:https",
   }),
+  "packages/agent-cli/src/node-openai-device-auth.ts": Object.freeze({
+    imports: Object.freeze([
+      "request as nodeHttpsRequest",
+      "type ClientRequest",
+      "type IncomingMessage",
+      "type RequestOptions",
+    ]),
+    module: "node:https",
+  }),
 });
 
 const APPROVED_CLI_PRODUCT_TREE = Object.freeze({
-  pathCount: 75,
+  pathCount: 76,
   pathsSha256:
-    "5683644d8d122fb98c5438524167644c035f9b9e37a3d16762ffb706cd19fe13",
+    "69ad22eed03887d5ff4215b1050ebb75a48528f9881142364f5361ac91fd8f4f",
   sourceSha256:
-    "3276b1cb46a76abf72eed34d4c6e2f472bb40725f9815b46bc90043482ad93b2",
+    "470f710a1d5b64da535683e1d0f7df297910fbd687aa4c6caf7d06766283ebcc",
 });
 
 const APPROVED_CLI_NATIVE_PLATFORM_TREE = Object.freeze({
@@ -762,7 +834,7 @@ function validateRegistry(policy) {
     ],
     "provider policy",
   );
-  if (policy.schemaVersion !== 11) {
+  if (policy.schemaVersion !== 12) {
     fail("unsupported provider policy schema");
   }
   assertExactKeys(
@@ -884,6 +956,7 @@ function validateRegistry(policy) {
         "decision",
         "identityDecision",
         "credentialDecision",
+        "authDecision",
         "state",
         "flow",
         "issuer",
@@ -914,6 +987,24 @@ function validateRegistry(policy) {
         "credentialRecoveryRecords",
         "credentialEnvironment",
         "credentialAdmission",
+        "credentialCommand",
+        "authCapability",
+        "providerRuntime",
+        "refreshRuntime",
+        "revocationRuntime",
+        "deviceResponseFields",
+        "deviceIntervalEncoding",
+        "deviceIntervalSeconds",
+        "pollRequestFields",
+        "pollResponseFields",
+        "tokenRequestFields",
+        "tokenResponseFields",
+        "accountClaimNamespace",
+        "accountClaim",
+        "expirationClaim",
+        "authenticationDeadlineMilliseconds",
+        "firstPoll",
+        "credentialRemoval",
         "credentialProtocol",
         "modelAuthority",
         "transport",
@@ -932,7 +1023,7 @@ function validateRegistry(policy) {
     const provider = policy.providers.find((candidate) => candidate.id === contract.id);
     if (
       provider?.eligibility !== "blocked" ||
-      provider.blocker !== "auth-implementation-required"
+      provider.blocker !== "transport-implementation-required"
     ) {
       fail("subscription contract must retain its inactive implementation gate");
     }

@@ -99,7 +99,7 @@ test("accepts the canonical compatibility, blocked, and direct provider registry
   assert.deepEqual(
     currentPolicy.providers.map((provider) => provider.blocker),
     [
-      "auth-implementation-required",
+      "transport-implementation-required",
       "independent-client-authorization-required",
       "compatibility-contract-required",
       "compatibility-contract-required",
@@ -107,14 +107,15 @@ test("accepts the canonical compatibility, blocked, and direct provider registry
   );
 });
 
-test("binds the OpenAI identity and credential record without activating runtime", () => {
+test("binds OpenAI device authentication without activating provider runtime", () => {
   assert.deepEqual(currentPolicy.subscriptionContracts, [
     {
       id: "chatgpt",
       decision: "0090",
       identityDecision: "0092",
       credentialDecision: "0093",
-      state: "credential-compatible-inactive",
+      authDecision: "0094",
+      state: "auth-compatible-inactive",
       flow: "openai-device-code-plus-oauth-pkce",
       issuer: "https://auth.openai.com",
       deviceCodeEndpoint:
@@ -149,6 +150,34 @@ test("binds the OpenAI identity and credential record without activating runtime
       ],
       credentialEnvironment: null,
       credentialAdmission: "exclusive-session-and-mutation",
+      credentialCommand: "agent auth",
+      authCapability: "device-login-relogin-local-remove",
+      providerRuntime: "inactive",
+      refreshRuntime: "inactive",
+      revocationRuntime: "inactive",
+      deviceResponseFields: ["device_auth_id", "user_code", "interval"],
+      deviceIntervalEncoding: "canonical-decimal-string",
+      deviceIntervalSeconds: { minimum: 1, maximum: 30 },
+      pollRequestFields: ["device_auth_id", "user_code"],
+      pollResponseFields: [
+        "authorization_code",
+        "code_challenge",
+        "code_verifier",
+      ],
+      tokenRequestFields: [
+        "grant_type",
+        "code",
+        "redirect_uri",
+        "client_id",
+        "code_verifier",
+      ],
+      tokenResponseFields: ["id_token", "access_token", "refresh_token"],
+      accountClaimNamespace: "https://api.openai.com/auth",
+      accountClaim: "chatgpt_account_id",
+      expirationClaim: "exp",
+      authenticationDeadlineMilliseconds: 900000,
+      firstPoll: "immediate",
+      credentialRemoval: "local-only-no-provider-revocation",
       credentialProtocol: {
         requestKinds: [7, 8, 9, 10, 11, 12],
         responseKind: 13,
@@ -626,7 +655,7 @@ test("pins the exact CLI product tree", () => {
   const sources = currentProductSources.filter((source) =>
     /^packages\/agent-cli\/src\/(?:[^/]+\/)*[^/]+\.ts$/u.test(source.path)
   );
-  assert.equal(sources.length, 75);
+  assert.equal(sources.length, 76);
   const unprivilegedSource = sources.find(
     (source) => source.path === "packages/agent-cli/src/models-view.ts",
   );
@@ -874,6 +903,7 @@ test("registers every direct CLI Node effect authority", () => {
     "packages/agent-cli/src/credential-broker.ts",
     "packages/agent-cli/src/node-ollama-cloud-transport.ts",
     "packages/agent-cli/src/node-ollama-model-catalog.ts",
+    "packages/agent-cli/src/node-openai-device-auth.ts",
     "packages/agent-cli/src/node-process-runner.ts",
     "packages/agent-cli/src/platform-clipboard.ts",
     "packages/agent-cli/src/platform-workspace-mutation.ts",
@@ -1057,8 +1087,10 @@ test("accepts only the exact current CLI boundary authorities", () => {
 
 test("allows only the reviewed direct-provider literals in their exact files", () => {
   const admitted = [
+    "packages/agent-cli/src/auth-command.ts",
     "packages/agent-cli/src/node-ollama-cloud-transport.ts",
     "packages/agent-cli/src/node-ollama-model-catalog.ts",
+    "packages/agent-cli/src/node-openai-device-auth.ts",
   ].map((path) => ({
     path,
     text: readFileSync(new URL("../../" + path, import.meta.url), "utf8"),

@@ -6,13 +6,15 @@ actions.
 
 ## Connect a provider
 
-Exit the TUI and run exact `agent auth`. It requires TTY input and output and
-accepts no provider, key, option, or other operand. Choose register when the
-record is absent, replace or remove when it is present, or cancel. Register and
-replace use a zero-echo input owner: the key, mask, length, and caret never
-appear in terminal output, shell history, transcript, journal, log, receipt, or
-diagnostic. Registration is local storage admission and makes no network
-request or provider-validity claim.
+Exit the TUI and run exact `agent auth`. It requires TTY input and output,
+accepts no provider, key, option, or other operand, and first asks you to choose
+Ollama Cloud, OpenAI, or cancel.
+
+For Ollama Cloud, choose register when the record is absent, replace or remove
+when it is present, or cancel. Register and replace use a zero-echo input owner:
+the key, mask, length, and caret never appear in terminal output, shell history,
+transcript, journal, log, receipt, or diagnostic. Ollama registration is local
+storage admission and makes no network request or provider-validity claim.
 
 The provider-specific plaintext record is
 `~/.agent/credentials/ollama-cloud.api-key`. `AGENT_OLLAMA_API_KEY` remains a
@@ -21,6 +23,25 @@ imported. If both exist, startup and `agent auth` fail as dual authority before
 reading the durable payload. If only the environment source exists, unset it
 before using `agent auth`. Neither credential source selects a provider or
 model.
+
+For OpenAI, choose sign in when the record is absent, sign in again or remove
+locally when it is present, or cancel. Before sign-in, Agent states that this is
+an independently implemented compatibility flow and not an OpenAI endorsement.
+It does not ask for a password, cookie, recovery code, payment detail, API key,
+or token, and it does not open a browser. Agent displays only
+`https://auth.openai.com/codex/device` and the provider-issued one-time code.
+Open that exact address yourself, enter the code only there, and complete the
+provider-hosted ceremony. Ctrl+C, Escape, Ctrl+D, terminal end, or input failure
+cancels without publishing a credential; other keys are ignored and never
+echoed.
+
+OpenAI sign-in stores only its validated access token, refresh token, account
+identifier, and expiration in `~/.agent/credentials/openai.oauth`. It does not
+store the ID token, device identity, displayed code, authorization code, PKCE
+material, response body, or browser state. OpenAI authentication is currently
+`auth-compatible-inactive`: refresh, remote revocation, catalog, model
+selection, and conversation transport are not enabled, so the record does not
+add OpenAI to `/models`.
 
 ## Choose a model
 
@@ -64,13 +85,17 @@ fallback; an unsupported retained effort fails explicitly and remains selected.
 ## Protect credentials and content
 
 Agent accepts the Ollama key only through zero-echo `agent auth` or temporary
-`AGENT_OLLAMA_API_KEY`. It never accepts the key as a CLI argument, projects its
-value or length, or exposes it in errors. The owned record is strict plaintext,
-not an operating-system keychain or encrypted vault. Native owner-only controls
-protect it from ordinary access by another unprivileged account, not from
-same-user processes, administrator or root, malware, backups, snapshots, memory
-inspection, or offline privileged access. Local removal is not secure erasure
-and does not revoke provider-side copies.
+`AGENT_OLLAMA_API_KEY`. It accepts OpenAI OAuth material only from the exact
+device ceremony and has no OpenAI environment import. It never accepts either
+credential as a CLI argument, projects secret values or lengths, or exposes
+them in errors. Both owned records are strict plaintext, not an operating-
+system keychain or encrypted vault. Native owner-only controls protect them
+from ordinary access by another unprivileged account, not from same-user
+processes, administrator or root, malware, backups, snapshots, memory
+inspection, or offline privileged access. Local removal is not secure erasure.
+Removing the OpenAI record explicitly does not revoke provider-side
+authorization; revoke it through an OpenAI-provided account surface when
+required.
 
 The authenticated catalog request necessarily sends the key to Ollama Cloud,
 but no task content. Each chat turn sends the bounded conversation, current user
@@ -82,20 +107,15 @@ personal data, or confidential content unless Ollama's current terms are
 acceptable. Provider availability, pricing, retention, and data use can change
 and are outside Agent's guarantees.
 
-Subscription OAuth integrations remain inactive. The
-[OAuth registration dossier](../OAUTH-REGISTRATION.md) owns their current
-registration status, while the [provider policy](../PROVIDERS.md) owns runtime
-admission. Decision 0089's owned credential boundary is active for the exact
-Ollama Cloud API-key record used by current commands. It admits no generic
-credential map, placeholder provider, browser flow, or compatibility reader.
-Decision 0090 specifies a future OpenAI device OAuth contract. Decision 0091
-permits a provider-owned non-secret public client while requiring `agent` as
-the truthful caller identity and an independent-compatibility disclosure.
-Decision 0092 accepts OpenAI's exact public-client identity and device status
-contract. Decision 0093 implements only its exact record and private native
-lifecycle. OpenAI remains runtime-inactive: no current command invokes that
-adapter, and no login, provider row, model row, or network request exists. The
-next gate is the separate `agent auth` device ceremony.
+The [OAuth registration dossier](../OAUTH-REGISTRATION.md) owns registration
+and compatibility status, while the [provider policy](../PROVIDERS.md) owns
+runtime admission. Decision 0089's owned credential boundary is active for the
+exact Ollama Cloud API-key record used by current commands. Decisions 0090
+through 0093 specify the OpenAI protocol, public-client compatibility identity,
+and exact private record. Decision 0094 activates only its `agent auth` device
+ceremony. OpenAI remains runtime-inactive: no provider row, model row, refresh,
+revocation, catalog request, or conversation request exists. Claude, Kimi, and
+xAI subscription OAuth integrations remain inactive.
 
 ## Recover from provider failures
 
@@ -110,6 +130,11 @@ next gate is the separate `agent auth` device ceremony.
 - A store failure means ownership, access, link, inventory, schema, recovery,
   synchronization, or native-platform validation failed. Agent does not repair,
   delete, or fall back from unsafe state automatically.
+- An OpenAI authentication failure is content-free. Cancellation, provider
+  rejection, expiration, connectivity, timeout, protocol, input, output, and
+  cleanup failures publish no record and expose no code, token, account,
+  response, status, or provider error text. Run the complete command again only
+  after resolving the reported family.
 - `Models could not be loaded` means no fresh catalog authority was created.
   Check the key, connectivity, account state, and Ollama availability, then run
   `/models` again.
@@ -188,6 +213,7 @@ fall back to another endpoint after a catalog or chat failure.
 - [Provider public-client compatibility decision](../decisions/0091-owned-provider-public-client-compatibility.md)
 - [OpenAI compatible public-client decision](../decisions/0092-owned-openai-compatible-public-client.md)
 - [OpenAI OAuth credential-record decision](../decisions/0093-owned-openai-oauth-credential-record.md)
+- [OpenAI device-authentication decision](../decisions/0094-owned-openai-device-authentication.md)
 - [Provider HTTP outcome decision](../decisions/0080-owned-provider-http-outcome-classification.md)
 - [Ollama tool-stream normalization decision](../decisions/0082-owned-ollama-tool-stream-normalization.md)
 - [Bounded-thinking decision](../decisions/0083-owned-bounded-thinking-stream.md)

@@ -123,7 +123,7 @@ native admission boundary: its shared session lock remains held until the CLI
 closes the private pipe, while each exclusive authentication operation has a
 bounded opening and cleanup deadline.
 
-The project enables exactly `https://ollama.com/api/tags` and
+The provider runtime enables exactly `https://ollama.com/api/tags` and
 `https://ollama.com/api/chat`. Both requests use bearer authentication through
 one immutable process-memory credential snapshot. Catalog rows are bounded and selectable only
 when their `name` and `model` fields are equal; catalog content cannot change
@@ -131,26 +131,34 @@ the registered origin, paths, authentication, chat protocol, or tool schemas.
 The adapter never follows redirects, discovers an origin, retries, aliases a
 model, or falls back to another backend. Credentials are registered, replaced,
 or removed only by external `agent auth` with zero-echo TTY input, never inside
-the TUI. `/models` admits only authenticated providers, fetches only the chosen
-provider's catalog, and settles provider and model together. No provider OAuth
-login, arbitrary network transport, local Ollama daemon, persistent catalog,
-or automatic provider/model selection is enabled. The bounded session journal
-is a separate CLI-owned local state boundary and never stores those provider
-values. The non-active decision 0090 specifies future OpenAI device OAuth,
-exclusive refresh-token admission, and exact provider routes. Decision 0091
-accepts only provider-owned non-secret public-client compatibility while
-preserving `agent` as the caller identity. Its implementation gate admits no
-current source, credential namespace, request, or provider selection; a third-
-party-only client ID, foreign caller field, or foreign credential fails closed.
-Decision 0092 accepts the exact OpenAI provider-owned non-secret public client,
-one-field device request, callback, poll statuses, PKCE, and `agent`-or-omitted
-caller rule only in machine and documentation authority. Decision 0093 adds
-only the exact OpenAI record, independent lock, exclusive snapshot and mutation
-admission, atomic lifecycle, recovery, and local removal to the existing native
-broker. Current composition does not call it. The product scanner admits those
-credential spellings only in exact reviewed broker files and continues to
-reject OpenAI endpoints, client-identity use, network authority, provider
-workspaces, foreign stores, and foreign caller fields.
+the TUI. `/models` admits only authenticated runtime providers, fetches only
+the chosen provider's catalog, and settles provider and model together. No
+arbitrary network transport, local Ollama daemon, persistent catalog, or
+automatic provider/model selection is enabled. The bounded session journal is
+a separate CLI-owned local state boundary and never stores those provider
+values.
+
+Decision 0094 activates the decision-0090 OpenAI device ceremony only for
+`agent auth`. It uses the exact provider-owned public client from decision 0092,
+fixed OpenAI TLS origin and paths, one-field device request, immediate first
+poll, bounded server interval, closed pending statuses, PKCE verification, and
+one exact token exchange. The native decision-0093 mutation is exclusive from
+before the first request through cancellation or atomic publication. Requests
+omit authorization, cookies, client secrets, foreign caller fields, redirect
+following, discovery, retry, and fallback; every controllable caller identity
+is `agent` or absent. Only the fixed verification URL and one-time code may be
+projected. Tokens, device identity, authorization code, verifier, challenge,
+claims, statuses, bodies, and foreign error text remain secret or content-free.
+
+OpenAI authentication has no provider-runtime authority. Refresh, revocation,
+catalog, model selection, Responses transport, and runtime snapshot composition
+remain disabled, so an OpenAI record cannot send task content or create a
+`/models` row. Local removal uses native retirement and explicitly does not
+claim provider-side revocation or secure erasure. The product scanner admits
+the exact OpenAI endpoint, client-identity, token-field, JWT, HTTPS, and hash
+spellings only in the reviewed decision-0094 adapter, command, policy, and test
+files; third-party client IDs, foreign callers, foreign stores, and foreign
+credentials still fail closed.
 The single `shell` capability admits one exactly
 approved bounded command through the fixed profile-free platform shell, a
 controlled environment that excludes provider credentials, and owned

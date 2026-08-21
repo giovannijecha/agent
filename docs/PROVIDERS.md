@@ -142,43 +142,49 @@ owns their current registration conclusions and required written evidence. The
 metadata. A submission, silence, or negative response does not grant runtime
 authority.
 
-Decision 0090 records one non-executable OpenAI contract so its public device,
+Decision 0090 records the OpenAI contract so its public device,
 token, catalog, Responses, future record, admission, and removal boundaries are
 reviewable before implementation. Decision 0091 permits provider-owned public-
 client compatibility, and decision 0092 records OpenAI's exact non-secret
 public client, device request, callback, pending statuses, and truthful caller
 rule. Decision 0093 implements the exact OpenAI record and private native
-lifecycle. The contract is now `credential-compatible-inactive`: current
-commands do not call that adapter, and there is still no network request,
-provider workspace, provider or model row, or runtime composition.
+lifecycle. Decision 0094 activates its fixed-origin device login, serial poll,
+PKCE exchange, account and expiry validation, sign-in-again, and local removal
+through `agent auth`. The contract is now `auth-compatible-inactive`: auth can
+create or replace the owned record, but there is still no runtime snapshot,
+refresh, revocation, provider workspace, catalog, provider/model row, Responses
+transport, or conversation-runtime composition.
 
-OpenAI remains blocked by `auth-implementation-required`. Its `agent auth`
-ceremony, provider adapter, integration, and live smoke must arrive as the
-remaining serial modules required by decisions 0090 through 0093, each
+OpenAI remains blocked by `transport-implementation-required`. Its provider
+adapter, refresh lifecycle, integration, and live smoke must arrive as the
+remaining serial modules required by decisions 0090 through 0094, each
 with its own threat model, offline contract tests, rollback, and removal path.
 Claude remains subject to the original independent-registration gate.
 
 ## Machine gate
 
-`tools/provider-policy.json` schema version 11 records the four inactive OAuth
+`tools/provider-policy.json` schema version 12 records the four runtime-inactive OAuth
 providers, the one exact enabled direct provider, the accepted-runtime-inactive
-compatibility category, and one exact `credential-compatible-inactive` OpenAI
+compatibility category, and one exact `auth-compatible-inactive` OpenAI
 subscription contract. It pins the fixed chat and
 authenticated catalog endpoints, bearer authentication, dynamic catalog
 authority, cloud cost class, native `application/json` streaming transport,
 line-delimited object contract, environment variable, exact owned record,
 shared/exclusive admission, external auth command, exact provider workspace,
-and the non-active OpenAI decisions, routes, implemented record, exclusive admission,
-exact provider-owned public client, one-field device request, empty requested-
-scope set, callback, poll settlement, public-client token authentication,
-truthful `agent` caller identity, and compatibility disclosure. Canonical verification
+and the OpenAI decisions, routes, implemented record and authentication,
+exclusive admission, exact provider-owned public client, one-field device
+request, empty requested-scope set, callback, poll fields and settlement,
+public-client token authentication, claims, limits, truthful `agent` caller
+identity, inactive provider runtime, and compatibility disclosure. Canonical verification
 rejects unregistered provider workspaces, OAuth identifiers, subscription
 endpoints, ambient network capabilities, foreign credential stores, borrowed
 product identity, endpoint drift, model-authority drift, and credential-
-persistence drift. OpenAI credential literals are admitted only in the exact
-reviewed broker, protocol, adapter, and test files; endpoints, client identity,
-provider workspace, foreign storage, and network authority remain forbidden in
-product source. Reviewed Ollama literals remain confined to their exact files.
+persistence drift. OpenAI literals and Node network authority are admitted only
+in the exact reviewed broker, protocol, command, device adapter, and test files;
+they remain forbidden in every other product source. Provider workspaces,
+foreign storage, foreign caller identity, ambient network authority, catalog,
+and Responses runtime remain forbidden. Reviewed Ollama literals remain
+confined to their exact files.
 
 One concrete provider does not authorize a generic provider framework,
 arbitrary base URL, unregistered model selector, generic key store, local-server mode,
@@ -204,7 +210,9 @@ content, and removal guarantees. This section retains provider-specific account
 and credential constraints.
 
 `agent` never creates provider accounts, purchases plans, or asks for passwords,
-one-time codes, recovery codes, cookies, or payment details. The Ollama API key
+recovery codes, cookies, or payment details. The OpenAI device ceremony displays
+one provider-issued code but never asks the operator to type that code into
+Agent. The Ollama API key
 may never enter source, tests, logs, errors, documentation values, process
 arguments, command history, terminal output, transcript, journal, receipt, or
 diagnostic. Zero-echo `agent auth` writes only the exact provider-specific record
@@ -214,10 +222,14 @@ exclusive admission and never waits, polls, steals, or retries. A durable record
 and `AGENT_OLLAMA_API_KEY` together fail as dual authority before payload read;
 neither source has precedence and neither is imported. Decision 0088 remains
 historical and decision 0089 owns the active external-authentication boundary.
-Decisions 0090 through 0093 specify and implement the provider-specific OpenAI
-OAuth record and accept its provider-owned public-client identity. No current
-command invokes the OpenAI broker adapter; there is no environment authority,
-login ceremony, provider request, or change to current operator data.
+Decisions 0090 through 0094 specify and implement the provider-specific OpenAI
+OAuth record, provider-owned public-client identity, and device ceremony.
+`agent auth` may send the fixed client identity, device identity, displayed
+code, authorization code, PKCE verifier, and token exchange directly to the
+fixed OpenAI auth origin, then persist only the access token, refresh token,
+account ID, and expiry. It stores no ID token. There is no OpenAI environment
+authority, runtime credential read, refresh, revocation, catalog, or task-data
+request in this module. Local removal does not revoke the provider grant.
 
 ## Primary references
 

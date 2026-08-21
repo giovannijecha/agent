@@ -73,17 +73,21 @@ resolve the exact directory conflict before trying again.
 
 ## Configure the session
 
-Manage the Ollama Cloud credential outside the TUI with exact `agent auth`.
-The command requires TTY input and output, runs after workspace validation but
-before any session journal or alternate screen, accepts no operands, and reads
-register or replacement values with terminal echo disabled. It performs no
-network request. Use it to register, replace, remove, or cancel the local
-provider-specific record.
+Manage Ollama Cloud or OpenAI authentication outside the TUI with exact
+`agent auth`. The command requires TTY input and output, runs after workspace
+validation but before any session journal or alternate screen, accepts no
+operands, and begins with a provider selector. Ollama registration and
+replacement read the API key with terminal echo disabled and make no network
+request. OpenAI sign-in presents the independent-compatibility disclosure,
+displays the fixed provider verification URL and one-time code, and performs
+the bounded provider-hosted device ceremony. Both providers support local
+removal and cancellation; OpenAI also supports sign in again.
 
 Every new or resumed session starts without a selected provider or model.
-Use `/models` to choose an authenticated provider and then one exact model from
-that provider's fresh catalog. Both selections are process-only and atomic; a
-credential never selects either one.
+Use `/models` to choose an authenticated runtime provider and then one exact
+model from that provider's fresh catalog. OpenAI authentication is currently
+auth-only and does not add a provider or model row. Both selections are
+process-only and atomic; a credential never selects either one.
 
 Provider eligibility, model discovery, and failure behavior are covered in
 [Providers and authentication](05-providers-and-authentication.md). Tool modes
@@ -134,10 +138,15 @@ The evaluation workflow and interpretation rules live in
   exact session directory back first using the maintenance procedure; otherwise
   the older executable can recreate legacy state and the current executable
   will reject the resulting dual-root conflict.
-- `agent auth` fails if redirected, given an operand, run while another Agent
-  process holds the Ollama credential admission, or run while
-  `AGENT_OLLAMA_API_KEY` is set. A durable record plus that variable makes both
-  normal startup and `agent auth` fail as dual authority.
+- `agent auth` fails if redirected, given an operand, or run while another
+  process holds the selected provider's credential admission. Ollama
+  authentication also fails while `AGENT_OLLAMA_API_KEY` is set; a durable
+  Ollama record plus that variable makes normal startup and the Ollama auth path
+  fail as dual authority.
+- OpenAI device authentication can fail or be cancelled without publishing a
+  record. Retry the complete command after resolving connectivity, timeout,
+  provider rejection, terminal input, or unsafe-store state; Agent never
+  resumes, replays, or exposes the provider response.
 - An unsafe credential owner, access control, link, record, inventory, or
   recovery state fails content-free without falling back to the environment.
 - Credential, provider, input, rendering, and cleanup failures expose only a

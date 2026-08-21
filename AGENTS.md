@@ -20,7 +20,7 @@ that domain; a summary here never overrides its canonical owner.
 | Change source, tests, declarations, verification, or evaluation practice | [Engineering](docs/ENGINEERING.md) |
 | Update, roll back, remove, release, or diagnose a subsystem | [Maintenance](docs/MAINTENANCE.md) |
 | Change observable operator behavior | [Operator manual](docs/manual/README.md) |
-| Change providers, credentials, catalogs, models, or network origins | [Provider policy](docs/PROVIDERS.md), [privacy policy](PRIVACY.md), [decision 0072](docs/decisions/0072-owned-ollama-cloud-provider.md), [decision 0089](docs/decisions/0089-owned-external-authentication-transition.md), and non-active OpenAI [decisions 0090](docs/decisions/0090-owned-openai-subscription-oauth-contract.md), [0091](docs/decisions/0091-owned-provider-public-client-compatibility.md), [0092](docs/decisions/0092-owned-openai-compatible-public-client.md), and [0093](docs/decisions/0093-owned-openai-oauth-credential-record.md) |
+| Change providers, credentials, catalogs, models, or network origins | [Provider policy](docs/PROVIDERS.md), [privacy policy](PRIVACY.md), [decision 0072](docs/decisions/0072-owned-ollama-cloud-provider.md), [decision 0089](docs/decisions/0089-owned-external-authentication-transition.md), and OpenAI [decisions 0090](docs/decisions/0090-owned-openai-subscription-oauth-contract.md), [0091](docs/decisions/0091-owned-provider-public-client-compatibility.md), [0092](docs/decisions/0092-owned-openai-compatible-public-client.md), [0093](docs/decisions/0093-owned-openai-oauth-credential-record.md), and [0094](docs/decisions/0094-owned-openai-device-authentication.md) |
 | Change security boundaries or vulnerability handling | [Security policy](SECURITY.md) and [privacy policy](PRIVACY.md) |
 | Inspect a reference project or change provenance rules | [Ownership policy](docs/OWNERSHIP.md) |
 | Change brand identity or visual assets | [Brand guide](docs/BRAND.md) |
@@ -123,10 +123,10 @@ that domain; a summary here never overrides its canonical owner.
 - Environment input never persists or selects a provider or model. A durable
   record and environment input together fail explicitly as dual authority;
   neither has precedence and neither is imported.
-- Decision 0093 admits the exact OpenAI OAuth record, private broker protocol,
-  exclusive admission, recovery, replacement, and removal implementation.
-  Current commands do not call it; OpenAI login, network, provider selection,
-  model selection, catalog, transport, and runtime remain disabled.
+- Decision 0094 activates OpenAI device sign-in, sign-in-again, and local
+  removal through `agent auth` under the decision-0093 exclusive record
+  admission. OpenAI catalog, refresh, revocation, provider/model selection,
+  Responses transport, and conversation runtime remain disabled.
 - Secrets, credentials, sessions, and personal content never enter source,
   fixtures, logs, errors, receipts, or documentation values.
 
