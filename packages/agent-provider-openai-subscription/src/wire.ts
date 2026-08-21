@@ -549,6 +549,8 @@ export class OpenAIResponsesDecoder {
         parsed.item.content.length !== 0)) return this.#reject("protocolMessage");
     if (parsed.item.type === "reasoning" &&
       (!Array.isArray(parsed.item.summary) || parsed.item.summary.length !== 0 ||
+        (parsed.item.content !== undefined &&
+          (!Array.isArray(parsed.item.content) || parsed.item.content.length !== 0)) ||
         parsed.item.encrypted_content !== undefined)) return this.#reject("protocolMessage");
     if (parsed.item.type === "function_call" &&
       (!validWireId(parsed.item.call_id) || typeof parsed.item.name !== "string" ||

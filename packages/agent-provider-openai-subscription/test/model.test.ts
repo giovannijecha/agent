@@ -661,6 +661,7 @@ test("normalizes reasoning before answer and one bounded function-call batch", a
   const stream = new FakeStream([ok(ascii(
     event("response.created", { response: response("in_progress") }) +
     event("response.output_item.added", { item: {
+      content: [],
       id: "reasoning-alpha",
       type: "reasoning",
       status: "in_progress",
@@ -760,6 +761,47 @@ test("normalizes reasoning before answer and one bounded function-call batch", a
   assert.ok(completed.ok && completed.value.kind === "toolCalls");
   assert.equal(completed.value.calls.at(0)?.callId, "call-alpha");
   assert.equal(completed.value.calls.at(0)?.name, "read_file");
+});
+
+test("rejects pre-populated or malformed reasoning content on item addition", async () => {
+  for (const content of [
+    Object.freeze([Object.freeze({ type: "reasoning_text", text: "Preloaded." })]),
+    Object.freeze([null]),
+  ]) {
+    const completed = Object.freeze({
+      content: Object.freeze([]),
+      id: "reasoning-alpha",
+      status: "completed",
+      summary: Object.freeze([]),
+      type: "reasoning",
+    });
+    const wire = event("response.created", { response: response("in_progress") }) +
+      event("response.output_item.added", { item: {
+        content,
+        id: "reasoning-alpha",
+        status: "in_progress",
+        summary: [],
+        type: "reasoning",
+      }, output_index: 0 }) +
+      event("response.output_item.done", { item: completed, output_index: 0 }) +
+      event("response.completed", {
+        response: response("completed", Object.freeze([completed])),
+      });
+    const model = OpenAISubscriptionModel.create(
+      new FakeTransport(ok(new FakeStream([ok(ascii(wire)), ok(null)]))),
+      "Inspect safely.",
+      MODEL,
+    );
+    assert.ok(model.ok);
+    const opened = await model.value.open(
+      conversation(),
+      new Cancellation(),
+      [],
+      Object.freeze({ thinkingEffort: "off" as const }),
+    );
+    assert.ok(opened.ok);
+    assert.equal((await opened.value.read()).ok, false);
+  }
 });
 
 test("preserves provider output-index order and rejects a reordered final projection", async () => {

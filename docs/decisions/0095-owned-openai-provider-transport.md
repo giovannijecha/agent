@@ -199,7 +199,8 @@ The admitted lifecycle is:
 2. bounded `response.in_progress` snapshots also require an exact empty
    `output` array and likewise admit only absent, null, or bounded usage before
    item, content-part, reasoning-part, and function-argument lifecycle events
-   may advance only their declared phase;
+   may advance only their declared phase; an added reasoning item requires an
+   exact empty summary, absent or exact empty content, and no encrypted content;
 3. non-empty `response.reasoning_summary_text.delta` and
    `response.reasoning_text.delta` values become runtime reasoning deltas before
    answer text starts;
@@ -287,6 +288,8 @@ Red-green regression must prove:
   names, nullable pre-terminal usage, strict terminal usage, completion,
   cancellation, timeout, and one large frame fragmented into single-code-unit
   chunks without whole-buffer rescanning;
+- an added reasoning item rejects pre-populated or malformed content before any
+  later item projection can omit or replace it;
   close, concurrent read, malformed framing, unknown events, contradictory
   lifecycle, nonempty or malformed pre-terminal output, missing or
   contradictory completed-output projections, trailing frames before
