@@ -13,7 +13,12 @@ import {
   type StructuredField,
   type StructuredValue,
 } from "@agent/core";
-import type { ModelStreamEvent, ModelToolCall, ThinkingEffort } from "@agent/runtime";
+import {
+  RUNTIME_LIMITS,
+  type ModelStreamEvent,
+  type ModelToolCall,
+  type ThinkingEffort,
+} from "@agent/runtime";
 import {
   BooleanSchema,
   IntegerSchema,
@@ -27,10 +32,10 @@ import {
   type ToolSchema,
 } from "@agent/tools";
 
-import { BoundedArgumentChunks } from "./argument-chunks.js";
 import { OPENAI_PROVIDER_LIMITS } from "./limits.js";
 import type { OpenAIModelId } from "./models.js";
 import type { SseEvent } from "./sse.js";
+import { BoundedTextChunks } from "./text-chunks.js";
 
 export type OpenAIWireError = Readonly<{
   kind: "limit" | "protocolMessage" | "protocolTerminal" |
@@ -361,9 +366,10 @@ export class OpenAIResponsesDecoder {
   #reasoningCodeUnits = 0;
   #argumentCodeUnits = 0;
   #argumentDoneCount = 0;
-  readonly #argumentDeltas = new BoundedArgumentChunks(
+  readonly #argumentDeltas = new BoundedTextChunks(
     OPENAI_PROVIDER_LIMITS.toolArgumentCodeUnits,
   );
+  readonly #answerDeltas = new BoundedTextChunks(RUNTIME_LIMITS.responseCodeUnits);
   #rejected = false;
   #terminal = false;
   readonly #calls = new Map<number, ModelToolCall>();
@@ -371,6 +377,12 @@ export class OpenAIResponsesDecoder {
   readonly #outputs = new Map<string, OutputState>();
   readonly #outputsByIndex = new Map<number, OutputState>();
   #publishIndex = 0;
+  readonly #reasoningContentDeltas = new BoundedTextChunks(
+    OPENAI_PROVIDER_LIMITS.reasoningCodeUnits,
+  );
+  readonly #reasoningSummaryDeltas = new BoundedTextChunks(
+    OPENAI_PROVIDER_LIMITS.reasoningCodeUnits,
+  );
 
   constructor(exposeReasoning: boolean) {
     this.#exposeReasoning = exposeReasoning;
@@ -406,6 +418,7 @@ export class OpenAIResponsesDecoder {
       this.#inProgress = true;
       return ok(Object.freeze([]));
     }
+    if (!this.#inProgress) return this.#reject("protocolMessage");
     if (type === "response.output_item.added") return this.#outputItemAdded(parsed);
     if (type === "response.content_part.added") return this.#contentPart(parsed, false);
     if (type === "response.content_part.done") return this.#contentPart(parsed, true);
@@ -471,7 +484,8 @@ export class OpenAIResponsesDecoder {
     }
     if (type === "response.completed") {
       const response = parsed.response;
-      if (this.#argumentDeltas.pending ||
+      if (this.#argumentDeltas.pending || this.#answerDeltas.pending ||
+        this.#reasoningContentDeltas.pending || this.#reasoningSummaryDeltas.pending ||
         [...this.#outputs.values()].some((state) => !state.done) ||
         !validResponse(response, this.#responseId, "completed") ||
         !this.#completedOutput(response.output)) {
@@ -519,16 +533,19 @@ export class OpenAIResponsesDecoder {
     }
     if (reasoning) {
       if (!this.#exposeReasoning) return this.#reject("protocolMessage");
-      this.#reasoningCodeUnits += value.length;
-      if (this.#reasoningCodeUnits > OPENAI_PROVIDER_LIMITS.reasoningCodeUnits) {
+      const nextCodeUnits = this.#reasoningCodeUnits + value.length;
+      if (nextCodeUnits > OPENAI_PROVIDER_LIMITS.reasoningCodeUnits) {
         return this.#reject("limit");
       }
-      if (summary) state.summaryText += value;
-      else state.contentText += value;
+      const appended = summary
+        ? this.#reasoningSummaryDeltas.append(state.id, value)
+        : this.#reasoningContentDeltas.append(state.id, value);
+      if (!appended) return this.#reject("limit");
+      this.#reasoningCodeUnits = nextCodeUnits;
       return ok(Object.freeze([Object.freeze({ kind: "reasoningDelta" as const, text: value })]));
     }
+    if (!this.#answerDeltas.append(state.id, value)) return this.#reject("limit");
     this.#answerStarted = true;
-    state.contentText += value;
     return ok(Object.freeze([Object.freeze({ kind: "delta" as const, text: value })]));
   }
 
@@ -649,13 +666,24 @@ export class OpenAIResponsesDecoder {
     const phase = family === "summary" ? state?.summaryPhase : state?.contentPhase;
     const expectedIndex = family === "summary" ? state?.summaryIndex : state?.contentIndex;
     const index = family === "summary" ? parsed.summary_index : parsed.content_index;
-    const text = family === "summary" ? state?.summaryText : state?.contentText;
+    const text = state === undefined
+      ? undefined
+      : family === "summary"
+      ? this.#reasoningSummaryDeltas.complete(state.id) ?? ""
+      : family === "reasoning"
+      ? this.#reasoningContentDeltas.complete(state.id) ?? ""
+      : this.#answerDeltas.complete(state.id) ?? "";
     if (state === undefined || state.done || phase !== "added" || index !== expectedIndex ||
       typeof parsed.text !== "string" || parsed.text !== text) {
       return this.#reject("protocolMessage");
     }
-    if (family === "summary") state.summaryPhase = "textDone";
-    else state.contentPhase = "textDone";
+    if (family === "summary") {
+      state.summaryText = text;
+      state.summaryPhase = "textDone";
+    } else {
+      state.contentText = text;
+      state.contentPhase = "textDone";
+    }
     return ok(Object.freeze([]));
   }
 

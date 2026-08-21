@@ -1,12 +1,12 @@
-/** Bounded per-item fragments joined only when one item completes. */
-export class BoundedArgumentChunks {
+/** Bounded per-item text fragments joined only when one item completes. */
+export class BoundedTextChunks {
   readonly #chunks = new Map<string, string[]>();
   #codeUnits = 0;
   readonly #maximumCodeUnits: number;
 
   constructor(maximumCodeUnits: number) {
     if (!Number.isSafeInteger(maximumCodeUnits) || maximumCodeUnits < 1) {
-      throw new RangeError("invalid argument chunk bound");
+      throw new RangeError("invalid text chunk bound");
     }
     this.#maximumCodeUnits = maximumCodeUnits;
   }

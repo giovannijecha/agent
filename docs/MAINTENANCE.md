@@ -599,13 +599,19 @@ For model-open cancellation changes, read `requested` once inside containment,
 require a boolean snapshot, and regress throwing and malformed accessors before
 request encoding or transport invocation.
 For terminal-stream changes, require exact empty output arrays on pre-terminal
-response snapshots, admit null usage only before completion, keep the added
+response snapshots, require exactly one `response.in_progress` after
+`response.created` and before every other lifecycle or terminal event, admit
+null usage only before completion, keep the added
 function-call item authoritative when the argument-done event omits its
 redundant name, require that argument-done phase before function-item completion,
 enforce batch call-count and aggregate argument bounds before retaining its
 complete string, retain argument deltas as bounded per-item chunks under one
 aggregate code-unit budget, and join an item's chunks only once at its done
-event rather than rebuilding the accumulated string for every delta,
+event rather than rebuilding the accumulated string for every delta. Keep
+answer, reasoning-summary, and reasoning-content deltas on that same shared
+chunk primitive; enforce the canonical runtime response bound and combined
+provider reasoning bound before append, then join only at text done. Regress
+maximum-fragment streams without timing assertions,
 reject nonempty or malformed reasoning content at item addition, reject every
 reasoning item and delta when the captured effort is off, require the sole
 completed message content part to retain streamed index zero, retain

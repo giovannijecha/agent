@@ -154,6 +154,14 @@ function response(
   });
 }
 
+function responseStart(usage: unknown = undefined): string {
+  return event("response.created", {
+    response: response("in_progress", Object.freeze([]), usage),
+  }) + event("response.in_progress", {
+    response: response("in_progress", Object.freeze([]), usage),
+  });
+}
+
 function textEvents(
   text: string,
   output?: readonly unknown[],
@@ -176,12 +184,7 @@ function textEvents(
   });
   const emptyPart = Object.freeze({ annotations: Object.freeze([]), text: "", type: "output_text" });
   const completedPart = Object.freeze({ annotations: Object.freeze([]), text, type: "output_text" });
-  return event("response.created", {
-    response: response("in_progress", Object.freeze([]), preTerminalUsage),
-  }) +
-    event("response.in_progress", {
-      response: response("in_progress", Object.freeze([]), preTerminalUsage),
-    }) +
+  return responseStart(preTerminalUsage) +
     event("response.output_item.added", { item: inProgress, output_index: 0 }) +
     event("response.content_part.added", {
       content_index: 0,
@@ -949,7 +952,7 @@ test("normalizes reasoning before answer and one bounded function-call batch", a
     arguments: '{"path":"AGENTS.md"}',
   });
   const stream = new FakeStream([ok(ascii(
-    event("response.created", { response: response("in_progress") }) +
+    responseStart() +
     event("response.output_item.added", { item: {
       content: [],
       id: "reasoning-alpha",
@@ -967,7 +970,13 @@ test("normalizes reasoning before answer and one bounded function-call batch", a
       item_id: "reasoning-alpha",
       output_index: 0,
       summary_index: 0,
-      delta: "Checking.",
+      delta: "Check",
+    }) +
+    event("response.reasoning_summary_text.delta", {
+      item_id: "reasoning-alpha",
+      output_index: 0,
+      summary_index: 0,
+      delta: "ing.",
     }) +
     event("response.reasoning_summary_text.done", {
       item_id: "reasoning-alpha",
@@ -991,7 +1000,13 @@ test("normalizes reasoning before answer and one bounded function-call batch", a
       content_index: 0,
       item_id: "reasoning-alpha",
       output_index: 0,
-      delta: "Internal.",
+      delta: "Inter",
+    }) +
+    event("response.reasoning_text.delta", {
+      content_index: 0,
+      item_id: "reasoning-alpha",
+      output_index: 0,
+      delta: "nal.",
     }) +
     event("response.reasoning_text.done", {
       content_index: 0,
@@ -1041,16 +1056,72 @@ test("normalizes reasoning before answer and one bounded function-call batch", a
   assert.ok(opened.ok);
   assert.deepEqual(await opened.value.read(), {
     ok: true,
-    value: { kind: "reasoningDelta", text: "Checking." },
+    value: { kind: "reasoningDelta", text: "Check" },
   });
   assert.deepEqual(await opened.value.read(), {
     ok: true,
-    value: { kind: "reasoningDelta", text: "Internal." },
+    value: { kind: "reasoningDelta", text: "ing." },
+  });
+  assert.deepEqual(await opened.value.read(), {
+    ok: true,
+    value: { kind: "reasoningDelta", text: "Inter" },
+  });
+  assert.deepEqual(await opened.value.read(), {
+    ok: true,
+    value: { kind: "reasoningDelta", text: "nal." },
   });
   const completed = await opened.value.read();
   assert.ok(completed.ok && completed.value.kind === "toolCalls");
   assert.equal(completed.value.calls.at(0)?.callId, "call-alpha");
   assert.equal(completed.value.calls.at(0)?.name, "read_file");
+});
+
+test("joins fragmented answer text only at text completion", async () => {
+  const completeDelta = event("response.output_text.delta", {
+    content_index: 0,
+    delta: "Fragmented.",
+    item_id: "message-alpha",
+    output_index: 0,
+  });
+  const fragmentedDeltas = event("response.output_text.delta", {
+    content_index: 0,
+    delta: "Frag",
+    item_id: "message-alpha",
+    output_index: 0,
+  }) + event("response.output_text.delta", {
+    content_index: 0,
+    delta: "mented.",
+    item_id: "message-alpha",
+    output_index: 0,
+  });
+  const model = OpenAISubscriptionModel.create(
+    new FakeTransport(ok(new FakeStream([
+      ok(ascii(textEvents("Fragmented.").replace(
+        completeDelta,
+        fragmentedDeltas,
+      ))),
+      ok(null),
+    ]))),
+    "Inspect safely.",
+    MODEL,
+  );
+  assert.ok(model.ok);
+  const opened = await model.value.open(
+    conversation(),
+    new Cancellation(),
+    [],
+    Object.freeze({ thinkingEffort: "off" as const }),
+  );
+  assert.ok(opened.ok);
+  assert.deepEqual(await opened.value.read(), {
+    ok: true,
+    value: { kind: "delta", text: "Frag" },
+  });
+  assert.deepEqual(await opened.value.read(), {
+    ok: true,
+    value: { kind: "delta", text: "mented." },
+  });
+  assert.deepEqual(await opened.value.read(), { ok: true, value: { kind: "done" } });
 });
 
 test("rejects pre-populated or malformed reasoning content on item addition", async () => {
@@ -1065,7 +1136,7 @@ test("rejects pre-populated or malformed reasoning content on item addition", as
       summary: Object.freeze([]),
       type: "reasoning",
     });
-    const wire = event("response.created", { response: response("in_progress") }) +
+    const wire = responseStart() +
       event("response.output_item.added", { item: {
         content,
         id: "reasoning-alpha",
@@ -1129,7 +1200,7 @@ test("preserves provider output-index order and rejects a reordered final projec
   const zero = completedCall("function-zero", "call-zero", "zero.md");
   const one = completedCall("function-one", "call-one", "one.md");
   const toolEvents = (output: readonly unknown[]) =>
-    event("response.created", { response: response("in_progress") }) +
+    responseStart() +
     added("function-zero", "call-zero", 0) +
     added("function-one", "call-one", 1) +
     done("function-one", "call-one", "one.md", 1) +
@@ -1242,7 +1313,7 @@ test("rejects a message whose output index follows a function call", async () =>
       response: response("completed", Object.freeze([completedCall, completedMessage])),
     });
   for (const additions of [addedCall + addedMessage, addedMessage + addedCall]) {
-    const wire = event("response.created", { response: response("in_progress") }) +
+    const wire = responseStart() +
       additions + completedEvents;
     const model = OpenAISubscriptionModel.create(
       new FakeTransport(ok(new FakeStream([ok(ascii(wire)), ok(null)]))),
@@ -1289,7 +1360,7 @@ test("rejects reasoning whose output index follows a function call", async () =>
     summary_index: 0,
   });
   for (const additions of [addedCall + addedReasoning, addedReasoning + addedCall]) {
-    const wire = event("response.created", { response: response("in_progress") }) +
+    const wire = responseStart() +
       additions + reasoningDelta;
     const model = OpenAISubscriptionModel.create(
       new FakeTransport(ok(new FakeStream([ok(ascii(wire)), ok(null)]))),
@@ -1381,7 +1452,7 @@ test("emits multiple messages only in output-index order", async () => {
     assert.ok(opened.ok);
     return opened.value;
   };
-  const prefix = event("response.created", { response: response("in_progress") }) + additions;
+  const prefix = responseStart() + additions;
   const ordered = await open(
     prefix + lifecycle("message-zero", 0, "First.", zero) +
       lifecycle("message-one", 1, "Second.", one) + terminal,
@@ -1465,6 +1536,36 @@ test("rejects nonempty or malformed pre-terminal response output", async () => {
     valid.replace(inProgress, event("response.in_progress", { response: malformed })),
   ]);
   for (const wire of cases) {
+    const model = OpenAISubscriptionModel.create(
+      new FakeTransport(ok(new FakeStream([ok(ascii(wire)), ok(null)]))),
+      "Inspect safely.",
+      MODEL,
+    );
+    assert.ok(model.ok);
+    const opened = await model.value.open(
+      conversation(),
+      new Cancellation(),
+      [],
+      Object.freeze({ thinkingEffort: "off" as const }),
+    );
+    assert.ok(opened.ok);
+    assert.equal((await opened.value.read()).ok, false);
+  }
+});
+
+test("requires response.in_progress before lifecycle events", async () => {
+  const created = event("response.created", {
+    response: response("in_progress"),
+  });
+  const inProgress = event("response.in_progress", {
+    response: response("in_progress"),
+  });
+  for (const wire of [
+    textEvents("Done.").replace(inProgress, ""),
+    created + event("response.completed", {
+      response: response("completed"),
+    }),
+  ]) {
     const model = OpenAISubscriptionModel.create(
       new FakeTransport(ok(new FakeStream([ok(ascii(wire)), ok(null)]))),
       "Inspect safely.",
@@ -1649,7 +1750,7 @@ test("rejects completed reasoning payloads that contradict streamed parts", asyn
     }),
   ]);
   for (const candidate of cases) {
-    const wire = event("response.created", { response: response("in_progress") }) +
+    const wire = responseStart() +
       event("response.output_item.added", { item: {
         id: "reasoning-alpha",
         type: "reasoning",
@@ -1701,7 +1802,7 @@ test("fails closed on terminal errors, unknown events, and invalid response meta
 });
 
 test("rejects incomplete and contradictory Responses lifecycle events", async () => {
-  const created = event("response.created", { response: response("in_progress") });
+  const created = responseStart();
   const message = {
     content: [],
     id: "message-alpha",
@@ -1912,7 +2013,7 @@ test("bounds injected Responses chunks before UTF-8 decoding", async () => {
 
 test("fails closed when the Responses stream ends before completion", async () => {
   const stream = new FakeStream([
-    ok(ascii(event("response.created", { response: response("in_progress") }))),
+    ok(ascii(responseStart())),
     ok(null),
   ]);
   const model = OpenAISubscriptionModel.create(
@@ -2005,7 +2106,7 @@ test("enforces function-call retention bounds at argument completion", async () 
       item_id: "function-" + String(index),
       output_index: index,
     });
-  const created = event("response.created", { response: response("in_progress") });
+  const created = responseStart();
   const retained = JSON.stringify({
     value: "x".repeat(Math.floor(OPENAI_PROVIDER_LIMITS.toolArgumentCodeUnits / 2)),
   });
@@ -2060,7 +2161,7 @@ test("enforces function-call retention bounds at argument completion", async () 
 });
 
 test("rejects provider reasoning when thinking effort is off", async () => {
-  const created = event("response.created", { response: response("in_progress") });
+  const created = responseStart();
   const added = event("response.output_item.added", { item: {
     content: [],
     id: "reasoning-alpha",

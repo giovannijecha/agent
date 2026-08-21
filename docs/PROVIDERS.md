@@ -175,14 +175,19 @@ read once, validated, and retained from those same snapshots. Catalog, open,
 read, and close therefore cannot validate one accessor-backed result and later
 publish another; malformed, throwing, or array-shaped results fail as protocol.
 Its strict decoder requires exact empty output arrays on pre-terminal response
-snapshots, accepts null usage only before completion, and keeps each added
+snapshots and exactly one `response.in_progress` immediately after
+`response.created`; every other lifecycle or terminal event before that gate
+fails closed. It accepts null usage only before completion and keeps each added
 function-call item as the name authority even when the argument-done event
 omits its redundant name. The argument-done event itself is mandatory and its
 complete argument string must pass the batch call-count and aggregate argument
 bounds before retention, then match the completed function-call item. Argument
 deltas remain as bounded per-item chunks under one aggregate code-unit budget;
 they are joined exactly once at the done event and are never re-copied as one
-growing string for each delta. An added
+growing string for each delta. Answer, reasoning-summary, and reasoning-content
+deltas use the same shared chunk primitive: answer retention is bounded by the
+canonical runtime response limit, reasoning retains its combined provider
+budget, and each item is joined only at its text-done event. An added
 reasoning item admits only absent or exact
 empty initial content, so later streamed projections cannot suppress or replace
 pre-populated state. Reasoning items, summaries, and content fail closed when

@@ -264,8 +264,9 @@ The admitted lifecycle is:
 
 1. exactly one `response.created` with an exact empty `output` array starts the
    response; its optional usage is either null or one bounded projection;
-2. bounded `response.in_progress` snapshots also require an exact empty
-   `output` array and likewise admit only absent, null, or bounded usage before
+2. exactly one `response.in_progress` immediately follows creation, requires an
+   exact empty `output` array, and likewise admits only absent, null, or bounded
+   usage; every other lifecycle or terminal event before this gate fails closed;
    item, content-part, reasoning-part, and function-argument lifecycle events
    may advance only their declared phase; an added reasoning item requires an
    exact empty summary, absent or exact empty content, and no encrypted content;
@@ -308,11 +309,14 @@ and provider-order settlement. Usage is validated for protocol integrity but
 is not added to the current operator surface by this module. The final response
 output is confirmation of the already validated item state, never an
 independent or weaker authority.
-Delta text is retained as per-item chunks under the existing one-megabyte
-aggregate delta budget. The decoder appends each admitted chunk once and joins
-one item's chunks exactly once at its done event before comparing the provider's
-complete argument string; it never reconstructs the growing string after each
-delta.
+Function-argument, answer, reasoning-summary, and reasoning-content delta text
+uses one shared bounded per-item chunk primitive. The decoder appends each
+admitted fragment once and joins one item's fragments exactly once at its
+corresponding done event before comparing the provider's complete string; it
+never reconstructs a growing string after each delta. Arguments retain their
+one-megabyte aggregate budget, answer retention uses the canonical 262,144-code-
+unit runtime response bound, and summary plus reasoning content share the
+existing one-megabyte provider reasoning budget.
 Before retaining each complete done-event argument string, the decoder enforces
 both the 32-call batch count and the one-megabyte aggregate completed-argument
 budget. Item completion validates the already bounded retained string and does
@@ -396,6 +400,8 @@ Red-green regression must prove:
   length getter only once before UTF-8 decode;
   function-argument fragmentation retains bounded chunks and performs one
   completion join rather than repeated accumulated-string reconstruction;
+  answer and both reasoning channels use the same bounded chunk primitive and
+  one text-done join under their existing aggregate limits;
   Responses admission contains throwing status and header getters with paired
   cleanup before constructing a stream; catalog and Responses admission roll
   back partial listener wiring and contain initial flow-control throws, while
@@ -405,8 +411,8 @@ Red-green regression must prove:
   later item projection can omit or replace it, and any reasoning item or delta
   is rejected when the captured effort is off;
 - stream lifecycle rejects close, concurrent read, malformed framing, unknown
-  events, contradictory
-  lifecycle, nonempty or malformed pre-terminal output, missing or
+  events, omission or duplication of the required `response.in_progress`,
+  contradictory lifecycle, nonempty or malformed pre-terminal output, missing or
   contradictory completed-output projections, a nonzero index for the sole
   message content part, trailing frames before publication, early EOF, and
   post-terminal reads;
