@@ -245,7 +245,9 @@ ignores a retained `data` callback before flow control or copying once EOF,
 failure, settlement, or close is authoritative; late bytes cannot repopulate its
 released queue. Data emitted synchronously by `resume` remains in one bounded
 stage until flow control succeeds, and a terminal callback raised by `pause`
-prevents the chunk from being observed or retained.
+prevents the chunk from being observed or retained. Terminal state is checked
+again after every untrusted chunk snapshot, so accessor-triggered EOF, failure,
+or close cannot publish bytes, decode content, or repopulate released state.
 The compatibility flow identifies the caller as `agent` or omits the caller
 field, discloses that it is independent and not provider-endorsed, and never
 imports a foreign credential or browser session.

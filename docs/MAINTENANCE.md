@@ -681,6 +681,10 @@ For an injected Responses chunk, allocate and copy from the one validated
 length, then pass only that owned snapshot to UTF-8 decoding. Regress a getter
 that returns an admitted length once and an oversized length on its next read;
 the untrusted length must be consulted exactly once.
+Also make the HTTPS length getter emit EOF and error, and make the injected
+model-chunk getter close its owning stream. Recheck terminal authority after the
+snapshot and before staging, publication, failure classification, UTF-8 decode,
+or decoder updates; the terminal result must not be replaced.
 Apply the same once-read, no-throw length-and-copy transaction at the exported
 catalog decoder's one-megabyte boundary. Regress a throwing length getter and
 return the content-free limit result rather than exposing its cause.

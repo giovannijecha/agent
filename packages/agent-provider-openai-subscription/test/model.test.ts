@@ -905,6 +905,44 @@ test("rejects a pending transport read before admitting bytes returned after clo
   }
 });
 
+test("rejects a response chunk that closes the model during snapshot", async () => {
+  const chunk = Uint8Array.of(0xff);
+  let closeModel = (): void => undefined;
+  let closing: Promise<unknown> = Promise.resolve();
+  Object.defineProperty(chunk, "length", {
+    get: () => {
+      closeModel();
+      return 1;
+    },
+  });
+  const stream = new FakeStream([ok(chunk)]);
+  const model = OpenAISubscriptionModel.create(
+    new FakeTransport(ok(stream)),
+    "Inspect safely.",
+    MODEL,
+  );
+  assert.ok(model.ok);
+  const opened = await model.value.open(
+    conversation(),
+    new Cancellation(),
+    [],
+    Object.freeze({ thinkingEffort: "off" as const }),
+  );
+  assert.ok(opened.ok);
+  closeModel = () => { closing = opened.value.close(); };
+  assert.deepEqual(await opened.value.read(), {
+    error: {
+      cleanupFailed: false,
+      kind: "openaiSubscription",
+      operation: "read",
+      reason: "closed",
+    },
+    ok: false,
+  });
+  await closing;
+  assert.equal(stream.closeCalls, 1);
+});
+
 test("releases partial Responses decoder state for a fresh lifecycle", () => {
   const decoder = new OpenAIResponsesDecoder(false);
   const partial = new SseDecoder();

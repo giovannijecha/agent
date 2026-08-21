@@ -271,6 +271,7 @@ class OpenAIStream implements ModelStream<OpenAIError> {
         }
         if (!(received.value instanceof Uint8Array)) return this.#fail("transportProtocol");
         const chunk = snapshotResponseChunk(received.value);
+        if (this.#closed) return err(modelError("read", "closed"));
         if (chunk === undefined) return this.#fail("limit");
         const text = this.#utf8.decode(chunk);
         if (!text.ok) return this.#fail("encoding");

@@ -316,6 +316,7 @@ class NodeOpenAIStream implements OpenAITransportStream {
     }
     if (this.#admissionTerminated()) return;
     const owned = snapshotChunk(chunk);
+    if (this.#admissionTerminated()) return;
     if (owned === undefined) {
       this.#fail("limit");
       return;

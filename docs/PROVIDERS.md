@@ -279,6 +279,10 @@ before retention or UTF-8 decoding; a source iterator is never consulted.
 For an injected Responses chunk, the one admitted length controls both the
 allocation and exact copy; the UTF-8 decoder receives only that owned snapshot
 and never rereads the transport object's length.
+Terminal authority is rechecked immediately after each untrusted chunk
+snapshot. HTTPS EOF or failure prevents staging or publication, while model
+close prevents snapshot-error classification, UTF-8 decoding, and any SSE or
+Responses-state update.
 The exported catalog decoder likewise snapshots its untrusted byte length once
 inside the same no-throw boundary as its bounded copy. A throwing, malformed,
 empty, or oversized length returns only the content-free limit result.

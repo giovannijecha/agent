@@ -179,7 +179,9 @@ decode a post-close value. A retained transport `data` callback is inert after
 EOF, failure, settlement, or close before it can pause or retain bytes. A
 read stages one bounded synchronous `data` callback until `resume` succeeds,
 and rechecks terminal authority after callback-capable `pause` before observing
-the chunk. A response callback delivered after request setup
+the chunk. Both HTTPS and Node-free boundaries recheck again after untrusted
+chunk snapshotting and before publication or decode. A response callback
+delivered after request setup
 fails is destroyed under containment and cannot become new staged authority.
 Local removal uses native retirement and explicitly does not
 claim provider-side revocation or secure erasure. The product scanner admits

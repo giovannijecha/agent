@@ -275,6 +275,11 @@ typed-array `set` before UTF-8 decoding. No source iterator participates in the
 copy. The adapter's one validated length controls allocation and copying; its
 UTF-8 decoder receives only the owned snapshot and never rereads the injected
 transport object's length.
+Both boundaries recheck terminal authority immediately after the untrusted
+snapshot transaction. The Node transport does so before staging or publishing
+the owned chunk; the Node-free stream does so before classifying snapshot
+failure, decoding UTF-8, or updating SSE and Responses state. Close, EOF, or
+failure raised by an accessor therefore remains authoritative.
 
 The Node-free decoder performs strict incremental UTF-8 and bounded SSE
 framing. Boundary discovery inspects only each newly admitted chunk plus the
@@ -432,6 +437,9 @@ Red-green regression must prove:
   without whole-buffer rescanning; HTTPS and injected chunks reject the
   65,536-byte bound, ignore overridden source iterators, and consult a changing
   length getter only once before UTF-8 decode;
+- HTTPS EOF or failure raised during chunk snapshot prevents staging or
+  publication, and model close raised during its snapshot prevents failure
+  reclassification, UTF-8 decode, or decoder-state repopulation;
   function-argument fragmentation retains bounded chunks and performs one
   completion join rather than repeated accumulated-string reconstruction;
   answer and both reasoning channels use the same bounded chunk primitive and

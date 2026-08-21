@@ -752,6 +752,34 @@ test("rechecks Responses termination after pausing a data event", async () => {
   }
 });
 
+test("rechecks Responses termination after snapshotting a data event", async () => {
+  for (const event of ["end", "error"] as const) {
+    const response = new FakeResponse(200, "text/event-stream");
+    const client = new FakeClient(response);
+    const opened = await create(client).open(Object.freeze({ body: "{}" }), new Cancellation());
+    assert.ok(opened.ok);
+    const pending = opened.value.read();
+    const chunk = ascii("unsafe");
+    let terminalized = false;
+    Object.defineProperty(chunk, "length", {
+      get: () => {
+        if (!terminalized) {
+          terminalized = true;
+          response.emit(event, new Error("private terminal snapshot event"));
+        }
+        return 6;
+      },
+    });
+    response.emit("data", chunk);
+    assert.deepEqual(await pending, event === "end"
+      ? { ok: true, value: null }
+      : {
+          error: { cleanupFailed: false, kind: "connection" },
+          ok: false,
+        });
+  }
+});
+
 test("rejects a non-string singleton content-type without coercion", async () => {
   for (const operation of ["catalog", "responses"] as const) {
     const response = new FakeResponse();
