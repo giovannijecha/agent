@@ -493,6 +493,11 @@ test("excludes retrospectively justified reference-source influence", () => {
     /supplies no feasibility,\s+protocol, identity, or implementation authority/u,
   );
   assert.doesNotMatch(decision, /Both projects independently implement/u);
+  assert.match(
+    decision,
+    /one commit-pinned official OpenAI provenance\s+entry and the separately bound discarded Pi\/OpenCode historical record/u,
+  );
+  assert.doesNotMatch(decision, /two commit-pinned clean-room provenance/u);
   assert.doesNotMatch(
     providers,
     /Those concrete stale-documentation\s+gaps permitted/u,

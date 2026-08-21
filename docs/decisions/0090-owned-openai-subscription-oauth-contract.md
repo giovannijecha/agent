@@ -317,12 +317,13 @@ API-key transport, or second subscription contract.
 
 Documentation verification binds this record, current-authority route,
 decision metadata and digest, provider-policy schema, OAuth registration
-conclusion, primary-source links, and two commit-pinned clean-room provenance
-entries. Publication verification continues to require that living product
-documents say Ollama Cloud is the sole enabled provider and that OpenAI OAuth
-is inactive. Existing source scanning continues to reject every OpenAI
-subscription endpoint, OAuth field, client identity, token record, foreign
-credential path, or provider workspace in product code.
+conclusion, primary-source links, one commit-pinned official OpenAI provenance
+entry and the separately bound discarded Pi/OpenCode historical record.
+Publication verification continues to require that living product documents
+say Ollama Cloud is the sole enabled provider and that OpenAI OAuth is inactive.
+Existing source scanning continues to reject every OpenAI subscription endpoint,
+OAuth field, client identity, token record, foreign credential path, or provider
+workspace in product code.
 
 The canonical Windows and Linux gates use no network, real account, client
 identifier, token, device code, or provider response.
