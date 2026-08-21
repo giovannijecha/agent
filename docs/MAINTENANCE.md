@@ -618,6 +618,10 @@ For OpenAI byte-chunk changes, snapshot the length, enforce the 1-through-65,536
 bound, and copy into a fresh typed array with `set` before retention or UTF-8
 decoding. Regress both HTTPS and injected chunks with overridden iterators;
 never spread or call an untrusted byte iterator.
+For an injected Responses chunk, allocate and copy from the one validated
+length, then pass only that owned snapshot to UTF-8 decoding. Regress a getter
+that returns an admitted length once and an oversized length on its next read;
+the untrusted length must be consulted exactly once.
 Apply the same once-read, no-throw length-and-copy transaction at the exported
 catalog decoder's one-megabyte boundary. Regress a throwing length getter and
 return the content-free limit result rather than exposing its cause.

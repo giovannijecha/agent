@@ -223,6 +223,9 @@ malformed getter without encoding or sending a request.
 Catalog and Responses HTTPS chunks, and injected Responses chunks, must contain
 1 through 65,536 bytes. Each is copied into a fresh typed array with `set`
 before retention or UTF-8 decoding; a source iterator is never consulted.
+For an injected Responses chunk, the one admitted length controls both the
+allocation and exact copy; the UTF-8 decoder receives only that owned snapshot
+and never rereads the transport object's length.
 The exported catalog decoder likewise snapshots its untrusted byte length once
 inside the same no-throw boundary as its bounded copy. A throwing, malformed,
 empty, or oversized length returns only the content-free limit result.

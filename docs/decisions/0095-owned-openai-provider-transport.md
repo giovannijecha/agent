@@ -226,7 +226,9 @@ failure, and close, without skipping any remaining cleanup operation.
 Both the Node transport and Node-free Responses adapter snapshot each chunk's
 length, require 1 through 65,536 bytes, and copy into a fresh `Uint8Array` with
 typed-array `set` before UTF-8 decoding. No source iterator participates in the
-copy.
+copy. The adapter's one validated length controls allocation and copying; its
+UTF-8 decoder receives only the owned snapshot and never rereads the injected
+transport object's length.
 
 The Node-free decoder performs strict incremental UTF-8 and bounded SSE
 framing. Boundary discovery inspects only each newly admitted chunk plus the
@@ -366,7 +368,8 @@ Red-green regression must prove:
   call in either item-addition order, ordered emission from multiple active
   message items, and one large frame fragmented into single-code-unit chunks
   without whole-buffer rescanning; HTTPS and injected chunks reject the
-  65,536-byte bound and ignore overridden source iterators before UTF-8 decode;
+  65,536-byte bound, ignore overridden source iterators, and consult a changing
+  length getter only once before UTF-8 decode;
   Responses admission contains throwing status and header getters with paired
   cleanup before constructing a stream; catalog and Responses admission roll
   back partial listener wiring and contain initial flow-control throws, while

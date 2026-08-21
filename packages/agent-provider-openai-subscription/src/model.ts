@@ -96,6 +96,19 @@ function transportReason(kind: OpenAITransportErrorKind): OpenAIFailureReason {
   return "transportProtocol";
 }
 
+function snapshotResponseChunk(value: Uint8Array): Uint8Array | undefined {
+  try {
+    const length = value.length;
+    if (!Number.isSafeInteger(length) || length < 1 ||
+      length > OPENAI_PROVIDER_LIMITS.responseChunkBytes) return undefined;
+    const snapshot = new Uint8Array(length);
+    snapshot.set(value);
+    return snapshot;
+  } catch (_cause: unknown) {
+    return undefined;
+  }
+}
+
 function statusReason(statusCode: number): OpenAIFailureReason {
   if (statusCode >= 400 && statusCode <= 499) {
     if (statusCode >= 401 && statusCode <= 404) return "statusRejected";
@@ -276,12 +289,9 @@ class OpenAIStream implements ModelStream<OpenAIError> {
           continue;
         }
         if (!(received.value instanceof Uint8Array)) return this.#fail("transportProtocol");
-        const chunkLength = received.value.length;
-        if (!Number.isSafeInteger(chunkLength) || chunkLength < 1 ||
-          chunkLength > OPENAI_PROVIDER_LIMITS.responseChunkBytes) {
-          return this.#fail("limit");
-        }
-        const text = this.#utf8.decode(received.value);
+        const chunk = snapshotResponseChunk(received.value);
+        if (chunk === undefined) return this.#fail("limit");
+        const text = this.#utf8.decode(chunk);
         if (!text.ok) return this.#fail("encoding");
         if (text.value.length > 0) {
           const pushed = this.#sse.push(text.value);

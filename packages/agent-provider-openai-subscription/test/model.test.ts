@@ -1731,6 +1731,39 @@ test("decodes Responses bytes without consulting an overridden iterator", async 
   assert.equal(iteratorCalls, 0);
 });
 
+test("decodes only the exact length-validated Responses chunk", async () => {
+  const wire = ascii(textEvents("Done."));
+  const admittedLength = wire.length;
+  let lengthReads = 0;
+  Object.defineProperty(wire, "length", {
+    get: () => {
+      lengthReads += 1;
+      return lengthReads === 1
+        ? admittedLength
+        : OPENAI_PROVIDER_LIMITS.responseChunkBytes + 1;
+    },
+  });
+  const model = OpenAISubscriptionModel.create(
+    new FakeTransport(ok(new FakeStream([ok(wire), ok(null)]))),
+    "Inspect safely.",
+    MODEL,
+  );
+  assert.ok(model.ok);
+  const opened = await model.value.open(
+    conversation(),
+    new Cancellation(),
+    [],
+    Object.freeze({ thinkingEffort: "off" as const }),
+  );
+  assert.ok(opened.ok);
+  assert.deepEqual(await opened.value.read(), {
+    ok: true,
+    value: { kind: "delta", text: "Done." },
+  });
+  assert.deepEqual(await opened.value.read(), { ok: true, value: { kind: "done" } });
+  assert.equal(lengthReads, 1);
+});
+
 test("bounds injected Responses chunks before UTF-8 decoding", async () => {
   const stream = new FakeStream([ok(new Uint8Array(
     OPENAI_PROVIDER_LIMITS.responseChunkBytes + 1,
