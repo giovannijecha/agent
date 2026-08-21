@@ -12,6 +12,7 @@ secret, or credential.
 - Registration state: `blocked`.
 - Compatibility state: `accepted-runtime-inactive`.
 - Identity state: `accepted-runtime-inactive`.
+- OpenAI credential state: `credential-compatible-inactive`.
 - Accepted direct subscription OAuth registrations: `none`
 
 No requested subscription provider has registered or authorized `agent` as a
@@ -21,7 +22,7 @@ and xAI. That policy changes no runtime and does not describe provider approval.
 
 | Provider | Recorded public route | Registration conclusion |
 | --- | --- | --- |
-| ChatGPT Plus/Pro | OpenAI documents subscription browser and device login for Codex clients; decisions 0090 through 0092 fix the independently derived protocol and exact provider-owned public-client identity. | The protocol is `identity-compatible-inactive`: identity is accepted with `agent` as the disclosed caller, but the credential, auth, transport, and integration modules remain inactive. |
+| ChatGPT Plus/Pro | OpenAI documents subscription browser and device login for Codex clients; decisions 0090 through 0093 fix the independently derived protocol, exact provider-owned public-client identity, and owned record. | The protocol is `credential-compatible-inactive`: identity and storage mechanics are accepted, but auth, transport, and integration remain inactive. |
 | Claude Pro/Max | Anthropic documents subscription login for Claude Code and subscription-backed third-party use through the Claude Agent SDK. | Claude Code and Agent SDK are foreign runtimes; no accepted direct independent-client registration is recorded for `agent`. |
 | Kimi Code | Kimi documents device OAuth for Kimi Code; a pre-recorded clean-room inspection confirmed that current subscription OAuth uses Kimi's first-party public client even though Pi's provider guide omits that route. | Compatibility feasibility is established, but the [recorded provider response](PROVIDER-APPLICATIONS.md#kimi-code) remains a material negative-eligibility risk and a provider-specific decision is still required. |
 | Grok subscription | xAI documents browser and RFC 8628 device login for Grok Build plus headless and ACP integration, while its direct API has a separate key path. | A clean-room inspection confirms direct-flow feasibility, but xAI public-client ownership remains unresolved and a provider-specific decision is required. |
@@ -59,16 +60,17 @@ identity, user agent, prompt, runtime, or credential store.
 Decision 0092 accepts the exact OpenAI provider-owned client, a one-field device
 request, an empty requested-scope set, the provider callback, the closed poll
 statuses, and `agent`-or-omitted caller fields without enabling runtime.
+Decision 0093 implements the provider-specific record, private native protocol,
+exclusive admission, recovery, replacement, and removal without adding login
+or network authority.
 
 The browser remains provider-hosted. `agent` will not request a password,
 cookie, recovery code, payment detail, or one-time code. Decision 0089's active
-owned store admits only the Ollama Cloud API-key record; it changes no current
-registration or OAuth admission result. OAuth material remains forbidden until
-a provider-specific implementation decision supplies the exact admitted public
-client, truthful caller identity, disclosure, closed provider-specific record,
-refresh, revocation, recovery, and removal contract. Decisions 0090 through
-0092 now supply the non-active OpenAI protocol, compatibility authority, and
-public-client constant without supplying a credential or implementation.
+owned store serves the current Ollama Cloud API-key path. Decision 0093 extends
+that broker with the exact inactive OpenAI record, but no command invokes it.
+Decisions 0090 through 0093 now supply the OpenAI protocol, compatibility
+authority, public-client constant, and storage implementation; the auth and
+network gates remain closed.
 
 ## Data flow
 
@@ -128,7 +130,7 @@ here, request lifecycle metadata in the
 [provider request ledger](PROVIDER-APPLICATIONS.md), and an external-source
 inspection in the [ownership record](OWNERSHIP.md) when required. Complete
 registration or compatibility evidence does not enable product code by itself.
-For ChatGPT, implement decision 0090 under decisions 0091 and 0092's identity
+For ChatGPT, implement decision 0090 under decisions 0091 through 0093's identity
 and disclosure boundary. For Kimi or xAI, accept a separate provider-specific
 compatibility decision; for Claude, satisfy the direct-registration gate. In
 every case, the same activation series must supply the machine gate, first
@@ -148,6 +150,7 @@ package, network capability, or simulated login screen.
 - [OpenAI subscription OAuth contract decision](decisions/0090-owned-openai-subscription-oauth-contract.md)
 - [Provider public-client compatibility decision](decisions/0091-owned-provider-public-client-compatibility.md)
 - [OpenAI compatible public-client decision](decisions/0092-owned-openai-compatible-public-client.md)
+- [OpenAI OAuth credential-record decision](decisions/0093-owned-openai-oauth-credential-record.md)
 - [Anthropic authentication](https://code.claude.com/docs/en/authentication)
 - [Anthropic subscription use in third-party Agent SDK apps](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan)
 - [Kimi Code overview and third-party authentication](https://www.kimi.com/code/docs/en/)
@@ -158,7 +161,7 @@ package, network capability, or simulated login screen.
 
 Recheck the primary references before changing a registration or compatibility
 conclusion. Keep this status, the request ledger's historical lifecycle
-metadata, decisions 0091 and 0092, each provider-specific decision, and the provider
+metadata, decisions 0091 through 0093, each provider-specific decision, and the provider
 policy's admission result synchronized without copying one document's owned
 fields into another. A reply that does not satisfy every direct-registration
 requirement leaves that route blocked; compatibility remains separately

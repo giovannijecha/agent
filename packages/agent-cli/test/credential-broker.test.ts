@@ -4,6 +4,8 @@ import test from "node:test";
 import {
   CREDENTIAL_BROKER_DEADLINES,
   type CredentialBrokerBoundary,
+  openOpenAICredentialMutation,
+  openOpenAICredentialSnapshot,
   openOllamaCredentialMutation,
   openOllamaCredentialSnapshot,
 } from "../dist/credential-broker.js";
@@ -255,4 +257,66 @@ test("times out one stalled operation and revokes the broker", async () => {
   assert.equal(result.ok, false);
   if (!result.ok) assert.equal(result.error.kind, "timeout");
   assert.equal(child.kills, 1);
+});
+
+test("holds OpenAI snapshot admission exclusively and decodes one exact record", async () => {
+  const child = new FakeChild();
+  const deadlines = new FakeDeadlines();
+  const opening = openOpenAICredentialSnapshot(
+    "linux",
+    "x64",
+    boundary(child, deadlines),
+  );
+  assert.equal(child.stdin.writes.at(0)?.at(5), 7);
+  const payload = new Uint8Array(20 + 16 + 17 + 17);
+  const view = new DataView(payload.buffer);
+  view.setUint32(0, 16, true);
+  view.setUint32(4, 17, true);
+  view.setUint32(8, 17, true);
+  view.setBigUint64(12, 1_800_000_000n, true);
+  payload.set(ascii("synthetic-access"), 20);
+  payload.set(ascii("synthetic-refresh"), 36);
+  payload.set(ascii("synthetic-account"), 53);
+  child.stdout.emit(response(13, payload));
+  const opened = await opening;
+  assert.ok(opened.ok);
+  assert.deepEqual(opened.value.credential, {
+    accessToken: "synthetic-access",
+    accountId: "synthetic-account",
+    expiresAt: 1_800_000_000,
+    refreshToken: "synthetic-refresh",
+  });
+  const closing = opened.value.admission.close();
+  child.emitClose();
+  assert.ok((await closing).ok);
+});
+
+test("performs one exact OpenAI credential registration under mutation admission", async () => {
+  const child = new FakeChild();
+  const deadlines = new FakeDeadlines();
+  const opening = openOpenAICredentialMutation(
+    "win32",
+    "x64",
+    boundary(child, deadlines),
+  );
+  assert.equal(child.stdin.writes.at(0)?.at(5), 8);
+  child.stdout.emit(response(1));
+  const opened = await opening;
+  assert.ok(opened.ok);
+  const registering = opened.value.perform(Object.freeze({
+    credential: Object.freeze({
+      accessToken: "synthetic-access",
+      accountId: "synthetic-account",
+      expiresAt: 1_800_000_000,
+      refreshToken: "synthetic-refresh",
+    }),
+    kind: "register" as const,
+  }));
+  assert.equal(child.stdin.writes.at(1)?.at(5), 9);
+  child.stdout.emit(response(4));
+  await Promise.resolve();
+  child.emitClose();
+  const registered = await registering;
+  assert.ok(registered.ok);
+  assert.equal(registered.value, "registered");
 });

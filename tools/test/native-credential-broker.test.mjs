@@ -36,6 +36,22 @@ function ascii(value) {
   return Uint8Array.from([...value].map((character) => character.charCodeAt(0)));
 }
 
+function openAICredential(accessToken, refreshToken, accountId, expiresAt) {
+  const access = ascii(accessToken);
+  const refresh = ascii(refreshToken);
+  const account = ascii(accountId);
+  const payload = new Uint8Array(20 + access.length + refresh.length + account.length);
+  const view = new DataView(payload.buffer);
+  view.setUint32(0, access.length, true);
+  view.setUint32(4, refresh.length, true);
+  view.setUint32(8, account.length, true);
+  view.setBigUint64(12, BigInt(expiresAt), true);
+  payload.set(access, 20);
+  payload.set(refresh, 20 + access.length);
+  payload.set(account, 20 + access.length + refresh.length);
+  return payload;
+}
+
 function frames(...values) {
   const length = values.reduce((total, value) => total + value.length, 0);
   const result = new Uint8Array(length);
@@ -413,6 +429,188 @@ test("replacement recovery retains the committed credential", () => {
       ), "utf8"),
       /revision=2\nlength=15\n\nsynthetic-third$/u,
     );
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("native OpenAI credential lifecycle is exact, exclusive, and removable", () => {
+  const root = temporaryRoot();
+  try {
+    const first = openAICredential(
+      "synthetic-access-one",
+      "synthetic-refresh-one",
+      "synthetic-account",
+      1_800_000_000,
+    );
+    const registered = launch(root, frames(request(8), request(9, first)));
+    assert.equal(registered.status, 0);
+    assert.equal(registered.stderr.length, 0);
+    assert.deepEqual(responses(registered.stdout).map((entry) => entry.kind), [1, 4]);
+
+    const recordPath = path.join(root, ".agent", "credentials", "openai.oauth");
+    assert.equal(
+      readFileSync(recordPath, "utf8"),
+      "agent/openai/oauth/v1\n" +
+        "revision=1\n" +
+        "access-length=20\n" +
+        "refresh-length=21\n" +
+        "account-length=17\n" +
+        "expires-at=1800000000\n\n" +
+        "synthetic-access-one" +
+        "synthetic-refresh-one" +
+        "synthetic-account",
+    );
+
+    const snapshot = launch(root, request(7));
+    assert.equal(snapshot.status, 0);
+    const opened = responses(snapshot.stdout);
+    assert.equal(opened.at(0)?.kind, 13);
+    assert.deepEqual([...(opened.at(0)?.payload ?? [])], [...first]);
+
+    const second = openAICredential(
+      "synthetic-access-two",
+      "synthetic-refresh-two",
+      "synthetic-account",
+      1_800_000_100,
+    );
+    const replaced = launch(root, frames(request(8), request(10, second)));
+    assert.deepEqual(responses(replaced.stdout).map((entry) => entry.kind), [3, 5]);
+    assert.match(readFileSync(recordPath, "utf8"), /revision=2\n/u);
+
+    const removed = launch(root, frames(request(8), request(11)));
+    assert.deepEqual(responses(removed.stdout).map((entry) => entry.kind), [3, 6]);
+    assert.equal(existsSync(recordPath), false);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("OpenAI admission is exclusive while its lock remains independent from Ollama", async () => {
+  const root = temporaryRoot();
+  try {
+    const openAI = spawn(broker, [], {
+      cwd: root,
+      env: {},
+      shell: false,
+      stdio: ["pipe", "pipe", "pipe"],
+      windowsHide: true,
+    });
+    const first = new Promise((resolve, reject) => {
+      openAI.once("error", reject);
+      openAI.stdout.once("data", resolve);
+    });
+    openAI.stdin.write(request(7));
+    assert.deepEqual(responses(await first).map((entry) => entry.kind), [1]);
+
+    const busy = launch(root, request(8));
+    assert.deepEqual(responses(busy.stdout).map((entry) => entry.kind), [8]);
+    const ollama = launch(root, frames(
+      request(2, Uint8Array.from([0])),
+      request(3, ascii("synthetic-key")),
+    ));
+    assert.deepEqual(responses(ollama.stdout).map((entry) => entry.kind), [1, 4]);
+
+    openAI.stdin.end();
+    await new Promise((resolve, reject) => {
+      openAI.once("error", reject);
+      openAI.once("close", resolve);
+    });
+    assert.equal(openAI.exitCode, 0);
+
+    const registered = launch(root, frames(
+      request(8),
+      request(9, openAICredential(
+        "synthetic-access",
+        "synthetic-refresh",
+        "synthetic-account",
+        1_800_000_000,
+      )),
+    ));
+    assert.deepEqual(
+      responses(registered.stdout).map((entry) => entry.kind),
+      [1, 4],
+    );
+    const ollamaSnapshot = launch(root, request(1, Uint8Array.from([0])));
+    assert.deepEqual(
+      responses(ollamaSnapshot.stdout).map((entry) => entry.kind),
+      [2],
+    );
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("OpenAI records reject malformed envelopes, payloads, links, and trailing bytes", () => {
+  const root = temporaryRoot();
+  try {
+    const credential = openAICredential(
+      "synthetic-access",
+      "synthetic-refresh",
+      "synthetic-account",
+      1_800_000_000,
+    );
+    const registered = launch(root, frames(request(8), request(9, credential)));
+    assert.equal(registered.status, 0);
+    const directory = path.join(root, ".agent", "credentials");
+    const record = path.join(directory, "openai.oauth");
+    const valid = readFileSync(record);
+    const malformed = [
+      valid.toString("utf8").replace("access-length=16", "access-length=016"),
+      valid.toString("utf8").replace("refresh-length=17", "refresh-length=16"),
+      valid.toString("utf8").replaceAll("\n", "\r\n"),
+      valid.toString("utf8") + "x",
+      valid.toString("utf8").replace("synthetic-account", "synthetic account"),
+    ];
+    for (const invalid of malformed) {
+      writeFileSync(record, invalid);
+      const rejected = launch(root, request(7));
+      assert.deepEqual(responses(rejected.stdout).map((entry) => entry.kind), [12]);
+    }
+
+    writeFileSync(record, valid);
+    const alias = path.join(root, "linked-openai-record");
+    linkSync(record, alias);
+    const linked = launch(root, request(7));
+    assert.deepEqual(responses(linked.stdout).map((entry) => entry.kind), [12]);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("exclusive OpenAI admission recovers only its bounded interruption states", () => {
+  const root = temporaryRoot();
+  try {
+    const credential = openAICredential(
+      "synthetic-access",
+      "synthetic-refresh",
+      "synthetic-account",
+      1_800_000_000,
+    );
+    const stageMarker = path.join(root, ".fixture-stop-after-stage");
+    writeFileSync(stageMarker, "");
+    const interrupted = launch(root, frames(request(8), request(9, credential)));
+    assert.deepEqual(
+      responses(interrupted.stdout).map((entry) => entry.kind),
+      [1, 12],
+    );
+    rmSync(stageMarker, { force: true });
+    const recovered = launch(root, frames(request(8), request(9, credential)));
+    assert.deepEqual(
+      responses(recovered.stdout).map((entry) => entry.kind),
+      [1, 4],
+    );
+
+    const retireMarker = path.join(root, ".fixture-stop-after-retire");
+    writeFileSync(retireMarker, "");
+    const retired = launch(root, frames(request(8), request(11)));
+    assert.deepEqual(
+      responses(retired.stdout).map((entry) => entry.kind),
+      [3, 12],
+    );
+    rmSync(retireMarker, { force: true });
+    const absent = launch(root, frames(request(8), request(12)));
+    assert.deepEqual(responses(absent.stdout).map((entry) => entry.kind), [1, 7]);
   } finally {
     rmSync(root, { force: true, recursive: true });
   }

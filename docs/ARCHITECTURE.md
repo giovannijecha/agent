@@ -177,16 +177,19 @@ Decision 0089 supersedes decision 0088's OAuth-only future design and the
 credential-selection portions of decision 0072. Its Ollama-first transition is
 active: `agent auth`, the provider-specific owned record, shared/exclusive
 native admission, complete `/providers` removal, and two-stage `/models`
-selection ship as one authority. No OAuth record or second provider is implied.
+selection ship as one authority.
 Decision 0090 specifies a future OpenAI device OAuth, exclusive credential,
 catalog, and Responses boundary. Decision 0091 accepts provider-owned
 non-secret public-client compatibility while requiring every controllable
 caller identity to remain `agent`; the OpenAI contract is
 `specified-compatible-inactive` behind its implementation gate. Decision 0092
 accepts the exact OpenAI public client and device identity semantics and moves
-that contract to `identity-compatible-inactive`, with the credential extension
-as its next gate. These decisions add no current package, record, network
-request, provider row, or runtime composition.
+that contract to `identity-compatible-inactive`. Decision 0093 implements only
+the exact provider-specific record and private native broker transaction, so
+the contract is now `credential-compatible-inactive` behind
+`auth-implementation-required`. The application controller does not call the
+OpenAI broker adapter; there is no login action, network request, provider
+package, provider row, model row, or runtime composition.
 
 Every accepted journal file is synchronized before publication. On POSIX, the
 CLI also synchronizes a staged session directory before publishing it and the

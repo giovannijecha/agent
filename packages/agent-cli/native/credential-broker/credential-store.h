@@ -5,6 +5,8 @@
 #include <stddef.h>
 
 #define AGENT_CREDENTIAL_KEY_MAX_BYTES 32768u
+#define AGENT_CREDENTIAL_OPENAI_ACCOUNT_MAX_BYTES 256u
+#define AGENT_CREDENTIAL_OPENAI_PAYLOAD_MAX_BYTES 65812u
 
 enum agent_credential_request_kind {
   AGENT_CREDENTIAL_SNAPSHOT = 1,
@@ -12,7 +14,13 @@ enum agent_credential_request_kind {
   AGENT_CREDENTIAL_REGISTER = 3,
   AGENT_CREDENTIAL_REPLACE = 4,
   AGENT_CREDENTIAL_REMOVE = 5,
-  AGENT_CREDENTIAL_CANCEL = 6
+  AGENT_CREDENTIAL_CANCEL = 6,
+  AGENT_CREDENTIAL_OPENAI_SNAPSHOT = 7,
+  AGENT_CREDENTIAL_OPENAI_OPEN_MUTATION = 8,
+  AGENT_CREDENTIAL_OPENAI_REGISTER = 9,
+  AGENT_CREDENTIAL_OPENAI_REPLACE = 10,
+  AGENT_CREDENTIAL_OPENAI_REMOVE = 11,
+  AGENT_CREDENTIAL_OPENAI_CANCEL = 12
 };
 
 enum agent_credential_response_kind {
@@ -27,7 +35,8 @@ enum agent_credential_response_kind {
   AGENT_CREDENTIAL_DUAL_AUTHORITY = 9,
   AGENT_CREDENTIAL_INVALID_VALUE = 10,
   AGENT_CREDENTIAL_INVALID_STATE = 11,
-  AGENT_CREDENTIAL_STORE_FAILURE = 12
+  AGENT_CREDENTIAL_STORE_FAILURE = 12,
+  AGENT_CREDENTIAL_OPENAI_VALUE = 13
 };
 
 struct agent_credential_session {
@@ -35,7 +44,7 @@ struct agent_credential_session {
 };
 
 bool agent_credential_store_open(
-  bool exclusive,
+  enum agent_credential_request_kind kind,
   bool environment_present,
   struct agent_credential_session *session,
   enum agent_credential_response_kind *response,

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 10,
+  "schemaVersion": 11,
   "applicationDocument": "docs/PROVIDER-APPLICATIONS.md",
   "researchedOn": "2026-08-08",
   "subscriptionCompatibility": {
@@ -23,7 +23,7 @@
       "id": "chatgpt",
       "displayName": "ChatGPT Plus/Pro",
       "eligibility": "blocked",
-      "blocker": "credential-implementation-required",
+      "blocker": "auth-implementation-required",
       "request": {
         "state": "submitted",
         "kind": "public-client-authorization-inquiry",
@@ -111,7 +111,8 @@
       "id": "chatgpt",
       "decision": "0090",
       "identityDecision": "0092",
-      "state": "identity-compatible-inactive",
+      "credentialDecision": "0093",
+      "state": "credential-compatible-inactive",
       "flow": "openai-device-code-plus-oauth-pkce",
       "issuer": "https://auth.openai.com",
       "deviceCodeEndpoint": "https://auth.openai.com/api/accounts/deviceauth/usercode",
@@ -143,7 +144,29 @@
       "disclosure": "independent-compatibility-not-provider-endorsement",
       "clientRegistrationEndpoint": null,
       "credentialRecord": "~/.agent/credentials/openai.oauth",
+      "credentialRecoveryRecords": [
+        "~/.agent/credentials/.openai.oauth.pending",
+        "~/.agent/credentials/.openai.oauth.retired"
+      ],
+      "credentialEnvironment": null,
       "credentialAdmission": "exclusive-session-and-mutation",
+      "credentialProtocol": {
+        "requestKinds": [
+          7,
+          8,
+          9,
+          10,
+          11,
+          12
+        ],
+        "responseKind": 13,
+        "envelopeBytes": 20,
+        "maxPayloadBytes": 65812,
+        "headerBytes": 256,
+        "maxRecordBytes": 66048,
+        "payloadSyntax": "visible-ascii-0x21-0x7e",
+        "revisionOwner": "native-broker"
+      },
       "modelAuthority": "authenticated-catalog",
       "transport": "openai-responses-sse",
       "evidence": "https://learn.chatgpt.com/docs/app-server",

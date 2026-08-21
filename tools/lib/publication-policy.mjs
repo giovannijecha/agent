@@ -46,13 +46,14 @@ const EXPECTED_DOCUMENTS = Object.freeze([
   "docs/decisions/0090-owned-openai-subscription-oauth-contract.md",
   "docs/decisions/0091-owned-provider-public-client-compatibility.md",
   "docs/decisions/0092-owned-openai-compatible-public-client.md",
+  "docs/decisions/0093-owned-openai-oauth-credential-record.md",
   "assets/brand/README.md",
   "docs/BRAND.md",
   "docs/decisions/0037-canonical-agent-brand.md",
   "docs/decisions/0038-owned-deterministic-tui-motion.md",
 ]);
 const OAUTH_REGISTRATION_ROWS = Object.freeze([
-  "| ChatGPT Plus/Pro | OpenAI documents subscription browser and device login for Codex clients; decisions 0090 through 0092 fix the independently derived protocol and exact provider-owned public-client identity. | The protocol is `identity-compatible-inactive`: identity is accepted with `agent` as the disclosed caller, but the credential, auth, transport, and integration modules remain inactive. |",
+  "| ChatGPT Plus/Pro | OpenAI documents subscription browser and device login for Codex clients; decisions 0090 through 0093 fix the independently derived protocol, exact provider-owned public-client identity, and owned record. | The protocol is `credential-compatible-inactive`: identity and storage mechanics are accepted, but auth, transport, and integration remain inactive. |",
   "| Claude Pro/Max | Anthropic documents subscription login for Claude Code and subscription-backed third-party use through the Claude Agent SDK. | Claude Code and Agent SDK are foreign runtimes; no accepted direct independent-client registration is recorded for `agent`. |",
   "| Kimi Code | Kimi documents device OAuth for Kimi Code; a pre-recorded clean-room inspection confirmed that current subscription OAuth uses Kimi's first-party public client even though Pi's provider guide omits that route. | Compatibility feasibility is established, but the [recorded provider response](PROVIDER-APPLICATIONS.md#kimi-code) remains a material negative-eligibility risk and a provider-specific decision is still required. |",
   "| Grok subscription | xAI documents browser and RFC 8628 device login for Grok Build plus headless and ACP integration, while its direct API has a separate key path. | A clean-room inspection confirms direct-flow feasibility, but xAI public-client ownership remains unresolved and a provider-specific decision is required. |",
@@ -495,8 +496,9 @@ function validatePublicDocuments(context) {
       "`agent auth` is the sole interactive credential lifecycle and runs outside the\nalternate-screen TUI.",
       "Decision 0090 records one non-executable OpenAI contract",
       "decision 0092 records OpenAI's exact non-secret\npublic client",
-      "The contract is now `identity-compatible-inactive`",
-      "OpenAI remains blocked by `credential-implementation-required`.",
+      "Decision 0093 implements the exact OpenAI record and private native\nlifecycle.",
+      "The contract is now `credential-compatible-inactive`",
+      "OpenAI remains blocked by `auth-implementation-required`.",
     ],
     "direct provider policy",
   );
@@ -510,8 +512,9 @@ function validatePublicDocuments(context) {
       "Registration state: `blocked`.",
       "Compatibility state: `accepted-runtime-inactive`.",
       "Identity state: `accepted-runtime-inactive`.",
+      "OpenAI credential state: `credential-compatible-inactive`.",
       ...OAUTH_REGISTRATION_ROWS,
-      "For ChatGPT, implement decision 0090 under decisions 0091 and 0092's identity\nand disclosure boundary.",
+      "For ChatGPT, implement decision 0090 under decisions 0091 through 0093's identity\nand disclosure boundary.",
       "For Kimi or xAI, accept a separate provider-specific\ncompatibility decision; for Claude, satisfy the direct-registration gate.",
       "Offline contract tests must\ncover cancellation, expiry, concurrency, malformed responses, secret leakage,\nrollback, and removal.",
       "No accepted provider-specific implementation means no adapter",
@@ -534,6 +537,21 @@ function validatePublicDocuments(context) {
       "retains this decision and the completed provenance\nrow",
     ],
     "OpenAI compatible public-client decision",
+  );
+  requireMarkers(
+    textFor(
+      context,
+      "docs/decisions/0093-owned-openai-oauth-credential-record.md",
+    ),
+    [
+      "# 0093: Owned OpenAI OAuth credential record",
+      "`credential-compatible-inactive`",
+      "`auth-implementation-required`",
+      "`~/.agent/credentials/openai.oauth`",
+      "No current command or TUI path creates, reads, replaces, or removes an OpenAI\nrecord.",
+      "The canonical Windows and Linux gates must pass offline.",
+    ],
+    "OpenAI credential-record decision",
   );
   requireMarkers(
     textFor(context, "docs/PROVIDER-APPLICATIONS.md"),

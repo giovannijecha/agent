@@ -44,6 +44,7 @@ test("encodes the exact bounded private broker requests", () => {
     key: "synthetic-key",
     kind: "register",
   });
+  const openAI = encodeCredentialBrokerRequest({ kind: "openAISnapshot" });
 
   assert.ok(snapshot.ok);
   assert.deepEqual([...snapshot.value], [
@@ -57,12 +58,105 @@ test("encodes the exact bounded private broker requests", () => {
   assert.equal(register.value.at(5), 3);
   assert.equal(register.value.length, 12 + "synthetic-key".length);
   assert.equal(asciiText(register.value.slice(12)), "synthetic-key");
+  assert.ok(openAI.ok);
+  assert.deepEqual([...openAI.value], [
+    0x41, 0x47, 0x43, 0x52, 1, 7, 0, 0, 0, 0, 0, 0,
+  ]);
 
   for (const kind of ["remove", "cancel"] as const) {
     const encoded = encodeCredentialBrokerRequest({ kind });
     assert.ok(encoded.ok);
     assert.equal(encoded.value.length, 12);
     assert.equal(encoded.value.at(5), kind === "remove" ? 5 : 6);
+  }
+});
+
+test("encodes and decodes the exact bounded OpenAI credential payload", () => {
+  const credential = Object.freeze({
+    accessToken: "synthetic-access",
+    accountId: "synthetic-account",
+    expiresAt: 1_800_000_000,
+    refreshToken: "synthetic-refresh",
+  });
+  const encoded = encodeCredentialBrokerRequest({
+    credential,
+    kind: "registerOpenAI",
+  });
+  assert.ok(encoded.ok);
+  assert.equal(encoded.value.at(5), 9);
+  const payload = encoded.value.slice(12);
+  const view = new DataView(
+    payload.buffer,
+    payload.byteOffset,
+    payload.byteLength,
+  );
+  assert.equal(view.getUint32(0, true), credential.accessToken.length);
+  assert.equal(view.getUint32(4, true), credential.refreshToken.length);
+  assert.equal(view.getUint32(8, true), credential.accountId.length);
+  assert.equal(Number(view.getBigUint64(12, true)), credential.expiresAt);
+  assert.equal(
+    asciiText(payload.slice(20)),
+    credential.accessToken + credential.refreshToken + credential.accountId,
+  );
+
+  const decoded = decodeCredentialBrokerResponse(response(13, payload));
+  assert.ok(decoded.ok);
+  assert.deepEqual(decoded.value, {
+    credential,
+    kind: "openAICredential",
+  });
+});
+
+test("admits the exact maximum OpenAI credential frame", () => {
+  const credential = Object.freeze({
+    accessToken: "a".repeat(CREDENTIAL_BROKER_LIMITS.openAITokenBytes),
+    accountId: "c".repeat(CREDENTIAL_BROKER_LIMITS.openAIAccountBytes),
+    expiresAt: Number.MAX_SAFE_INTEGER,
+    refreshToken: "r".repeat(CREDENTIAL_BROKER_LIMITS.openAITokenBytes),
+  });
+  const encoded = encodeCredentialBrokerRequest({
+    credential,
+    kind: "replaceOpenAI",
+  });
+  assert.ok(encoded.ok);
+  assert.equal(encoded.value.length, CREDENTIAL_BROKER_LIMITS.frameBytes);
+
+  const decoded = decodeCredentialBrokerResponse(
+    response(13, encoded.value.slice(12)),
+  );
+  assert.ok(decoded.ok);
+  assert.equal(decoded.value.kind, "openAICredential");
+  if (decoded.value.kind !== "openAICredential") return;
+  assert.equal(decoded.value.credential.accessToken.length, 32_768);
+  assert.equal(decoded.value.credential.refreshToken.length, 32_768);
+  assert.equal(decoded.value.credential.accountId.length, 256);
+  assert.equal(decoded.value.credential.expiresAt, Number.MAX_SAFE_INTEGER);
+});
+
+test("rejects malformed OpenAI credential payloads before framing", () => {
+  const valid = Object.freeze({
+    accessToken: "synthetic-access",
+    accountId: "synthetic-account",
+    expiresAt: 1,
+    refreshToken: "synthetic-refresh",
+  });
+  for (const credential of [
+    { ...valid, accessToken: "" },
+    { ...valid, refreshToken: "two words" },
+    { ...valid, accountId: "line\nfeed" },
+    { ...valid, accessToken: "a".repeat(32_769) },
+    { ...valid, refreshToken: "r".repeat(32_769) },
+    { ...valid, accountId: "c".repeat(257) },
+    { ...valid, expiresAt: 0 },
+    { ...valid, expiresAt: Number.MAX_SAFE_INTEGER + 1 },
+  ]) {
+    assert.equal(
+      encodeCredentialBrokerRequest({
+        credential,
+        kind: "replaceOpenAI",
+      }).ok,
+      false,
+    );
   }
 });
 
