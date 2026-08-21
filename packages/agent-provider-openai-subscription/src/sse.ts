@@ -15,9 +15,13 @@ function failure(kind: SseError["kind"]): SseError {
 
 /** Bounded strict SSE framer for the admitted Responses stream subset. */
 export class SseDecoder {
+  readonly #boundaries: Readonly<{ end: number; start: number }>[] = [];
+  #boundaryIndex = 0;
   #buffer = "";
+  #bufferOffset = 0;
   #events = 0;
   #finished = false;
+  #scanTail = "";
   #terminal = false;
 
   push(text: string): Result<void, SseError> {
@@ -27,7 +31,21 @@ export class SseDecoder {
     if (this.#buffer.length + text.length > OPENAI_PROVIDER_LIMITS.eventBufferCodeUnits) {
       return err(failure("limit"));
     }
+    const previousLength = this.#bufferOffset + this.#buffer.length;
+    const scan = this.#scanTail + text;
+    const discovered = this.#discoverBoundaries(
+      scan,
+      previousLength - this.#scanTail.length,
+      previousLength,
+    );
+    if (this.#events + this.#boundaries.length - this.#boundaryIndex +
+      discovered.length >
+      OPENAI_PROVIDER_LIMITS.wireEvents) {
+      return err(failure("limit"));
+    }
     this.#buffer += text;
+    this.#boundaries.push(...discovered);
+    this.#scanTail = scan.slice(Math.max(0, scan.length - 3));
     return ok(undefined);
   }
 
@@ -37,15 +55,20 @@ export class SseDecoder {
 
   next(): Result<SseRead, SseError> {
     if (this.#terminal) return ok(Object.freeze({ kind: "end" as const }));
-    const boundary = this.#boundary();
+    const boundary = this.#boundaries.at(this.#boundaryIndex);
     if (boundary === undefined) {
       if (!this.#finished) return ok(Object.freeze({ kind: "needMore" as const }));
       if (this.#buffer.length !== 0) return err(failure("protocol"));
       this.#terminal = true;
       return ok(Object.freeze({ kind: "end" as const }));
     }
-    const block = this.#buffer.slice(0, boundary.start);
-    this.#buffer = this.#buffer.slice(boundary.end);
+    this.#boundaryIndex += 1;
+    const start = boundary.start - this.#bufferOffset;
+    const end = boundary.end - this.#bufferOffset;
+    const block = this.#buffer.slice(0, start);
+    this.#buffer = this.#buffer.slice(end);
+    this.#bufferOffset = boundary.end;
+    this.#scanTail = this.#buffer.slice(Math.max(0, this.#buffer.length - 3));
     if (block.length < 1 || block.length > OPENAI_PROVIDER_LIMITS.eventBufferCodeUnits) {
       return err(failure(block.length < 1 ? "protocol" : "limit"));
     }
@@ -84,13 +107,28 @@ export class SseDecoder {
     }));
   }
 
-  #boundary(): Readonly<{ end: number; start: number }> | undefined {
-    const lf = this.#buffer.indexOf("\n\n");
-    const crlf = this.#buffer.indexOf("\r\n\r\n");
-    if (lf < 0 && crlf < 0) return undefined;
-    if (crlf >= 0 && (lf < 0 || crlf < lf)) {
-      return Object.freeze({ end: crlf + 4, start: crlf });
+  #discoverBoundaries(
+    scan: string,
+    base: number,
+    previousLength: number,
+  ): Readonly<{ end: number; start: number }>[] {
+    const boundaries: Readonly<{ end: number; start: number }>[] = [];
+    let offset = 0;
+    while (offset < scan.length) {
+      const lf = scan.indexOf("\n\n", offset);
+      const crlf = scan.indexOf("\r\n\r\n", offset);
+      if (lf < 0 && crlf < 0) break;
+      const start = crlf >= 0 && (lf < 0 || crlf < lf) ? crlf : lf;
+      const end = start + (start === crlf ? 4 : 2);
+      const absoluteEnd = base + end;
+      if (absoluteEnd > previousLength) {
+        boundaries.push(Object.freeze({
+          end: absoluteEnd,
+          start: base + start,
+        }));
+      }
+      offset = end;
     }
-    return Object.freeze({ end: lf + 2, start: lf });
+    return boundaries;
   }
 }

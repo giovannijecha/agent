@@ -565,6 +565,10 @@ stream close and every failure path. Destroy each exact handle idempotently,
 combine either cleanup failure without replacing the primary reason, and wrap
 late response-callback destruction after cancellation, timeout, or request
 failure so a private cleanup cause cannot escape or reopen settled authority.
+For SSE framing changes, retain incremental boundary discovery across LF and
+CRLF chunk splits. Regress a large single frame delivered one code unit at a
+time under the bounded deadline; never restart delimiter searches at the
+beginning of the growing partial frame after each `needMore`.
 
 For ChatGPT, Kimi, or xAI compatibility changes, recheck first-party protocol
 and client-ownership evidence, pin any necessary bounded clean-room inspection

@@ -179,13 +179,15 @@ operation or escape a private cleanup cause. One read may be pending and a
 concurrent second read fails closed.
 
 The Node-free decoder performs strict incremental UTF-8 and bounded SSE
-framing. It admits LF or CRLF separators, at most one optional `event` field,
-one or more `data` fields joined by LF, no `id` or `retry` field, a 1,048,576-
-code-unit event buffer, 16,384 wire events, 1,048,576 reasoning code units,
-1,048,576 argument code units, and 32 function calls in one batch. An optional
-SSE event name must equal the decoded JSON `type`. Empty events, comments,
-unknown fields, invalid field order, invalid UTF-8, malformed JSON, and unknown
-event types fail closed.
+framing. Boundary discovery inspects only each newly admitted chunk plus the
+prior three-code-unit suffix and retains already discovered boundaries; it
+never rescans the whole growing partial frame after `needMore`. It admits LF or
+CRLF separators, at most one optional `event` field, one or more `data` fields
+joined by LF, no `id` or `retry` field, a 1,048,576-code-unit event buffer,
+16,384 wire events, 1,048,576 reasoning code units, 1,048,576 argument code
+units, and 32 function calls in one batch. An optional SSE event name must equal
+the decoded JSON `type`. Empty events, comments, unknown fields, invalid field
+order, invalid UTF-8, malformed JSON, and unknown event types fail closed.
 
 The admitted lifecycle is:
 
@@ -280,7 +282,8 @@ Red-green regression must prove:
 - the SSE decoder handles chunk splits, CRLF, optional matching event names,
   reasoning, text, function calls with absent or matching repeated done-event
   names, nullable pre-terminal usage, strict terminal usage, completion,
-  cancellation, timeout,
+  cancellation, timeout, and one large frame fragmented into single-code-unit
+  chunks without whole-buffer rescanning;
   close, concurrent read, malformed framing, unknown events, contradictory
   lifecycle, nonempty or malformed pre-terminal output, missing or
   contradictory completed-output projections, trailing frames before

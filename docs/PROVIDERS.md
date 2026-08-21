@@ -178,6 +178,9 @@ Closing a Responses stream destroys its exact request and response once and
 combines either cleanup failure. Catalog and Responses callbacks that arrive
 after an earlier settlement destroy their response inside the content-free
 cleanup boundary and cannot escape a private cause or reopen the operation.
+SSE boundary discovery examines each new chunk with only the retained three-
+code-unit suffix; repeated `needMore` outcomes never rescan the whole partial
+frame.
 
 OpenAI remains blocked by `runtime-integration-required`. Its refresh lifecycle,
 exclusive runtime composition, `/models` integration, and live smoke must
