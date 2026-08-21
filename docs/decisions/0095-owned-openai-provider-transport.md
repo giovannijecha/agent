@@ -98,6 +98,9 @@ together. The request has a 30-second wall deadline, a 30-second inactivity
 deadline, a 16,384-byte response-header bound, a 65,536-byte chunk bound, and a
 1,048,576-byte complete-body bound. Only status 200 and
 `application/json` with an optional UTF-8 charset reach the decoder.
+The adapter reads each transport-capture body, cleanup flag, content type, and
+status property exactly once, validates those local snapshots, and copies only
+the same bounded body snapshot into the immutable capture.
 
 The decoder accepts one JSON object containing one `models` array with 1
 through 256 entries. Every entry is a bounded object with required `slug`,
@@ -298,7 +301,8 @@ Red-green regression must prove:
   policy reject the unregistered module before accepting it;
 - the catalog sends the exact method, origin, path, query, headers, deadlines,
   and no body, and rejects redirect, status, content-type, encoding, size,
-  schema, duplicate, and eligibility drift;
+  schema, duplicate, and eligibility drift while retaining only once-read
+  validated capture fields;
 - the request encoder preserves ordered messages, tool calls and outputs,
   provider call IDs, exact tool schemas including owned string and aggregate-
   text annotations, thinking mapping, `store: false`, `stream: true`, and the

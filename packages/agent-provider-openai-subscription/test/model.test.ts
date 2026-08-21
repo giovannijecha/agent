@@ -368,6 +368,57 @@ test("projects only eligible authenticated catalog rows in provider order", asyn
   });
 });
 
+test("snapshots each catalog capture field exactly once", async () => {
+  const admittedBody = ascii(JSON.stringify({ models: [
+    { slug: MODEL, visibility: "list", supported_in_api: true },
+  ] }));
+  const replacementBody = ascii(JSON.stringify({ models: [
+    { slug: "model-replaced", visibility: "list", supported_in_api: true },
+  ] }));
+  let bodyReads = 0;
+  let cleanupReads = 0;
+  let contentTypeReads = 0;
+  let statusReads = 0;
+  const capture = Object.create(null) as OpenAICatalogCapture;
+  Object.defineProperties(capture, {
+    body: {
+      get(): Uint8Array {
+        bodyReads += 1;
+        return bodyReads === 1 ? admittedBody : replacementBody;
+      },
+    },
+    cleanupFailed: {
+      get(): boolean {
+        cleanupReads += 1;
+        return false;
+      },
+    },
+    contentType: {
+      get(): string {
+        contentTypeReads += 1;
+        return "application/json";
+      },
+    },
+    statusCode: {
+      get(): number {
+        statusReads += 1;
+        return 200;
+      },
+    },
+  });
+  const transport = new FakeTransport(ok(new FakeStream([])), ok(capture));
+  const catalog = OpenAIModelCatalog.create(transport);
+  assert.ok(catalog.ok);
+  assert.deepEqual(await catalog.value.list(new Cancellation()), {
+    ok: true,
+    value: [MODEL],
+  });
+  assert.deepEqual(
+    { bodyReads, cleanupReads, contentTypeReads, statusReads },
+    { bodyReads: 1, cleanupReads: 1, contentTypeReads: 1, statusReads: 1 },
+  );
+});
+
 test("preserves a catalog transport reason when cleanup also fails", async () => {
   const transport = new FakeTransport(
     ok(new FakeStream([])),

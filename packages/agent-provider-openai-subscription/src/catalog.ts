@@ -80,19 +80,24 @@ function validContentType(value: string | undefined): boolean {
 
 function snapshotCapture(value: unknown): OpenAICatalogCapture | undefined {
   try {
-    if (!isRecord(value) || !(value.body instanceof Uint8Array) ||
-      value.body.length > OPENAI_PROVIDER_LIMITS.catalogBodyBytes ||
-      typeof value.cleanupFailed !== "boolean" ||
-      (value.contentType !== undefined && typeof value.contentType !== "string") ||
-      !Number.isSafeInteger(value.statusCode) ||
-      (value.statusCode as number) < 100 || (value.statusCode as number) > 599) {
+    if (!isRecord(value)) return undefined;
+    const body = value.body;
+    const cleanupFailed = value.cleanupFailed;
+    const contentType = value.contentType;
+    const statusCode = value.statusCode;
+    if (!(body instanceof Uint8Array) ||
+      body.length > OPENAI_PROVIDER_LIMITS.catalogBodyBytes ||
+      typeof cleanupFailed !== "boolean" ||
+      (contentType !== undefined && typeof contentType !== "string") ||
+      typeof statusCode !== "number" || !Number.isSafeInteger(statusCode) ||
+      statusCode < 100 || statusCode > 599) {
       return undefined;
     }
     return Object.freeze({
-      body: Uint8Array.from(value.body),
-      cleanupFailed: value.cleanupFailed,
-      contentType: value.contentType as string | undefined,
-      statusCode: value.statusCode as number,
+      body: Uint8Array.from(body),
+      cleanupFailed,
+      contentType,
+      statusCode,
     });
   } catch (_cause: unknown) {
     return undefined;
