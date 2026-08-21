@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-export const PROVIDER_POLICY_SCHEMA_VERSION = 14;
+export const PROVIDER_POLICY_SCHEMA_VERSION = 15;
 
 const OPENAI_SUBMISSION_URL =
   "https://community.openai.com/t/independent-native-oauth-public-client-registration-request-for-agent/1389585";
@@ -15,7 +15,7 @@ const EXPECTED_PROVIDERS = [
     id: "chatgpt",
     displayName: "ChatGPT Plus/Pro",
     eligibility: "blocked",
-    blocker: "transport-implementation-required",
+    blocker: "runtime-integration-required",
     request: {
       state: "submitted",
       kind: "public-client-authorization-inquiry",
@@ -120,7 +120,8 @@ const EXPECTED_SUBSCRIPTION_CONTRACTS = [
     identityDecision: "0092",
     credentialDecision: "0093",
     authDecision: "0094",
-    state: "auth-compatible-inactive",
+    transportDecision: "0095",
+    state: "transport-compatible-inactive",
     flow: "openai-device-code-plus-oauth-pkce",
     issuer: "https://auth.openai.com",
     deviceCodeEndpoint:
@@ -194,6 +195,68 @@ const EXPECTED_SUBSCRIPTION_CONTRACTS = [
       payloadSyntax: "visible-ascii-0x21-0x7e",
       revisionOwner: "native-broker",
     },
+    transportWorkspace: "@agent/provider-openai-subscription",
+    transportComposition: "inactive",
+    catalogRequest: {
+      method: "GET",
+      query: "client_version=0.1.0",
+      headers: [
+        "Accept: application/json",
+        "Authorization: Bearer <credential>",
+        "ChatGPT-Account-ID: <account>",
+        "originator: agent",
+        "User-Agent: agent/0.1.0",
+      ],
+      body: "absent",
+    },
+    catalogResponse: {
+      status: 200,
+      contentType: "application/json; optional charset=utf-8",
+      rootFields: ["models"],
+      entryFields: ["slug", "visibility", "supported_in_api"],
+      eligibility: "visibility-list-and-supported-in-api-true",
+      maximumBodyBytes: 1048576,
+      maximumModels: 256,
+    },
+    responsesRequest: {
+      method: "POST",
+      headers: [
+        "Accept: text/event-stream",
+        "Authorization: Bearer <credential>",
+        "ChatGPT-Account-ID: <account>",
+        "Content-Type: application/json",
+        "originator: agent",
+        "User-Agent: agent/0.1.0",
+      ],
+      rootFields: [
+        "model",
+        "instructions",
+        "input",
+        "tools",
+        "tool_choice",
+        "parallel_tool_calls",
+        "reasoning",
+        "store",
+        "stream",
+        "include",
+      ],
+      toolChoice: "auto",
+      parallelToolCalls: false,
+      store: false,
+      stream: true,
+      include: [],
+      opaqueReasoningState: "not-requested-or-retained",
+      maximumBodyCodeUnits: 8388608,
+    },
+    responsesStream: {
+      status: 200,
+      contentType: "text/event-stream; optional charset=utf-8",
+      maximumEvents: 16384,
+      maximumEventCodeUnits: 1048576,
+      maximumReasoningCodeUnits: 1048576,
+      maximumArgumentCodeUnits: 1048576,
+      maximumFunctionCalls: 32,
+    },
     modelAuthority: "authenticated-catalog",
     transport: "openai-responses-sse",
     evidence: "https://learn.chatgpt.com/docs/app-server",
@@ -263,11 +326,39 @@ const EXPECTED_WORKSPACES = [
   "@agent/tools",
   "@agent/runtime",
   "@agent/provider-ollama-cloud",
+  "@agent/provider-openai-subscription",
   "@agent/tui",
   "@agent/cli",
 ];
 
 const APPROVED_SOURCE_LITERALS = Object.freeze({
+  "packages/agent-provider-openai-subscription/src/catalog.ts": [
+    "OpenAI",
+    "openai",
+  ],
+  "packages/agent-provider-openai-subscription/src/errors.ts": [
+    "OpenAI",
+    "openai",
+  ],
+  "packages/agent-provider-openai-subscription/src/index.ts": [
+    "OpenAI",
+    "openai",
+  ],
+  "packages/agent-provider-openai-subscription/src/limits.ts": ["OPENAI", "OpenAI"],
+  "packages/agent-provider-openai-subscription/src/model.ts": [
+    "OpenAI",
+    "openai",
+  ],
+  "packages/agent-provider-openai-subscription/src/models.ts": ["OpenAI"],
+  "packages/agent-provider-openai-subscription/src/transport.ts": ["OpenAI"],
+  "packages/agent-provider-openai-subscription/src/wire.ts": [
+    "OpenAI",
+    "openai",
+  ],
+  "packages/agent-provider-openai-subscription/test/model.test.ts": [
+    "OpenAI",
+    "openai",
+  ],
   "packages/agent-cli/src/auth-command.ts": ["OpenAI", "openAI", "openai"],
   "packages/agent-cli/native/credential-broker/credential-store.c": [
     "OPENAI",
@@ -299,6 +390,16 @@ const APPROVED_SOURCE_LITERALS = Object.freeze({
     "refreshToken",
     "refresh_token",
   ],
+  "packages/agent-cli/src/node-openai-provider-transport.ts": [
+    "OPENAI",
+    "OpenAI",
+    "openai",
+    "ChatGPT",
+    "chatgpt",
+    "chatgpt.com/backend-api",
+    "accessToken",
+    "Bearer",
+  ],
   "packages/agent-cli/test/credential-broker-protocol.test.ts": [
     "OpenAI",
     "openAI",
@@ -328,6 +429,15 @@ const APPROVED_SOURCE_LITERALS = Object.freeze({
     "access_token",
     "refresh_token",
   ],
+  "packages/agent-cli/test/node-openai-provider-transport.test.ts": [
+    "OPENAI",
+    "OpenAI",
+    "openai",
+    "chatgpt",
+    "accessToken",
+    "refreshToken",
+    "Bearer",
+  ],
   "packages/agent-cli/src/node-ollama-cloud-transport.ts": ["Bearer "],
   "packages/agent-cli/test/node-ollama-cloud-transport.test.ts": ["Bearer "],
   "packages/agent-cli/src/node-ollama-model-catalog.ts": ["Bearer "],
@@ -335,6 +445,9 @@ const APPROVED_SOURCE_LITERALS = Object.freeze({
 });
 
 const EXPECTED_SENSITIVE_STATE_OCCURRENCES = Object.freeze({
+  "packages/agent-provider-openai-subscription/src/catalog.ts": "authenticated=1",
+  "packages/agent-provider-openai-subscription/src/models.ts": "authenticated=1",
+  "packages/agent-provider-openai-subscription/test/model.test.ts": "authenticated=1",
   "packages/agent-cli/native/credential-broker/credential-store.c": "AGENT_CREDENTIAL_ABSENT=1;AGENT_CREDENTIAL_BUSY=1;AGENT_CREDENTIAL_CANCEL=1;AGENT_CREDENTIAL_CANCELLED=1;AGENT_CREDENTIAL_DUAL_AUTHORITY=1;AGENT_CREDENTIAL_FIXTURE=11;AGENT_CREDENTIAL_HEADER_MAX_BYTES=8;AGENT_CREDENTIAL_INVALID_STATE=4;AGENT_CREDENTIAL_INVALID_VALUE=2;AGENT_CREDENTIAL_KEY_MAX_BYTES=8;AGENT_CREDENTIAL_MAX_REVISION=8;AGENT_CREDENTIAL_OLLAMA_RECORD_MAX_BYTES=4;AGENT_CREDENTIAL_OPEN_MUTATION=2;AGENT_CREDENTIAL_OPENAI_ACCOUNT_MAX_BYTES=3;AGENT_CREDENTIAL_OPENAI_CANCEL=1;AGENT_CREDENTIAL_OPENAI_ENVELOPE_BYTES=8;AGENT_CREDENTIAL_OPENAI_OPEN_MUTATION=2;AGENT_CREDENTIAL_OPENAI_PAYLOAD_MAX_BYTES=1;AGENT_CREDENTIAL_OPENAI_RECORD_MAX_BYTES=6;AGENT_CREDENTIAL_OPENAI_REGISTER=1;AGENT_CREDENTIAL_OPENAI_REMOVE=1;AGENT_CREDENTIAL_OPENAI_REPLACE=1;AGENT_CREDENTIAL_OPENAI_SNAPSHOT=1;AGENT_CREDENTIAL_OPENAI_VALUE=1;AGENT_CREDENTIAL_PRESENT=1;agent_credential_profile=6;AGENT_CREDENTIAL_PROFILE_OLLAMA=17;AGENT_CREDENTIAL_PROFILE_OPENAI=4;AGENT_CREDENTIAL_REGISTER=1;AGENT_CREDENTIAL_REGISTERED=1;AGENT_CREDENTIAL_REMOVE=1;AGENT_CREDENTIAL_REMOVED=1;AGENT_CREDENTIAL_REPLACE=1;AGENT_CREDENTIAL_REPLACED=1;agent_credential_request_kind=2;agent_credential_response_kind=2;agent_credential_session=21;AGENT_CREDENTIAL_SNAPSHOT=1;agent_credential_store_close=22;AGENT_CREDENTIAL_STORE_FAILURE=6;agent_credential_store_mutate=1;agent_credential_store_open=1;AGENT_CREDENTIAL_VALUE=1;credential=5;credentials=31;GetTokenInformation=2;oauth=19;OpenProcessToken=1;token=6;TOKEN_QUERY=1;TOKEN_USER=1;TokenUser=2",
   "packages/agent-cli/native/credential-broker/credential-store.h": "AGENT_CREDENTIAL_ABSENT=1;AGENT_CREDENTIAL_BUSY=1;AGENT_CREDENTIAL_CANCEL=1;AGENT_CREDENTIAL_CANCELLED=1;AGENT_CREDENTIAL_DUAL_AUTHORITY=1;AGENT_CREDENTIAL_INVALID_STATE=1;AGENT_CREDENTIAL_INVALID_VALUE=1;AGENT_CREDENTIAL_KEY_MAX_BYTES=1;AGENT_CREDENTIAL_OPEN_MUTATION=1;AGENT_CREDENTIAL_OPENAI_ACCOUNT_MAX_BYTES=1;AGENT_CREDENTIAL_OPENAI_CANCEL=1;AGENT_CREDENTIAL_OPENAI_OPEN_MUTATION=1;AGENT_CREDENTIAL_OPENAI_PAYLOAD_MAX_BYTES=1;AGENT_CREDENTIAL_OPENAI_REGISTER=1;AGENT_CREDENTIAL_OPENAI_REMOVE=1;AGENT_CREDENTIAL_OPENAI_REPLACE=1;AGENT_CREDENTIAL_OPENAI_SNAPSHOT=1;AGENT_CREDENTIAL_OPENAI_VALUE=1;AGENT_CREDENTIAL_PRESENT=1;AGENT_CREDENTIAL_REGISTER=1;AGENT_CREDENTIAL_REGISTERED=1;AGENT_CREDENTIAL_REMOVE=1;AGENT_CREDENTIAL_REMOVED=1;AGENT_CREDENTIAL_REPLACE=1;AGENT_CREDENTIAL_REPLACED=1;agent_credential_request_kind=3;agent_credential_response_kind=3;agent_credential_session=4;AGENT_CREDENTIAL_SNAPSHOT=1;agent_credential_store_close=1;AGENT_CREDENTIAL_STORE_FAILURE=1;AGENT_CREDENTIAL_STORE_H=2;agent_credential_store_mutate=1;agent_credential_store_open=1;AGENT_CREDENTIAL_VALUE=1",
   "packages/agent-cli/native/credential-broker/main.c": "AGENT_CREDENTIAL_ABSENT=1;AGENT_CREDENTIAL_HEADER_BYTES=3;AGENT_CREDENTIAL_KEY_MAX_BYTES=1;AGENT_CREDENTIAL_OPEN_MUTATION=3;AGENT_CREDENTIAL_OPENAI_CANCEL=1;AGENT_CREDENTIAL_OPENAI_OPEN_MUTATION=2;AGENT_CREDENTIAL_OPENAI_PAYLOAD_MAX_BYTES=2;AGENT_CREDENTIAL_OPENAI_REGISTER=1;AGENT_CREDENTIAL_OPENAI_REPLACE=1;AGENT_CREDENTIAL_OPENAI_SNAPSHOT=3;AGENT_CREDENTIAL_OPENAI_VALUE=2;AGENT_CREDENTIAL_PRESENT=1;AGENT_CREDENTIAL_REGISTER=2;AGENT_CREDENTIAL_REPLACE=1;agent_credential_request=5;agent_credential_request_kind=2;agent_credential_response_kind=2;agent_credential_session=1;AGENT_CREDENTIAL_SNAPSHOT=4;agent_credential_store_close=5;AGENT_CREDENTIAL_STORE_FAILURE=1;agent_credential_store_mutate=1;agent_credential_store_open=1;AGENT_CREDENTIAL_VALUE=3;credential=1",
@@ -350,6 +463,7 @@ const EXPECTED_SENSITIVE_STATE_OCCURRENCES = Object.freeze({
   "packages/agent-cli/src/node-ollama-cloud-transport.ts": "authorization=1;credential=10;isValidOllamaCloudCredential=2",
   "packages/agent-cli/src/node-ollama-model-catalog.ts": "authenticated=1;authorization=1;credential=5;isValidOllamaCloudCredential=2",
   "packages/agent-cli/src/node-openai-device-auth.ts": "access_token=1;accessToken=4;auth=5;authenticate=4;authentication=1;authorization_code=3;authorizationCode=3;authorizationCodeBytes=2;AuthorizationGrant=4;credential=5;decodeAuthorizationGrant=2;decodeCredential=2;device_auth_id=5;deviceauth=3;id_token=1;idToken=3;NodeOpenAIDeviceAuth=1;oauth=1;OPENAI_AUTH_ORIGIN=1;OPENAI_DEVICE_AUTH_LIMITS=15;OPENAI_TOKEN_PATH=2;OpenAIAuthSession=2;OpenAICredential=6;OpenAIDeviceAuthCancellation=5;OpenAIDeviceAuthError=19;OpenAIDeviceAuthErrorKind=11;OpenAIDeviceAuthPort=2;refresh_token=1;refreshToken=3;token=7;tokenBody=2;tokenBodyBytes=2;tokenBytes=4",
+  "packages/agent-cli/src/node-openai-provider-transport.ts": "accessToken=7;authorization=2;credential=17",
   "packages/agent-cli/src/notice-scheduler.ts": "NoticeToken=6;token=19",
   "packages/agent-cli/src/notice.ts": "createNoticeToken=1;noticeToken=2;NoticeToken=2",
   "packages/agent-cli/src/provider-configuration.ts": "credential=2;invalidCredential=2;isValidOllamaCloudCredential=2;isValidProviderCredential=2",
@@ -374,6 +488,7 @@ const EXPECTED_SENSITIVE_STATE_OCCURRENCES = Object.freeze({
   "packages/agent-cli/test/node-ollama-cloud-transport.test.ts": "authorization=1;credentials=1",
   "packages/agent-cli/test/node-ollama-model-catalog.test.ts": "authenticated=1;authorization=1;credentials=1",
   "packages/agent-cli/test/node-openai-device-auth.test.ts": "access_token=5;auth=11;authenticate=19;authorization=4;authorization_code=3;device_auth_id=7;Fauth=1;Fdeviceauth=1;id_token=5;NodeOpenAIDeviceAuth=20;OPENAI_DEVICE_AUTH_LIMITS=5;OPENAI_TOKEN_PATH=2;OpenAIDeviceAuthCancellation=2;refresh_token=5;token=3",
+  "packages/agent-cli/test/node-openai-provider-transport.test.ts": "accessToken=4;authenticated=1;authorization=3;credential=4;refreshToken=1;token=6",
   "packages/agent-cli/test/notice-scheduler.test.ts": "createNoticeToken=6;token=10",
   "packages/agent-cli/test/provider-configuration.test.ts": "credential=3;credentials=1;invalidCredential=1;isValidOllamaCloudCredential=2",
   "packages/agent-cli/test/provider-failure-classification.test.ts": "PRIVATE_SECRET=1",
@@ -497,14 +612,23 @@ const APPROVED_CLI_NODE_EFFECT_AUTHORITIES = Object.freeze({
     ]),
     module: "node:https",
   }),
+  "packages/agent-cli/src/node-openai-provider-transport.ts": Object.freeze({
+    imports: Object.freeze([
+      "request as nodeHttpsRequest",
+      "type ClientRequest",
+      "type IncomingMessage",
+      "type RequestOptions",
+    ]),
+    module: "node:https",
+  }),
 });
 
 const APPROVED_CLI_PRODUCT_TREE = Object.freeze({
-  pathCount: 76,
+  pathCount: 77,
   pathsSha256:
-    "69ad22eed03887d5ff4215b1050ebb75a48528f9881142364f5361ac91fd8f4f",
+    "77c8397dbd7beeb160780c808fcbabdc6776af2c12f17a1e3ad40685040975b1",
   sourceSha256:
-    "a8b49cb5fbff4caf549d79c04c03b2e48bd93463a83d777cad7b8ed789f42d1c",
+    "c76407f4b2132d92e4f99132682161784babd54f7b3424906ead72d3b4ef8068",
 });
 
 const APPROVED_CLI_NATIVE_PLATFORM_TREE = Object.freeze({
@@ -960,6 +1084,7 @@ function validateRegistry(policy) {
         "identityDecision",
         "credentialDecision",
         "authDecision",
+        "transportDecision",
         "state",
         "flow",
         "issuer",
@@ -1014,6 +1139,12 @@ function validateRegistry(policy) {
         "firstPoll",
         "credentialRemoval",
         "credentialProtocol",
+        "transportWorkspace",
+        "transportComposition",
+        "catalogRequest",
+        "catalogResponse",
+        "responsesRequest",
+        "responsesStream",
         "modelAuthority",
         "transport",
         "evidence",
@@ -1031,7 +1162,7 @@ function validateRegistry(policy) {
     const provider = policy.providers.find((candidate) => candidate.id === contract.id);
     if (
       provider?.eligibility !== "blocked" ||
-      provider.blocker !== "transport-implementation-required"
+      provider.blocker !== "runtime-integration-required"
     ) {
       fail("subscription contract must retain its inactive implementation gate");
     }

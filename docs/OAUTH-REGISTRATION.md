@@ -12,7 +12,7 @@ secret, or credential.
 - Registration state: `blocked`.
 - Compatibility state: `accepted-runtime-inactive`.
 - Identity state: `accepted-runtime-inactive`.
-- OpenAI authentication state: `auth-compatible-inactive`.
+- OpenAI authentication state: `transport-compatible-inactive`.
 - Accepted direct subscription OAuth registrations: `none`
 
 No requested subscription provider has registered or authorized `agent` as a
@@ -22,7 +22,7 @@ and xAI. That policy changes no runtime and does not describe provider approval.
 
 | Provider | Recorded public route | Registration conclusion |
 | --- | --- | --- |
-| ChatGPT Plus/Pro | OpenAI documents subscription browser and device login for Codex clients; decisions 0090 through 0094 fix the independently derived protocol, exact provider-owned public-client identity, owned record, and active device-auth command. | Authentication is `auth-compatible-inactive`: sign-in and local removal are active without provider endorsement, while refresh, revocation, catalog, model, and conversation runtime remain inactive. |
+| ChatGPT Plus/Pro | OpenAI documents subscription browser and device login for Codex clients; decisions 0090 through 0095 fix the independently derived protocol, exact provider-owned public-client identity, owned record, active device-auth command, and inactive catalog and Responses transport. | Authentication is `transport-compatible-inactive`: sign-in and local removal are active without provider endorsement and the transport is installed but uncomposed, while refresh, revocation, provider/model selection, and conversation runtime remain inactive. |
 | Claude Pro/Max | Anthropic documents subscription login for Claude Code and subscription-backed third-party use through the Claude Agent SDK. | Claude Code and Agent SDK are foreign runtimes; no accepted direct independent-client registration is recorded for `agent`. |
 | Kimi Code | Kimi documents device OAuth for Kimi Code; a pre-recorded clean-room inspection confirmed that current subscription OAuth uses Kimi's first-party public client even though Pi's provider guide omits that route. | Compatibility feasibility is established, but the [recorded provider response](PROVIDER-APPLICATIONS.md#kimi-code) remains a material negative-eligibility risk and a provider-specific decision is still required. |
 | Grok subscription | xAI documents browser and RFC 8628 device login for Grok Build plus headless and ACP integration, while its direct API has a separate key path. | A clean-room inspection confirms direct-flow feasibility, but xAI public-client ownership remains unresolved and a provider-specific decision is required. |
@@ -66,6 +66,10 @@ or network authority.
 Decision 0094 activates only the exact OpenAI device ceremony through
 `agent auth`, moves its machine state to `auth-compatible-inactive`, and leaves
 refresh, revocation, catalog, model, and conversation runtime closed.
+Decision 0095 installs the bounded catalog and Responses implementation, moves
+the machine state to `transport-compatible-inactive`, and leaves every runtime
+credential read, transport construction, provider row, and content request
+closed.
 
 The browser remains provider-hosted. `agent` does not request a password,
 cookie, recovery code, payment detail, API key, or token. For OpenAI it displays
@@ -82,8 +86,9 @@ OpenAI device authentication sends only the fixed public-client identity,
 provider-issued device identity and one-time code, returned authorization code,
 PKCE verifier, callback, and token form to the fixed OpenAI authentication
 origin. Agent persists only the validated access token, refresh token, account
-identifier, and expiration. It sends no task content and currently has no
-OpenAI catalog or conversation transport.
+identifier, and expiration. Decision 0095's catalog and conversation transports
+remain uncomposed, so current product behavior still sends no task content or
+runtime credential.
 
 After explicit operator login and model selection for an enabled runtime
 provider, the local process may send the current prompt, bounded conversation
@@ -143,9 +148,11 @@ here, request lifecycle metadata in the
 inspection in the [ownership record](OWNERSHIP.md) when required. Complete
 registration or compatibility evidence does not enable product code by itself.
 For ChatGPT, decision 0094 completes the auth-only activation under decisions
-0090 through 0093's protocol, identity, disclosure, and record boundaries. A
-separate accepted module must still supply refresh and the exact catalog and
-conversation transport before OpenAI can become a runtime provider. For Kimi
+0090 through 0093's protocol, identity, disclosure, and record boundaries, and
+decision 0095 supplies the inactive catalog and conversation transport. A
+separate accepted integration module must still supply refresh, exclusive
+runtime admission, `/models` composition, and live evidence before OpenAI can
+become a runtime provider. For Kimi
 or xAI, accept a separate provider-specific compatibility decision; for Claude,
 satisfy the direct-registration gate. In every case, the activation series must
 supply the machine gate, provider adapter, corresponding decision-0089

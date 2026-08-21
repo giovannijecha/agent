@@ -22,8 +22,8 @@
   },
   "provenanceLog": {
     "path": "docs/OWNERSHIP.md",
-    "entryCount": 49,
-    "sha256": "a50dd8c471538495e01c30d8e419cab8ffdf6cc5436a08ac61cb7366fe5089ca"
+    "entryCount": 50,
+    "sha256": "0a13f0bb24184dfd2d8e4f50841bb15fd1b4af95bec8316297fc14682b480134"
   },
   "documents": [
     ".gitattributes",
@@ -57,6 +57,7 @@
     "docs/decisions/0092-owned-openai-compatible-public-client.md",
     "docs/decisions/0093-owned-openai-oauth-credential-record.md",
     "docs/decisions/0094-owned-openai-device-authentication.md",
+    "docs/decisions/0095-owned-openai-provider-transport.md",
     "assets/brand/README.md",
     "docs/BRAND.md",
     "docs/decisions/0037-canonical-agent-brand.md",

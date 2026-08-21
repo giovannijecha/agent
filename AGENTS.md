@@ -20,7 +20,7 @@ that domain; a summary here never overrides its canonical owner.
 | Change source, tests, declarations, verification, or evaluation practice | [Engineering](docs/ENGINEERING.md) |
 | Update, roll back, remove, release, or diagnose a subsystem | [Maintenance](docs/MAINTENANCE.md) |
 | Change observable operator behavior | [Operator manual](docs/manual/README.md) |
-| Change providers, credentials, catalogs, models, or network origins | [Provider policy](docs/PROVIDERS.md), [privacy policy](PRIVACY.md), [decision 0072](docs/decisions/0072-owned-ollama-cloud-provider.md), [decision 0089](docs/decisions/0089-owned-external-authentication-transition.md), and OpenAI [decisions 0090](docs/decisions/0090-owned-openai-subscription-oauth-contract.md), [0091](docs/decisions/0091-owned-provider-public-client-compatibility.md), [0092](docs/decisions/0092-owned-openai-compatible-public-client.md), [0093](docs/decisions/0093-owned-openai-oauth-credential-record.md), and [0094](docs/decisions/0094-owned-openai-device-authentication.md) |
+| Change providers, credentials, catalogs, models, or network origins | [Provider policy](docs/PROVIDERS.md), [privacy policy](PRIVACY.md), [decision 0072](docs/decisions/0072-owned-ollama-cloud-provider.md), [decision 0089](docs/decisions/0089-owned-external-authentication-transition.md), and OpenAI [decisions 0090](docs/decisions/0090-owned-openai-subscription-oauth-contract.md), [0091](docs/decisions/0091-owned-provider-public-client-compatibility.md), [0092](docs/decisions/0092-owned-openai-compatible-public-client.md), [0093](docs/decisions/0093-owned-openai-oauth-credential-record.md), [0094](docs/decisions/0094-owned-openai-device-authentication.md), and [0095](docs/decisions/0095-owned-openai-provider-transport.md) |
 | Change security boundaries or vulnerability handling | [Security policy](SECURITY.md) and [privacy policy](PRIVACY.md) |
 | Inspect a reference project or change provenance rules | [Ownership policy](docs/OWNERSHIP.md) |
 | Change brand identity or visual assets | [Brand guide](docs/BRAND.md) |
@@ -125,8 +125,9 @@ that domain; a summary here never overrides its canonical owner.
   neither has precedence and neither is imported.
 - Decision 0094 activates OpenAI device sign-in, sign-in-again, and local
   removal through `agent auth` under the decision-0093 exclusive record
-  admission. OpenAI catalog, refresh, revocation, provider/model selection,
-  Responses transport, and conversation runtime remain disabled.
+  admission. Decision 0095 installs an inactive OpenAI catalog and Responses
+  adapter. OpenAI credential snapshots, refresh, revocation, provider/model
+  selection, transport construction, and conversation runtime remain disabled.
 - Secrets, credentials, sessions, and personal content never enter source,
   fixtures, logs, errors, receipts, or documentation values.
 

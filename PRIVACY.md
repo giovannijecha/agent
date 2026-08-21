@@ -229,9 +229,32 @@ record. Local removal does not revoke the provider-side authorization and is
 not secure erasure; use an OpenAI-provided account surface when remote
 revocation is required.
 
-OpenAI refresh, revocation, catalog, model selection, and conversation transport
-remain inactive. An OpenAI record therefore does not make OpenAI appear in
-`/models` and no task content or bearer token is sent to an OpenAI model API.
+Decision 0095 installs no current OpenAI content path. Its catalog and Responses
+implementation is unreachable from startup, commands, the TUI, and the runtime,
+so it reads no record and sends no token, account ID, model query, task content,
+tool schema, or tool result. OpenAI refresh, revocation, model selection,
+transport construction, and conversation runtime remain inactive. An OpenAI
+record therefore does not make OpenAI appear in `/models` and no task content
+or bearer token is sent to an OpenAI model API.
+The inactive Responses model stream nevertheless applies the runtime privacy
+contract under offline injection: close releases queued output, completion,
+decoded item and text state, SSE fragments, and partial UTF-8 before it awaits
+transport cleanup. A pending read cannot decode bytes returned after close, so
+the closed stream retains no partial provider response. The HTTPS stream also
+ignores a retained `data` callback before flow control or copying once EOF,
+failure, settlement, or close is authoritative; late bytes cannot repopulate its
+released queue. Data emitted synchronously by `resume` remains in one bounded
+stage until flow control succeeds, and a terminal callback raised by `pause`
+prevents the chunk from being observed or retained. Terminal state is checked
+again after every untrusted chunk snapshot, so accessor-triggered EOF, failure,
+or close cannot publish bytes, decode content, or repopulate released state. A
+catalog capture completed synchronously inside initial `resume` likewise remains
+private until that call succeeds and is released if the flow-control call fails.
+Catalog and Responses allow only one data callback to own a chunk snapshot;
+accessor-triggered nested data fails before either chunk can alter retained
+order, aggregate bytes, a pending read, or queue state. The model also rechecks
+close after snapshotting an injected transport-result envelope, before a captured
+value or error can repopulate or reclassify released response state.
 The compatibility flow identifies the caller as `agent` or omits the caller
 field, discloses that it is independent and not provider-endorsed, and never
 imports a foreign credential or browser session.

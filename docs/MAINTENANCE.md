@@ -522,9 +522,11 @@ semantics. Decision 0093 owns the exact OpenAI record, lock, private frame,
 exclusive admission, atomic lifecycle, recovery, and local removal.
 Decision 0094 owns the exact device login network adapter, terminal
 cancellation, account and expiry validation, command composition, sign-in-
-again, and honest local-only removal. The state is
-`auth-compatible-inactive`; the next blocker is
-`transport-implementation-required`.
+again, and honest local-only removal. Decision 0095 owns the inactive Node-free
+catalog and Responses adapter, exact CLI HTTPS boundary, wire bounds, failure
+classification, and removal order. The state is
+`transport-compatible-inactive`; the next blocker is
+`runtime-integration-required`.
 
 Maintain decision 0094 as one serial, fixed-origin ceremony: acquire exclusive
 admission before the first request; request the device identity once; project
@@ -541,15 +543,169 @@ ID token and expiration from the access token; close terminal input; then
 publish one complete record. Never add a browser launch, redirect, retry,
 fallback, scope, alternate caller field, environment source, unbounded response
 schema, interpretation of an unregistered member, or response-body diagnostic.
-Do not add refresh, revocation, provider
-workspace or row, catalog, Responses transport, runtime snapshot, or `/models`
-integration before their separate module.
+Maintain decision 0095 as unreachable product composition: the package and CLI
+transport may be exercised only through injected offline doubles. Keep the
+fixed origin, version query, bearer and account routing, truthful `agent`
+identity, catalog projection, request fields, SSE lifecycle, bounds, and no-
+retry/no-redirect posture synchronized with policy and tests. Do not add
+refresh, revocation, runtime snapshot, provider row, transport construction, or
+`/models` integration before their separate module.
+When changing the inactive transport constructor, read each admitted credential
+property once, validate the resulting local snapshots, and freeze those same
+values. Regress accessor-backed values that change across reads and accessor or
+proxy failures; never validate one value and retain another.
+Keep catalog, open, read, and close result admission on the shared Node-free
+snapshot helper. Read `ok` once, then read only its matching value or error
+object once; for an error, read kind and cleanup flag once and validate and
+retain those same values. Regress changing and throwing accessors at both
+catalog and model paths, and reject malformed or array-shaped result records as
+content-free protocol failures.
+For catalog capture changes, read body, cleanup flag, content type, and status
+exactly once, validate those local snapshots, and copy only the same bounded
+body into a fresh typed array without consulting the source iterator. Snapshot
+catalog cancellation once, require a boolean, and reject malformed state before
+transport. For catalog rejection changes, retain the content-type snapshot,
+detach owned listeners, destroy both request and response, and combine either
+cleanup failure before publishing the empty capture.
+For HTTPS response-admission changes, snapshot status and content type once
+inside each asynchronous callback's containment boundary, but claim the sole
+response before the first property read. Regress reentry from both status and
+content-type access: the duplicate, claimed response, and request must be
+destroyed before any later property read, listener wiring, flow control, or
+publication. A throwing or
+malformed metadata source must produce a content-free protocol failure, destroy
+both request and response, and combine cleanup failure; never reread response
+metadata in a stream constructor or at catalog EOF.
+Treat request creation and setup as one admission barrier for both catalog and
+Responses. Before the request factory returns, and until its returned request
+has installed error and inactivity handling and completed the applicable write
+and `end`, retain at most one staged response without inspecting it. Regress
+valid and rejected synchronous responses, every throwing setup operation, and a
+synchronous request error during setup. A conflict or failure must stop later
+setup, destroy the request and all staged responses, combine cleanup failure,
+and settle once without exposing a cause. Regress a callback delivered only
+after setup failure: destroy that response under containment without staging it,
+reopening authority, or changing the settled result, including when response
+cleanup throws.
+Regress duplicate callbacks after Responses publication both while data is
+active and immediately after response `end` but before the pending EOF read
+settles. Destroy the extra response, propagate its cleanup failure, and fail the
+active stream as protocol so provisional EOF cannot leave the first response
+authoritative. Keep non-EOF data and failure reads on their existing settlement
+timing; only EOF delivery owns the bounded promise checkpoint.
+Admit a content-type array only when it contains exactly one string member;
+regress a non-string member with hostile coercion and never invoke that coercion.
+Treat listener registration and initial `pause` or `resume` as one atomic
+admission step inside that callback. On any throw, detach every listener that
+may have been registered, destroy both exact handles, and settle once. For an
+event emitter that invokes a newly registered terminal listener synchronously,
+check settlement after every registration and stop before the next listener or
+initial flow-control call. Preserve the catalog callback's terminal result; for
+Responses, install the stream candidate as sole cleanup authority before the
+first listener registration, then reject the pre-publication stream, detach all
+possible listeners, destroy the retained request and response exactly once, and
+report protocol. Regress catalog error, Responses aborted and EOF registration
+callbacks, and a listener that re-enters the response callback separately. For
+catalog initial-resume changes, emit data and EOF synchronously before returning;
+the bounded capture may publish only after a successful return. Repeat with a
+throw after EOF and require protocol failure, listener detachment, and paired
+request-response destruction.
+For an admitted stream, contain later `pause`, `resume`, and every individual
+listener detach across read, data, EOF, failure, and close; attempt the remaining
+cleanup after any one cleanup throw and combine the result without exposing its
+cause.
+Retain a registered `data` listener in the response double and invoke it directly
+after EOF and after close. It must return before `pause`, chunk snapshot,
+pending-read settlement, or queue retention; never rely on a cooperative emitter
+honoring listener detachment.
+Regress a `resume` double that emits one data callback synchronously and then
+throws: no provider byte may settle the read. Also make `pause` synchronously
+emit EOF and error in separate cases and prove the chunk is not even observed.
+Successful synchronous data may use only one bounded stage and becomes visible
+only after `resume` returns.
+Regress catalog and Responses `data` reentry from the outer chunk's accessor.
+Exactly one callback owns the snapshot transaction; nested data must fail
+protocol before either callback changes byte order, aggregate retention, a
+pending read, or queue state. For catalog terminal events raised during the
+snapshot, recheck settlement before updating `bytes` or `chunks`.
+For successful transport-open validation, snapshot valid close authority first,
+read each remaining stream property once, and invoke the retained close before
+rejecting malformed metadata or read authority. Preserve cleanup failure without
+exposing the transport value or its cause.
+For model-open cancellation changes, read `requested` once inside containment,
+require a boolean snapshot, and regress throwing and malformed accessors before
+request encoding or transport invocation.
+For terminal-stream changes, require exact empty output arrays on pre-terminal
+response snapshots, require exactly one `response.in_progress` after
+`response.created` and before every other lifecycle or terminal event, admit
+null usage only before completion, keep the added
+function-call item authoritative when the argument-done event omits its
+redundant name, require that argument-done phase before function-item completion,
+enforce batch call-count and aggregate argument bounds before retaining its
+complete string, retain argument deltas as bounded per-item chunks under one
+aggregate code-unit budget, and join an item's chunks only once at its done
+event rather than rebuilding the accumulated string for every delta. Keep
+answer, reasoning-summary, and reasoning-content deltas on that same shared
+chunk primitive; enforce the canonical runtime response bound and combined
+provider reasoning bound before append, then join only at text done. Regress
+maximum-fragment streams without timing assertions,
+reject nonempty or malformed reasoning content at item addition, reject every
+reasoning item and delta when the captured effort is off, require the sole
+completed message content part to retain streamed index zero, retain
+`response.completed` as provisional until clean EOF,
+require every reasoning or message output index to precede every function-call
+output index regardless of item-addition order, and publish visible deltas only
+for the current monotonic output cursor. Advance that cursor through contiguous
+completed items without buffering later text; keep out-of-order function-call
+completion private until the sorted terminal batch. Compare the provider-ordered
+output with every completed item, and regress
+missing, malformed, contradictory, reordered, and trailing-frame cases before
+publishing `done` or `toolCalls`. For tool-schema changes, preserve every owned
+string, NUL, UTF-8, projection, and aggregate-text constraint in the advertised
+schema; every non-literal string must expose its exact minimum and maximum code-
+unit bounds even without an auxiliary constraint, and every object projection
+must expose its ordered field names, `exact` or `size` modes, and aggregate
+maximum. Never treat provider-facing character limits or annotations as a
+replacement for the exact provider-neutral argument validator.
+For OpenAI HTTPS cleanup, keep request and response ownership paired through
+stream close and every failure path. Destroy each exact handle idempotently,
+combine either cleanup failure without replacing the primary reason, and wrap
+late response-callback destruction after cancellation, timeout, or request
+failure so a private cleanup cause cannot escape or reopen settled authority.
+Before awaiting transport close, clear the model stream's queued events and
+completion and explicitly release Responses item and text state, SSE fragments,
+and partial UTF-8. A read already pending must check close before it snapshots or
+decodes a returned transport value. Regress state reuse after release, a late
+successful read, and close invoked by a transport-result accessor. Recheck close
+after the shared result snapshot and before classifying its captured value or
+error; preserve the closed result without updating decoder state, replacing it
+with a transport failure, or repopulating partial provider content while cleanup
+is pending.
+For SSE framing changes, retain incremental boundary discovery across LF and
+CRLF chunk splits. Regress a large single frame delivered one code unit at a
+time under the bounded deadline; never restart delimiter searches at the
+beginning of the growing partial frame after each `needMore`.
+For OpenAI byte-chunk changes, snapshot the length, enforce the 1-through-65,536
+bound, and copy into a fresh typed array with `set` before retention or UTF-8
+decoding. Regress both HTTPS and injected chunks with overridden iterators;
+never spread or call an untrusted byte iterator.
+For an injected Responses chunk, allocate and copy from the one validated
+length, then pass only that owned snapshot to UTF-8 decoding. Regress a getter
+that returns an admitted length once and an oversized length on its next read;
+the untrusted length must be consulted exactly once.
+Also make the HTTPS length getter emit EOF and error, and make the injected
+model-chunk getter close its owning stream. Recheck terminal authority after the
+snapshot and before staging, publication, failure classification, UTF-8 decode,
+or decoder updates; the terminal result must not be replaced.
+Apply the same once-read, no-throw length-and-copy transaction at the exported
+catalog decoder's one-megabyte boundary. Regress a throwing length getter and
+return the content-free limit result rather than exposing its cause.
 
 For ChatGPT, Kimi, or xAI compatibility changes, recheck first-party protocol
 and client-ownership evidence, pin any necessary bounded clean-room inspection
 before opening source, and update decision 0091 plus provider-specific decision
-0092 and 0094 when OpenAI is affected, machine policy, disclosure, privacy, security,
-tests, rollback, and removal together. A foreign caller identity, third-party-
+0092, 0094, and 0095 when OpenAI is affected, machine policy, disclosure,
+privacy, security, tests, rollback, and removal together. A foreign caller identity, third-party-
 only client ID, or foreign credential import requires rollback to inactive
 state rather than a compatibility workaround.
 

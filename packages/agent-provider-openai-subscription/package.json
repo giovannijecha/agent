@@ -1,0 +1,23 @@
+{
+  "name": "@agent/provider-openai-subscription",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Owned inactive OpenAI subscription provider transport for agent.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "dependencies": {
+    "@agent/core": "0.1.0",
+    "@agent/runtime": "0.1.0",
+    "@agent/tools": "0.1.0"
+  }
+}

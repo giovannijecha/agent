@@ -161,15 +161,40 @@ projected. Tokens, device identity, provider `expires_at` metadata,
 authorization code, verifier, challenge, claims, statuses, bodies, and foreign
 error text remain secret or content-free.
 
-OpenAI authentication has no provider-runtime authority. Refresh, revocation,
-catalog, model selection, Responses transport, and runtime snapshot composition
-remain disabled, so an OpenAI record cannot send task content or create a
-`/models` row. Local removal uses native retirement and explicitly does not
+Decision 0095 keeps the OpenAI transport uncomposed. Its fixed-origin catalog
+and Responses code can be reached only by offline injected tests; no startup,
+command, TUI, provider session, or runtime path constructs it or supplies a
+credential. Refresh, revocation, model selection, transport construction, and
+runtime snapshot composition remain disabled, so an OpenAI record cannot send
+task content or create a `/models` row. The first response callback claims its
+response before metadata access; accessor-triggered callback reentry destroys
+the duplicate, claimed response, and request before later admission work.
+Responses assigns candidate cleanup authority before listener wiring.
+Response-listener admission checks for synchronous terminal callbacks after
+each registration: catalog performs no later wiring or initial resume after
+settlement, and Responses cannot publish a pre-terminalized stream before paired
+request-response cleanup. Model close releases every partial decoder and queued
+response owner before awaiting transport teardown, and a pending read cannot
+decode a post-close value. A retained transport `data` callback is inert after
+EOF, failure, settlement, or close before it can pause or retain bytes. A
+read stages one bounded synchronous `data` callback until `resume` succeeds,
+and rechecks terminal authority after callback-capable `pause` before observing
+the chunk. Both HTTPS and Node-free boundaries recheck again after untrusted
+chunk snapshotting and before publication or decode. Catalog and Responses
+permit one active data-snapshot transaction; accessor-triggered nested data
+fails protocol before callback order, aggregate retention, pending reads, or
+queues change. The model rechecks close after the shared transport-result
+snapshot and before classifying its captured value or error. Catalog completion
+emitted inside initial `resume` remains staged until that call succeeds; a throw forces
+paired cleanup instead of accepting the capture. A response callback
+delivered after request setup
+fails is destroyed under containment and cannot become new staged authority.
+Local removal uses native retirement and explicitly does not
 claim provider-side revocation or secure erasure. The product scanner admits
-the exact OpenAI endpoint, client-identity, token-field, JWT, HTTPS, and hash
-spellings only in the reviewed decision-0094 adapter, command, policy, and test
-files; third-party client IDs, foreign callers, foreign stores, and foreign
-credentials still fail closed.
+the exact OpenAI endpoint, client-identity, token-field, JWT, HTTPS, hash,
+catalog, and Responses spellings only in the reviewed decision-0094 and
+decision-0095 adapters, command, policy, and test files; third-party client IDs,
+foreign callers, foreign stores, and foreign credentials still fail closed.
 The single `shell` capability admits one exactly
 approved bounded command through the fixed profile-free platform shell, a
 controlled environment that excludes provider credentials, and owned

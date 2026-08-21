@@ -689,9 +689,10 @@ test("rejects direct provider admission contract drift", () => {
     "decision 0092 records OpenAI's exact non-secret\npublic client",
     "Decision 0093 implements the exact OpenAI record and private native\nlifecycle.",
     "Decision 0094 activates its fixed-origin device login",
-    "The contract is now `auth-compatible-inactive`",
-    "OpenAI remains blocked by `transport-implementation-required`.",
-    "`tools/provider-policy.json` schema version 14",
+    "Decision 0095 installs the independently authored Node-free catalog and\nResponses adapter and the exact CLI HTTPS transport.",
+    "OpenAI transport is\n`transport-compatible-inactive`",
+    "OpenAI remains blocked by `runtime-integration-required`.",
+    "`tools/provider-policy.json` schema version 15",
   ]) {
     const context = currentContext();
     context.files["docs/PROVIDERS.md"] = providers.replaceAll(
@@ -726,7 +727,7 @@ test("rejects provider-specific OAuth registration conclusion drift", () => {
   for (const [provider, row] of [
     [
       "ChatGPT Plus/Pro",
-      "| ChatGPT Plus/Pro | OpenAI documents subscription browser and device login for Codex clients; decisions 0090 through 0094 fix the independently derived protocol, exact provider-owned public-client identity, owned record, and active device-auth command. | Authentication is `auth-compatible-inactive`: sign-in and local removal are active without provider endorsement, while refresh, revocation, catalog, model, and conversation runtime remain inactive. |",
+      "| ChatGPT Plus/Pro | OpenAI documents subscription browser and device login for Codex clients; decisions 0090 through 0095 fix the independently derived protocol, exact provider-owned public-client identity, owned record, active device-auth command, and inactive catalog and Responses transport. | Authentication is `transport-compatible-inactive`: sign-in and local removal are active without provider endorsement and the transport is installed but uncomposed, while refresh, revocation, provider/model selection, and conversation runtime remain inactive. |",
     ],
     [
       "Claude Pro/Max",

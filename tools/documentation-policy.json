@@ -96,7 +96,8 @@
     "docs/decisions/0091-owned-provider-public-client-compatibility.md",
     "docs/decisions/0092-owned-openai-compatible-public-client.md",
     "docs/decisions/0093-owned-openai-oauth-credential-record.md",
-    "docs/decisions/0094-owned-openai-device-authentication.md"
+    "docs/decisions/0094-owned-openai-device-authentication.md",
+    "docs/decisions/0095-owned-openai-provider-transport.md"
   ],
   "decisionIndexLifecycleDigest": {
     "algorithm": "sha256",
@@ -133,6 +134,7 @@
       "docs/decisions/0092-owned-openai-compatible-public-client.md",
       "docs/decisions/0093-owned-openai-oauth-credential-record.md",
       "docs/decisions/0094-owned-openai-device-authentication.md",
+      "docs/decisions/0095-owned-openai-provider-transport.md",
       "SECURITY.md",
       "docs/OWNERSHIP.md",
       "docs/BRAND.md",
@@ -169,7 +171,8 @@
     "0091": "2026-08-21",
     "0092": "2026-08-21",
     "0093": "2026-08-21",
-    "0094": "2026-08-21"
+    "0094": "2026-08-21",
+    "0095": "2026-08-21"
   },
   "historicalDecisionStatusExceptions": {
     "0009": "accepted"
@@ -234,7 +237,7 @@
   ],
   "decisionRecordDigest": {
     "algorithm": "sha256",
-    "value": "4fabc6e406db9bfc61cafc0ff5288a7ea543c6a5d86335b75af661001f2794a3"
+    "value": "24be1e2c492d1e67a9087c665f5a1ebc95f8eca002e0be131a0857a38796a8bf"
   },
   "decisionDomainMembers": {
     "architecture": [
@@ -291,7 +294,8 @@
       "0091",
       "0092",
       "0093",
-      "0094"
+      "0094",
+      "0095"
     ],
     "security": [
       "0015",
@@ -388,6 +392,7 @@
       "0037"
     ],
     "providers": [
+      "0095",
       "0094",
       "0093",
       "0092",

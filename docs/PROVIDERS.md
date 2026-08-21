@@ -159,28 +159,176 @@ Poll success requires the authorization code and verifier and may contain one
 interpreted optional challenge, which must match the verifier when present.
 After bounded decoding and duplicate-name rejection, every other member is
 discarded without timing, authorization, projection, or persistence effect.
-The contract is now `auth-compatible-inactive`: auth can create or replace the
-owned record, but there is still no runtime snapshot,
-refresh, revocation, provider workspace, catalog, provider/model row, Responses
-transport, or conversation-runtime composition.
+Decision 0095 installs the independently authored Node-free catalog and
+Responses adapter and the exact CLI HTTPS transport. OpenAI transport is
+`transport-compatible-inactive`: auth can create or replace the owned record
+and the code can be verified through injected doubles, but there is still no
+runtime snapshot, refresh, revocation, provider/model row, transport
+construction, or conversation-runtime composition.
+The inactive CLI transport reads the access-token and account-ID properties
+exactly once during construction, validates those snapshots, and retains those
+same frozen values; accessor or proxy failure rejects the configuration.
+The Node-free adapter admits every injected transport result through one shared
+no-throw snapshot boundary. It reads the `ok` discriminant once and then the
+matching value or error object once; an error's kind and cleanup flag are each
+read once, validated, and retained from those same snapshots. Catalog, open,
+read, and close therefore cannot validate one accessor-backed result and later
+publish another; malformed, throwing, or array-shaped results fail as protocol.
+An active model read rechecks close after this result snapshot and before
+classifying its captured value or error, preserving an accessor-triggered close
+as the sole terminal authority.
+Its strict decoder requires exact empty output arrays on pre-terminal response
+snapshots and exactly one `response.in_progress` immediately after
+`response.created`; every other lifecycle or terminal event before that gate
+fails closed. It accepts null usage only before completion and keeps each added
+function-call item as the name authority even when the argument-done event
+omits its redundant name. The argument-done event itself is mandatory and its
+complete argument string must pass the batch call-count and aggregate argument
+bounds before retention, then match the completed function-call item. Argument
+deltas remain as bounded per-item chunks under one aggregate code-unit budget;
+they are joined exactly once at the done event and are never re-copied as one
+growing string for each delta. Answer, reasoning-summary, and reasoning-content
+deltas use the same shared chunk primitive: answer retention is bounded by the
+canonical runtime response limit, reasoning retains its combined provider
+budget, and each item is joined only at its text-done event. An added
+reasoning item admits only absent or exact
+empty initial content, so later streamed projections cannot suppress or replace
+pre-populated state. Reasoning items, summaries, and content fail closed when
+the captured thinking effort is off. A completed output message binds its sole
+output-text part to streamed content index zero before the item or terminal
+response can be accepted. Its tool projection preserves owned code-
+unit, UTF-8,
+projection, NUL, and aggregate-text constraints as explicit annotations: every
+non-literal string exposes its exact minimum and maximum code-unit bounds even
+when it owns no auxiliary string constraint, and every projected object exposes
+the exact ordered field names, field modes, and aggregate maximum. The provider-
+neutral validator remains the sole argument-admission authority.
+It treats `response.completed` as provisional: the complete provider-ordered
+output must match the accumulated completed items, and `done` or `toolCalls` is
+published only after clean SSE and transport EOF with no trailing frame.
+Closing a Responses stream first releases its queued events, staged completion,
+Responses item and bounded text state, SSE fragments, and partial UTF-8, then
+destroys its exact request and response once and combines either cleanup failure.
+A read already pending at close rejects a later transport value before inspecting
+or decoding it. Catalog and Responses callbacks that arrive
+after an earlier settlement destroy their response inside the content-free
+cleanup boundary and cannot escape a private cause or reopen the operation.
+Each callback that arrives before its request factory returns or while request
+setup is still running is held as the sole bounded staged response. Agent does
+not inspect its metadata, wire response listeners, or settle the operation until
+the exact returned request is retained and its error listener, inactivity
+timeout, body write when applicable, and `end` have all completed. A second
+staged response, a setup throw, or a synchronous request error fails closed,
+stops the remaining setup, and destroys the retained request and every staged
+response while combining cleanup failure.
+A callback delivered after setup has failed or settled is destroyed immediately
+inside the no-throw cleanup boundary and is never stored as a new staged
+response.
+After a Responses stream is published, a duplicate response callback remains a
+protocol conflict until transport EOF is delivered through the pending or next
+`read`: Agent destroys the extra response, carries any cleanup failure into the
+stream result, and terminates the active stream with paired request-response
+cleanup. A response `end` notification records provisional EOF but does not
+release callback authority. One bounded promise checkpoint delivers that EOF
+and retires the authority atomically, so a duplicate already dispatched after
+`end` cannot leave the first stream authoritative.
+Every rejected catalog response also destroys both its request and response and
+combines cleanup failure from either handle before publishing its empty capture.
+The first catalog and Responses callback claims its response before it snapshots
+status and content type once inside callback-local containment. Reentry from a
+metadata accessor is a protocol conflict that destroys the duplicate, claimed
+response, and request before another property read or admission action.
+Throwing or malformed metadata produces a content-free protocol failure,
+destroys both request and response, and combines either cleanup failure;
+admitted metadata is never reread at catalog EOF or inside the Responses stream
+constructor.
+A content-type header array is valid only with exactly one string member; a
+non-string member is never coerced and rejects the complete response admission.
+Listener registration and initial flow control form the same atomic response-
+admission transaction. Any throw rolls back every partially registered
+listener, destroys both handles, and settles one content-free protocol result.
+The Responses stream candidate owns paired cleanup before a listener can invoke
+a reentrant response callback, but remains unpublished until admission completes.
+After each registration, a synchronous terminal callback stops every remaining
+admission action. Catalog retains that callback's single settled result without
+registering later listeners or calling the initial `resume`; Responses refuses
+to publish the terminal stream and performs one paired request-response
+rollback as a content-free protocol failure.
+Catalog data and EOF emitted synchronously by its initial `resume` may prepare
+one bounded immutable capture, but that capture is published only after
+`resume` returns successfully. A throw or conflicting event discards it and
+performs paired request-response cleanup.
+After admission, read, data, EOF, failure, and close contain every flow-control
+and listener-detachment throw; teardown still attempts every detach and both
+idempotent destructions and combines cleanup failure without exposing a cause.
+A retained Responses `data` listener invoked after EOF, failure, settlement, or
+close returns before flow control or byte retention and cannot satisfy a pending
+read or repopulate the closed stream.
+One bounded synchronous `data` callback from `resume` remains staged until that
+flow-control call returns successfully. A thrown `resume` or intervening terminal
+callback discards the stage; after callback-capable `pause`, terminal state is
+rechecked before the chunk is observed or copied.
+Catalog and Responses each admit only one active data-snapshot transaction.
+Accessor-triggered reentry by another `data` callback fails protocol before the
+nested or outer chunk can change provider order, aggregate bytes, pending-read
+settlement, or queue state. Terminal authority is rechecked after the snapshot
+before catalog retention or Responses publication.
+The catalog adapter reads every returned capture property once, validates those
+local snapshots, and copies only the same bounded body snapshot; an accessor or
+proxy cannot replace validated metadata or bytes through a later read. The copy
+uses a fresh typed-array destination without consulting the source iterator.
+Catalog cancellation likewise snapshots `requested` once, requires a boolean,
+and rejects malformed state before transport.
+After a transport reports a successful stream open, the adapter retains valid
+close authority first and closes through it if any other stream property is
+malformed; the protocol failure records whether that cleanup failed.
+Before opening that transport, the model snapshots the cancellation `requested`
+property once inside containment, requires a boolean, and rejects a throwing or
+malformed getter without encoding or sending a request.
+Catalog and Responses HTTPS chunks, and injected Responses chunks, must contain
+1 through 65,536 bytes. Each is copied into a fresh typed array with `set`
+before retention or UTF-8 decoding; a source iterator is never consulted.
+For an injected Responses chunk, the one admitted length controls both the
+allocation and exact copy; the UTF-8 decoder receives only that owned snapshot
+and never rereads the transport object's length.
+Terminal authority is rechecked immediately after each untrusted chunk
+snapshot. HTTPS EOF or failure prevents staging or publication, while model
+close prevents snapshot-error classification, UTF-8 decoding, and any SSE or
+Responses-state update.
+The exported catalog decoder likewise snapshots its untrusted byte length once
+inside the same no-throw boundary as its bounded copy. A throwing, malformed,
+empty, or oversized length returns only the content-free limit result.
+SSE boundary discovery examines each new chunk with only the retained three-
+code-unit suffix; repeated `needMore` outcomes never rescan the whole partial
+frame.
+The ordered output projection admits reasoning and message items only before
+the function-call phase. A reasoning or message `output_index` after any
+function call fails closed at item addition, independent of event arrival
+order, before a text delta or tool-call batch can be published.
+Within the visible phase, a monotonic output cursor admits deltas only for its
+current `output_index` and advances through contiguous completed items. A later
+message or reasoning delta fails closed instead of being buffered or emitted
+early; function-call completion may remain out of order until the sorted
+terminal batch.
 
-OpenAI remains blocked by `transport-implementation-required`. Its provider
-adapter, refresh lifecycle, integration, and live smoke must arrive as the
-remaining serial modules required by decisions 0090 through 0094, each
+OpenAI remains blocked by `runtime-integration-required`. Its refresh lifecycle,
+exclusive runtime composition, `/models` integration, and live smoke must
+arrive as the remaining serial module required by decisions 0090 through 0095,
 with its own threat model, offline contract tests, rollback, and removal path.
 Claude remains subject to the original independent-registration gate.
 
 ## Machine gate
 
-`tools/provider-policy.json` schema version 14 records the four runtime-inactive OAuth
+`tools/provider-policy.json` schema version 15 records the four runtime-inactive OAuth
 providers, the one exact enabled direct provider, the accepted-runtime-inactive
-compatibility category, and one exact `auth-compatible-inactive` OpenAI
+compatibility category, and one exact `transport-compatible-inactive` OpenAI
 subscription contract. It pins the fixed chat and
 authenticated catalog endpoints, bearer authentication, dynamic catalog
 authority, cloud cost class, native `application/json` streaming transport,
 line-delimited object contract, environment variable, exact owned record,
 shared/exclusive admission, external auth command, exact provider workspace,
-and the OpenAI decisions, routes, implemented record and authentication,
+and the OpenAI decisions, routes, implemented record, authentication and
+inactive transport,
 exclusive admission, exact provider-owned public client, one-field device
 request, closed device-response schema, empty requested-scope set, callback,
 bounded projection-only poll-response schema and settlement, public-client token authentication,
