@@ -553,8 +553,9 @@ refresh, revocation, runtime snapshot, provider row, transport construction, or
 For terminal-stream changes, require exact empty output arrays on pre-terminal
 response snapshots, admit null usage only before completion, keep the added
 function-call item authoritative when the argument-done event omits its
-redundant name, reject nonempty or malformed reasoning content at item addition,
-retain `response.completed` as provisional until clean EOF,
+redundant name, require that argument-done phase before function-item completion,
+reject nonempty or malformed reasoning content at item addition, retain
+`response.completed` as provisional until clean EOF,
 compare its provider-ordered output with every completed item, and regress
 missing, malformed, contradictory, reordered, and trailing-frame cases before
 publishing `done` or `toolCalls`. For tool-schema changes, preserve every owned

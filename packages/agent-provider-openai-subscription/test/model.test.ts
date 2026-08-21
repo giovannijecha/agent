@@ -827,13 +827,15 @@ test("preserves provider output-index order and rejects a reordered final projec
       output_index: outputIndex,
     },
   );
-  const done = (id: string, callId: string, path: string, outputIndex: number) => event(
-    "response.output_item.done",
-    {
+  const done = (id: string, callId: string, path: string, outputIndex: number) =>
+    event("response.function_call_arguments.done", {
+      arguments: JSON.stringify({ path }),
+      item_id: id,
+      output_index: outputIndex,
+    }) + event("response.output_item.done", {
       item: completedCall(id, callId, path),
       output_index: outputIndex,
-    },
-  );
+    });
   const zero = completedCall("function-zero", "call-zero", "zero.md");
   const one = completedCall("function-one", "call-one", "one.md");
   const toolEvents = (output: readonly unknown[]) =>
@@ -1176,6 +1178,30 @@ test("rejects incomplete and contradictory Responses lifecycle events", async ()
         item_id: "message-alpha",
         output_index: 0,
       }),
+    created + event("response.output_item.added", { item: {
+      arguments: "",
+      call_id: "call-alpha",
+      id: "function-alpha",
+      name: "read_file",
+      status: "in_progress",
+      type: "function_call",
+    }, output_index: 0 }) + event("response.output_item.done", { item: {
+      arguments: "{}",
+      call_id: "call-alpha",
+      id: "function-alpha",
+      name: "read_file",
+      status: "completed",
+      type: "function_call",
+    }, output_index: 0 }) + event("response.completed", {
+      response: response("completed", Object.freeze([Object.freeze({
+        arguments: "{}",
+        call_id: "call-alpha",
+        id: "function-alpha",
+        name: "read_file",
+        status: "completed",
+        type: "function_call",
+      })])),
+    }),
     created + event("response.output_item.added", { item: {
       arguments: "",
       call_id: "call-alpha",

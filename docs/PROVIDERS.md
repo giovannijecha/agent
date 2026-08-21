@@ -168,7 +168,9 @@ construction, or conversation-runtime composition.
 Its strict decoder requires exact empty output arrays on pre-terminal response
 snapshots, accepts null usage only before completion, and keeps each added
 function-call item as the name authority even when the argument-done event
-omits its redundant name. An added reasoning item admits only absent or exact
+omits its redundant name. The argument-done event itself is mandatory and its
+complete argument string must match the completed function-call item. An added
+reasoning item admits only absent or exact
 empty initial content, so later streamed projections cannot suppress or replace
 pre-populated state. Its tool projection preserves owned code-unit, UTF-8,
 projection, NUL, and aggregate-text constraints as explicit annotations: every

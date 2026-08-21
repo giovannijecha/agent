@@ -693,7 +693,7 @@ export class OpenAIResponsesDecoder {
       typeof value.name !== "string" || !VALID_TOOL_NAME.test(value.name) ||
       typeof value.arguments !== "string" || value.arguments.length < 2 ||
       value.call_id !== state.callId || value.name !== state.name ||
-      (state.argumentDone !== undefined && value.arguments !== state.argumentDone) ||
+      state.argumentDone === undefined || value.arguments !== state.argumentDone ||
       this.#callIds.has(value.call_id) ||
       this.#calls.size >= OPENAI_PROVIDER_LIMITS.toolCallsPerBatch) {
       return this.#reject("protocolToolCall");
@@ -718,7 +718,6 @@ export class OpenAIResponsesDecoder {
       input: structured.value,
       name: value.name,
     }));
-    state.argumentDone = value.arguments;
     state.done = true;
     return ok(Object.freeze([]));
   }

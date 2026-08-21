@@ -206,8 +206,10 @@ The admitted lifecycle is:
    answer text starts;
 4. non-empty `response.output_text.delta` values become runtime answer deltas;
 5. `response.output_item.done` admits only a complete reasoning item, output
-   message, or function call; a function call requires one unique bounded
-   `call_id`, exact registered-name grammar, and a JSON object argument string;
+   message, or function call; a function call requires a prior
+   `response.function_call_arguments.done`, one unique bounded `call_id`, exact
+   registered-name grammar, and that done event's identical JSON object argument
+   string;
 6. `response.completed` requires a completed response object, permits only an
    absent or bounded non-negative integer usage projection rather than null,
    and revalidates its complete
@@ -219,11 +221,12 @@ The admitted lifecycle is:
    exposing the response body or provider message. A staged successful terminal
    event is published only after clean SSE and transport EOF.
 
-Function-argument delta events are validated and bounded. Their done event owns
-the complete argument string but does not own the function name: the added item
-state does. A redundantly repeated done-event name is optional and must match
-that item state when present. The complete `response.output_item.done` item is
-the sole call authority. Provider call IDs remain provider data and pass
+Function-argument delta events are validated and bounded. Their done event is a
+required lifecycle phase and owns the complete argument string but does not own
+the function name: the added item state does. A redundantly repeated done-event
+name is optional and must match that item state when present. The complete
+`response.output_item.done` item must confirm the exact completed arguments and
+is the sole call authority. Provider call IDs remain provider data and pass
 through the existing runtime validation, permission, execution, checkpoint,
 and provider-order settlement. Usage is validated for protocol integrity but
 is not added to the current operator surface by this module. The final response
@@ -285,7 +288,8 @@ Red-green regression must prove:
   empty include list within fixed bounds;
 - the SSE decoder handles chunk splits, CRLF, optional matching event names,
   reasoning, text, function calls with absent or matching repeated done-event
-  names, nullable pre-terminal usage, strict terminal usage, completion,
+  names, rejection of a missing argument-done phase, nullable pre-terminal
+  usage, strict terminal usage, completion,
   cancellation, timeout, and one large frame fragmented into single-code-unit
   chunks without whole-buffer rescanning;
 - an added reasoning item rejects pre-populated or malformed content before any
