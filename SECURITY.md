@@ -180,8 +180,12 @@ EOF, failure, settlement, or close before it can pause or retain bytes. A
 read stages one bounded synchronous `data` callback until `resume` succeeds,
 and rechecks terminal authority after callback-capable `pause` before observing
 the chunk. Both HTTPS and Node-free boundaries recheck again after untrusted
-chunk snapshotting and before publication or decode. Catalog completion emitted
-inside initial `resume` remains staged until that call succeeds; a throw forces
+chunk snapshotting and before publication or decode. Catalog and Responses
+permit one active data-snapshot transaction; accessor-triggered nested data
+fails protocol before callback order, aggregate retention, pending reads, or
+queues change. The model rechecks close after the shared transport-result
+snapshot and before classifying its captured value or error. Catalog completion
+emitted inside initial `resume` remains staged until that call succeeds; a throw forces
 paired cleanup instead of accepting the capture. A response callback
 delivered after request setup
 fails is destroyed under containment and cannot become new staged authority.

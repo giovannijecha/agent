@@ -273,6 +273,10 @@ Each read stages at most one bounded `data` callback produced synchronously by
 a throw or intervening terminal callback discards it and preserves the terminal
 result. A `data` callback also rechecks terminal authority immediately after its
 callback-capable `pause` returns and before it observes or copies the chunk.
+Catalog and Responses each permit only one `data` callback to own chunk
+snapshotting at a time. A callback re-entered by an accessor while that snapshot
+is active fails the operation as protocol before either the nested or outer
+chunk can update retained order, byte totals, a pending read, or the queue.
 Both the Node transport and Node-free Responses adapter snapshot each chunk's
 length, require 1 through 65,536 bytes, and copy into a fresh `Uint8Array` with
 typed-array `set` before UTF-8 decoding. No source iterator participates in the
@@ -284,6 +288,9 @@ snapshot transaction. The Node transport does so before staging or publishing
 the owned chunk; the Node-free stream does so before classifying snapshot
 failure, decoding UTF-8, or updating SSE and Responses state. Close, EOF, or
 failure raised by an accessor therefore remains authoritative.
+The Node-free stream also rechecks close immediately after snapshotting the
+shared transport-result envelope and before it classifies a captured error or
+value, so an accessor-triggered close cannot be replaced by a transport reason.
 
 The Node-free decoder performs strict incremental UTF-8 and bounded SSE
 framing. Boundary discovery inspects only each newly admitted chunk plus the
@@ -444,6 +451,10 @@ Red-green regression must prove:
 - HTTPS EOF or failure raised during chunk snapshot prevents staging or
   publication, and model close raised during its snapshot prevents failure
   reclassification, UTF-8 decode, or decoder-state repopulation;
+- reentrant catalog and Responses data raised by a chunk accessor fails
+  protocol without reversing callback order or retaining either transaction;
+  model close raised while snapshotting a transport-result envelope remains the
+  read authority before the captured value or error is classified;
   function-argument fragmentation retains bounded chunks and performs one
   completion join rather than repeated accumulated-string reconstruction;
   answer and both reasoning channels use the same bounded chunk primitive and

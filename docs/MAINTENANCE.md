@@ -623,6 +623,11 @@ throws: no provider byte may settle the read. Also make `pause` synchronously
 emit EOF and error in separate cases and prove the chunk is not even observed.
 Successful synchronous data may use only one bounded stage and becomes visible
 only after `resume` returns.
+Regress catalog and Responses `data` reentry from the outer chunk's accessor.
+Exactly one callback owns the snapshot transaction; nested data must fail
+protocol before either callback changes byte order, aggregate retention, a
+pending read, or queue state. For catalog terminal events raised during the
+snapshot, recheck settlement before updating `bytes` or `chunks`.
 For successful transport-open validation, snapshot valid close authority first,
 read each remaining stream property once, and invoke the retained close before
 rejecting malformed metadata or read authority. Preserve cleanup failure without
@@ -670,9 +675,12 @@ failure so a private cleanup cause cannot escape or reopen settled authority.
 Before awaiting transport close, clear the model stream's queued events and
 completion and explicitly release Responses item and text state, SSE fragments,
 and partial UTF-8. A read already pending must check close before it snapshots or
-decodes a returned transport value. Regress both state reuse after release and a
-late successful read so closed streams cannot retain or repopulate partial
-provider content while cleanup is pending.
+decodes a returned transport value. Regress state reuse after release, a late
+successful read, and close invoked by a transport-result accessor. Recheck close
+after the shared result snapshot and before classifying its captured value or
+error; preserve the closed result without updating decoder state, replacing it
+with a transport failure, or repopulating partial provider content while cleanup
+is pending.
 For SSE framing changes, retain incremental boundary discovery across LF and
 CRLF chunk splits. Regress a large single frame delivered one code unit at a
 time under the bounded deadline; never restart delimiter searches at the

@@ -250,6 +250,7 @@ class OpenAIStream implements ModelStream<OpenAIError> {
         }
         if (this.#closed) return err(modelError("read", "closed"));
         const received = snapshotTransportResult<Uint8Array | null>(rawReceived);
+        if (this.#closed) return err(modelError("read", "closed"));
         if (received === undefined) return this.#fail("transportProtocol");
         if (!received.ok) {
           return this.#fail(

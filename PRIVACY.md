@@ -250,6 +250,11 @@ again after every untrusted chunk snapshot, so accessor-triggered EOF, failure,
 or close cannot publish bytes, decode content, or repopulate released state. A
 catalog capture completed synchronously inside initial `resume` likewise remains
 private until that call succeeds and is released if the flow-control call fails.
+Catalog and Responses allow only one data callback to own a chunk snapshot;
+accessor-triggered nested data fails before either chunk can alter retained
+order, aggregate bytes, a pending read, or queue state. The model also rechecks
+close after snapshotting an injected transport-result envelope, before a captured
+value or error can repopulate or reclassify released response state.
 The compatibility flow identifies the caller as `agent` or omits the caller
 field, discloses that it is independent and not provider-endorsed, and never
 imports a foreign credential or browser session.

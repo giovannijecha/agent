@@ -174,6 +174,9 @@ matching value or error object once; an error's kind and cleanup flag are each
 read once, validated, and retained from those same snapshots. Catalog, open,
 read, and close therefore cannot validate one accessor-backed result and later
 publish another; malformed, throwing, or array-shaped results fail as protocol.
+An active model read rechecks close after this result snapshot and before
+classifying its captured value or error, preserving an accessor-triggered close
+as the sole terminal authority.
 Its strict decoder requires exact empty output arrays on pre-terminal response
 snapshots and exactly one `response.in_progress` immediately after
 `response.created`; every other lifecycle or terminal event before that gate
@@ -265,6 +268,11 @@ One bounded synchronous `data` callback from `resume` remains staged until that
 flow-control call returns successfully. A thrown `resume` or intervening terminal
 callback discards the stage; after callback-capable `pause`, terminal state is
 rechecked before the chunk is observed or copied.
+Catalog and Responses each admit only one active data-snapshot transaction.
+Accessor-triggered reentry by another `data` callback fails protocol before the
+nested or outer chunk can change provider order, aggregate bytes, pending-read
+settlement, or queue state. Terminal authority is rechecked after the snapshot
+before catalog retention or Responses publication.
 The catalog adapter reads every returned capture property once, validates those
 local snapshots, and copies only the same bounded body snapshot; an accessor or
 proxy cannot replace validated metadata or bytes through a later read. The copy

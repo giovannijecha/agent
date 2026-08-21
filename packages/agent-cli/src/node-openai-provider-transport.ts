@@ -172,6 +172,7 @@ class NodeOpenAIStream implements OpenAITransportStream {
   readonly #response: HttpsResponse;
   readonly statusCode: number;
   #closed = false;
+  #dataInProgress = false;
   #ended = false;
   #failure: OpenAITransportError | undefined;
   #pending: ((result: Result<Uint8Array | null, OpenAITransportError>) => void) | undefined;
@@ -308,14 +309,24 @@ class NodeOpenAIStream implements OpenAITransportStream {
 
   readonly #onData = (chunk: Uint8Array): void => {
     if (this.#admissionTerminated()) return;
+    if (this.#dataInProgress) {
+      this.#fail("protocol");
+      return;
+    }
+    this.#dataInProgress = true;
     try {
       this.#response.pause();
     } catch (_cause: unknown) {
+      this.#dataInProgress = false;
       this.#fail("connection");
       return;
     }
-    if (this.#admissionTerminated()) return;
+    if (this.#admissionTerminated()) {
+      this.#dataInProgress = false;
+      return;
+    }
     const owned = snapshotChunk(chunk);
+    this.#dataInProgress = false;
     if (this.#admissionTerminated()) return;
     if (owned === undefined) {
       this.#fail("limit");
@@ -542,6 +553,7 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
     let stagedResponseConflict = false;
     let stagedResponseCleanupFailed = false;
     let catalogEndInProgress = false;
+    let catalogDataInProgress = false;
     let catalogResumeInProgress = false;
     let stagedCatalogCapture: OpenAICatalogCapture | undefined;
     const chunks: Uint8Array[] = [];
@@ -615,7 +627,14 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
           fail("protocol");
           return;
         }
+        if (catalogDataInProgress) {
+          fail("protocol");
+          return;
+        }
+        catalogDataInProgress = true;
         const owned = snapshotChunk(chunk);
+        catalogDataInProgress = false;
+        if (settled || terminating) return;
         if (owned === undefined ||
           bytes + owned.length > OPENAI_PROVIDER_LIMITS.catalogBodyBytes) {
           fail("limit");

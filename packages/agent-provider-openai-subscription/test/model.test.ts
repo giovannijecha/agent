@@ -943,6 +943,56 @@ test("rejects a response chunk that closes the model during snapshot", async () 
   assert.equal(stream.closeCalls, 1);
 });
 
+test("preserves model close during a transport-result snapshot", async () => {
+  let closeModel = (): void => undefined;
+  let closing: Promise<unknown> = Promise.resolve();
+  const transportError = Object.freeze({
+    cleanupFailed: false,
+    kind: "connection" as const,
+  });
+  const transportResult = Object.create(null) as Result<
+    Uint8Array | null,
+    OpenAITransportError
+  >;
+  Object.defineProperties(transportResult, {
+    error: {
+      get: () => {
+        closeModel();
+        return transportError;
+      },
+    },
+    ok: { value: false },
+  });
+  const stream = new FakeStream([]);
+  Object.defineProperty(stream, "read", {
+    value: () => Promise.resolve(transportResult),
+  });
+  const model = OpenAISubscriptionModel.create(
+    new FakeTransport(ok(stream)),
+    "Inspect safely.",
+    MODEL,
+  );
+  assert.ok(model.ok);
+  const opened = await model.value.open(
+    conversation(),
+    new Cancellation(),
+    [],
+    Object.freeze({ thinkingEffort: "off" as const }),
+  );
+  assert.ok(opened.ok);
+  closeModel = () => { closing = opened.value.close(); };
+  assert.deepEqual(await opened.value.read(), {
+    error: {
+      cleanupFailed: false,
+      kind: "openaiSubscription",
+      operation: "read",
+      reason: "closed",
+    },
+    ok: false,
+  });
+  assert.deepEqual(await closing, { ok: true, value: undefined });
+});
+
 test("releases partial Responses decoder state for a fresh lifecycle", () => {
   const decoder = new OpenAIResponsesDecoder(false);
   const partial = new SseDecoder();

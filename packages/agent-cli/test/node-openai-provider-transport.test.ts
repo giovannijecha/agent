@@ -780,6 +780,32 @@ test("rechecks Responses termination after snapshotting a data event", async () 
   }
 });
 
+test("rejects reentrant Responses data during one chunk snapshot", async () => {
+  const response = new FakeResponse(200, "text/event-stream");
+  const client = new FakeClient(response);
+  const opened = await create(client).open(Object.freeze({ body: "{}" }), new Cancellation());
+  assert.ok(opened.ok);
+  const pending = opened.value.read();
+  const chunk = ascii("outer");
+  let reentered = false;
+  Object.defineProperty(chunk, "length", {
+    get: () => {
+      if (!reentered) {
+        reentered = true;
+        response.emit("data", ascii("nested"));
+      }
+      return 5;
+    },
+  });
+  response.emit("data", chunk);
+  assert.deepEqual(await pending, {
+    error: { cleanupFailed: false, kind: "protocol" },
+    ok: false,
+  });
+  assert.equal(response.destroyed, 1);
+  assert.equal(client.requests.at(0)?.destroyed, 1);
+});
+
 test("rejects a non-string singleton content-type without coercion", async () => {
   for (const operation of ["catalog", "responses"] as const) {
     const response = new FakeResponse();
@@ -908,6 +934,31 @@ test("stages synchronous catalog completion until resume succeeds", async () => 
     assert.equal(response.destroyed, resumeFails ? 1 : 0);
     assert.equal(client.requests.at(0)?.destroyed, resumeFails ? 1 : 0);
   }
+});
+
+test("rejects reentrant catalog data during one chunk snapshot", async () => {
+  const response = new FakeResponse();
+  const client = new FakeClient(response);
+  const pending = create(client).catalog(new Cancellation());
+  const chunk = ascii('{"models":[]}');
+  let reentered = false;
+  Object.defineProperty(chunk, "length", {
+    get: () => {
+      if (!reentered) {
+        reentered = true;
+        response.emit("data", ascii("nested"));
+      }
+      return 13;
+    },
+  });
+  response.emit("data", chunk);
+  response.emit("end");
+  assert.deepEqual(await pending, {
+    error: { cleanupFailed: false, kind: "protocol" },
+    ok: false,
+  });
+  assert.equal(response.destroyed, 1);
+  assert.equal(client.requests.at(0)?.destroyed, 1);
 });
 
 test("stops catalog admission after a synchronous terminal registration event", async () => {
