@@ -748,7 +748,10 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
       };
       const acceptResponse = (response: HttpsResponse): void => {
         if (settled) {
-          destroyResponse(response);
+          const cleanupFailed = destroyResponse(response);
+          if (activeStream !== undefined && !lifecycleSettled) {
+            activeStream.protocol(cleanupFailed);
+          }
           return;
         }
         let metadata: ResponseMetadata | undefined;

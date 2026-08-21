@@ -123,6 +123,7 @@ class FakeRequest implements ClientRequest {
 }
 
 class FakeClient implements HttpsClient {
+  readonly #responseCallbacks: ((response: IncomingMessage) => void)[] = [];
   readonly responses: FakeResponse[];
   readonly options: RequestOptions[] = [];
   readonly requests: FakeRequest[] = [];
@@ -141,6 +142,7 @@ class FakeClient implements HttpsClient {
     const response = this.responses.shift();
     assert.ok(response !== undefined);
     this.options.push(options);
+    this.#responseCallbacks.push(onResponse);
     let responded = false;
     const respond = (): void => {
       if (responded) return;
@@ -160,6 +162,12 @@ class FakeClient implements HttpsClient {
 
   flushResponse(): void {
     this.#pendingResponses.shift()?.();
+  }
+
+  respondAgain(response: FakeResponse): void {
+    const callback = this.#responseCallbacks.at(-1);
+    assert.ok(callback !== undefined);
+    callback(response);
   }
 }
 
@@ -504,6 +512,30 @@ test("stops request setup when a synchronous request error rejects staged respon
     assert.equal(request.ended, 0);
     assert.deepEqual(request.writes, []);
     assert.equal(response.destroyed, 1);
+  }
+});
+
+test("fails an active Responses stream on a duplicate response callback", async () => {
+  for (const duplicateCleanupFails of [false, true]) {
+    const response = new FakeResponse(200, "text/event-stream");
+    const duplicate = new FakeResponse(200, "text/event-stream");
+    duplicate.destroyFailure = duplicateCleanupFails;
+    const client = new FakeClient(response);
+    const opened = await create(client).open(
+      Object.freeze({ body: "{}" }),
+      new Cancellation(),
+    );
+    assert.ok(opened.ok);
+    const pending = opened.value.read();
+    client.respondAgain(duplicate);
+    response.emit("data", ascii("unreachable"));
+    assert.deepEqual(await pending, {
+      error: { cleanupFailed: duplicateCleanupFails, kind: "protocol" },
+      ok: false,
+    });
+    assert.equal(duplicate.destroyed, 1);
+    assert.equal(response.destroyed, 1);
+    assert.equal(client.requests.at(0)?.destroyed, 1);
   }
 });
 

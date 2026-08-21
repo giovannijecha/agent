@@ -574,6 +574,9 @@ valid and rejected synchronous responses, every throwing setup operation, and a
 synchronous request error during setup. A conflict or failure must stop later
 setup, destroy the request and all staged responses, combine cleanup failure,
 and settle once without exposing a cause.
+Regress a duplicate callback after Responses publication separately: destroy
+the extra response, propagate its cleanup failure, and fail the active stream
+as protocol so the first response cannot continue as authority.
 Admit a content-type array only when it contains exactly one string member;
 regress a non-string member with hostile coercion and never invoke that coercion.
 Treat listener registration and initial `pause` or `resume` as one atomic
@@ -594,7 +597,9 @@ response snapshots, admit null usage only before completion, keep the added
 function-call item authoritative when the argument-done event omits its
 redundant name, require that argument-done phase before function-item completion,
 enforce batch call-count and aggregate argument bounds before retaining its
-complete string,
+complete string, retain argument deltas as bounded per-item chunks under one
+aggregate code-unit budget, and join an item's chunks only once at its done
+event rather than rebuilding the accumulated string for every delta,
 reject nonempty or malformed reasoning content at item addition, reject every
 reasoning item and delta when the captured effort is off, require the sole
 completed message content part to retain streamed index zero, retain

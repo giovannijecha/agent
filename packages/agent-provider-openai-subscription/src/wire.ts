@@ -27,6 +27,7 @@ import {
   type ToolSchema,
 } from "@agent/tools";
 
+import { BoundedArgumentChunks } from "./argument-chunks.js";
 import { OPENAI_PROVIDER_LIMITS } from "./limits.js";
 import type { OpenAIModelId } from "./models.js";
 import type { SseEvent } from "./sse.js";
@@ -360,8 +361,9 @@ export class OpenAIResponsesDecoder {
   #reasoningCodeUnits = 0;
   #argumentCodeUnits = 0;
   #argumentDoneCount = 0;
-  #argumentDeltaCodeUnits = 0;
-  readonly #argumentDeltas = new Map<string, string>();
+  readonly #argumentDeltas = new BoundedArgumentChunks(
+    OPENAI_PROVIDER_LIMITS.toolArgumentCodeUnits,
+  );
   #rejected = false;
   #terminal = false;
   readonly #calls = new Map<number, ModelToolCall>();
@@ -435,12 +437,7 @@ export class OpenAIResponsesDecoder {
         typeof parsed.delta !== "string" || parsed.delta.length < 1) {
         return this.#reject("protocolToolCall");
       }
-      this.#argumentDeltaCodeUnits += parsed.delta.length;
-      this.#argumentDeltas.set(
-        state.id,
-        (this.#argumentDeltas.get(state.id) ?? "") + parsed.delta,
-      );
-      return this.#argumentDeltaCodeUnits <= OPENAI_PROVIDER_LIMITS.toolArgumentCodeUnits
+      return this.#argumentDeltas.append(state.id, parsed.delta)
         ? ok(Object.freeze([]))
         : this.#reject("limit");
     }
@@ -453,7 +450,7 @@ export class OpenAIResponsesDecoder {
           OPENAI_PROVIDER_LIMITS.toolArgumentCodeUnits) {
         return this.#reject("protocolToolCall");
       }
-      const accumulated = this.#argumentDeltas.get(state.id);
+      const accumulated = this.#argumentDeltas.complete(state.id);
       if (accumulated !== undefined && accumulated !== parsed.arguments) {
         return this.#reject("protocolToolCall");
       }
@@ -464,7 +461,6 @@ export class OpenAIResponsesDecoder {
       if (retainedCodeUnits > OPENAI_PROVIDER_LIMITS.toolArgumentCodeUnits) {
         return this.#reject("limit");
       }
-      this.#argumentDeltas.delete(state.id);
       this.#argumentDoneCount += 1;
       this.#argumentCodeUnits = retainedCodeUnits;
       state.argumentDone = parsed.arguments;
@@ -475,7 +471,7 @@ export class OpenAIResponsesDecoder {
     }
     if (type === "response.completed") {
       const response = parsed.response;
-      if (this.#argumentDeltas.size !== 0 ||
+      if (this.#argumentDeltas.pending ||
         [...this.#outputs.values()].some((state) => !state.done) ||
         !validResponse(response, this.#responseId, "completed") ||
         !this.#completedOutput(response.output)) {

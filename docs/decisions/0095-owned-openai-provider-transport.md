@@ -131,6 +131,10 @@ request is retained and its error listener, inactivity timeout, applicable body
 write, and `end` complete. A second staged callback, a setup throw, or a
 synchronous request error stops later setup and destroys the request and all
 staged responses with combined content-free cleanup.
+A duplicate callback after a Responses stream is published remains a protocol
+conflict. The transport destroys the extra response, propagates its cleanup
+failure, and terminates the active stream through paired request-response
+cleanup instead of allowing the first stream to continue.
 
 The decoder accepts one JSON object containing one `models` array with 1
 through 256 entries. Every entry is a bounded object with required `slug`,
@@ -297,6 +301,11 @@ and provider-order settlement. Usage is validated for protocol integrity but
 is not added to the current operator surface by this module. The final response
 output is confirmation of the already validated item state, never an
 independent or weaker authority.
+Delta text is retained as per-item chunks under the existing one-megabyte
+aggregate delta budget. The decoder appends each admitted chunk once and joins
+one item's chunks exactly once at its done event before comparing the provider's
+complete argument string; it never reconstructs the growing string after each
+delta.
 Before retaining each complete done-event argument string, the decoder enforces
 both the 32-call batch count and the one-megabyte aggregate completed-argument
 budget. Item completion validates the already bounded retained string and does
@@ -378,6 +387,8 @@ Red-green regression must prove:
   without whole-buffer rescanning; HTTPS and injected chunks reject the
   65,536-byte bound, ignore overridden source iterators, and consult a changing
   length getter only once before UTF-8 decode;
+  function-argument fragmentation retains bounded chunks and performs one
+  completion join rather than repeated accumulated-string reconstruction;
   Responses admission contains throwing status and header getters with paired
   cleanup before constructing a stream; catalog and Responses admission roll
   back partial listener wiring and contain initial flow-control throws, while
@@ -398,6 +409,8 @@ Red-green regression must prove:
   contains late-response cleanup throws; valid and rejected synchronous
   callbacks remain staged until complete request setup, and setup throws or
   synchronous request errors destroy both handles without continuing setup; a
+  duplicate callback after stream publication destroys the extra response,
+  propagates its cleanup failure, and terminates the active stream as protocol; a
   malformed successful stream is closed through its retained close authority
   before rejection;
 - source policy admits only the new reviewed provider and CLI files and rejects

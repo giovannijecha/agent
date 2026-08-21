@@ -173,7 +173,10 @@ snapshots, accepts null usage only before completion, and keeps each added
 function-call item as the name authority even when the argument-done event
 omits its redundant name. The argument-done event itself is mandatory and its
 complete argument string must pass the batch call-count and aggregate argument
-bounds before retention, then match the completed function-call item. An added
+bounds before retention, then match the completed function-call item. Argument
+deltas remain as bounded per-item chunks under one aggregate code-unit budget;
+they are joined exactly once at the done event and are never re-copied as one
+growing string for each delta. An added
 reasoning item admits only absent or exact
 empty initial content, so later streamed projections cannot suppress or replace
 pre-populated state. Reasoning items, summaries, and content fail closed when
@@ -201,6 +204,10 @@ timeout, body write when applicable, and `end` have all completed. A second
 staged response, a setup throw, or a synchronous request error fails closed,
 stops the remaining setup, and destroys the retained request and every staged
 response while combining cleanup failure.
+After a Responses stream is published, a duplicate response callback remains a
+protocol conflict: Agent destroys the extra response, carries any cleanup
+failure into the stream result, and terminates the active stream with paired
+request-response cleanup. It cannot leave the first stream authoritative.
 Every rejected catalog response also destroys both its request and response and
 combines cleanup failure from either handle before publishing its empty capture.
 Each catalog and Responses callback snapshots status and content type once
