@@ -1,13 +1,29 @@
 {
-  "schemaVersion": 9,
+  "schemaVersion": 10,
   "applicationDocument": "docs/PROVIDER-APPLICATIONS.md",
   "researchedOn": "2026-08-08",
+  "subscriptionCompatibility": {
+    "decision": "0091",
+    "state": "accepted-runtime-inactive",
+    "providers": [
+      "chatgpt",
+      "kimi",
+      "grok"
+    ],
+    "registrationAuthority": "provider-owned-non-secret-public-client",
+    "callerIdentity": "agent",
+    "disclosure": "independent-compatibility-not-provider-endorsement",
+    "foreignCredentialImport": "forbidden",
+    "foreignRuntime": "forbidden",
+    "implementation": "owned-zero-dependency-provider-specific",
+    "researchedOn": "2026-08-21"
+  },
   "providers": [
     {
       "id": "chatgpt",
       "displayName": "ChatGPT Plus/Pro",
       "eligibility": "blocked",
-      "blocker": "owned-client-registration-required",
+      "blocker": "compatibility-implementation-required",
       "request": {
         "state": "submitted",
         "kind": "public-client-authorization-inquiry",
@@ -37,7 +53,7 @@
       "id": "kimi",
       "displayName": "Kimi Code",
       "eligibility": "blocked",
-      "blocker": "provider-confirmed-public-oauth-unavailable",
+      "blocker": "compatibility-contract-required",
       "request": {
         "state": "submitted",
         "kind": "public-client-authorization-inquiry",
@@ -57,7 +73,7 @@
       "id": "grok",
       "displayName": "Grok subscription",
       "eligibility": "blocked",
-      "blocker": "owned-client-registration-required",
+      "blocker": "compatibility-contract-required",
       "request": {
         "state": "submitted",
         "kind": "public-client-authorization-inquiry",
@@ -94,7 +110,7 @@
     {
       "id": "chatgpt",
       "decision": "0090",
-      "state": "specified-blocked",
+      "state": "specified-compatible-inactive",
       "flow": "openai-device-code-plus-oauth-pkce",
       "issuer": "https://auth.openai.com",
       "deviceCodeEndpoint": "https://auth.openai.com/api/accounts/deviceauth/usercode",
@@ -104,7 +120,9 @@
       "revocationEndpoint": "https://auth.openai.com/oauth/revoke",
       "catalogEndpoint": "https://chatgpt.com/backend-api/codex/models",
       "chatEndpoint": "https://chatgpt.com/backend-api/codex/responses",
-      "clientIdentityAuthority": "agent-owned-or-expressly-reusable-registration-required",
+      "clientIdentityAuthority": "provider-owned-public-client-compatibility",
+      "callerIdentity": "agent",
+      "disclosure": "independent-compatibility-not-provider-endorsement",
       "clientRegistrationEndpoint": null,
       "credentialRecord": "~/.agent/credentials/openai.oauth",
       "credentialAdmission": "exclusive-session-and-mutation",

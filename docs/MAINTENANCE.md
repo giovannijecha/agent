@@ -500,8 +500,8 @@ replacement implicitly.
 
 ### Owned external authentication
 
-**Owners:** CLI native platform boundary, decision 0089, non-active decision
-0090, superseded decision 0088, and the authentication and selection clauses of decision 0072,
+**Owners:** CLI native platform boundary, decision 0089, non-active decisions
+0090 and 0091, superseded decision 0088, and the authentication and selection clauses of decision 0072,
 [providers](PROVIDERS.md), [OAuth registration](OAUTH-REGISTRATION.md),
 [privacy](../PRIVACY.md), and [security](../SECURITY.md).
 
@@ -514,10 +514,21 @@ future work.
 
 Decision 0090 fixes the future OpenAI device OAuth, provider-specific record,
 exclusive admission, refresh, catalog, transport, rollback, and removal
-contract. Its identity gate is unresolved. Until that gate and its staged
-activation evidence are accepted, maintenance must not create the OpenAI
-record or lock, add an auth action or provider row, admit an endpoint in product
-source, or weaken the closed source inventories.
+contract. Decision 0091 accepts only a provider-owned non-secret public client,
+keeps `agent` as every controllable caller identity, and requires explicit
+independent-compatibility disclosure. Its compatibility implementation gate
+remains. Until staged activation evidence is accepted, maintenance must not
+create the OpenAI record or lock, add an auth action or provider row, admit an
+endpoint or identifier in product source, or weaken the closed source
+inventories.
+
+For ChatGPT, Kimi, or xAI compatibility changes, recheck first-party protocol
+and client-ownership evidence, pin any necessary bounded clean-room inspection
+before opening source, and update decision 0091 plus the provider-specific
+decision, machine policy, disclosure, privacy, security, tests, rollback, and
+removal together. A foreign caller identity, third-party-only client ID, or
+foreign credential import requires rollback to inactive state rather than a
+compatibility workaround.
 
 Keep the verifier's closed sensitive-state identifier inventory, exact CLI
 product tree, exact native platform tree, and exact production CLI

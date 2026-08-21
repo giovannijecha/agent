@@ -179,9 +179,12 @@ active: `agent auth`, the provider-specific owned record, shared/exclusive
 native admission, complete `/providers` removal, and two-stage `/models`
 selection ship as one authority. No OAuth record or second provider is implied.
 Decision 0090 specifies a future OpenAI device OAuth, exclusive credential,
-catalog, and Responses boundary, but its client-identity gate remains blocked;
-it adds no current package, record, network request, provider row, or runtime
-composition.
+catalog, and Responses boundary. Decision 0091 accepts provider-owned
+non-secret public-client compatibility while requiring every controllable
+caller identity to remain `agent`; the OpenAI contract is
+`specified-compatible-inactive` behind its implementation gate. These
+decisions add no current package, record, network request, provider row, or
+runtime composition.
 
 Every accepted journal file is synchronized before publication. On POSIX, the
 CLI also synchronizes a staged session directory before publishing it and the

@@ -36,6 +36,13 @@ registration. While blocked:
 - the canonical verifier enforces the machine-readable provider policy;
 - account creation, credentials, and payment stay on provider-owned surfaces.
 
+Decision 0091 partially supersedes that registration condition for ChatGPT,
+Kimi, and xAI only. It permits a provider-owned non-secret public-client
+compatibility registration after first-party confirmation while requiring every
+controllable caller identity to remain `agent` and requiring explicit
+independent-compatibility disclosure. It changes no runtime admission by itself.
+Claude remains subject to this decision's original registration condition.
+
 The source gate decodes escaped literals and detects high-entropy endpoints,
 credential identifiers, and foreign identity in their syntactic context. It
 does not reject an unrelated identifier merely because compacted text contains

@@ -136,10 +136,12 @@ provider's catalog, and settles provider and model together. No provider OAuth
 login, arbitrary network transport, local Ollama daemon, persistent catalog,
 or automatic provider/model selection is enabled. The bounded session journal
 is a separate CLI-owned local state boundary and never stores those provider
-values. The
-non-active decision 0090 specifies future OpenAI device OAuth, exclusive
-refresh-token admission, and exact provider routes, but its client-identity gate
-admits no current source, credential namespace, request, or provider selection.
+values. The non-active decision 0090 specifies future OpenAI device OAuth,
+exclusive refresh-token admission, and exact provider routes. Decision 0091
+accepts only provider-owned non-secret public-client compatibility while
+preserving `agent` as the caller identity. Its implementation gate admits no
+current source, credential namespace, request, or provider selection; a third-
+party-only client ID, foreign caller field, or foreign credential fails closed.
 The
 single `shell` capability admits one exactly
 approved bounded command through the fixed profile-free platform shell, a

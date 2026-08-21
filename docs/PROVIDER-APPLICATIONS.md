@@ -9,8 +9,15 @@ These are project-authored authorization inquiries, not provider-issued
 registration forms and not evidence of approval. All four requests were sent
 through the recorded official routes after final visual review. Kimi Code has
 confirmed that it does not currently offer public OAuth for third-party
-clients. All four integrations remain blocked until the relevant provider gives
-a complete written authorization.
+clients. All four direct-registration routes remain blocked until the relevant
+provider gives a complete written authorization, and all four integrations
+remain runtime-inactive.
+
+Decision 0091 separately accepts a provider-owned public-client compatibility
+category for ChatGPT, Kimi, and xAI. It does not rewrite these historical
+requests, turn silence or refusal into approval, or activate a provider. Each
+compatible provider still requires its own exact implementation decision;
+Claude remains governed only by the direct-registration route.
 
 This document owns the provider-specific request text, submission route,
 lifecycle, and recorded response metadata. The
@@ -256,9 +263,13 @@ observed in Claude Code, Agent SDK, or third-party source.
 
 Kimi Code Team confirmed in writing that it does not currently offer a public
 OAuth authorization flow for third-party clients. This is a negative
-eligibility decision, not a partial approval: Kimi Code remains blocked. A
-future provider update must expressly authorize and document a direct
-independent-client contract before this status can change.
+direct-registration decision, not a partial approval. Decision 0091 preserves
+it as a material compatibility risk while recording separate first-party and
+clean-room evidence that Kimi subscription OAuth is technically interoperable.
+Kimi remains runtime-inactive until a provider-specific decision accepts that
+risk and owns the complete credential, transport, identity, disclosure,
+rollback, and removal contract. A future provider reply changes only the direct-
+registration status unless the owning compatibility decision is also updated.
 
 ### Official route
 

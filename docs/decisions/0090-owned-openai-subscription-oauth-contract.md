@@ -32,19 +32,21 @@ protocol, identity, or implementation authority to this decision and cannot be
 revived by a later annotation. The contract below is independently derived
 from the official OpenAI authorities described above.
 
-Public endpoints and public-client identity are separate authorities. This
-decision accepts the public protocol as the intended OpenAI direction and
-defines the complete activation contract, while keeping runtime admission
-blocked until OpenAI issues `agent` an identity or expressly declares one
-reusable by independent clients. It does not add an API-key path, invoke Codex,
-or change the currently shipped Ollama behavior.
+Public endpoints, provider-owned public-client registration, and caller
+identity are separate authorities. Decision 0091 now permits OpenAI's
+provider-owned non-secret public client as a compatibility registration while
+requiring every controllable caller field and local disclosure to identify
+`agent` truthfully. This decision retains the complete protocol contract and
+keeps runtime admission inactive until a separate implementation series proves
+that boundary. It does not add an API-key path, invoke Codex, or change the
+currently shipped Ollama behavior.
 
 ## Decision
 
 Adopt one non-active, independently authored OpenAI ChatGPT-subscription
-contract. The machine provider registry records it as `specified-blocked` and
-continues to record ChatGPT Plus/Pro eligibility as `blocked` with
-`owned-client-registration-required`. No OpenAI workspace, source literal,
+contract. The machine provider registry records it as
+`specified-compatible-inactive` and continues to record ChatGPT Plus/Pro
+eligibility as `blocked` with `compatibility-implementation-required`. No OpenAI workspace, source literal,
 credential record, network request, provider menu row, model row, or login
 claim may enter product code while those values differ.
 
@@ -54,37 +56,41 @@ conversation. It never selects itself or a model because a credential exists.
 Ollama Cloud remains independently removable and retains its exact current
 contract.
 
-### Identity activation gate
+### Compatibility implementation gate
 
-Runtime activation requires one dated primary OpenAI record that establishes
-all of the following together:
+Runtime activation requires dated first-party OpenAI authority and complete
+owned evidence that establish all of the following together:
 
 1. eligible ChatGPT subscriptions may be used by an independently implemented
    native client against the Codex subscription service;
-2. OpenAI has issued a public-client identifier to `agent`, or has expressly
-   declared a named public identity reusable by independent clients;
+2. the exact non-secret public-client identifier belongs to OpenAI's maintained
+   Codex native client or a provider-published interoperability contract, and
+   is not a third-party-only registration;
 3. the exact device, token, refresh, revocation, catalog, and Responses routes,
    scopes, redirect value, account binding, truthful client-identification
    fields, distribution terms, and entitlement limits are authorized;
-4. the client needs no distributable secret and may identify itself truthfully
-   as `agent`; and
+4. the client needs no distributable secret, every controllable originator,
+   referrer, user-agent, and version field identifies `agent` truthfully or is
+   omitted, and the local ceremony displays decision 0091's independent-
+   compatibility disclosure; and
 5. open-source distribution and local durable refresh-token storage are
    permitted.
 
-An open-source constant, successful third-party login, public endpoint, public
-OIDC metadata, forum assertion, absence of an explicit prohibition, or
+Successful third-party login, a third-party-only constant, public endpoint,
+public OIDC metadata, forum assertion, absence of an explicit prohibition, or
 maintainer risk acceptance does not independently satisfy this gate. The
-client identifier is not a secret, but it is registered identity and therefore
-cannot be copied from Codex, Pi, OpenCode, another harness, traffic, or an
+provider-owned client identifier is not a secret, but its exact value must be
+recorded from pinned first-party OpenAI material in the implementation change;
+it cannot be copied from Pi, OpenCode, another harness, traffic, or an
 operator's foreign credential file. The current metadata has no registration
-endpoint, so `agent` neither invents an identifier nor attempts implicit
-dynamic registration.
+endpoint, so `agent` neither invents an identifier nor attempts implicit dynamic
+registration.
 
-When the gate is satisfied, the enabling change records the non-secret client
-identifier only in the machine provider policy and the exact owned auth module,
-updates the OAuth dossier conclusion, and changes the contract state to
-`enabled`. Until then, the verifier continues to reject every OpenAI OAuth
-literal in product source.
+When the gate is satisfied, the enabling change records the non-secret provider-
+owned client identifier only in the machine provider policy and the exact owned
+auth module, updates the OAuth dossier conclusion and disclosure, and changes
+the contract state to `enabled`. Until then, the verifier continues to reject
+every OpenAI OAuth literal in product source.
 
 ### Device authorization protocol
 
@@ -270,11 +276,12 @@ use.
 
 ### Delivery gate
 
-Implementation remains split into reviewable red-green modules after the
-identity gate is satisfied:
+Implementation remains split into reviewable red-green modules after this
+compatibility decision:
 
-1. replace the blocked machine state with the accepted non-secret identity and
-   exact authorized scopes and status semantics;
+1. record the exact first-party provider-owned public-client constant, `agent`
+   caller fields, disclosure, authorized scopes, and status semantics while
+   retaining an inactive machine state;
 2. extend the native credential broker with the exact OpenAI record,
    exclusive admission, recovery, refresh replacement, and removal lifecycle;
 3. extend `agent auth` with the device ceremony and prove zero projection;
@@ -299,19 +306,19 @@ decision from silently becoming runtime authority. Device-only activation
 avoids a local callback server in the first implementation and keeps the
 ceremony outside the TUI.
 
-The unresolved client identity still delays product connectivity. That is a
-real protocol prerequisite, not missing implementation work. The design also
-accepts exclusive OpenAI use per credential so refresh rotation remains
-deterministic; later multi-process token brokering would require a separate
-decision rather than weakening admission implicitly.
+The compatibility implementation gate still delays product connectivity. The
+design also accepts exclusive OpenAI use per credential so refresh rotation
+remains deterministic; later multi-process token brokering would require a
+separate decision rather than weakening admission implicitly.
 
 ## Verification
 
 This decision-only module adds no product source or native authority. Red-green
-policy tests bind the single `specified-blocked` contract, exact official
+policy tests bind the single `specified-compatible-inactive` contract, exact official
 origins and routes, decision ID, record name, exclusive admission, catalog
 authority, Responses transport, research date, null registration endpoint, and
-unresolved identity requirement. They reject an enabled state, borrowed
+provider-owned registration authority, `agent` caller identity, and disclosure.
+They reject an enabled state, third-party-only registration, foreign caller
 identity, invented registration endpoint, shared refresh authority, alternate
 API-key transport, or second subscription contract.
 
@@ -341,10 +348,12 @@ record the exact stale-documentation gap in a new dated provenance entry. It
 may not reuse notes or observations from the discarded Pi or OpenCode
 inspection.
 
-Before activation, rollback removes this decision, its subscription-contract
-policy entry and tests, index routes, dossier update, and new provenance rows.
-It leaves Ollama source and operator data unchanged because no OpenAI namespace
-or request exists.
+Before activation, rollback of decision 0091 restores this decision's original
+agent-owned identity gate and `specified-blocked` machine state. Removing this
+decision entirely also removes its subscription-contract policy entry and
+tests, index routes, dossier update, and OpenAI provenance row. Either path
+leaves Ollama source and operator data unchanged because no OpenAI namespace or
+request exists.
 
 After future activation, rollback first disables new login and refresh while
 retaining an explicit remove path. With every OpenAI Agent session closed, the
