@@ -694,7 +694,9 @@ export class OpenAIResponsesDecoder {
       const part = content?.at(0);
       if (value.role !== "assistant" || content?.length !== 1 || !isRecord(part) ||
         part.type !== "output_text" || part.text !== state.contentText ||
-        state.contentPhase !== "done") return this.#reject("protocolMessage");
+        state.contentPhase !== "done" || state.contentIndex !== 0) {
+        return this.#reject("protocolMessage");
+      }
       state.done = true;
       return ok(Object.freeze([]));
     }
@@ -760,7 +762,7 @@ export class OpenAIResponsesDecoder {
         const part = content?.at(0);
         if (item.role !== "assistant" || content?.length !== 1 || !isRecord(part) ||
           part.type !== "output_text" || part.text !== state.contentText ||
-          state.contentPhase !== "done") return false;
+          state.contentPhase !== "done" || state.contentIndex !== 0) return false;
         continue;
       }
       if (item.call_id !== state.callId || item.name !== state.name ||

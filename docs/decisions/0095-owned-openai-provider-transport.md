@@ -215,7 +215,8 @@ The admitted lifecycle is:
    message, or function call; a function call requires a prior
    `response.function_call_arguments.done`, one unique bounded `call_id`, exact
    registered-name grammar, and that done event's identical JSON object argument
-   string;
+   string; an output message requires exactly one completed output-text part
+   whose streamed `content_index` is zero and whose text matches that part;
 6. `response.completed` requires a completed response object, permits only an
    absent or bounded non-negative integer usage projection rather than null,
    and revalidates its complete
@@ -315,8 +316,9 @@ Red-green regression must prove:
 - stream lifecycle rejects close, concurrent read, malformed framing, unknown
   events, contradictory
   lifecycle, nonempty or malformed pre-terminal output, missing or
-  contradictory completed-output projections, trailing frames before
-  publication, early EOF, and post-terminal reads;
+  contradictory completed-output projections, a nonzero index for the sole
+  message content part, trailing frames before publication, early EOF, and
+  post-terminal reads;
 - every transport and protocol failure remains content-free; every rejected
   catalog response and failed open close all retained handles; stream close
   destroys both request and response, combines their cleanup failures, and

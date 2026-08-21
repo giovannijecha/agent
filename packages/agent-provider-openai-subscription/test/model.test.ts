@@ -1040,6 +1040,39 @@ test("validates trailing frames before publishing terminal completion", async ()
   assert.equal((await opened.value.read()).ok, false);
 });
 
+test("rejects a nonzero index for the sole message content part", async () => {
+  const wire = textEvents("Done.").replaceAll(
+    '"content_index":0',
+    '"content_index":7',
+  );
+  const model = OpenAISubscriptionModel.create(
+    new FakeTransport(ok(new FakeStream([ok(ascii(wire)), ok(null)]))),
+    "Inspect safely.",
+    MODEL,
+  );
+  assert.ok(model.ok);
+  const opened = await model.value.open(
+    conversation(),
+    new Cancellation(),
+    [],
+    Object.freeze({ thinkingEffort: "off" as const }),
+  );
+  assert.ok(opened.ok);
+  assert.deepEqual(await opened.value.read(), {
+    ok: true,
+    value: { kind: "delta", text: "Done." },
+  });
+  assert.deepEqual(await opened.value.read(), {
+    error: {
+      cleanupFailed: false,
+      kind: "openaiSubscription",
+      operation: "read",
+      reason: "protocolMessage",
+    },
+    ok: false,
+  });
+});
+
 test("rejects completed reasoning payloads that contradict streamed parts", async () => {
   const summaryEvents = event("response.reasoning_summary_part.added", {
     item_id: "reasoning-alpha",

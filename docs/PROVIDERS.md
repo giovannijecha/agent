@@ -177,7 +177,9 @@ bounds before retention, then match the completed function-call item. An added
 reasoning item admits only absent or exact
 empty initial content, so later streamed projections cannot suppress or replace
 pre-populated state. Reasoning items, summaries, and content fail closed when
-the captured thinking effort is off. Its tool projection preserves owned code-
+the captured thinking effort is off. A completed output message binds its sole
+output-text part to streamed content index zero before the item or terminal
+response can be accepted. Its tool projection preserves owned code-
 unit, UTF-8,
 projection, NUL, and aggregate-text constraints as explicit annotations: every
 non-literal string exposes its exact minimum and maximum code-unit bounds even
