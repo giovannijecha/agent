@@ -583,6 +583,33 @@ test("rejects bounded thinking provenance drift after inventory repinning", () =
   }
 });
 
+test("rejects OpenAI identity provenance drift after inventory repinning", () => {
+  const maintained = currentContext().files["docs/OWNERSHIP.md"];
+  for (const marker of [
+    "bounded first-party Codex source at [`536f86e5cc9ec1ff38457d099bf320b9d08eeeba`]",
+    "Before source access, this row recorded that current official OpenAI authentication documentation confirms ChatGPT subscription sign-in",
+    "the device request sends only that identifier, polling treats forbidden and not-found as pending",
+    "Raw auth requests omit Codex's default originator and user agent",
+    "None; no implementation structure, code, test, fixture, prompt, credential schema, user agent, error text, or Codex product identity reused",
+  ]) {
+    const context = currentContext();
+    context.files["docs/OWNERSHIP.md"] = maintained.replace(
+      marker,
+      "removed OpenAI identity provenance",
+    );
+    assert.notEqual(context.files["docs/OWNERSHIP.md"], maintained, marker);
+    const changed = structuredClone(policy);
+    changed.provenanceLog.sha256 = provenanceDigest(
+      context.files["docs/OWNERSHIP.md"],
+    );
+    assert.throws(
+      () => validatePublicationPolicy(changed, context),
+      PublicationPolicyError,
+      marker,
+    );
+  }
+});
+
 test("rejects a missing ownership publication route", () => {
   const context = currentContext();
   const maintained = context.files[
@@ -617,7 +644,9 @@ test("rejects direct provider admission contract drift", () => {
     "The Ollama API key\nmay never enter source, tests, logs, errors, documentation values, process\narguments, command history, terminal output, transcript, journal, receipt, or\ndiagnostic.",
     "`agent auth` is the sole interactive credential lifecycle and runs outside the\nalternate-screen TUI.",
     "Decision 0090 records one non-executable OpenAI contract",
-    "`specified-compatible-inactive` OpenAI\nsubscription contract",
+    "decision 0092 records OpenAI's exact non-secret\npublic client",
+    "The contract is now `identity-compatible-inactive`",
+    "OpenAI remains blocked by `credential-implementation-required`.",
   ]) {
     const context = currentContext();
     context.files["docs/PROVIDERS.md"] = providers.replaceAll(
@@ -652,7 +681,7 @@ test("rejects provider-specific OAuth registration conclusion drift", () => {
   for (const [provider, row] of [
     [
       "ChatGPT Plus/Pro",
-      "| ChatGPT Plus/Pro | OpenAI documents subscription browser and device login for Codex clients; decision 0090 fixes the independently derived device, token, catalog, transport, storage, and removal contract. | The protocol is `specified-compatible-inactive`: decision 0091 permits OpenAI's provider-owned public client while `agent` remains the disclosed caller, but no implementation is active. |",
+      "| ChatGPT Plus/Pro | OpenAI documents subscription browser and device login for Codex clients; decisions 0090 through 0092 fix the independently derived protocol and exact provider-owned public-client identity. | The protocol is `identity-compatible-inactive`: identity is accepted with `agent` as the disclosed caller, but the credential, auth, transport, and integration modules remain inactive. |",
     ],
     [
       "Claude Pro/Max",

@@ -144,33 +144,33 @@ authority.
 
 Decision 0090 records one non-executable OpenAI contract so its public device,
 token, catalog, Responses, future record, admission, and removal boundaries are
-reviewable before implementation. Decision 0091 changes that contract to
-`specified-compatible-inactive`: the later implementation may record OpenAI's
-provider-owned public client while `agent` remains the caller identity and the
-operator receives an independent-compatibility disclosure. The contract still
-contains no client identifier and exposes no product workspace, created
-credential path, network request, provider or model row, or runtime composition.
+reviewable before implementation. Decision 0091 permits provider-owned public-
+client compatibility, and decision 0092 records OpenAI's exact non-secret
+public client, device request, callback, pending statuses, and truthful caller
+rule. The contract is now `identity-compatible-inactive`: identity is accepted,
+but it still exposes no product workspace, created credential path, network
+request, provider or model row, or runtime composition.
 
-A compatible candidate can be enabled only through its provider-specific
-implementation decision after the exact provider-owned public client and wire
-authority are pinned, caller identity and disclosure are fixed, and the same
-change supplies the adapter, threat model, offline contract tests, revocation
-path, rollback, and removal procedure. Claude remains subject to the original
-independent-registration gate.
+OpenAI remains blocked by `credential-implementation-required`. Its native
+record, `agent auth` ceremony, adapter, integration, and live smoke must arrive
+as the separate serial modules required by decisions 0090 through 0092, each
+with its own threat model, offline contract tests, rollback, and removal path.
+Claude remains subject to the original independent-registration gate.
 
 ## Machine gate
 
 `tools/provider-policy.json` schema version 10 records the four inactive OAuth
 providers, the one exact enabled direct provider, the accepted-runtime-inactive
-compatibility category, and one exact `specified-compatible-inactive` OpenAI
+compatibility category, and one exact `identity-compatible-inactive` OpenAI
 subscription contract. It pins the fixed chat and
 authenticated catalog endpoints, bearer authentication, dynamic catalog
 authority, cloud cost class, native `application/json` streaming transport,
 line-delimited object contract, environment variable, exact owned record,
 shared/exclusive admission, external auth command, exact provider workspace,
-and the non-active OpenAI decision, routes, future record, exclusive admission,
-provider-owned registration authority, truthful `agent` caller identity, and
-compatibility disclosure. Canonical verification
+and the non-active OpenAI decisions, routes, future record, exclusive admission,
+exact provider-owned public client, one-field device request, empty requested-
+scope set, callback, poll settlement, public-client token authentication,
+truthful `agent` caller identity, and compatibility disclosure. Canonical verification
 rejects unregistered provider workspaces, OAuth identifiers, subscription
 endpoints, ambient network capabilities, foreign credential stores, borrowed
 product identity, endpoint drift, model-authority drift, and credential-
@@ -191,8 +191,9 @@ demonstrated gap, the intended bounded material, pinned commit, and allowed
 facts in the [ownership record](OWNERSHIP.md). Never copy, translate, or adapt
 source, tests, prompts, protocol fixtures, user agents, foreign caller identity,
 or product structure. Decision 0091 permits only a provider-owned non-secret
-public-client constant after first-party confirmation and a provider-specific
-decision. Independently derive every contract and implementation.
+public-client constant after first-party confirmation; decision 0092 owns the
+exact OpenAI constant and its clean-room evidence. Independently derive every
+contract and implementation.
 
 ## Account and secret boundary
 
@@ -211,9 +212,9 @@ exclusive admission and never waits, polls, steals, or retries. A durable record
 and `AGENT_OLLAMA_API_KEY` together fail as dual authority before payload read;
 neither source has precedence and neither is imported. Decision 0088 remains
 historical and decision 0089 owns the active external-authentication boundary.
-Decisions 0090 and 0091 specify a future provider-specific OpenAI OAuth record
-and compatibility identity boundary but do not create it, admit an environment
-authority, or change current operator data.
+Decisions 0090 through 0092 specify a future provider-specific OpenAI OAuth
+record and accept its provider-owned public-client identity, but do not create
+the record, admit an environment authority, or change current operator data.
 
 ## Primary references
 
@@ -227,3 +228,4 @@ authority, or change current operator data.
 - [Ollama OpenAPI contract](https://github.com/ollama/ollama/blob/main/docs/openapi.yaml)
 - [OpenAI subscription OAuth contract decision](decisions/0090-owned-openai-subscription-oauth-contract.md)
 - [Provider public-client compatibility decision](decisions/0091-owned-provider-public-client-compatibility.md)
+- [OpenAI compatible public-client decision](decisions/0092-owned-openai-compatible-public-client.md)

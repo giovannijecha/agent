@@ -206,11 +206,13 @@ this project; review the current Ollama terms before sending sensitive content.
 The four subscription OAuth connections remain disabled.
 Decision 0090 documents a future OpenAI device OAuth record and data flow only;
 decision 0091 accepts a provider-owned public-client compatibility category but
-changes no runtime. The compatibility implementation gate remains, so Agent
-currently collects, stores, refreshes, revokes, or sends no OpenAI OAuth
-material. Future compatible login must identify the caller as `agent`, disclose
-that the integration is independent and not provider-endorsed, and never import
-a foreign credential or browser session.
+changes no runtime. Decision 0092 publishes the exact non-secret OpenAI public
+client and device identity contract only in policy. The credential
+implementation gate remains, so Agent currently collects, stores, refreshes,
+revokes, or sends no OpenAI OAuth material. Future compatible login must
+identify the caller as `agent` or omit the caller field, disclose that the
+integration is independent and not provider-endorsed, and never import a
+foreign credential or browser session.
 
 ### Thinking data
 
