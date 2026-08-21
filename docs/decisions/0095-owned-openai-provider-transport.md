@@ -235,6 +235,10 @@ and provider-order settlement. Usage is validated for protocol integrity but
 is not added to the current operator surface by this module. The final response
 output is confirmation of the already validated item state, never an
 independent or weaker authority.
+Before retaining each complete done-event argument string, the decoder enforces
+both the 32-call batch count and the one-megabyte aggregate completed-argument
+budget. Item completion validates the already bounded retained string and does
+not defer either admission limit.
 
 ### Failure, privacy, and security boundary
 
@@ -297,7 +301,8 @@ Red-green regression must prove:
   empty include list within fixed bounds;
 - the SSE decoder handles chunk splits, CRLF, optional matching event names,
   reasoning, text, function calls with absent or matching repeated done-event
-  names, rejection of a missing argument-done phase, nullable pre-terminal
+  names, rejection of a missing argument-done phase, early completed-argument
+  call-count and aggregate retention bounds, nullable pre-terminal
   usage, strict terminal usage, completion,
   cancellation, timeout, and one large frame fragmented into single-code-unit
   chunks without whole-buffer rescanning;

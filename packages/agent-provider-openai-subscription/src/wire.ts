@@ -359,6 +359,7 @@ export class OpenAIResponsesDecoder {
   #responseId: string | undefined;
   #reasoningCodeUnits = 0;
   #argumentCodeUnits = 0;
+  #argumentDoneCount = 0;
   #argumentDeltaCodeUnits = 0;
   readonly #argumentDeltas = new Map<string, string>();
   #rejected = false;
@@ -455,7 +456,16 @@ export class OpenAIResponsesDecoder {
       if (accumulated !== undefined && accumulated !== parsed.arguments) {
         return this.#reject("protocolToolCall");
       }
+      if (this.#argumentDoneCount >= OPENAI_PROVIDER_LIMITS.toolCallsPerBatch) {
+        return this.#reject("protocolToolCall");
+      }
+      const retainedCodeUnits = this.#argumentCodeUnits + parsed.arguments.length;
+      if (retainedCodeUnits > OPENAI_PROVIDER_LIMITS.toolArgumentCodeUnits) {
+        return this.#reject("limit");
+      }
       this.#argumentDeltas.delete(state.id);
+      this.#argumentDoneCount += 1;
+      this.#argumentCodeUnits = retainedCodeUnits;
       state.argumentDone = parsed.arguments;
       return ok(Object.freeze([]));
     }
@@ -697,10 +707,6 @@ export class OpenAIResponsesDecoder {
       this.#callIds.has(value.call_id) ||
       this.#calls.size >= OPENAI_PROVIDER_LIMITS.toolCallsPerBatch) {
       return this.#reject("protocolToolCall");
-    }
-    this.#argumentCodeUnits += value.arguments.length;
-    if (this.#argumentCodeUnits > OPENAI_PROVIDER_LIMITS.toolArgumentCodeUnits) {
-      return this.#reject("limit");
     }
     let input: unknown;
     try {

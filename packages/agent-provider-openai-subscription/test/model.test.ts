@@ -4,6 +4,7 @@ import test from "node:test";
 import { Conversation, Message, Role, err, ok, type Result } from "@agent/core";
 import {
   decodeOpenAIModelCatalog,
+  OPENAI_PROVIDER_LIMITS,
   OpenAIModelCatalog,
   OpenAISubscriptionModel,
   type OpenAICatalogCapture,
@@ -45,6 +46,7 @@ class FakeStream implements OpenAITransportStream {
   readonly statusCode: number;
   readonly #chunks: Result<Uint8Array | null, OpenAITransportError>[];
   closeCalls = 0;
+  readCalls = 0;
 
   constructor(
     chunks: Result<Uint8Array | null, OpenAITransportError>[],
@@ -57,6 +59,7 @@ class FakeStream implements OpenAITransportStream {
   }
 
   read(): Promise<Result<Uint8Array | null, OpenAITransportError>> {
+    this.readCalls += 1;
     return Promise.resolve(this.#chunks.shift() ?? ok(null));
   }
 
@@ -1343,4 +1346,62 @@ test("closes a malformed successful transport stream before rejecting it", async
     ok: false,
   });
   assert.equal(closeCalls, 1);
+});
+
+test("enforces function-call retention bounds at argument completion", async () => {
+  const added = (index: number) => event("response.output_item.added", {
+    item: {
+      arguments: "",
+      call_id: "call-" + String(index),
+      id: "function-" + String(index),
+      name: "read_file",
+      status: "in_progress",
+      type: "function_call",
+    },
+    output_index: index,
+  });
+  const argumentsDone = (index: number, argumentsValue: string) =>
+    event("response.function_call_arguments.done", {
+      arguments: argumentsValue,
+      item_id: "function-" + String(index),
+      output_index: index,
+    });
+  const created = event("response.created", { response: response("in_progress") });
+  const retained = JSON.stringify({
+    value: "x".repeat(Math.floor(OPENAI_PROVIDER_LIMITS.toolArgumentCodeUnits / 2)),
+  });
+  assert.ok(retained.length <= OPENAI_PROVIDER_LIMITS.toolArgumentCodeUnits);
+  assert.ok(retained.length * 2 > OPENAI_PROVIDER_LIMITS.toolArgumentCodeUnits);
+  const aggregate = new FakeStream([
+    ok(ascii(created + added(0) + argumentsDone(0, retained))),
+    ok(ascii(added(1) + argumentsDone(1, retained))),
+    ok(null),
+  ]);
+  const callCount = new FakeStream([
+    ok(ascii(created + Array.from(
+      { length: OPENAI_PROVIDER_LIMITS.toolCallsPerBatch + 1 },
+      (_value, index) => added(index) + argumentsDone(index, "{}"),
+    ).join(""))),
+    ok(null),
+  ]);
+  for (const [stream, expectedReads] of [
+    [aggregate, 2],
+    [callCount, 1],
+  ] as const) {
+    const model = OpenAISubscriptionModel.create(
+      new FakeTransport(ok(stream)),
+      "Inspect safely.",
+      MODEL,
+    );
+    assert.ok(model.ok);
+    const opened = await model.value.open(
+      conversation(),
+      new Cancellation(),
+      [],
+      Object.freeze({ thinkingEffort: "off" as const }),
+    );
+    assert.ok(opened.ok);
+    assert.equal((await opened.value.read()).ok, false);
+    assert.equal(stream.readCalls, expectedReads);
+  }
 });

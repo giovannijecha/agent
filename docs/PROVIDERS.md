@@ -172,7 +172,8 @@ Its strict decoder requires exact empty output arrays on pre-terminal response
 snapshots, accepts null usage only before completion, and keeps each added
 function-call item as the name authority even when the argument-done event
 omits its redundant name. The argument-done event itself is mandatory and its
-complete argument string must match the completed function-call item. An added
+complete argument string must pass the batch call-count and aggregate argument
+bounds before retention, then match the completed function-call item. An added
 reasoning item admits only absent or exact
 empty initial content, so later streamed projections cannot suppress or replace
 pre-populated state. Its tool projection preserves owned code-unit, UTF-8,

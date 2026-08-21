@@ -565,6 +565,8 @@ For terminal-stream changes, require exact empty output arrays on pre-terminal
 response snapshots, admit null usage only before completion, keep the added
 function-call item authoritative when the argument-done event omits its
 redundant name, require that argument-done phase before function-item completion,
+enforce batch call-count and aggregate argument bounds before retaining its
+complete string,
 reject nonempty or malformed reasoning content at item addition, retain
 `response.completed` as provisional until clean EOF,
 compare its provider-ordered output with every completed item, and regress
