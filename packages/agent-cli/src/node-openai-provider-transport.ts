@@ -479,16 +479,13 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
           if (statusCode === undefined || !Number.isSafeInteger(statusCode) ||
             statusCode < 100 || statusCode > 599) return fail("protocol");
           if (statusCode !== 200 || !validJsonContentType(contentType(response))) {
-            let cleanupFailed = false;
-            try {
-              response.destroy();
-            } catch (_cause: unknown) {
-              cleanupFailed = true;
-            }
+            const rejectedContentType = contentType(response);
+            detach();
+            const cleanupFailed = destroy();
             settle(ok(Object.freeze({
               body: new Uint8Array(),
               cleanupFailed,
-              contentType: contentType(response),
+              contentType: rejectedContentType,
               statusCode,
             })));
             return;

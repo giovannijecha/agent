@@ -554,6 +554,9 @@ When changing the inactive transport constructor, read each admitted credential
 property once, validate the resulting local snapshots, and freeze those same
 values. Regress accessor-backed values that change across reads and accessor or
 proxy failures; never validate one value and retain another.
+For catalog rejection changes, retain the content-type snapshot, detach owned
+listeners, destroy both request and response, and combine either cleanup failure
+before publishing the empty capture.
 For terminal-stream changes, require exact empty output arrays on pre-terminal
 response snapshots, admit null usage only before completion, keep the added
 function-call item authoritative when the argument-done event omits its

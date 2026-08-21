@@ -244,6 +244,8 @@ Transport open, read, and close remain distinct. Cleanup failure is reported
 without replacing the original failure. No error contains a URL with query
 data, token, account ID, header, response body, conversation, instruction,
 model, tool call, argument, output, usage value, or SSE payload.
+Every rejected catalog response destroys both its request and response before
+settlement and combines cleanup failures from either handle.
 
 This inactive module transmits nothing in the current product. After later
 integration, a catalog request will disclose the access token, account ID,
@@ -301,8 +303,9 @@ Red-green regression must prove:
   lifecycle, nonempty or malformed pre-terminal output, missing or
   contradictory completed-output projections, trailing frames before
   publication, early EOF, and post-terminal reads;
-- every transport and protocol failure remains content-free and every failed
-  open closes the response; stream close destroys both request and response,
+- every transport and protocol failure remains content-free; every rejected
+  catalog response and failed open close all retained handles; stream close
+  destroys both request and response,
   combines their cleanup failures, and contains late-response cleanup throws;
 - source policy admits only the new reviewed provider and CLI files and rejects
   another OpenAI origin, identity, credential authority, Node effect, retry,

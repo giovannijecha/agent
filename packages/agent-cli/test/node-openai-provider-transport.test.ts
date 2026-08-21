@@ -362,11 +362,19 @@ test("does not read non-success or non-JSON catalog bodies", async () => {
     new FakeResponse(200, "text/plain"),
   ]) {
     const client = new FakeClient(response);
-    const result = await create(client).catalog(new Cancellation());
+    client.deferResponses = true;
+    const pending = create(client).catalog(new Cancellation());
+    const request = client.requests.at(0);
+    assert.ok(request !== undefined);
+    request.destroyFailure = true;
+    client.flushResponse();
+    const result = await pending;
     assert.ok(result.ok);
     assert.equal(result.value.body.length, 0);
+    assert.equal(result.value.cleanupFailed, true);
     assert.equal(response.resumes, 0);
     assert.equal(response.destroyed, 1);
+    assert.equal(request.destroyed, 1);
   }
 });
 
