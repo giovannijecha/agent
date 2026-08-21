@@ -87,11 +87,13 @@ fixed `https://auth.openai.com/codex/device` verification URL and the current
 one-time user code, with guidance to enter the code only at that origin.
 
 During the ceremony, Ctrl+C, Escape, Ctrl+D, input end, or input failure cancels
-the current request or delay, publishes nothing, settles the native mutation as
-cancelled, restores terminal input, and releases admission. Other keystrokes are
-ignored and never echoed. Cancellation remains effective through token
-validation and terminal cleanup; a credential is not published after a late
-cancellation or failed input cleanup.
+the current request, delay, or challenge presentation; publishes nothing;
+settles the native mutation as cancelled; restores terminal input; and releases
+admission. The ceremony deadline also bounds challenge presentation. A stalled
+presenter therefore cannot retain the credential mutation, and a late presenter
+settlement is inert. Other keystrokes are ignored and never echoed. Cancellation
+remains effective through token validation and terminal cleanup; a credential is
+not published after a late cancellation or failed input cleanup.
 
 ### Exact device and exchange protocol
 
@@ -137,8 +139,9 @@ alternate caller identity.
 
 Every request uses the fixed TLS origin, port 443, no pooled agent, a bounded
 header section, one 30-second inactivity timeout, and no redirect handling.
-The complete ceremony has one 900,000-millisecond monotonic deadline. Device
-identity and authorization code are each at most 4,096 visible-ASCII bytes;
+The complete ceremony, including challenge presentation, has one
+900,000-millisecond monotonic deadline. Device identity and authorization code
+are each at most 4,096 visible-ASCII bytes;
 the displayed code and optional device-expiration metadata are each at most 256
 visible-ASCII bytes. A response chunk is at most 65,536 bytes; the user-code
 body is at most 8,192 bytes, the poll body at most 16,384 bytes, and the token

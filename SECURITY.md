@@ -149,9 +149,12 @@ discarded without timing or authorization effect. Every other member fails
 closed. Poll success requires the authorization code and verifier. One optional
 matching challenge is interpreted and verified; after complete bounded decoding
 and duplicate-name rejection, every other member is discarded without timing,
-authorization, projection, or persistence effect. The native decision-0093 mutation is exclusive from
-before the first request through cancellation or atomic publication. Requests
-omit authorization, cookies, client secrets, foreign caller fields, redirect
+authorization, projection, or persistence effect.
+The native decision-0093 mutation is exclusive from before the first request
+through cancellation or atomic publication. The ceremony deadline and terminal cancellation also bound
+challenge presentation, so a stalled or late output callback cannot retain that
+mutation. Requests omit authorization, cookies, client secrets, foreign caller
+fields, redirect
 following, discovery, retry, and fallback; every controllable caller identity
 is `agent` or absent. Only the fixed verification URL and one-time code may be
 projected. Tokens, device identity, provider `expires_at` metadata,

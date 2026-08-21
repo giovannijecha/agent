@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 13,
+  "schemaVersion": 14,
   "applicationDocument": "docs/PROVIDER-APPLICATIONS.md",
   "researchedOn": "2026-08-08",
   "subscriptionCompatibility": {
@@ -198,6 +198,7 @@
       "accountClaim": "chatgpt_account_id",
       "expirationClaim": "exp",
       "authenticationDeadlineMilliseconds": 900000,
+      "challengePresentation": "deadline-and-cancellation-bounded",
       "firstPoll": "immediate",
       "credentialRemoval": "local-only-no-provider-revocation",
       "credentialProtocol": {

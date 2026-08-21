@@ -153,6 +153,8 @@ PKCE exchange, account and expiry validation, sign-in-again, and local removal
 through `agent auth`. Device success requires the three registered fields and
 may contain only bounded optional `expires_at` metadata, which is discarded;
 every other member fails closed.
+The ceremony deadline and terminal cancellation bound challenge presentation;
+a stalled or late presenter cannot retain the exclusive mutation.
 Poll success requires the authorization code and verifier and may contain one
 interpreted optional challenge, which must match the verifier when present.
 After bounded decoding and duplicate-name rejection, every other member is

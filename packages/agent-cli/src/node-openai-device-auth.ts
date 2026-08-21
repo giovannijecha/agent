@@ -825,6 +825,47 @@ class OpenAIAuthSession {
     });
   }
 
+  #presentChallenge(
+    challenge: OpenAIDeviceChallenge,
+  ): Promise<Result<void, OpenAIDeviceAuthError>> {
+    if (this.#stopReason !== undefined) {
+      return Promise.resolve(err(failure(this.#stopReason)));
+    }
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = (result: Result<void, OpenAIDeviceAuthError>): void => {
+        if (settled) return;
+        settled = true;
+        if (this.#activeAbort === abort) this.#activeAbort = undefined;
+        resolve(result);
+      };
+      const abort = (kind: OpenAIDeviceAuthErrorKind): void => {
+        finish(err(failure(kind)));
+      };
+      this.#activeAbort = abort;
+      if (this.#stopReason !== undefined) {
+        abort(this.#stopReason);
+        return;
+      }
+      let presentation: Promise<boolean>;
+      try {
+        presentation = this.#present(challenge);
+      } catch (_cause: unknown) {
+        finish(err(failure("output")));
+        return;
+      }
+      void Promise.resolve(presentation).then(
+        (presented) => {
+          finish(presented ? ok(undefined) : err(failure("output")));
+        },
+        (_cause: unknown) => {
+          finish(err(failure("output")));
+        },
+      );
+      if (this.#stopReason !== undefined) abort(this.#stopReason);
+    });
+  }
+
   async #authenticate(): Promise<
     Result<OpenAICredential, OpenAIDeviceAuthError>
   > {
@@ -840,16 +881,11 @@ class OpenAIAuthSession {
     }
     const identity = decodeDeviceIdentity(device.value.body);
     if (!identity.ok) return identity;
-    let presented = false;
-    try {
-      presented = await this.#present(Object.freeze({
-        userCode: identity.value.userCode,
-        verificationUrl: OPENAI_DEVICE_VERIFICATION_URL,
-      }));
-    } catch (_cause: unknown) {
-      return err(failure("output"));
-    }
-    if (!presented) return err(failure("output"));
+    const presented = await this.#presentChallenge(Object.freeze({
+      userCode: identity.value.userCode,
+      verificationUrl: OPENAI_DEVICE_VERIFICATION_URL,
+    }));
+    if (!presented.ok) return presented;
 
     let grant: Result<AuthorizationGrant, OpenAIDeviceAuthError> | undefined;
     while (grant === undefined) {

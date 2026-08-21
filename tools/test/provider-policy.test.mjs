@@ -176,6 +176,7 @@ test("binds OpenAI device authentication without activating provider runtime", (
       accountClaim: "chatgpt_account_id",
       expirationClaim: "exp",
       authenticationDeadlineMilliseconds: 900000,
+      challengePresentation: "deadline-and-cancellation-bounded",
       firstPoll: "immediate",
       credentialRemoval: "local-only-no-provider-revocation",
       credentialProtocol: {
@@ -216,6 +217,7 @@ test("rejects drift that would activate or misidentify the OpenAI OAuth contract
     ["devicePollPendingStatuses", [404]],
     ["pollOptionalResponseFields", []],
     ["pollAdditionalResponseMembers", "rejected"],
+    ["challengePresentation", "unbounded"],
     ["tokenEndpointAuthMethod", "client_secret_post"],
     ["pkceMethod", "plain"],
     ["disclosure", "official-openai-client"],

@@ -528,7 +528,9 @@ again, and honest local-only removal. The state is
 
 Maintain decision 0094 as one serial, fixed-origin ceremony: acquire exclusive
 admission before the first request; request the device identity once; project
-only the fixed verification URL and current one-time code; admit the three
+only the fixed verification URL and current one-time code; race challenge
+presentation against the ceremony deadline and terminal cancellation so a
+stalled or late presenter cannot retain mutation authority; admit the three
 required device-response fields plus only bounded optional `expires_at`
 metadata and discard that metadata; poll immediately and then only after each
 admitted server interval; accept only 403 and 404 as pending; require the
@@ -597,7 +599,7 @@ the CLI contract tests without a real credential. OpenAI auth tests use fake
 HTTPS, clock, terminal, and broker boundaries and synthetic non-credential
 values; they must prove exact requests, the sole optional device-expiration
 member, the sole optional interpreted matching poll challenge, bounded
-discarded additional poll members, bounds, timing,
+discarded additional poll members, bounded challenge presentation, bounds, timing,
 cancellation, PKCE, account binding, expiry, one settlement, and zero secret
 projection without a live provider. Prove Windows owner/DACL and
 profile-lineage behavior by driving the complete broker against a controlled

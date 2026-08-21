@@ -589,6 +589,7 @@ function validatePublicDocuments(context) {
       "requires exact equality before exchange",
       "sole optional\ninterpreted matching poll challenge",
       "bounded discarded additional poll\nmembers",
+      "deadline also bounds challenge presentation",
       "`chatgpt_account_id`",
       "admits only `expires_at` as one optional bounded member",
       "provider authorization was not revoked",

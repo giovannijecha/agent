@@ -497,6 +497,35 @@ test("cancels an active ceremony without exchanging or replaying", async () => {
   assert.equal(clock.registrations.at(1)?.cancelled, true);
 });
 
+test("bounds a stalled challenge presentation by cancellation and deadline", async () => {
+  for (const stop of ["cancelled", "timeout"] as const) {
+    const client = new SequenceClient([
+      successResponses().at(0) ?? new FakeResponse(500),
+    ]);
+    const clock = new ManualClock();
+    const cancellation = new Cancellation();
+    const pending = new NodeOpenAIDeviceAuth(client, clock).authenticate(
+      cancellation,
+      () => new Promise<boolean>(() => undefined),
+    );
+    let result: Awaited<typeof pending> | undefined;
+    void pending.then((value) => {
+      result = value;
+    });
+    await settleMicrotasks();
+
+    if (stop === "cancelled") {
+      cancellation.cancel();
+    } else {
+      clock.registrations.at(0)?.fire();
+    }
+
+    await settleMicrotasks();
+    assert.deepEqual(result, { error: { kind: stop }, ok: false });
+    assert.equal(client.requests.length, 1);
+  }
+});
+
 test("rejects mismatched PKCE before the token request", async () => {
   const responses = successResponses();
   const poll = JSON.parse(responses.at(1)?.body ?? "{}") as Record<string, unknown>;

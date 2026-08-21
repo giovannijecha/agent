@@ -506,6 +506,7 @@ test("binds OpenAI device authentication without activating provider runtime", (
     /requires exact equality before exchange/u,
     /sole optional\s+interpreted matching poll challenge/u,
     /bounded discarded additional poll\s+members/u,
+    /deadline also bounds challenge presentation/u,
     /`chatgpt_account_id`/u,
     /provider authorization was not revoked/u,
     /no OpenAI\s+catalog request, Responses request/u,
@@ -523,6 +524,7 @@ test("binds OpenAI device authentication without activating provider runtime", (
     ["PRIVACY.md", "provider `expires_at` metadata"],
     ["SECURITY.md", "only optional bounded `expires_at` metadata"],
     ["SECURITY.md", "matching challenge is interpreted and verified"],
+    ["SECURITY.md", "terminal cancellation also bound"],
     ["docs/OAUTH-REGISTRATION.md", "OpenAI authentication state: `auth-compatible-inactive`"],
   ]) {
     assert.match(context.files[file], new RegExp(marker, "u"), file);
