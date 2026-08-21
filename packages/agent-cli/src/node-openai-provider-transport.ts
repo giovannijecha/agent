@@ -205,13 +205,28 @@ class NodeOpenAIStream implements OpenAITransportStream {
     );
     try {
       response.on("aborted", stream.#onAborted);
+      if (stream.#admissionTerminated()) {
+        return err(Object.freeze({ cleanupFailed: stream.#rejectAdmission() }));
+      }
       response.on("data", stream.#onData);
+      if (stream.#admissionTerminated()) {
+        return err(Object.freeze({ cleanupFailed: stream.#rejectAdmission() }));
+      }
       response.on("end", stream.#onEnd);
+      if (stream.#admissionTerminated()) {
+        return err(Object.freeze({ cleanupFailed: stream.#rejectAdmission() }));
+      }
       response.on("error", stream.#onError);
+      if (stream.#admissionTerminated()) {
+        return err(Object.freeze({ cleanupFailed: stream.#rejectAdmission() }));
+      }
       response.pause();
+      if (stream.#admissionTerminated()) {
+        return err(Object.freeze({ cleanupFailed: stream.#rejectAdmission() }));
+      }
       return ok(stream);
     } catch (_cause: unknown) {
-      return err(Object.freeze({ cleanupFailed: stream.#detach() }));
+      return err(Object.freeze({ cleanupFailed: stream.#rejectAdmission() }));
     }
   }
 
@@ -317,6 +332,22 @@ class NodeOpenAIStream implements OpenAITransportStream {
     if (this.#closed) return err(failure("closed"));
     this.#settleTerminal();
     return ok(null);
+  }
+
+  #admissionTerminated(): boolean {
+    return this.#closed || this.#ended || this.#failure !== undefined ||
+      this.#terminalSettled;
+  }
+
+  #rejectAdmission(): boolean {
+    const earlierCleanupFailed = this.#failure?.cleanupFailed ?? false;
+    this.#closed = true;
+    this.#queued = undefined;
+    this.#pending = undefined;
+    const detachCleanupFailed = this.#detach();
+    this.#settleTerminal();
+    const transportCleanupFailed = this.#destroyTransport();
+    return earlierCleanupFailed || detachCleanupFailed || transportCleanupFailed;
   }
 
   #fail(kind: OpenAITransportErrorKind, earlierCleanupFailed = false): void {
@@ -597,9 +628,13 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
         activeMetadata = metadata;
         try {
           response.on("aborted", onAborted);
+          if (settled || terminating) return;
           response.on("error", onResponseError);
+          if (settled || terminating) return;
           response.on("data", onData);
+          if (settled || terminating) return;
           response.on("end", onEnd);
+          if (settled || terminating) return;
           response.resume();
         } catch (_cause: unknown) {
           fail("protocol");
@@ -779,7 +814,8 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
           destroyRequest,
         );
         if (!admission.ok) {
-          rejectResponse(response, "protocol", admission.error.cleanupFailed);
+          terminating = true;
+          settle(err(failure("protocol", admission.error.cleanupFailed)));
           return;
         }
         activeStream = admission.value;

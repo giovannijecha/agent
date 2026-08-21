@@ -166,7 +166,11 @@ and Responses code can be reached only by offline injected tests; no startup,
 command, TUI, provider session, or runtime path constructs it or supplies a
 credential. Refresh, revocation, model selection, transport construction, and
 runtime snapshot composition remain disabled, so an OpenAI record cannot send
-task content or create a `/models` row. Local removal uses native retirement and explicitly does not
+task content or create a `/models` row. Response-listener admission checks for
+synchronous terminal callbacks after each registration: catalog performs no
+later wiring or initial resume after settlement, and Responses cannot publish a
+pre-terminalized stream before paired request-response cleanup. Local removal
+uses native retirement and explicitly does not
 claim provider-side revocation or secure erasure. The product scanner admits
 the exact OpenAI endpoint, client-identity, token-field, JWT, HTTPS, hash,
 catalog, and Responses spellings only in the reviewed decision-0094 and

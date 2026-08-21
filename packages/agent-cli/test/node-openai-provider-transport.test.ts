@@ -25,6 +25,7 @@ class FakeResponse implements IncomingMessage {
   destroyed = 0;
   destroyFailure = false;
   pauses = 0;
+  synchronousRegistrationEvent: "aborted" | "end" | "error" | undefined;
   resumes = 0;
 
   constructor(statusCode = 200, contentType = "application/json") {
@@ -43,6 +44,10 @@ class FakeResponse implements IncomingMessage {
     const listeners = this.#listeners.get(event) ?? [];
     listeners.push(listener);
     this.#listeners.set(event, listeners);
+    if (this.synchronousRegistrationEvent === event) {
+      this.synchronousRegistrationEvent = undefined;
+      listener(new Error("synthetic response registration event"));
+    }
     return this;
   }
 
@@ -654,6 +659,45 @@ test("contains asynchronous response wiring failures and rolls back listeners", 
     assert.equal(response.destroyed, 1);
     assert.equal(request.destroyed, 1);
     assert.equal(response.listenerCount(), 0);
+  }
+});
+
+test("stops catalog admission after a synchronous terminal registration event", async () => {
+  const response = new FakeResponse();
+  response.synchronousRegistrationEvent = "error";
+  const client = new FakeClient(response);
+  client.deferResponses = true;
+  const pending = create(client).catalog(new Cancellation());
+  const request = client.requests.at(0);
+  assert.ok(request !== undefined);
+  client.flushResponse();
+  assert.deepEqual(await pending, {
+    error: { cleanupFailed: false, kind: "connection" },
+    ok: false,
+  });
+  assert.equal(response.resumes, 0);
+  assert.equal(response.listenerCount(), 0);
+  assert.equal(response.destroyed, 1);
+  assert.equal(request.destroyed, 1);
+});
+
+test("rejects Responses admission after a synchronous terminal registration event", async () => {
+  for (const event of ["aborted", "end"] as const) {
+    const response = new FakeResponse(200, "text/event-stream");
+    response.synchronousRegistrationEvent = event;
+    const client = new FakeClient(response);
+    client.deferResponses = true;
+    const pending = create(client).open(Object.freeze({ body: "{}" }), new Cancellation());
+    const request = client.requests.at(0);
+    assert.ok(request !== undefined);
+    client.flushResponse();
+    assert.deepEqual(await pending, {
+      error: { cleanupFailed: false, kind: "protocol" },
+      ok: false,
+    });
+    assert.equal(response.listenerCount(), 0);
+    assert.equal(response.destroyed, 1);
+    assert.equal(request.destroyed, 1);
   }
 });
 

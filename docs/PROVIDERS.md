@@ -235,6 +235,11 @@ non-string member is never coerced and rejects the complete response admission.
 Listener registration and initial flow control form the same atomic response-
 admission transaction. Any throw rolls back every partially registered
 listener, destroys both handles, and settles one content-free protocol result.
+After each registration, a synchronous terminal callback stops every remaining
+admission action. Catalog retains that callback's single settled result without
+registering later listeners or calling the initial `resume`; Responses refuses
+to publish the terminal stream and performs one paired request-response
+rollback as a content-free protocol failure.
 After admission, read, data, EOF, failure, and close contain every flow-control
 and listener-detachment throw; teardown still attempts every detach and both
 idempotent destructions and combines cleanup failure without exposing a cause.

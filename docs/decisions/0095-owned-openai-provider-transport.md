@@ -130,6 +130,12 @@ admission transaction. Failure rolls back partial registration, destroys both
 handles, and settles one content-free protocol result. Later catalog and stream
 flow control and listener detachment are individually contained so cleanup
 continues after one throw and its combined failure remains explicit.
+After every listener registration, the transaction tests whether that newly
+registered callback already terminalized the operation synchronously. Catalog
+admission stops before any later registration or initial `resume` and preserves
+the callback's one settled result. Responses admission never publishes a
+terminal stream: it rolls back every listener, destroys the exact request and
+response once, and settles one content-free protocol failure before returning.
 The request factory and request setup form the preceding atomic admission
 barrier. A catalog or Responses callback delivered before that barrier completes
 is retained as the sole staged response without metadata access, listener
@@ -411,6 +417,9 @@ Red-green regression must prove:
   back partial listener wiring and contain initial flow-control throws, while
   admitted stream read, data, EOF, failure, and close contain later flow-control
   and detach throws with paired cleanup;
+- synchronous terminal callbacks invoked by response-listener registration stop
+  the remaining catalog admission actions, while Responses rejects the
+  pre-publication stream and performs its paired rollback exactly once;
 - an added reasoning item rejects pre-populated or malformed content before any
   later item projection can omit or replace it, and any reasoning item or delta
   is rejected when the captured effort is off;

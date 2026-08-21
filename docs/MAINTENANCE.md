@@ -591,7 +591,14 @@ regress a non-string member with hostile coercion and never invoke that coercion
 Treat listener registration and initial `pause` or `resume` as one atomic
 admission step inside that callback. On any throw, detach every listener that
 may have been registered, destroy both exact handles, and settle once. For an
-admitted stream, contain later `pause`, `resume`, and every individual listener
+event emitter that invokes a newly registered terminal listener synchronously,
+check settlement after every registration and stop before the next listener or
+initial flow-control call. Preserve the catalog callback's terminal result; for
+Responses, reject the pre-publication stream, detach all possible listeners,
+destroy the retained request and response exactly once, and report protocol.
+Regress catalog error and Responses aborted and EOF registration callbacks
+separately. For an admitted stream, contain later `pause`, `resume`, and every
+individual listener
 detach across read, data, EOF, failure, and close; attempt the remaining cleanup
 after any one cleanup throw and combine the result without exposing its cause.
 For successful transport-open validation, snapshot valid close authority first,
