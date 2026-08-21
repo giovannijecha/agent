@@ -98,6 +98,34 @@ const EXPECTED_DIRECT_PROVIDERS = [
   },
 ];
 
+const EXPECTED_SUBSCRIPTION_CONTRACTS = [
+  {
+    id: "chatgpt",
+    decision: "0090",
+    state: "specified-blocked",
+    flow: "openai-device-code-plus-oauth-pkce",
+    issuer: "https://auth.openai.com",
+    deviceCodeEndpoint:
+      "https://auth.openai.com/api/accounts/deviceauth/usercode",
+    devicePollingEndpoint:
+      "https://auth.openai.com/api/accounts/deviceauth/token",
+    deviceVerificationEndpoint: "https://auth.openai.com/codex/device",
+    tokenEndpoint: "https://auth.openai.com/oauth/token",
+    revocationEndpoint: "https://auth.openai.com/oauth/revoke",
+    catalogEndpoint: "https://chatgpt.com/backend-api/codex/models",
+    chatEndpoint: "https://chatgpt.com/backend-api/codex/responses",
+    clientIdentityAuthority:
+      "agent-owned-or-expressly-reusable-registration-required",
+    clientRegistrationEndpoint: null,
+    credentialRecord: "~/.agent/credentials/openai.oauth",
+    credentialAdmission: "exclusive-session-and-mutation",
+    modelAuthority: "authenticated-catalog",
+    transport: "openai-responses-sse",
+    evidence: "https://learn.chatgpt.com/docs/app-server",
+    researchedOn: "2026-08-21",
+  },
+];
+
 const APPLICATION_DOCUMENT = "docs/PROVIDER-APPLICATIONS.md";
 const RESEARCH_DATE = "2026-08-08";
 const APPLICATION_HEADINGS = [
@@ -656,10 +684,11 @@ function validateRegistry(policy) {
       "researchedOn",
       "providers",
       "directProviders",
+      "subscriptionContracts",
     ],
     "provider policy",
   );
-  if (policy.schemaVersion !== 8) {
+  if (policy.schemaVersion !== 9) {
     fail("unsupported provider policy schema");
   }
   if (!Array.isArray(policy.providers)) {
@@ -741,6 +770,55 @@ function validateRegistry(policy) {
       JSON.stringify(EXPECTED_DIRECT_PROVIDERS[index])
     ) {
       fail("direct provider policy mismatch at index " + String(index));
+    }
+  }
+
+  if (
+    !Array.isArray(policy.subscriptionContracts) ||
+    policy.subscriptionContracts.length !== EXPECTED_SUBSCRIPTION_CONTRACTS.length
+  ) {
+    fail("provider policy must contain exactly one subscription contract");
+  }
+  for (let index = 0; index < policy.subscriptionContracts.length; index += 1) {
+    const contract = policy.subscriptionContracts[index];
+    assertExactKeys(
+      contract,
+      [
+        "id",
+        "decision",
+        "state",
+        "flow",
+        "issuer",
+        "deviceCodeEndpoint",
+        "devicePollingEndpoint",
+        "deviceVerificationEndpoint",
+        "tokenEndpoint",
+        "revocationEndpoint",
+        "catalogEndpoint",
+        "chatEndpoint",
+        "clientIdentityAuthority",
+        "clientRegistrationEndpoint",
+        "credentialRecord",
+        "credentialAdmission",
+        "modelAuthority",
+        "transport",
+        "evidence",
+        "researchedOn",
+      ],
+      "subscription contract at index " + String(index),
+    );
+    if (
+      JSON.stringify(contract) !==
+      JSON.stringify(EXPECTED_SUBSCRIPTION_CONTRACTS[index])
+    ) {
+      fail("subscription contract mismatch at index " + String(index));
+    }
+    const provider = policy.providers.find((candidate) => candidate.id === contract.id);
+    if (
+      provider?.eligibility !== "blocked" ||
+      provider.blocker !== "owned-client-registration-required"
+    ) {
+      fail("subscription contract must retain its blocked registration gate");
     }
   }
 }

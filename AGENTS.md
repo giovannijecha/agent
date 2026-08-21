@@ -20,7 +20,7 @@ that domain; a summary here never overrides its canonical owner.
 | Change source, tests, declarations, verification, or evaluation practice | [Engineering](docs/ENGINEERING.md) |
 | Update, roll back, remove, release, or diagnose a subsystem | [Maintenance](docs/MAINTENANCE.md) |
 | Change observable operator behavior | [Operator manual](docs/manual/README.md) |
-| Change providers, credentials, catalogs, models, or network origins | [Provider policy](docs/PROVIDERS.md), [privacy policy](PRIVACY.md), [decision 0072](docs/decisions/0072-owned-ollama-cloud-provider.md), and [decision 0089](docs/decisions/0089-owned-external-authentication-transition.md) |
+| Change providers, credentials, catalogs, models, or network origins | [Provider policy](docs/PROVIDERS.md), [privacy policy](PRIVACY.md), [decision 0072](docs/decisions/0072-owned-ollama-cloud-provider.md), [decision 0089](docs/decisions/0089-owned-external-authentication-transition.md), and the non-active [decision 0090](docs/decisions/0090-owned-openai-subscription-oauth-contract.md) |
 | Change security boundaries or vulnerability handling | [Security policy](SECURITY.md) and [privacy policy](PRIVACY.md) |
 | Inspect a reference project or change provenance rules | [Ownership policy](docs/OWNERSHIP.md) |
 | Change brand identity or visual assets | [Brand guide](docs/BRAND.md) |

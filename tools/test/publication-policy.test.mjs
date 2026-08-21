@@ -461,6 +461,49 @@ test("rejects clean-room provenance contract drift", () => {
   }
 });
 
+test("requires stale public documentation before reference-source inspection", () => {
+  const ownership = readFileSync(
+    path.join(projectRoot, "docs/OWNERSHIP.md"),
+    "utf8",
+  );
+  for (const marker of [
+    "Reference-project implementation source may be inspected only after current public\ndocumentation is demonstrated stale",
+    "A maintainer request does not replace this\nprerequisite.",
+  ]) {
+    assert.equal(ownership.includes(marker), true, marker);
+  }
+});
+
+test("excludes retrospectively justified reference-source influence", () => {
+  const context = currentContext();
+  const ownership = context.files["docs/OWNERSHIP.md"];
+  const decision =
+    context.files["docs/decisions/0090-owned-openai-subscription-oauth-contract.md"];
+  const providers = context.files["docs/PROVIDERS.md"];
+  assert.equal(
+    ownership.includes("Discarded Pi and OpenCode OpenAI OAuth source inspection"),
+    true,
+  );
+  assert.equal(
+    ownership.includes("No allowed influence; excluded from decision 0090"),
+    true,
+  );
+  assert.match(
+    decision,
+    /supplies no feasibility,\s+protocol, identity, or implementation authority/u,
+  );
+  assert.doesNotMatch(decision, /Both projects independently implement/u);
+  assert.match(
+    decision,
+    /one commit-pinned official OpenAI provenance\s+entry and the separately bound discarded Pi\/OpenCode historical record/u,
+  );
+  assert.doesNotMatch(decision, /two commit-pinned clean-room provenance/u);
+  assert.doesNotMatch(
+    providers,
+    /Those concrete stale-documentation\s+gaps permitted/u,
+  );
+});
+
 test("rejects removal or modification of maintained provenance entries", () => {
   const maintained = currentContext().files["docs/OWNERSHIP.md"];
   const entries = maintained
@@ -573,6 +616,8 @@ test("rejects direct provider admission contract drift", () => {
     "One concrete provider does not authorize a generic provider framework,\narbitrary base URL, unregistered model selector, generic key store, local-server mode,\nor additional integration.",
     "The Ollama API key\nmay never enter source, tests, logs, errors, documentation values, process\narguments, command history, terminal output, transcript, journal, receipt, or\ndiagnostic.",
     "`agent auth` is the sole interactive credential lifecycle and runs outside the\nalternate-screen TUI.",
+    "Decision 0090 records one non-executable OpenAI contract",
+    "`specified-blocked` OpenAI subscription contract",
   ]) {
     const context = currentContext();
     context.files["docs/PROVIDERS.md"] = providers.replaceAll(
@@ -607,7 +652,7 @@ test("rejects provider-specific OAuth registration conclusion drift", () => {
   for (const [provider, row] of [
     [
       "ChatGPT Plus/Pro",
-      "| ChatGPT Plus/Pro | OpenAI documents subscription browser and device login for its Codex clients. | Those flows identify OpenAI's clients; no accepted process registers `agent` as a direct independent client. |",
+      "| ChatGPT Plus/Pro | OpenAI documents subscription browser and device login for Codex clients; decision 0090 fixes the independently derived device, token, catalog, transport, storage, and removal contract. | The protocol is `specified-blocked`: OpenAI has not registered `agent` or expressly authorized a reusable independent-client identity. |",
     ],
     [
       "Claude Pro/Max",
@@ -654,7 +699,7 @@ test("rejects obsolete OAuth credential-store authority", () => {
   const context = currentContext();
   const maintained = context.files["docs/OAUTH-REGISTRATION.md"];
   context.files["docs/OAUTH-REGISTRATION.md"] = maintained.replace(
-    "an accepted provider-specific successor decision,\nthe corresponding decision-0089 credential-store extension",
+    "For every other provider, replace the blocking decision\nand accept a provider-specific successor decision.",
     "decision-0088 storage activation",
   );
   assert.notEqual(context.files["docs/OAUTH-REGISTRATION.md"], maintained);

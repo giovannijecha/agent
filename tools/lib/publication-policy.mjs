@@ -43,13 +43,14 @@ const EXPECTED_DOCUMENTS = Object.freeze([
   "docs/decisions/0087-owned-user-scoped-state-root.md",
   "docs/decisions/0088-owned-durable-credential-boundary.md",
   "docs/decisions/0089-owned-external-authentication-transition.md",
+  "docs/decisions/0090-owned-openai-subscription-oauth-contract.md",
   "assets/brand/README.md",
   "docs/BRAND.md",
   "docs/decisions/0037-canonical-agent-brand.md",
   "docs/decisions/0038-owned-deterministic-tui-motion.md",
 ]);
 const OAUTH_REGISTRATION_ROWS = Object.freeze([
-  "| ChatGPT Plus/Pro | OpenAI documents subscription browser and device login for its Codex clients. | Those flows identify OpenAI's clients; no accepted process registers `agent` as a direct independent client. |",
+  "| ChatGPT Plus/Pro | OpenAI documents subscription browser and device login for Codex clients; decision 0090 fixes the independently derived device, token, catalog, transport, storage, and removal contract. | The protocol is `specified-blocked`: OpenAI has not registered `agent` or expressly authorized a reusable independent-client identity. |",
   "| Claude Pro/Max | Anthropic documents subscription login for Claude Code and subscription-backed third-party use through the Claude Agent SDK. | Claude Code and Agent SDK are foreign runtimes; no accepted direct independent-client registration is recorded for `agent`. |",
   "| Kimi Code | Kimi documents device OAuth for Kimi Code CLI and subscription-backed API keys for third-party development tools. | Public OAuth for third-party clients is unavailable according to the [recorded provider response](PROVIDER-APPLICATIONS.md#kimi-code); credential-only login does not satisfy this registration gate. |",
   "| Grok subscription | xAI documents browser and device login for Grok Build plus headless and ACP integration, while its direct API has a separate key path. | Grok Build and ACP are foreign executables; no accepted process registers `agent` for direct subscription OAuth. |",
@@ -196,6 +197,16 @@ function validateProvenanceLog(policy, context) {
     "None; no SDK, CLI, executable, source, sample, fixture, prompt, response, model identifier, product identity, or implementation structure reused |";
   if (!entries.includes(ollamaThinkingEntry)) {
     fail("Ollama thinking provenance contract is missing or incomplete");
+  }
+  const discardedOpenAiReferenceInspectionEntry =
+    "| 2026-08-21 | Discarded Pi and OpenCode OpenAI OAuth source inspection at Pi " +
+    "[`5cd93f688aaab89dbb6dfa4aca535f21796ae185`](https://github.com/earendil-works/pi/blob/5cd93f688aaab89dbb6dfa4aca535f21796ae185/packages/ai/src/auth/oauth/openai-codex.ts) and OpenCode " +
+    "[`e11dbd02068aa36723dd43da43c247ade82d2fe7`](https://github.com/anomalyco/opencode/blob/e11dbd02068aa36723dd43da43c247ade82d2fe7/packages/core/src/plugin/provider/openai.ts) | " +
+    "OpenAI OAuth implementation files viewed before a concrete stale-public-documentation gap was recorded | " +
+    "No allowed influence; excluded from decision 0090 and every policy, protocol, feasibility, identity, and implementation claim | " +
+    "None; no code, structure, test, fixture, prompt, endpoint, scope, header, client identifier, credential schema, model identifier, or product identity reused |";
+  if (!entries.includes(discardedOpenAiReferenceInspectionEntry)) {
+    fail("discarded OpenAI reference-source provenance is missing or incomplete");
   }
   const digest = createHash("sha256")
     .update(entries.join("\n") + "\n", "utf8")
@@ -448,6 +459,7 @@ function validatePublicDocuments(context) {
       "We do not copy, translate, port, adapt,\nvendor, or regenerate project code from third parties.",
       "External documentation or current public source may establish observable\nbehavior or a protocol. Record the commit, material, and allowed facts below\nbefore implementation.",
       "Never reuse registered\nidentifiers, prompts, fixtures, headers that assert foreign identity, or source\nstructure.",
+      "Reference-project implementation source may be inspected only after current public\ndocumentation is demonstrated stale",
       "| Date | Reference | Material inspected | Allowed influence | Code copied |",
       "Later TUI comparison remains restricted to observable outcomes and does not\nadmit a foreign hierarchy, module boundary, name, style literal, animation\ntiming, redraw algorithm, or source structure.",
       "Development tools may assist repository work, but every accepted artifact is\nreviewed against this project's rules, tests, and provenance contract.",
@@ -468,6 +480,8 @@ function validatePublicDocuments(context) {
       "One concrete provider does not authorize a generic provider framework,\narbitrary base URL, unregistered model selector, generic key store, local-server mode,\nor additional integration.",
       "The Ollama API key\nmay never enter source, tests, logs, errors, documentation values, process\narguments, command history, terminal output, transcript, journal, receipt, or\ndiagnostic.",
       "`agent auth` is the sole interactive credential lifecycle and runs outside the\nalternate-screen TUI.",
+      "Decision 0090 records one non-executable OpenAI contract",
+      "`specified-blocked` OpenAI subscription contract",
     ],
     "direct provider policy",
   );
@@ -480,7 +494,8 @@ function validatePublicDocuments(context) {
       "Canonical repository: [github.com/giovannijecha/agent]",
       "Registration state: `blocked`.",
       ...OAUTH_REGISTRATION_ROWS,
-      "an accepted provider-specific successor decision,\nthe corresponding decision-0089 credential-store extension",
+      "For ChatGPT,\nupdate the blocking decision, [provider policy](PROVIDERS.md), and decision\n0090's activation gate.",
+      "For every other provider, replace the blocking decision\nand accept a provider-specific successor decision.",
       "Offline contract tests must\ncover cancellation, expiry, concurrency, malformed responses, secret leakage,\nrollback, and removal.",
       "No registration means no adapter",
     ],

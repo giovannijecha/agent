@@ -500,8 +500,8 @@ replacement implicitly.
 
 ### Owned external authentication
 
-**Owners:** CLI native platform boundary, decision 0089, superseded decision
-0088, and the authentication and selection clauses of decision 0072,
+**Owners:** CLI native platform boundary, decision 0089, non-active decision
+0090, superseded decision 0088, and the authentication and selection clauses of decision 0072,
 [providers](PROVIDERS.md), [OAuth registration](OAUTH-REGISTRATION.md),
 [privacy](../PRIVACY.md), and [security](../SECURITY.md).
 
@@ -511,6 +511,13 @@ shared/exclusive admission lifecycle, external `agent auth`, and the two-stage
 opaque generic record, another credential type, OAuth material, another
 provider, hot reload, or a second credential lifecycle in anticipation of
 future work.
+
+Decision 0090 fixes the future OpenAI device OAuth, provider-specific record,
+exclusive admission, refresh, catalog, transport, rollback, and removal
+contract. Its identity gate is unresolved. Until that gate and its staged
+activation evidence are accepted, maintenance must not create the OpenAI
+record or lock, add an auth action or provider row, admit an endpoint in product
+source, or weaken the closed source inventories.
 
 Keep the verifier's closed sensitive-state identifier inventory, exact CLI
 product tree, exact native platform tree, and exact production CLI

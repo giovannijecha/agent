@@ -8,7 +8,7 @@ secret, or credential.
 
 ## Current registration status
 
-- Status reviewed through: `2026-08-20`
+- Status reviewed through: `2026-08-21`
 - Registration state: `blocked`.
 - Accepted direct subscription OAuth registrations: `none`
 
@@ -17,7 +17,7 @@ direct independent OAuth public client.
 
 | Provider | Recorded public route | Registration conclusion |
 | --- | --- | --- |
-| ChatGPT Plus/Pro | OpenAI documents subscription browser and device login for its Codex clients. | Those flows identify OpenAI's clients; no accepted process registers `agent` as a direct independent client. |
+| ChatGPT Plus/Pro | OpenAI documents subscription browser and device login for Codex clients; decision 0090 fixes the independently derived device, token, catalog, transport, storage, and removal contract. | The protocol is `specified-blocked`: OpenAI has not registered `agent` or expressly authorized a reusable independent-client identity. |
 | Claude Pro/Max | Anthropic documents subscription login for Claude Code and subscription-backed third-party use through the Claude Agent SDK. | Claude Code and Agent SDK are foreign runtimes; no accepted direct independent-client registration is recorded for `agent`. |
 | Kimi Code | Kimi documents device OAuth for Kimi Code CLI and subscription-backed API keys for third-party development tools. | Public OAuth for third-party clients is unavailable according to the [recorded provider response](PROVIDER-APPLICATIONS.md#kimi-code); credential-only login does not satisfy this registration gate. |
 | Grok subscription | xAI documents browser and device login for Grok Build plus headless and ACP integration, while its direct API has a separate key path. | Grok Build and ACP are foreign executables; no accepted process registers `agent` for direct subscription OAuth. |
@@ -44,11 +44,12 @@ inspectable; it does not grant subscription access or register an OAuth client.
 
 ## Requested authorization model
 
-The preferred flow is provider-documented device authorization. A
-provider-documented authorization-code flow with PKCE and a loopback redirect is
-the fallback. `agent` is a public client: it cannot safely hold an embedded
-client secret, and it will never borrow another application's registration,
-identity, user agent, prompt, or credential store.
+The preferred flow is provider-documented device authorization. Decision 0090
+selects that flow for OpenAI and leaves browser authorization and a loopback
+callback outside its first activation. Other providers may require a separately
+accepted authorization-code flow with PKCE. `agent` is a public client: it
+cannot safely hold an embedded client secret, and it will never borrow another
+application's registration, identity, user agent, prompt, or credential store.
 
 The browser remains provider-hosted. `agent` will not request a password,
 cookie, recovery code, payment detail, or one-time code. Decision 0089's active
@@ -56,6 +57,8 @@ owned store admits only the Ollama Cloud API-key record; it changes no current
 registration or OAuth admission result. OAuth material remains forbidden until
 a separate provider decision supplies the exact public-client identity, closed
 provider-specific record, refresh, revocation, recovery, and removal contract.
+Decision 0090 now supplies that non-active OpenAI contract without supplying or
+borrowing the still-missing client identity.
 
 ## Data flow
 
@@ -105,11 +108,13 @@ confidential material. Record only a dated, non-secret registration conclusion
 here, request lifecycle metadata in the
 [provider request ledger](PROVIDER-APPLICATIONS.md), and an external-source
 inspection in the [ownership record](OWNERSHIP.md) when required. Complete
-registration evidence does not enable product code by itself. Replace the
-blocking decision and [provider policy](PROVIDERS.md) in the same change as the
-machine gate, first adapter, an accepted provider-specific successor decision,
-the corresponding decision-0089 credential-store extension, threat model,
-revocation path, rollback, and removal procedure. Offline contract tests must
+registration evidence does not enable product code by itself. For ChatGPT,
+update the blocking decision, [provider policy](PROVIDERS.md), and decision
+0090's activation gate. For every other provider, replace the blocking decision
+and accept a provider-specific successor decision. In either case, the same
+change must supply the machine gate, first adapter, corresponding decision-0089
+credential-store extension, threat model, revocation path, rollback, and removal
+procedure. Offline contract tests must
 cover cancellation, expiry, concurrency, malformed responses, secret leakage,
 rollback, and removal.
 
@@ -120,6 +125,8 @@ or simulated login screen.
 
 - [OpenAI Codex authentication](https://developers.openai.com/codex/auth/)
 - [OpenAI Codex App Server](https://developers.openai.com/codex/app-server/)
+- [OpenAI authorization-server metadata](https://auth.openai.com/.well-known/openid-configuration)
+- [OpenAI subscription OAuth contract decision](decisions/0090-owned-openai-subscription-oauth-contract.md)
 - [Anthropic authentication](https://code.claude.com/docs/en/authentication)
 - [Anthropic subscription use in third-party Agent SDK apps](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan)
 - [Kimi Code overview and third-party authentication](https://www.kimi.com/code/docs/en/)

@@ -204,6 +204,9 @@ there is no precedence or automatic import. Provider data-use, retention, billin
 quota, and model availability terms can change and are not guarantees made by
 this project; review the current Ollama terms before sending sensitive content.
 The four subscription OAuth connections remain disabled.
+Decision 0090 documents a future OpenAI device OAuth record and data flow only;
+its client-identity gate is unresolved, so Agent currently collects, stores,
+refreshes, revokes, or sends no OpenAI OAuth material.
 
 ### Thinking data
 

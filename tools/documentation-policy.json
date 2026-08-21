@@ -91,7 +91,8 @@
     "docs/decisions/0086-owned-thinking-effort-and-display.md",
     "docs/decisions/0087-owned-user-scoped-state-root.md",
     "docs/decisions/0088-owned-durable-credential-boundary.md",
-    "docs/decisions/0089-owned-external-authentication-transition.md"
+    "docs/decisions/0089-owned-external-authentication-transition.md",
+    "docs/decisions/0090-owned-openai-subscription-oauth-contract.md"
   ],
   "decisionIndexLifecycleDigest": {
     "algorithm": "sha256",
@@ -123,6 +124,7 @@
       "PRIVACY.md",
       "docs/decisions/0072-owned-ollama-cloud-provider.md",
       "docs/decisions/0089-owned-external-authentication-transition.md",
+      "docs/decisions/0090-owned-openai-subscription-oauth-contract.md",
       "SECURITY.md",
       "docs/OWNERSHIP.md",
       "docs/BRAND.md",
@@ -154,7 +156,8 @@
     "0086": "2026-08-20",
     "0087": "2026-08-20",
     "0088": "2026-08-20",
-    "0089": "2026-08-20"
+    "0089": "2026-08-20",
+    "0090": "2026-08-21"
   },
   "historicalDecisionStatusExceptions": {
     "0009": "accepted"
@@ -219,7 +222,7 @@
   ],
   "decisionRecordDigest": {
     "algorithm": "sha256",
-    "value": "20c219c499c7702ac58f40857fd4e7dccac6c556127766a8a419fe218b1306db"
+    "value": "307adb00055c71385c4b29b713dee70e0fa6c8279ef55b476483709672adb46f"
   },
   "decisionDomainMembers": {
     "architecture": [
@@ -271,7 +274,8 @@
       "0069",
       "0072",
       "0080",
-      "0082"
+      "0082",
+      "0090"
     ],
     "security": [
       "0015",
@@ -368,6 +372,7 @@
       "0037"
     ],
     "providers": [
+      "0090",
       "0082",
       "0080",
       "0072",

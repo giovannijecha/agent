@@ -178,6 +178,10 @@ credential-selection portions of decision 0072. Its Ollama-first transition is
 active: `agent auth`, the provider-specific owned record, shared/exclusive
 native admission, complete `/providers` removal, and two-stage `/models`
 selection ship as one authority. No OAuth record or second provider is implied.
+Decision 0090 specifies a future OpenAI device OAuth, exclusive credential,
+catalog, and Responses boundary, but its client-identity gate remains blocked;
+it adds no current package, record, network request, provider row, or runtime
+composition.
 
 Every accepted journal file is synchronized before publication. On POSIX, the
 CLI also synchronizes a staged session directory before publishing it and the

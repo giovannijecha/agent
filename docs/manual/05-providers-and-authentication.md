@@ -88,6 +88,9 @@ registration status, while the [provider policy](../PROVIDERS.md) owns runtime
 admission. Decision 0089's owned credential boundary is active only for the
 exact Ollama Cloud API-key record. It admits no OAuth field, generic credential
 map, placeholder provider, browser flow, or compatibility reader.
+Decision 0090 specifies a future OpenAI device OAuth contract but keeps it
+blocked on an owned or expressly reusable client identity. It changes no
+current command, credential record, provider row, model row, or network request.
 
 ## Recover from provider failures
 
@@ -176,6 +179,7 @@ fall back to another endpoint after a catalog or chat failure.
 - [Current authority by domain](../decisions/README.md#current-authority-by-domain)
 - [Ollama Cloud provider decision](../decisions/0072-owned-ollama-cloud-provider.md)
 - [External authentication transition decision](../decisions/0089-owned-external-authentication-transition.md)
+- [OpenAI subscription OAuth contract decision](../decisions/0090-owned-openai-subscription-oauth-contract.md)
 - [Provider HTTP outcome decision](../decisions/0080-owned-provider-http-outcome-classification.md)
 - [Ollama tool-stream normalization decision](../decisions/0082-owned-ollama-tool-stream-normalization.md)
 - [Bounded-thinking decision](../decisions/0083-owned-bounded-thinking-stream.md)

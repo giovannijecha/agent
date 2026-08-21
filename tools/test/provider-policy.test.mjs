@@ -86,6 +86,53 @@ test("accepts the canonical blocked and direct provider registry", () => {
   );
 });
 
+test("binds the specified but inactive OpenAI subscription OAuth contract", () => {
+  assert.deepEqual(currentPolicy.subscriptionContracts, [
+    {
+      id: "chatgpt",
+      decision: "0090",
+      state: "specified-blocked",
+      flow: "openai-device-code-plus-oauth-pkce",
+      issuer: "https://auth.openai.com",
+      deviceCodeEndpoint:
+        "https://auth.openai.com/api/accounts/deviceauth/usercode",
+      devicePollingEndpoint:
+        "https://auth.openai.com/api/accounts/deviceauth/token",
+      deviceVerificationEndpoint: "https://auth.openai.com/codex/device",
+      tokenEndpoint: "https://auth.openai.com/oauth/token",
+      revocationEndpoint: "https://auth.openai.com/oauth/revoke",
+      catalogEndpoint: "https://chatgpt.com/backend-api/codex/models",
+      chatEndpoint: "https://chatgpt.com/backend-api/codex/responses",
+      clientIdentityAuthority:
+        "agent-owned-or-expressly-reusable-registration-required",
+      clientRegistrationEndpoint: null,
+      credentialRecord: "~/.agent/credentials/openai.oauth",
+      credentialAdmission: "exclusive-session-and-mutation",
+      modelAuthority: "authenticated-catalog",
+      transport: "openai-responses-sse",
+      evidence: "https://learn.chatgpt.com/docs/app-server",
+      researchedOn: "2026-08-21",
+    },
+  ]);
+});
+
+test("rejects drift that would activate or impersonate the OpenAI OAuth contract", () => {
+  for (const [field, value] of [
+    ["state", "enabled"],
+    ["clientIdentityAuthority", "borrowed-codex-client"],
+    ["clientRegistrationEndpoint", "https://example.com/register"],
+    ["credentialAdmission", "shared-session"],
+    ["chatEndpoint", "https://api.openai.com/v1/responses"],
+  ]) {
+    const drifted = structuredClone(currentPolicy);
+    drifted.subscriptionContracts[0][field] = value;
+    assert.throws(
+      () => validateProviderPolicy(drifted, emptyContext),
+      ProviderPolicyError,
+    );
+  }
+});
+
 test("rejects duplicate or missing provider registrations", () => {
   const duplicated = structuredClone(currentPolicy);
   duplicated.providers[3] = structuredClone(duplicated.providers[2]);

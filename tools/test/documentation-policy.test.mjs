@@ -300,7 +300,11 @@ test("binds the active external authentication boundary", () => {
   }
   assert.match(
     context.files["docs/OAUTH-REGISTRATION.md"],
-    /an accepted provider-specific successor decision,\s+the corresponding\s+decision-0089 credential-store extension/u,
+    /For ChatGPT,\s+update the blocking decision, \[provider policy\]\(PROVIDERS\.md\), and decision\s+0090's activation gate/u,
+  );
+  assert.match(
+    context.files["docs/OAUTH-REGISTRATION.md"],
+    /For every other provider, replace the blocking decision\s+and accept a provider-specific successor decision/u,
   );
   assert.doesNotMatch(
     context.files["docs/OAUTH-REGISTRATION.md"],
@@ -315,6 +319,55 @@ test("binds the active external authentication boundary", () => {
     /Decision 0089's owned credential boundary is active only for the\s+exact Ollama Cloud API-key record/u,
   );
   assert.doesNotMatch(operatorText, /`\/providers`/u);
+});
+
+test("binds the specified but inactive OpenAI subscription OAuth contract", () => {
+  const context = currentContext();
+  const decision =
+    "docs/decisions/0090-owned-openai-subscription-oauth-contract.md";
+  assert.equal(policy.decisionPaths.includes(decision), true);
+  assert.equal(ownershipPolicy.requiredDocuments.includes(decision), true);
+  for (const marker of [
+    /Public endpoints and public-client identity are separate authorities/u,
+    /The first admitted login ceremony is device authorization only/u,
+    /`~\/.agent\/credentials\/openai\.oauth`/u,
+    /exclusive for the complete TUI session or `agent auth`\s+mutation/u,
+    /`https:\/\/chatgpt\.com\/backend-api\/codex\/responses`/u,
+    /No OpenAI workspace, source literal,\s+credential record, network request/u,
+    /client identifier without the\s+recorded authority/u,
+  ]) {
+    assert.match(context.files[decision], marker);
+  }
+  assert.match(
+    context.files["docs/PROVIDERS.md"],
+    /one exact\s+`specified-blocked` OpenAI subscription contract/u,
+  );
+  assert.match(
+    context.files["docs/OAUTH-REGISTRATION.md"],
+    /The protocol is `specified-blocked`/u,
+  );
+  assert.match(
+    context.files["docs/OAUTH-REGISTRATION.md"],
+    /For ChatGPT,\s+update the blocking decision, \[provider policy\]\(PROVIDERS\.md\), and decision\s+0090's activation gate/u,
+  );
+  assert.match(
+    context.files["docs/OAUTH-REGISTRATION.md"],
+    /For every other provider, replace the blocking decision\s+and accept a provider-specific successor decision/u,
+  );
+  for (const [file, marker] of [
+    ["docs/ARCHITECTURE.md", "adds no current package"],
+    ["docs/MAINTENANCE.md", "Its identity gate is unresolved"],
+    ["PRIVACY.md", "stores,\\s+refreshes, revokes, or sends no OpenAI OAuth material"],
+    ["SECURITY.md", "admits no current source, credential namespace"],
+  ]) {
+    assert.match(context.files[file], new RegExp(marker, "u"), file);
+  }
+  const providerManual = readFileSync(
+    path.join(projectRoot, "docs/manual/05-providers-and-authentication.md"),
+    "utf8",
+  );
+  assert.match(providerManual, /changes no\s+current command/u);
+  assert.equal(policy.currentDecisionAuthorities.providers.at(0), "0090");
 });
 
 test("rejects canonical document structure drift", () => {
@@ -1948,7 +2001,7 @@ test("routes completed OAuth registration status to the OAuth dossier", () => {
   }
 
   for (const routeSummary of [
-    "OpenAI documents subscription browser and device login for its Codex clients.",
+    "OpenAI documents subscription browser and device login for Codex clients; decision 0090 fixes the independently derived device, token, catalog, transport, storage, and removal contract.",
     "Anthropic documents subscription login for Claude Code and subscription-backed third-party use through the Claude Agent SDK.",
     "Kimi documents device OAuth for Kimi Code CLI and subscription-backed API keys for third-party development tools.",
     "xAI documents browser and device login for Grok Build plus headless and ACP integration, while its direct API has a separate key path.",

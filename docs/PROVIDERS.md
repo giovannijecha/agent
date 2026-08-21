@@ -1,7 +1,7 @@
 # Provider eligibility
 
 This reference separates direct API-key access from subscription OAuth client
-registration. Status is current as of 2026-08-19.
+registration. Status is current as of 2026-08-21.
 
 This document owns provider admission, exact network and wire boundaries, and
 provider-specific account and credential constraints. Use the
@@ -120,11 +120,11 @@ rollback, and removal.
 
 ## Blocked subscription OAuth providers
 
-Pi `main` at commit
-[`e47b8e37a6211ebd0b2942fa87059d64f81eec02`](https://github.com/earendil-works/pi/commit/e47b8e37a6211ebd0b2942fa87059d64f81eec02)
-contains direct subscription OAuth implementations for the four requested
-providers. That proves technical feasibility. It does not transfer Pi's or a
-vendor client's registration, identity, approval, or entitlement to `agent`.
+A maintainer-requested Pi and OpenCode source inspection is recorded as
+discarded because it occurred before the repository recorded a concrete stale-
+documentation prerequisite. It supplies no feasibility, protocol, identity,
+policy, or implementation input to `agent`. Decision 0090 is derived only from
+the official OpenAI authorities in its provenance record.
 
 ChatGPT Plus/Pro, Claude Pro/Max, Kimi Code, and Grok subscription are not
 admitted providers. The [OAuth registration dossier](OAUTH-REGISTRATION.md)
@@ -133,25 +133,35 @@ owns their current registration conclusions and required written evidence. The
 metadata. A submission, silence, or negative response does not grant runtime
 authority.
 
-This policy owns the admission consequence: a blocked candidate exposes no
-provider workspace, credential path, endpoint, model, or runtime composition. A
-candidate can be enabled only through a replacing decision after the OAuth
+Decision 0090 records one non-executable OpenAI contract so its public device,
+token, catalog, Responses, future record, admission, and removal boundaries are
+reviewable before implementation. It contains no client identifier and remains
+`specified-blocked`. This exception permits exact research facts in decision
+and machine policy only; a blocked candidate still exposes no product
+workspace, created credential path, network request, provider or model row, or
+runtime composition.
+
+A candidate can be enabled only through an activation decision after the OAuth
 dossier records complete registration evidence, the decision fixes the exact
 identity and wire boundary, and the same change supplies the adapter, threat
 model, offline contract tests, revocation path, rollback, and removal procedure.
 
 ## Machine gate
 
-`tools/provider-policy.json` schema version 8 records the four blocked OAuth
-providers and the one exact enabled direct provider. It pins the fixed chat and
+`tools/provider-policy.json` schema version 9 records the four blocked OAuth
+providers, the one exact enabled direct provider, and one exact
+`specified-blocked` OpenAI subscription contract. It pins the fixed chat and
 authenticated catalog endpoints, bearer authentication, dynamic catalog
 authority, cloud cost class, native `application/json` streaming transport,
 line-delimited object contract, environment variable, exact owned record,
-shared/exclusive admission, external auth command, and exact provider workspace. Canonical verification
+shared/exclusive admission, external auth command, exact provider workspace,
+and the non-active OpenAI decision, routes, future record, exclusive admission,
+and unresolved identity gate. Canonical verification
 rejects unregistered provider workspaces, OAuth identifiers, subscription
 endpoints, ambient network capabilities, foreign credential stores, borrowed
 product identity, endpoint drift, model-authority drift, and credential-
-persistence drift. Reviewed provider literals are admitted only in their exact
+persistence drift. OpenAI literals remain forbidden in product source while its
+contract is blocked; reviewed Ollama literals are admitted only in their exact
 source files.
 
 One concrete provider does not authorize a generic provider framework,
@@ -185,6 +195,8 @@ exclusive admission and never waits, polls, steals, or retries. A durable record
 and `AGENT_OLLAMA_API_KEY` together fail as dual authority before payload read;
 neither source has precedence and neither is imported. Decision 0088 remains
 historical and decision 0089 owns the active external-authentication boundary.
+Decision 0090 specifies a future provider-specific OpenAI OAuth record but does
+not create it, admit an environment authority, or change current operator data.
 
 ## Primary references
 
@@ -196,3 +208,4 @@ historical and decision 0089 owns the active external-authentication boundary.
 - [Ollama tool calling](https://docs.ollama.com/capabilities/tool-calling)
 - [Ollama streaming](https://docs.ollama.com/api/streaming)
 - [Ollama OpenAPI contract](https://github.com/ollama/ollama/blob/main/docs/openapi.yaml)
+- [OpenAI subscription OAuth contract decision](decisions/0090-owned-openai-subscription-oauth-contract.md)
