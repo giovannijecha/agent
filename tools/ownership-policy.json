@@ -113,6 +113,7 @@
     "docs/decisions/0092-owned-openai-compatible-public-client.md",
     "docs/decisions/0093-owned-openai-oauth-credential-record.md",
     "docs/decisions/0094-owned-openai-device-authentication.md",
+    "docs/decisions/0095-owned-openai-provider-transport.md",
     "evaluations/README.md"
   ],
   "workspaces": [
@@ -146,6 +147,15 @@
       }
     },
     {
+      "path": "packages/agent-provider-openai-subscription",
+      "name": "@agent/provider-openai-subscription",
+      "dependencies": {
+        "@agent/core": "0.1.0",
+        "@agent/runtime": "0.1.0",
+        "@agent/tools": "0.1.0"
+      }
+    },
+    {
       "path": "packages/agent-tui",
       "name": "@agent/tui",
       "dependencies": {}
@@ -156,6 +166,7 @@
       "dependencies": {
         "@agent/core": "0.1.0",
         "@agent/provider-ollama-cloud": "0.1.0",
+        "@agent/provider-openai-subscription": "0.1.0",
         "@agent/runtime": "0.1.0",
         "@agent/tools": "0.1.0",
         "@agent/tui": "0.1.0"

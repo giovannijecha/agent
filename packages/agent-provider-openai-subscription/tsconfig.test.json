@@ -6,7 +6,6 @@
     "outDir": ".test-dist",
     "tsBuildInfoFile": ".test-dist/.tsbuildinfo",
     "types": [
-      "node-runtime",
       "node-test"
     ]
   },
@@ -21,19 +20,10 @@
       "path": "../agent-core"
     },
     {
-      "path": "../agent-provider-ollama-cloud"
-    },
-    {
-      "path": "../agent-provider-openai-subscription"
-    },
-    {
       "path": "../agent-runtime"
     },
     {
       "path": "../agent-tools"
-    },
-    {
-      "path": "../agent-tui"
     }
   ]
 }

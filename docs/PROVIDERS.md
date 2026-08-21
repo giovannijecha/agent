@@ -159,28 +159,31 @@ Poll success requires the authorization code and verifier and may contain one
 interpreted optional challenge, which must match the verifier when present.
 After bounded decoding and duplicate-name rejection, every other member is
 discarded without timing, authorization, projection, or persistence effect.
-The contract is now `auth-compatible-inactive`: auth can create or replace the
-owned record, but there is still no runtime snapshot,
-refresh, revocation, provider workspace, catalog, provider/model row, Responses
-transport, or conversation-runtime composition.
+Decision 0095 installs the independently authored Node-free catalog and
+Responses adapter and the exact CLI HTTPS transport. OpenAI transport is
+`transport-compatible-inactive`: auth can create or replace the owned record
+and the code can be verified through injected doubles, but there is still no
+runtime snapshot, refresh, revocation, provider/model row, transport
+construction, or conversation-runtime composition.
 
-OpenAI remains blocked by `transport-implementation-required`. Its provider
-adapter, refresh lifecycle, integration, and live smoke must arrive as the
-remaining serial modules required by decisions 0090 through 0094, each
+OpenAI remains blocked by `runtime-integration-required`. Its refresh lifecycle,
+exclusive runtime composition, `/models` integration, and live smoke must
+arrive as the remaining serial module required by decisions 0090 through 0095,
 with its own threat model, offline contract tests, rollback, and removal path.
 Claude remains subject to the original independent-registration gate.
 
 ## Machine gate
 
-`tools/provider-policy.json` schema version 14 records the four runtime-inactive OAuth
+`tools/provider-policy.json` schema version 15 records the four runtime-inactive OAuth
 providers, the one exact enabled direct provider, the accepted-runtime-inactive
-compatibility category, and one exact `auth-compatible-inactive` OpenAI
+compatibility category, and one exact `transport-compatible-inactive` OpenAI
 subscription contract. It pins the fixed chat and
 authenticated catalog endpoints, bearer authentication, dynamic catalog
 authority, cloud cost class, native `application/json` streaming transport,
 line-delimited object contract, environment variable, exact owned record,
 shared/exclusive admission, external auth command, exact provider workspace,
-and the OpenAI decisions, routes, implemented record and authentication,
+and the OpenAI decisions, routes, implemented record, authentication and
+inactive transport,
 exclusive admission, exact provider-owned public client, one-field device
 request, closed device-response schema, empty requested-scope set, callback,
 bounded projection-only poll-response schema and settlement, public-client token authentication,

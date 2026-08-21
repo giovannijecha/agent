@@ -1,0 +1,291 @@
+# 0095: Owned OpenAI provider transport
+
+- Status: accepted
+- Date: 2026-08-21
+- Domain: providers
+- Supersedes: none
+- Superseded by: none
+
+## Context
+
+Decision 0090 fixes the complete OpenAI subscription direction and separates
+authentication, credential storage, provider transport, and runtime integration
+into serial modules. Decisions 0091 and 0092 establish provider-owned public-
+client compatibility while preserving `agent` as the caller identity. Decision
+0093 implements the exclusive OpenAI credential record, and decision 0094
+activates only the bounded device-authentication command. OpenAI is currently
+`auth-compatible-inactive`: an operator may register a record, but no product
+path can read it for a catalog or model request.
+
+Current official Responses documentation specifies the public input-item,
+function-call, reasoning, `store`, streaming, and SSE event families. It does
+not publish the subscription catalog projection, account-routing header,
+client-version query, or caller-header spellings required by decision 0090. A
+pre-inspection ownership row therefore bounded a first-party OpenAI Codex
+source inspection to those missing provider-owned wire facts at commit
+`93c54bca38996b56d344a2ca65f01627b1953b27`. The completed row records the
+facts and exclusions. No foreign implementation, structure, test, fixture,
+prompt, default caller value, user agent, model identifier, or product identity
+is an input to this implementation.
+
+The public Responses contract also explains that
+`reasoning.encrypted_content` enables reuse of provider-private reasoning state
+when a client manages a stateless conversation with `store: false`. Agent has
+one canonical provider-neutral conversation tree and explicitly forbids a
+parallel hidden conversation authority. Adding a durable or process-private
+opaque reasoning store here would make history, timeline selection, restart,
+cleanup, and provider interchangeability ambiguous. This module therefore does
+not request or retain `reasoning.encrypted_content`. It sends the canonical
+messages, function calls, and function outputs that Agent owns. If OpenAI later
+requires an opaque reasoning item for this flow, the transport fails closed and
+a new decision must define its authority before integration.
+
+## Decision
+
+Add an independently authored Node-free provider workspace named
+`@agent/provider-openai-subscription` and an exact Node HTTPS adapter owned by
+`@agent/cli`. Together they implement one bounded authenticated catalog and one
+bounded Responses stream without composing either capability into current
+startup, commands, the TUI, or `ProviderSession`.
+
+The OpenAI machine state becomes `transport-compatible-inactive`; its next
+blocker is `runtime-integration-required`. Authentication remains active,
+provider runtime remains inactive, refresh remains inactive, revocation remains
+inactive, and Ollama Cloud remains the sole selectable backend. No current
+command, TUI path, startup path, or runtime session constructs the new Node
+transport or provider adapter. This module reads no credential record, performs
+no current network request, and changes no operator selection behavior.
+
+### Package and authority boundary
+
+The provider workspace depends only on `@agent/core`, `@agent/runtime`, and
+`@agent/tools`. It owns request encoding, catalog projection, strict incremental
+UTF-8 and SSE decoding, provider event normalization, content-free provider
+failures, and fixed protocol bounds. It imports no Node built-in and has no
+ambient network authority.
+
+The CLI owns the only `node:https` capability. Its constructor accepts one
+already admitted immutable access-token and account-ID snapshot. This module
+does not obtain that snapshot; the later integration decision must compose one
+decision-0093 exclusive admission, refresh if required, construction, session
+use, and release. The transport stores the two strings only for its own process
+lifetime and never returns, logs, formats, or includes them in an error.
+
+No request accepts an origin, host, port, path, method, arbitrary header, proxy,
+retry policy, or caller identity from configuration. Node's HTTPS client does
+not follow redirects. Every non-success response is closed without reading its
+body. There is no retry, replay, fallback, router, discovery, compression,
+cookie store, response store, SDK, executable, App Server, WebSocket, hosted
+tool, web-search tool, file upload, or browser automation.
+
+### Catalog contract
+
+One catalog operation sends exactly:
+
+- `GET https://chatgpt.com/backend-api/codex/models?client_version=0.1.0`;
+- `Accept: application/json`;
+- `Authorization: Bearer <admitted access token>`;
+- the `ChatGPT-Account-ID` header with the validated account ID;
+- `originator: agent`; and
+- `User-Agent: agent/0.1.0`.
+
+It sends no body and no conditional cache header. The truthful version is the
+current Agent package version and must change in policy, tests, and transport
+together. The request has a 30-second wall deadline, a 30-second inactivity
+deadline, a 16,384-byte response-header bound, a 65,536-byte chunk bound, and a
+1,048,576-byte complete-body bound. Only status 200 and
+`application/json` with an optional UTF-8 charset reach the decoder.
+
+The decoder accepts one JSON object containing one `models` array with 1
+through 256 entries. Every entry is a bounded object with required `slug`,
+`visibility`, and `supported_in_api` members. A slug is 1 through 128 ASCII
+letters, digits, dots, underscores, or hyphens, starts with an alphanumeric
+character, contains no control character, and is unique. Visibility is exactly
+`list`, `hide`, or `none`; `supported_in_api` is exactly boolean. Other entry
+members are bounded by the complete body, are never interpreted, and are
+discarded after complete decoding. Root members other than `models`, malformed
+entries, duplicates, invalid UTF-8, an empty catalog, or a catalog with no
+eligible row fail closed.
+
+Only a row with `visibility: "list"` and `supported_in_api: true` is eligible.
+The resulting immutable provider-order slug list is availability authority
+only. No static model inventory, alias, default, minimum foreign client version,
+priority, cost, capability inference, provider selection, or persistence enters
+Agent.
+
+### Responses request contract
+
+One model operation sends exactly:
+
+- `POST https://chatgpt.com/backend-api/codex/responses`;
+- the same authorization, account, originator, and user-agent headers as the
+  catalog;
+- `Accept: text/event-stream`; and
+- `Content-Type: application/json`.
+
+The provider adapter encodes one immutable candidate conversation and the
+current six registered tool descriptors into the public Responses data model.
+The root request has exactly `model`, `instructions`, `input`, `tools`,
+`tool_choice`, `parallel_tool_calls`, `reasoning`, `store`, `stream`, and
+`include`. `tool_choice` is `auto`, `parallel_tool_calls` is false, and the
+request uses `store: false` and `stream: true`. `include` is the empty array.
+When thinking is off, `reasoning` is null; low, medium, and high map to the same
+provider effort and request summary `auto`.
+
+User and assistant messages become ordered text input items. A settled tool
+exchange becomes its optional assistant preamble, the exact ordered public
+function-call items with provider call IDs, and the exact ordered function-call
+outputs. Tool output is one JSON string containing only Agent's existing
+`status` and `output` projection. Agent's displayed historical reasoning is not
+invented as a provider reasoning item. The current response's admitted
+reasoning summary is normalized to the existing runtime reasoning stream and
+retains decision 0085's normal conversation and journal treatment.
+
+Each tool descriptor becomes one function tool with the existing exact name,
+description, independently encoded JSON Schema, and `strict: false`. The schema
+encoder preserves current string, integer, boolean, list, literal, union,
+closed-object, required-field, and discriminated-object bounds. It adds no
+provider tool, alias, hosted capability, namespace, or permissive additional
+property.
+
+Instructions are 1 through 4,096 code units, the model ID obeys the catalog
+grammar, and the serialized body is at most 8,388,608 code units. Construction,
+conversation projection, schema projection, serialization, or bound failures
+are content-free and occur before transport authority.
+
+### Responses stream contract
+
+Only status 200 and `text/event-stream` with an optional UTF-8 charset enter the
+stream decoder. The Node transport uses a 600-second wall deadline, a 120-second
+inactivity deadline, a 16,384-byte header bound, and a 65,536-byte chunk bound.
+Cancellation and close destroy the exact request and response idempotently;
+one read may be pending and a concurrent second read fails closed.
+
+The Node-free decoder performs strict incremental UTF-8 and bounded SSE
+framing. It admits LF or CRLF separators, at most one optional `event` field,
+one or more `data` fields joined by LF, no `id` or `retry` field, a 1,048,576-
+code-unit event buffer, 16,384 wire events, 1,048,576 reasoning code units,
+1,048,576 argument code units, and 32 function calls in one batch. An optional
+SSE event name must equal the decoded JSON `type`. Empty events, comments,
+unknown fields, invalid field order, invalid UTF-8, malformed JSON, and unknown
+event types fail closed.
+
+The admitted lifecycle is:
+
+1. exactly one `response.created` starts the response;
+2. bounded `response.in_progress`, item, content-part, reasoning-part, and
+   function-argument lifecycle events may advance only their declared phase;
+3. non-empty `response.reasoning_summary_text.delta` and
+   `response.reasoning_text.delta` values become runtime reasoning deltas before
+   answer text starts;
+4. non-empty `response.output_text.delta` values become runtime answer deltas;
+5. `response.output_item.done` admits only a complete reasoning item, output
+   message, or function call; a function call requires one unique bounded
+   `call_id`, exact registered-name grammar, and a JSON object argument string;
+6. `response.completed` requires a completed response object, validates any
+   bounded non-negative integer usage projection, and emits exactly one runtime
+   `toolCalls` batch or `done`; and
+7. `response.failed`, `response.incomplete`, `error`, transport exhaustion
+   before completion, a second terminal event, or any lifecycle contradiction
+   fails closed without exposing the response body or provider message.
+
+Function-argument delta events are validated and bounded but the complete
+`response.output_item.done` item is the sole call authority. Provider call IDs
+remain provider data and pass through the existing runtime validation,
+permission, execution, checkpoint, and provider-order settlement. Usage is
+validated for protocol integrity but is not added to the current operator
+surface by this module.
+
+### Failure, privacy, and security boundary
+
+HTTP outcomes retain decision 0080's content-free families: request rejection,
+authentication or route rejection, limit, timeout, connectivity, and protocol.
+Transport open, read, and close remain distinct. Cleanup failure is reported
+without replacing the original failure. No error contains a URL with query
+data, token, account ID, header, response body, conversation, instruction,
+model, tool call, argument, output, usage value, or SSE payload.
+
+This inactive module transmits nothing in the current product. After later
+integration, a catalog request will disclose the access token, account ID,
+truthful Agent identity, version, IP and transport metadata to OpenAI; a
+Responses request will additionally disclose the selected conversation path,
+instructions, tool schemas, tool calls, and tool results. The owned credential
+store still does not protect against same-user processes, administrator or root,
+malware, backups, snapshots, or privileged offline access. TLS does not make
+provider processing private from the provider.
+
+No live provider account or credential is used by canonical verification.
+Fixtures use only synthetic domains, identifiers, content, headers, events, and
+tokens and assert zero projection into failures and receipts.
+
+## Consequences
+
+Agent now owns a removable, zero-dependency OpenAI catalog and Responses
+implementation without claiming that OpenAI is available in the TUI. The
+provider workspace and CLI transport can be tested completely through injected
+byte transports and HTTPS doubles while remaining unreachable from product
+composition.
+
+The explicit omission of encrypted reasoning preserves one conversation
+authority and makes a possible future provider incompatibility visible rather
+than silently adding opaque state. Runtime integration must prove the exact
+current subscription flow with an operator-controlled smoke before enabling
+OpenAI.
+
+The new workspace slightly enlarges the maintained build and source-policy
+surface. It adds no dependency, no credential reader, and no network call to
+startup.
+
+## Verification
+
+Red-green regression must prove:
+
+- decision, provider, ownership, publication, workspace, and Node-authority
+  policy reject the unregistered module before accepting it;
+- the catalog sends the exact method, origin, path, query, headers, deadlines,
+  and no body, and rejects redirect, status, content-type, encoding, size,
+  schema, duplicate, and eligibility drift;
+- the request encoder preserves ordered messages, tool calls and outputs,
+  provider call IDs, exact tool schemas, thinking mapping, `store: false`,
+  `stream: true`, and the empty include list within fixed bounds;
+- the SSE decoder handles chunk splits, CRLF, optional matching event names,
+  reasoning, text, function calls, usage, completion, cancellation, timeout,
+  close, concurrent read, malformed framing, unknown events, contradictory
+  lifecycle, early EOF, and post-terminal reads;
+- every transport and protocol failure remains content-free and every failed
+  open closes the response;
+- source policy admits only the new reviewed provider and CLI files and rejects
+  another OpenAI origin, identity, credential authority, Node effect, retry,
+  redirect, SDK, foreign runtime, or provider composition; and
+- the canonical Windows and Linux gates pass offline with no real account,
+  credential, catalog, or Responses request.
+
+The later integration module must separately prove exclusive decision-0093
+snapshot ownership, proactive refresh, account continuity, `/models` selection,
+runtime construction and release, Windows and Linux behavior, and one
+operator-controlled live catalog and Responses smoke. This decision is not that
+activation evidence.
+
+## Update, rollback, and removal
+
+Recheck the official Responses documentation, the exact public-client
+authority, and the ownership log before changing an origin, path, query,
+header, catalog projection, request field, event family, limit, timeout, or
+identity. Record any missing public fact before bounded source inspection.
+Update this decision, provider policy, source authority, tests, privacy,
+security, maintenance, and removal guidance in the same change.
+
+Rollback removes the inactive package and CLI transport together, restores the
+OpenAI state to `auth-compatible-inactive` with blocker
+`transport-implementation-required`, and leaves device authentication and the
+durable record intact. No credential migration is required because this module
+never reads or rewrites the record.
+
+Removal first prevents any later composition from constructing the transport,
+waits for active sessions after a future activation, removes the CLI HTTPS
+adapter, removes `@agent/provider-openai-subscription`, unregisters its package,
+policy, declarations, documentation, and tests, and reruns the complete gate.
+Use decision 0094's local remove action if the operator also wants the OpenAI
+record retired. Never recursively delete `~/.agent/credentials`, never remove
+the Ollama record or lock, and never claim local removal revokes the provider
+grant.

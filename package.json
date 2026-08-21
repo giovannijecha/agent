@@ -15,6 +15,7 @@
     "packages/agent-tools",
     "packages/agent-runtime",
     "packages/agent-provider-ollama-cloud",
+    "packages/agent-provider-openai-subscription",
     "packages/agent-tui",
     "packages/agent-cli"
   ],

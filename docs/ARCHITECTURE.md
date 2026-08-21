@@ -41,15 +41,18 @@ terminal
    |      +-- model port
    +-- @agent/tui
    +-- @agent/provider-ollama-cloud
+   +-- @agent/provider-openai-subscription (installed, uncomposed)
 ```
 
-Startup does not select a provider or model. The operator configures both
-inside the running TUI. Credentials, provider choice, catalog results, and
-model choice live only for that process.
+Startup does not select a provider or model. The operator authenticates through
+`agent auth` outside the TUI, then selects a currently admitted provider and
+model inside the running TUI. Owned credentials are user-scoped; the admitted
+credential snapshot, provider choice, catalog result, and model choice remain
+process-local. The installed OpenAI transport has no startup or TUI composition.
 
 ## Dependency graph
 
-The workspace contains six shipped packages:
+The workspace contains seven shipped packages:
 
 ```text
 @agent/core
@@ -59,11 +62,11 @@ The workspace contains six shipped packages:
    ^
    |
 @agent/runtime <----- @agent/provider-ollama-cloud
-   ^                              ^
-   |                              |
-   +------------ @agent/cli ------+
-                     |
-                  @agent/tui
+   ^             <--- @agent/provider-openai-subscription
+   |                         ^
+   +--------- @agent/cli ----+
+                  |
+               @agent/tui
 ```
 
 Direct package edges are exact:
@@ -74,10 +77,11 @@ Direct package edges are exact:
 | `@agent/tools` | `@agent/core` |
 | `@agent/runtime` | `@agent/core`, `@agent/tools` |
 | `@agent/provider-ollama-cloud` | `@agent/core`, `@agent/runtime`, `@agent/tools` |
+| `@agent/provider-openai-subscription` | `@agent/core`, `@agent/runtime`, `@agent/tools` |
 | `@agent/tui` | none |
-| `@agent/cli` | all five packages above |
+| `@agent/cli` | all six packages above |
 
-Core, tools, runtime, provider, and TUI remain Node-free. The CLI is the sole
+Core, tools, runtime, both providers, and TUI remain Node-free. The CLI is the sole
 Node and operating-system boundary.
 
 ## Package boundaries
@@ -88,6 +92,7 @@ Node and operating-system boundary.
 | `@agent/tools` | tool schemas, risk classes, registry validation, and bounded handler execution |
 | `@agent/runtime` | bounded streaming turns, cancellation, tool checkpoints, conversation-tree selection, and commits |
 | `@agent/provider-ollama-cloud` | provider-neutral request translation and Ollama Cloud stream decoding |
+| `@agent/provider-openai-subscription` | inactive OpenAI catalog projection, Responses request encoding, strict SSE decoding, and provider-neutral normalization |
 | `@agent/tui` | input decoding, editors, structured rows, Markdown, layout, viewports, and frame rendering |
 | `@agent/cli` | application state, commands, durable session journals, branch-aware transcript projection, provider/session state, built-in tools, terminal arbitration, filesystem/process access, and native brokers |
 
@@ -187,11 +192,13 @@ accepts the exact OpenAI public client and device identity semantics. Decision
 0093 implements the exact provider-specific record and private native broker
 transaction. Decision 0094 composes that exclusive mutation with the bounded
 device, poll, PKCE, token, account-binding, expiration, terminal-cancellation,
-and local-removal flow in `agent auth`. The contract is now
-`auth-compatible-inactive` behind `transport-implementation-required`.
-OpenAI authentication is current, but there is no runtime snapshot, refresh or
-revocation request, provider package, catalog, provider/model row, Responses
-transport, or conversation-runtime composition.
+and local-removal flow in `agent auth`. Decision 0095 adds one Node-free catalog
+and Responses adapter plus one exact CLI HTTPS boundary without composing them.
+The contract is now `transport-compatible-inactive` behind
+`runtime-integration-required`. OpenAI authentication and transport code are
+current, but there is no runtime credential snapshot, refresh or revocation
+request, provider/model row, transport construction, or conversation-runtime
+composition.
 
 Every accepted journal file is synchronized before publication. On POSIX, the
 CLI also synchronizes a staged session directory before publishing it and the

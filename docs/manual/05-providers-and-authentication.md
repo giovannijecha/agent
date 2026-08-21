@@ -38,10 +38,11 @@ echoed.
 OpenAI sign-in stores only its validated access token, refresh token, account
 identifier, and expiration in `~/.agent/credentials/openai.oauth`. It does not
 store the ID token, device identity, displayed code, authorization code, PKCE
-material, response body, or browser state. OpenAI authentication is currently
-`auth-compatible-inactive`: refresh, remote revocation, catalog, model
-selection, and conversation transport are not enabled, so the record does not
-add OpenAI to `/models`.
+material, response body, or browser state. OpenAI is currently
+`transport-compatible-inactive`: its catalog and Responses code is installed
+but no product path constructs it, reads the record, or sends a request.
+Refresh, remote revocation, model selection, and conversation runtime are not
+enabled, so the record does not add OpenAI to `/models`.
 
 ## Choose a model
 
@@ -113,8 +114,9 @@ runtime admission. Decision 0089's owned credential boundary is active for the
 exact Ollama Cloud API-key record used by current commands. Decisions 0090
 through 0093 specify the OpenAI protocol, public-client compatibility identity,
 and exact private record. Decision 0094 activates only its `agent auth` device
-ceremony. OpenAI remains runtime-inactive: no provider row, model row, refresh,
-revocation, catalog request, or conversation request exists. Claude, Kimi, and
+ceremony, and decision 0095 installs an uncomposed catalog and Responses
+adapter. OpenAI remains runtime-inactive: no provider row, model row, refresh,
+revocation, runtime catalog request, or conversation request exists. Claude, Kimi, and
 xAI subscription OAuth integrations remain inactive.
 
 ## Recover from provider failures

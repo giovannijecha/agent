@@ -522,9 +522,11 @@ semantics. Decision 0093 owns the exact OpenAI record, lock, private frame,
 exclusive admission, atomic lifecycle, recovery, and local removal.
 Decision 0094 owns the exact device login network adapter, terminal
 cancellation, account and expiry validation, command composition, sign-in-
-again, and honest local-only removal. The state is
-`auth-compatible-inactive`; the next blocker is
-`transport-implementation-required`.
+again, and honest local-only removal. Decision 0095 owns the inactive Node-free
+catalog and Responses adapter, exact CLI HTTPS boundary, wire bounds, failure
+classification, and removal order. The state is
+`transport-compatible-inactive`; the next blocker is
+`runtime-integration-required`.
 
 Maintain decision 0094 as one serial, fixed-origin ceremony: acquire exclusive
 admission before the first request; request the device identity once; project
@@ -541,15 +543,19 @@ ID token and expiration from the access token; close terminal input; then
 publish one complete record. Never add a browser launch, redirect, retry,
 fallback, scope, alternate caller field, environment source, unbounded response
 schema, interpretation of an unregistered member, or response-body diagnostic.
-Do not add refresh, revocation, provider
-workspace or row, catalog, Responses transport, runtime snapshot, or `/models`
-integration before their separate module.
+Maintain decision 0095 as unreachable product composition: the package and CLI
+transport may be exercised only through injected offline doubles. Keep the
+fixed origin, version query, bearer and account routing, truthful `agent`
+identity, catalog projection, request fields, SSE lifecycle, bounds, and no-
+retry/no-redirect posture synchronized with policy and tests. Do not add
+refresh, revocation, runtime snapshot, provider row, transport construction, or
+`/models` integration before their separate module.
 
 For ChatGPT, Kimi, or xAI compatibility changes, recheck first-party protocol
 and client-ownership evidence, pin any necessary bounded clean-room inspection
 before opening source, and update decision 0091 plus provider-specific decision
-0092 and 0094 when OpenAI is affected, machine policy, disclosure, privacy, security,
-tests, rollback, and removal together. A foreign caller identity, third-party-
+0092, 0094, and 0095 when OpenAI is affected, machine policy, disclosure,
+privacy, security, tests, rollback, and removal together. A foreign caller identity, third-party-
 only client ID, or foreign credential import requires rollback to inactive
 state rather than a compatibility workaround.
 

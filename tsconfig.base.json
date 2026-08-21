@@ -20,6 +20,9 @@
       "@agent/provider-ollama-cloud": [
         "packages/agent-provider-ollama-cloud/src/index.ts"
       ],
+      "@agent/provider-openai-subscription": [
+        "packages/agent-provider-openai-subscription/src/index.ts"
+      ],
       "@agent/tui": [
         "packages/agent-tui/src/index.ts"
       ]

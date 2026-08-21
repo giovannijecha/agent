@@ -4,10 +4,7 @@
     "composite": true,
     "rootDir": "src",
     "outDir": "dist",
-    "tsBuildInfoFile": "dist/.tsbuildinfo",
-    "types": [
-      "node-runtime"
-    ]
+    "tsBuildInfoFile": "dist/.tsbuildinfo"
   },
   "include": [
     "src/**/*.ts"
@@ -17,19 +14,10 @@
       "path": "../agent-core"
     },
     {
-      "path": "../agent-provider-ollama-cloud"
-    },
-    {
-      "path": "../agent-provider-openai-subscription"
-    },
-    {
       "path": "../agent-runtime"
     },
     {
       "path": "../agent-tools"
-    },
-    {
-      "path": "../agent-tui"
     }
   ]
 }

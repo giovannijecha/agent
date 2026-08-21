@@ -54,6 +54,7 @@ const emptyContext = {
     "@agent/tools",
     "@agent/runtime",
     "@agent/provider-ollama-cloud",
+    "@agent/provider-openai-subscription",
     "@agent/tui",
     "@agent/cli",
   ],
@@ -99,7 +100,7 @@ test("accepts the canonical compatibility, blocked, and direct provider registry
   assert.deepEqual(
     currentPolicy.providers.map((provider) => provider.blocker),
     [
-      "transport-implementation-required",
+      "runtime-integration-required",
       "independent-client-authorization-required",
       "compatibility-contract-required",
       "compatibility-contract-required",
@@ -107,7 +108,7 @@ test("accepts the canonical compatibility, blocked, and direct provider registry
   );
 });
 
-test("binds OpenAI device authentication without activating provider runtime", () => {
+test("binds OpenAI authentication and inactive provider transport", () => {
   assert.deepEqual(currentPolicy.subscriptionContracts, [
     {
       id: "chatgpt",
@@ -115,7 +116,8 @@ test("binds OpenAI device authentication without activating provider runtime", (
       identityDecision: "0092",
       credentialDecision: "0093",
       authDecision: "0094",
-      state: "auth-compatible-inactive",
+      transportDecision: "0095",
+      state: "transport-compatible-inactive",
       flow: "openai-device-code-plus-oauth-pkce",
       issuer: "https://auth.openai.com",
       deviceCodeEndpoint:
@@ -188,6 +190,68 @@ test("binds OpenAI device authentication without activating provider runtime", (
         maxRecordBytes: 66048,
         payloadSyntax: "visible-ascii-0x21-0x7e",
         revisionOwner: "native-broker",
+      },
+      transportWorkspace: "@agent/provider-openai-subscription",
+      transportComposition: "inactive",
+      catalogRequest: {
+        method: "GET",
+        query: "client_version=0.1.0",
+        headers: [
+          "Accept: application/json",
+          "Authorization: Bearer <credential>",
+          "ChatGPT-Account-ID: <account>",
+          "originator: agent",
+          "User-Agent: agent/0.1.0",
+        ],
+        body: "absent",
+      },
+      catalogResponse: {
+        status: 200,
+        contentType: "application/json; optional charset=utf-8",
+        rootFields: ["models"],
+        entryFields: ["slug", "visibility", "supported_in_api"],
+        eligibility: "visibility-list-and-supported-in-api-true",
+        maximumBodyBytes: 1048576,
+        maximumModels: 256,
+      },
+      responsesRequest: {
+        method: "POST",
+        headers: [
+          "Accept: text/event-stream",
+          "Authorization: Bearer <credential>",
+          "ChatGPT-Account-ID: <account>",
+          "Content-Type: application/json",
+          "originator: agent",
+          "User-Agent: agent/0.1.0",
+        ],
+        rootFields: [
+          "model",
+          "instructions",
+          "input",
+          "tools",
+          "tool_choice",
+          "parallel_tool_calls",
+          "reasoning",
+          "store",
+          "stream",
+          "include",
+        ],
+        toolChoice: "auto",
+        parallelToolCalls: false,
+        store: false,
+        stream: true,
+        include: [],
+        opaqueReasoningState: "not-requested-or-retained",
+        maximumBodyCodeUnits: 8388608,
+      },
+      responsesStream: {
+        status: 200,
+        contentType: "text/event-stream; optional charset=utf-8",
+        maximumEvents: 16384,
+        maximumEventCodeUnits: 1048576,
+        maximumReasoningCodeUnits: 1048576,
+        maximumArgumentCodeUnits: 1048576,
+        maximumFunctionCalls: 32,
       },
       modelAuthority: "authenticated-catalog",
       transport: "openai-responses-sse",
@@ -661,7 +725,7 @@ test("pins the exact CLI product tree", () => {
   const sources = currentProductSources.filter((source) =>
     /^packages\/agent-cli\/src\/(?:[^/]+\/)*[^/]+\.ts$/u.test(source.path)
   );
-  assert.equal(sources.length, 76);
+  assert.equal(sources.length, 77);
   const unprivilegedSource = sources.find(
     (source) => source.path === "packages/agent-cli/src/models-view.ts",
   );
@@ -910,6 +974,7 @@ test("registers every direct CLI Node effect authority", () => {
     "packages/agent-cli/src/node-ollama-cloud-transport.ts",
     "packages/agent-cli/src/node-ollama-model-catalog.ts",
     "packages/agent-cli/src/node-openai-device-auth.ts",
+    "packages/agent-cli/src/node-openai-provider-transport.ts",
     "packages/agent-cli/src/node-process-runner.ts",
     "packages/agent-cli/src/platform-clipboard.ts",
     "packages/agent-cli/src/platform-workspace-mutation.ts",

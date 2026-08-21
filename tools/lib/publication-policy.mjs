@@ -50,13 +50,14 @@ const EXPECTED_DOCUMENTS = Object.freeze([
   "docs/decisions/0092-owned-openai-compatible-public-client.md",
   "docs/decisions/0093-owned-openai-oauth-credential-record.md",
   "docs/decisions/0094-owned-openai-device-authentication.md",
+  "docs/decisions/0095-owned-openai-provider-transport.md",
   "assets/brand/README.md",
   "docs/BRAND.md",
   "docs/decisions/0037-canonical-agent-brand.md",
   "docs/decisions/0038-owned-deterministic-tui-motion.md",
 ]);
 const OAUTH_REGISTRATION_ROWS = Object.freeze([
-  "| ChatGPT Plus/Pro | OpenAI documents subscription browser and device login for Codex clients; decisions 0090 through 0094 fix the independently derived protocol, exact provider-owned public-client identity, owned record, and active device-auth command. | Authentication is `auth-compatible-inactive`: sign-in and local removal are active without provider endorsement, while refresh, revocation, catalog, model, and conversation runtime remain inactive. |",
+  "| ChatGPT Plus/Pro | OpenAI documents subscription browser and device login for Codex clients; decisions 0090 through 0095 fix the independently derived protocol, exact provider-owned public-client identity, owned record, active device-auth command, and inactive catalog and Responses transport. | Authentication is `transport-compatible-inactive`: sign-in and local removal are active without provider endorsement and the transport is installed but uncomposed, while refresh, revocation, provider/model selection, and conversation runtime remain inactive. |",
   "| Claude Pro/Max | Anthropic documents subscription login for Claude Code and subscription-backed third-party use through the Claude Agent SDK. | Claude Code and Agent SDK are foreign runtimes; no accepted direct independent-client registration is recorded for `agent`. |",
   "| Kimi Code | Kimi documents device OAuth for Kimi Code; a pre-recorded clean-room inspection confirmed that current subscription OAuth uses Kimi's first-party public client even though Pi's provider guide omits that route. | Compatibility feasibility is established, but the [recorded provider response](PROVIDER-APPLICATIONS.md#kimi-code) remains a material negative-eligibility risk and a provider-specific decision is still required. |",
   "| Grok subscription | xAI documents browser and RFC 8628 device login for Grok Build plus headless and ACP integration, while its direct API has a separate key path. | A clean-room inspection confirms direct-flow feasibility, but xAI public-client ownership remains unresolved and a provider-specific decision is required. |",
@@ -243,6 +244,17 @@ function validateProvenanceLog(policy, context) {
     "None; no code, structure, identifier, endpoint, scope, prompt, test, fixture, error text, response value, credential path, or product identity reused |";
   if (!entries.includes(reopenedPiOpenAiInspectionEntry)) {
     fail("reopened Pi OpenAI provenance contract is missing or incomplete");
+  }
+  const openAiTransportInspectionEntry =
+    "| 2026-08-21 | Bounded first-party Codex transport inspection at " +
+    "[`93c54bca38996b56d344a2ca65f01627b1953b27`](https://github.com/openai/codex/tree/93c54bca38996b56d344a2ca65f01627b1953b27), after rechecking " +
+    "[Responses migration](https://developers.openai.com/api/docs/guides/migrate-to-responses) and " +
+    "[streaming Responses](https://developers.openai.com/api/docs/guides/streaming-responses) | " +
+    "Before source access, this row recorded that current public Responses documentation fixes the public item, function-call, `store: false`, and SSE event families but does not publish the subscription-specific catalog envelope and eligibility fields, exact version-query and caller-header names, or the subscription Responses request delta needed by decision 0090. Only the first-party catalog endpoint and model schema, bearer/account header, default caller-header, Responses request, endpoint, and SSE modules were inspected, with filtered excerpts of their direct composition call site. Several inspected implementation files contain inline test blocks that were unavoidably returned with the module; those blocks were excluded from allowed influence. No separate test, prompt, fixture, configuration, or unrelated runtime file was opened. | " +
+    "The catalog appends one `client_version` query and returns a `models` array whose bounded `slug`, `visibility`, and `supported_in_api` projection establishes availability; subscription bearer requests use `ChatGPT-Account-ID`; the caller field is the `originator` header; and the Responses request uses the public item and function-call model with automatic tool choice, serial calls, explicit reasoning, `store: false`, `stream: true`, and SSE completion. These provider-owned wire facts may inform an independently specified Agent contract. | " +
+    "None; no code, structure, test, fixture, prompt, default caller value, user agent, error text, model identifier, or Codex product identity reused. |";
+  if (!entries.includes(openAiTransportInspectionEntry)) {
+    fail("OpenAI transport provenance contract is missing or incomplete");
   }
   const digest = createHash("sha256")
     .update(entries.join("\n") + "\n", "utf8")
@@ -522,8 +534,9 @@ function validatePublicDocuments(context) {
       "decision 0092 records OpenAI's exact non-secret\npublic client",
       "Decision 0093 implements the exact OpenAI record and private native\nlifecycle.",
       "Decision 0094 activates its fixed-origin device login",
-      "The contract is now `auth-compatible-inactive`",
-      "OpenAI remains blocked by `transport-implementation-required`.",
+      "Decision 0095 installs the independently authored Node-free catalog and\nResponses adapter and the exact CLI HTTPS transport.",
+      "OpenAI transport is\n`transport-compatible-inactive`",
+      "OpenAI remains blocked by `runtime-integration-required`.",
       "`tools/provider-policy.json` schema version " +
       String(PROVIDER_POLICY_SCHEMA_VERSION),
     ],
@@ -539,9 +552,9 @@ function validatePublicDocuments(context) {
       "Registration state: `blocked`.",
       "Compatibility state: `accepted-runtime-inactive`.",
       "Identity state: `accepted-runtime-inactive`.",
-      "OpenAI authentication state: `auth-compatible-inactive`.",
+      "OpenAI authentication state: `transport-compatible-inactive`.",
       ...OAUTH_REGISTRATION_ROWS,
-      "For ChatGPT, decision 0094 completes the auth-only activation under decisions\n0090 through 0093's protocol, identity, disclosure, and record boundaries.",
+      "For ChatGPT, decision 0094 completes the auth-only activation under decisions\n0090 through 0093's protocol, identity, disclosure, and record boundaries, and\ndecision 0095 supplies the inactive catalog and conversation transport.",
       "For Kimi\nor xAI, accept a separate provider-specific compatibility decision; for Claude,\nsatisfy the direct-registration gate.",
       "Offline contract tests must cover cancellation, expiry,\nconcurrency, malformed responses, secret leakage, rollback, and removal.",
       "No accepted provider-specific implementation means no adapter",
@@ -600,6 +613,23 @@ function validatePublicDocuments(context) {
       "no OpenAI\ncatalog request, Responses request",
     ],
     "OpenAI device-authentication decision",
+  );
+  requireMarkers(
+    textFor(
+      context,
+      "docs/decisions/0095-owned-openai-provider-transport.md",
+    ),
+    [
+      "# 0095: Owned OpenAI provider transport",
+      "`transport-compatible-inactive`",
+      "`runtime-integration-required`",
+      "client_version=0.1.0",
+      "`ChatGPT-Account-ID`",
+      "`store: false` and `stream: true`",
+      "does\nnot request or retain `reasoning.encrypted_content`",
+      "No current\ncommand, TUI path, startup path, or runtime session constructs",
+    ],
+    "OpenAI provider-transport decision",
   );
   requireMarkers(
     textFor(context, "docs/PROVIDER-APPLICATIONS.md"),

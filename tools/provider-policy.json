@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 14,
+  "schemaVersion": 15,
   "applicationDocument": "docs/PROVIDER-APPLICATIONS.md",
   "researchedOn": "2026-08-08",
   "subscriptionCompatibility": {
@@ -23,7 +23,7 @@
       "id": "chatgpt",
       "displayName": "ChatGPT Plus/Pro",
       "eligibility": "blocked",
-      "blocker": "transport-implementation-required",
+      "blocker": "runtime-integration-required",
       "request": {
         "state": "submitted",
         "kind": "public-client-authorization-inquiry",
@@ -113,7 +113,8 @@
       "identityDecision": "0092",
       "credentialDecision": "0093",
       "authDecision": "0094",
-      "state": "auth-compatible-inactive",
+      "transportDecision": "0095",
+      "state": "transport-compatible-inactive",
       "flow": "openai-device-code-plus-oauth-pkce",
       "issuer": "https://auth.openai.com",
       "deviceCodeEndpoint": "https://auth.openai.com/api/accounts/deviceauth/usercode",
@@ -217,6 +218,74 @@
         "maxRecordBytes": 66048,
         "payloadSyntax": "visible-ascii-0x21-0x7e",
         "revisionOwner": "native-broker"
+      },
+      "transportWorkspace": "@agent/provider-openai-subscription",
+      "transportComposition": "inactive",
+      "catalogRequest": {
+        "method": "GET",
+        "query": "client_version=0.1.0",
+        "headers": [
+          "Accept: application/json",
+          "Authorization: Bearer <credential>",
+          "ChatGPT-Account-ID: <account>",
+          "originator: agent",
+          "User-Agent: agent/0.1.0"
+        ],
+        "body": "absent"
+      },
+      "catalogResponse": {
+        "status": 200,
+        "contentType": "application/json; optional charset=utf-8",
+        "rootFields": [
+          "models"
+        ],
+        "entryFields": [
+          "slug",
+          "visibility",
+          "supported_in_api"
+        ],
+        "eligibility": "visibility-list-and-supported-in-api-true",
+        "maximumBodyBytes": 1048576,
+        "maximumModels": 256
+      },
+      "responsesRequest": {
+        "method": "POST",
+        "headers": [
+          "Accept: text/event-stream",
+          "Authorization: Bearer <credential>",
+          "ChatGPT-Account-ID: <account>",
+          "Content-Type: application/json",
+          "originator: agent",
+          "User-Agent: agent/0.1.0"
+        ],
+        "rootFields": [
+          "model",
+          "instructions",
+          "input",
+          "tools",
+          "tool_choice",
+          "parallel_tool_calls",
+          "reasoning",
+          "store",
+          "stream",
+          "include"
+        ],
+        "toolChoice": "auto",
+        "parallelToolCalls": false,
+        "store": false,
+        "stream": true,
+        "include": [],
+        "opaqueReasoningState": "not-requested-or-retained",
+        "maximumBodyCodeUnits": 8388608
+      },
+      "responsesStream": {
+        "status": 200,
+        "contentType": "text/event-stream; optional charset=utf-8",
+        "maximumEvents": 16384,
+        "maximumEventCodeUnits": 1048576,
+        "maximumReasoningCodeUnits": 1048576,
+        "maximumArgumentCodeUnits": 1048576,
+        "maximumFunctionCalls": 32
       },
       "modelAuthority": "authenticated-catalog",
       "transport": "openai-responses-sse",

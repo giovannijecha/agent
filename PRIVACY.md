@@ -229,9 +229,13 @@ record. Local removal does not revoke the provider-side authorization and is
 not secure erasure; use an OpenAI-provided account surface when remote
 revocation is required.
 
-OpenAI refresh, revocation, catalog, model selection, and conversation transport
-remain inactive. An OpenAI record therefore does not make OpenAI appear in
-`/models` and no task content or bearer token is sent to an OpenAI model API.
+Decision 0095 installs no current OpenAI content path. Its catalog and Responses
+implementation is unreachable from startup, commands, the TUI, and the runtime,
+so it reads no record and sends no token, account ID, model query, task content,
+tool schema, or tool result. OpenAI refresh, revocation, model selection,
+transport construction, and conversation runtime remain inactive. An OpenAI
+record therefore does not make OpenAI appear in `/models` and no task content
+or bearer token is sent to an OpenAI model API.
 The compatibility flow identifies the caller as `agent` or omits the caller
 field, discloses that it is independent and not provider-endorsed, and never
 imports a foreign credential or browser session.

@@ -14,6 +14,9 @@
       "path": "packages/agent-provider-ollama-cloud/tsconfig.test.json"
     },
     {
+      "path": "packages/agent-provider-openai-subscription/tsconfig.test.json"
+    },
+    {
       "path": "packages/agent-tui/tsconfig.test.json"
     },
     {
