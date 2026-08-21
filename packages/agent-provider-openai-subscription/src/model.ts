@@ -276,6 +276,11 @@ class OpenAIStream implements ModelStream<OpenAIError> {
           continue;
         }
         if (!(received.value instanceof Uint8Array)) return this.#fail("transportProtocol");
+        const chunkLength = received.value.length;
+        if (!Number.isSafeInteger(chunkLength) || chunkLength < 1 ||
+          chunkLength > OPENAI_PROVIDER_LIMITS.responseChunkBytes) {
+          return this.#fail("limit");
+        }
         const text = this.#utf8.decode(received.value);
         if (!text.ok) return this.#fail("encoding");
         if (text.value.length > 0) {

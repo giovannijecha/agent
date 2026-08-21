@@ -35,6 +35,20 @@ export const OPENAI_PROVIDER_TRANSPORT_LIMITS = Object.freeze({
   accessBytes: 32_768,
 });
 
+function snapshotChunk(value: unknown): Uint8Array | undefined {
+  try {
+    if (!(value instanceof Uint8Array)) return undefined;
+    const length = value.length;
+    if (!Number.isSafeInteger(length) || length < 1 ||
+      length > OPENAI_PROVIDER_TRANSPORT_LIMITS.responseChunkBytes) return undefined;
+    const snapshot = new Uint8Array(length);
+    snapshot.set(value);
+    return snapshot;
+  } catch (_cause: unknown) {
+    return undefined;
+  }
+}
+
 export type OpenAIRequestIdentity = Readonly<{
   accessToken: string;
   accountId: string;
@@ -205,12 +219,11 @@ class NodeOpenAIStream implements OpenAITransportStream {
 
   readonly #onData = (chunk: Uint8Array): void => {
     this.#response.pause();
-    if (!(chunk instanceof Uint8Array) || chunk.length < 1 ||
-      chunk.length > OPENAI_PROVIDER_TRANSPORT_LIMITS.responseChunkBytes) {
+    const owned = snapshotChunk(chunk);
+    if (owned === undefined) {
       this.#fail("limit");
       return;
     }
-    const owned = Uint8Array.from(chunk);
     const pending = this.#pending;
     if (pending !== undefined) {
       this.#pending = undefined;
@@ -416,14 +429,14 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
       const onRequestError = (_cause: unknown): void => fail("connection");
       const onResponseError = (_cause: unknown): void => fail("connection");
       const onData = (chunk: Uint8Array): void => {
-        if (!(chunk instanceof Uint8Array) || chunk.length < 1 ||
-          chunk.length > OPENAI_PROVIDER_TRANSPORT_LIMITS.responseChunkBytes ||
-          bytes + chunk.length > OPENAI_PROVIDER_LIMITS.catalogBodyBytes) {
+        const owned = snapshotChunk(chunk);
+        if (owned === undefined ||
+          bytes + owned.length > OPENAI_PROVIDER_LIMITS.catalogBodyBytes) {
           fail("limit");
           return;
         }
-        bytes += chunk.length;
-        chunks.push(Uint8Array.from(chunk));
+        bytes += owned.length;
+        chunks.push(owned);
       };
       const onEnd = (): void => {
         if (activeResponse === undefined) return fail("protocol");

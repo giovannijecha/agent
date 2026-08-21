@@ -1443,6 +1443,66 @@ test("decodes CRLF framing and a UTF-8 scalar split across transport chunks", as
   assert.deepEqual(await opened.value.read(), { ok: true, value: { kind: "done" } });
 });
 
+test("decodes Responses bytes without consulting an overridden iterator", async () => {
+  const wire = ascii(textEvents("Done."));
+  const replacement = ascii(event("response.unknown"));
+  let iteratorCalls = 0;
+  Object.defineProperty(wire, Symbol.iterator, {
+    value: () => {
+      iteratorCalls += 1;
+      return replacement.values();
+    },
+  });
+  const model = OpenAISubscriptionModel.create(
+    new FakeTransport(ok(new FakeStream([ok(wire), ok(null)]))),
+    "Inspect safely.",
+    MODEL,
+  );
+  assert.ok(model.ok);
+  const opened = await model.value.open(
+    conversation(),
+    new Cancellation(),
+    [],
+    Object.freeze({ thinkingEffort: "off" as const }),
+  );
+  assert.ok(opened.ok);
+  assert.deepEqual(await opened.value.read(), {
+    ok: true,
+    value: { kind: "delta", text: "Done." },
+  });
+  assert.deepEqual(await opened.value.read(), { ok: true, value: { kind: "done" } });
+  assert.equal(iteratorCalls, 0);
+});
+
+test("bounds injected Responses chunks before UTF-8 decoding", async () => {
+  const stream = new FakeStream([ok(new Uint8Array(
+    OPENAI_PROVIDER_LIMITS.responseChunkBytes + 1,
+  ))]);
+  const model = OpenAISubscriptionModel.create(
+    new FakeTransport(ok(stream)),
+    "Inspect safely.",
+    MODEL,
+  );
+  assert.ok(model.ok);
+  const opened = await model.value.open(
+    conversation(),
+    new Cancellation(),
+    [],
+    Object.freeze({ thinkingEffort: "off" as const }),
+  );
+  assert.ok(opened.ok);
+  assert.deepEqual(await opened.value.read(), {
+    error: {
+      cleanupFailed: false,
+      kind: "openaiSubscription",
+      operation: "read",
+      reason: "limit",
+    },
+    ok: false,
+  });
+  assert.equal(stream.readCalls, 1);
+});
+
 test("fails closed when the Responses stream ends before completion", async () => {
   const stream = new FakeStream([
     ok(ascii(event("response.created", { response: response("in_progress") }))),
@@ -1544,9 +1604,23 @@ test("enforces function-call retention bounds at argument completion", async () 
   });
   assert.ok(retained.length <= OPENAI_PROVIDER_LIMITS.toolArgumentCodeUnits);
   assert.ok(retained.length * 2 > OPENAI_PROVIDER_LIMITS.toolArgumentCodeUnits);
+  const aggregateBytes = ascii(
+    created + added(0) + argumentsDone(0, retained) +
+      added(1) + argumentsDone(1, retained),
+  );
+  const aggregateChunks = Array.from(
+    {
+      length: Math.ceil(
+        aggregateBytes.length / OPENAI_PROVIDER_LIMITS.responseChunkBytes,
+      ),
+    },
+    (_value, index) => ok(aggregateBytes.slice(
+      index * OPENAI_PROVIDER_LIMITS.responseChunkBytes,
+      (index + 1) * OPENAI_PROVIDER_LIMITS.responseChunkBytes,
+    )),
+  );
   const aggregate = new FakeStream([
-    ok(ascii(created + added(0) + argumentsDone(0, retained))),
-    ok(ascii(added(1) + argumentsDone(1, retained))),
+    ...aggregateChunks,
     ok(null),
   ]);
   const callCount = new FakeStream([
@@ -1557,7 +1631,7 @@ test("enforces function-call retention bounds at argument completion", async () 
     ok(null),
   ]);
   for (const [stream, expectedReads] of [
-    [aggregate, 2],
+    [aggregate, aggregateChunks.length],
     [callCount, 1],
   ] as const) {
     const model = OpenAISubscriptionModel.create(

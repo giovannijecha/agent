@@ -237,7 +237,7 @@
   ],
   "decisionRecordDigest": {
     "algorithm": "sha256",
-    "value": "a6fc7fb30316bbacfaf74b65355d226e8f01c35248055ea8199bf739ac02da0f"
+    "value": "4b85ff3fd7643c2acf3cf64990d12c28d78f9dcd14e4c3721418889cc1573edd"
   },
   "decisionDomainMembers": {
     "architecture": [

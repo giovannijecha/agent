@@ -596,6 +596,10 @@ For SSE framing changes, retain incremental boundary discovery across LF and
 CRLF chunk splits. Regress a large single frame delivered one code unit at a
 time under the bounded deadline; never restart delimiter searches at the
 beginning of the growing partial frame after each `needMore`.
+For OpenAI byte-chunk changes, snapshot the length, enforce the 1-through-65,536
+bound, and copy into a fresh typed array with `set` before retention or UTF-8
+decoding. Regress both HTTPS and injected chunks with overridden iterators;
+never spread or call an untrusted byte iterator.
 
 For ChatGPT, Kimi, or xAI compatibility changes, recheck first-party protocol
 and client-ownership evidence, pin any necessary bounded clean-room inspection

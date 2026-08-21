@@ -407,6 +407,46 @@ test("bounds catalog capture and response chunks before exposing bytes", async (
   });
 });
 
+test("copies HTTPS chunks without consulting overridden iterators", async () => {
+  const catalogBody = ascii('{"models":[]}');
+  const catalogReplacement = ascii('{"replaced":true}');
+  let catalogIteratorCalls = 0;
+  Object.defineProperty(catalogBody, Symbol.iterator, {
+    value: () => {
+      catalogIteratorCalls += 1;
+      return catalogReplacement.values();
+    },
+  });
+  const catalogResponse = new FakeResponse();
+  const pendingCatalog = create(new FakeClient(catalogResponse)).catalog(new Cancellation());
+  catalogResponse.emit("data", catalogBody);
+  catalogResponse.emit("end");
+  const captured = await pendingCatalog;
+  assert.ok(captured.ok);
+  assert.deepEqual(captured.value.body, ascii('{"models":[]}'));
+  assert.equal(catalogIteratorCalls, 0);
+
+  const responseBody = ascii("owned-response");
+  const responseReplacement = ascii("replaced-response");
+  let responseIteratorCalls = 0;
+  Object.defineProperty(responseBody, Symbol.iterator, {
+    value: () => {
+      responseIteratorCalls += 1;
+      return responseReplacement.values();
+    },
+  });
+  const response = new FakeResponse(200, "text/event-stream");
+  const opened = await create(new FakeClient(response)).open(
+    Object.freeze({ body: "{}" }),
+    new Cancellation(),
+  );
+  assert.ok(opened.ok);
+  const pendingRead = opened.value.read();
+  response.emit("data", responseBody);
+  assert.deepEqual(await pendingRead, { ok: true, value: ascii("owned-response") });
+  assert.equal(responseIteratorCalls, 0);
+});
+
 test("reports catalog cleanup failure without replacing the primary failure", async () => {
   for (const target of ["request", "response"] as const) {
     const response = new FakeResponse();

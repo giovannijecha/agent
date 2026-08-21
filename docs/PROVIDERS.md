@@ -207,6 +207,9 @@ malformed; the protocol failure records whether that cleanup failed.
 Before opening that transport, the model snapshots the cancellation `requested`
 property once inside containment, requires a boolean, and rejects a throwing or
 malformed getter without encoding or sending a request.
+Catalog and Responses HTTPS chunks, and injected Responses chunks, must contain
+1 through 65,536 bytes. Each is copied into a fresh typed array with `set`
+before retention or UTF-8 decoding; a source iterator is never consulted.
 SSE boundary discovery examines each new chunk with only the retained three-
 code-unit suffix; repeated `needMore` outcomes never rescan the whole partial
 frame.

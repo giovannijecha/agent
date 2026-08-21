@@ -16,8 +16,22 @@ export class Utf8Decoder {
   }
 
   #decode(bytes: Uint8Array, final: boolean): Result<string, Utf8Error> {
-    const input = [...this.#pending, ...bytes];
+    let ownedBytes: Uint8Array;
+    try {
+      const byteLength = bytes.length;
+      if (!Number.isSafeInteger(byteLength) || byteLength < 0) return err(FAILURE);
+      ownedBytes = new Uint8Array(byteLength);
+      ownedBytes.set(bytes);
+    } catch (_cause: unknown) {
+      return err(FAILURE);
+    }
+    const input = this.#pending;
     this.#pending = [];
+    for (let byteIndex = 0; byteIndex < ownedBytes.length; byteIndex += 1) {
+      const byte = ownedBytes.at(byteIndex);
+      if (byte === undefined) return err(FAILURE);
+      input.push(byte);
+    }
     const output: string[] = [];
     let index = 0;
     while (index < input.length) {

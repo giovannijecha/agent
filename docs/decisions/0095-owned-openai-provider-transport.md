@@ -104,6 +104,8 @@ the same bounded body snapshot into a fresh `Uint8Array` with typed-array `set`;
 the source's overridable iterator is never consulted. Catalog list also reads
 `CancellationSignal.requested` once inside containment, requires a boolean, and
 rejects malformed state before invoking the transport.
+The Node catalog transport applies the same bounded typed-array copy to every
+HTTPS body chunk before aggregate retention.
 
 The decoder accepts one JSON object containing one `models` array with 1
 through 256 entries. Every entry is a bounded object with required `slug`,
@@ -195,6 +197,10 @@ that loses the race to cancellation, timeout, or request failure still destroys
 its response under a no-throw cleanup boundary; it cannot reopen the settled
 operation or escape a private cleanup cause. One read may be pending and a
 concurrent second read fails closed.
+Both the Node transport and Node-free Responses adapter snapshot each chunk's
+length, require 1 through 65,536 bytes, and copy into a fresh `Uint8Array` with
+typed-array `set` before UTF-8 decoding. No source iterator participates in the
+copy.
 
 The Node-free decoder performs strict incremental UTF-8 and bounded SSE
 framing. Boundary discovery inspects only each newly admitted chunk plus the
@@ -321,7 +327,8 @@ Red-green regression must prove:
   call-count and aggregate retention bounds, nullable pre-terminal
   usage, strict terminal usage, completion,
   cancellation, timeout, and one large frame fragmented into single-code-unit
-  chunks without whole-buffer rescanning;
+  chunks without whole-buffer rescanning; HTTPS and injected chunks reject the
+  65,536-byte bound and ignore overridden source iterators before UTF-8 decode;
 - an added reasoning item rejects pre-populated or malformed content before any
   later item projection can omit or replace it, and any reasoning item or delta
   is rejected when the captured effort is off;
