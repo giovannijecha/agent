@@ -212,6 +212,62 @@ function descriptor(): ToolDescriptor {
   return tool.value;
 }
 
+function discriminatedDescriptor(): ToolDescriptor {
+  const operation = StringSchema.create(4, 16);
+  const path = StringSchema.create(1, 4_096);
+  assert.ok(operation.ok && path.ok);
+  const input = ObjectSchema.create([
+    {
+      description: "Exact namespace operation.",
+      name: "operation",
+      required: true,
+      schema: operation.value,
+    },
+    {
+      description: "Workspace-relative namespace path.",
+      name: "path",
+      required: true,
+      schema: path.value,
+    },
+    {
+      description: "Destination required only for move.",
+      name: "destination",
+      required: false,
+      schema: path.value,
+    },
+  ], undefined, {
+    field: "operation",
+    variants: Object.freeze([
+      Object.freeze({
+        fields: Object.freeze(["operation", "path"]),
+        value: "create_directory",
+      }),
+      Object.freeze({
+        fields: Object.freeze(["operation", "path", "destination"]),
+        value: "move",
+      }),
+      Object.freeze({
+        fields: Object.freeze(["operation", "path"]),
+        value: "remove",
+      }),
+    ]),
+  });
+  assert.ok(input.ok);
+  const tool = ToolDescriptor.create(
+    "manage_path",
+    "Manage one workspace path.",
+    "write",
+    input.value,
+    Object.freeze([
+      Object.freeze({ mode: "exact" as const, name: "operation" }),
+      Object.freeze({ mode: "exact" as const, name: "path" }),
+      Object.freeze({ mode: "exact" as const, name: "destination" }),
+    ]),
+  );
+  assert.ok(tool.ok);
+  return tool.value;
+}
+
 test("projects only eligible authenticated catalog rows in provider order", async () => {
   const body = ascii(JSON.stringify({ models: [
     { slug: "model-alpha", visibility: "list", supported_in_api: true, extra: 1 },
@@ -264,7 +320,7 @@ test("encodes the exact stateless Responses request without opaque reasoning", a
   const opened = await model.value.open(
     conversation(),
     new Cancellation(),
-    [descriptor()],
+    [descriptor(), discriminatedDescriptor()],
     Object.freeze({ thinkingEffort: "medium" as const }),
   );
   assert.ok(opened.ok);
@@ -278,6 +334,76 @@ test("encodes the exact stateless Responses request without opaque reasoning", a
   assert.equal(body.store, false);
   assert.equal(body.stream, true);
   assert.equal(JSON.stringify(body).includes("encrypted_content"), false);
+  assert.deepEqual((body.tools as readonly unknown[]).at(1), {
+    description: "Manage one workspace path.",
+    name: "manage_path",
+    parameters: {
+      oneOf: [
+        {
+          additionalProperties: false,
+          properties: {
+            operation: {
+              const: "create_directory",
+              description: "Exact namespace operation.",
+              type: "string",
+            },
+            path: {
+              description: "Workspace-relative namespace path.",
+              maxLength: 4_096,
+              minLength: 1,
+              type: "string",
+            },
+          },
+          required: ["operation", "path"],
+          type: "object",
+        },
+        {
+          additionalProperties: false,
+          properties: {
+            destination: {
+              description: "Destination required only for move.",
+              maxLength: 4_096,
+              minLength: 1,
+              type: "string",
+            },
+            operation: {
+              const: "move",
+              description: "Exact namespace operation.",
+              type: "string",
+            },
+            path: {
+              description: "Workspace-relative namespace path.",
+              maxLength: 4_096,
+              minLength: 1,
+              type: "string",
+            },
+          },
+          required: ["operation", "path", "destination"],
+          type: "object",
+        },
+        {
+          additionalProperties: false,
+          properties: {
+            operation: {
+              const: "remove",
+              description: "Exact namespace operation.",
+              type: "string",
+            },
+            path: {
+              description: "Workspace-relative namespace path.",
+              maxLength: 4_096,
+              minLength: 1,
+              type: "string",
+            },
+          },
+          required: ["operation", "path"],
+          type: "object",
+        },
+      ],
+    },
+    strict: false,
+    type: "function",
+  });
   assert.deepEqual(await opened.value.read(), {
     ok: true,
     value: { kind: "delta", text: "Done." },

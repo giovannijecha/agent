@@ -19,6 +19,7 @@ import {
   IntegerSchema,
   ListSchema,
   LiteralStringSchema,
+  ObjectSchema,
   StringSchema,
   UnionSchema,
   type ObjectSchemaField,
@@ -57,14 +58,46 @@ function structuredEntry(field: StructuredField) {
   return Object.freeze([field.name, structuredValue(field.value)] as const);
 }
 
-function schemaEntry(field: ObjectSchemaField) {
+function schemaEntry(field: ObjectSchemaField, literal?: string) {
   return Object.freeze([
     field.name,
     Object.freeze({
-      ...schemaValue(field.schema) as object,
+      ...(literal === undefined
+        ? schemaValue(field.schema) as object
+        : Object.freeze({ const: literal, type: "string" })),
       description: field.description,
     }),
   ] as const);
+}
+
+function objectSchemaValue(schema: ObjectSchema): unknown {
+  const discriminant = schema.discriminant;
+  if (discriminant === undefined) {
+    return Object.freeze({
+      additionalProperties: false,
+      properties: Object.fromEntries(schema.fields.map((field) => schemaEntry(field))),
+      required: schema.fields.filter((field) => field.required).map((field) => field.name),
+      type: "object",
+    });
+  }
+  return Object.freeze({
+    oneOf: Object.freeze(discriminant.variants.map((variant) => {
+      const fields = variant.fields.map((name) => {
+        const field = schema.fields.find((candidate) => candidate.name === name);
+        if (field === undefined) throw new Error("owned discriminant invariant");
+        return field;
+      });
+      return Object.freeze({
+        additionalProperties: false,
+        properties: Object.fromEntries(fields.map((field) => schemaEntry(
+          field,
+          field.name === discriminant.field ? variant.value : undefined,
+        ))),
+        required: Object.freeze([...variant.fields]),
+        type: "object",
+      });
+    })),
+  });
 }
 
 function schemaValue(schema: ToolSchema): unknown {
@@ -99,12 +132,7 @@ function schemaValue(schema: ToolSchema): unknown {
       oneOf: Object.freeze(schema.variants.map((variant) => schemaValue(variant))),
     });
   }
-  return Object.freeze({
-    additionalProperties: false,
-    properties: Object.fromEntries(schema.fields.map((field) => schemaEntry(field))),
-    required: schema.fields.filter((field) => field.required).map((field) => field.name),
-    type: "object",
-  });
+  return objectSchemaValue(schema);
 }
 
 function toolValue(descriptor: ToolDescriptor): unknown {
