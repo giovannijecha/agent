@@ -539,6 +539,30 @@ test("fails an active Responses stream on a duplicate response callback", async 
   }
 });
 
+test("fails a duplicate Responses callback before EOF delivery settles", async () => {
+  for (const duplicateCleanupFails of [false, true]) {
+    const response = new FakeResponse(200, "text/event-stream");
+    const duplicate = new FakeResponse(200, "text/event-stream");
+    duplicate.destroyFailure = duplicateCleanupFails;
+    const client = new FakeClient(response);
+    const opened = await create(client).open(
+      Object.freeze({ body: "{}" }),
+      new Cancellation(),
+    );
+    assert.ok(opened.ok);
+    const pending = opened.value.read();
+    response.emit("end");
+    client.respondAgain(duplicate);
+    assert.deepEqual(await pending, {
+      error: { cleanupFailed: duplicateCleanupFails, kind: "protocol" },
+      ok: false,
+    });
+    assert.equal(duplicate.destroyed, 1);
+    assert.equal(response.destroyed, 1);
+    assert.equal(client.requests.at(0)?.destroyed, 1);
+  }
+});
+
 test("rejects a non-string singleton content-type without coercion", async () => {
   for (const operation of ["catalog", "responses"] as const) {
     const response = new FakeResponse();

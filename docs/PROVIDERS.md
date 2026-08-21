@@ -216,9 +216,13 @@ staged response, a setup throw, or a synchronous request error fails closed,
 stops the remaining setup, and destroys the retained request and every staged
 response while combining cleanup failure.
 After a Responses stream is published, a duplicate response callback remains a
-protocol conflict: Agent destroys the extra response, carries any cleanup
-failure into the stream result, and terminates the active stream with paired
-request-response cleanup. It cannot leave the first stream authoritative.
+protocol conflict until transport EOF is delivered through the pending or next
+`read`: Agent destroys the extra response, carries any cleanup failure into the
+stream result, and terminates the active stream with paired request-response
+cleanup. A response `end` notification records provisional EOF but does not
+release callback authority. One bounded promise checkpoint delivers that EOF
+and retires the authority atomically, so a duplicate already dispatched after
+`end` cannot leave the first stream authoritative.
 Every rejected catalog response also destroys both its request and response and
 combines cleanup failure from either handle before publishing its empty capture.
 Each catalog and Responses callback snapshots status and content type once

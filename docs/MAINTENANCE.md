@@ -580,9 +580,12 @@ valid and rejected synchronous responses, every throwing setup operation, and a
 synchronous request error during setup. A conflict or failure must stop later
 setup, destroy the request and all staged responses, combine cleanup failure,
 and settle once without exposing a cause.
-Regress a duplicate callback after Responses publication separately: destroy
-the extra response, propagate its cleanup failure, and fail the active stream
-as protocol so the first response cannot continue as authority.
+Regress duplicate callbacks after Responses publication both while data is
+active and immediately after response `end` but before the pending EOF read
+settles. Destroy the extra response, propagate its cleanup failure, and fail the
+active stream as protocol so provisional EOF cannot leave the first response
+authoritative. Keep non-EOF data and failure reads on their existing settlement
+timing; only EOF delivery owns the bounded promise checkpoint.
 Admit a content-type array only when it contains exactly one string member;
 regress a non-string member with hostile coercion and never invoke that coercion.
 Treat listener registration and initial `pause` or `resume` as one atomic

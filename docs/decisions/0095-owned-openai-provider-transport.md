@@ -139,9 +139,13 @@ write, and `end` complete. A second staged callback, a setup throw, or a
 synchronous request error stops later setup and destroys the request and all
 staged responses with combined content-free cleanup.
 A duplicate callback after a Responses stream is published remains a protocol
-conflict. The transport destroys the extra response, propagates its cleanup
-failure, and terminates the active stream through paired request-response
-cleanup instead of allowing the first stream to continue.
+conflict until transport EOF is delivered through the pending or next `read`.
+The response `end` notification records provisional EOF without releasing
+callback authority. One bounded promise checkpoint either admits a duplicate
+already dispatched after `end` as a protocol failure or atomically delivers EOF
+and retires that authority. The conflict destroys the extra response,
+propagates its cleanup failure, and terminates the active stream through paired
+request-response cleanup instead of allowing the first stream to continue.
 
 The decoder accepts one JSON object containing one `models` array with 1
 through 256 entries. Every entry is a bounded object with required `slug`,
@@ -422,8 +426,10 @@ Red-green regression must prove:
   contains late-response cleanup throws; valid and rejected synchronous
   callbacks remain staged until complete request setup, and setup throws or
   synchronous request errors destroy both handles without continuing setup; a
-  duplicate callback after stream publication destroys the extra response,
-  propagates its cleanup failure, and terminates the active stream as protocol; a
+  duplicate callback after stream publication, including after response `end`
+  but before pending EOF delivery, destroys the extra response, propagates its
+  cleanup failure, and terminates the active stream as protocol without changing
+  the established settlement timing of non-EOF reads; a
   malformed successful stream is closed through its retained close authority
   before rejection; injected transport results snapshot their discriminant,
   selected payload, error kind, and cleanup flag exactly once through the same

@@ -224,7 +224,9 @@ class NodeOpenAIStream implements OpenAITransportStream {
       this.#queued = undefined;
       return Promise.resolve(ok(chunk));
     }
-    if (this.#ended) return Promise.resolve(ok(null));
+    if (this.#ended) {
+      return Promise.resolve().then(() => this.#completeEnd());
+    }
     const operation = new Promise<Result<Uint8Array | null, OpenAITransportError>>(
       (resolve) => { this.#pending = resolve; },
     );
@@ -302,16 +304,23 @@ class NodeOpenAIStream implements OpenAITransportStream {
       return;
     }
     this.#ended = true;
-    this.#settleTerminal();
-    const pending = this.#pending;
-    if (pending !== undefined) {
+    void Promise.resolve().then(() => {
+      const pending = this.#pending;
+      if (pending === undefined) return;
       this.#pending = undefined;
-      pending(ok(null));
-    }
+      pending(this.#completeEnd());
+    });
   };
 
+  #completeEnd(): Result<Uint8Array | null, OpenAITransportError> {
+    if (this.#failure !== undefined) return err(this.#failure);
+    if (this.#closed) return err(failure("closed"));
+    this.#settleTerminal();
+    return ok(null);
+  }
+
   #fail(kind: OpenAITransportErrorKind, earlierCleanupFailed = false): void {
-    if (this.#closed || this.#ended || this.#failure !== undefined) return;
+    if (this.#closed || this.#terminalSettled || this.#failure !== undefined) return;
     try { this.#response.pause(); } catch (_cause: unknown) { /* destruction follows */ }
     this.#queued = undefined;
     const detachCleanupFailed = this.#detach();
