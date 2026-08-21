@@ -384,6 +384,23 @@ static bool agent_windows_prepare_fixture_lineage(
   unsigned char *owner,
   struct agent_windows_lineage_observation *observation
 ) {
+  const DWORD attributes = GetFileAttributesW(L".fixture-current-owner-lineage");
+  if (attributes != INVALID_FILE_ATTRIBUTES) {
+    const DWORD length = GetLengthSid(account);
+    if (
+      (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0u ||
+      length == 0u || length > SECURITY_MAX_SID_SIZE ||
+      CopySid(SECURITY_MAX_SID_SIZE, owner, account) == 0
+    ) {
+      return false;
+    }
+    observation->owner = owner;
+    return true;
+  }
+  const DWORD error = GetLastError();
+  if (error != ERROR_FILE_NOT_FOUND && error != ERROR_PATH_NOT_FOUND) {
+    return false;
+  }
   DWORD length = SECURITY_MAX_SID_SIZE;
   if (
     CreateWellKnownSid(

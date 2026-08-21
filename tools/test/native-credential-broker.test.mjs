@@ -101,6 +101,22 @@ test("native Windows broker admits controlled alternate-owner profile lineage", 
   }
 });
 
+test("native Windows broker rejects the controlled current-owner lineage", {
+  skip: process.platform !== "win32",
+}, () => {
+  const root = temporaryRoot();
+  try {
+    writeFileSync(path.join(root, ".fixture-current-owner-lineage"), "");
+    const snapshot = launch(root, request(1, Uint8Array.from([0])));
+    assert.equal(snapshot.error, undefined);
+    assert.equal(snapshot.status, 0);
+    assert.equal(snapshot.stderr.length, 0);
+    assert.deepEqual(responses(snapshot.stdout).map((entry) => entry.kind), [12]);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
 test("native credential broker admits the existing shared state root", () => {
   const root = temporaryRoot();
   try {

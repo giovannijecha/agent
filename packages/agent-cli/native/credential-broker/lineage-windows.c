@@ -8,22 +8,30 @@ static bool agent_windows_validate_lineage_owner(
   PSID account,
   const struct agent_windows_lineage_observation *observation
 ) {
-  PSID native_owner = NULL;
+  PSID owner = NULL;
   PSECURITY_DESCRIPTOR descriptor = NULL;
   const DWORD status = GetSecurityInfo(
     handle,
     SE_FILE_OBJECT,
     OWNER_SECURITY_INFORMATION,
-    &native_owner,
+    &owner,
     NULL,
     NULL,
     NULL,
     &descriptor
   );
-  PSID owner = observation == NULL ? native_owner : observation->owner;
-  const bool valid = status == ERROR_SUCCESS && native_owner != NULL &&
-    IsValidSid(native_owner) != 0 && account != NULL &&
+  const bool native_owner_valid = status == ERROR_SUCCESS && owner != NULL &&
+    IsValidSid(owner) != 0;
+  if (native_owner_valid && observation != NULL) {
+    owner = observation->owner;
+  }
+  const bool comparable = native_owner_valid && account != NULL &&
     IsValidSid(account) != 0 && owner != NULL && IsValidSid(owner) != 0;
+  const bool current_owner = comparable && EqualSid(owner, account) != 0;
+  const bool alternate_owner = comparable && EqualSid(owner, account) == 0;
+  const bool valid = observation == NULL
+    ? current_owner || alternate_owner
+    : alternate_owner;
   LocalFree(descriptor);
   return valid;
 }
