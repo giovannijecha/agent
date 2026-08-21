@@ -1160,6 +1160,101 @@ test("rejects reasoning whose output index follows a function call", async () =>
   }
 });
 
+test("emits multiple messages only in output-index order", async () => {
+  const added = (id: string, outputIndex: number) => event(
+    "response.output_item.added",
+    {
+      item: {
+        content: [],
+        id,
+        role: "assistant",
+        status: "in_progress",
+        type: "message",
+      },
+      output_index: outputIndex,
+    },
+  );
+  const completed = (id: string, text: string) => Object.freeze({
+    content: Object.freeze([Object.freeze({
+      annotations: Object.freeze([]),
+      text,
+      type: "output_text",
+    })]),
+    id,
+    role: "assistant",
+    status: "completed",
+    type: "message",
+  });
+  const lifecycle = (
+    id: string,
+    outputIndex: number,
+    text: string,
+    item: Readonly<Record<string, unknown>>,
+  ) => event("response.content_part.added", {
+    content_index: 0,
+    item_id: id,
+    output_index: outputIndex,
+    part: { annotations: [], text: "", type: "output_text" },
+  }) + event("response.output_text.delta", {
+    content_index: 0,
+    delta: text,
+    item_id: id,
+    output_index: outputIndex,
+  }) + event("response.output_text.done", {
+    content_index: 0,
+    item_id: id,
+    output_index: outputIndex,
+    text,
+  }) + event("response.content_part.done", {
+    content_index: 0,
+    item_id: id,
+    output_index: outputIndex,
+    part: { annotations: [], text, type: "output_text" },
+  }) + event("response.output_item.done", { item, output_index: outputIndex });
+  const zero = completed("message-zero", "First.");
+  const one = completed("message-one", "Second.");
+  const additions = added("message-one", 1) + added("message-zero", 0);
+  const terminal = event("response.completed", {
+    response: response("completed", Object.freeze([zero, one])),
+  });
+  const open = async (wire: string) => {
+    const model = OpenAISubscriptionModel.create(
+      new FakeTransport(ok(new FakeStream([ok(ascii(wire)), ok(null)]))),
+      "Inspect safely.",
+      MODEL,
+    );
+    assert.ok(model.ok);
+    const opened = await model.value.open(
+      conversation(),
+      new Cancellation(),
+      [],
+      Object.freeze({ thinkingEffort: "off" as const }),
+    );
+    assert.ok(opened.ok);
+    return opened.value;
+  };
+  const prefix = event("response.created", { response: response("in_progress") }) + additions;
+  const ordered = await open(
+    prefix + lifecycle("message-zero", 0, "First.", zero) +
+      lifecycle("message-one", 1, "Second.", one) + terminal,
+  );
+  assert.deepEqual(await ordered.read(), {
+    ok: true,
+    value: { kind: "delta", text: "First." },
+  });
+  assert.deepEqual(await ordered.read(), {
+    ok: true,
+    value: { kind: "delta", text: "Second." },
+  });
+  assert.deepEqual(await ordered.read(), { ok: true, value: { kind: "done" } });
+
+  const reversed = await open(
+    prefix + lifecycle("message-one", 1, "Second.", one) +
+      lifecycle("message-zero", 0, "First.", zero) + terminal,
+  );
+  assert.equal((await reversed.read()).ok, false);
+});
+
 test("rejects a completed response output that omits or contradicts staged items", async () => {
   const contradictory = Object.freeze({
     content: Object.freeze([Object.freeze({

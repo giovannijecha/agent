@@ -584,7 +584,10 @@ reasoning item and delta when the captured effort is off, require the sole
 completed message content part to retain streamed index zero, retain
 `response.completed` as provisional until clean EOF,
 require every reasoning or message output index to precede every function-call
-output index regardless of item-addition order, compare its provider-ordered
+output index regardless of item-addition order, and publish visible deltas only
+for the current monotonic output cursor. Advance that cursor through contiguous
+completed items without buffering later text; keep out-of-order function-call
+completion private until the sorted terminal batch. Compare the provider-ordered
 output with every completed item, and regress
 missing, malformed, contradictory, reordered, and trailing-frame cases before
 publishing `done` or `toolCalls`. For tool-schema changes, preserve every owned

@@ -367,7 +367,8 @@ export class OpenAIResponsesDecoder {
   readonly #calls = new Map<number, ModelToolCall>();
   readonly #callIds = new Set<string>();
   readonly #outputs = new Map<string, OutputState>();
-  readonly #outputIndices = new Set<number>();
+  readonly #outputsByIndex = new Map<number, OutputState>();
+  #publishIndex = 0;
 
   constructor(exposeReasoning: boolean) {
     this.#exposeReasoning = exposeReasoning;
@@ -516,7 +517,8 @@ export class OpenAIResponsesDecoder {
     if (typeof value !== "string" || value.length < 1 || (reasoning && this.#answerStarted)) {
       return this.#reject("protocolMessage");
     }
-    if (state === undefined || state.done || phase !== "added" || index !== expectedIndex) {
+    if (state === undefined || state.done || state.outputIndex !== this.#publishIndex ||
+      phase !== "added" || index !== expectedIndex) {
       return this.#reject("protocolMessage");
     }
     if (reasoning) {
@@ -550,7 +552,7 @@ export class OpenAIResponsesDecoder {
     if (!validIndex(parsed.output_index) || !isRecord(parsed.item) ||
       !validWireId(parsed.item.id) || !outputKind(parsed.item.type) ||
       parsed.item.status !== "in_progress" || this.#outputs.has(parsed.item.id) ||
-      this.#outputIndices.has(parsed.output_index)) {
+      this.#outputsByIndex.has(parsed.output_index)) {
       return this.#reject("protocolMessage");
     }
     for (const existing of this.#outputs.values()) {
@@ -590,7 +592,7 @@ export class OpenAIResponsesDecoder {
       summaryText: "",
     };
     this.#outputs.set(state.id, state);
-    this.#outputIndices.add(state.outputIndex);
+    this.#outputsByIndex.set(state.outputIndex, state);
     return ok(Object.freeze([]));
   }
 
@@ -693,7 +695,7 @@ export class OpenAIResponsesDecoder {
         )) {
         return this.#reject("protocolMessage");
       }
-      state.done = true;
+      this.#completeOutput(state);
       return ok(Object.freeze([]));
     }
     if (value.type === "message") {
@@ -704,7 +706,7 @@ export class OpenAIResponsesDecoder {
         state.contentPhase !== "done" || state.contentIndex !== 0) {
         return this.#reject("protocolMessage");
       }
-      state.done = true;
+      this.#completeOutput(state);
       return ok(Object.freeze([]));
     }
     if (value.type !== "function_call" || typeof value.call_id !== "string" ||
@@ -733,8 +735,17 @@ export class OpenAIResponsesDecoder {
       input: structured.value,
       name: value.name,
     }));
-    state.done = true;
+    this.#completeOutput(state);
     return ok(Object.freeze([]));
+  }
+
+  #completeOutput(state: OutputState): void {
+    state.done = true;
+    while (true) {
+      const current = this.#outputsByIndex.get(this.#publishIndex);
+      if (current === undefined || !current.done) return;
+      this.#publishIndex += 1;
+    }
   }
 
   #completedOutput(value: unknown): boolean {

@@ -222,6 +222,11 @@ The ordered output projection admits reasoning and message items only before
 the function-call phase. A reasoning or message `output_index` after any
 function call fails closed at item addition, independent of event arrival
 order, before a text delta or tool-call batch can be published.
+Within the visible phase, a monotonic output cursor admits deltas only for its
+current `output_index` and advances through contiguous completed items. A later
+message or reasoning delta fails closed instead of being buffered or emitted
+early; function-call completion may remain out of order until the sorted
+terminal batch.
 
 OpenAI remains blocked by `runtime-integration-required`. Its refresh lifecycle,
 exclusive runtime composition, `/models` integration, and live smoke must
