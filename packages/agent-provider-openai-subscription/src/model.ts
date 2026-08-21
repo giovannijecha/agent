@@ -151,6 +151,7 @@ class OpenAIStream implements ModelStream<OpenAIError> {
   readonly #transport: OwnedTransportStream;
   readonly #utf8 = new Utf8Decoder();
   #closed = false;
+  #completion: ModelStreamEvent | undefined;
   #failed = false;
   #reading = false;
   #terminal = false;
@@ -201,7 +202,11 @@ class OpenAIStream implements ModelStream<OpenAIError> {
       while (!this.#closed) {
         const queued = this.#events.shift();
         if (queued !== undefined) {
-          if (queued.kind === "done" || queued.kind === "toolCalls") this.#terminal = true;
+          if (queued.kind === "done" || queued.kind === "toolCalls") {
+            if (this.#completion !== undefined) return this.#fail("protocolTerminal");
+            this.#completion = queued;
+            continue;
+          }
           return ok(queued);
         }
         const framed = this.#sse.next();
@@ -217,8 +222,13 @@ class OpenAIStream implements ModelStream<OpenAIError> {
         if (framed.value.kind === "end") {
           const ended = this.#responses.end();
           if (!ended.ok) return this.#fail(wireReason(ended.error));
-          if (this.#events.length === 0) return this.#fail("protocolTerminal");
-          continue;
+          if (this.#events.length !== 0 || this.#completion === undefined) {
+            return this.#fail("protocolTerminal");
+          }
+          const completion = this.#completion;
+          this.#completion = undefined;
+          this.#terminal = true;
+          return ok(completion);
         }
         let received: Result<Uint8Array | null, OpenAITransportError> | undefined;
         try {

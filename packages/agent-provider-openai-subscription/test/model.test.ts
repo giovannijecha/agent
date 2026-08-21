@@ -135,11 +135,14 @@ function event(type: string, fields: Readonly<Record<string, unknown>> = Object.
     "data: " + JSON.stringify(Object.freeze({ type, ...fields })) + "\n\n";
 }
 
-function response(status: "completed" | "in_progress") {
-  return Object.freeze({ id: "response-alpha", object: "response", status });
+function response(
+  status: "completed" | "in_progress",
+  output: readonly unknown[] = Object.freeze([]),
+) {
+  return Object.freeze({ id: "response-alpha", object: "response", output, status });
 }
 
-function textEvents(text: string): string {
+function textEvents(text: string, output?: readonly unknown[]): string {
   const inProgress = Object.freeze({
     content: Object.freeze([]),
     id: "message-alpha",
@@ -184,7 +187,9 @@ function textEvents(text: string): string {
       part: completedPart,
     }) +
     event("response.output_item.done", { item: completed, output_index: 0 }) +
-    event("response.completed", { response: response("completed") });
+    event("response.completed", {
+      response: response("completed", output ?? Object.freeze([completed])),
+    });
 }
 
 function conversation(): Conversation {
@@ -434,6 +439,21 @@ test("encodes the exact stateless Responses request without opaque reasoning", a
 });
 
 test("normalizes reasoning before answer and one bounded function-call batch", async () => {
+  const reasoningOutput = Object.freeze({
+    content: Object.freeze([Object.freeze({ type: "reasoning_text", text: "Internal." })]),
+    id: "reasoning-alpha",
+    type: "reasoning",
+    status: "completed",
+    summary: Object.freeze([Object.freeze({ type: "summary_text", text: "Checking." })]),
+  });
+  const functionOutput = Object.freeze({
+    id: "function-alpha",
+    type: "function_call",
+    status: "completed",
+    call_id: "call-alpha",
+    name: "read_file",
+    arguments: '{"path":"AGENTS.md"}',
+  });
   const stream = new FakeStream([ok(ascii(
     event("response.created", { response: response("in_progress") }) +
     event("response.output_item.added", { item: {
@@ -490,13 +510,7 @@ test("normalizes reasoning before answer and one bounded function-call batch", a
       output_index: 0,
       part: { type: "reasoning_text", text: "Internal." },
     }) +
-    event("response.output_item.done", { item: {
-      content: [{ type: "reasoning_text", text: "Internal." }],
-      id: "reasoning-alpha",
-      type: "reasoning",
-      status: "completed",
-      summary: [{ type: "summary_text", text: "Checking." }],
-    }, output_index: 0 }) +
+    event("response.output_item.done", { item: reasoningOutput, output_index: 0 }) +
     event("response.output_item.added", { item: {
       id: "function-alpha",
       type: "function_call",
@@ -516,15 +530,10 @@ test("normalizes reasoning before answer and one bounded function-call batch", a
       name: "read_file",
       arguments: '{"path":"AGENTS.md"}',
     }) +
-    event("response.output_item.done", { item: {
-      id: "function-alpha",
-      type: "function_call",
-      status: "completed",
-      call_id: "call-alpha",
-      name: "read_file",
-      arguments: '{"path":"AGENTS.md"}',
-    }, output_index: 1 }) +
-    event("response.completed", { response: response("completed") }),
+    event("response.output_item.done", { item: functionOutput, output_index: 1 }) +
+    event("response.completed", {
+      response: response("completed", Object.freeze([reasoningOutput, functionOutput])),
+    }),
   )), ok(null)]);
   const transport = new FakeTransport(ok(stream));
   const model = OpenAISubscriptionModel.create(transport, "Inspect safely.", MODEL);
@@ -550,7 +559,15 @@ test("normalizes reasoning before answer and one bounded function-call batch", a
   assert.equal(completed.value.calls.at(0)?.name, "read_file");
 });
 
-test("preserves provider output-index order when tool items complete out of order", async () => {
+test("preserves provider output-index order and rejects a reordered final projection", async () => {
+  const completedCall = (id: string, callId: string, path: string) => Object.freeze({
+    arguments: JSON.stringify({ path }),
+    call_id: callId,
+    id,
+    name: "read_file",
+    status: "completed",
+    type: "function_call",
+  });
   const added = (id: string, callId: string, outputIndex: number) => event(
     "response.output_item.added",
     {
@@ -568,25 +585,25 @@ test("preserves provider output-index order when tool items complete out of orde
   const done = (id: string, callId: string, path: string, outputIndex: number) => event(
     "response.output_item.done",
     {
-      item: {
-        arguments: JSON.stringify({ path }),
-        call_id: callId,
-        id,
-        name: "read_file",
-        status: "completed",
-        type: "function_call",
-      },
+      item: completedCall(id, callId, path),
       output_index: outputIndex,
     },
   );
-  const stream = new FakeStream([ok(ascii(
+  const zero = completedCall("function-zero", "call-zero", "zero.md");
+  const one = completedCall("function-one", "call-one", "one.md");
+  const toolEvents = (output: readonly unknown[]) =>
     event("response.created", { response: response("in_progress") }) +
     added("function-zero", "call-zero", 0) +
     added("function-one", "call-one", 1) +
     done("function-one", "call-one", "one.md", 1) +
     done("function-zero", "call-zero", "zero.md", 0) +
-    event("response.completed", { response: response("completed") }),
-  )), ok(null)]);
+    event("response.completed", {
+      response: response("completed", output),
+    });
+  const stream = new FakeStream([
+    ok(ascii(toolEvents(Object.freeze([zero, one])))),
+    ok(null),
+  ]);
   const model = OpenAISubscriptionModel.create(
     new FakeTransport(ok(stream)),
     "Inspect safely.",
@@ -603,6 +620,86 @@ test("preserves provider output-index order when tool items complete out of orde
   const completed = await opened.value.read();
   assert.ok(completed.ok && completed.value.kind === "toolCalls");
   assert.deepEqual(completed.value.calls.map((call) => call.callId), ["call-zero", "call-one"]);
+
+  const reordered = OpenAISubscriptionModel.create(
+    new FakeTransport(ok(new FakeStream([
+      ok(ascii(toolEvents(Object.freeze([one, zero])))),
+      ok(null),
+    ]))),
+    "Inspect safely.",
+    MODEL,
+  );
+  assert.ok(reordered.ok);
+  const rejected = await reordered.value.open(
+    conversation(),
+    new Cancellation(),
+    [descriptor()],
+    Object.freeze({ thinkingEffort: "off" as const }),
+  );
+  assert.ok(rejected.ok);
+  assert.equal((await rejected.value.read()).ok, false);
+});
+
+test("rejects a completed response output that omits or contradicts staged items", async () => {
+  const contradictory = Object.freeze({
+    content: Object.freeze([Object.freeze({
+      annotations: Object.freeze([]),
+      text: "Different.",
+      type: "output_text",
+    })]),
+    id: "message-alpha",
+    role: "assistant",
+    status: "completed",
+    type: "message",
+  });
+  for (const output of [Object.freeze([]), Object.freeze([contradictory])]) {
+    const model = OpenAISubscriptionModel.create(
+      new FakeTransport(ok(new FakeStream([
+        ok(ascii(textEvents("Done.", output))),
+        ok(null),
+      ]))),
+      "Inspect safely.",
+      MODEL,
+    );
+    assert.ok(model.ok);
+    const opened = await model.value.open(
+      conversation(),
+      new Cancellation(),
+      [],
+      Object.freeze({ thinkingEffort: "off" as const }),
+    );
+    assert.ok(opened.ok);
+    assert.deepEqual(await opened.value.read(), {
+      ok: true,
+      value: { kind: "delta", text: "Done." },
+    });
+    assert.equal((await opened.value.read()).ok, false);
+  }
+});
+
+test("validates trailing frames before publishing terminal completion", async () => {
+  const stream = new FakeStream([
+    ok(ascii(textEvents("Done.") + event("response.unknown"))),
+    ok(null),
+  ]);
+  const model = OpenAISubscriptionModel.create(
+    new FakeTransport(ok(stream)),
+    "Inspect safely.",
+    MODEL,
+  );
+  assert.ok(model.ok);
+  const opened = await model.value.open(
+    conversation(),
+    new Cancellation(),
+    [],
+    Object.freeze({ thinkingEffort: "off" as const }),
+  );
+  assert.ok(opened.ok);
+  assert.deepEqual(await opened.value.read(), {
+    ok: true,
+    value: { kind: "delta", text: "Done." },
+  });
+  assert.equal((await opened.value.read()).ok, false);
 });
 
 test("rejects completed reasoning payloads that contradict streamed parts", async () => {

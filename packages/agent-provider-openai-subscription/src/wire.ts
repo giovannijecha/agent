@@ -397,9 +397,11 @@ export class OpenAIResponsesDecoder {
       return this.#outputItem(parsed.item, parsed.output_index);
     }
     if (type === "response.completed") {
+      const response = parsed.response;
       if (this.#argumentDeltas.size !== 0 ||
         [...this.#outputs.values()].some((state) => !state.done) ||
-        !validResponse(parsed.response, this.#responseId, "completed")) {
+        !validResponse(response, this.#responseId, "completed") ||
+        !this.#completedOutput(response.output)) {
         return this.#reject("protocolTerminal");
       }
       this.#terminal = true;
@@ -648,8 +650,50 @@ export class OpenAIResponsesDecoder {
       input: structured.value,
       name: value.name,
     }));
+    state.argumentDone = value.arguments;
     state.done = true;
     return ok(Object.freeze([]));
+  }
+
+  #completedOutput(value: unknown): boolean {
+    if (!Array.isArray(value) || value.length !== this.#outputs.size) return false;
+    for (let outputIndex = 0; outputIndex < value.length; outputIndex += 1) {
+      const item = value.at(outputIndex);
+      if (!isRecord(item) || !validWireId(item.id) || !outputKind(item.type)) return false;
+      const state = this.#outputs.get(item.id);
+      if (state === undefined || !state.done || state.outputIndex !== outputIndex ||
+        state.kind !== item.type || item.status !== "completed") return false;
+      if (item.type === "reasoning") {
+        if (item.encrypted_content !== undefined ||
+          !validCompletedTextParts(
+            item.summary,
+            state.summaryPhase,
+            state.summaryIndex,
+            "summary_text",
+            state.summaryText,
+            false,
+          ) || !validCompletedTextParts(
+            item.content,
+            state.contentPhase,
+            state.contentIndex,
+            "reasoning_text",
+            state.contentText,
+            true,
+          )) return false;
+        continue;
+      }
+      if (item.type === "message") {
+        const content = Array.isArray(item.content) ? item.content : undefined;
+        const part = content?.at(0);
+        if (item.role !== "assistant" || content?.length !== 1 || !isRecord(part) ||
+          part.type !== "output_text" || part.text !== state.contentText ||
+          state.contentPhase !== "done") return false;
+        continue;
+      }
+      if (item.call_id !== state.callId || item.name !== state.name ||
+        item.arguments !== state.argumentDone) return false;
+    }
+    return true;
   }
 
   #reject(kind: OpenAIWireError["kind"]): Result<readonly ModelStreamEvent[], OpenAIWireError> {

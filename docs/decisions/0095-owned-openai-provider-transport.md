@@ -183,18 +183,22 @@ The admitted lifecycle is:
    message, or function call; a function call requires one unique bounded
    `call_id`, exact registered-name grammar, and a JSON object argument string;
 6. `response.completed` requires a completed response object, validates any
-   bounded non-negative integer usage projection, and emits exactly one runtime
-   `toolCalls` batch or `done`; and
+   bounded non-negative integer usage projection, and revalidates its complete
+   provider-ordered `output` projection against every accumulated completed
+   item before staging exactly one runtime `toolCalls` batch or `done`; and
 7. `response.failed`, `response.incomplete`, `error`, transport exhaustion
-   before completion, a second terminal event, or any lifecycle contradiction
-   fails closed without exposing the response body or provider message.
+   before completion, a second terminal event, any frame after
+   `response.completed`, or any lifecycle contradiction fails closed without
+   exposing the response body or provider message. A staged successful terminal
+   event is published only after clean SSE and transport EOF.
 
 Function-argument delta events are validated and bounded but the complete
 `response.output_item.done` item is the sole call authority. Provider call IDs
 remain provider data and pass through the existing runtime validation,
 permission, execution, checkpoint, and provider-order settlement. Usage is
 validated for protocol integrity but is not added to the current operator
-surface by this module.
+surface by this module. The final response output is confirmation of the
+already validated item state, never an independent or weaker authority.
 
 ### Failure, privacy, and security boundary
 
@@ -251,7 +255,8 @@ Red-green regression must prove:
 - the SSE decoder handles chunk splits, CRLF, optional matching event names,
   reasoning, text, function calls, usage, completion, cancellation, timeout,
   close, concurrent read, malformed framing, unknown events, contradictory
-  lifecycle, early EOF, and post-terminal reads;
+  lifecycle, missing or contradictory completed-output projections, trailing
+  frames before publication, early EOF, and post-terminal reads;
 - every transport and protocol failure remains content-free and every failed
   open closes the response;
 - source policy admits only the new reviewed provider and CLI files and rejects
