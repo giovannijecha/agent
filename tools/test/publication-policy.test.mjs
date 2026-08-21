@@ -656,7 +656,7 @@ test("rejects obsolete OAuth credential-store authority", () => {
   const context = currentContext();
   const maintained = context.files["docs/OAUTH-REGISTRATION.md"];
   context.files["docs/OAUTH-REGISTRATION.md"] = maintained.replace(
-    "decision 0090 activation\ngate in the same change as the machine gate, first adapter, corresponding\ndecision-0089 credential-store extension",
+    "For every other provider, replace the blocking decision\nand accept a provider-specific successor decision.",
     "decision-0088 storage activation",
   );
   assert.notEqual(context.files["docs/OAUTH-REGISTRATION.md"], maintained);

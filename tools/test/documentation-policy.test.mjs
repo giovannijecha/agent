@@ -300,7 +300,11 @@ test("binds the active external authentication boundary", () => {
   }
   assert.match(
     context.files["docs/OAUTH-REGISTRATION.md"],
-    /decision 0090 activation\s+gate in the same change as the machine gate, first adapter, corresponding\s+decision-0089 credential-store extension/u,
+    /For ChatGPT,\s+update the blocking decision, \[provider policy\]\(PROVIDERS\.md\), and decision\s+0090's activation gate/u,
+  );
+  assert.match(
+    context.files["docs/OAUTH-REGISTRATION.md"],
+    /For every other provider, replace the blocking decision\s+and accept a provider-specific successor decision/u,
   );
   assert.doesNotMatch(
     context.files["docs/OAUTH-REGISTRATION.md"],
@@ -341,6 +345,14 @@ test("binds the specified but inactive OpenAI subscription OAuth contract", () =
   assert.match(
     context.files["docs/OAUTH-REGISTRATION.md"],
     /The protocol is `specified-blocked`/u,
+  );
+  assert.match(
+    context.files["docs/OAUTH-REGISTRATION.md"],
+    /For ChatGPT,\s+update the blocking decision, \[provider policy\]\(PROVIDERS\.md\), and decision\s+0090's activation gate/u,
+  );
+  assert.match(
+    context.files["docs/OAUTH-REGISTRATION.md"],
+    /For every other provider, replace the blocking decision\s+and accept a provider-specific successor decision/u,
   );
   for (const [file, marker] of [
     ["docs/ARCHITECTURE.md", "adds no current package"],

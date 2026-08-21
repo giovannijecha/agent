@@ -108,11 +108,13 @@ confidential material. Record only a dated, non-secret registration conclusion
 here, request lifecycle metadata in the
 [provider request ledger](PROVIDER-APPLICATIONS.md), and an external-source
 inspection in the [ownership record](OWNERSHIP.md) when required. Complete
-registration evidence does not enable product code by itself. Update the
-blocking decision, [provider policy](PROVIDERS.md), and decision 0090 activation
-gate in the same change as the machine gate, first adapter, corresponding
-decision-0089 credential-store extension, threat model, revocation path,
-rollback, and removal procedure. Offline contract tests must
+registration evidence does not enable product code by itself. For ChatGPT,
+update the blocking decision, [provider policy](PROVIDERS.md), and decision
+0090's activation gate. For every other provider, replace the blocking decision
+and accept a provider-specific successor decision. In either case, the same
+change must supply the machine gate, first adapter, corresponding decision-0089
+credential-store extension, threat model, revocation path, rollback, and removal
+procedure. Offline contract tests must
 cover cancellation, expiry, concurrency, malformed responses, secret leakage,
 rollback, and removal.
 
