@@ -13,7 +13,7 @@ import {
   type OpenAITransportStream,
 } from "@agent/provider-openai-subscription";
 import type { CancellationSignal } from "@agent/runtime";
-import { ObjectSchema, StringSchema, ToolDescriptor } from "@agent/tools";
+import { ListSchema, ObjectSchema, StringSchema, ToolDescriptor } from "@agent/tools";
 
 const MODEL = "model-alpha";
 
@@ -138,11 +138,23 @@ function event(type: string, fields: Readonly<Record<string, unknown>> = Object.
 function response(
   status: "completed" | "in_progress",
   output: readonly unknown[] = Object.freeze([]),
+  usage: unknown = undefined,
 ) {
-  return Object.freeze({ id: "response-alpha", object: "response", output, status });
+  return Object.freeze({
+    id: "response-alpha",
+    object: "response",
+    output,
+    status,
+    ...(usage === undefined ? Object.freeze({}) : Object.freeze({ usage })),
+  });
 }
 
-function textEvents(text: string, output?: readonly unknown[]): string {
+function textEvents(
+  text: string,
+  output?: readonly unknown[],
+  preTerminalUsage: unknown = undefined,
+  terminalUsage: unknown = undefined,
+): string {
   const inProgress = Object.freeze({
     content: Object.freeze([]),
     id: "message-alpha",
@@ -159,8 +171,12 @@ function textEvents(text: string, output?: readonly unknown[]): string {
   });
   const emptyPart = Object.freeze({ annotations: Object.freeze([]), text: "", type: "output_text" });
   const completedPart = Object.freeze({ annotations: Object.freeze([]), text, type: "output_text" });
-  return event("response.created", { response: response("in_progress") }) +
-    event("response.in_progress", { response: response("in_progress") }) +
+  return event("response.created", {
+    response: response("in_progress", Object.freeze([]), preTerminalUsage),
+  }) +
+    event("response.in_progress", {
+      response: response("in_progress", Object.freeze([]), preTerminalUsage),
+    }) +
     event("response.output_item.added", { item: inProgress, output_index: 0 }) +
     event("response.content_part.added", {
       content_index: 0,
@@ -188,7 +204,11 @@ function textEvents(text: string, output?: readonly unknown[]): string {
     }) +
     event("response.output_item.done", { item: completed, output_index: 0 }) +
     event("response.completed", {
-      response: response("completed", output ?? Object.freeze([completed])),
+      response: response(
+        "completed",
+        output ?? Object.freeze([completed]),
+        terminalUsage,
+      ),
     });
 }
 
@@ -269,6 +289,43 @@ function discriminatedDescriptor(): ToolDescriptor {
       Object.freeze({ mode: "exact" as const, name: "path" }),
       Object.freeze({ mode: "exact" as const, name: "destination" }),
     ]),
+  );
+  assert.ok(tool.ok);
+  return tool.value;
+}
+
+function constrainedDescriptor(): ToolDescriptor {
+  const text = StringSchema.create(0, 447, Object.freeze({
+    maximumProjectionCodeUnits: 896,
+    maximumUtf8Bytes: 1_024,
+    rejectNul: true,
+  }));
+  assert.ok(text.ok);
+  const texts = ListSchema.create(text.value, 1, 4, Object.freeze({
+    maximumTextCodeUnits: 1_024,
+    maximumTextUtf8Bytes: 2_048,
+  }));
+  assert.ok(texts.ok);
+  const input = ObjectSchema.create([
+    {
+      description: "One bounded text value.",
+      name: "text",
+      required: true,
+      schema: text.value,
+    },
+    {
+      description: "A bounded text collection.",
+      name: "texts",
+      required: true,
+      schema: texts.value,
+    },
+  ]);
+  assert.ok(input.ok);
+  const tool = ToolDescriptor.create(
+    "search_text",
+    "Search with exact owned string constraints.",
+    "read",
+    input.value,
   );
   assert.ok(tool.ok);
   return tool.value;
@@ -438,6 +495,77 @@ test("encodes the exact stateless Responses request without opaque reasoning", a
   assert.deepEqual(await opened.value.close(), { ok: true, value: undefined });
 });
 
+test("preserves exact owned string and aggregate-text constraints in tool schemas", async () => {
+  const transport = new FakeTransport(ok(new FakeStream([
+    ok(ascii(textEvents("Done."))),
+    ok(null),
+  ])));
+  const model = OpenAISubscriptionModel.create(
+    transport,
+    "Follow the owned instruction.",
+    MODEL,
+  );
+  assert.ok(model.ok);
+  const opened = await model.value.open(
+    conversation(),
+    new Cancellation(),
+    [constrainedDescriptor()],
+    Object.freeze({ thinkingEffort: "off" as const }),
+  );
+  assert.ok(opened.ok);
+  const body = JSON.parse(transport.request?.body ?? "null") as Record<string, unknown>;
+  assert.deepEqual((body.tools as readonly unknown[]).at(0), {
+    description: "Search with exact owned string constraints.",
+    name: "search_text",
+    parameters: {
+      additionalProperties: false,
+      properties: {
+        text: {
+          description: "One bounded text value.",
+          maxLength: 447,
+          minLength: 0,
+          pattern: "^(?![\\s\\S]*\\u0000)[\\s\\S]*$",
+          type: "string",
+          "x-agent-constraints": {
+            maximumCodeUnits: 447,
+            maximumProjectionCodeUnits: 896,
+            maximumUtf8Bytes: 1_024,
+            minimumCodeUnits: 0,
+            rejectNul: true,
+          },
+        },
+        texts: {
+          description: "A bounded text collection.",
+          items: {
+            maxLength: 447,
+            minLength: 0,
+            pattern: "^(?![\\s\\S]*\\u0000)[\\s\\S]*$",
+            type: "string",
+            "x-agent-constraints": {
+              maximumCodeUnits: 447,
+              maximumProjectionCodeUnits: 896,
+              maximumUtf8Bytes: 1_024,
+              minimumCodeUnits: 0,
+              rejectNul: true,
+            },
+          },
+          maxItems: 4,
+          minItems: 1,
+          type: "array",
+          "x-agent-constraints": {
+            maximumTextCodeUnits: 1_024,
+            maximumTextUtf8Bytes: 2_048,
+          },
+        },
+      },
+      required: ["text", "texts"],
+      type: "object",
+    },
+    strict: false,
+    type: "function",
+  });
+});
+
 test("normalizes reasoning before answer and one bounded function-call batch", async () => {
   const reasoningOutput = Object.freeze({
     content: Object.freeze([Object.freeze({ type: "reasoning_text", text: "Internal." })]),
@@ -527,7 +655,6 @@ test("normalizes reasoning before answer and one bounded function-call batch", a
     event("response.function_call_arguments.done", {
       item_id: "function-alpha",
       output_index: 1,
-      name: "read_file",
       arguments: '{"path":"AGENTS.md"}',
     }) +
     event("response.output_item.done", { item: functionOutput, output_index: 1 }) +
@@ -717,6 +844,52 @@ test("rejects nonempty or malformed pre-terminal response output", async () => {
     assert.ok(opened.ok);
     assert.equal((await opened.value.read()).ok, false);
   }
+});
+
+test("accepts null usage only on pre-terminal response snapshots", async () => {
+  const model = OpenAISubscriptionModel.create(
+    new FakeTransport(ok(new FakeStream([
+      ok(ascii(textEvents("Done.", undefined, null))),
+      ok(null),
+    ]))),
+    "Inspect safely.",
+    MODEL,
+  );
+  assert.ok(model.ok);
+  const opened = await model.value.open(
+    conversation(),
+    new Cancellation(),
+    [],
+    Object.freeze({ thinkingEffort: "off" as const }),
+  );
+  assert.ok(opened.ok);
+  assert.deepEqual(await opened.value.read(), {
+    ok: true,
+    value: { kind: "delta", text: "Done." },
+  });
+  assert.deepEqual(await opened.value.read(), { ok: true, value: { kind: "done" } });
+
+  const rejected = OpenAISubscriptionModel.create(
+    new FakeTransport(ok(new FakeStream([
+      ok(ascii(textEvents("Done.", undefined, undefined, null))),
+      ok(null),
+    ]))),
+    "Inspect safely.",
+    MODEL,
+  );
+  assert.ok(rejected.ok);
+  const rejectedOpen = await rejected.value.open(
+    conversation(),
+    new Cancellation(),
+    [],
+    Object.freeze({ thinkingEffort: "off" as const }),
+  );
+  assert.ok(rejectedOpen.ok);
+  assert.deepEqual(await rejectedOpen.value.read(), {
+    ok: true,
+    value: { kind: "delta", text: "Done." },
+  });
+  assert.equal((await rejectedOpen.value.read()).ok, false);
 });
 
 test("validates trailing frames before publishing terminal completion", async () => {

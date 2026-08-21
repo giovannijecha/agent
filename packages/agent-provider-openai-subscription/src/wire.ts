@@ -100,16 +100,69 @@ function objectSchemaValue(schema: ObjectSchema): unknown {
   });
 }
 
+const REJECT_NUL_PATTERN = "^(?![\\s\\S]*\\u0000)[\\s\\S]*$";
+
+function stringSchemaValue(schema: StringSchema): unknown {
+  const hasOwnedConstraints = schema.maximumProjectionCodeUnits !== undefined ||
+    schema.maximumUtf8Bytes !== undefined || schema.rejectNul;
+  const constraints = hasOwnedConstraints
+    ? Object.freeze({
+        maximumCodeUnits: schema.maximum,
+        ...(schema.maximumProjectionCodeUnits === undefined
+          ? Object.freeze({})
+          : Object.freeze({
+              maximumProjectionCodeUnits: schema.maximumProjectionCodeUnits,
+            })),
+        ...(schema.maximumUtf8Bytes === undefined
+          ? Object.freeze({})
+          : Object.freeze({ maximumUtf8Bytes: schema.maximumUtf8Bytes })),
+        minimumCodeUnits: schema.minimum,
+        rejectNul: schema.rejectNul,
+      })
+    : undefined;
+  return Object.freeze({
+    maxLength: schema.maximum,
+    minLength: schema.minimum,
+    ...(schema.rejectNul
+      ? Object.freeze({ pattern: REJECT_NUL_PATTERN })
+      : Object.freeze({})),
+    type: "string",
+    ...(constraints === undefined
+      ? Object.freeze({})
+      : Object.freeze({ "x-agent-constraints": constraints })),
+  });
+}
+
+function listSchemaValue(schema: ListSchema): unknown {
+  const hasOwnedConstraints = schema.maximumTextCodeUnits !== undefined ||
+    schema.maximumTextUtf8Bytes !== undefined;
+  const constraints = hasOwnedConstraints
+    ? Object.freeze({
+        ...(schema.maximumTextCodeUnits === undefined
+          ? Object.freeze({})
+          : Object.freeze({ maximumTextCodeUnits: schema.maximumTextCodeUnits })),
+        ...(schema.maximumTextUtf8Bytes === undefined
+          ? Object.freeze({})
+          : Object.freeze({ maximumTextUtf8Bytes: schema.maximumTextUtf8Bytes })),
+      })
+    : undefined;
+  return Object.freeze({
+    items: schemaValue(schema.item),
+    maxItems: schema.maximum,
+    minItems: schema.minimum,
+    type: "array",
+    ...(constraints === undefined
+      ? Object.freeze({})
+      : Object.freeze({ "x-agent-constraints": constraints })),
+  });
+}
+
 function schemaValue(schema: ToolSchema): unknown {
   if (schema instanceof LiteralStringSchema) {
     return Object.freeze({ const: schema.value, type: "string" });
   }
   if (schema instanceof StringSchema) {
-    return Object.freeze({
-      maxLength: schema.maximum,
-      minLength: schema.minimum,
-      type: "string",
-    });
+    return stringSchemaValue(schema);
   }
   if (schema instanceof IntegerSchema) {
     return Object.freeze({
@@ -120,12 +173,7 @@ function schemaValue(schema: ToolSchema): unknown {
   }
   if (schema instanceof BooleanSchema) return Object.freeze({ type: "boolean" });
   if (schema instanceof ListSchema) {
-    return Object.freeze({
-      items: schemaValue(schema.item),
-      maxItems: schema.maximum,
-      minItems: schema.minimum,
-      type: "array",
-    });
+    return listSchemaValue(schema);
   }
   if (schema instanceof UnionSchema) {
     return Object.freeze({
@@ -256,11 +304,15 @@ function validResponse(
   expectedId: string | undefined,
   status: "completed" | "in_progress",
 ): value is Record<string, unknown> {
-  return isRecord(value) && validWireId(value.id) &&
+  if (!isRecord(value)) return false;
+  const usageValid = status === "in_progress"
+    ? value.usage === undefined || value.usage === null || validUsage(value.usage)
+    : value.usage === undefined || validUsage(value.usage);
+  return validWireId(value.id) &&
     (expectedId === undefined || value.id === expectedId) &&
     value.object === "response" && value.status === status &&
     Array.isArray(value.output) && (status === "completed" || value.output.length === 0) &&
-    (value.usage === undefined || validUsage(value.usage));
+    usageValid;
 }
 
 function outputKind(value: unknown): value is OutputKind {
@@ -381,7 +433,8 @@ export class OpenAIResponsesDecoder {
     if (type === "response.function_call_arguments.done") {
       const state = this.#outputState(parsed, "function_call");
       if (state === undefined || state.done || state.argumentDone !== undefined ||
-        parsed.name !== state.name || typeof parsed.arguments !== "string" ||
+        (parsed.name !== undefined && parsed.name !== state.name) ||
+        typeof parsed.arguments !== "string" ||
         parsed.arguments.length < 2 || parsed.arguments.length >
           OPENAI_PROVIDER_LIMITS.toolArgumentCodeUnits) {
         return this.#reject("protocolToolCall");

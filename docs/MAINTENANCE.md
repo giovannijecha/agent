@@ -551,10 +551,15 @@ retry/no-redirect posture synchronized with policy and tests. Do not add
 refresh, revocation, runtime snapshot, provider row, transport construction, or
 `/models` integration before their separate module.
 For terminal-stream changes, require exact empty output arrays on pre-terminal
-response snapshots, retain `response.completed` as provisional until clean EOF,
+response snapshots, admit null usage only before completion, keep the added
+function-call item authoritative when the argument-done event omits its
+redundant name, retain `response.completed` as provisional until clean EOF,
 compare its provider-ordered output with every completed item, and regress
 missing, malformed, contradictory, reordered, and trailing-frame cases before
-publishing `done` or `toolCalls`.
+publishing `done` or `toolCalls`. For tool-schema changes, preserve every owned
+string, NUL, UTF-8, projection, and aggregate-text constraint in the advertised
+schema, but never treat provider-facing character limits or annotations as a
+replacement for the exact provider-neutral argument validator.
 
 For ChatGPT, Kimi, or xAI compatibility changes, recheck first-party protocol
 and client-ownership evidence, pin any necessary bounded clean-room inspection

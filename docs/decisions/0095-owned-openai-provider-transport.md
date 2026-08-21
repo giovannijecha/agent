@@ -148,6 +148,19 @@ closed-object, required-field, and discriminated-object bounds. It adds no
 provider tool, alias, hosted capability, namespace, or permissive additional
 property.
 
+JSON Schema `minLength` and `maxLength` remain provider-facing character-count
+guidance. They are not relabeled as Agent's UTF-16 code-unit, UTF-8 byte, or
+structured-projection authorities. A string with any of those owned bounds
+also carries their exact values and NUL policy in the closed
+`x-agent-constraints` annotation; NUL rejection is additionally expressed by a
+standard pattern. A list with aggregate text bounds carries those exact values
+in the same annotation. Because the function tool remains `strict: false` and
+the standard schema vocabulary cannot express all of those units exactly,
+Agent's existing `ToolSchema` validator remains the sole argument-admission
+authority. The annotations preserve the complete advertised contract for
+inspection; they do not claim provider enforcement and never weaken local
+validation.
+
 Instructions are 1 through 4,096 code units, the model ID obeys the catalog
 grammar, and the serialized body is at most 8,388,608 code units. Construction,
 conversation projection, schema projection, serialization, or bound failures
@@ -173,10 +186,11 @@ event types fail closed.
 The admitted lifecycle is:
 
 1. exactly one `response.created` with an exact empty `output` array starts the
-   response;
+   response; its optional usage is either null or one bounded projection;
 2. bounded `response.in_progress` snapshots also require an exact empty
-   `output` array before item, content-part, reasoning-part, and function-
-   argument lifecycle events may advance only their declared phase;
+   `output` array and likewise admit only absent, null, or bounded usage before
+   item, content-part, reasoning-part, and function-argument lifecycle events
+   may advance only their declared phase;
 3. non-empty `response.reasoning_summary_text.delta` and
    `response.reasoning_text.delta` values become runtime reasoning deltas before
    answer text starts;
@@ -184,8 +198,9 @@ The admitted lifecycle is:
 5. `response.output_item.done` admits only a complete reasoning item, output
    message, or function call; a function call requires one unique bounded
    `call_id`, exact registered-name grammar, and a JSON object argument string;
-6. `response.completed` requires a completed response object, validates any
-   bounded non-negative integer usage projection, and revalidates its complete
+6. `response.completed` requires a completed response object, permits only an
+   absent or bounded non-negative integer usage projection rather than null,
+   and revalidates its complete
    provider-ordered `output` projection against every accumulated completed
    item before staging exactly one runtime `toolCalls` batch or `done`; and
 7. `response.failed`, `response.incomplete`, `error`, transport exhaustion
@@ -194,13 +209,16 @@ The admitted lifecycle is:
    exposing the response body or provider message. A staged successful terminal
    event is published only after clean SSE and transport EOF.
 
-Function-argument delta events are validated and bounded but the complete
-`response.output_item.done` item is the sole call authority. Provider call IDs
-remain provider data and pass through the existing runtime validation,
-permission, execution, checkpoint, and provider-order settlement. Usage is
-validated for protocol integrity but is not added to the current operator
-surface by this module. The final response output is confirmation of the
-already validated item state, never an independent or weaker authority.
+Function-argument delta events are validated and bounded. Their done event owns
+the complete argument string but does not own the function name: the added item
+state does. A redundantly repeated done-event name is optional and must match
+that item state when present. The complete `response.output_item.done` item is
+the sole call authority. Provider call IDs remain provider data and pass
+through the existing runtime validation, permission, execution, checkpoint,
+and provider-order settlement. Usage is validated for protocol integrity but
+is not added to the current operator surface by this module. The final response
+output is confirmation of the already validated item state, never an
+independent or weaker authority.
 
 ### Failure, privacy, and security boundary
 
@@ -252,10 +270,13 @@ Red-green regression must prove:
   and no body, and rejects redirect, status, content-type, encoding, size,
   schema, duplicate, and eligibility drift;
 - the request encoder preserves ordered messages, tool calls and outputs,
-  provider call IDs, exact tool schemas, thinking mapping, `store: false`,
-  `stream: true`, and the empty include list within fixed bounds;
+  provider call IDs, exact tool schemas including owned string and aggregate-
+  text annotations, thinking mapping, `store: false`, `stream: true`, and the
+  empty include list within fixed bounds;
 - the SSE decoder handles chunk splits, CRLF, optional matching event names,
-  reasoning, text, function calls, usage, completion, cancellation, timeout,
+  reasoning, text, function calls with absent or matching repeated done-event
+  names, nullable pre-terminal usage, strict terminal usage, completion,
+  cancellation, timeout,
   close, concurrent read, malformed framing, unknown events, contradictory
   lifecycle, nonempty or malformed pre-terminal output, missing or
   contradictory completed-output projections, trailing frames before
