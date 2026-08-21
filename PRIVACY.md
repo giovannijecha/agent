@@ -217,10 +217,11 @@ tool result, provider password, browser cookie, recovery code, or payment data.
 Successful validation persists only the access token, refresh token, account
 identifier, and access-token expiration in the exact
 `~/.agent/credentials/openai.oauth` plaintext record. The ID token, device
-identity, displayed code, authorization code, verifier, challenge, complete
-responses, and account claims are not persisted or projected. The private
-boundary has no environment input and protects ordinary cross-account access
-with the same native owner-only controls and same-user, administrator/root,
+identity, displayed code, provider `expires_at` metadata, authorization code,
+verifier, challenge, complete responses, and account claims are not persisted
+or projected. The private boundary has no environment input and protects
+ordinary cross-account access with the same native owner-only controls and
+same-user, administrator/root,
 malware, backup, snapshot, memory, and offline-access limitations as the Ollama
 record. Local removal does not revoke the provider-side authorization and is
 not secure erasure; use an OpenAI-provided account surface when remote

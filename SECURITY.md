@@ -141,14 +141,21 @@ values.
 Decision 0094 activates the decision-0090 OpenAI device ceremony only for
 `agent auth`. It uses the exact provider-owned public client from decision 0092,
 fixed OpenAI TLS origin and paths, one-field device request, immediate first
-poll, bounded server interval, closed pending statuses, PKCE verification, and
-one exact token exchange. The native decision-0093 mutation is exclusive from
+poll, bounded server interval, closed pending statuses, one required PKCE
+verifier, optional returned-challenge verification, and one exact token
+exchange. Device success requires the three protocol fields;
+only optional bounded `expires_at` metadata may accompany them, and it is
+discarded without timing or authorization effect. Every other member fails
+closed. Poll success requires the authorization code and verifier; only an
+optional matching challenge may accompany them, and every other member fails
+closed. The native decision-0093 mutation is exclusive from
 before the first request through cancellation or atomic publication. Requests
 omit authorization, cookies, client secrets, foreign caller fields, redirect
 following, discovery, retry, and fallback; every controllable caller identity
 is `agent` or absent. Only the fixed verification URL and one-time code may be
-projected. Tokens, device identity, authorization code, verifier, challenge,
-claims, statuses, bodies, and foreign error text remain secret or content-free.
+projected. Tokens, device identity, provider `expires_at` metadata,
+authorization code, verifier, challenge, claims, statuses, bodies, and foreign
+error text remain secret or content-free.
 
 OpenAI authentication has no provider-runtime authority. Refresh, revocation,
 catalog, model selection, Responses transport, and runtime snapshot composition

@@ -161,6 +161,10 @@
         "user_code",
         "interval"
       ],
+      "deviceOptionalResponseFields": [
+        "expires_at"
+      ],
+      "deviceExpirationBytes": 256,
       "deviceIntervalEncoding": "canonical-decimal-string",
       "deviceIntervalSeconds": {
         "minimum": 1,
@@ -172,8 +176,10 @@
       ],
       "pollResponseFields": [
         "authorization_code",
-        "code_challenge",
         "code_verifier"
+      ],
+      "pollOptionalResponseFields": [
+        "code_challenge"
       ],
       "tokenRequestFields": [
         "grant_type",

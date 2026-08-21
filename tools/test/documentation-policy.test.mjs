@@ -502,7 +502,9 @@ test("binds OpenAI device authentication without activating provider runtime", (
     /`transport-implementation-required`/u,
     /The first poll is immediate/u,
     /canonical decimal string/u,
-    /exact equality with\s+the returned challenge/u,
+    /admits only `expires_at` as one optional bounded member/u,
+    /requires exact equality before exchange/u,
+    /sole optional\s+matching poll challenge/u,
     /`chatgpt_account_id`/u,
     /provider authorization was not revoked/u,
     /no OpenAI\s+catalog request, Responses request/u,
@@ -514,11 +516,12 @@ test("binds OpenAI device authentication without activating provider runtime", (
     ["0094", "0093", "0092", "0091", "0090"],
   );
   for (const [file, marker] of [
-    ["docs/ARCHITECTURE.md", "`auth-compatible-inactive`"],
-    ["docs/MAINTENANCE.md", "Decision 0094 owns"],
-    ["docs/PROVIDERS.md", "`transport-implementation-required`"],
-    ["PRIVACY.md", "OpenAI device authentication"],
-    ["SECURITY.md", "OpenAI device ceremony"],
+    ["docs/ARCHITECTURE.md", "fixed-origin device, poll, and token HTTPS ceremony"],
+    ["docs/MAINTENANCE.md", "bounded optional `expires_at`"],
+    ["docs/PROVIDERS.md", "bounded optional `expires_at` metadata"],
+    ["PRIVACY.md", "provider `expires_at` metadata"],
+    ["SECURITY.md", "only optional bounded `expires_at` metadata"],
+    ["SECURITY.md", "optional matching challenge"],
     ["docs/OAUTH-REGISTRATION.md", "OpenAI authentication state: `auth-compatible-inactive`"],
   ]) {
     assert.match(context.files[file], new RegExp(marker, "u"), file);

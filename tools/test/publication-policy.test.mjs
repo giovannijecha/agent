@@ -100,6 +100,48 @@ test("rejects single-agent public contract drift", () => {
   }
 });
 
+test("rejects contradictory authentication network documentation", () => {
+  const context = currentContext();
+  context.files["docs/ARCHITECTURE.md"] = context.files[
+    "docs/ARCHITECTURE.md"
+  ].replace(
+    "Its Ollama\ncredential path performs no network request. Its OpenAI path performs only the\nfixed-origin device, poll, and token HTTPS ceremony owned by decision 0094",
+    "agent auth performs no network request",
+  );
+  assert.throws(
+    () => validatePublicationPolicy(policy, context),
+    PublicationPolicyError,
+  );
+
+  const responseSchema = currentContext();
+  responseSchema.files[
+    "docs/decisions/0094-owned-openai-device-authentication.md"
+  ] = responseSchema.files[
+    "docs/decisions/0094-owned-openai-device-authentication.md"
+  ].replace(
+    "admits only `expires_at` as one optional bounded member",
+    "admits arbitrary response members",
+  );
+  assert.throws(
+    () => validatePublicationPolicy(policy, responseSchema),
+    PublicationPolicyError,
+  );
+
+  const pollSchema = currentContext();
+  pollSchema.files[
+    "docs/decisions/0094-owned-openai-device-authentication.md"
+  ] = pollSchema.files[
+    "docs/decisions/0094-owned-openai-device-authentication.md"
+  ].replace(
+    "sole optional\nmatching poll challenge",
+    "arbitrary poll metadata",
+  );
+  assert.throws(
+    () => validatePublicationPolicy(policy, pollSchema),
+    PublicationPolicyError,
+  );
+});
+
 test("rejects deterministic motion public contract drift", () => {
   const context = currentContext();
   context.files["docs/decisions/0038-owned-deterministic-tui-motion.md"] =

@@ -30,6 +30,23 @@ Decisions 0090 and 0092 use "integer" for the admitted semantic value: this
 decision fixes the wire representation and requires decoding that string to the
 same integer range. It does not change the 1-through-30-second bound.
 
+A pre-merge operator smoke exposed one additional `expires_at` string in the
+live user-code response. A bounded reproduction retained only the HTTP family,
+content type, byte count, field names, and field types, then cleared the body;
+no device identity, code, timestamp, or response value was retained. The
+already authorized first-party decoder consumes the three required fields
+without rejecting additional members. Agent does not adopt that open schema:
+this decision admits only `expires_at` as one optional bounded member and gives
+it no timing, display, persistence, or authorization role.
+
+A later pre-merge operator smoke reached code presentation and provider-side
+browser approval, then failed closed before credential publication. The
+authorization code and verifier are the two values required for the token
+exchange; a returned challenge is validation metadata, not exchange authority.
+The poll decoder therefore keeps a closed schema with those two required
+members and only `code_challenge` optional. It never admits an open response
+object.
+
 ## Decision
 
 Activate an independently authored OpenAI device-authentication adapter owned
@@ -76,7 +93,10 @@ The adapter sends one UTF-8 `application/json` object containing exactly
 `client_id` to
 `POST https://auth.openai.com/api/accounts/deviceauth/usercode`. Success is
 exactly HTTP 200 plus an admitted JSON content type and one bounded object with
-exactly the required `device_auth_id`, `user_code`, and `interval` values.
+exactly the required `device_auth_id`, `user_code`, and `interval` values and,
+optionally, `expires_at`. When present, `expires_at` is 1 through 256 visible-
+ASCII bytes and is validated only as bounded provider metadata, then discarded.
+Every other additional member is ambiguous and fails closed.
 `interval` is a canonical decimal string without a leading zero and decodes to
 1 through 30 seconds. A user-code HTTP 404 is terminal unavailable, not a poll
 continuation.
@@ -86,13 +106,16 @@ server interval following a pending result. A poll sends one UTF-8
 `application/json` object containing exactly `device_auth_id` and `user_code`
 to `POST https://auth.openai.com/api/accounts/deviceauth/token`. HTTP 403 and
 404 are the only pending outcomes and their bodies are not read. HTTP 200 must
-carry one bounded JSON object with required `authorization_code`,
-`code_challenge`, and `code_verifier` strings. Every other status is terminal.
+carry one bounded JSON object with required `authorization_code` and
+`code_verifier` strings and, optionally, `code_challenge`. Every other member
+is ambiguous and fails closed. Every other status is terminal.
 
 The verifier is 43 through 128 RFC 7636 unreserved ASCII characters. The
-challenge is canonical unpadded base64url. Agent computes SHA-256 of the exact
-verifier, base64url-encodes it without padding, and requires exact equality with
-the returned challenge before exchange.
+optional challenge is canonical unpadded base64url. When it is present, Agent
+computes SHA-256 of the exact verifier, base64url-encodes it without padding,
+and requires exact equality before exchange. When it is absent, Agent still
+uses only the provider-returned verifier in the one token exchange; it never
+generates, substitutes, or accepts a second verifier authority.
 
 The adapter then sends exactly one UTF-8
 `application/x-www-form-urlencoded` request to
@@ -107,11 +130,11 @@ Every request uses the fixed TLS origin, port 443, no pooled agent, a bounded
 header section, one 30-second inactivity timeout, and no redirect handling.
 The complete ceremony has one 900,000-millisecond monotonic deadline. Device
 identity and authorization code are each at most 4,096 visible-ASCII bytes;
-the displayed code is at most 256 visible-ASCII bytes. A response chunk is at
-most 65,536 bytes; the user-code body is at most 8,192 bytes, the poll body at
-most 16,384 bytes, and the token body at most 131,072 bytes. Limit, transport,
-timeout, status, content-type, decode, and validation failures settle once and
-never replay a request.
+the displayed code and optional device-expiration metadata are each at most 256
+visible-ASCII bytes. A response chunk is at most 65,536 bytes; the user-code
+body is at most 8,192 bytes, the poll body at most 16,384 bytes, and the token
+body at most 131,072 bytes. Limit, transport, timeout, status, content-type,
+decode, and validation failures settle once and never replay a request.
 
 ### Token validation and publication
 
@@ -142,10 +165,10 @@ After complete validation and a final cancellation check, Agent submits one
 complete decision-0093 credential value to the still-open native mutation as
 register or replace. It persists access token, refresh token, account ID, and
 expiration only. It never persists the ID token, device identity, displayed
-code, authorization code, verifier, challenge, response object, account claims,
-email, name, plan, browser cookie, or status. Publication and terminal success
-retain the decision-0093 atomic, revision, recovery, comparison, and cleanup
-contract.
+code, provider `expires_at` metadata, authorization code, verifier, challenge,
+response object, account claims, email, name, plan, browser cookie, or status.
+Publication and terminal success retain the decision-0093 atomic, revision,
+recovery, comparison, and cleanup contract.
 
 ### Failure, privacy, and removal
 
@@ -192,11 +215,12 @@ Pure and Node-bound contract tests use synthetic non-credential sentinels and
 fake HTTPS, clock, input, output, and broker boundaries. They bind exact request
 origins, paths, methods, headers, bodies, field order, content types, response
 bounds, interval parsing, first and later poll timing, pending statuses, single
-exchange, PKCE equality, JWT syntax, duplicate response and nested claim
+exchange, the sole optional `expires_at` device member, the sole optional
+matching poll challenge, JWT syntax, duplicate response and nested claim
 authorities, account binding, expiration, cancellation, deadline, inactivity,
 cleanup, and no replay. They reject redirects, malformed or oversized values,
-wrong content types, every unexpected status, expired tokens, account conflicts,
-late events, and double settlement.
+unknown response members, wrong content types, every unexpected status, expired
+tokens, account conflicts, late events, and double settlement.
 
 Command tests bind provider selection before credential admission, unchanged
 Ollama environment dual-authority behavior, absent and present OpenAI actions,
@@ -217,13 +241,14 @@ pass offline.
 ## Update, rollback, and removal
 
 Changing the client identifier, origin, route, request or response fields,
-interval representation or range, pending statuses, first-poll timing, PKCE,
-redirect, token authentication, claim source, account binding, expiration,
-bounds, deadline, cancellation, admission, record, caller identity, disclosure,
-failure family, refresh posture, revocation posture, or local-removal semantics
-requires a successor decision plus provider policy, ownership record, security,
-privacy, architecture, maintenance, manual, source policy, and focused tests in
-the same change.
+optional device-expiration or poll-challenge admission, interval representation
+or range, pending statuses, first-poll timing, PKCE, redirect, token
+authentication, claim source, account binding, expiration, bounds, deadline,
+cancellation, admission, record, caller identity, disclosure, failure family,
+refresh posture, revocation posture, or local-removal semantics requires a
+successor decision plus provider policy, ownership record, security, privacy,
+architecture, maintenance, manual, source policy, and focused tests in the same
+change.
 
 Rollback first disables new OpenAI sign-in and sign-in-again while retaining
 local removal and the decision-0093 broker. With every OpenAI credential user

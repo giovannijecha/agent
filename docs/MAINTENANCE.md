@@ -528,15 +528,18 @@ again, and honest local-only removal. The state is
 
 Maintain decision 0094 as one serial, fixed-origin ceremony: acquire exclusive
 admission before the first request; request the device identity once; project
-only the fixed verification URL and current one-time code; poll immediately and
-then only after each admitted server interval; accept only 403 and 404 as
-pending; verify the returned S256 challenge; exchange once; derive the account
-from the ID token and expiration from the access token; close terminal input;
-then publish one complete record. Never add a browser launch, redirect, retry,
-fallback, scope, alternate caller field, environment source, or response-body
-diagnostic. Do not add refresh, revocation, provider workspace or row, catalog,
-Responses transport, runtime snapshot, or `/models` integration before their
-separate module.
+only the fixed verification URL and current one-time code; admit the three
+required device-response fields plus only bounded optional `expires_at`
+metadata and discard that metadata; poll immediately and then only after each
+admitted server interval; accept only 403 and 404 as pending; require the
+authorization code and verifier, admit only an optional S256 challenge, and
+verify that challenge when present; exchange once; derive the account from the
+ID token and expiration from the access token; close terminal input; then
+publish one complete record. Never add a browser launch, redirect, retry,
+fallback, scope, alternate caller field, environment source, open response
+schema, or response-body diagnostic. Do not add refresh, revocation, provider
+workspace or row, catalog, Responses transport, runtime snapshot, or `/models`
+integration before their separate module.
 
 For ChatGPT, Kimi, or xAI compatibility changes, recheck first-party protocol
 and client-ownership evidence, pin any necessary bounded clean-room inspection
@@ -590,9 +593,10 @@ strings, exports, commands, or general data flow.
 For every change, run the native lifecycle fixtures on Windows and Linux and
 the CLI contract tests without a real credential. OpenAI auth tests use fake
 HTTPS, clock, terminal, and broker boundaries and synthetic non-credential
-values; they must prove exact requests, bounds, timing, cancellation, PKCE,
-account binding, expiry, one settlement, and zero secret projection without a
-live provider. Prove Windows owner/DACL and
+values; they must prove exact requests, the sole optional device-expiration
+member, the sole optional matching poll challenge, bounds, timing,
+cancellation, PKCE, account binding, expiry, one settlement, and zero secret
+projection without a live provider. Prove Windows owner/DACL and
 profile-lineage behavior by driving the complete broker against a controlled
 alternate-owner profile observation and an isolated state root, plus a pre-existing
 decision-0087 state root that retains native owner/DACL metadata. Prove Linux

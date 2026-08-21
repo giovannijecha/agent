@@ -280,7 +280,10 @@ between:
 
 The session has no default provider or model. `agent auth` is the sole
 interactive credential lifecycle and runs after workspace validation but before
-the alternate screen, with no operands, journal, runtime, tools, or network.
+the alternate screen, with no operands, journal, runtime, or tools. Its Ollama
+credential path performs no network request. Its OpenAI path performs only the
+fixed-origin device, poll, and token HTTPS ceremony owned by decision 0094; it
+does not open a browser or activate provider runtime, catalog, or model traffic.
 The CLI-owned C17 broker resolves the native account home without inherited
 home text and owns the exact Ollama record, strict schema, filesystem controls,
 shared/exclusive byte-range admission, atomic mutation, recovery, and removal.

@@ -20,6 +20,7 @@ export const OPENAI_DEVICE_AUTH_LIMITS = Object.freeze({
   bodyChunkBytes: 65_536,
   ceremonyMilliseconds: 900_000,
   deviceBodyBytes: 8_192,
+  deviceExpirationBytes: 256,
   deviceIdentityBytes: 4_096,
   headerBytes: 16_384,
   inactivityMilliseconds: 30_000,
@@ -292,8 +293,15 @@ function decodeDeviceIdentity(
 ): Result<DeviceIdentity, OpenAIDeviceAuthError> {
   const parsed = parseJsonBody(body);
   if (!parsed.ok) return parsed;
+  const exactResponse = exactKeys(
+    parsed.value,
+    ["device_auth_id", "interval", "user_code"],
+  ) || exactKeys(
+    parsed.value,
+    ["device_auth_id", "expires_at", "interval", "user_code"],
+  );
   if (
-    !exactKeys(parsed.value, ["device_auth_id", "interval", "user_code"]) ||
+    !exactResponse ||
     !visibleAscii(
       parsed.value.device_auth_id,
       OPENAI_DEVICE_AUTH_LIMITS.deviceIdentityBytes,
@@ -302,6 +310,10 @@ function decodeDeviceIdentity(
       parsed.value.user_code,
       OPENAI_DEVICE_AUTH_LIMITS.userCodeBytes,
     ) ||
+    (parsed.value.expires_at !== undefined && !visibleAscii(
+      parsed.value.expires_at,
+      OPENAI_DEVICE_AUTH_LIMITS.deviceExpirationBytes,
+    )) ||
     typeof parsed.value.interval !== "string" ||
     !/^[1-9][0-9]?$/u.test(parsed.value.interval)
   ) {
@@ -464,30 +476,38 @@ function decodeAuthorizationGrant(
 ): Result<AuthorizationGrant, OpenAIDeviceAuthError> {
   const parsed = parseJsonBody(body);
   if (!parsed.ok) return parsed;
+  const exactResponse = exactKeys(parsed.value, [
+    "authorization_code",
+    "code_verifier",
+  ]) || exactKeys(parsed.value, [
+    "authorization_code",
+    "code_challenge",
+    "code_verifier",
+  ]);
   if (
-    !exactKeys(parsed.value, [
-      "authorization_code",
-      "code_challenge",
-      "code_verifier",
-    ]) ||
+    !exactResponse ||
     !visibleAscii(
       parsed.value.authorization_code,
       OPENAI_DEVICE_AUTH_LIMITS.authorizationCodeBytes,
     ) ||
     typeof parsed.value.code_verifier !== "string" ||
     !/^[A-Za-z0-9._~-]{43,128}$/u.test(parsed.value.code_verifier) ||
-    typeof parsed.value.code_challenge !== "string" ||
-    !/^[A-Za-z0-9_-]{43}$/u.test(parsed.value.code_challenge)
+    (parsed.value.code_challenge !== undefined && (
+      typeof parsed.value.code_challenge !== "string" ||
+      !/^[A-Za-z0-9_-]{43}$/u.test(parsed.value.code_challenge)
+    ))
   ) {
     return err(failure("protocol"));
   }
-  const digest = createHash("sha256")
-    .update(parsed.value.code_verifier, "utf8")
-    .digest();
-  const challenge = base64UrlEncode(digest);
-  digest.fill(0);
-  if (challenge !== parsed.value.code_challenge) {
-    return err(failure("protocol"));
+  if (parsed.value.code_challenge !== undefined) {
+    const digest = createHash("sha256")
+      .update(parsed.value.code_verifier, "utf8")
+      .digest();
+    const challenge = base64UrlEncode(digest);
+    digest.fill(0);
+    if (challenge !== parsed.value.code_challenge) {
+      return err(failure("protocol"));
+    }
   }
   return ok(Object.freeze({
     authorizationCode: parsed.value.authorization_code,

@@ -227,9 +227,9 @@ function validateProvenanceLog(policy, context) {
     "[`536f86e5cc9ec1ff38457d099bf320b9d08eeeba`](https://github.com/openai/codex/tree/536f86e5cc9ec1ff38457d099bf320b9d08eeeba) after rechecking " +
     "[OpenAI Codex authentication](https://developers.openai.com/codex/auth/) and " +
     "[authorization-server metadata](https://auth.openai.com/.well-known/openid-configuration) | " +
-    "Before reopening source, this row recorded that the public material and earlier inspection did not bind the exact device-success and poll-success response-field spellings, decimal-string interval representation, token-form field set, required token response fields, ID-token account-claim path, access-token expiration source, or first-poll timing needed to implement decision 0094. Only `codex-rs/login/src/device_code_auth.rs` and the relevant account-claim excerpts of `codex-rs/login/src/server.rs` were reopened; no tests or unrelated modules were inspected. | " +
-    "Device success carries `device_auth_id`, `user_code`, and a decimal-string `interval`; the first poll is immediate and success carries authorization code, challenge, and verifier. The public-client exchange uses authorization-code grant, the fixed device callback, client identifier, and verifier and requires ID, access, and refresh tokens. The ID token's OpenAI auth namespace supplies `chatgpt_account_id`; access-token `exp` supplies record expiration; the returned verifier must reproduce the returned S256 challenge. These protocol facts informed an independently authored decision-0094 adapter. | " +
-    "None; no implementation structure, code, test, fixture, prompt, credential schema, user agent, error text, or Codex product identity reused |";
+    "Before reopening source, this row recorded that the public material and earlier inspection did not bind the exact device-success and poll-success response-field spellings, decimal-string interval representation, token-form field set, required token response fields, ID-token account-claim path, access-token expiration source, or first-poll timing needed to implement decision 0094. Only `codex-rs/login/src/device_code_auth.rs` and the relevant account-claim excerpts of `codex-rs/login/src/server.rs` were reopened; no tests or unrelated modules were inspected. A later content-safe live reproduction retained only response family, content type, byte count, field names, and field types, then cleared the body without retaining any response value. | " +
+    "Device success requires `device_auth_id`, `user_code`, and a decimal-string `interval`; the first-party decoder does not deny other response members. The live schema additionally carried one string `expires_at`, which permits only that optional bounded and discarded member in Agent. The first poll is immediate and success carries authorization code, challenge, and verifier. The public-client exchange uses authorization-code grant, the fixed device callback, client identifier, and verifier and requires ID, access, and refresh tokens. The ID token's OpenAI auth namespace supplies `chatgpt_account_id`; access-token `exp` supplies record expiration; the returned verifier must reproduce the returned S256 challenge. These protocol facts informed an independently authored decision-0094 adapter. | " +
+    "None; no response value, implementation structure, code, test, fixture, prompt, credential schema, user agent, error text, or Codex product identity reused |";
   if (!entries.includes(openAiAuthInspectionEntry)) {
     fail("OpenAI authentication provenance contract is missing or incomplete");
   }
@@ -300,6 +300,7 @@ function validatePublicDocuments(context) {
       "Reduction is deterministic",
       "excludes every owned effect",
       "terminal output remain serialized",
+      "Its Ollama\ncredential path performs no network request. Its OpenAI path performs only the\nfixed-origin device, poll, and token HTTPS ceremony owned by decision 0094",
     ],
     "architecture",
   );
@@ -576,8 +577,10 @@ function validatePublicDocuments(context) {
       "`auth-compatible-inactive`",
       "`transport-implementation-required`",
       "The first poll is immediate.",
-      "requires exact equality with\nthe returned challenge",
+      "requires exact equality before exchange",
+      "sole optional\nmatching poll challenge",
       "`chatgpt_account_id`",
+      "admits only `expires_at` as one optional bounded member",
       "provider authorization was not revoked",
       "no OpenAI\ncatalog request, Responses request",
     ],

@@ -244,6 +244,7 @@ function successResponses(account = "synthetic-account"): FakeResponse[] {
   return [
     new FakeResponse(200, JSON.stringify({
       device_auth_id: "synthetic-device",
+      expires_at: "synthetic-expiration",
       interval: "2",
       user_code: "ABCD-EFGH",
     })),
@@ -318,6 +319,91 @@ test("performs one exact device, poll, and token exchange", async () => {
   );
   assert.deepEqual(clock.delays, [OPENAI_DEVICE_AUTH_LIMITS.ceremonyMilliseconds]);
   assert.equal(clock.registrations.at(0)?.cancelled, true);
+});
+
+test("admits only optional bounded poll challenge metadata", async () => {
+  const responses = successResponses();
+  const poll = JSON.parse(
+    responses.at(1)?.body ?? "{}",
+  ) as Record<string, unknown>;
+  delete poll.code_challenge;
+  responses.splice(1, 1, new FakeResponse(200, JSON.stringify(poll)));
+
+  const result = await new NodeOpenAIDeviceAuth(
+    new SequenceClient(responses),
+    new ManualClock(),
+  ).authenticate(new Cancellation(), () => Promise.resolve(true));
+
+  assert.ok(result.ok);
+
+  for (const additional of [
+    { code_challenge: "" },
+    { unexpected: "field" },
+  ]) {
+    const rejectedResponses = successResponses();
+    const rejectedPoll = JSON.parse(
+      rejectedResponses.at(1)?.body ?? "{}",
+    ) as Record<string, unknown>;
+    delete rejectedPoll.code_challenge;
+    Object.assign(rejectedPoll, additional);
+    rejectedResponses.splice(
+      1,
+      1,
+      new FakeResponse(200, JSON.stringify(rejectedPoll)),
+    );
+    const rejected = await new NodeOpenAIDeviceAuth(
+      new SequenceClient(rejectedResponses),
+      new ManualClock(),
+    ).authenticate(new Cancellation(), () => Promise.resolve(true));
+    assert.deepEqual(rejected, { error: { kind: "protocol" }, ok: false });
+  }
+});
+
+test("admits only bounded optional device expiration metadata", async () => {
+  const withoutExpiration = successResponses();
+  const requiredDevice = JSON.parse(
+    withoutExpiration.at(0)?.body ?? "{}",
+  ) as Record<string, unknown>;
+  delete requiredDevice.expires_at;
+  withoutExpiration.splice(
+    0,
+    1,
+    new FakeResponse(200, JSON.stringify(requiredDevice)),
+  );
+  const accepted = await new NodeOpenAIDeviceAuth(
+    new SequenceClient(withoutExpiration),
+    new ManualClock(),
+  ).authenticate(new Cancellation(), () => Promise.resolve(true));
+  assert.ok(accepted.ok);
+
+  for (const device of [
+    {
+      device_auth_id: "synthetic-device",
+      expires_at: "",
+      interval: "2",
+      user_code: "ABCD-EFGH",
+    },
+    {
+      device_auth_id: "synthetic-device",
+      expires_at: "e".repeat(
+        OPENAI_DEVICE_AUTH_LIMITS.deviceExpirationBytes + 1,
+      ),
+      interval: "2",
+      user_code: "ABCD-EFGH",
+    },
+    {
+      device_auth_id: "synthetic-device",
+      interval: "2",
+      unexpected: "field",
+      user_code: "ABCD-EFGH",
+    },
+  ]) {
+    const rejected = await new NodeOpenAIDeviceAuth(
+      new SequenceClient([new FakeResponse(200, JSON.stringify(device))]),
+      new ManualClock(),
+    ).authenticate(new Cancellation(), () => Promise.resolve(true));
+    assert.deepEqual(rejected, { error: { kind: "protocol" }, ok: false });
+  }
 });
 
 test("waits the exact interval only after a pending poll", async () => {
