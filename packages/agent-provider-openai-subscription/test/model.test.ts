@@ -1029,6 +1029,137 @@ test("preserves provider output-index order and rejects a reordered final projec
   assert.equal((await rejected.value.read()).ok, false);
 });
 
+test("rejects a message whose output index follows a function call", async () => {
+  const completedCall = Object.freeze({
+    arguments: '{"path":"AGENTS.md"}',
+    call_id: "call-alpha",
+    id: "function-alpha",
+    name: "read_file",
+    status: "completed",
+    type: "function_call",
+  });
+  const completedMessage = Object.freeze({
+    content: Object.freeze([Object.freeze({
+      annotations: Object.freeze([]),
+      text: "Too late.",
+      type: "output_text",
+    })]),
+    id: "message-alpha",
+    role: "assistant",
+    status: "completed",
+    type: "message",
+  });
+  const addedCall = event("response.output_item.added", { item: {
+    arguments: "",
+    call_id: "call-alpha",
+    id: "function-alpha",
+    name: "read_file",
+    status: "in_progress",
+    type: "function_call",
+  }, output_index: 0 });
+  const addedMessage = event("response.output_item.added", { item: {
+    content: [],
+    id: "message-alpha",
+    role: "assistant",
+    status: "in_progress",
+    type: "message",
+  }, output_index: 1 });
+  const completedEvents = event("response.function_call_arguments.done", {
+    arguments: '{"path":"AGENTS.md"}',
+    item_id: "function-alpha",
+    output_index: 0,
+  }) + event("response.output_item.done", { item: completedCall, output_index: 0 }) +
+    event("response.content_part.added", {
+      content_index: 0,
+      item_id: "message-alpha",
+      output_index: 1,
+      part: { annotations: [], text: "", type: "output_text" },
+    }) + event("response.output_text.delta", {
+      content_index: 0,
+      delta: "Too late.",
+      item_id: "message-alpha",
+      output_index: 1,
+    }) + event("response.output_text.done", {
+      content_index: 0,
+      item_id: "message-alpha",
+      output_index: 1,
+      text: "Too late.",
+    }) + event("response.content_part.done", {
+      content_index: 0,
+      item_id: "message-alpha",
+      output_index: 1,
+      part: { annotations: [], text: "Too late.", type: "output_text" },
+    }) + event("response.output_item.done", { item: completedMessage, output_index: 1 }) +
+    event("response.completed", {
+      response: response("completed", Object.freeze([completedCall, completedMessage])),
+    });
+  for (const additions of [addedCall + addedMessage, addedMessage + addedCall]) {
+    const wire = event("response.created", { response: response("in_progress") }) +
+      additions + completedEvents;
+    const model = OpenAISubscriptionModel.create(
+      new FakeTransport(ok(new FakeStream([ok(ascii(wire)), ok(null)]))),
+      "Inspect safely.",
+      MODEL,
+    );
+    assert.ok(model.ok);
+    const opened = await model.value.open(
+      conversation(),
+      new Cancellation(),
+      [descriptor()],
+      Object.freeze({ thinkingEffort: "off" as const }),
+    );
+    assert.ok(opened.ok);
+    assert.equal((await opened.value.read()).ok, false);
+  }
+});
+
+test("rejects reasoning whose output index follows a function call", async () => {
+  const addedCall = event("response.output_item.added", { item: {
+    arguments: "",
+    call_id: "call-alpha",
+    id: "function-alpha",
+    name: "read_file",
+    status: "in_progress",
+    type: "function_call",
+  }, output_index: 0 });
+  const addedReasoning = event("response.output_item.added", { item: {
+    content: [],
+    id: "reasoning-alpha",
+    status: "in_progress",
+    summary: [],
+    type: "reasoning",
+  }, output_index: 1 });
+  const reasoningDelta = event("response.reasoning_summary_part.added", {
+    item_id: "reasoning-alpha",
+    output_index: 1,
+    summary_index: 0,
+    part: { text: "", type: "summary_text" },
+  }) + event("response.reasoning_summary_text.delta", {
+    delta: "Too late.",
+    item_id: "reasoning-alpha",
+    output_index: 1,
+    summary_index: 0,
+  });
+  for (const additions of [addedCall + addedReasoning, addedReasoning + addedCall]) {
+    const wire = event("response.created", { response: response("in_progress") }) +
+      additions + reasoningDelta;
+    const model = OpenAISubscriptionModel.create(
+      new FakeTransport(ok(new FakeStream([ok(ascii(wire)), ok(null)]))),
+      "Inspect safely.",
+      MODEL,
+    );
+    assert.ok(model.ok);
+    const opened = await model.value.open(
+      conversation(),
+      new Cancellation(),
+      [descriptor()],
+      Object.freeze({ thinkingEffort: "low" as const }),
+    );
+    assert.ok(opened.ok);
+    assert.equal((await opened.value.read()).ok, false);
+  }
+});
+
 test("rejects a completed response output that omits or contradicts staged items", async () => {
   const contradictory = Object.freeze({
     content: Object.freeze([Object.freeze({

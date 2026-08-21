@@ -231,6 +231,9 @@ The admitted lifecycle is:
    item, content-part, reasoning-part, and function-argument lifecycle events
    may advance only their declared phase; an added reasoning item requires an
    exact empty summary, absent or exact empty content, and no encrypted content;
+   every reasoning or message output index must precede every function-call
+   output index regardless of item-addition event order, so post-call visible
+   output fails before any delta or call batch can be published;
 3. non-empty `response.reasoning_summary_text.delta` and
    `response.reasoning_text.delta` values become runtime reasoning deltas before
    answer text starts;
@@ -336,7 +339,8 @@ Red-green regression must prove:
   names, rejection of a missing argument-done phase, early completed-argument
   call-count and aggregate retention bounds, nullable pre-terminal
   usage, strict terminal usage, completion,
-  cancellation, timeout, and one large frame fragmented into single-code-unit
+  cancellation, timeout, rejection of visible output indexed after a function
+  call in either item-addition order, and one large frame fragmented into single-code-unit
   chunks without whole-buffer rescanning; HTTPS and injected chunks reject the
   65,536-byte bound and ignore overridden source iterators before UTF-8 decode;
   Responses admission contains throwing status and header getters with paired

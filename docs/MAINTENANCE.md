@@ -583,7 +583,9 @@ reject nonempty or malformed reasoning content at item addition, reject every
 reasoning item and delta when the captured effort is off, require the sole
 completed message content part to retain streamed index zero, retain
 `response.completed` as provisional until clean EOF,
-compare its provider-ordered output with every completed item, and regress
+require every reasoning or message output index to precede every function-call
+output index regardless of item-addition order, compare its provider-ordered
+output with every completed item, and regress
 missing, malformed, contradictory, reordered, and trailing-frame cases before
 publishing `done` or `toolCalls`. For tool-schema changes, preserve every owned
 string, NUL, UTF-8, projection, and aggregate-text constraint in the advertised

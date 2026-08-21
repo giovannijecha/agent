@@ -218,6 +218,10 @@ before retention or UTF-8 decoding; a source iterator is never consulted.
 SSE boundary discovery examines each new chunk with only the retained three-
 code-unit suffix; repeated `needMore` outcomes never rescan the whole partial
 frame.
+The ordered output projection admits reasoning and message items only before
+the function-call phase. A reasoning or message `output_index` after any
+function call fails closed at item addition, independent of event arrival
+order, before a text delta or tool-call batch can be published.
 
 OpenAI remains blocked by `runtime-integration-required`. Its refresh lifecycle,
 exclusive runtime composition, `/models` integration, and live smoke must

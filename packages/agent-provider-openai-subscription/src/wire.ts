@@ -553,6 +553,13 @@ export class OpenAIResponsesDecoder {
       this.#outputIndices.has(parsed.output_index)) {
       return this.#reject("protocolMessage");
     }
+    for (const existing of this.#outputs.values()) {
+      const visibleAfterCall = parsed.item.type !== "function_call" &&
+        existing.kind === "function_call" && existing.outputIndex < parsed.output_index;
+      const callBeforeVisible = parsed.item.type === "function_call" &&
+        existing.kind !== "function_call" && existing.outputIndex > parsed.output_index;
+      if (visibleAfterCall || callBeforeVisible) return this.#reject("protocolMessage");
+    }
     if (parsed.item.type === "message" &&
       (parsed.item.role !== "assistant" || !Array.isArray(parsed.item.content) ||
         parsed.item.content.length !== 0)) return this.#reject("protocolMessage");
