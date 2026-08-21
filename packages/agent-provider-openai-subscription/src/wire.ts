@@ -238,6 +238,25 @@ function outputKind(value: unknown): value is OutputKind {
   return value === "function_call" || value === "message" || value === "reasoning";
 }
 
+function validCompletedTextParts(
+  value: unknown,
+  phase: PartPhase,
+  index: number | undefined,
+  type: "reasoning_text" | "summary_text",
+  text: string,
+  optionalWhenEmpty: boolean,
+): boolean {
+  if (phase === "none") {
+    return index === undefined &&
+      (optionalWhenEmpty && value === undefined || Array.isArray(value) && value.length === 0);
+  }
+  if (phase !== "done" || index !== 0 || !Array.isArray(value) || value.length !== 1) {
+    return false;
+  }
+  const part = value.at(0);
+  return isRecord(part) && part.type === type && part.text === text;
+}
+
 /** Stateful decoder for the strict Responses SSE event subset. */
 export class OpenAIResponsesDecoder {
   readonly #exposeReasoning: boolean;
@@ -541,9 +560,22 @@ export class OpenAIResponsesDecoder {
       return this.#reject("protocolMessage");
     }
     if (value.type === "reasoning") {
-      if (value.encrypted_content !== undefined || !Array.isArray(value.summary) ||
-        (state.summaryPhase !== "none" && state.summaryPhase !== "done") ||
-        (state.contentPhase !== "none" && state.contentPhase !== "done")) {
+      if (value.encrypted_content !== undefined ||
+        !validCompletedTextParts(
+          value.summary,
+          state.summaryPhase,
+          state.summaryIndex,
+          "summary_text",
+          state.summaryText,
+          false,
+        ) || !validCompletedTextParts(
+          value.content,
+          state.contentPhase,
+          state.contentIndex,
+          "reasoning_text",
+          state.contentText,
+          true,
+        )) {
         return this.#reject("protocolMessage");
       }
       state.done = true;

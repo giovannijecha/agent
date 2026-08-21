@@ -320,7 +320,32 @@ test("normalizes reasoning before answer and one bounded function-call batch", a
       summary_index: 0,
       part: { type: "summary_text", text: "Checking." },
     }) +
+    event("response.content_part.added", {
+      content_index: 0,
+      item_id: "reasoning-alpha",
+      output_index: 0,
+      part: { type: "reasoning_text", text: "" },
+    }) +
+    event("response.reasoning_text.delta", {
+      content_index: 0,
+      item_id: "reasoning-alpha",
+      output_index: 0,
+      delta: "Internal.",
+    }) +
+    event("response.reasoning_text.done", {
+      content_index: 0,
+      item_id: "reasoning-alpha",
+      output_index: 0,
+      text: "Internal.",
+    }) +
+    event("response.content_part.done", {
+      content_index: 0,
+      item_id: "reasoning-alpha",
+      output_index: 0,
+      part: { type: "reasoning_text", text: "Internal." },
+    }) +
     event("response.output_item.done", { item: {
+      content: [{ type: "reasoning_text", text: "Internal." }],
       id: "reasoning-alpha",
       type: "reasoning",
       status: "completed",
@@ -368,6 +393,10 @@ test("normalizes reasoning before answer and one bounded function-call batch", a
   assert.deepEqual(await opened.value.read(), {
     ok: true,
     value: { kind: "reasoningDelta", text: "Checking." },
+  });
+  assert.deepEqual(await opened.value.read(), {
+    ok: true,
+    value: { kind: "reasoningDelta", text: "Internal." },
   });
   const completed = await opened.value.read();
   assert.ok(completed.ok && completed.value.kind === "toolCalls");
@@ -428,6 +457,100 @@ test("preserves provider output-index order when tool items complete out of orde
   const completed = await opened.value.read();
   assert.ok(completed.ok && completed.value.kind === "toolCalls");
   assert.deepEqual(completed.value.calls.map((call) => call.callId), ["call-zero", "call-one"]);
+});
+
+test("rejects completed reasoning payloads that contradict streamed parts", async () => {
+  const summaryEvents = event("response.reasoning_summary_part.added", {
+    item_id: "reasoning-alpha",
+    output_index: 0,
+    summary_index: 0,
+    part: { type: "summary_text", text: "" },
+  }) + event("response.reasoning_summary_text.delta", {
+    item_id: "reasoning-alpha",
+    output_index: 0,
+    summary_index: 0,
+    delta: "Checking.",
+  }) + event("response.reasoning_summary_text.done", {
+    item_id: "reasoning-alpha",
+    output_index: 0,
+    summary_index: 0,
+    text: "Checking.",
+  }) + event("response.reasoning_summary_part.done", {
+    item_id: "reasoning-alpha",
+    output_index: 0,
+    summary_index: 0,
+    part: { type: "summary_text", text: "Checking." },
+  });
+  const contentEvents = event("response.content_part.added", {
+    content_index: 0,
+    item_id: "reasoning-alpha",
+    output_index: 0,
+    part: { type: "reasoning_text", text: "" },
+  }) + event("response.reasoning_text.delta", {
+    content_index: 0,
+    item_id: "reasoning-alpha",
+    output_index: 0,
+    delta: "Internal.",
+  }) + event("response.reasoning_text.done", {
+    content_index: 0,
+    item_id: "reasoning-alpha",
+    output_index: 0,
+    text: "Internal.",
+  }) + event("response.content_part.done", {
+    content_index: 0,
+    item_id: "reasoning-alpha",
+    output_index: 0,
+    part: { type: "reasoning_text", text: "Internal." },
+  });
+  const cases = Object.freeze([
+    Object.freeze({
+      content: "",
+      final: Object.freeze({
+        summary: Object.freeze([Object.freeze({ type: "summary_text", text: "Different." })]),
+      }),
+    }),
+    Object.freeze({
+      content: "",
+      final: Object.freeze({ summary: Object.freeze([null]) }),
+    }),
+    Object.freeze({
+      content: contentEvents,
+      final: Object.freeze({
+        content: Object.freeze([Object.freeze({ type: "reasoning_text", text: "Different." })]),
+        summary: Object.freeze([Object.freeze({ type: "summary_text", text: "Checking." })]),
+      }),
+    }),
+  ]);
+  for (const candidate of cases) {
+    const wire = event("response.created", { response: response("in_progress") }) +
+      event("response.output_item.added", { item: {
+        id: "reasoning-alpha",
+        type: "reasoning",
+        status: "in_progress",
+        summary: [],
+      }, output_index: 0 }) + summaryEvents + candidate.content +
+      event("response.output_item.done", { item: {
+        id: "reasoning-alpha",
+        type: "reasoning",
+        status: "completed",
+        ...candidate.final,
+      }, output_index: 0 }) +
+      event("response.completed", { response: response("completed") });
+    const model = OpenAISubscriptionModel.create(
+      new FakeTransport(ok(new FakeStream([ok(ascii(wire)), ok(null)]))),
+      "Inspect safely.",
+      MODEL,
+    );
+    assert.ok(model.ok);
+    const opened = await model.value.open(
+      conversation(),
+      new Cancellation(),
+      [],
+      Object.freeze({ thinkingEffort: "off" as const }),
+    );
+    assert.ok(opened.ok);
+    assert.equal((await opened.value.read()).ok, false);
+  }
 });
 
 test("fails closed on terminal errors, unknown events, and invalid response metadata", async () => {
