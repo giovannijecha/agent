@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 
+export const PROVIDER_POLICY_SCHEMA_VERSION = 14;
+
 const OPENAI_SUBMISSION_URL =
   "https://community.openai.com/t/independent-native-oauth-public-client-registration-request-for-agent/1389585";
 const CLAUDE_SUBMISSION_REFERENCE =
@@ -835,7 +837,7 @@ function validateRegistry(policy) {
     ],
     "provider policy",
   );
-  if (policy.schemaVersion !== 14) {
+  if (policy.schemaVersion !== PROVIDER_POLICY_SCHEMA_VERSION) {
     fail("unsupported provider policy schema");
   }
   assertExactKeys(

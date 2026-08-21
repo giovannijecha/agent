@@ -691,6 +691,7 @@ test("rejects direct provider admission contract drift", () => {
     "Decision 0094 activates its fixed-origin device login",
     "The contract is now `auth-compatible-inactive`",
     "OpenAI remains blocked by `transport-implementation-required`.",
+    "`tools/provider-policy.json` schema version 14",
   ]) {
     const context = currentContext();
     context.files["docs/PROVIDERS.md"] = providers.replaceAll(

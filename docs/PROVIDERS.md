@@ -172,7 +172,7 @@ Claude remains subject to the original independent-registration gate.
 
 ## Machine gate
 
-`tools/provider-policy.json` schema version 13 records the four runtime-inactive OAuth
+`tools/provider-policy.json` schema version 14 records the four runtime-inactive OAuth
 providers, the one exact enabled direct provider, the accepted-runtime-inactive
 compatibility category, and one exact `auth-compatible-inactive` OpenAI
 subscription contract. It pins the fixed chat and

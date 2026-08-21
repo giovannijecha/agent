@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 
+import { PROVIDER_POLICY_SCHEMA_VERSION } from "./provider-policy.mjs";
+
 const EXPECTED_PROJECT = Object.freeze({
   name: "agent",
   repository: "giovannijecha/agent",
@@ -522,6 +524,8 @@ function validatePublicDocuments(context) {
       "Decision 0094 activates its fixed-origin device login",
       "The contract is now `auth-compatible-inactive`",
       "OpenAI remains blocked by `transport-implementation-required`.",
+      "`tools/provider-policy.json` schema version " +
+      String(PROVIDER_POLICY_SCHEMA_VERSION),
     ],
     "direct provider policy",
   );
