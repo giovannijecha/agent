@@ -147,36 +147,38 @@ token, catalog, Responses, future record, admission, and removal boundaries are
 reviewable before implementation. Decision 0091 permits provider-owned public-
 client compatibility, and decision 0092 records OpenAI's exact non-secret
 public client, device request, callback, pending statuses, and truthful caller
-rule. The contract is now `identity-compatible-inactive`: identity is accepted,
-but it still exposes no product workspace, created credential path, network
-request, provider or model row, or runtime composition.
+rule. Decision 0093 implements the exact OpenAI record and private native
+lifecycle. The contract is now `credential-compatible-inactive`: current
+commands do not call that adapter, and there is still no network request,
+provider workspace, provider or model row, or runtime composition.
 
-OpenAI remains blocked by `credential-implementation-required`. Its native
-record, `agent auth` ceremony, adapter, integration, and live smoke must arrive
-as the separate serial modules required by decisions 0090 through 0092, each
+OpenAI remains blocked by `auth-implementation-required`. Its `agent auth`
+ceremony, provider adapter, integration, and live smoke must arrive as the
+remaining serial modules required by decisions 0090 through 0093, each
 with its own threat model, offline contract tests, rollback, and removal path.
 Claude remains subject to the original independent-registration gate.
 
 ## Machine gate
 
-`tools/provider-policy.json` schema version 10 records the four inactive OAuth
+`tools/provider-policy.json` schema version 11 records the four inactive OAuth
 providers, the one exact enabled direct provider, the accepted-runtime-inactive
-compatibility category, and one exact `identity-compatible-inactive` OpenAI
+compatibility category, and one exact `credential-compatible-inactive` OpenAI
 subscription contract. It pins the fixed chat and
 authenticated catalog endpoints, bearer authentication, dynamic catalog
 authority, cloud cost class, native `application/json` streaming transport,
 line-delimited object contract, environment variable, exact owned record,
 shared/exclusive admission, external auth command, exact provider workspace,
-and the non-active OpenAI decisions, routes, future record, exclusive admission,
+and the non-active OpenAI decisions, routes, implemented record, exclusive admission,
 exact provider-owned public client, one-field device request, empty requested-
 scope set, callback, poll settlement, public-client token authentication,
 truthful `agent` caller identity, and compatibility disclosure. Canonical verification
 rejects unregistered provider workspaces, OAuth identifiers, subscription
 endpoints, ambient network capabilities, foreign credential stores, borrowed
 product identity, endpoint drift, model-authority drift, and credential-
-persistence drift. OpenAI literals remain forbidden in product source while its
-contract is inactive; reviewed Ollama literals are admitted only in their exact
-source files.
+persistence drift. OpenAI credential literals are admitted only in the exact
+reviewed broker, protocol, adapter, and test files; endpoints, client identity,
+provider workspace, foreign storage, and network authority remain forbidden in
+product source. Reviewed Ollama literals remain confined to their exact files.
 
 One concrete provider does not authorize a generic provider framework,
 arbitrary base URL, unregistered model selector, generic key store, local-server mode,
@@ -212,9 +214,10 @@ exclusive admission and never waits, polls, steals, or retries. A durable record
 and `AGENT_OLLAMA_API_KEY` together fail as dual authority before payload read;
 neither source has precedence and neither is imported. Decision 0088 remains
 historical and decision 0089 owns the active external-authentication boundary.
-Decisions 0090 through 0092 specify a future provider-specific OpenAI OAuth
-record and accept its provider-owned public-client identity, but do not create
-the record, admit an environment authority, or change current operator data.
+Decisions 0090 through 0093 specify and implement the provider-specific OpenAI
+OAuth record and accept its provider-owned public-client identity. No current
+command invokes the OpenAI broker adapter; there is no environment authority,
+login ceremony, provider request, or change to current operator data.
 
 ## Primary references
 

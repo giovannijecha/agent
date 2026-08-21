@@ -99,7 +99,7 @@ test("accepts the canonical compatibility, blocked, and direct provider registry
   assert.deepEqual(
     currentPolicy.providers.map((provider) => provider.blocker),
     [
-      "credential-implementation-required",
+      "auth-implementation-required",
       "independent-client-authorization-required",
       "compatibility-contract-required",
       "compatibility-contract-required",
@@ -107,13 +107,14 @@ test("accepts the canonical compatibility, blocked, and direct provider registry
   );
 });
 
-test("binds the accepted OpenAI public-client identity without activating runtime", () => {
+test("binds the OpenAI identity and credential record without activating runtime", () => {
   assert.deepEqual(currentPolicy.subscriptionContracts, [
     {
       id: "chatgpt",
       decision: "0090",
       identityDecision: "0092",
-      state: "identity-compatible-inactive",
+      credentialDecision: "0093",
+      state: "credential-compatible-inactive",
       flow: "openai-device-code-plus-oauth-pkce",
       issuer: "https://auth.openai.com",
       deviceCodeEndpoint:
@@ -142,7 +143,22 @@ test("binds the accepted OpenAI public-client identity without activating runtim
       disclosure: "independent-compatibility-not-provider-endorsement",
       clientRegistrationEndpoint: null,
       credentialRecord: "~/.agent/credentials/openai.oauth",
+      credentialRecoveryRecords: [
+        "~/.agent/credentials/.openai.oauth.pending",
+        "~/.agent/credentials/.openai.oauth.retired",
+      ],
+      credentialEnvironment: null,
       credentialAdmission: "exclusive-session-and-mutation",
+      credentialProtocol: {
+        requestKinds: [7, 8, 9, 10, 11, 12],
+        responseKind: 13,
+        envelopeBytes: 20,
+        maxPayloadBytes: 65812,
+        headerBytes: 256,
+        maxRecordBytes: 66048,
+        payloadSyntax: "visible-ascii-0x21-0x7e",
+        revisionOwner: "native-broker",
+      },
       modelAuthority: "authenticated-catalog",
       transport: "openai-responses-sse",
       evidence: "https://learn.chatgpt.com/docs/app-server",
@@ -156,6 +172,7 @@ test("binds the accepted OpenAI public-client identity without activating runtim
 test("rejects drift that would activate or misidentify the OpenAI OAuth contract", () => {
   for (const [field, value] of [
     ["state", "enabled"],
+    ["credentialDecision", "0092"],
     ["clientId", "foreign-application"],
     ["clientType", "agent-owned-client"],
     ["clientIdentityAuthority", "borrowed-codex-client"],
@@ -171,6 +188,9 @@ test("rejects drift that would activate or misidentify the OpenAI OAuth contract
     ["disclosure", "official-openai-client"],
     ["clientRegistrationEndpoint", "https://example.com/register"],
     ["credentialAdmission", "shared-session"],
+    ["credentialEnvironment", "OPENAI_TOKEN"],
+    ["credentialRecoveryRecords", []],
+    ["credentialProtocol", { requestKinds: [7] }],
     ["chatEndpoint", "https://api.openai.com/v1/responses"],
   ]) {
     const drifted = structuredClone(currentPolicy);

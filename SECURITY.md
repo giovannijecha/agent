@@ -144,9 +144,13 @@ current source, credential namespace, request, or provider selection; a third-
 party-only client ID, foreign caller field, or foreign credential fails closed.
 Decision 0092 accepts the exact OpenAI provider-owned non-secret public client,
 one-field device request, callback, poll statuses, PKCE, and `agent`-or-omitted
-caller rule only in machine and documentation authority. The product scanner
-continues to reject every OpenAI identifier and OAuth field until the separate
-credential implementation gate changes that exact inventory.
+caller rule only in machine and documentation authority. Decision 0093 adds
+only the exact OpenAI record, independent lock, exclusive snapshot and mutation
+admission, atomic lifecycle, recovery, and local removal to the existing native
+broker. Current composition does not call it. The product scanner admits those
+credential spellings only in exact reviewed broker files and continues to
+reject OpenAI endpoints, client-identity use, network authority, provider
+workspaces, foreign stores, and foreign caller fields.
 The single `shell` capability admits one exactly
 approved bounded command through the fixed profile-free platform shell, a
 controlled environment that excludes provider credentials, and owned

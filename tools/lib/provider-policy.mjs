@@ -13,7 +13,7 @@ const EXPECTED_PROVIDERS = [
     id: "chatgpt",
     displayName: "ChatGPT Plus/Pro",
     eligibility: "blocked",
-    blocker: "credential-implementation-required",
+    blocker: "auth-implementation-required",
     request: {
       state: "submitted",
       kind: "public-client-authorization-inquiry",
@@ -116,7 +116,8 @@ const EXPECTED_SUBSCRIPTION_CONTRACTS = [
     id: "chatgpt",
     decision: "0090",
     identityDecision: "0092",
-    state: "identity-compatible-inactive",
+    credentialDecision: "0093",
+    state: "credential-compatible-inactive",
     flow: "openai-device-code-plus-oauth-pkce",
     issuer: "https://auth.openai.com",
     deviceCodeEndpoint:
@@ -145,7 +146,22 @@ const EXPECTED_SUBSCRIPTION_CONTRACTS = [
     disclosure: "independent-compatibility-not-provider-endorsement",
     clientRegistrationEndpoint: null,
     credentialRecord: "~/.agent/credentials/openai.oauth",
+    credentialRecoveryRecords: [
+      "~/.agent/credentials/.openai.oauth.pending",
+      "~/.agent/credentials/.openai.oauth.retired",
+    ],
+    credentialEnvironment: null,
     credentialAdmission: "exclusive-session-and-mutation",
+    credentialProtocol: {
+      requestKinds: [7, 8, 9, 10, 11, 12],
+      responseKind: 13,
+      envelopeBytes: 20,
+      maxPayloadBytes: 65812,
+      headerBytes: 256,
+      maxRecordBytes: 66048,
+      payloadSyntax: "visible-ascii-0x21-0x7e",
+      revisionOwner: "native-broker",
+    },
     modelAuthority: "authenticated-catalog",
     transport: "openai-responses-sse",
     evidence: "https://learn.chatgpt.com/docs/app-server",
@@ -220,6 +236,34 @@ const EXPECTED_WORKSPACES = [
 ];
 
 const APPROVED_SOURCE_LITERALS = Object.freeze({
+  "packages/agent-cli/native/credential-broker/credential-store.c": [
+    "OPENAI",
+    "openai",
+    "oauth",
+  ],
+  "packages/agent-cli/native/credential-broker/credential-store.h": [
+    "OPENAI",
+  ],
+  "packages/agent-cli/native/credential-broker/main.c": ["OPENAI"],
+  "packages/agent-cli/src/credential-broker-protocol.ts": [
+    "OpenAI",
+    "openAI",
+    "accessToken",
+    "refreshToken",
+  ],
+  "packages/agent-cli/src/credential-broker.ts": ["OpenAI", "openAI"],
+  "packages/agent-cli/test/credential-broker-protocol.test.ts": [
+    "OpenAI",
+    "openAI",
+    "accessToken",
+    "refreshToken",
+  ],
+  "packages/agent-cli/test/credential-broker.test.ts": [
+    "OpenAI",
+    "openAI",
+    "accessToken",
+    "refreshToken",
+  ],
   "packages/agent-cli/src/node-ollama-cloud-transport.ts": ["Bearer "],
   "packages/agent-cli/test/node-ollama-cloud-transport.test.ts": ["Bearer "],
   "packages/agent-cli/src/node-ollama-model-catalog.ts": ["Bearer "],
@@ -227,15 +271,15 @@ const APPROVED_SOURCE_LITERALS = Object.freeze({
 });
 
 const EXPECTED_SENSITIVE_STATE_OCCURRENCES = Object.freeze({
-  "packages/agent-cli/native/credential-broker/credential-store.c": "AGENT_CREDENTIAL_ABSENT=1;AGENT_CREDENTIAL_BUSY=1;AGENT_CREDENTIAL_CANCEL=1;AGENT_CREDENTIAL_CANCELLED=1;AGENT_CREDENTIAL_DUAL_AUTHORITY=1;AGENT_CREDENTIAL_FIXTURE=11;AGENT_CREDENTIAL_HEADER_MAX_BYTES=5;AGENT_CREDENTIAL_INVALID_STATE=4;AGENT_CREDENTIAL_INVALID_VALUE=2;AGENT_CREDENTIAL_KEY_MAX_BYTES=2;AGENT_CREDENTIAL_MAX_REVISION=4;AGENT_CREDENTIAL_PRESENT=1;AGENT_CREDENTIAL_RECORD_MAX_BYTES=6;AGENT_CREDENTIAL_REGISTER=5;AGENT_CREDENTIAL_REGISTERED=1;AGENT_CREDENTIAL_REMOVE=2;AGENT_CREDENTIAL_REMOVED=1;AGENT_CREDENTIAL_REPLACE=4;AGENT_CREDENTIAL_REPLACED=1;agent_credential_request_kind=1;agent_credential_response_kind=2;agent_credential_session=21;agent_credential_store_close=22;AGENT_CREDENTIAL_STORE_FAILURE=6;agent_credential_store_mutate=1;agent_credential_store_open=1;AGENT_CREDENTIAL_VALUE=1;credential=3;credentials=31;GetTokenInformation=2;OpenProcessToken=1;token=6;TOKEN_QUERY=1;TOKEN_USER=1;TokenUser=2",
-  "packages/agent-cli/native/credential-broker/credential-store.h": "AGENT_CREDENTIAL_ABSENT=1;AGENT_CREDENTIAL_BUSY=1;AGENT_CREDENTIAL_CANCEL=1;AGENT_CREDENTIAL_CANCELLED=1;AGENT_CREDENTIAL_DUAL_AUTHORITY=1;AGENT_CREDENTIAL_INVALID_STATE=1;AGENT_CREDENTIAL_INVALID_VALUE=1;AGENT_CREDENTIAL_KEY_MAX_BYTES=1;AGENT_CREDENTIAL_OPEN_MUTATION=1;AGENT_CREDENTIAL_PRESENT=1;AGENT_CREDENTIAL_REGISTER=1;AGENT_CREDENTIAL_REGISTERED=1;AGENT_CREDENTIAL_REMOVE=1;AGENT_CREDENTIAL_REMOVED=1;AGENT_CREDENTIAL_REPLACE=1;AGENT_CREDENTIAL_REPLACED=1;agent_credential_request_kind=2;agent_credential_response_kind=3;agent_credential_session=4;AGENT_CREDENTIAL_SNAPSHOT=1;agent_credential_store_close=1;AGENT_CREDENTIAL_STORE_FAILURE=1;AGENT_CREDENTIAL_STORE_H=2;agent_credential_store_mutate=1;agent_credential_store_open=1;AGENT_CREDENTIAL_VALUE=1",
-  "packages/agent-cli/native/credential-broker/main.c": "AGENT_CREDENTIAL_ABSENT=1;AGENT_CREDENTIAL_CANCEL=1;AGENT_CREDENTIAL_HEADER_BYTES=3;AGENT_CREDENTIAL_KEY_MAX_BYTES=2;AGENT_CREDENTIAL_OPEN_MUTATION=2;AGENT_CREDENTIAL_PRESENT=1;AGENT_CREDENTIAL_REGISTER=2;AGENT_CREDENTIAL_REPLACE=1;agent_credential_request=5;agent_credential_request_kind=2;agent_credential_response_kind=2;agent_credential_session=1;AGENT_CREDENTIAL_SNAPSHOT=2;agent_credential_store_close=5;AGENT_CREDENTIAL_STORE_FAILURE=1;agent_credential_store_mutate=1;agent_credential_store_open=1;AGENT_CREDENTIAL_VALUE=2;credential=1",
+  "packages/agent-cli/native/credential-broker/credential-store.c": "AGENT_CREDENTIAL_ABSENT=1;AGENT_CREDENTIAL_BUSY=1;AGENT_CREDENTIAL_CANCEL=1;AGENT_CREDENTIAL_CANCELLED=1;AGENT_CREDENTIAL_DUAL_AUTHORITY=1;AGENT_CREDENTIAL_FIXTURE=11;AGENT_CREDENTIAL_HEADER_MAX_BYTES=8;AGENT_CREDENTIAL_INVALID_STATE=4;AGENT_CREDENTIAL_INVALID_VALUE=2;AGENT_CREDENTIAL_KEY_MAX_BYTES=8;AGENT_CREDENTIAL_MAX_REVISION=8;AGENT_CREDENTIAL_OLLAMA_RECORD_MAX_BYTES=4;AGENT_CREDENTIAL_OPEN_MUTATION=2;AGENT_CREDENTIAL_OPENAI_ACCOUNT_MAX_BYTES=3;AGENT_CREDENTIAL_OPENAI_CANCEL=1;AGENT_CREDENTIAL_OPENAI_ENVELOPE_BYTES=8;AGENT_CREDENTIAL_OPENAI_OPEN_MUTATION=2;AGENT_CREDENTIAL_OPENAI_PAYLOAD_MAX_BYTES=1;AGENT_CREDENTIAL_OPENAI_RECORD_MAX_BYTES=6;AGENT_CREDENTIAL_OPENAI_REGISTER=1;AGENT_CREDENTIAL_OPENAI_REMOVE=1;AGENT_CREDENTIAL_OPENAI_REPLACE=1;AGENT_CREDENTIAL_OPENAI_SNAPSHOT=1;AGENT_CREDENTIAL_OPENAI_VALUE=1;AGENT_CREDENTIAL_PRESENT=1;agent_credential_profile=6;AGENT_CREDENTIAL_PROFILE_OLLAMA=17;AGENT_CREDENTIAL_PROFILE_OPENAI=4;AGENT_CREDENTIAL_REGISTER=1;AGENT_CREDENTIAL_REGISTERED=1;AGENT_CREDENTIAL_REMOVE=1;AGENT_CREDENTIAL_REMOVED=1;AGENT_CREDENTIAL_REPLACE=1;AGENT_CREDENTIAL_REPLACED=1;agent_credential_request_kind=2;agent_credential_response_kind=2;agent_credential_session=21;AGENT_CREDENTIAL_SNAPSHOT=1;agent_credential_store_close=22;AGENT_CREDENTIAL_STORE_FAILURE=6;agent_credential_store_mutate=1;agent_credential_store_open=1;AGENT_CREDENTIAL_VALUE=1;credential=5;credentials=31;GetTokenInformation=2;oauth=19;OpenProcessToken=1;token=6;TOKEN_QUERY=1;TOKEN_USER=1;TokenUser=2",
+  "packages/agent-cli/native/credential-broker/credential-store.h": "AGENT_CREDENTIAL_ABSENT=1;AGENT_CREDENTIAL_BUSY=1;AGENT_CREDENTIAL_CANCEL=1;AGENT_CREDENTIAL_CANCELLED=1;AGENT_CREDENTIAL_DUAL_AUTHORITY=1;AGENT_CREDENTIAL_INVALID_STATE=1;AGENT_CREDENTIAL_INVALID_VALUE=1;AGENT_CREDENTIAL_KEY_MAX_BYTES=1;AGENT_CREDENTIAL_OPEN_MUTATION=1;AGENT_CREDENTIAL_OPENAI_ACCOUNT_MAX_BYTES=1;AGENT_CREDENTIAL_OPENAI_CANCEL=1;AGENT_CREDENTIAL_OPENAI_OPEN_MUTATION=1;AGENT_CREDENTIAL_OPENAI_PAYLOAD_MAX_BYTES=1;AGENT_CREDENTIAL_OPENAI_REGISTER=1;AGENT_CREDENTIAL_OPENAI_REMOVE=1;AGENT_CREDENTIAL_OPENAI_REPLACE=1;AGENT_CREDENTIAL_OPENAI_SNAPSHOT=1;AGENT_CREDENTIAL_OPENAI_VALUE=1;AGENT_CREDENTIAL_PRESENT=1;AGENT_CREDENTIAL_REGISTER=1;AGENT_CREDENTIAL_REGISTERED=1;AGENT_CREDENTIAL_REMOVE=1;AGENT_CREDENTIAL_REMOVED=1;AGENT_CREDENTIAL_REPLACE=1;AGENT_CREDENTIAL_REPLACED=1;agent_credential_request_kind=3;agent_credential_response_kind=3;agent_credential_session=4;AGENT_CREDENTIAL_SNAPSHOT=1;agent_credential_store_close=1;AGENT_CREDENTIAL_STORE_FAILURE=1;AGENT_CREDENTIAL_STORE_H=2;agent_credential_store_mutate=1;agent_credential_store_open=1;AGENT_CREDENTIAL_VALUE=1",
+  "packages/agent-cli/native/credential-broker/main.c": "AGENT_CREDENTIAL_ABSENT=1;AGENT_CREDENTIAL_HEADER_BYTES=3;AGENT_CREDENTIAL_KEY_MAX_BYTES=1;AGENT_CREDENTIAL_OPEN_MUTATION=3;AGENT_CREDENTIAL_OPENAI_CANCEL=1;AGENT_CREDENTIAL_OPENAI_OPEN_MUTATION=2;AGENT_CREDENTIAL_OPENAI_PAYLOAD_MAX_BYTES=2;AGENT_CREDENTIAL_OPENAI_REGISTER=1;AGENT_CREDENTIAL_OPENAI_REPLACE=1;AGENT_CREDENTIAL_OPENAI_SNAPSHOT=3;AGENT_CREDENTIAL_OPENAI_VALUE=2;AGENT_CREDENTIAL_PRESENT=1;AGENT_CREDENTIAL_REGISTER=2;AGENT_CREDENTIAL_REPLACE=1;agent_credential_request=5;agent_credential_request_kind=2;agent_credential_response_kind=2;agent_credential_session=1;AGENT_CREDENTIAL_SNAPSHOT=4;agent_credential_store_close=5;AGENT_CREDENTIAL_STORE_FAILURE=1;agent_credential_store_mutate=1;agent_credential_store_open=1;AGENT_CREDENTIAL_VALUE=3;credential=1",
   "packages/agent-cli/native/process-broker/backend-linux.c": "agent_linux_token_present=2;token=3;token_length=3",
   "packages/agent-cli/src/application.ts": "activeAuthenticated=3;auth=2;authenticated=12;authentication=6;createNoticeToken=2;noticeToken=6;NoticeToken=4;token=2",
   "packages/agent-cli/src/auth-command.ts": "auth=1;AuthCommandError=5;AuthCommandResult=2;AuthCredentialOpener=2;authentication=3;Authentication=1;credential=4;CredentialBoundaryError=3;OllamaCredentialMutationAction=2;OllamaCredentialMutationPort=2;openOllamaCredentialMutation=2;readAuthChoice=2;readConcealedCredential=2;runAuthCommand=1",
   "packages/agent-cli/src/auth-terminal.ts": "AuthTerminalError=5;AuthTerminalInput=5;readAuthChoice=1;readConcealedCredential=1",
-  "packages/agent-cli/src/credential-broker-protocol.ts": "credential=4;CREDENTIAL_BROKER_LIMITS=6;CredentialBrokerProtocolError=5;CredentialBrokerRequest=3;CredentialBrokerResponse=2;decodeCredentialBrokerResponse=1;encodeCredentialBrokerRequest=1;invalidCredential=2",
-  "packages/agent-cli/src/credential-broker.ts": "credential=5;CREDENTIAL_BROKER_DEADLINES=3;CREDENTIAL_BROKER_LIMITS=3;CredentialBoundaryError=20;CredentialBrokerBoundary=7;CredentialBrokerConnection=7;CredentialBrokerRequest=2;CredentialBrokerResponse=5;decodeCredentialBrokerResponse=2;encodeCredentialBrokerRequest=2;invalidCredential=5;OllamaCredentialAdmission=3;OllamaCredentialMutation=2;OllamaCredentialMutationAction=3;OllamaCredentialMutationPort=2;OllamaCredentialMutationResult=5;OllamaCredentialMutationState=5;OllamaCredentialSnapshot=2;openOllamaCredentialMutation=1;openOllamaCredentialSnapshot=1",
+  "packages/agent-cli/src/credential-broker-protocol.ts": "accessToken=6;credential=24;CREDENTIAL_BROKER_LIMITS=14;CredentialBrokerProtocolError=5;CredentialBrokerRequest=3;CredentialBrokerResponse=2;decodeCredentialBrokerResponse=1;decodeOpenAICredential=2;encodeCredentialBrokerRequest=1;encodeOpenAICredential=2;invalidCredential=2;openAICredential=4;OpenAICredential=5;openAITokenBytes=5;refreshToken=6",
+  "packages/agent-cli/src/credential-broker.ts": "credential=11;CREDENTIAL_BROKER_DEADLINES=3;CREDENTIAL_BROKER_LIMITS=3;CredentialBoundaryError=27;CredentialBrokerBoundary=9;CredentialBrokerConnection=11;CredentialBrokerRequest=3;CredentialBrokerResponse=5;decodeCredentialBrokerResponse=2;encodeCredentialBrokerRequest=2;invalidCredential=5;OllamaCredentialAdmission=3;OllamaCredentialMutation=2;OllamaCredentialMutationAction=3;OllamaCredentialMutationPort=2;OllamaCredentialMutationResult=5;OllamaCredentialMutationState=5;OllamaCredentialSnapshot=2;openAICredential=2;OpenAICredential=3;OpenAICredentialAdmission=3;OpenAICredentialMutation=2;OpenAICredentialMutationAction=3;OpenAICredentialMutationPort=2;OpenAICredentialMutationResult=5;OpenAICredentialMutationState=5;OpenAICredentialSnapshot=2;openOllamaCredentialMutation=1;openOllamaCredentialSnapshot=1;openOpenAICredentialMutation=1;openOpenAICredentialSnapshot=1",
   "packages/agent-cli/src/launch-command.ts": "auth=4",
   "packages/agent-cli/src/main.ts": "auth=9;AuthCommandError=2;authDiagnostic=2;authenticated=4;authentication=4;closeCredentialAdmission=3;credential=10;credentialClosed=2;credentialSnapshot=6;invalidCredential=1;OllamaCredentialAdmission=2;openOllamaCredentialSnapshot=2;runAuthCommand=2",
   "packages/agent-cli/src/model-providers-view.ts": "authenticated=2",
@@ -258,8 +302,8 @@ const EXPECTED_SENSITIVE_STATE_OCCURRENCES = Object.freeze({
   "packages/agent-cli/test/auth-terminal.test.ts": "auth=2;readAuthChoice=2;readConcealedCredential=3",
   "packages/agent-cli/test/builtin-tools.test.ts": "authorized=1;credential=2;secret=16;token=3",
   "packages/agent-cli/test/chat-view.test.ts": "auth=2;authenticated=1;authentication=2;authorized=1;credential=2;unauthenticated=1",
-  "packages/agent-cli/test/credential-broker-protocol.test.ts": "credential=2;CREDENTIAL_BROKER_LIMITS=2;decodeCredentialBrokerResponse=4;encodeCredentialBrokerRequest=8;invalidCredential=1",
-  "packages/agent-cli/test/credential-broker.test.ts": "credential=3;CREDENTIAL_BROKER_DEADLINES=2;CredentialBrokerBoundary=2;openOllamaCredentialMutation=2;openOllamaCredentialSnapshot=5",
+  "packages/agent-cli/test/credential-broker-protocol.test.ts": "accessToken=8;credential=23;CREDENTIAL_BROKER_LIMITS=6;decodeCredentialBrokerResponse=6;encodeCredentialBrokerRequest=12;invalidCredential=1;openAICredential=3;openAITokenBytes=2;refreshToken=8",
+  "packages/agent-cli/test/credential-broker.test.ts": "accessToken=2;credential=6;CREDENTIAL_BROKER_DEADLINES=2;CredentialBrokerBoundary=2;openOllamaCredentialMutation=2;openOllamaCredentialSnapshot=5;openOpenAICredentialMutation=2;openOpenAICredentialSnapshot=2;refreshToken=2",
   "packages/agent-cli/test/event-arbiter.test.ts": "createNoticeToken=2;token=2",
   "packages/agent-cli/test/launch-command.test.ts": "auth=4;secret=1",
   "packages/agent-cli/test/node-ollama-cloud-transport.test.ts": "authorization=1;credentials=1",
@@ -385,7 +429,7 @@ const APPROVED_CLI_PRODUCT_TREE = Object.freeze({
   pathsSha256:
     "5683644d8d122fb98c5438524167644c035f9b9e37a3d16762ffb706cd19fe13",
   sourceSha256:
-    "97072653c6a66fa2223be994a8c721d4f917aaa7ddcd752f3cea6f13a7fec39c",
+    "3276b1cb46a76abf72eed34d4c6e2f472bb40725f9815b46bc90043482ad93b2",
 });
 
 const APPROVED_CLI_NATIVE_PLATFORM_TREE = Object.freeze({
@@ -422,7 +466,7 @@ const APPROVED_CLI_NATIVE_PLATFORM_TREE = Object.freeze({
     "packages/agent-cli/native/workspace-roots/main.c",
     "packages/agent-cli/native/workspace-roots/workspace-roots.h",
   ]),
-  sourceSha256: "23d5f4610ff4e54a93e54f4d4b059d8be364cfbad329c402e6e2f501a70cfca3",
+  sourceSha256: "1ac76cc3d7ee3117285b56fed21314021e84f9dd98e820a23117c1833fa9386f",
 });
 
 const FORBIDDEN_SOURCE_MARKERS = [
@@ -718,7 +762,7 @@ function validateRegistry(policy) {
     ],
     "provider policy",
   );
-  if (policy.schemaVersion !== 10) {
+  if (policy.schemaVersion !== 11) {
     fail("unsupported provider policy schema");
   }
   assertExactKeys(
@@ -839,6 +883,7 @@ function validateRegistry(policy) {
         "id",
         "decision",
         "identityDecision",
+        "credentialDecision",
         "state",
         "flow",
         "issuer",
@@ -866,7 +911,10 @@ function validateRegistry(policy) {
         "disclosure",
         "clientRegistrationEndpoint",
         "credentialRecord",
+        "credentialRecoveryRecords",
+        "credentialEnvironment",
         "credentialAdmission",
+        "credentialProtocol",
         "modelAuthority",
         "transport",
         "evidence",
@@ -884,7 +932,7 @@ function validateRegistry(policy) {
     const provider = policy.providers.find((candidate) => candidate.id === contract.id);
     if (
       provider?.eligibility !== "blocked" ||
-      provider.blocker !== "credential-implementation-required"
+      provider.blocker !== "auth-implementation-required"
     ) {
       fail("subscription contract must retain its inactive implementation gate");
     }

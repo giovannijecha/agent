@@ -111,6 +111,7 @@
     "docs/decisions/0090-owned-openai-subscription-oauth-contract.md",
     "docs/decisions/0091-owned-provider-public-client-compatibility.md",
     "docs/decisions/0092-owned-openai-compatible-public-client.md",
+    "docs/decisions/0093-owned-openai-oauth-credential-record.md",
     "evaluations/README.md"
   ],
   "workspaces": [

@@ -15,6 +15,7 @@ import {
   encodeCredentialBrokerRequest,
   type CredentialBrokerRequest,
   type CredentialBrokerResponse,
+  type OpenAICredential,
 } from "./credential-broker-protocol.js";
 import {
   resolveOllamaCloudConfiguration,
@@ -61,6 +62,31 @@ export type CredentialBoundaryError = Readonly<{
 export type OllamaCredentialSnapshot = Readonly<{
   admission: OllamaCredentialAdmission;
   configuration: OllamaCloudConfiguration;
+}>;
+
+export type OpenAICredentialSnapshot = Readonly<{
+  admission: OpenAICredentialAdmission;
+  credential: OpenAICredential | undefined;
+}>;
+
+export type OpenAICredentialMutationState = "absent" | "present";
+export type OpenAICredentialMutationAction =
+  | Readonly<{
+      credential: OpenAICredential;
+      kind: "register" | "replace";
+    }>
+  | Readonly<{ kind: "remove" | "cancel" }>;
+export type OpenAICredentialMutationResult =
+  "registered" | "replaced" | "removed" | "cancelled";
+
+export type OpenAICredentialMutationPort = Readonly<{
+  readonly state: OpenAICredentialMutationState;
+  cancel(): Promise<
+    Result<OpenAICredentialMutationResult, CredentialBoundaryError>
+  >;
+  perform(
+    action: OpenAICredentialMutationAction,
+  ): Promise<Result<OpenAICredentialMutationResult, CredentialBoundaryError>>;
 }>;
 
 export type OllamaCredentialMutationState = "absent" | "present";
@@ -363,6 +389,23 @@ export class OllamaCredentialAdmission {
   }
 }
 
+export class OpenAICredentialAdmission {
+  readonly #connection: CredentialBrokerConnection;
+
+  constructor(connection: CredentialBrokerConnection) {
+    this.#connection = connection;
+    Object.freeze(this);
+  }
+
+  active(): boolean {
+    return this.#connection.active();
+  }
+
+  close(): Promise<Result<void, CredentialBoundaryError>> {
+    return this.#connection.close();
+  }
+}
+
 export class OllamaCredentialMutation {
   readonly #connection: CredentialBrokerConnection;
   readonly #state: OllamaCredentialMutationState;
@@ -400,6 +443,64 @@ export class OllamaCredentialMutation {
   }
 
   cancel(): Promise<Result<OllamaCredentialMutationResult, CredentialBoundaryError>> {
+    return this.perform(Object.freeze({ kind: "cancel" as const }));
+  }
+}
+
+export class OpenAICredentialMutation {
+  readonly #connection: CredentialBrokerConnection;
+  readonly #state: OpenAICredentialMutationState;
+  #settled = false;
+
+  constructor(
+    connection: CredentialBrokerConnection,
+    state: OpenAICredentialMutationState,
+  ) {
+    this.#connection = connection;
+    this.#state = state;
+  }
+
+  get state(): OpenAICredentialMutationState {
+    return this.#state;
+  }
+
+  async perform(
+    action: OpenAICredentialMutationAction,
+  ): Promise<
+    Result<OpenAICredentialMutationResult, CredentialBoundaryError>
+  > {
+    if (this.#settled) return err(failure("store"));
+    this.#settled = true;
+    const request: CredentialBrokerRequest = action.kind === "register" ||
+        action.kind === "replace"
+      ? Object.freeze({
+          credential: action.credential,
+          kind: action.kind === "register"
+            ? "registerOpenAI" as const
+            : "replaceOpenAI" as const,
+        })
+      : Object.freeze({
+          kind: action.kind === "remove"
+            ? "removeOpenAI" as const
+            : "cancelOpenAI" as const,
+        });
+    const response = await this.#connection.request(request);
+    const closed = await this.#connection.close();
+    if (!response.ok) return response;
+    if (!closed.ok) return closed;
+    const mapped = response.value.kind;
+    if (
+      mapped === "registered" || mapped === "replaced" ||
+      mapped === "removed" || mapped === "cancelled"
+    ) {
+      return ok(mapped);
+    }
+    return err(responseFailure(response.value) ?? failure("protocol"));
+  }
+
+  cancel(): Promise<
+    Result<OpenAICredentialMutationResult, CredentialBoundaryError>
+  > {
     return this.perform(Object.freeze({ kind: "cancel" as const }));
   }
 }
@@ -474,4 +575,64 @@ export async function openOllamaCredentialMutation(
     return err(failure("protocol"));
   }
   return ok(new OllamaCredentialMutation(launched.value, response.value.kind));
+}
+
+export async function openOpenAICredentialSnapshot(
+  platform: string,
+  architecture: string,
+  boundary: CredentialBrokerBoundary = defaultBoundary,
+): Promise<Result<OpenAICredentialSnapshot, CredentialBoundaryError>> {
+  const launched = launchConnection(platform, architecture, boundary);
+  if (!launched.ok) return launched;
+  const response = await launched.value.request(Object.freeze({
+    kind: "openAISnapshot" as const,
+  }));
+  if (!response.ok) {
+    await launched.value.close();
+    return response;
+  }
+  const problem = responseFailure(response.value);
+  if (problem !== undefined) {
+    await launched.value.close();
+    return err(problem);
+  }
+  if (
+    response.value.kind !== "absent" &&
+    response.value.kind !== "openAICredential"
+  ) {
+    await launched.value.close();
+    return err(failure("protocol"));
+  }
+  return ok(Object.freeze({
+    admission: new OpenAICredentialAdmission(launched.value),
+    credential: response.value.kind === "openAICredential"
+      ? response.value.credential
+      : undefined,
+  }));
+}
+
+export async function openOpenAICredentialMutation(
+  platform: string,
+  architecture: string,
+  boundary: CredentialBrokerBoundary = defaultBoundary,
+): Promise<Result<OpenAICredentialMutationPort, CredentialBoundaryError>> {
+  const launched = launchConnection(platform, architecture, boundary);
+  if (!launched.ok) return launched;
+  const response = await launched.value.request(Object.freeze({
+    kind: "openAIMutation" as const,
+  }));
+  if (!response.ok) {
+    await launched.value.close();
+    return response;
+  }
+  const problem = responseFailure(response.value);
+  if (problem !== undefined) {
+    await launched.value.close();
+    return err(problem);
+  }
+  if (response.value.kind !== "absent" && response.value.kind !== "present") {
+    await launched.value.close();
+    return err(failure("protocol"));
+  }
+  return ok(new OpenAICredentialMutation(launched.value, response.value.kind));
 }

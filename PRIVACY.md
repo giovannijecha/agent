@@ -204,12 +204,17 @@ there is no precedence or automatic import. Provider data-use, retention, billin
 quota, and model availability terms can change and are not guarantees made by
 this project; review the current Ollama terms before sending sensitive content.
 The four subscription OAuth connections remain disabled.
-Decision 0090 documents a future OpenAI device OAuth record and data flow only;
+Decision 0090 documents the future OpenAI device OAuth data flow;
 decision 0091 accepts a provider-owned public-client compatibility category but
 changes no runtime. Decision 0092 publishes the exact non-secret OpenAI public
-client and device identity contract only in policy. The credential
-implementation gate remains, so Agent currently collects, stores, refreshes,
-revokes, or sends no OpenAI OAuth material. Future compatible login must
+client and device identity contract only in policy. Decision 0093 implements
+the exact plaintext record and private native register, snapshot, replacement,
+recovery, and removal lifecycle. Current commands and runtime do not invoke it,
+so Agent currently collects, stores, refreshes, revokes, or sends no OpenAI
+OAuth material. The private boundary has no environment input and protects
+ordinary cross-account access with the same native owner-only controls and
+same-user, administrator/root, malware, backup, snapshot, memory, and offline-
+access limitations as the Ollama record. Future compatible login must
 identify the caller as `agent` or omit the caller field, disclose that the
 integration is independent and not provider-endorsed, and never import a
 foreign credential or browser session.

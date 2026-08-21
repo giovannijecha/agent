@@ -85,16 +85,17 @@ and are outside Agent's guarantees.
 Subscription OAuth integrations remain inactive. The
 [OAuth registration dossier](../OAUTH-REGISTRATION.md) owns their current
 registration status, while the [provider policy](../PROVIDERS.md) owns runtime
-admission. Decision 0089's owned credential boundary is active only for the
-exact Ollama Cloud API-key record. It admits no OAuth field, generic credential
-map, placeholder provider, browser flow, or compatibility reader.
+admission. Decision 0089's owned credential boundary is active for the exact
+Ollama Cloud API-key record used by current commands. It admits no generic
+credential map, placeholder provider, browser flow, or compatibility reader.
 Decision 0090 specifies a future OpenAI device OAuth contract. Decision 0091
 permits a provider-owned non-secret public client while requiring `agent` as
 the truthful caller identity and an independent-compatibility disclosure.
 Decision 0092 accepts OpenAI's exact public-client identity and device status
-contract. All three remain runtime-inactive and change no current command,
-credential record, provider row, model row, or network request; the next gate
-is the separate OpenAI credential implementation.
+contract. Decision 0093 implements only its exact record and private native
+lifecycle. OpenAI remains runtime-inactive: no current command invokes that
+adapter, and no login, provider row, model row, or network request exists. The
+next gate is the separate `agent auth` device ceremony.
 
 ## Recover from provider failures
 
@@ -186,6 +187,7 @@ fall back to another endpoint after a catalog or chat failure.
 - [OpenAI subscription OAuth contract decision](../decisions/0090-owned-openai-subscription-oauth-contract.md)
 - [Provider public-client compatibility decision](../decisions/0091-owned-provider-public-client-compatibility.md)
 - [OpenAI compatible public-client decision](../decisions/0092-owned-openai-compatible-public-client.md)
+- [OpenAI OAuth credential-record decision](../decisions/0093-owned-openai-oauth-credential-record.md)
 - [Provider HTTP outcome decision](../decisions/0080-owned-provider-http-outcome-classification.md)
 - [Ollama tool-stream normalization decision](../decisions/0082-owned-ollama-tool-stream-normalization.md)
 - [Bounded-thinking decision](../decisions/0083-owned-bounded-thinking-stream.md)

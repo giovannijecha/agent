@@ -645,8 +645,9 @@ test("rejects direct provider admission contract drift", () => {
     "`agent auth` is the sole interactive credential lifecycle and runs outside the\nalternate-screen TUI.",
     "Decision 0090 records one non-executable OpenAI contract",
     "decision 0092 records OpenAI's exact non-secret\npublic client",
-    "The contract is now `identity-compatible-inactive`",
-    "OpenAI remains blocked by `credential-implementation-required`.",
+    "Decision 0093 implements the exact OpenAI record and private native\nlifecycle.",
+    "The contract is now `credential-compatible-inactive`",
+    "OpenAI remains blocked by `auth-implementation-required`.",
   ]) {
     const context = currentContext();
     context.files["docs/PROVIDERS.md"] = providers.replaceAll(
@@ -681,7 +682,7 @@ test("rejects provider-specific OAuth registration conclusion drift", () => {
   for (const [provider, row] of [
     [
       "ChatGPT Plus/Pro",
-      "| ChatGPT Plus/Pro | OpenAI documents subscription browser and device login for Codex clients; decisions 0090 through 0092 fix the independently derived protocol and exact provider-owned public-client identity. | The protocol is `identity-compatible-inactive`: identity is accepted with `agent` as the disclosed caller, but the credential, auth, transport, and integration modules remain inactive. |",
+      "| ChatGPT Plus/Pro | OpenAI documents subscription browser and device login for Codex clients; decisions 0090 through 0093 fix the independently derived protocol, exact provider-owned public-client identity, and owned record. | The protocol is `credential-compatible-inactive`: identity and storage mechanics are accepted, but auth, transport, and integration remain inactive. |",
     ],
     [
       "Claude Pro/Max",

@@ -101,20 +101,28 @@ static bool agent_read_request(
   }
   const uint32_t length = agent_read_u32(header + 8u);
   const unsigned int kind = header[5];
-  if (length > AGENT_CREDENTIAL_KEY_MAX_BYTES) {
+  if (length > AGENT_CREDENTIAL_OPENAI_PAYLOAD_MAX_BYTES) {
     return false;
   }
   if (opening) {
     if (
+      (((kind == AGENT_CREDENTIAL_SNAPSHOT ||
+          kind == AGENT_CREDENTIAL_OPEN_MUTATION) && length != 1u) ||
+        ((kind == AGENT_CREDENTIAL_OPENAI_SNAPSHOT ||
+          kind == AGENT_CREDENTIAL_OPENAI_OPEN_MUTATION) && length != 0u)) ||
       (kind != AGENT_CREDENTIAL_SNAPSHOT &&
-        kind != AGENT_CREDENTIAL_OPEN_MUTATION) ||
-      length != 1u
+        kind != AGENT_CREDENTIAL_OPEN_MUTATION &&
+        kind != AGENT_CREDENTIAL_OPENAI_SNAPSHOT &&
+        kind != AGENT_CREDENTIAL_OPENAI_OPEN_MUTATION)
     ) {
       return false;
     }
   } else if (
-    kind < AGENT_CREDENTIAL_REGISTER || kind > AGENT_CREDENTIAL_CANCEL ||
-    ((kind == AGENT_CREDENTIAL_REGISTER || kind == AGENT_CREDENTIAL_REPLACE)
+    kind < AGENT_CREDENTIAL_REGISTER ||
+    kind > AGENT_CREDENTIAL_OPENAI_CANCEL ||
+    (((kind == AGENT_CREDENTIAL_REGISTER || kind == AGENT_CREDENTIAL_REPLACE ||
+        kind == AGENT_CREDENTIAL_OPENAI_REGISTER ||
+        kind == AGENT_CREDENTIAL_OPENAI_REPLACE))
       ? length == 0u
       : length != 0u)
   ) {
@@ -134,11 +142,14 @@ static bool agent_read_request(
   request->value = value;
   request->value_length = length;
   if (opening) {
-    if (value[0] > 1u) {
+    if (
+      (kind == AGENT_CREDENTIAL_SNAPSHOT ||
+        kind == AGENT_CREDENTIAL_OPEN_MUTATION) && value[0] > 1u
+    ) {
       agent_dispose_request(request);
       return false;
     }
-    request->environment_present = value[0] == 1u;
+    request->environment_present = length == 1u && value[0] == 1u;
     agent_dispose_request(request);
   }
   return true;
@@ -151,10 +162,14 @@ static bool agent_write_response(
   size_t value_length
 ) {
   if (
-    (kind == AGENT_CREDENTIAL_VALUE &&
+    ((kind == AGENT_CREDENTIAL_VALUE ||
+      kind == AGENT_CREDENTIAL_OPENAI_VALUE) &&
       (value == NULL || value_length == 0u ||
-        value_length > AGENT_CREDENTIAL_KEY_MAX_BYTES)) ||
-    (kind != AGENT_CREDENTIAL_VALUE && value_length != 0u)
+        value_length > (kind == AGENT_CREDENTIAL_VALUE
+          ? AGENT_CREDENTIAL_KEY_MAX_BYTES
+          : AGENT_CREDENTIAL_OPENAI_PAYLOAD_MAX_BYTES))) ||
+    (kind != AGENT_CREDENTIAL_VALUE &&
+      kind != AGENT_CREDENTIAL_OPENAI_VALUE && value_length != 0u)
   ) {
     return false;
   }
@@ -208,7 +223,7 @@ int main(int argument_count, char **arguments) {
   unsigned char *value = NULL;
   size_t value_length = 0u;
   const bool opened = agent_credential_store_open(
-    opening.kind == AGENT_CREDENTIAL_OPEN_MUTATION,
+    opening.kind,
     opening.environment_present,
     &session,
     &response,
@@ -227,7 +242,10 @@ int main(int argument_count, char **arguments) {
   agent_clear(value, value_length);
   free(value);
 
-  if (opening.kind == AGENT_CREDENTIAL_SNAPSHOT) {
+  if (
+    opening.kind == AGENT_CREDENTIAL_SNAPSHOT ||
+    opening.kind == AGENT_CREDENTIAL_OPENAI_SNAPSHOT
+  ) {
     const bool closed = agent_wait_for_close(stdin);
     agent_credential_store_close(&session);
     return closed ? 0 : 1;

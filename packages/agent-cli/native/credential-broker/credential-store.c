@@ -7,13 +7,24 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define AGENT_CREDENTIAL_HEADER_MAX_BYTES 128u
-#define AGENT_CREDENTIAL_RECORD_MAX_BYTES 32896u
+#define AGENT_CREDENTIAL_HEADER_MAX_BYTES 256u
+#define AGENT_CREDENTIAL_OLLAMA_RECORD_MAX_BYTES 32896u
+#define AGENT_CREDENTIAL_OPENAI_RECORD_MAX_BYTES 66048u
+#define AGENT_CREDENTIAL_OPENAI_ENVELOPE_BYTES 20u
 #define AGENT_CREDENTIAL_MAX_REVISION UINT64_C(9007199254740991)
+
+enum agent_credential_profile {
+  AGENT_CREDENTIAL_PROFILE_OLLAMA = 1,
+  AGENT_CREDENTIAL_PROFILE_OPENAI = 2
+};
 
 struct agent_record {
   unsigned char *value;
   size_t value_length;
+  size_t access_length;
+  size_t refresh_length;
+  size_t account_length;
+  uint64_t expires_at;
   uint64_t revision;
 };
 
@@ -37,7 +48,35 @@ static void agent_record_dispose(struct agent_record *record) {
   free(record->value);
   record->value = NULL;
   record->value_length = 0u;
+  record->access_length = 0u;
+  record->refresh_length = 0u;
+  record->account_length = 0u;
+  record->expires_at = 0u;
   record->revision = 0u;
+}
+
+static uint32_t agent_read_u32(const unsigned char *bytes) {
+  return (uint32_t)bytes[0] |
+    ((uint32_t)bytes[1] << 8u) |
+    ((uint32_t)bytes[2] << 16u) |
+    ((uint32_t)bytes[3] << 24u);
+}
+
+static uint64_t agent_read_u64(const unsigned char *bytes) {
+  return (uint64_t)agent_read_u32(bytes) |
+    ((uint64_t)agent_read_u32(bytes + 4u) << 32u);
+}
+
+static void agent_write_u32(unsigned char *bytes, uint32_t value) {
+  bytes[0] = (unsigned char)(value & 0xffu);
+  bytes[1] = (unsigned char)((value >> 8u) & 0xffu);
+  bytes[2] = (unsigned char)((value >> 16u) & 0xffu);
+  bytes[3] = (unsigned char)((value >> 24u) & 0xffu);
+}
+
+static void agent_write_u64(unsigned char *bytes, uint64_t value) {
+  agent_write_u32(bytes, (uint32_t)(value & UINT64_C(0xffffffff)));
+  agent_write_u32(bytes + 4u, (uint32_t)(value >> 32u));
 }
 
 static bool agent_unicode_whitespace(uint32_t point) {
@@ -122,6 +161,22 @@ static bool agent_valid_value(
   return code_units > 0u;
 }
 
+static bool agent_visible_ascii(
+  const unsigned char *value,
+  size_t length,
+  size_t maximum
+) {
+  if (value == NULL || length == 0u || length > maximum) {
+    return false;
+  }
+  for (size_t index = 0u; index < length; index += 1u) {
+    if (value[index] < 0x21u || value[index] > 0x7eu) {
+      return false;
+    }
+  }
+  return true;
+}
+
 static bool agent_parse_decimal(
   const unsigned char *bytes,
   size_t length,
@@ -152,7 +207,7 @@ static bool agent_parse_decimal(
   return true;
 }
 
-static bool agent_parse_header(
+static bool agent_parse_ollama_header(
   const unsigned char *header,
   size_t header_length,
   uint64_t *revision,
@@ -211,7 +266,7 @@ static bool agent_parse_header(
   return true;
 }
 
-static bool agent_encode_record(
+static bool agent_encode_ollama_record(
   const unsigned char *value,
   size_t value_length,
   uint64_t revision,
@@ -237,7 +292,8 @@ static bool agent_encode_record(
   if (
     header_length <= 0 ||
     (size_t)header_length > AGENT_CREDENTIAL_HEADER_MAX_BYTES ||
-    (size_t)header_length > AGENT_CREDENTIAL_RECORD_MAX_BYTES - value_length
+    (size_t)header_length >
+      AGENT_CREDENTIAL_OLLAMA_RECORD_MAX_BYTES - value_length
   ) {
     return false;
   }
@@ -249,6 +305,247 @@ static bool agent_encode_record(
   memcpy(record, header, (size_t)header_length);
   memcpy(record + (size_t)header_length, value, value_length);
   *bytes = record;
+  *length = record_length;
+  return true;
+}
+
+static bool agent_parse_field(
+  const unsigned char *header,
+  size_t header_length,
+  size_t *offset,
+  const char *name,
+  uint64_t maximum,
+  uint64_t *value
+) {
+  const size_t name_length = strlen(name);
+  if (
+    header == NULL || offset == NULL || name == NULL || value == NULL ||
+    *offset > header_length ||
+    name_length > header_length - *offset ||
+    memcmp(header + *offset, name, name_length) != 0
+  ) {
+    return false;
+  }
+  const size_t start = *offset + name_length;
+  size_t end = start;
+  while (end < header_length && header[end] != '\n') {
+    end += 1u;
+  }
+  if (
+    end == header_length ||
+    !agent_parse_decimal(header + start, end - start, maximum, value)
+  ) {
+    return false;
+  }
+  *offset = end + 1u;
+  return true;
+}
+
+static bool agent_parse_openai_header(
+  const unsigned char *header,
+  size_t header_length,
+  struct agent_record *record,
+  size_t *body_length
+) {
+  static const unsigned char prefix[] = "agent/openai/oauth/v1\n";
+  if (
+    header == NULL || record == NULL || body_length == NULL ||
+    header_length < sizeof(prefix) + 2u ||
+    header_length > AGENT_CREDENTIAL_HEADER_MAX_BYTES ||
+    memcmp(header, prefix, sizeof(prefix) - 1u) != 0 ||
+    header[header_length - 2u] != '\n' ||
+    header[header_length - 1u] != '\n'
+  ) {
+    return false;
+  }
+  size_t offset = sizeof(prefix) - 1u;
+  uint64_t revision = 0u;
+  uint64_t access_length = 0u;
+  uint64_t refresh_length = 0u;
+  uint64_t account_length = 0u;
+  uint64_t expires_at = 0u;
+  if (
+    !agent_parse_field(
+      header,
+      header_length,
+      &offset,
+      "revision=",
+      AGENT_CREDENTIAL_MAX_REVISION,
+      &revision
+    ) ||
+    !agent_parse_field(
+      header,
+      header_length,
+      &offset,
+      "access-length=",
+      AGENT_CREDENTIAL_KEY_MAX_BYTES,
+      &access_length
+    ) ||
+    !agent_parse_field(
+      header,
+      header_length,
+      &offset,
+      "refresh-length=",
+      AGENT_CREDENTIAL_KEY_MAX_BYTES,
+      &refresh_length
+    ) ||
+    !agent_parse_field(
+      header,
+      header_length,
+      &offset,
+      "account-length=",
+      AGENT_CREDENTIAL_OPENAI_ACCOUNT_MAX_BYTES,
+      &account_length
+    ) ||
+    !agent_parse_field(
+      header,
+      header_length,
+      &offset,
+      "expires-at=",
+      AGENT_CREDENTIAL_MAX_REVISION,
+      &expires_at
+    ) ||
+    offset + 1u != header_length || header[offset] != '\n' ||
+    access_length > SIZE_MAX - refresh_length ||
+    access_length + refresh_length > SIZE_MAX - account_length
+  ) {
+    return false;
+  }
+  const size_t payload_length = (size_t)(
+    access_length + refresh_length + account_length
+  );
+  if (
+    header_length > AGENT_CREDENTIAL_OPENAI_RECORD_MAX_BYTES ||
+    payload_length > AGENT_CREDENTIAL_OPENAI_RECORD_MAX_BYTES - header_length
+  ) {
+    return false;
+  }
+  record->access_length = (size_t)access_length;
+  record->refresh_length = (size_t)refresh_length;
+  record->account_length = (size_t)account_length;
+  record->expires_at = expires_at;
+  record->revision = revision;
+  record->value_length = AGENT_CREDENTIAL_OPENAI_ENVELOPE_BYTES +
+    payload_length;
+  *body_length = payload_length;
+  return true;
+}
+
+static bool agent_decode_openai_payload(
+  const unsigned char *value,
+  size_t value_length,
+  struct agent_record *record
+) {
+  if (
+    value == NULL || record == NULL ||
+    value_length < AGENT_CREDENTIAL_OPENAI_ENVELOPE_BYTES + 3u ||
+    value_length > AGENT_CREDENTIAL_OPENAI_PAYLOAD_MAX_BYTES
+  ) {
+    return false;
+  }
+  const size_t access_length = (size_t)agent_read_u32(value);
+  const size_t refresh_length = (size_t)agent_read_u32(value + 4u);
+  const size_t account_length = (size_t)agent_read_u32(value + 8u);
+  const uint64_t expires_at = agent_read_u64(value + 12u);
+  const size_t payload_length = value_length -
+    AGENT_CREDENTIAL_OPENAI_ENVELOPE_BYTES;
+  if (
+    access_length > payload_length ||
+    refresh_length > payload_length - access_length ||
+    account_length != payload_length - access_length - refresh_length
+  ) {
+    return false;
+  }
+  const unsigned char *access = value + AGENT_CREDENTIAL_OPENAI_ENVELOPE_BYTES;
+  const unsigned char *refresh = access + access_length;
+  const unsigned char *account = refresh + refresh_length;
+  if (
+    expires_at == 0u || expires_at > AGENT_CREDENTIAL_MAX_REVISION ||
+    !agent_visible_ascii(
+      access,
+      access_length,
+      AGENT_CREDENTIAL_KEY_MAX_BYTES
+    ) ||
+    !agent_visible_ascii(
+      refresh,
+      refresh_length,
+      AGENT_CREDENTIAL_KEY_MAX_BYTES
+    ) ||
+    !agent_visible_ascii(
+      account,
+      account_length,
+      AGENT_CREDENTIAL_OPENAI_ACCOUNT_MAX_BYTES
+    )
+  ) {
+    return false;
+  }
+  record->value = (unsigned char *)value;
+  record->value_length = value_length;
+  record->access_length = access_length;
+  record->refresh_length = refresh_length;
+  record->account_length = account_length;
+  record->expires_at = expires_at;
+  return true;
+}
+
+static bool agent_encode_openai_record(
+  const unsigned char *value,
+  size_t value_length,
+  uint64_t revision,
+  unsigned char **bytes,
+  size_t *length
+) {
+  struct agent_record fields = {
+    .value = NULL,
+    .value_length = 0u,
+    .access_length = 0u,
+    .refresh_length = 0u,
+    .account_length = 0u,
+    .expires_at = 0u,
+    .revision = 0u
+  };
+  if (
+    bytes == NULL || length == NULL || revision == 0u ||
+    revision > AGENT_CREDENTIAL_MAX_REVISION ||
+    !agent_decode_openai_payload(value, value_length, &fields)
+  ) {
+    return false;
+  }
+  char header[AGENT_CREDENTIAL_HEADER_MAX_BYTES + 1u];
+  const int header_length = snprintf(
+    header,
+    sizeof(header),
+    "agent/openai/oauth/v1\nrevision=%" PRIu64
+      "\naccess-length=%zu\nrefresh-length=%zu\naccount-length=%zu"
+      "\nexpires-at=%" PRIu64 "\n\n",
+    revision,
+    fields.access_length,
+    fields.refresh_length,
+    fields.account_length,
+    fields.expires_at
+  );
+  const size_t body_length = value_length -
+    AGENT_CREDENTIAL_OPENAI_ENVELOPE_BYTES;
+  if (
+    header_length <= 0 ||
+    (size_t)header_length > AGENT_CREDENTIAL_HEADER_MAX_BYTES ||
+    (size_t)header_length > AGENT_CREDENTIAL_OPENAI_RECORD_MAX_BYTES -
+      body_length
+  ) {
+    return false;
+  }
+  const size_t record_length = (size_t)header_length + body_length;
+  unsigned char *encoded = malloc(record_length);
+  if (encoded == NULL) {
+    return false;
+  }
+  memcpy(encoded, header, (size_t)header_length);
+  memcpy(
+    encoded + (size_t)header_length,
+    value + AGENT_CREDENTIAL_OPENAI_ENVELOPE_BYTES,
+    body_length
+  );
+  *bytes = encoded;
   *length = record_length;
   return true;
 }
@@ -270,6 +567,8 @@ struct agent_platform_state {
   wchar_t *committed;
   wchar_t *pending;
   wchar_t *retired;
+  enum agent_credential_profile profile;
+  size_t record_max;
   bool exclusive;
   bool environment_present;
   bool present;
@@ -589,7 +888,9 @@ static HANDLE agent_windows_open_file(
 static bool agent_windows_ensure_lock(struct agent_platform_state *state) {
   wchar_t *path = agent_windows_join(
     state->agent_root,
-    L".ollama-cloud-credential.lock"
+    state->profile == AGENT_CREDENTIAL_PROFILE_OLLAMA
+      ? L".ollama-cloud-credential.lock"
+      : L".openai-oauth-credential.lock"
   );
   if (path == NULL) {
     return false;
@@ -669,12 +970,37 @@ static bool agent_windows_inventory(
       continue;
     }
     bool *slot = NULL;
-    if (wcscmp(entry.cFileName, L"ollama-cloud.api-key") == 0) {
+    const bool selected_ollama =
+      state->profile == AGENT_CREDENTIAL_PROFILE_OLLAMA;
+    if (
+      (selected_ollama &&
+        wcscmp(entry.cFileName, L"ollama-cloud.api-key") == 0) ||
+      (!selected_ollama && wcscmp(entry.cFileName, L"openai.oauth") == 0)
+    ) {
       slot = committed;
-    } else if (wcscmp(entry.cFileName, L".ollama-cloud.api-key.pending") == 0) {
+    } else if (
+      (selected_ollama &&
+        wcscmp(entry.cFileName, L".ollama-cloud.api-key.pending") == 0) ||
+      (!selected_ollama &&
+        wcscmp(entry.cFileName, L".openai.oauth.pending") == 0)
+    ) {
       slot = pending;
-    } else if (wcscmp(entry.cFileName, L".ollama-cloud.api-key.retired") == 0) {
+    } else if (
+      (selected_ollama &&
+        wcscmp(entry.cFileName, L".ollama-cloud.api-key.retired") == 0) ||
+      (!selected_ollama &&
+        wcscmp(entry.cFileName, L".openai.oauth.retired") == 0)
+    ) {
       slot = retired;
+    } else if (
+      wcscmp(entry.cFileName, L"ollama-cloud.api-key") == 0 ||
+      wcscmp(entry.cFileName, L".ollama-cloud.api-key.pending") == 0 ||
+      wcscmp(entry.cFileName, L".ollama-cloud.api-key.retired") == 0 ||
+      wcscmp(entry.cFileName, L"openai.oauth") == 0 ||
+      wcscmp(entry.cFileName, L".openai.oauth.pending") == 0 ||
+      wcscmp(entry.cFileName, L".openai.oauth.retired") == 0
+    ) {
+      continue;
     }
     if (slot == NULL || *slot) {
       valid = false;
@@ -704,7 +1030,7 @@ static bool agent_windows_delete_recovery(
   BY_HANDLE_FILE_INFORMATION information;
   const bool bounded = GetFileInformationByHandle(handle, &information) != 0 &&
     information.nFileSizeHigh == 0u &&
-    information.nFileSizeLow <= AGENT_CREDENTIAL_RECORD_MAX_BYTES;
+    information.nFileSizeLow <= state->record_max;
   CloseHandle(handle);
   return bounded && DeleteFileW(path) != 0;
 }
@@ -745,7 +1071,7 @@ static bool agent_platform_open_record(
   LARGE_INTEGER length;
   if (
     GetFileSizeEx(*record, &length) == 0 || length.QuadPart <= 0 ||
-    (uint64_t)length.QuadPart > AGENT_CREDENTIAL_RECORD_MAX_BYTES
+    (uint64_t)length.QuadPart > state->record_max
   ) {
     CloseHandle(*record);
     *record = INVALID_HANDLE_VALUE;
@@ -880,6 +1206,7 @@ static bool agent_platform_remove(struct agent_platform_state *state) {
 }
 
 static struct agent_platform_state *agent_platform_open(
+  enum agent_credential_profile profile,
   bool exclusive,
   bool environment_present,
   bool *busy,
@@ -892,6 +1219,10 @@ static struct agent_platform_state *agent_platform_open(
     return NULL;
   }
   state->lock = INVALID_HANDLE_VALUE;
+  state->profile = profile;
+  state->record_max = profile == AGENT_CREDENTIAL_PROFILE_OLLAMA
+    ? AGENT_CREDENTIAL_OLLAMA_RECORD_MAX_BYTES
+    : AGENT_CREDENTIAL_OPENAI_RECORD_MAX_BYTES;
   state->exclusive = exclusive;
   state->environment_present = environment_present;
   PWSTR home = NULL;
@@ -953,9 +1284,24 @@ static struct agent_platform_state *agent_platform_open(
   }
   CloseHandle(home_handle);
   state->credentials = agent_windows_join(state->agent_root, L"credentials");
-  state->committed = agent_windows_join(state->credentials, L"ollama-cloud.api-key");
-  state->pending = agent_windows_join(state->credentials, L".ollama-cloud.api-key.pending");
-  state->retired = agent_windows_join(state->credentials, L".ollama-cloud.api-key.retired");
+  state->committed = agent_windows_join(
+    state->credentials,
+    profile == AGENT_CREDENTIAL_PROFILE_OLLAMA
+      ? L"ollama-cloud.api-key"
+      : L"openai.oauth"
+  );
+  state->pending = agent_windows_join(
+    state->credentials,
+    profile == AGENT_CREDENTIAL_PROFILE_OLLAMA
+      ? L".ollama-cloud.api-key.pending"
+      : L".openai.oauth.pending"
+  );
+  state->retired = agent_windows_join(
+    state->credentials,
+    profile == AGENT_CREDENTIAL_PROFILE_OLLAMA
+      ? L".ollama-cloud.api-key.retired"
+      : L".openai.oauth.retired"
+  );
   if (
     state->credentials == NULL || state->committed == NULL ||
     state->pending == NULL || state->retired == NULL ||
@@ -1016,6 +1362,8 @@ struct agent_platform_state {
   int root;
   int credentials;
   int lock;
+  enum agent_credential_profile profile;
+  size_t record_max;
   bool exclusive;
   bool environment_present;
   bool present;
@@ -1023,6 +1371,30 @@ struct agent_platform_state {
 };
 
 typedef int agent_record_handle;
+
+static const char *agent_linux_committed(
+  const struct agent_platform_state *state
+) {
+  return state->profile == AGENT_CREDENTIAL_PROFILE_OLLAMA
+    ? "ollama-cloud.api-key"
+    : "openai.oauth";
+}
+
+static const char *agent_linux_pending(
+  const struct agent_platform_state *state
+) {
+  return state->profile == AGENT_CREDENTIAL_PROFILE_OLLAMA
+    ? ".ollama-cloud.api-key.pending"
+    : ".openai.oauth.pending";
+}
+
+static const char *agent_linux_retired(
+  const struct agent_platform_state *state
+) {
+  return state->profile == AGENT_CREDENTIAL_PROFILE_OLLAMA
+    ? ".ollama-cloud.api-key.retired"
+    : ".openai.oauth.retired";
+}
 
 static int agent_linux_openat2(
   int directory,
@@ -1074,7 +1446,9 @@ static bool agent_linux_ensure_directory(
 }
 
 static bool agent_linux_ensure_lock(struct agent_platform_state *state) {
-  const char *name = ".ollama-cloud-credential.lock";
+  const char *name = state->profile == AGENT_CREDENTIAL_PROFILE_OLLAMA
+    ? ".ollama-cloud-credential.lock"
+    : ".openai-oauth-credential.lock";
   int created = openat(
     state->root,
     name,
@@ -1147,12 +1521,21 @@ static bool agent_linux_inventory(
       continue;
     }
     bool *slot = NULL;
-    if (strcmp(entry->d_name, "ollama-cloud.api-key") == 0) {
+    if (strcmp(entry->d_name, agent_linux_committed(state)) == 0) {
       slot = committed;
-    } else if (strcmp(entry->d_name, ".ollama-cloud.api-key.pending") == 0) {
+    } else if (strcmp(entry->d_name, agent_linux_pending(state)) == 0) {
       slot = pending;
-    } else if (strcmp(entry->d_name, ".ollama-cloud.api-key.retired") == 0) {
+    } else if (strcmp(entry->d_name, agent_linux_retired(state)) == 0) {
       slot = retired;
+    } else if (
+      strcmp(entry->d_name, "ollama-cloud.api-key") == 0 ||
+      strcmp(entry->d_name, ".ollama-cloud.api-key.pending") == 0 ||
+      strcmp(entry->d_name, ".ollama-cloud.api-key.retired") == 0 ||
+      strcmp(entry->d_name, "openai.oauth") == 0 ||
+      strcmp(entry->d_name, ".openai.oauth.pending") == 0 ||
+      strcmp(entry->d_name, ".openai.oauth.retired") == 0
+    ) {
+      continue;
     }
     if (slot == NULL || *slot) {
       valid = false;
@@ -1177,7 +1560,7 @@ static bool agent_linux_delete_recovery(
   struct stat observed;
   const bool valid = agent_linux_validate(file, false, true, true, false) &&
     fstat(file, &observed) == 0 && observed.st_size >= 0 &&
-    (uint64_t)observed.st_size <= AGENT_CREDENTIAL_RECORD_MAX_BYTES;
+    (uint64_t)observed.st_size <= state->record_max;
   if (file >= 0) {
     close(file);
   }
@@ -1197,13 +1580,13 @@ static bool agent_platform_recover(
   if (pending) {
     return agent_linux_delete_recovery(
       state,
-      ".ollama-cloud.api-key.pending"
+      agent_linux_pending(state)
     );
   }
   if (retired && !committed) {
     return agent_linux_delete_recovery(
       state,
-      ".ollama-cloud.api-key.retired"
+      agent_linux_retired(state)
     );
   }
   return !retired;
@@ -1216,14 +1599,14 @@ static bool agent_platform_open_record(
 ) {
   *record = openat(
     state->credentials,
-    "ollama-cloud.api-key",
+    agent_linux_committed(state),
     O_RDONLY | O_CLOEXEC | O_NOFOLLOW
   );
   struct stat observed;
   if (
     !agent_linux_validate(*record, false, true, true, false) ||
     fstat(*record, &observed) != 0 || observed.st_size <= 0 ||
-    (uint64_t)observed.st_size > AGENT_CREDENTIAL_RECORD_MAX_BYTES
+    (uint64_t)observed.st_size > state->record_max
   ) {
     if (*record >= 0) close(*record);
     *record = -1;
@@ -1288,8 +1671,8 @@ static bool agent_platform_publish(
   size_t length,
   bool replace
 ) {
-  const char *pending = ".ollama-cloud.api-key.pending";
-  const char *committed = "ollama-cloud.api-key";
+  const char *pending = agent_linux_pending(state);
+  const char *committed = agent_linux_committed(state);
   const int file = openat(
     state->credentials,
     pending,
@@ -1336,9 +1719,9 @@ static bool agent_platform_remove(struct agent_platform_state *state) {
   const int retired = (int)syscall(
     SYS_renameat2,
     state->credentials,
-    "ollama-cloud.api-key",
+    agent_linux_committed(state),
     state->credentials,
-    ".ollama-cloud.api-key.retired",
+    agent_linux_retired(state),
     RENAME_NOREPLACE
   );
   if (retired != 0 || fsync(state->credentials) != 0) {
@@ -1351,11 +1734,12 @@ static bool agent_platform_remove(struct agent_platform_state *state) {
 #endif
   return agent_linux_delete_recovery(
       state,
-      ".ollama-cloud.api-key.retired"
+      agent_linux_retired(state)
     );
 }
 
 static struct agent_platform_state *agent_platform_open(
+  enum agent_credential_profile profile,
   bool exclusive,
   bool environment_present,
   bool *busy,
@@ -1371,6 +1755,10 @@ static struct agent_platform_state *agent_platform_open(
   state->root = -1;
   state->credentials = -1;
   state->lock = -1;
+  state->profile = profile;
+  state->record_max = profile == AGENT_CREDENTIAL_PROFILE_OLLAMA
+    ? AGENT_CREDENTIAL_OLLAMA_RECORD_MAX_BYTES
+    : AGENT_CREDENTIAL_OPENAI_RECORD_MAX_BYTES;
   state->exclusive = exclusive;
   state->environment_present = environment_present;
   const char *home_path = NULL;
@@ -1454,13 +1842,14 @@ static bool agent_open_record_envelope(
   struct agent_platform_state *state,
   agent_record_handle *file,
   size_t *header_length,
-  size_t *value_length,
-  uint64_t *revision
+  size_t *body_length,
+  struct agent_record *record
 ) {
   uint64_t file_size = 0u;
   if (
-    file == NULL || header_length == NULL || value_length == NULL ||
-    revision == NULL || !agent_platform_open_record(state, file, &file_size)
+    state == NULL || file == NULL || header_length == NULL ||
+    body_length == NULL || record == NULL ||
+    !agent_platform_open_record(state, file, &file_size)
   ) {
     return false;
   }
@@ -1492,13 +1881,20 @@ static bool agent_open_record_envelope(
   }
   if (
     !complete ||
-    !agent_parse_header(
-      header,
-      observed_header_length,
-      revision,
-      value_length
-    ) ||
-    file_size != (uint64_t)observed_header_length + *value_length
+    (state->profile == AGENT_CREDENTIAL_PROFILE_OLLAMA
+      ? !agent_parse_ollama_header(
+          header,
+          observed_header_length,
+          &record->revision,
+          body_length
+        )
+      : !agent_parse_openai_header(
+          header,
+          observed_header_length,
+          record,
+          body_length
+        )) ||
+    file_size != (uint64_t)observed_header_length + *body_length
   ) {
     agent_platform_close_record(*file);
     return false;
@@ -1508,16 +1904,25 @@ static bool agent_open_record_envelope(
 }
 
 static bool agent_read_record_value(
+  const struct agent_platform_state *state,
   agent_record_handle file,
   size_t header_length,
-  size_t value_length,
-  uint64_t revision,
+  size_t body_length,
   struct agent_record *record
 ) {
+  const size_t envelope = state->profile == AGENT_CREDENTIAL_PROFILE_OPENAI
+    ? AGENT_CREDENTIAL_OPENAI_ENVELOPE_BYTES
+    : 0u;
+  const size_t value_length = body_length + envelope;
   unsigned char *value = malloc(value_length);
   if (
     value == NULL ||
-    !agent_platform_read_at(file, header_length, value, value_length)
+    !agent_platform_read_at(
+      file,
+      header_length,
+      value + envelope,
+      body_length
+    )
   ) {
     agent_clear(value, value_length);
     free(value);
@@ -1525,14 +1930,42 @@ static bool agent_read_record_value(
     return false;
   }
   agent_platform_close_record(file);
-  if (!agent_valid_value(value, value_length)) {
+  if (state->profile == AGENT_CREDENTIAL_PROFILE_OPENAI) {
+    agent_write_u32(value, (uint32_t)record->access_length);
+    agent_write_u32(value + 4u, (uint32_t)record->refresh_length);
+    agent_write_u32(value + 8u, (uint32_t)record->account_length);
+    agent_write_u64(value + 12u, record->expires_at);
+    const unsigned char *access = value + envelope;
+    const unsigned char *refresh = access + record->access_length;
+    const unsigned char *account = refresh + record->refresh_length;
+    if (
+      !agent_visible_ascii(
+        access,
+        record->access_length,
+        AGENT_CREDENTIAL_KEY_MAX_BYTES
+      ) ||
+      !agent_visible_ascii(
+        refresh,
+        record->refresh_length,
+        AGENT_CREDENTIAL_KEY_MAX_BYTES
+      ) ||
+      !agent_visible_ascii(
+        account,
+        record->account_length,
+        AGENT_CREDENTIAL_OPENAI_ACCOUNT_MAX_BYTES
+      )
+    ) {
+      agent_clear(value, value_length);
+      free(value);
+      return false;
+    }
+  } else if (!agent_valid_value(value, value_length)) {
     agent_clear(value, value_length);
     free(value);
     return false;
   }
   record->value = value;
   record->value_length = value_length;
-  record->revision = revision;
   return true;
 }
 
@@ -1542,25 +1975,24 @@ static bool agent_read_record(
 ) {
   agent_record_handle file;
   size_t header_length = 0u;
-  size_t value_length = 0u;
-  uint64_t revision = 0u;
+  size_t body_length = 0u;
   return agent_open_record_envelope(
     state,
     &file,
     &header_length,
-    &value_length,
-    &revision
+    &body_length,
+    record
   ) && agent_read_record_value(
+    state,
     file,
     header_length,
-    value_length,
-    revision,
+    body_length,
     record
   );
 }
 
 bool agent_credential_store_open(
-  bool exclusive,
+  enum agent_credential_request_kind kind,
   bool environment_present,
   struct agent_credential_session *session,
   enum agent_credential_response_kind *response,
@@ -1575,9 +2007,29 @@ bool agent_credential_store_open(
   }
   *value = NULL;
   *value_length = 0u;
+  enum agent_credential_profile profile;
+  bool exclusive = false;
+  if (kind == AGENT_CREDENTIAL_SNAPSHOT) {
+    profile = AGENT_CREDENTIAL_PROFILE_OLLAMA;
+  } else if (kind == AGENT_CREDENTIAL_OPEN_MUTATION) {
+    profile = AGENT_CREDENTIAL_PROFILE_OLLAMA;
+    exclusive = true;
+  } else if (
+    kind == AGENT_CREDENTIAL_OPENAI_SNAPSHOT ||
+    kind == AGENT_CREDENTIAL_OPENAI_OPEN_MUTATION
+  ) {
+    if (environment_present) {
+      return false;
+    }
+    profile = AGENT_CREDENTIAL_PROFILE_OPENAI;
+    exclusive = true;
+  } else {
+    return false;
+  }
   bool busy = false;
   bool present = false;
   struct agent_platform_state *state = agent_platform_open(
+    profile,
     exclusive,
     environment_present,
     &busy,
@@ -1594,14 +2046,22 @@ bool agent_credential_store_open(
   }
   agent_record_handle file;
   size_t header_length = 0u;
-  size_t record_value_length = 0u;
-  uint64_t revision = 0u;
+  size_t body_length = 0u;
+  struct agent_record record = {
+    .value = NULL,
+    .value_length = 0u,
+    .access_length = 0u,
+    .refresh_length = 0u,
+    .account_length = 0u,
+    .expires_at = 0u,
+    .revision = 0u
+  };
   if (!agent_open_record_envelope(
     state,
     &file,
     &header_length,
-    &record_value_length,
-    &revision
+    &body_length,
+    &record
   )) {
     *response = AGENT_CREDENTIAL_STORE_FAILURE;
     agent_credential_store_close(session);
@@ -1613,16 +2073,11 @@ bool agent_credential_store_open(
     agent_credential_store_close(session);
     return true;
   }
-  struct agent_record record = {
-    .value = NULL,
-    .value_length = 0u,
-    .revision = 0u
-  };
   if (!agent_read_record_value(
+    state,
     file,
     header_length,
-    record_value_length,
-    revision,
+    body_length,
     &record
   )) {
     *response = AGENT_CREDENTIAL_STORE_FAILURE;
@@ -1630,7 +2085,10 @@ bool agent_credential_store_open(
     return true;
   }
   state->revision = record.revision;
-  if (exclusive) {
+  if (
+    kind == AGENT_CREDENTIAL_OPEN_MUTATION ||
+    kind == AGENT_CREDENTIAL_OPENAI_OPEN_MUTATION
+  ) {
     agent_record_dispose(&record);
     *response = AGENT_CREDENTIAL_PRESENT;
     return true;
@@ -1639,7 +2097,9 @@ bool agent_credential_store_open(
   *value_length = record.value_length;
   record.value = NULL;
   record.value_length = 0u;
-  *response = AGENT_CREDENTIAL_VALUE;
+  *response = profile == AGENT_CREDENTIAL_PROFILE_OLLAMA
+    ? AGENT_CREDENTIAL_VALUE
+    : AGENT_CREDENTIAL_OPENAI_VALUE;
   return true;
 }
 
@@ -1657,13 +2117,32 @@ bool agent_credential_store_mutate(
   if (!state->exclusive) {
     return false;
   }
-  if (kind == AGENT_CREDENTIAL_CANCEL) {
+  const bool ollama = state->profile == AGENT_CREDENTIAL_PROFILE_OLLAMA;
+  const bool cancel = ollama
+    ? kind == AGENT_CREDENTIAL_CANCEL
+    : kind == AGENT_CREDENTIAL_OPENAI_CANCEL;
+  const bool register_value = ollama
+    ? kind == AGENT_CREDENTIAL_REGISTER
+    : kind == AGENT_CREDENTIAL_OPENAI_REGISTER;
+  const bool replace_value = ollama
+    ? kind == AGENT_CREDENTIAL_REPLACE
+    : kind == AGENT_CREDENTIAL_OPENAI_REPLACE;
+  const bool remove_value = ollama
+    ? kind == AGENT_CREDENTIAL_REMOVE
+    : kind == AGENT_CREDENTIAL_OPENAI_REMOVE;
+  if (cancel) {
     *response = AGENT_CREDENTIAL_CANCELLED;
     return true;
   }
   if (
-    (kind == AGENT_CREDENTIAL_REGISTER || kind == AGENT_CREDENTIAL_REPLACE) &&
-    (!agent_valid_value(value, value_length) || state->environment_present)
+    (register_value || replace_value) &&
+    ((ollama && !agent_valid_value(value, value_length)) ||
+      (!ollama && !agent_decode_openai_payload(
+        value,
+        value_length,
+        &(struct agent_record){0}
+      )) ||
+      state->environment_present)
   ) {
     *response = state->environment_present
       ? AGENT_CREDENTIAL_INVALID_STATE
@@ -1671,14 +2150,14 @@ bool agent_credential_store_mutate(
     return true;
   }
   if (
-    (kind == AGENT_CREDENTIAL_REGISTER && state->present) ||
-    ((kind == AGENT_CREDENTIAL_REPLACE || kind == AGENT_CREDENTIAL_REMOVE) &&
+    (register_value && state->present) ||
+    ((replace_value || remove_value) &&
       !state->present)
   ) {
     *response = AGENT_CREDENTIAL_INVALID_STATE;
     return true;
   }
-  if (kind == AGENT_CREDENTIAL_REMOVE) {
+  if (remove_value) {
     if (!agent_platform_remove(state)) {
       *response = AGENT_CREDENTIAL_STORE_FAILURE;
       return true;
@@ -1689,12 +2168,12 @@ bool agent_credential_store_mutate(
     return true;
   }
   if (
-    kind != AGENT_CREDENTIAL_REGISTER && kind != AGENT_CREDENTIAL_REPLACE
+    !register_value && !replace_value
   ) {
     *response = AGENT_CREDENTIAL_INVALID_STATE;
     return true;
   }
-  const uint64_t revision = kind == AGENT_CREDENTIAL_REGISTER
+  const uint64_t revision = register_value
     ? 1u
     : state->revision + 1u;
   if (
@@ -1705,13 +2184,22 @@ bool agent_credential_store_mutate(
   }
   unsigned char *record = NULL;
   size_t record_length = 0u;
-  if (!agent_encode_record(
-    value,
-    value_length,
-    revision,
-    &record,
-    &record_length
-  )) {
+  const bool encoded = ollama
+    ? agent_encode_ollama_record(
+        value,
+        value_length,
+        revision,
+        &record,
+        &record_length
+      )
+    : agent_encode_openai_record(
+        value,
+        value_length,
+        revision,
+        &record,
+        &record_length
+      );
+  if (!encoded) {
     *response = AGENT_CREDENTIAL_INVALID_VALUE;
     return true;
   }
@@ -1719,7 +2207,7 @@ bool agent_credential_store_mutate(
     state,
     record,
     record_length,
-    kind == AGENT_CREDENTIAL_REPLACE
+    replace_value
   );
   agent_clear(record, record_length);
   free(record);
@@ -1730,6 +2218,10 @@ bool agent_credential_store_mutate(
   struct agent_record verified = {
     .value = NULL,
     .value_length = 0u,
+    .access_length = 0u,
+    .refresh_length = 0u,
+    .account_length = 0u,
+    .expires_at = 0u,
     .revision = 0u
   };
   if (
@@ -1744,7 +2236,7 @@ bool agent_credential_store_mutate(
   agent_record_dispose(&verified);
   state->present = true;
   state->revision = revision;
-  *response = kind == AGENT_CREDENTIAL_REGISTER
+  *response = register_value
     ? AGENT_CREDENTIAL_REGISTERED
     : AGENT_CREDENTIAL_REPLACED;
   return true;

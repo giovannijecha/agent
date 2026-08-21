@@ -501,7 +501,7 @@ replacement implicitly.
 ### Owned external authentication
 
 **Owners:** CLI native platform boundary, decision 0089, non-active decisions
-0090 through 0092, superseded decision 0088, and the authentication and selection clauses of decision 0072,
+0090 through 0093, superseded decision 0088, and the authentication and selection clauses of decision 0072,
 [providers](PROVIDERS.md), [OAuth registration](OAUTH-REGISTRATION.md),
 [privacy](../PRIVACY.md), and [security](../SECURITY.md).
 
@@ -518,11 +518,13 @@ contract. Decision 0091 accepts only a provider-owned non-secret public client,
 keeps `agent` as every controllable caller identity, and requires explicit
 independent-compatibility disclosure. Decision 0092 accepts OpenAI's exact
 public client, device request, callback, poll status, PKCE, and caller-identity
-semantics only in policy. The next gate is
-`credential-implementation-required`. Until that separate module is accepted,
-maintenance must not create the OpenAI record or lock, add an auth action or
-provider row, admit an endpoint or identifier in product source, or weaken the
-closed source inventories.
+semantics only in policy. Decision 0093 owns the exact OpenAI record, lock,
+private frame, exclusive admission, atomic lifecycle, recovery, and local
+removal implementation. The state is `credential-compatible-inactive`; the
+next gate is `auth-implementation-required`. Current commands do not call this
+adapter. Do not add an auth action, endpoint, provider workspace or row,
+catalog, transport, client-identity use, browser operation, environment
+authority, or runtime composition before its separate module.
 
 For ChatGPT, Kimi, or xAI compatibility changes, recheck first-party protocol
 and client-ownership evidence, pin any necessary bounded clean-room inspection
@@ -588,9 +590,14 @@ Rollback first closes every running Agent and authentication process, then
 restores the command, selector, native helper, policy, and documentation as one
 reviewed unit. Never leave a record reader without its mutation/removal path or
 restore `/providers` as a second authority. Full local credential removal uses
-`agent auth` to remove the Ollama Cloud record, verifies no process holds the
+`agent auth` to remove the Ollama Cloud record, verifies no process holds its
 store lock, and may then remove only the empty credentials directory and exact
-Ollama lock file. It is not secure erasure and does not revoke a provider key.
+Ollama lock file. Before OpenAI auth ships, ordinary operation cannot create its
+record. Rollback must nevertheless retain the decision-0093 private remove
+operation until exclusive admission has validated and retired any committed
+`openai.oauth` record and recovered its bounded pending or retired state; only
+then may it remove the empty OpenAI lock. It never removes Ollama state. Local
+removal is not secure erasure and does not revoke a provider grant or key.
 Never repair an unsafe record silently, retry a mutation, restore superseded
 material, or borrow another client's credential store.
 
