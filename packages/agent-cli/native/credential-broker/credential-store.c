@@ -379,39 +379,38 @@ static bool agent_windows_security(
 }
 
 #ifdef AGENT_CREDENTIAL_FIXTURE
-static bool agent_windows_fixture_lineage_observation = false;
-static unsigned char
-  agent_windows_fixture_owner[SECURITY_MAX_SID_SIZE];
-
-static bool agent_windows_prepare_fixture_lineage(PSID account) {
-  DWORD length = sizeof(agent_windows_fixture_owner);
+static bool agent_windows_prepare_fixture_lineage(
+  PSID account,
+  unsigned char *owner,
+  struct agent_windows_lineage_observation *observation
+) {
+  DWORD length = SECURITY_MAX_SID_SIZE;
   if (
     CreateWellKnownSid(
       WinLocalSystemSid,
       NULL,
-      agent_windows_fixture_owner,
+      owner,
       &length
     ) == 0
   ) {
     return false;
   }
-  if (EqualSid(agent_windows_fixture_owner, account) == 0) {
-    agent_windows_fixture_lineage_observation = true;
-    return true;
+  if (EqualSid(owner, account) != 0) {
+    length = SECURITY_MAX_SID_SIZE;
+    if (
+      CreateWellKnownSid(
+        WinBuiltinAdministratorsSid,
+        NULL,
+        owner,
+        &length
+      ) == 0 ||
+      EqualSid(owner, account) != 0
+    ) {
+      return false;
+    }
   }
-  length = sizeof(agent_windows_fixture_owner);
-  if (
-    CreateWellKnownSid(
-      WinBuiltinAdministratorsSid,
-      NULL,
-      agent_windows_fixture_owner,
-      &length
-    ) == 0 ||
-    EqualSid(agent_windows_fixture_owner, account) != 0
-  ) {
-    return false;
-  }
-  agent_windows_fixture_lineage_observation = true;
+  observation->account = account;
+  observation->owner = owner;
   return true;
 }
 #endif
@@ -434,15 +433,8 @@ static bool agent_windows_validate_security(
     NULL,
     &descriptor
   );
-  PSID observed_owner = owner;
-#ifdef AGENT_CREDENTIAL_FIXTURE
-  if (agent_windows_fixture_lineage_observation) {
-    observed_owner = agent_windows_fixture_owner;
-  }
-#endif
   bool valid = status == ERROR_SUCCESS && owner != NULL &&
-    observed_owner != NULL && EqualSid(observed_owner, account) != 0 &&
-    dacl != NULL;
+    EqualSid(owner, account) != 0 && dacl != NULL;
   if (valid && exact) {
     SECURITY_DESCRIPTOR_CONTROL control = 0u;
     DWORD revision = 0u;
@@ -545,7 +537,7 @@ static bool agent_windows_ensure_directory(
   }
   HANDLE handle = exact
     ? agent_windows_open_directory(path, account, true)
-    : agent_windows_open_lineage_directory(path);
+    : agent_windows_open_lineage_directory(path, NULL);
   if (handle == INVALID_HANDLE_VALUE) {
     return false;
   }
@@ -910,17 +902,27 @@ static struct agent_platform_state *agent_platform_open(
     return NULL;
   }
 #endif
+  const struct agent_windows_lineage_observation *lineage_observation = NULL;
 #ifdef AGENT_CREDENTIAL_FIXTURE
-  if (!agent_windows_prepare_fixture_lineage(state->account)) {
+  unsigned char fixture_owner[SECURITY_MAX_SID_SIZE];
+  struct agent_windows_lineage_observation fixture_observation;
+  if (
+    !agent_windows_prepare_fixture_lineage(
+      state->account,
+      fixture_owner,
+      &fixture_observation
+    )
+  ) {
     free(home);
     agent_credential_store_close(&(struct agent_credential_session){ .state = state });
     return NULL;
   }
+  lineage_observation = &fixture_observation;
 #endif
-  HANDLE home_handle = agent_windows_open_lineage_directory(home);
-#ifdef AGENT_CREDENTIAL_FIXTURE
-  agent_windows_fixture_lineage_observation = false;
-#endif
+  HANDLE home_handle = agent_windows_open_lineage_directory(
+    home,
+    lineage_observation
+  );
   state->agent_root = agent_windows_join(home, L".agent");
 #ifdef AGENT_CREDENTIAL_FIXTURE
   free(home);
