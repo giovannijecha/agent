@@ -325,6 +325,46 @@ test("contains cleanup failures from late catalog and Responses callbacks", asyn
   }
 });
 
+test("contains throwing HTTPS response metadata and destroys both handles", async () => {
+  for (const operation of ["catalog", "responses"] as const) {
+    for (const property of ["statusCode", "headers"] as const) {
+      const response = new FakeResponse(200, operation === "catalog"
+        ? "application/json"
+        : "text/event-stream");
+      let metadataReads = 0;
+      Object.defineProperty(response, property, {
+        get: () => {
+          metadataReads += 1;
+          throw new Error("private response metadata failure");
+        },
+      });
+      const client = new FakeClient(response);
+      client.deferResponses = true;
+      const transport = create(client);
+      const pending = operation === "catalog"
+        ? transport.catalog(new Cancellation())
+        : transport.open(Object.freeze({ body: "{}" }), new Cancellation());
+      const request = client.requests.at(0);
+      assert.ok(request !== undefined);
+      request.destroyFailure = property === "headers";
+      let escaped = false;
+      try {
+        client.flushResponse();
+      } catch (_cause: unknown) {
+        escaped = true;
+      }
+      assert.equal(escaped, false);
+      assert.deepEqual(await pending, {
+        error: { cleanupFailed: property === "headers", kind: "protocol" },
+        ok: false,
+      });
+      assert.equal(metadataReads, 1);
+      assert.equal(response.destroyed, 1);
+      assert.equal(request.destroyed, 1);
+    }
+  }
+});
+
 test("reports failed-open response cleanup without replacing protocol failure", async () => {
   const response = new FakeResponse(99, "text/event-stream");
   response.destroyFailure = true;

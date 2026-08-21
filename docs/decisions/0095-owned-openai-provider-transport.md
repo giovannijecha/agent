@@ -106,6 +106,11 @@ the source's overridable iterator is never consulted. Catalog list also reads
 rejects malformed state before invoking the transport.
 The Node catalog transport applies the same bounded typed-array copy to every
 HTTPS body chunk before aggregate retention.
+Its response callback snapshots status and content type once inside local
+containment. Throwing or malformed metadata fails as a content-free protocol
+result, destroys request and response, and combines either cleanup failure. An
+accepted catalog response retains that snapshot through EOF without rereading
+the response object.
 
 The decoder accepts one JSON object containing one `models` array with 1
 through 256 entries. Every entry is a bounded object with required `slug`,
@@ -197,6 +202,10 @@ that loses the race to cancellation, timeout, or request failure still destroys
 its response under a no-throw cleanup boundary; it cannot reopen the settled
 operation or escape a private cleanup cause. One read may be pending and a
 concurrent second read fails closed.
+The callback snapshots status and content type once inside local containment
+before constructing a stream. Throwing or malformed metadata produces a
+content-free protocol failure with paired request-response cleanup, and the
+stream receives only the admitted snapshots rather than reading the response.
 Both the Node transport and Node-free Responses adapter snapshot each chunk's
 length, require 1 through 65,536 bytes, and copy into a fresh `Uint8Array` with
 typed-array `set` before UTF-8 decoding. No source iterator participates in the
@@ -314,8 +323,9 @@ Red-green regression must prove:
 - the catalog sends the exact method, origin, path, query, headers, deadlines,
   and no body, and rejects redirect, status, content-type, encoding, size,
   schema, duplicate, and eligibility drift while retaining only once-read
-  validated capture fields, ignoring an overridden body iterator, and refusing
-  non-boolean cancellation state before transport;
+  validated capture fields, containing throwing response-metadata getters with
+  paired cleanup, ignoring an overridden body iterator, and refusing non-boolean
+  cancellation state before transport;
 - the request encoder preserves ordered messages, tool calls and outputs,
   provider call IDs, exact tool schemas including owned string and aggregate-
   text annotations, thinking mapping, `store: false`, `stream: true`, and the
@@ -329,6 +339,8 @@ Red-green regression must prove:
   cancellation, timeout, and one large frame fragmented into single-code-unit
   chunks without whole-buffer rescanning; HTTPS and injected chunks reject the
   65,536-byte bound and ignore overridden source iterators before UTF-8 decode;
+  Responses admission contains throwing status and header getters with paired
+  cleanup before constructing a stream;
 - an added reasoning item rejects pre-populated or malformed content before any
   later item projection can omit or replace it, and any reasoning item or delta
   is rejected when the captured effort is off;

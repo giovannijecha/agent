@@ -195,6 +195,11 @@ after an earlier settlement destroy their response inside the content-free
 cleanup boundary and cannot escape a private cause or reopen the operation.
 Every rejected catalog response also destroys both its request and response and
 combines cleanup failure from either handle before publishing its empty capture.
+Each catalog and Responses callback snapshots status and content type once
+inside callback-local containment. Throwing or malformed metadata produces a
+content-free protocol failure, destroys both request and response, and combines
+either cleanup failure; admitted metadata is never reread at catalog EOF or
+inside the Responses stream constructor.
 The catalog adapter reads every returned capture property once, validates those
 local snapshots, and copies only the same bounded body snapshot; an accessor or
 proxy cannot replace validated metadata or bytes through a later read. The copy

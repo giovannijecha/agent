@@ -90,6 +90,18 @@ function contentType(response: HttpsResponse): string | undefined {
   return undefined;
 }
 
+type ResponseMetadata = Readonly<{
+  contentType: string | undefined;
+  statusCode: number;
+}>;
+
+function snapshotResponseMetadata(response: HttpsResponse): ResponseMetadata | undefined {
+  const statusCode = response.statusCode;
+  if (statusCode === undefined || !Number.isSafeInteger(statusCode) ||
+    statusCode < 100 || statusCode > 599) return undefined;
+  return Object.freeze({ contentType: contentType(response), statusCode });
+}
+
 function validJsonContentType(value: string | undefined): boolean {
   return value !== undefined &&
     /^application\/json(?:\s*;\s*charset=utf-8)?$/iu.test(value);
@@ -152,12 +164,13 @@ class NodeOpenAIStream implements OpenAITransportStream {
   constructor(
     response: HttpsResponse,
     statusCode: number,
+    responseContentType: string | undefined,
     onTerminal: () => void,
     destroyRequest: () => boolean,
   ) {
     this.#response = response;
     this.statusCode = statusCode;
-    this.contentType = contentType(response);
+    this.contentType = responseContentType;
     this.#onTerminal = onTerminal;
     this.#destroyRequest = destroyRequest;
     response.on("aborted", this.#onAborted);
@@ -387,6 +400,7 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
     let settled = false;
     let activeRequest: HttpsRequest | undefined;
     let activeResponse: HttpsResponse | undefined;
+    let activeMetadata: ResponseMetadata | undefined;
     let deadline: ScheduledTimer | undefined;
     const chunks: Uint8Array[] = [];
     let bytes = 0;
@@ -439,10 +453,8 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
         chunks.push(owned);
       };
       const onEnd = (): void => {
-        if (activeResponse === undefined) return fail("protocol");
-        const statusCode = activeResponse.statusCode;
-        if (statusCode === undefined || !Number.isSafeInteger(statusCode) ||
-          statusCode < 100 || statusCode > 599) return fail("protocol");
+        const metadata = activeMetadata;
+        if (activeResponse === undefined || metadata === undefined) return fail("protocol");
         const body = new Uint8Array(bytes);
         let offset = 0;
         for (const chunk of chunks) {
@@ -452,8 +464,8 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
         settle(ok(Object.freeze({
           body,
           cleanupFailed: false,
-          contentType: contentType(activeResponse),
-          statusCode,
+          contentType: metadata.contentType,
+          statusCode: metadata.statusCode,
         })));
       };
       let registration: ScheduledTimer;
@@ -488,21 +500,26 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
             return;
           }
           activeResponse = response;
-          const statusCode = response.statusCode;
-          if (statusCode === undefined || !Number.isSafeInteger(statusCode) ||
-            statusCode < 100 || statusCode > 599) return fail("protocol");
-          if (statusCode !== 200 || !validJsonContentType(contentType(response))) {
-            const rejectedContentType = contentType(response);
+          let metadata: ResponseMetadata | undefined;
+          try {
+            metadata = snapshotResponseMetadata(response);
+          } catch (_cause: unknown) {
+            fail("protocol");
+            return;
+          }
+          if (metadata === undefined) return fail("protocol");
+          if (metadata.statusCode !== 200 || !validJsonContentType(metadata.contentType)) {
             detach();
             const cleanupFailed = destroy();
             settle(ok(Object.freeze({
               body: new Uint8Array(),
               cleanupFailed,
-              contentType: rejectedContentType,
-              statusCode,
+              contentType: metadata.contentType,
+              statusCode: metadata.statusCode,
             })));
             return;
           }
+          activeMetadata = metadata;
           response.on("aborted", onAborted);
           response.on("error", onResponseError);
           response.on("data", onData);
@@ -579,6 +596,16 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
         else if (kind === "connection") activeStream.connection(cleanupFailed);
         else activeStream.protocol(cleanupFailed);
       };
+      const rejectResponse = (response: HttpsResponse): void => {
+        terminating = true;
+        let cleanupFailed = destroyRequest();
+        try {
+          response.destroy();
+        } catch (_cause: unknown) {
+          cleanupFailed = true;
+        }
+        settle(err(failure("protocol", cleanupFailed)));
+      };
       let registration: ScheduledTimer;
       let arming = true;
       let firedSynchronously = false;
@@ -610,22 +637,18 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
             try { response.destroy(); } catch (_cause: unknown) { /* already settled */ }
             return;
           }
-          const statusCode = response.statusCode;
-          if (statusCode === undefined || !Number.isSafeInteger(statusCode) ||
-            statusCode < 100 || statusCode > 599) {
-            terminating = true;
-            let cleanupFailed = destroyRequest();
-            try {
-              response.destroy();
-            } catch (_cause: unknown) {
-              cleanupFailed = true;
-            }
-            settle(err(failure("protocol", cleanupFailed)));
+          let metadata: ResponseMetadata | undefined;
+          try {
+            metadata = snapshotResponseMetadata(response);
+          } catch (_cause: unknown) {
+            rejectResponse(response);
             return;
           }
+          if (metadata === undefined) return rejectResponse(response);
           activeStream = new NodeOpenAIStream(
             response,
-            statusCode,
+            metadata.statusCode,
+            metadata.contentType,
             settleLifecycle,
             destroyRequest,
           );

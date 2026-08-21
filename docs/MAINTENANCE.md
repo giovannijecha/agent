@@ -561,6 +561,11 @@ catalog cancellation once, require a boolean, and reject malformed state before
 transport. For catalog rejection changes, retain the content-type snapshot,
 detach owned listeners, destroy both request and response, and combine either
 cleanup failure before publishing the empty capture.
+For HTTPS response-admission changes, snapshot status and content type once
+inside each asynchronous callback's containment boundary. A throwing or
+malformed metadata source must produce a content-free protocol failure, destroy
+both request and response, and combine cleanup failure; never reread response
+metadata in a stream constructor or at catalog EOF.
 For successful transport-open validation, snapshot valid close authority first,
 read each remaining stream property once, and invoke the retained close before
 rejecting malformed metadata or read authority. Preserve cleanup failure without
