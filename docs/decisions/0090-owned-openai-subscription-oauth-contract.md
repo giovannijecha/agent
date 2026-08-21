@@ -25,17 +25,12 @@ Codex-specific device, token, catalog, and Responses route details needed to
 specify an independent implementation. The metadata publishes no dynamic
 client-registration endpoint.
 
-Current public documentation was inspected first and proved stale for this
-question. Pi documents subscription login, storage, and refresh but omits its
-OpenAI ceremony and client identity. OpenCode documents browser login but omits
-the current headless device flow, refresh, transport, and client identity. The
-maintainer then authorized a clean-room inspection limited to those gaps at the
-pinned commits. Both projects independently implement the device or browser
-OAuth family, proving that a separate harness can interoperate technically.
-Both also use the public-client identity registered to OpenAI Codex. That
-observation does not transfer the registration to `agent`, and no source,
-client identifier, implementation structure, fixture, prompt, product header,
-or credential schema from either project is admitted.
+Pi and OpenCode source were viewed at the maintainer's request before this
+repository recorded a concrete stale-documentation gap. The ownership log
+therefore records that inspection as discarded. It supplies no feasibility,
+protocol, identity, or implementation authority to this decision and cannot be
+revived by a later annotation. The contract below is independently derived
+from the official OpenAI authorities described above.
 
 Public endpoints and public-client identity are separate authorities. This
 decision accepts the public protocol as the intended OpenAI direction and
@@ -340,8 +335,10 @@ threat model, failure family, delivery order, rollback, or removal path requires
 this decision, the machine policy, provenance, privacy, security, architecture,
 maintenance, manual, and focused tests to change together. Recheck primary
 OpenAI documentation, authorization metadata, and pinned first-party source
-before every such change. Pi and OpenCode may be reinspected only for observed
-feasibility and divergence; they never become protocol or identity authority.
+before every such change. A future reference-project inspection must first
+record the exact stale-documentation gap in a new dated provenance entry. It
+may not reuse notes or observations from the discarded Pi or OpenCode
+inspection.
 
 Before activation, rollback removes this decision, its subscription-contract
 policy entry and tests, index routes, dossier update, and new provenance rows.

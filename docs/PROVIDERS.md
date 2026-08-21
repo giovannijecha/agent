@@ -120,18 +120,11 @@ rollback, and removal.
 
 ## Blocked subscription OAuth providers
 
-Public provider documentation was inspected first. Pi documents subscription
-login, storage, and refresh but omits its OpenAI ceremony and client identity;
-OpenCode documents browser login but omits its current headless device flow,
-refresh, transport, and client identity. Those concrete stale-documentation
-gaps permitted a bounded clean-room inspection of Pi at
-[`5cd93f688aaab89dbb6dfa4aca535f21796ae185`](https://github.com/earendil-works/pi/tree/5cd93f688aaab89dbb6dfa4aca535f21796ae185)
-and OpenCode at
-[`e11dbd02068aa36723dd43da43c247ade82d2fe7`](https://github.com/anomalyco/opencode/tree/e11dbd02068aa36723dd43da43c247ade82d2fe7).
-Both prove that independently implemented OpenAI subscription OAuth is
-technically feasible. Both also depend on the identity registered to OpenAI
-Codex. Neither transfers a registration, identity, approval, entitlement,
-protocol authority, or implementation input to `agent`.
+A maintainer-requested Pi and OpenCode source inspection is recorded as
+discarded because it occurred before the repository recorded a concrete stale-
+documentation prerequisite. It supplies no feasibility, protocol, identity,
+policy, or implementation input to `agent`. Decision 0090 is derived only from
+the official OpenAI authorities in its provenance record.
 
 ChatGPT Plus/Pro, Claude Pro/Max, Kimi Code, and Grok subscription are not
 admitted providers. The [OAuth registration dossier](OAUTH-REGISTRATION.md)

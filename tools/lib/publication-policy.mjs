@@ -198,19 +198,15 @@ function validateProvenanceLog(policy, context) {
   if (!entries.includes(ollamaThinkingEntry)) {
     fail("Ollama thinking provenance contract is missing or incomplete");
   }
-  const openAiReferenceInspectionEntry =
-    "| 2026-08-21 | [Pi provider documentation](https://pi.dev/docs/latest/providers) and OpenAI OAuth source at " +
-    "[`5cd93f688aaab89dbb6dfa4aca535f21796ae185`](https://github.com/earendil-works/pi/blob/5cd93f688aaab89dbb6dfa4aca535f21796ae185/packages/ai/src/auth/oauth/openai-codex.ts), plus " +
-    "[OpenCode provider documentation](https://opencode.ai/docs/providers/) and OpenAI provider source at " +
+  const discardedOpenAiReferenceInspectionEntry =
+    "| 2026-08-21 | Discarded Pi and OpenCode OpenAI OAuth source inspection at Pi " +
+    "[`5cd93f688aaab89dbb6dfa4aca535f21796ae185`](https://github.com/earendil-works/pi/blob/5cd93f688aaab89dbb6dfa4aca535f21796ae185/packages/ai/src/auth/oauth/openai-codex.ts) and OpenCode " +
     "[`e11dbd02068aa36723dd43da43c247ade82d2fe7`](https://github.com/anomalyco/opencode/blob/e11dbd02068aa36723dd43da43c247ade82d2fe7/packages/core/src/plugin/provider/openai.ts) | " +
-    "Pi's public provider page documents subscription login, storage, and refresh but omits the OpenAI ceremony and client identity; " +
-    "OpenCode's page documents browser login but omits the current headless device flow, refresh, transport, and client identity; " +
-    "source inspection was limited to those concrete stale-documentation gaps | " +
-    "Technical feasibility and identity-transfer risk only; corroboration that public endpoint access does not itself create an independent client registration | " +
-    "None; no code, structure, test, fixture, prompt, endpoint, scope, header, client identifier, credential schema, model identifier, or product identity reused; " +
-    "official OpenAI sources remain the sole protocol authority |";
-  if (!entries.includes(openAiReferenceInspectionEntry)) {
-    fail("OpenAI reference-source provenance contract is missing or incomplete");
+    "OpenAI OAuth implementation files viewed before a concrete stale-public-documentation gap was recorded | " +
+    "No allowed influence; excluded from decision 0090 and every policy, protocol, feasibility, identity, and implementation claim | " +
+    "None; no code, structure, test, fixture, prompt, endpoint, scope, header, client identifier, credential schema, model identifier, or product identity reused |";
+  if (!entries.includes(discardedOpenAiReferenceInspectionEntry)) {
+    fail("discarded OpenAI reference-source provenance is missing or incomplete");
   }
   const digest = createHash("sha256")
     .update(entries.join("\n") + "\n", "utf8")

@@ -468,12 +468,35 @@ test("requires stale public documentation before reference-source inspection", (
   );
   for (const marker of [
     "Reference-project implementation source may be inspected only after current public\ndocumentation is demonstrated stale",
-    "[Pi provider documentation](https://pi.dev/docs/latest/providers)",
-    "[OpenCode provider documentation](https://opencode.ai/docs/providers/)",
-    "OpenCode's page documents browser login but omits the current headless device flow",
+    "A maintainer request does not replace this\nprerequisite.",
   ]) {
     assert.equal(ownership.includes(marker), true, marker);
   }
+});
+
+test("excludes retrospectively justified reference-source influence", () => {
+  const context = currentContext();
+  const ownership = context.files["docs/OWNERSHIP.md"];
+  const decision =
+    context.files["docs/decisions/0090-owned-openai-subscription-oauth-contract.md"];
+  const providers = context.files["docs/PROVIDERS.md"];
+  assert.equal(
+    ownership.includes("Discarded Pi and OpenCode OpenAI OAuth source inspection"),
+    true,
+  );
+  assert.equal(
+    ownership.includes("No allowed influence; excluded from decision 0090"),
+    true,
+  );
+  assert.match(
+    decision,
+    /supplies no feasibility,\s+protocol, identity, or implementation authority/u,
+  );
+  assert.doesNotMatch(decision, /Both projects independently implement/u);
+  assert.doesNotMatch(
+    providers,
+    /Those concrete stale-documentation\s+gaps permitted/u,
+  );
 });
 
 test("rejects removal or modification of maintained provenance entries", () => {
