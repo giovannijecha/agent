@@ -109,6 +109,7 @@
     "docs/decisions/0088-owned-durable-credential-boundary.md",
     "docs/decisions/0089-owned-external-authentication-transition.md",
     "docs/decisions/0090-owned-openai-subscription-oauth-contract.md",
+    "docs/decisions/0091-owned-provider-public-client-compatibility.md",
     "evaluations/README.md"
   ],
   "workspaces": [

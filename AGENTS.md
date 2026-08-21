@@ -20,7 +20,7 @@ that domain; a summary here never overrides its canonical owner.
 | Change source, tests, declarations, verification, or evaluation practice | [Engineering](docs/ENGINEERING.md) |
 | Update, roll back, remove, release, or diagnose a subsystem | [Maintenance](docs/MAINTENANCE.md) |
 | Change observable operator behavior | [Operator manual](docs/manual/README.md) |
-| Change providers, credentials, catalogs, models, or network origins | [Provider policy](docs/PROVIDERS.md), [privacy policy](PRIVACY.md), [decision 0072](docs/decisions/0072-owned-ollama-cloud-provider.md), [decision 0089](docs/decisions/0089-owned-external-authentication-transition.md), and the non-active [decision 0090](docs/decisions/0090-owned-openai-subscription-oauth-contract.md) |
+| Change providers, credentials, catalogs, models, or network origins | [Provider policy](docs/PROVIDERS.md), [privacy policy](PRIVACY.md), [decision 0072](docs/decisions/0072-owned-ollama-cloud-provider.md), [decision 0089](docs/decisions/0089-owned-external-authentication-transition.md), and non-active [decisions 0090](docs/decisions/0090-owned-openai-subscription-oauth-contract.md) and [0091](docs/decisions/0091-owned-provider-public-client-compatibility.md) |
 | Change security boundaries or vulnerability handling | [Security policy](SECURITY.md) and [privacy policy](PRIVACY.md) |
 | Inspect a reference project or change provenance rules | [Ownership policy](docs/OWNERSHIP.md) |
 | Change brand identity or visual assets | [Brand guide](docs/BRAND.md) |
@@ -132,9 +132,13 @@ that domain; a summary here never overrides its canonical owner.
   providers, tools, or terminal ownership. It never discovers a broader
   repository root. All built-in tools consume that same boundary and read policy.
 - Reference-project source may be inspected only when public documentation is
-  stale. Never copy, translate, adapt, or reuse its implementation, tests,
-  prompts, identifiers, or product identity. Pin each inspection in the
-  [ownership policy](docs/OWNERSHIP.md).
+  demonstrably stale or incomplete for one exact interoperability fact. Record
+  the dated gap, commit, bounded material, and allowed facts in the
+  [ownership policy](docs/OWNERSHIP.md) before opening source. Never copy,
+  translate, adapt, or reuse implementation, tests, prompts, structure, foreign
+  caller identity, or product identity. Only a provider-owned non-secret public
+  client admitted by decision 0091 and a provider-specific decision may become
+  a protocol constant; `agent` remains the caller identity.
 - TUI reference inspection is limited to observable outcomes; foreign component
   structures, identifiers, style literals, timings, redraw algorithms, and
   source organization are forbidden.

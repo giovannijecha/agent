@@ -82,15 +82,17 @@ personal data, or confidential content unless Ollama's current terms are
 acceptable. Provider availability, pricing, retention, and data use can change
 and are outside Agent's guarantees.
 
-Subscription OAuth integrations remain blocked. The
+Subscription OAuth integrations remain inactive. The
 [OAuth registration dossier](../OAUTH-REGISTRATION.md) owns their current
 registration status, while the [provider policy](../PROVIDERS.md) owns runtime
 admission. Decision 0089's owned credential boundary is active only for the
 exact Ollama Cloud API-key record. It admits no OAuth field, generic credential
 map, placeholder provider, browser flow, or compatibility reader.
-Decision 0090 specifies a future OpenAI device OAuth contract but keeps it
-blocked on an owned or expressly reusable client identity. It changes no
-current command, credential record, provider row, model row, or network request.
+Decision 0090 specifies a future OpenAI device OAuth contract. Decision 0091
+permits a provider-owned non-secret public client while requiring `agent` as
+the truthful caller identity and an independent-compatibility disclosure. Both
+remain implementation-inactive and change no current command, credential
+record, provider row, model row, or network request.
 
 ## Recover from provider failures
 
@@ -180,6 +182,7 @@ fall back to another endpoint after a catalog or chat failure.
 - [Ollama Cloud provider decision](../decisions/0072-owned-ollama-cloud-provider.md)
 - [External authentication transition decision](../decisions/0089-owned-external-authentication-transition.md)
 - [OpenAI subscription OAuth contract decision](../decisions/0090-owned-openai-subscription-oauth-contract.md)
+- [Provider public-client compatibility decision](../decisions/0091-owned-provider-public-client-compatibility.md)
 - [Provider HTTP outcome decision](../decisions/0080-owned-provider-http-outcome-classification.md)
 - [Ollama tool-stream normalization decision](../decisions/0082-owned-ollama-tool-stream-normalization.md)
 - [Bounded-thinking decision](../decisions/0083-owned-bounded-thinking-stream.md)

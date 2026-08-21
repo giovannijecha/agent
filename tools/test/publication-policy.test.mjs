@@ -441,7 +441,7 @@ test("rejects clean-room provenance contract drift", () => {
   for (const marker of [
     "We do not copy, translate, port, adapt,\nvendor, or regenerate project code from third parties.",
     "External documentation or current public source may establish observable\nbehavior or a protocol. Record the commit, material, and allowed facts below\nbefore implementation.",
-    "Never reuse registered\nidentifiers, prompts, fixtures, headers that assert foreign identity, or source\nstructure.",
+    "Never reuse\nthird-party registered identifiers, prompts, fixtures, headers that assert\nforeign identity, or source structure.",
     "| Date | Reference | Material inspected | Allowed influence | Code copied |",
     "Later TUI comparison remains restricted to observable outcomes and does not\nadmit a foreign hierarchy, module boundary, name, style literal, animation\ntiming, redraw algorithm, or source structure.",
     "Development tools may assist repository work, but every accepted artifact is\nreviewed against this project's rules, tests, and provenance contract.",
@@ -467,8 +467,8 @@ test("requires stale public documentation before reference-source inspection", (
     "utf8",
   );
   for (const marker of [
-    "Reference-project implementation source may be inspected only after current public\ndocumentation is demonstrated stale",
-    "A maintainer request does not replace this\nprerequisite.",
+    "Reference-project implementation source may be inspected only after current\npublic documentation is demonstrated stale or incomplete for the exact\ninteroperability fact.",
+    "A maintainer\nrequest does not replace this prerequisite.",
   ]) {
     assert.equal(ownership.includes(marker), true, marker);
   }
@@ -617,7 +617,7 @@ test("rejects direct provider admission contract drift", () => {
     "The Ollama API key\nmay never enter source, tests, logs, errors, documentation values, process\narguments, command history, terminal output, transcript, journal, receipt, or\ndiagnostic.",
     "`agent auth` is the sole interactive credential lifecycle and runs outside the\nalternate-screen TUI.",
     "Decision 0090 records one non-executable OpenAI contract",
-    "`specified-blocked` OpenAI subscription contract",
+    "`specified-compatible-inactive` OpenAI\nsubscription contract",
   ]) {
     const context = currentContext();
     context.files["docs/PROVIDERS.md"] = providers.replaceAll(
@@ -652,7 +652,7 @@ test("rejects provider-specific OAuth registration conclusion drift", () => {
   for (const [provider, row] of [
     [
       "ChatGPT Plus/Pro",
-      "| ChatGPT Plus/Pro | OpenAI documents subscription browser and device login for Codex clients; decision 0090 fixes the independently derived device, token, catalog, transport, storage, and removal contract. | The protocol is `specified-blocked`: OpenAI has not registered `agent` or expressly authorized a reusable independent-client identity. |",
+      "| ChatGPT Plus/Pro | OpenAI documents subscription browser and device login for Codex clients; decision 0090 fixes the independently derived device, token, catalog, transport, storage, and removal contract. | The protocol is `specified-compatible-inactive`: decision 0091 permits OpenAI's provider-owned public client while `agent` remains the disclosed caller, but no implementation is active. |",
     ],
     [
       "Claude Pro/Max",
@@ -660,11 +660,11 @@ test("rejects provider-specific OAuth registration conclusion drift", () => {
     ],
     [
       "Kimi Code",
-      "| Kimi Code | Kimi documents device OAuth for Kimi Code CLI and subscription-backed API keys for third-party development tools. | Public OAuth for third-party clients is unavailable according to the [recorded provider response](PROVIDER-APPLICATIONS.md#kimi-code); credential-only login does not satisfy this registration gate. |",
+      "| Kimi Code | Kimi documents device OAuth for Kimi Code; a pre-recorded clean-room inspection confirmed that current subscription OAuth uses Kimi's first-party public client even though Pi's provider guide omits that route. | Compatibility feasibility is established, but the [recorded provider response](PROVIDER-APPLICATIONS.md#kimi-code) remains a material negative-eligibility risk and a provider-specific decision is still required. |",
     ],
     [
       "Grok subscription",
-      "| Grok subscription | xAI documents browser and device login for Grok Build plus headless and ACP integration, while its direct API has a separate key path. | Grok Build and ACP are foreign executables; no accepted process registers `agent` for direct subscription OAuth. |",
+      "| Grok subscription | xAI documents browser and RFC 8628 device login for Grok Build plus headless and ACP integration, while its direct API has a separate key path. | A clean-room inspection confirms direct-flow feasibility, but xAI public-client ownership remains unresolved and a provider-specific decision is required. |",
     ],
   ]) {
     const context = currentContext();
@@ -699,7 +699,7 @@ test("rejects obsolete OAuth credential-store authority", () => {
   const context = currentContext();
   const maintained = context.files["docs/OAUTH-REGISTRATION.md"];
   context.files["docs/OAUTH-REGISTRATION.md"] = maintained.replace(
-    "For every other provider, replace the blocking decision\nand accept a provider-specific successor decision.",
+    "For Kimi or xAI, accept a separate provider-specific\ncompatibility decision; for Claude, satisfy the direct-registration gate.",
     "decision-0088 storage activation",
   );
   assert.notEqual(context.files["docs/OAUTH-REGISTRATION.md"], maintained);

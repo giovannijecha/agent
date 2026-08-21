@@ -92,7 +92,8 @@
     "docs/decisions/0087-owned-user-scoped-state-root.md",
     "docs/decisions/0088-owned-durable-credential-boundary.md",
     "docs/decisions/0089-owned-external-authentication-transition.md",
-    "docs/decisions/0090-owned-openai-subscription-oauth-contract.md"
+    "docs/decisions/0090-owned-openai-subscription-oauth-contract.md",
+    "docs/decisions/0091-owned-provider-public-client-compatibility.md"
   ],
   "decisionIndexLifecycleDigest": {
     "algorithm": "sha256",
@@ -125,6 +126,7 @@
       "docs/decisions/0072-owned-ollama-cloud-provider.md",
       "docs/decisions/0089-owned-external-authentication-transition.md",
       "docs/decisions/0090-owned-openai-subscription-oauth-contract.md",
+      "docs/decisions/0091-owned-provider-public-client-compatibility.md",
       "SECURITY.md",
       "docs/OWNERSHIP.md",
       "docs/BRAND.md",
@@ -157,7 +159,8 @@
     "0087": "2026-08-20",
     "0088": "2026-08-20",
     "0089": "2026-08-20",
-    "0090": "2026-08-21"
+    "0090": "2026-08-21",
+    "0091": "2026-08-21"
   },
   "historicalDecisionStatusExceptions": {
     "0009": "accepted"
@@ -222,7 +225,7 @@
   ],
   "decisionRecordDigest": {
     "algorithm": "sha256",
-    "value": "307adb00055c71385c4b29b713dee70e0fa6c8279ef55b476483709672adb46f"
+    "value": "f374f091b82e3ce7cb3e1c8da63a859cd7ca615f8721d5ec29526f0a6dfe951f"
   },
   "decisionDomainMembers": {
     "architecture": [
@@ -275,7 +278,8 @@
       "0072",
       "0080",
       "0082",
-      "0090"
+      "0090",
+      "0091"
     ],
     "security": [
       "0015",
@@ -372,6 +376,7 @@
       "0037"
     ],
     "providers": [
+      "0091",
       "0090",
       "0082",
       "0080",
@@ -527,7 +532,7 @@
       "headings": [
         "# Provider eligibility",
         "## Enabled direct provider",
-        "## Blocked subscription OAuth providers",
+        "## Inactive subscription OAuth providers",
         "## Machine gate",
         "## Research rule",
         "## Account and secret boundary",

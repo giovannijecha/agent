@@ -13,7 +13,7 @@ const EXPECTED_PROVIDERS = [
     id: "chatgpt",
     displayName: "ChatGPT Plus/Pro",
     eligibility: "blocked",
-    blocker: "owned-client-registration-required",
+    blocker: "compatibility-implementation-required",
     request: {
       state: "submitted",
       kind: "public-client-authorization-inquiry",
@@ -43,7 +43,7 @@ const EXPECTED_PROVIDERS = [
     id: "kimi",
     displayName: "Kimi Code",
     eligibility: "blocked",
-    blocker: "provider-confirmed-public-oauth-unavailable",
+    blocker: "compatibility-contract-required",
     request: {
       state: "submitted",
       kind: "public-client-authorization-inquiry",
@@ -63,7 +63,7 @@ const EXPECTED_PROVIDERS = [
     id: "grok",
     displayName: "Grok subscription",
     eligibility: "blocked",
-    blocker: "owned-client-registration-required",
+    blocker: "compatibility-contract-required",
     request: {
       state: "submitted",
       kind: "public-client-authorization-inquiry",
@@ -98,11 +98,24 @@ const EXPECTED_DIRECT_PROVIDERS = [
   },
 ];
 
+const EXPECTED_SUBSCRIPTION_COMPATIBILITY = {
+  decision: "0091",
+  state: "accepted-runtime-inactive",
+  providers: ["chatgpt", "kimi", "grok"],
+  registrationAuthority: "provider-owned-non-secret-public-client",
+  callerIdentity: "agent",
+  disclosure: "independent-compatibility-not-provider-endorsement",
+  foreignCredentialImport: "forbidden",
+  foreignRuntime: "forbidden",
+  implementation: "owned-zero-dependency-provider-specific",
+  researchedOn: "2026-08-21",
+};
+
 const EXPECTED_SUBSCRIPTION_CONTRACTS = [
   {
     id: "chatgpt",
     decision: "0090",
-    state: "specified-blocked",
+    state: "specified-compatible-inactive",
     flow: "openai-device-code-plus-oauth-pkce",
     issuer: "https://auth.openai.com",
     deviceCodeEndpoint:
@@ -114,8 +127,9 @@ const EXPECTED_SUBSCRIPTION_CONTRACTS = [
     revocationEndpoint: "https://auth.openai.com/oauth/revoke",
     catalogEndpoint: "https://chatgpt.com/backend-api/codex/models",
     chatEndpoint: "https://chatgpt.com/backend-api/codex/responses",
-    clientIdentityAuthority:
-      "agent-owned-or-expressly-reusable-registration-required",
+    clientIdentityAuthority: "provider-owned-public-client-compatibility",
+    callerIdentity: "agent",
+    disclosure: "independent-compatibility-not-provider-endorsement",
     clientRegistrationEndpoint: null,
     credentialRecord: "~/.agent/credentials/openai.oauth",
     credentialAdmission: "exclusive-session-and-mutation",
@@ -682,14 +696,37 @@ function validateRegistry(policy) {
       "schemaVersion",
       "applicationDocument",
       "researchedOn",
+      "subscriptionCompatibility",
       "providers",
       "directProviders",
       "subscriptionContracts",
     ],
     "provider policy",
   );
-  if (policy.schemaVersion !== 9) {
+  if (policy.schemaVersion !== 10) {
     fail("unsupported provider policy schema");
+  }
+  assertExactKeys(
+    policy.subscriptionCompatibility,
+    [
+      "decision",
+      "state",
+      "providers",
+      "registrationAuthority",
+      "callerIdentity",
+      "disclosure",
+      "foreignCredentialImport",
+      "foreignRuntime",
+      "implementation",
+      "researchedOn",
+    ],
+    "subscription compatibility policy",
+  );
+  if (
+    JSON.stringify(policy.subscriptionCompatibility) !==
+    JSON.stringify(EXPECTED_SUBSCRIPTION_COMPATIBILITY)
+  ) {
+    fail("subscription compatibility policy mismatch");
   }
   if (!Array.isArray(policy.providers)) {
     fail("provider policy providers must be an array");
@@ -797,6 +834,8 @@ function validateRegistry(policy) {
         "catalogEndpoint",
         "chatEndpoint",
         "clientIdentityAuthority",
+        "callerIdentity",
+        "disclosure",
         "clientRegistrationEndpoint",
         "credentialRecord",
         "credentialAdmission",
@@ -816,9 +855,9 @@ function validateRegistry(policy) {
     const provider = policy.providers.find((candidate) => candidate.id === contract.id);
     if (
       provider?.eligibility !== "blocked" ||
-      provider.blocker !== "owned-client-registration-required"
+      provider.blocker !== "compatibility-implementation-required"
     ) {
-      fail("subscription contract must retain its blocked registration gate");
+      fail("subscription contract must retain its inactive implementation gate");
     }
   }
 }

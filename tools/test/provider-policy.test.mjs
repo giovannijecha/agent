@@ -74,7 +74,7 @@ function contextWithSources(...sources) {
   return { ...emptyContext, productSources };
 }
 
-test("accepts the canonical blocked and direct provider registry", () => {
+test("accepts the canonical compatibility, blocked, and direct provider registry", () => {
   assert.doesNotThrow(() => validateProviderPolicy(currentPolicy, emptyContext));
   assert.deepEqual(
     currentPolicy.providers.map((provider) => provider.id),
@@ -84,14 +84,35 @@ test("accepts the canonical blocked and direct provider registry", () => {
     currentPolicy.directProviders.map((provider) => provider.id),
     ["ollama-cloud"],
   );
+  assert.deepEqual(currentPolicy.subscriptionCompatibility, {
+    decision: "0091",
+    state: "accepted-runtime-inactive",
+    providers: ["chatgpt", "kimi", "grok"],
+    registrationAuthority: "provider-owned-non-secret-public-client",
+    callerIdentity: "agent",
+    disclosure: "independent-compatibility-not-provider-endorsement",
+    foreignCredentialImport: "forbidden",
+    foreignRuntime: "forbidden",
+    implementation: "owned-zero-dependency-provider-specific",
+    researchedOn: "2026-08-21",
+  });
+  assert.deepEqual(
+    currentPolicy.providers.map((provider) => provider.blocker),
+    [
+      "compatibility-implementation-required",
+      "independent-client-authorization-required",
+      "compatibility-contract-required",
+      "compatibility-contract-required",
+    ],
+  );
 });
 
-test("binds the specified but inactive OpenAI subscription OAuth contract", () => {
+test("binds the compatible but inactive OpenAI subscription OAuth contract", () => {
   assert.deepEqual(currentPolicy.subscriptionContracts, [
     {
       id: "chatgpt",
       decision: "0090",
-      state: "specified-blocked",
+      state: "specified-compatible-inactive",
       flow: "openai-device-code-plus-oauth-pkce",
       issuer: "https://auth.openai.com",
       deviceCodeEndpoint:
@@ -103,8 +124,9 @@ test("binds the specified but inactive OpenAI subscription OAuth contract", () =
       revocationEndpoint: "https://auth.openai.com/oauth/revoke",
       catalogEndpoint: "https://chatgpt.com/backend-api/codex/models",
       chatEndpoint: "https://chatgpt.com/backend-api/codex/responses",
-      clientIdentityAuthority:
-        "agent-owned-or-expressly-reusable-registration-required",
+      clientIdentityAuthority: "provider-owned-public-client-compatibility",
+      callerIdentity: "agent",
+      disclosure: "independent-compatibility-not-provider-endorsement",
       clientRegistrationEndpoint: null,
       credentialRecord: "~/.agent/credentials/openai.oauth",
       credentialAdmission: "exclusive-session-and-mutation",
@@ -116,10 +138,12 @@ test("binds the specified but inactive OpenAI subscription OAuth contract", () =
   ]);
 });
 
-test("rejects drift that would activate or impersonate the OpenAI OAuth contract", () => {
+test("rejects drift that would activate or misidentify the OpenAI OAuth contract", () => {
   for (const [field, value] of [
     ["state", "enabled"],
     ["clientIdentityAuthority", "borrowed-codex-client"],
+    ["callerIdentity", "pi"],
+    ["disclosure", "official-openai-client"],
     ["clientRegistrationEndpoint", "https://example.com/register"],
     ["credentialAdmission", "shared-session"],
     ["chatEndpoint", "https://api.openai.com/v1/responses"],
