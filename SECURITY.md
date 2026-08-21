@@ -142,8 +142,12 @@ accepts only provider-owned non-secret public-client compatibility while
 preserving `agent` as the caller identity. Its implementation gate admits no
 current source, credential namespace, request, or provider selection; a third-
 party-only client ID, foreign caller field, or foreign credential fails closed.
-The
-single `shell` capability admits one exactly
+Decision 0092 accepts the exact OpenAI provider-owned non-secret public client,
+one-field device request, callback, poll statuses, PKCE, and `agent`-or-omitted
+caller rule only in machine and documentation authority. The product scanner
+continues to reject every OpenAI identifier and OAuth field until the separate
+credential implementation gate changes that exact inventory.
+The single `shell` capability admits one exactly
 approved bounded command through the fixed profile-free platform shell, a
 controlled environment that excludes provider credentials, and owned
 descendant-tree containment. That containment is not a filesystem or network

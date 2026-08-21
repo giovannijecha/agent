@@ -45,13 +45,14 @@ const EXPECTED_DOCUMENTS = Object.freeze([
   "docs/decisions/0089-owned-external-authentication-transition.md",
   "docs/decisions/0090-owned-openai-subscription-oauth-contract.md",
   "docs/decisions/0091-owned-provider-public-client-compatibility.md",
+  "docs/decisions/0092-owned-openai-compatible-public-client.md",
   "assets/brand/README.md",
   "docs/BRAND.md",
   "docs/decisions/0037-canonical-agent-brand.md",
   "docs/decisions/0038-owned-deterministic-tui-motion.md",
 ]);
 const OAUTH_REGISTRATION_ROWS = Object.freeze([
-  "| ChatGPT Plus/Pro | OpenAI documents subscription browser and device login for Codex clients; decision 0090 fixes the independently derived device, token, catalog, transport, storage, and removal contract. | The protocol is `specified-compatible-inactive`: decision 0091 permits OpenAI's provider-owned public client while `agent` remains the disclosed caller, but no implementation is active. |",
+  "| ChatGPT Plus/Pro | OpenAI documents subscription browser and device login for Codex clients; decisions 0090 through 0092 fix the independently derived protocol and exact provider-owned public-client identity. | The protocol is `identity-compatible-inactive`: identity is accepted with `agent` as the disclosed caller, but the credential, auth, transport, and integration modules remain inactive. |",
   "| Claude Pro/Max | Anthropic documents subscription login for Claude Code and subscription-backed third-party use through the Claude Agent SDK. | Claude Code and Agent SDK are foreign runtimes; no accepted direct independent-client registration is recorded for `agent`. |",
   "| Kimi Code | Kimi documents device OAuth for Kimi Code; a pre-recorded clean-room inspection confirmed that current subscription OAuth uses Kimi's first-party public client even though Pi's provider guide omits that route. | Compatibility feasibility is established, but the [recorded provider response](PROVIDER-APPLICATIONS.md#kimi-code) remains a material negative-eligibility risk and a provider-specific decision is still required. |",
   "| Grok subscription | xAI documents browser and RFC 8628 device login for Grok Build plus headless and ACP integration, while its direct API has a separate key path. | A clean-room inspection confirms direct-flow feasibility, but xAI public-client ownership remains unresolved and a provider-specific decision is required. |",
@@ -208,6 +209,16 @@ function validateProvenanceLog(policy, context) {
     "None; no code, structure, test, fixture, prompt, endpoint, scope, header, client identifier, credential schema, model identifier, or product identity reused |";
   if (!entries.includes(discardedOpenAiReferenceInspectionEntry)) {
     fail("discarded OpenAI reference-source provenance is missing or incomplete");
+  }
+  const openAiIdentityInspectionEntry =
+    "| 2026-08-21 | [OpenAI Codex authentication](https://developers.openai.com/codex/auth/), " +
+    "[authorization-server metadata](https://auth.openai.com/.well-known/openid-configuration), and bounded first-party Codex source at " +
+    "[`536f86e5cc9ec1ff38457d099bf320b9d08eeeba`](https://github.com/openai/codex/tree/536f86e5cc9ec1ff38457d099bf320b9d08eeeba) | " +
+    "Before source access, this row recorded that current official OpenAI authentication documentation confirms ChatGPT subscription sign-in, device-code login, local credential caching, automatic refresh, and logout, but omits the exact provider-owned public-client constant, requested scopes, device-poll status values, redirect value, and controllable caller-identity fields required by decisions 0090 and 0091. After that record, only `codex-rs/login/src/device_code_auth.rs`, the relevant OAuth-field excerpts of `server.rs`, `auth/manager.rs`, and `lib.rs`, and the complete auth `default_client.rs` module were inspected; no tests were opened. | " +
+    "The exact non-secret default is an OpenAI-owned public-client identifier; the device request sends only that identifier, polling treats forbidden and not-found as pending until the fixed deadline, and exchange uses the provider-owned device callback. The device route sends no scope field, while the published metadata admits public clients without a secret, PKCE S256, refresh, and the base OIDC scopes. Raw auth requests omit Codex's default originator and user agent, so every independently controlled caller field can be omitted or identify `agent` truthfully. | " +
+    "None; no implementation structure, code, test, fixture, prompt, credential schema, user agent, error text, or Codex product identity reused |";
+  if (!entries.includes(openAiIdentityInspectionEntry)) {
+    fail("OpenAI identity provenance contract is missing or incomplete");
   }
   const digest = createHash("sha256")
     .update(entries.join("\n") + "\n", "utf8")
@@ -483,7 +494,9 @@ function validatePublicDocuments(context) {
       "The Ollama API key\nmay never enter source, tests, logs, errors, documentation values, process\narguments, command history, terminal output, transcript, journal, receipt, or\ndiagnostic.",
       "`agent auth` is the sole interactive credential lifecycle and runs outside the\nalternate-screen TUI.",
       "Decision 0090 records one non-executable OpenAI contract",
-      "`specified-compatible-inactive` OpenAI\nsubscription contract",
+      "decision 0092 records OpenAI's exact non-secret\npublic client",
+      "The contract is now `identity-compatible-inactive`",
+      "OpenAI remains blocked by `credential-implementation-required`.",
     ],
     "direct provider policy",
   );
@@ -496,13 +509,31 @@ function validatePublicDocuments(context) {
       "Canonical repository: [github.com/giovannijecha/agent]",
       "Registration state: `blocked`.",
       "Compatibility state: `accepted-runtime-inactive`.",
+      "Identity state: `accepted-runtime-inactive`.",
       ...OAUTH_REGISTRATION_ROWS,
-      "For ChatGPT, implement decision 0090 under decision 0091's identity and\ndisclosure boundary.",
+      "For ChatGPT, implement decision 0090 under decisions 0091 and 0092's identity\nand disclosure boundary.",
       "For Kimi or xAI, accept a separate provider-specific\ncompatibility decision; for Claude, satisfy the direct-registration gate.",
       "Offline contract tests must\ncover cancellation, expiry, concurrency, malformed responses, secret leakage,\nrollback, and removal.",
       "No accepted provider-specific implementation means no adapter",
     ],
     "OAuth registration dossier",
+  );
+  requireMarkers(
+    textFor(
+      context,
+      "docs/decisions/0092-owned-openai-compatible-public-client.md",
+    ),
+    [
+      "# 0092: Owned OpenAI compatible public client",
+      "provider-owned non-secret public-client identifier",
+      "`app_EMoamEEZ73f0CkXaXp7hrann`",
+      "device authorization request contains only `client_id`",
+      "HTTP 403 and 404 are the only pending poll outcomes",
+      "caller identity is\n`agent` or the field is omitted",
+      "No product source, credential record, network request",
+      "retains this decision and the completed provenance\nrow",
+    ],
+    "OpenAI compatible public-client decision",
   );
   requireMarkers(
     textFor(context, "docs/PROVIDER-APPLICATIONS.md"),

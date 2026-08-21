@@ -20,7 +20,7 @@ that domain; a summary here never overrides its canonical owner.
 | Change source, tests, declarations, verification, or evaluation practice | [Engineering](docs/ENGINEERING.md) |
 | Update, roll back, remove, release, or diagnose a subsystem | [Maintenance](docs/MAINTENANCE.md) |
 | Change observable operator behavior | [Operator manual](docs/manual/README.md) |
-| Change providers, credentials, catalogs, models, or network origins | [Provider policy](docs/PROVIDERS.md), [privacy policy](PRIVACY.md), [decision 0072](docs/decisions/0072-owned-ollama-cloud-provider.md), [decision 0089](docs/decisions/0089-owned-external-authentication-transition.md), and non-active [decisions 0090](docs/decisions/0090-owned-openai-subscription-oauth-contract.md) and [0091](docs/decisions/0091-owned-provider-public-client-compatibility.md) |
+| Change providers, credentials, catalogs, models, or network origins | [Provider policy](docs/PROVIDERS.md), [privacy policy](PRIVACY.md), [decision 0072](docs/decisions/0072-owned-ollama-cloud-provider.md), [decision 0089](docs/decisions/0089-owned-external-authentication-transition.md), and non-active [decisions 0090](docs/decisions/0090-owned-openai-subscription-oauth-contract.md), [0091](docs/decisions/0091-owned-provider-public-client-compatibility.md), and [0092](docs/decisions/0092-owned-openai-compatible-public-client.md) |
 | Change security boundaries or vulnerability handling | [Security policy](SECURITY.md) and [privacy policy](PRIVACY.md) |
 | Inspect a reference project or change provenance rules | [Ownership policy](docs/OWNERSHIP.md) |
 | Change brand identity or visual assets | [Brand guide](docs/BRAND.md) |
@@ -123,6 +123,9 @@ that domain; a summary here never overrides its canonical owner.
 - Environment input never persists or selects a provider or model. A durable
   record and environment input together fail explicitly as dual authority;
   neither has precedence and neither is imported.
+- Decision 0092 admits OpenAI's exact provider-owned non-secret public client
+  only in policy and documentation. OpenAI runtime, credentials, auth, catalog,
+  transport, provider selection, and model selection remain disabled.
 - Secrets, credentials, sessions, and personal content never enter source,
   fixtures, logs, errors, receipts, or documentation values.
 
@@ -137,8 +140,8 @@ that domain; a summary here never overrides its canonical owner.
   [ownership policy](docs/OWNERSHIP.md) before opening source. Never copy,
   translate, adapt, or reuse implementation, tests, prompts, structure, foreign
   caller identity, or product identity. Only a provider-owned non-secret public
-  client admitted by decision 0091 and a provider-specific decision may become
-  a protocol constant; `agent` remains the caller identity.
+  client admitted by decision 0091 and provider-specific decision 0092 may
+  become the OpenAI protocol constant; `agent` remains the caller identity.
 - TUI reference inspection is limited to observable outcomes; foreign component
   structures, identifiers, style literals, timings, redraw algorithms, and
   source organization are forbidden.

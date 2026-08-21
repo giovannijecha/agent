@@ -182,9 +182,11 @@ Decision 0090 specifies a future OpenAI device OAuth, exclusive credential,
 catalog, and Responses boundary. Decision 0091 accepts provider-owned
 non-secret public-client compatibility while requiring every controllable
 caller identity to remain `agent`; the OpenAI contract is
-`specified-compatible-inactive` behind its implementation gate. These
-decisions add no current package, record, network request, provider row, or
-runtime composition.
+`specified-compatible-inactive` behind its implementation gate. Decision 0092
+accepts the exact OpenAI public client and device identity semantics and moves
+that contract to `identity-compatible-inactive`, with the credential extension
+as its next gate. These decisions add no current package, record, network
+request, provider row, or runtime composition.
 
 Every accepted journal file is synchronized before publication. On POSIX, the
 CLI also synchronizes a staged session directory before publishing it and the

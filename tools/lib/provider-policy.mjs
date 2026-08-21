@@ -13,7 +13,7 @@ const EXPECTED_PROVIDERS = [
     id: "chatgpt",
     displayName: "ChatGPT Plus/Pro",
     eligibility: "blocked",
-    blocker: "compatibility-implementation-required",
+    blocker: "credential-implementation-required",
     request: {
       state: "submitted",
       kind: "public-client-authorization-inquiry",
@@ -115,7 +115,8 @@ const EXPECTED_SUBSCRIPTION_CONTRACTS = [
   {
     id: "chatgpt",
     decision: "0090",
-    state: "specified-compatible-inactive",
+    identityDecision: "0092",
+    state: "identity-compatible-inactive",
     flow: "openai-device-code-plus-oauth-pkce",
     issuer: "https://auth.openai.com",
     deviceCodeEndpoint:
@@ -127,8 +128,20 @@ const EXPECTED_SUBSCRIPTION_CONTRACTS = [
     revocationEndpoint: "https://auth.openai.com/oauth/revoke",
     catalogEndpoint: "https://chatgpt.com/backend-api/codex/models",
     chatEndpoint: "https://chatgpt.com/backend-api/codex/responses",
+    clientId: "app_EMoamEEZ73f0CkXaXp7hrann",
+    clientType: "provider-owned-non-secret-public-client",
     clientIdentityAuthority: "provider-owned-public-client-compatibility",
     callerIdentity: "agent",
+    authOriginator: "omitted",
+    authUserAgent: "agent",
+    deviceRequestFields: ["client_id"],
+    requestedScopes: [],
+    deviceRedirect: "https://auth.openai.com/deviceauth/callback",
+    devicePollPendingStatuses: [403, 404],
+    devicePollSuccess: "success-status-with-bounded-code-object",
+    devicePollTerminal: "all-other-status",
+    tokenEndpointAuthMethod: "none",
+    pkceMethod: "S256",
     disclosure: "independent-compatibility-not-provider-endorsement",
     clientRegistrationEndpoint: null,
     credentialRecord: "~/.agent/credentials/openai.oauth",
@@ -136,6 +149,8 @@ const EXPECTED_SUBSCRIPTION_CONTRACTS = [
     modelAuthority: "authenticated-catalog",
     transport: "openai-responses-sse",
     evidence: "https://learn.chatgpt.com/docs/app-server",
+    identityEvidence:
+      "https://github.com/openai/codex/tree/536f86e5cc9ec1ff38457d099bf320b9d08eeeba",
     researchedOn: "2026-08-21",
   },
 ];
@@ -823,6 +838,7 @@ function validateRegistry(policy) {
       [
         "id",
         "decision",
+        "identityDecision",
         "state",
         "flow",
         "issuer",
@@ -833,8 +849,20 @@ function validateRegistry(policy) {
         "revocationEndpoint",
         "catalogEndpoint",
         "chatEndpoint",
+        "clientId",
+        "clientType",
         "clientIdentityAuthority",
         "callerIdentity",
+        "authOriginator",
+        "authUserAgent",
+        "deviceRequestFields",
+        "requestedScopes",
+        "deviceRedirect",
+        "devicePollPendingStatuses",
+        "devicePollSuccess",
+        "devicePollTerminal",
+        "tokenEndpointAuthMethod",
+        "pkceMethod",
         "disclosure",
         "clientRegistrationEndpoint",
         "credentialRecord",
@@ -842,6 +870,7 @@ function validateRegistry(policy) {
         "modelAuthority",
         "transport",
         "evidence",
+        "identityEvidence",
         "researchedOn",
       ],
       "subscription contract at index " + String(index),
@@ -855,7 +884,7 @@ function validateRegistry(policy) {
     const provider = policy.providers.find((candidate) => candidate.id === contract.id);
     if (
       provider?.eligibility !== "blocked" ||
-      provider.blocker !== "compatibility-implementation-required"
+      provider.blocker !== "credential-implementation-required"
     ) {
       fail("subscription contract must retain its inactive implementation gate");
     }

@@ -90,9 +90,11 @@ exact Ollama Cloud API-key record. It admits no OAuth field, generic credential
 map, placeholder provider, browser flow, or compatibility reader.
 Decision 0090 specifies a future OpenAI device OAuth contract. Decision 0091
 permits a provider-owned non-secret public client while requiring `agent` as
-the truthful caller identity and an independent-compatibility disclosure. Both
-remain implementation-inactive and change no current command, credential
-record, provider row, model row, or network request.
+the truthful caller identity and an independent-compatibility disclosure.
+Decision 0092 accepts OpenAI's exact public-client identity and device status
+contract. All three remain runtime-inactive and change no current command,
+credential record, provider row, model row, or network request; the next gate
+is the separate OpenAI credential implementation.
 
 ## Recover from provider failures
 
@@ -183,6 +185,7 @@ fall back to another endpoint after a catalog or chat failure.
 - [External authentication transition decision](../decisions/0089-owned-external-authentication-transition.md)
 - [OpenAI subscription OAuth contract decision](../decisions/0090-owned-openai-subscription-oauth-contract.md)
 - [Provider public-client compatibility decision](../decisions/0091-owned-provider-public-client-compatibility.md)
+- [OpenAI compatible public-client decision](../decisions/0092-owned-openai-compatible-public-client.md)
 - [Provider HTTP outcome decision](../decisions/0080-owned-provider-http-outcome-classification.md)
 - [Ollama tool-stream normalization decision](../decisions/0082-owned-ollama-tool-stream-normalization.md)
 - [Bounded-thinking decision](../decisions/0083-owned-bounded-thinking-stream.md)

@@ -93,7 +93,8 @@
     "docs/decisions/0088-owned-durable-credential-boundary.md",
     "docs/decisions/0089-owned-external-authentication-transition.md",
     "docs/decisions/0090-owned-openai-subscription-oauth-contract.md",
-    "docs/decisions/0091-owned-provider-public-client-compatibility.md"
+    "docs/decisions/0091-owned-provider-public-client-compatibility.md",
+    "docs/decisions/0092-owned-openai-compatible-public-client.md"
   ],
   "decisionIndexLifecycleDigest": {
     "algorithm": "sha256",
@@ -127,6 +128,7 @@
       "docs/decisions/0089-owned-external-authentication-transition.md",
       "docs/decisions/0090-owned-openai-subscription-oauth-contract.md",
       "docs/decisions/0091-owned-provider-public-client-compatibility.md",
+      "docs/decisions/0092-owned-openai-compatible-public-client.md",
       "SECURITY.md",
       "docs/OWNERSHIP.md",
       "docs/BRAND.md",
@@ -160,7 +162,8 @@
     "0088": "2026-08-20",
     "0089": "2026-08-20",
     "0090": "2026-08-21",
-    "0091": "2026-08-21"
+    "0091": "2026-08-21",
+    "0092": "2026-08-21"
   },
   "historicalDecisionStatusExceptions": {
     "0009": "accepted"
@@ -225,7 +228,7 @@
   ],
   "decisionRecordDigest": {
     "algorithm": "sha256",
-    "value": "f374f091b82e3ce7cb3e1c8da63a859cd7ca615f8721d5ec29526f0a6dfe951f"
+    "value": "16b2025029c6b1666d346b9bc53bf546b4d6204b9bcd919a409da036b6346b95"
   },
   "decisionDomainMembers": {
     "architecture": [
@@ -279,7 +282,8 @@
       "0080",
       "0082",
       "0090",
-      "0091"
+      "0091",
+      "0092"
     ],
     "security": [
       "0015",
@@ -376,6 +380,7 @@
       "0037"
     ],
     "providers": [
+      "0092",
       "0091",
       "0090",
       "0082",
