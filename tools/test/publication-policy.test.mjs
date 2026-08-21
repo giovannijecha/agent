@@ -573,6 +573,8 @@ test("rejects direct provider admission contract drift", () => {
     "One concrete provider does not authorize a generic provider framework,\narbitrary base URL, unregistered model selector, generic key store, local-server mode,\nor additional integration.",
     "The Ollama API key\nmay never enter source, tests, logs, errors, documentation values, process\narguments, command history, terminal output, transcript, journal, receipt, or\ndiagnostic.",
     "`agent auth` is the sole interactive credential lifecycle and runs outside the\nalternate-screen TUI.",
+    "Decision 0090 records one non-executable OpenAI contract",
+    "`specified-blocked` OpenAI subscription contract",
   ]) {
     const context = currentContext();
     context.files["docs/PROVIDERS.md"] = providers.replaceAll(
@@ -607,7 +609,7 @@ test("rejects provider-specific OAuth registration conclusion drift", () => {
   for (const [provider, row] of [
     [
       "ChatGPT Plus/Pro",
-      "| ChatGPT Plus/Pro | OpenAI documents subscription browser and device login for its Codex clients. | Those flows identify OpenAI's clients; no accepted process registers `agent` as a direct independent client. |",
+      "| ChatGPT Plus/Pro | OpenAI documents subscription browser and device login for Codex clients; decision 0090 fixes the independently derived device, token, catalog, transport, storage, and removal contract. | The protocol is `specified-blocked`: OpenAI has not registered `agent` or expressly authorized a reusable independent-client identity. |",
     ],
     [
       "Claude Pro/Max",
@@ -654,7 +656,7 @@ test("rejects obsolete OAuth credential-store authority", () => {
   const context = currentContext();
   const maintained = context.files["docs/OAUTH-REGISTRATION.md"];
   context.files["docs/OAUTH-REGISTRATION.md"] = maintained.replace(
-    "an accepted provider-specific successor decision,\nthe corresponding decision-0089 credential-store extension",
+    "decision 0090 activation\ngate in the same change as the machine gate, first adapter, corresponding\ndecision-0089 credential-store extension",
     "decision-0088 storage activation",
   );
   assert.notEqual(context.files["docs/OAUTH-REGISTRATION.md"], maintained);

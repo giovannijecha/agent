@@ -22,8 +22,8 @@
   },
   "provenanceLog": {
     "path": "docs/OWNERSHIP.md",
-    "entryCount": 42,
-    "sha256": "d050238a930e758721763408f6db880a513d6c494e5eb84206b5952d85bdf611"
+    "entryCount": 44,
+    "sha256": "3c800896d6ec6bd7f8cc5a1017cc3954fa84e59a2839afaccca0b4d247f9f85b"
   },
   "documents": [
     ".gitattributes",
@@ -52,6 +52,7 @@
     "docs/decisions/0087-owned-user-scoped-state-root.md",
     "docs/decisions/0088-owned-durable-credential-boundary.md",
     "docs/decisions/0089-owned-external-authentication-transition.md",
+    "docs/decisions/0090-owned-openai-subscription-oauth-contract.md",
     "assets/brand/README.md",
     "docs/BRAND.md",
     "docs/decisions/0037-canonical-agent-brand.md",

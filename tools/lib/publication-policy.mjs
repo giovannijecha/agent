@@ -43,13 +43,14 @@ const EXPECTED_DOCUMENTS = Object.freeze([
   "docs/decisions/0087-owned-user-scoped-state-root.md",
   "docs/decisions/0088-owned-durable-credential-boundary.md",
   "docs/decisions/0089-owned-external-authentication-transition.md",
+  "docs/decisions/0090-owned-openai-subscription-oauth-contract.md",
   "assets/brand/README.md",
   "docs/BRAND.md",
   "docs/decisions/0037-canonical-agent-brand.md",
   "docs/decisions/0038-owned-deterministic-tui-motion.md",
 ]);
 const OAUTH_REGISTRATION_ROWS = Object.freeze([
-  "| ChatGPT Plus/Pro | OpenAI documents subscription browser and device login for its Codex clients. | Those flows identify OpenAI's clients; no accepted process registers `agent` as a direct independent client. |",
+  "| ChatGPT Plus/Pro | OpenAI documents subscription browser and device login for Codex clients; decision 0090 fixes the independently derived device, token, catalog, transport, storage, and removal contract. | The protocol is `specified-blocked`: OpenAI has not registered `agent` or expressly authorized a reusable independent-client identity. |",
   "| Claude Pro/Max | Anthropic documents subscription login for Claude Code and subscription-backed third-party use through the Claude Agent SDK. | Claude Code and Agent SDK are foreign runtimes; no accepted direct independent-client registration is recorded for `agent`. |",
   "| Kimi Code | Kimi documents device OAuth for Kimi Code CLI and subscription-backed API keys for third-party development tools. | Public OAuth for third-party clients is unavailable according to the [recorded provider response](PROVIDER-APPLICATIONS.md#kimi-code); credential-only login does not satisfy this registration gate. |",
   "| Grok subscription | xAI documents browser and device login for Grok Build plus headless and ACP integration, while its direct API has a separate key path. | Grok Build and ACP are foreign executables; no accepted process registers `agent` for direct subscription OAuth. |",
@@ -468,6 +469,8 @@ function validatePublicDocuments(context) {
       "One concrete provider does not authorize a generic provider framework,\narbitrary base URL, unregistered model selector, generic key store, local-server mode,\nor additional integration.",
       "The Ollama API key\nmay never enter source, tests, logs, errors, documentation values, process\narguments, command history, terminal output, transcript, journal, receipt, or\ndiagnostic.",
       "`agent auth` is the sole interactive credential lifecycle and runs outside the\nalternate-screen TUI.",
+      "Decision 0090 records one non-executable OpenAI contract",
+      "`specified-blocked` OpenAI subscription contract",
     ],
     "direct provider policy",
   );
@@ -480,7 +483,7 @@ function validatePublicDocuments(context) {
       "Canonical repository: [github.com/giovannijecha/agent]",
       "Registration state: `blocked`.",
       ...OAUTH_REGISTRATION_ROWS,
-      "an accepted provider-specific successor decision,\nthe corresponding decision-0089 credential-store extension",
+      "decision 0090 activation\ngate in the same change as the machine gate, first adapter, corresponding\ndecision-0089 credential-store extension",
       "Offline contract tests must\ncover cancellation, expiry, concurrency, malformed responses, secret leakage,\nrollback, and removal.",
       "No registration means no adapter",
     ],
