@@ -677,6 +677,48 @@ test("rejects a completed response output that omits or contradicts staged items
   }
 });
 
+test("rejects nonempty or malformed pre-terminal response output", async () => {
+  const valid = textEvents("Done.");
+  const created = event("response.created", { response: response("in_progress") });
+  const inProgress = event("response.in_progress", {
+    response: response("in_progress"),
+  });
+  const nonempty = response("in_progress", Object.freeze([Object.freeze({
+    arguments: "{}",
+    call_id: "call-alpha",
+    id: "function-alpha",
+    name: "read_file",
+    status: "completed",
+    type: "function_call",
+  })]));
+  const malformed = Object.freeze({
+    id: "response-alpha",
+    object: "response",
+    output: Object.freeze({}),
+    status: "in_progress",
+  });
+  const cases = Object.freeze([
+    event("response.created", { response: nonempty }) + valid.slice(created.length),
+    valid.replace(inProgress, event("response.in_progress", { response: malformed })),
+  ]);
+  for (const wire of cases) {
+    const model = OpenAISubscriptionModel.create(
+      new FakeTransport(ok(new FakeStream([ok(ascii(wire)), ok(null)]))),
+      "Inspect safely.",
+      MODEL,
+    );
+    assert.ok(model.ok);
+    const opened = await model.value.open(
+      conversation(),
+      new Cancellation(),
+      [],
+      Object.freeze({ thinkingEffort: "off" as const }),
+    );
+    assert.ok(opened.ok);
+    assert.equal((await opened.value.read()).ok, false);
+  }
+});
+
 test("validates trailing frames before publishing terminal completion", async () => {
   const stream = new FakeStream([
     ok(ascii(textEvents("Done.") + event("response.unknown"))),

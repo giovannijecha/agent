@@ -165,10 +165,11 @@ Responses adapter and the exact CLI HTTPS transport. OpenAI transport is
 and the code can be verified through injected doubles, but there is still no
 runtime snapshot, refresh, revocation, provider/model row, transport
 construction, or conversation-runtime composition.
-Its strict decoder treats `response.completed` as provisional: the complete
-provider-ordered output must match the accumulated completed items, and
-`done` or `toolCalls` is published only after clean SSE and transport EOF with
-no trailing frame.
+Its strict decoder requires exact empty output arrays on pre-terminal response
+snapshots and treats `response.completed` as provisional: the complete provider-
+ordered output must match the accumulated completed items, and `done` or
+`toolCalls` is published only after clean SSE and transport EOF with no trailing
+frame.
 
 OpenAI remains blocked by `runtime-integration-required`. Its refresh lifecycle,
 exclusive runtime composition, `/models` integration, and live smoke must

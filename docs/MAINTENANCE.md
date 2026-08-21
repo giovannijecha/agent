@@ -550,9 +550,10 @@ identity, catalog projection, request fields, SSE lifecycle, bounds, and no-
 retry/no-redirect posture synchronized with policy and tests. Do not add
 refresh, revocation, runtime snapshot, provider row, transport construction, or
 `/models` integration before their separate module.
-For terminal-stream changes, retain `response.completed` as provisional until
-clean EOF, compare its provider-ordered output with every completed item, and
-regress missing, contradictory, reordered, and trailing-frame cases before
+For terminal-stream changes, require exact empty output arrays on pre-terminal
+response snapshots, retain `response.completed` as provisional until clean EOF,
+compare its provider-ordered output with every completed item, and regress
+missing, malformed, contradictory, reordered, and trailing-frame cases before
 publishing `done` or `toolCalls`.
 
 For ChatGPT, Kimi, or xAI compatibility changes, recheck first-party protocol

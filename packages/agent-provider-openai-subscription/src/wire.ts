@@ -259,6 +259,7 @@ function validResponse(
   return isRecord(value) && validWireId(value.id) &&
     (expectedId === undefined || value.id === expectedId) &&
     value.object === "response" && value.status === status &&
+    Array.isArray(value.output) && (status === "completed" || value.output.length === 0) &&
     (value.usage === undefined || validUsage(value.usage));
 }
 

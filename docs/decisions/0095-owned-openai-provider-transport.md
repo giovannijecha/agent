@@ -172,9 +172,11 @@ event types fail closed.
 
 The admitted lifecycle is:
 
-1. exactly one `response.created` starts the response;
-2. bounded `response.in_progress`, item, content-part, reasoning-part, and
-   function-argument lifecycle events may advance only their declared phase;
+1. exactly one `response.created` with an exact empty `output` array starts the
+   response;
+2. bounded `response.in_progress` snapshots also require an exact empty
+   `output` array before item, content-part, reasoning-part, and function-
+   argument lifecycle events may advance only their declared phase;
 3. non-empty `response.reasoning_summary_text.delta` and
    `response.reasoning_text.delta` values become runtime reasoning deltas before
    answer text starts;
@@ -255,8 +257,9 @@ Red-green regression must prove:
 - the SSE decoder handles chunk splits, CRLF, optional matching event names,
   reasoning, text, function calls, usage, completion, cancellation, timeout,
   close, concurrent read, malformed framing, unknown events, contradictory
-  lifecycle, missing or contradictory completed-output projections, trailing
-  frames before publication, early EOF, and post-terminal reads;
+  lifecycle, nonempty or malformed pre-terminal output, missing or
+  contradictory completed-output projections, trailing frames before
+  publication, early EOF, and post-terminal reads;
 - every transport and protocol failure remains content-free and every failed
   open closes the response;
 - source policy admits only the new reviewed provider and CLI files and rejects
