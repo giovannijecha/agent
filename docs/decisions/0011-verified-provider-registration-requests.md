@@ -34,13 +34,6 @@ detail, client identifier, client secret, private account identifier, or
 undocumented protocol value. Public channels receive public project facts only.
 Private correspondence stays outside the repository.
 
-Decision 0091 partially supersedes approval-only activation for ChatGPT, Kimi,
-and xAI by accepting a separate provider-owned public-client compatibility
-category. These requests remain authoritative historical lifecycle and response
-records; silence, refusal, or a submitted request never becomes approval. The
-compatibility category changes no runtime without a provider-specific decision.
-Claude remains governed by this decision's original authorization gate.
-
 Provider policy schema version 3 records request lifecycle and routing metadata,
 including uniform nullable submission dates and references, without changing
 eligibility. All four providers remain blocked. The provider validator checks

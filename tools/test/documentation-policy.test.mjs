@@ -321,14 +321,14 @@ test("binds the active external authentication boundary", () => {
   assert.doesNotMatch(operatorText, /`\/providers`/u);
 });
 
-test("binds the specified compatible but inactive OpenAI subscription OAuth contract", () => {
+test("binds the immutable OpenAI contract and compatible current state", () => {
   const context = currentContext();
   const decision =
     "docs/decisions/0090-owned-openai-subscription-oauth-contract.md";
   assert.equal(policy.decisionPaths.includes(decision), true);
   assert.equal(ownershipPolicy.requiredDocuments.includes(decision), true);
   for (const marker of [
-    /Public endpoints, provider-owned public-client registration, and caller\s+identity are separate authorities/u,
+    /Public endpoints and public-client identity are separate authorities/u,
     /The first admitted login ceremony is device authorization only/u,
     /`~\/.agent\/credentials\/openai\.oauth`/u,
     /exclusive for the complete TUI session or `agent auth`\s+mutation/u,
@@ -386,6 +386,21 @@ test("binds provider-owned public-client compatibility without activating runtim
   ]) {
     assert.match(context.files[decision], marker);
   }
+  for (const historical of [
+    "docs/decisions/0003-owned-provider-authentication.md",
+    "docs/decisions/0011-verified-provider-registration-requests.md",
+    "docs/decisions/0090-owned-openai-subscription-oauth-contract.md",
+  ]) {
+    assert.doesNotMatch(context.files[historical], /0091/u, historical);
+  }
+  assert.match(
+    context.files["docs/decisions/0090-owned-openai-subscription-oauth-contract.md"],
+    /`specified-blocked`/u,
+  );
+  assert.match(
+    context.files["docs/decisions/0090-owned-openai-subscription-oauth-contract.md"],
+    /### Identity activation gate/u,
+  );
   assert.match(
     context.files["docs/OWNERSHIP.md"],
     /demonstrated stale or incomplete for the exact\s+interoperability fact/u,
