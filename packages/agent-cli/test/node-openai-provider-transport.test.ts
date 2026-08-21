@@ -558,6 +558,32 @@ test("destroys staged responses when synchronous request setup fails", async () 
   }
 });
 
+test("destroys late responses after request setup has failed", async () => {
+  for (const operation of ["catalog", "responses"] as const) {
+    const client = new FakeClient(new FakeResponse());
+    client.requestFailureMethod = "on";
+    const result = await (operation === "catalog"
+      ? create(client).catalog(new Cancellation())
+      : create(client).open(Object.freeze({ body: '{"stream":true}' }), new Cancellation()));
+    assert.equal(result.ok, false);
+    const request = client.requests.at(0);
+    assert.ok(request !== undefined);
+    assert.equal(request.destroyed, 1);
+
+    const late = new FakeResponse(200, operation === "catalog"
+      ? "application/json"
+      : "text/event-stream");
+    late.destroyFailure = true;
+    let cleanupEscaped = false;
+    try { client.respondAgain(late); }
+    catch (_cause: unknown) { cleanupEscaped = true; }
+    assert.equal(cleanupEscaped, false);
+    assert.equal(late.destroyed, 1);
+    assert.equal(late.listenerCount(), 0);
+    assert.equal(request.destroyed, 1);
+  }
+});
+
 test("stops request setup when a synchronous request error rejects staged response", async () => {
   for (const operation of ["catalog", "responses"] as const) {
     const response = new FakeResponse(200, operation === "catalog"

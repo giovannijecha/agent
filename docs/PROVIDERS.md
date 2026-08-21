@@ -218,6 +218,9 @@ timeout, body write when applicable, and `end` have all completed. A second
 staged response, a setup throw, or a synchronous request error fails closed,
 stops the remaining setup, and destroys the retained request and every staged
 response while combining cleanup failure.
+A callback delivered after setup has failed or settled is destroyed immediately
+inside the no-throw cleanup boundary and is never stored as a new staged
+response.
 After a Responses stream is published, a duplicate response callback remains a
 protocol conflict until transport EOF is delivered through the pending or next
 `read`: Agent destroys the extra response, carries any cleanup failure into the

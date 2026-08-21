@@ -175,8 +175,9 @@ each registration: catalog performs no later wiring or initial resume after
 settlement, and Responses cannot publish a pre-terminalized stream before paired
 request-response cleanup. Model close releases every partial decoder and queued
 response owner before awaiting transport teardown, and a pending read cannot
-decode a post-close value. Local removal uses native retirement and explicitly
-does not
+decode a post-close value. A response callback delivered after request setup
+fails is destroyed under containment and cannot become new staged authority.
+Local removal uses native retirement and explicitly does not
 claim provider-side revocation or secure erasure. The product scanner admits
 the exact OpenAI endpoint, client-identity, token-field, JWT, HTTPS, hash,
 catalog, and Responses spellings only in the reviewed decision-0094 and

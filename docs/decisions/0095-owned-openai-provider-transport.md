@@ -144,6 +144,10 @@ request is retained and its error listener, inactivity timeout, applicable body
 write, and `end` complete. A second staged callback, a setup throw, or a
 synchronous request error stops later setup and destroys the request and all
 staged responses with combined content-free cleanup.
+Any response callback delivered after that setup failure or settlement is
+destroyed immediately inside the same no-throw cleanup boundary; it cannot
+create a new staged owner, alter the settled result, or escape its private
+cleanup cause.
 A duplicate callback after a Responses stream is published remains a protocol
 conflict until transport EOF is delivered through the pending or next `read`.
 The response `end` notification records provisional EOF without releasing
@@ -451,7 +455,9 @@ Red-green regression must prove:
   destroys both request and response, combines their cleanup failures, and
   contains late-response cleanup throws; valid and rejected synchronous
   callbacks remain staged until complete request setup, and setup throws or
-  synchronous request errors destroy both handles without continuing setup; a
+  synchronous request errors destroy both handles without continuing setup;
+  callbacks delivered after setup failure are destroyed without becoming staged
+  state or changing the settled result; a
   duplicate callback after stream publication, including after response `end`
   but before pending EOF delivery, destroys the extra response, propagates its
   cleanup failure, and terminates the active stream as protocol without changing

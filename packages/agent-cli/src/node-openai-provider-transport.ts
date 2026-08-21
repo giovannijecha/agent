@@ -658,6 +658,10 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
           acceptResponse(response);
           return;
         }
+        if (settled || terminating) {
+          destroyResponse(response);
+          return;
+        }
         if (stagedResponse === undefined) {
           stagedResponse = response;
           return;
@@ -876,6 +880,10 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
       const receiveResponse = (response: HttpsResponse): void => {
         if (requestPrepared) {
           acceptResponse(response);
+          return;
+        }
+        if (settled || terminating) {
+          destroyResponse(response);
           return;
         }
         if (stagedResponse === undefined) {

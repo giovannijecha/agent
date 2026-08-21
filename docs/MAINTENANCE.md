@@ -583,7 +583,10 @@ and `end`, retain at most one staged response without inspecting it. Regress
 valid and rejected synchronous responses, every throwing setup operation, and a
 synchronous request error during setup. A conflict or failure must stop later
 setup, destroy the request and all staged responses, combine cleanup failure,
-and settle once without exposing a cause.
+and settle once without exposing a cause. Regress a callback delivered only
+after setup failure: destroy that response under containment without staging it,
+reopening authority, or changing the settled result, including when response
+cleanup throws.
 Regress duplicate callbacks after Responses publication both while data is
 active and immediately after response `end` but before the pending EOF read
 settles. Destroy the extra response, propagate its cleanup failure, and fail the
