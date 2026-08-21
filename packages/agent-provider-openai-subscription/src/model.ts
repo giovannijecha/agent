@@ -33,8 +33,10 @@ import {
 } from "./wire.js";
 
 type TransportOpen = OpenAIProviderTransport["open"];
-type OwnedTransportStream = Readonly<{
+type OwnedTransportCloser = Readonly<{
   close: OpenAITransportStream["close"];
+}>;
+type OwnedTransportStream = OwnedTransportCloser & Readonly<{
   contentType: string | undefined;
   read: OpenAITransportStream["read"];
   statusCode: number;
@@ -111,26 +113,44 @@ function wireReason(error: OpenAIWireError): OpenAIFailureReason {
   return error.kind;
 }
 
-function snapshotTransportStream(value: unknown): OwnedTransportStream | undefined {
+function snapshotTransportCloser(value: unknown): OwnedTransportCloser | undefined {
   try {
     if (value === null || typeof value !== "object") return undefined;
     const candidate = value as OpenAITransportStream;
-    if (typeof candidate.close !== "function" || typeof candidate.read !== "function" ||
-      (candidate.contentType !== undefined && typeof candidate.contentType !== "string") ||
-      !Number.isSafeInteger(candidate.statusCode) || candidate.statusCode < 100 ||
-      candidate.statusCode > 599) return undefined;
+    const close = candidate.close;
+    return typeof close === "function"
+      ? Object.freeze({ close: close.bind(value) as OpenAITransportStream["close"] })
+      : undefined;
+  } catch (_cause: unknown) {
+    return undefined;
+  }
+}
+
+function snapshotTransportStream(
+  value: unknown,
+  closer: OwnedTransportCloser,
+): OwnedTransportStream | undefined {
+  try {
+    if (value === null || typeof value !== "object") return undefined;
+    const candidate = value as OpenAITransportStream;
+    const contentType = candidate.contentType;
+    const read = candidate.read;
+    const statusCode = candidate.statusCode;
+    if (typeof read !== "function" ||
+      (contentType !== undefined && typeof contentType !== "string") ||
+      !Number.isSafeInteger(statusCode) || statusCode < 100 || statusCode > 599) return undefined;
     return Object.freeze({
-      close: candidate.close.bind(value) as OpenAITransportStream["close"],
-      contentType: candidate.contentType,
-      read: candidate.read.bind(value) as OpenAITransportStream["read"],
-      statusCode: candidate.statusCode,
+      close: closer.close,
+      contentType,
+      read: read.bind(value) as OpenAITransportStream["read"],
+      statusCode,
     });
   } catch (_cause: unknown) {
     return undefined;
   }
 }
 
-async function closeTransport(stream: OwnedTransportStream): Promise<boolean> {
+async function closeTransport(stream: OwnedTransportCloser): Promise<boolean> {
   try {
     const closed = transportResult<void>(await stream.close());
     return closed === undefined || !closed.ok;
@@ -366,8 +386,12 @@ export class OpenAISubscriptionModel implements StreamingModel<OpenAIError> {
         opened.error.cleanupFailed,
       ));
     }
-    const stream = snapshotTransportStream(opened.value);
-    if (stream === undefined) return err(modelError("open", "transportProtocol"));
+    const closer = snapshotTransportCloser(opened.value);
+    if (closer === undefined) return err(modelError("open", "transportProtocol"));
+    const stream = snapshotTransportStream(opened.value, closer);
+    if (stream === undefined) {
+      return err(modelError("open", "transportProtocol", await closeTransport(closer)));
+    }
     if (stream.statusCode !== 200) {
       return err(modelError("open", statusReason(stream.statusCode), await closeTransport(stream)));
     }

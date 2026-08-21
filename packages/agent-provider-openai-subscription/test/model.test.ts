@@ -1310,3 +1310,37 @@ test("rejects status and content type before exposing a model stream", async () 
     assert.equal(stream.closeCalls, 1);
   }
 });
+
+test("closes a malformed successful transport stream before rejecting it", async () => {
+  let closeCalls = 0;
+  const malformed = Object.freeze({
+    close: () => {
+      closeCalls += 1;
+      return Promise.resolve(ok(undefined));
+    },
+    contentType: "text/event-stream",
+    read: undefined,
+    statusCode: 200,
+  }) as unknown as OpenAITransportStream;
+  const model = OpenAISubscriptionModel.create(
+    new FakeTransport(ok(malformed)),
+    "Inspect safely.",
+    MODEL,
+  );
+  assert.ok(model.ok);
+  assert.deepEqual(await model.value.open(
+    conversation(),
+    new Cancellation(),
+    [],
+    Object.freeze({ thinkingEffort: "off" as const }),
+  ), {
+    error: {
+      cleanupFailed: false,
+      kind: "openaiSubscription",
+      operation: "open",
+      reason: "transportProtocol",
+    },
+    ok: false,
+  });
+  assert.equal(closeCalls, 1);
+});

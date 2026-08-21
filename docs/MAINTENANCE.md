@@ -557,6 +557,10 @@ proxy failures; never validate one value and retain another.
 For catalog rejection changes, retain the content-type snapshot, detach owned
 listeners, destroy both request and response, and combine either cleanup failure
 before publishing the empty capture.
+For successful transport-open validation, snapshot valid close authority first,
+read each remaining stream property once, and invoke the retained close before
+rejecting malformed metadata or read authority. Preserve cleanup failure without
+exposing the transport value or its cause.
 For terminal-stream changes, require exact empty output arrays on pre-terminal
 response snapshots, admit null usage only before completion, keep the added
 function-call item authoritative when the argument-done event omits its

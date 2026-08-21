@@ -190,6 +190,9 @@ after an earlier settlement destroy their response inside the content-free
 cleanup boundary and cannot escape a private cause or reopen the operation.
 Every rejected catalog response also destroys both its request and response and
 combines cleanup failure from either handle before publishing its empty capture.
+After a transport reports a successful stream open, the adapter retains valid
+close authority first and closes through it if any other stream property is
+malformed; the protocol failure records whether that cleanup failed.
 SSE boundary discovery examines each new chunk with only the retained three-
 code-unit suffix; repeated `needMore` outcomes never rescan the whole partial
 frame.

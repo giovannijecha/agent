@@ -246,6 +246,10 @@ data, token, account ID, header, response body, conversation, instruction,
 model, tool call, argument, output, usage value, or SSE payload.
 Every rejected catalog response destroys both its request and response before
 settlement and combines cleanup failures from either handle.
+After a nominally successful stream open, the adapter snapshots valid close
+authority before inspecting each remaining stream property once. Malformed
+metadata or read authority invokes that retained close before protocol failure
+is published, including any cleanup failure in the result.
 
 This inactive module transmits nothing in the current product. After later
 integration, a catalog request will disclose the access token, account ID,
@@ -299,14 +303,16 @@ Red-green regression must prove:
   chunks without whole-buffer rescanning;
 - an added reasoning item rejects pre-populated or malformed content before any
   later item projection can omit or replace it;
-  close, concurrent read, malformed framing, unknown events, contradictory
+- stream lifecycle rejects close, concurrent read, malformed framing, unknown
+  events, contradictory
   lifecycle, nonempty or malformed pre-terminal output, missing or
   contradictory completed-output projections, trailing frames before
   publication, early EOF, and post-terminal reads;
 - every transport and protocol failure remains content-free; every rejected
   catalog response and failed open close all retained handles; stream close
-  destroys both request and response,
-  combines their cleanup failures, and contains late-response cleanup throws;
+  destroys both request and response, combines their cleanup failures, and
+  contains late-response cleanup throws; a malformed successful stream is
+  closed through its retained close authority before rejection;
 - source policy admits only the new reviewed provider and CLI files and rejects
   another OpenAI origin, identity, credential authority, Node effect, retry,
   redirect, SDK, foreign runtime, or provider composition; and
