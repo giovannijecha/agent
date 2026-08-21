@@ -193,6 +193,14 @@ Closing a Responses stream destroys its exact request and response once and
 combines either cleanup failure. Catalog and Responses callbacks that arrive
 after an earlier settlement destroy their response inside the content-free
 cleanup boundary and cannot escape a private cause or reopen the operation.
+Each callback that arrives before its request factory returns or while request
+setup is still running is held as the sole bounded staged response. Agent does
+not inspect its metadata, wire response listeners, or settle the operation until
+the exact returned request is retained and its error listener, inactivity
+timeout, body write when applicable, and `end` have all completed. A second
+staged response, a setup throw, or a synchronous request error fails closed,
+stops the remaining setup, and destroys the retained request and every staged
+response while combining cleanup failure.
 Every rejected catalog response also destroys both its request and response and
 combines cleanup failure from either handle before publishing its empty capture.
 Each catalog and Responses callback snapshots status and content type once

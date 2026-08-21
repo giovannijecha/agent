@@ -123,6 +123,14 @@ admission transaction. Failure rolls back partial registration, destroys both
 handles, and settles one content-free protocol result. Later catalog and stream
 flow control and listener detachment are individually contained so cleanup
 continues after one throw and its combined failure remains explicit.
+The request factory and request setup form the preceding atomic admission
+barrier. A catalog or Responses callback delivered before that barrier completes
+is retained as the sole staged response without metadata access, listener
+wiring, or settlement. The barrier completes only after the exact returned
+request is retained and its error listener, inactivity timeout, applicable body
+write, and `end` complete. A second staged callback, a setup throw, or a
+synchronous request error stops later setup and destroys the request and all
+staged responses with combined content-free cleanup.
 
 The decoder accepts one JSON object containing one `models` array with 1
 through 256 entries. Every entry is a bounded object with required `slug`,
@@ -387,8 +395,11 @@ Red-green regression must prove:
 - every transport and protocol failure remains content-free; every rejected
   catalog response and failed open close all retained handles; stream close
   destroys both request and response, combines their cleanup failures, and
-  contains late-response cleanup throws; a malformed successful stream is
-  closed through its retained close authority before rejection;
+  contains late-response cleanup throws; valid and rejected synchronous
+  callbacks remain staged until complete request setup, and setup throws or
+  synchronous request errors destroy both handles without continuing setup; a
+  malformed successful stream is closed through its retained close authority
+  before rejection;
 - source policy admits only the new reviewed provider and CLI files and rejects
   another OpenAI origin, identity, credential authority, Node effect, retry,
   redirect, SDK, foreign runtime, or provider composition; and

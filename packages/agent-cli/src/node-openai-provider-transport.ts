@@ -457,6 +457,11 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
     let activeResponse: HttpsResponse | undefined;
     let activeMetadata: ResponseMetadata | undefined;
     let deadline: ScheduledTimer | undefined;
+    let requestPrepared = false;
+    let responseClaimed = false;
+    let stagedResponse: HttpsResponse | undefined;
+    let stagedResponseConflict = false;
+    let stagedResponseCleanupFailed = false;
     const chunks: Uint8Array[] = [];
     let bytes = 0;
     return new Promise((resolve) => {
@@ -485,11 +490,25 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
         cancelDeadline();
         resolve(result);
       };
+      const destroyResponse = (response: HttpsResponse): boolean => {
+        try {
+          response.destroy();
+          return false;
+        } catch (_cause: unknown) {
+          return true;
+        }
+      };
       const destroy = (): boolean => {
         let cleanupFailed = false;
-        try { activeResponse?.destroy(); } catch (_cause: unknown) { cleanupFailed = true; }
-        try { activeRequest?.destroy(); } catch (_cause: unknown) { cleanupFailed = true; }
+        const response = activeResponse;
+        const staged = stagedResponse;
         activeResponse = undefined;
+        stagedResponse = undefined;
+        if (response !== undefined && destroyResponse(response)) cleanupFailed = true;
+        if (staged !== undefined && staged !== response && destroyResponse(staged)) {
+          cleanupFailed = true;
+        }
+        try { activeRequest?.destroy(); } catch (_cause: unknown) { cleanupFailed = true; }
         activeRequest = undefined;
         return cleanupFailed;
       };
@@ -535,6 +554,60 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
           statusCode: metadata.statusCode,
         })));
       };
+      const acceptResponse = (response: HttpsResponse): void => {
+        if (settled) {
+          destroyResponse(response);
+          return;
+        }
+        if (responseClaimed) {
+          fail("protocol", destroyResponse(response));
+          return;
+        }
+        responseClaimed = true;
+        activeResponse = response;
+        let metadata: ResponseMetadata | undefined;
+        try {
+          metadata = snapshotResponseMetadata(response);
+        } catch (_cause: unknown) {
+          fail("protocol");
+          return;
+        }
+        if (metadata === undefined) return fail("protocol");
+        if (metadata.statusCode !== 200 || !validJsonContentType(metadata.contentType)) {
+          terminating = true;
+          const detachCleanupFailed = detach();
+          const cleanupFailed = destroy() || detachCleanupFailed;
+          settle(ok(Object.freeze({
+            body: new Uint8Array(),
+            cleanupFailed,
+            contentType: metadata.contentType,
+            statusCode: metadata.statusCode,
+          })));
+          return;
+        }
+        activeMetadata = metadata;
+        try {
+          response.on("aborted", onAborted);
+          response.on("error", onResponseError);
+          response.on("data", onData);
+          response.on("end", onEnd);
+          response.resume();
+        } catch (_cause: unknown) {
+          fail("protocol");
+        }
+      };
+      const receiveResponse = (response: HttpsResponse): void => {
+        if (requestPrepared) {
+          acceptResponse(response);
+          return;
+        }
+        if (stagedResponse === undefined) {
+          stagedResponse = response;
+          return;
+        }
+        stagedResponseConflict = true;
+        if (destroyResponse(response)) stagedResponseCleanupFailed = true;
+      };
       let registration: ScheduledTimer;
       let arming = true;
       let firedSynchronously = false;
@@ -561,49 +634,29 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
       }
       deadline = registration;
       try {
-        activeRequest = this.#requestHttps(catalogOptions(this.#credential), (response) => {
-          if (settled) {
-            try { response.destroy(); } catch (_cause: unknown) { /* already settled */ }
-            return;
-          }
-          activeResponse = response;
-          let metadata: ResponseMetadata | undefined;
-          try {
-            metadata = snapshotResponseMetadata(response);
-          } catch (_cause: unknown) {
-            fail("protocol");
-            return;
-          }
-          if (metadata === undefined) return fail("protocol");
-          if (metadata.statusCode !== 200 || !validJsonContentType(metadata.contentType)) {
-            terminating = true;
-            const detachCleanupFailed = detach();
-            const cleanupFailed = destroy() || detachCleanupFailed;
-            settle(ok(Object.freeze({
-              body: new Uint8Array(),
-              cleanupFailed,
-              contentType: metadata.contentType,
-              statusCode: metadata.statusCode,
-            })));
-            return;
-          }
-          activeMetadata = metadata;
-          try {
-            response.on("aborted", onAborted);
-            response.on("error", onResponseError);
-            response.on("data", onData);
-            response.on("end", onEnd);
-            response.resume();
-          } catch (_cause: unknown) {
-            fail("protocol");
-          }
-        });
-        activeRequest.on("error", onRequestError);
-        activeRequest.setTimeout(
-          OPENAI_PROVIDER_TRANSPORT_LIMITS.catalogInactivityMilliseconds,
-          () => fail("timeout"),
+        const request = this.#requestHttps(
+          catalogOptions(this.#credential),
+          receiveResponse,
         );
-        activeRequest.end();
+        activeRequest = request;
+        if (stagedResponseConflict) {
+          fail("protocol", stagedResponseCleanupFailed);
+        } else {
+          request.on("error", onRequestError);
+          if (!terminating) {
+            request.setTimeout(
+              OPENAI_PROVIDER_TRANSPORT_LIMITS.catalogInactivityMilliseconds,
+              () => fail("timeout"),
+            );
+          }
+          if (!terminating) request.end();
+          if (!terminating) {
+            requestPrepared = true;
+            const response = stagedResponse;
+            stagedResponse = undefined;
+            if (response !== undefined) acceptResponse(response);
+          }
+        }
       } catch (_cause: unknown) {
         fail("connection");
       }
@@ -628,6 +681,10 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
     let deadline: ScheduledTimer | undefined;
     let requestCleanupFailed = false;
     let requestDestroyed = false;
+    let requestPrepared = false;
+    let stagedResponse: HttpsResponse | undefined;
+    let stagedResponseConflict = false;
+    let stagedResponseCleanupFailed = false;
     let terminating = false;
     return new Promise((resolve) => {
       const cancelDeadline = (): void => {
@@ -661,25 +718,72 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
       const terminate = (kind: OpenAITransportErrorKind): void => {
         if (lifecycleSettled || terminating) return;
         terminating = true;
-        const cleanupFailed = destroyRequest();
+        const response = stagedResponse;
+        stagedResponse = undefined;
+        let cleanupFailed = destroyRequest();
+        if (response !== undefined && destroyResponse(response)) cleanupFailed = true;
         if (activeStream === undefined) settle(err(failure(kind, cleanupFailed)));
         else if (kind === "cancelled") activeStream.cancel(cleanupFailed);
         else if (kind === "timeout") activeStream.timeout(cleanupFailed);
         else if (kind === "connection") activeStream.connection(cleanupFailed);
         else activeStream.protocol(cleanupFailed);
       };
+      const destroyResponse = (response: HttpsResponse): boolean => {
+        try {
+          response.destroy();
+          return false;
+        } catch (_cause: unknown) {
+          return true;
+        }
+      };
       const rejectResponse = (
         response: HttpsResponse,
+        kind: OpenAITransportErrorKind,
         earlierCleanupFailed = false,
       ): void => {
         terminating = true;
         let cleanupFailed = destroyRequest() || earlierCleanupFailed;
-        try {
-          response.destroy();
-        } catch (_cause: unknown) {
-          cleanupFailed = true;
+        if (destroyResponse(response)) cleanupFailed = true;
+        settle(err(failure(kind, cleanupFailed)));
+      };
+      const acceptResponse = (response: HttpsResponse): void => {
+        if (settled) {
+          destroyResponse(response);
+          return;
         }
-        settle(err(failure("protocol", cleanupFailed)));
+        let metadata: ResponseMetadata | undefined;
+        try {
+          metadata = snapshotResponseMetadata(response);
+        } catch (_cause: unknown) {
+          rejectResponse(response, "protocol");
+          return;
+        }
+        if (metadata === undefined) return rejectResponse(response, "protocol");
+        const admission = NodeOpenAIStream.admit(
+          response,
+          metadata.statusCode,
+          metadata.contentType,
+          settleLifecycle,
+          destroyRequest,
+        );
+        if (!admission.ok) {
+          rejectResponse(response, "protocol", admission.error.cleanupFailed);
+          return;
+        }
+        activeStream = admission.value;
+        settle(ok(activeStream));
+      };
+      const receiveResponse = (response: HttpsResponse): void => {
+        if (requestPrepared) {
+          acceptResponse(response);
+          return;
+        }
+        if (stagedResponse === undefined) {
+          stagedResponse = response;
+          return;
+        }
+        stagedResponseConflict = true;
+        if (destroyResponse(response)) stagedResponseCleanupFailed = true;
       };
       let registration: ScheduledTimer;
       let arming = true;
@@ -707,42 +811,38 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
       }
       deadline = registration;
       try {
-        activeRequest = this.#requestHttps(responsesOptions(this.#credential), (response) => {
-          if (settled) {
-            try { response.destroy(); } catch (_cause: unknown) { /* already settled */ }
-            return;
-          }
-          let metadata: ResponseMetadata | undefined;
-          try {
-            metadata = snapshotResponseMetadata(response);
-          } catch (_cause: unknown) {
-            rejectResponse(response);
-            return;
-          }
-          if (metadata === undefined) return rejectResponse(response);
-          const admission = NodeOpenAIStream.admit(
-            response,
-            metadata.statusCode,
-            metadata.contentType,
-            settleLifecycle,
-            destroyRequest,
-          );
-          if (!admission.ok) {
-            rejectResponse(response, admission.error.cleanupFailed);
-            return;
-          }
-          activeStream = admission.value;
-          settle(ok(activeStream));
-        });
-        activeRequest.on("error", (_cause: unknown) => terminate("connection"));
-        activeRequest.setTimeout(
-          OPENAI_PROVIDER_TRANSPORT_LIMITS.responseInactivityMilliseconds,
-          () => terminate("timeout"),
+        const request = this.#requestHttps(
+          responsesOptions(this.#credential),
+          receiveResponse,
         );
-        activeRequest.write(body);
-        activeRequest.end();
+        activeRequest = request;
+        if (stagedResponseConflict) {
+          const response = stagedResponse;
+          stagedResponse = undefined;
+          if (response === undefined) terminate("protocol");
+          else rejectResponse(response, "protocol", stagedResponseCleanupFailed);
+        } else {
+          request.on("error", (_cause: unknown) => terminate("connection"));
+          if (!terminating) {
+            request.setTimeout(
+              OPENAI_PROVIDER_TRANSPORT_LIMITS.responseInactivityMilliseconds,
+              () => terminate("timeout"),
+            );
+          }
+          if (!terminating) request.write(body);
+          if (!terminating) request.end();
+          if (!terminating) {
+            requestPrepared = true;
+            const response = stagedResponse;
+            stagedResponse = undefined;
+            if (response !== undefined) acceptResponse(response);
+          }
+        }
       } catch (_cause: unknown) {
-        terminate("connection");
+        const response = stagedResponse;
+        stagedResponse = undefined;
+        if (response === undefined) terminate("connection");
+        else rejectResponse(response, "connection", stagedResponseCleanupFailed);
       }
       let cancellationPromise: Promise<void>;
       try { cancellationPromise = Promise.resolve(whenRequested()); }

@@ -628,7 +628,7 @@ const APPROVED_CLI_PRODUCT_TREE = Object.freeze({
   pathsSha256:
     "77c8397dbd7beeb160780c808fcbabdc6776af2c12f17a1e3ad40685040975b1",
   sourceSha256:
-    "1de15f65c2f5a82cc63a086c20113bd18a27505fee10ad3b66d2fd2b1b2352a3",
+    "e42e803668213a1622dab817ba92fdba9b3223fab9de9a0e14d150bea719246d",
 });
 
 const APPROVED_CLI_NATIVE_PLATFORM_TREE = Object.freeze({

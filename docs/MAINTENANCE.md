@@ -566,6 +566,14 @@ inside each asynchronous callback's containment boundary. A throwing or
 malformed metadata source must produce a content-free protocol failure, destroy
 both request and response, and combine cleanup failure; never reread response
 metadata in a stream constructor or at catalog EOF.
+Treat request creation and setup as one admission barrier for both catalog and
+Responses. Before the request factory returns, and until its returned request
+has installed error and inactivity handling and completed the applicable write
+and `end`, retain at most one staged response without inspecting it. Regress
+valid and rejected synchronous responses, every throwing setup operation, and a
+synchronous request error during setup. A conflict or failure must stop later
+setup, destroy the request and all staged responses, combine cleanup failure,
+and settle once without exposing a cause.
 Admit a content-type array only when it contains exactly one string member;
 regress a non-string member with hostile coercion and never invoke that coercion.
 Treat listener registration and initial `pause` or `resume` as one atomic

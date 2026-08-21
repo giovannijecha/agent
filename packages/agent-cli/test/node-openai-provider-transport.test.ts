@@ -16,6 +16,7 @@ import {
 import type { ScheduledTimer, TimerClock } from "../dist/timer-clock.js";
 
 type Listener = (() => void) | ((value: unknown) => void);
+type RequestFailureMethod = "end" | "on" | "setTimeout" | "write";
 
 class FakeResponse implements IncomingMessage {
   readonly headers: IncomingMessage["headers"];
@@ -70,6 +71,8 @@ class FakeRequest implements ClientRequest {
   destroyed = 0;
   destroyFailure = false;
   ended = 0;
+  errorDuringTimeoutSetup = false;
+  failureMethod: RequestFailureMethod | undefined;
   timeoutMilliseconds: number | undefined;
   timeoutListener: (() => void) | undefined;
   writes: string[] = [];
@@ -79,11 +82,20 @@ class FakeRequest implements ClientRequest {
     this.destroyed += 1;
     if (this.destroyFailure) throw new Error("private request cleanup failure");
   }
-  end(): void { this.ended += 1; this.#onEnd(); }
-  write(body: string): boolean { this.writes.push(body); return true; }
+  end(): void {
+    this.ended += 1;
+    this.#onEnd();
+    if (this.failureMethod === "end") throw new Error("private request end failure");
+  }
+  write(body: string): boolean {
+    if (this.failureMethod === "write") throw new Error("private request write failure");
+    this.writes.push(body);
+    return true;
+  }
 
   on(event: "error", listener: (cause: unknown) => void): this {
     void event;
+    if (this.failureMethod === "on") throw new Error("private request wiring failure");
     this.#listeners.push(listener);
     return this;
   }
@@ -96,8 +108,12 @@ class FakeRequest implements ClientRequest {
   }
 
   setTimeout(milliseconds: number, listener: () => void): this {
+    if (this.failureMethod === "setTimeout") {
+      throw new Error("private request timeout failure");
+    }
     this.timeoutMilliseconds = milliseconds;
     this.timeoutListener = listener;
+    if (this.errorDuringTimeoutSetup) this.emitError();
     return this;
   }
 
@@ -112,6 +128,9 @@ class FakeClient implements HttpsClient {
   readonly requests: FakeRequest[] = [];
   readonly #pendingResponses: (() => void)[] = [];
   deferResponses = false;
+  errorDuringTimeoutSetup = false;
+  requestFailureMethod: RequestFailureMethod | undefined;
+  respondDuringRequest = false;
 
   constructor(...responses: FakeResponse[]) { this.responses = [...responses]; }
 
@@ -122,12 +141,20 @@ class FakeClient implements HttpsClient {
     const response = this.responses.shift();
     assert.ok(response !== undefined);
     this.options.push(options);
-    const respond = (): void => onResponse(response);
+    let responded = false;
+    const respond = (): void => {
+      if (responded) return;
+      responded = true;
+      onResponse(response);
+    };
     const request = new FakeRequest(() => {
       if (this.deferResponses) this.#pendingResponses.push(respond);
       else respond();
     });
+    request.errorDuringTimeoutSetup = this.errorDuringTimeoutSetup;
+    request.failureMethod = this.requestFailureMethod;
     this.requests.push(request);
+    if (this.respondDuringRequest) respond();
     return request;
   }
 
@@ -369,6 +396,114 @@ test("contains throwing HTTPS response metadata and destroys both handles", asyn
       assert.equal(response.destroyed, 1);
       assert.equal(request.destroyed, 1);
     }
+  }
+});
+
+test("retains the request before rejecting a synchronous response", async () => {
+  for (const operation of ["catalog", "responses"] as const) {
+    const response = new FakeResponse();
+    Object.defineProperty(response, "statusCode", {
+      get: () => { throw new Error("private synchronous response failure"); },
+    });
+    const client = new FakeClient(response);
+    client.respondDuringRequest = true;
+    const result = await (operation === "catalog"
+      ? create(client).catalog(new Cancellation())
+      : create(client).open(Object.freeze({ body: "{}" }), new Cancellation()));
+    assert.deepEqual(result, {
+      error: { cleanupFailed: false, kind: "protocol" },
+      ok: false,
+    });
+    const request = client.requests.at(0);
+    assert.ok(request !== undefined);
+    assert.equal(request.destroyed, 1);
+    assert.equal(request.ended, 1);
+    assert.equal(response.destroyed, 1);
+  }
+});
+
+test("admits valid synchronous responses only after request setup", async () => {
+  {
+    const response = new FakeResponse();
+    const client = new FakeClient(response);
+    client.respondDuringRequest = true;
+    const pending = create(client).catalog(new Cancellation());
+    const request = client.requests.at(0);
+    assert.ok(request !== undefined);
+    assert.equal(request.ended, 1);
+    assert.equal(request.timeoutMilliseconds, 30_000);
+    response.emit("data", ascii('{"models":[]}'));
+    response.emit("end");
+    const result = await pending;
+    assert.ok(result.ok);
+  }
+  {
+    const response = new FakeResponse(200, "text/event-stream");
+    const client = new FakeClient(response);
+    client.respondDuringRequest = true;
+    const opened = await create(client).open(
+      Object.freeze({ body: '{"stream":true}' }),
+      new Cancellation(),
+    );
+    assert.ok(opened.ok);
+    const request = client.requests.at(0);
+    assert.ok(request !== undefined);
+    assert.equal(request.ended, 1);
+    assert.equal(request.timeoutMilliseconds, 120_000);
+    assert.deepEqual(request.writes, ['{"stream":true}']);
+    assert.deepEqual(await opened.value.close(), { ok: true, value: undefined });
+  }
+});
+
+test("destroys staged responses when synchronous request setup fails", async () => {
+  for (const operation of ["catalog", "responses"] as const) {
+    const methods: readonly RequestFailureMethod[] = operation === "catalog"
+      ? ["on", "setTimeout", "end"]
+      : ["on", "setTimeout", "write", "end"];
+    for (const method of methods) {
+      const response = new FakeResponse(200, operation === "catalog"
+        ? "application/json"
+        : "text/event-stream");
+      const client = new FakeClient(response);
+      client.requestFailureMethod = method;
+      client.respondDuringRequest = true;
+      const result = await (operation === "catalog"
+        ? create(client).catalog(new Cancellation())
+        : create(client).open(Object.freeze({ body: "{}" }), new Cancellation()));
+      assert.deepEqual(result, {
+        error: { cleanupFailed: false, kind: "connection" },
+        ok: false,
+      });
+      const request = client.requests.at(0);
+      assert.ok(request !== undefined);
+      assert.equal(request.destroyed, 1);
+      assert.equal(response.destroyed, 1);
+      assert.equal(response.listenerCount(), 0);
+    }
+  }
+});
+
+test("stops request setup when a synchronous request error rejects staged response", async () => {
+  for (const operation of ["catalog", "responses"] as const) {
+    const response = new FakeResponse(200, operation === "catalog"
+      ? "application/json"
+      : "text/event-stream");
+    const client = new FakeClient(response);
+    client.errorDuringTimeoutSetup = true;
+    client.respondDuringRequest = true;
+    const result = await (operation === "catalog"
+      ? create(client).catalog(new Cancellation())
+      : create(client).open(Object.freeze({ body: "{}" }), new Cancellation()));
+    assert.deepEqual(result, {
+      error: { cleanupFailed: false, kind: "connection" },
+      ok: false,
+    });
+    const request = client.requests.at(0);
+    assert.ok(request !== undefined);
+    assert.equal(request.destroyed, 1);
+    assert.equal(request.ended, 0);
+    assert.deepEqual(request.writes, []);
+    assert.equal(response.destroyed, 1);
   }
 });
 
