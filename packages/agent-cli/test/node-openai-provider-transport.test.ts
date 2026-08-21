@@ -103,6 +103,8 @@ class FakeClient implements HttpsClient {
   readonly responses: FakeResponse[];
   readonly options: RequestOptions[] = [];
   readonly requests: FakeRequest[] = [];
+  readonly #pendingResponses: (() => void)[] = [];
+  deferResponses = false;
 
   constructor(...responses: FakeResponse[]) { this.responses = [...responses]; }
 
@@ -113,9 +115,17 @@ class FakeClient implements HttpsClient {
     const response = this.responses.shift();
     assert.ok(response !== undefined);
     this.options.push(options);
-    const request = new FakeRequest(() => onResponse(response));
+    const respond = (): void => onResponse(response);
+    const request = new FakeRequest(() => {
+      if (this.deferResponses) this.#pendingResponses.push(respond);
+      else respond();
+    });
     this.requests.push(request);
     return request;
+  }
+
+  flushResponse(): void {
+    this.#pendingResponses.shift()?.();
   }
 }
 
@@ -262,6 +272,57 @@ test("reports Responses cleanup failure without replacing cancellation", async (
     error: { cleanupFailed: true, kind: "cancelled" },
     ok: false,
   });
+});
+
+test("closing a Responses stream destroys request and response with combined cleanup", async () => {
+  for (const target of ["request", "response"] as const) {
+    const response = new FakeResponse(200, "text/event-stream");
+    const client = new FakeClient(response);
+    const opened = await create(client).open(
+      Object.freeze({ body: "{}" }),
+      new Cancellation(),
+    );
+    assert.ok(opened.ok);
+    const request = client.requests.at(0);
+    assert.ok(request !== undefined);
+    if (target === "request") request.destroyFailure = true;
+    else response.destroyFailure = true;
+    assert.deepEqual(await opened.value.close(), {
+      error: { cleanupFailed: true, kind: "connection" },
+      ok: false,
+    });
+    assert.equal(request.destroyed, 1);
+    assert.equal(response.destroyed, 1);
+  }
+});
+
+test("contains cleanup failures from late catalog and Responses callbacks", async () => {
+  for (const operation of ["catalog", "responses"] as const) {
+    const response = new FakeResponse(200, operation === "catalog"
+      ? "application/json"
+      : "text/event-stream");
+    response.destroyFailure = true;
+    const client = new FakeClient(response);
+    client.deferResponses = true;
+    const cancellation = new Cancellation();
+    const transport = create(client);
+    const pending = operation === "catalog"
+      ? transport.catalog(cancellation)
+      : transport.open(Object.freeze({ body: "{}" }), cancellation);
+    cancellation.request();
+    assert.deepEqual(await pending, {
+      error: { cleanupFailed: false, kind: "cancelled" },
+      ok: false,
+    });
+    let escaped = false;
+    try {
+      client.flushResponse();
+    } catch (_cause: unknown) {
+      escaped = true;
+    }
+    assert.equal(escaped, false);
+    assert.equal(response.destroyed, 1);
+  }
 });
 
 test("reports failed-open response cleanup without replacing protocol failure", async () => {

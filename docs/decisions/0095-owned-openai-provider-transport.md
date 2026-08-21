@@ -171,8 +171,12 @@ are content-free and occur before transport authority.
 Only status 200 and `text/event-stream` with an optional UTF-8 charset enter the
 stream decoder. The Node transport uses a 600-second wall deadline, a 120-second
 inactivity deadline, a 16,384-byte header bound, and a 65,536-byte chunk bound.
-Cancellation and close destroy the exact request and response idempotently;
-one read may be pending and a concurrent second read fails closed.
+Cancellation and close destroy the exact request and response idempotently and
+combine either cleanup failure in one content-free result. A response callback
+that loses the race to cancellation, timeout, or request failure still destroys
+its response under a no-throw cleanup boundary; it cannot reopen the settled
+operation or escape a private cleanup cause. One read may be pending and a
+concurrent second read fails closed.
 
 The Node-free decoder performs strict incremental UTF-8 and bounded SSE
 framing. It admits LF or CRLF separators, at most one optional `event` field,
@@ -282,7 +286,8 @@ Red-green regression must prove:
   contradictory completed-output projections, trailing frames before
   publication, early EOF, and post-terminal reads;
 - every transport and protocol failure remains content-free and every failed
-  open closes the response;
+  open closes the response; stream close destroys both request and response,
+  combines their cleanup failures, and contains late-response cleanup throws;
 - source policy admits only the new reviewed provider and CLI files and rejects
   another OpenAI origin, identity, credential authority, Node effect, retry,
   redirect, SDK, foreign runtime, or provider composition; and

@@ -560,6 +560,11 @@ publishing `done` or `toolCalls`. For tool-schema changes, preserve every owned
 string, NUL, UTF-8, projection, and aggregate-text constraint in the advertised
 schema, but never treat provider-facing character limits or annotations as a
 replacement for the exact provider-neutral argument validator.
+For OpenAI HTTPS cleanup, keep request and response ownership paired through
+stream close and every failure path. Destroy each exact handle idempotently,
+combine either cleanup failure without replacing the primary reason, and wrap
+late response-callback destruction after cancellation, timeout, or request
+failure so a private cleanup cause cannot escape or reopen settled authority.
 
 For ChatGPT, Kimi, or xAI compatibility changes, recheck first-party protocol
 and client-ownership evidence, pin any necessary bounded clean-room inspection
