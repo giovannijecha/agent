@@ -466,7 +466,7 @@ const APPROVED_CLI_NATIVE_PLATFORM_TREE = Object.freeze({
     "packages/agent-cli/native/workspace-roots/main.c",
     "packages/agent-cli/native/workspace-roots/workspace-roots.h",
   ]),
-  sourceSha256: "a14b87d296c5efcd93856e630cda60779aa6c7517aeea786ceb0cf18463e591f",
+  sourceSha256: "1ac76cc3d7ee3117285b56fed21314021e84f9dd98e820a23117c1833fa9386f",
 });
 
 const FORBIDDEN_SOURCE_MARKERS = [

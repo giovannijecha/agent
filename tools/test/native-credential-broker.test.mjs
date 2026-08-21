@@ -578,6 +578,38 @@ test("OpenAI records reject malformed envelopes, payloads, links, and trailing b
   }
 });
 
+test("validates hostile OpenAI envelope lengths before deriving field pointers", () => {
+  const source = readFileSync(path.join(
+    projectRoot,
+    "packages/agent-cli/native/credential-broker/credential-store.c",
+  ), "utf8");
+  const start = source.indexOf("static bool agent_decode_openai_payload(");
+  const end = source.indexOf("static bool agent_encode_openai_record(", start);
+  assert.ok(start >= 0 && end > start);
+  const decoder = source.slice(start, end);
+  const partition = decoder.indexOf("access_length > payload_length");
+  const pointer = decoder.indexOf("const unsigned char *access =");
+  assert.ok(partition >= 0 && pointer > partition);
+
+  const root = temporaryRoot();
+  try {
+    const hostile = new Uint8Array(23);
+    const view = new DataView(hostile.buffer);
+    view.setUint32(0, 0xffff_ffff, true);
+    view.setUint32(4, 1, true);
+    view.setUint32(8, 1, true);
+    view.setBigUint64(12, 1n, true);
+    hostile.set(ascii("abc"), 20);
+    const rejected = launch(root, frames(request(8), request(9, hostile)));
+    assert.deepEqual(
+      responses(rejected.stdout).map((entry) => entry.kind),
+      [1, 10],
+    );
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
 test("exclusive OpenAI admission recovers only its bounded interruption states", () => {
   const root = temporaryRoot();
   try {

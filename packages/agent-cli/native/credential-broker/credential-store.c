@@ -447,18 +447,19 @@ static bool agent_decode_openai_payload(
   const size_t refresh_length = (size_t)agent_read_u32(value + 4u);
   const size_t account_length = (size_t)agent_read_u32(value + 8u);
   const uint64_t expires_at = agent_read_u64(value + 12u);
+  const size_t payload_length = value_length -
+    AGENT_CREDENTIAL_OPENAI_ENVELOPE_BYTES;
   if (
-    access_length > SIZE_MAX - refresh_length ||
-    access_length + refresh_length > SIZE_MAX - account_length
+    access_length > payload_length ||
+    refresh_length > payload_length - access_length ||
+    account_length != payload_length - access_length - refresh_length
   ) {
     return false;
   }
-  const size_t body_length = access_length + refresh_length + account_length;
   const unsigned char *access = value + AGENT_CREDENTIAL_OPENAI_ENVELOPE_BYTES;
   const unsigned char *refresh = access + access_length;
   const unsigned char *account = refresh + refresh_length;
   if (
-    body_length != value_length - AGENT_CREDENTIAL_OPENAI_ENVELOPE_BYTES ||
     expires_at == 0u || expires_at > AGENT_CREDENTIAL_MAX_REVISION ||
     !agent_visible_ascii(
       access,
