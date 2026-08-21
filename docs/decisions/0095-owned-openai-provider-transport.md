@@ -111,6 +111,11 @@ containment. Throwing or malformed metadata fails as a content-free protocol
 result, destroys request and response, and combines either cleanup failure. An
 accepted catalog response retains that snapshot through EOF without rereading
 the response object.
+Listener registration and initial flow control are one atomic callback-local
+admission transaction. Failure rolls back partial registration, destroys both
+handles, and settles one content-free protocol result. Later catalog and stream
+flow control and listener detachment are individually contained so cleanup
+continues after one throw and its combined failure remains explicit.
 
 The decoder accepts one JSON object containing one `models` array with 1
 through 256 entries. Every entry is a bounded object with required `slug`,
@@ -206,6 +211,11 @@ The callback snapshots status and content type once inside local containment
 before constructing a stream. Throwing or malformed metadata produces a
 content-free protocol failure with paired request-response cleanup, and the
 stream receives only the admitted snapshots rather than reading the response.
+The stream is published only after all listeners are registered and the
+response is paused. A failure in either step rolls back partial registration
+and pairs response destruction with request destruction. Once published, every
+`pause`, `resume`, and listener detach is contained across read, data, EOF,
+failure, and close, without skipping any remaining cleanup operation.
 Both the Node transport and Node-free Responses adapter snapshot each chunk's
 length, require 1 through 65,536 bytes, and copy into a fresh `Uint8Array` with
 typed-array `set` before UTF-8 decoding. No source iterator participates in the
@@ -349,7 +359,10 @@ Red-green regression must prove:
   without whole-buffer rescanning; HTTPS and injected chunks reject the
   65,536-byte bound and ignore overridden source iterators before UTF-8 decode;
   Responses admission contains throwing status and header getters with paired
-  cleanup before constructing a stream;
+  cleanup before constructing a stream; catalog and Responses admission roll
+  back partial listener wiring and contain initial flow-control throws, while
+  admitted stream read, data, EOF, failure, and close contain later flow-control
+  and detach throws with paired cleanup;
 - an added reasoning item rejects pre-populated or malformed content before any
   later item projection can omit or replace it, and any reasoning item or delta
   is rejected when the captured effort is off;

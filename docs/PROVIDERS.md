@@ -200,6 +200,12 @@ inside callback-local containment. Throwing or malformed metadata produces a
 content-free protocol failure, destroys both request and response, and combines
 either cleanup failure; admitted metadata is never reread at catalog EOF or
 inside the Responses stream constructor.
+Listener registration and initial flow control form the same atomic response-
+admission transaction. Any throw rolls back every partially registered
+listener, destroys both handles, and settles one content-free protocol result.
+After admission, read, data, EOF, failure, and close contain every flow-control
+and listener-detachment throw; teardown still attempts every detach and both
+idempotent destructions and combines cleanup failure without exposing a cause.
 The catalog adapter reads every returned capture property once, validates those
 local snapshots, and copies only the same bounded body snapshot; an accessor or
 proxy cannot replace validated metadata or bytes through a later read. The copy

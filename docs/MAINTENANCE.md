@@ -566,6 +566,12 @@ inside each asynchronous callback's containment boundary. A throwing or
 malformed metadata source must produce a content-free protocol failure, destroy
 both request and response, and combine cleanup failure; never reread response
 metadata in a stream constructor or at catalog EOF.
+Treat listener registration and initial `pause` or `resume` as one atomic
+admission step inside that callback. On any throw, detach every listener that
+may have been registered, destroy both exact handles, and settle once. For an
+admitted stream, contain later `pause`, `resume`, and every individual listener
+detach across read, data, EOF, failure, and close; attempt the remaining cleanup
+after any one cleanup throw and combine the result without exposing its cause.
 For successful transport-open validation, snapshot valid close authority first,
 read each remaining stream property once, and invoke the retained close before
 rejecting malformed metadata or read authority. Preserve cleanup failure without

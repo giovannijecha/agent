@@ -55,6 +55,13 @@ class FakeResponse implements IncomingMessage {
   emit(event: string, value?: unknown): void {
     for (const listener of [...(this.#listeners.get(event) ?? [])]) listener(value);
   }
+
+  listenerCount(): number {
+    return [...this.#listeners.values()].reduce(
+      (count, listeners) => count + listeners.length,
+      0,
+    );
+  }
 }
 
 class FakeRequest implements ClientRequest {
@@ -362,6 +369,194 @@ test("contains throwing HTTPS response metadata and destroys both handles", asyn
       assert.equal(response.destroyed, 1);
       assert.equal(request.destroyed, 1);
     }
+  }
+});
+
+test("contains asynchronous response wiring failures and rolls back listeners", async () => {
+  for (const [operation, method] of [
+    ["catalog", "on"],
+    ["catalog", "resume"],
+    ["responses", "on"],
+    ["responses", "pause"],
+  ] as const) {
+    const response = new FakeResponse(200, operation === "catalog"
+      ? "application/json"
+      : "text/event-stream");
+    if (method === "on") {
+      const originalOn = response.on.bind(response);
+      let onCalls = 0;
+      Object.defineProperty(response, "on", {
+        value: (event: string, listener: Listener) => {
+          onCalls += 1;
+          if (onCalls === 2) throw new Error("private response wiring failure");
+          return originalOn(event, listener);
+        },
+      });
+    } else {
+      Object.defineProperty(response, method, {
+        value: () => { throw new Error("private response flow-control failure"); },
+      });
+    }
+    const client = new FakeClient(response);
+    client.deferResponses = true;
+    const transport = create(client);
+    const pending = operation === "catalog"
+      ? transport.catalog(new Cancellation())
+      : transport.open(Object.freeze({ body: "{}" }), new Cancellation());
+    const request = client.requests.at(0);
+    assert.ok(request !== undefined);
+    request.destroyFailure = method === "pause" || method === "resume";
+    let escaped = false;
+    try {
+      client.flushResponse();
+    } catch (_cause: unknown) {
+      escaped = true;
+    }
+    assert.equal(escaped, false);
+    assert.deepEqual(await pending, {
+      error: {
+        cleanupFailed: method === "pause" || method === "resume",
+        kind: "protocol",
+      },
+      ok: false,
+    });
+    assert.equal(response.destroyed, 1);
+    assert.equal(request.destroyed, 1);
+    assert.equal(response.listenerCount(), 0);
+  }
+});
+
+test("contains admitted response flow-control and detach failures", async () => {
+  {
+    const response = new FakeResponse(200, "text/event-stream");
+    const client = new FakeClient(response);
+    const opened = await create(client).open(Object.freeze({ body: "{}" }), new Cancellation());
+    assert.ok(opened.ok);
+    Object.defineProperty(response, "resume", {
+      value: () => { throw new Error("private resume failure"); },
+    });
+    let escaped = false;
+    let result: unknown;
+    try {
+      result = await opened.value.read();
+    } catch (_cause: unknown) {
+      escaped = true;
+    }
+    assert.equal(escaped, false);
+    assert.deepEqual(result, {
+      error: { cleanupFailed: false, kind: "connection" },
+      ok: false,
+    });
+    assert.equal(response.destroyed, 1);
+    assert.equal(client.requests.at(0)?.destroyed, 1);
+  }
+  {
+    const response = new FakeResponse(200, "text/event-stream");
+    const client = new FakeClient(response);
+    const opened = await create(client).open(Object.freeze({ body: "{}" }), new Cancellation());
+    assert.ok(opened.ok);
+    const pending = opened.value.read();
+    Object.defineProperty(response, "pause", {
+      value: () => { throw new Error("private pause failure"); },
+    });
+    let escaped = false;
+    try {
+      response.emit("data", ascii("unsafe"));
+    } catch (_cause: unknown) {
+      escaped = true;
+    }
+    assert.equal(escaped, false);
+    assert.deepEqual(await pending, {
+      error: { cleanupFailed: false, kind: "connection" },
+      ok: false,
+    });
+    assert.equal(response.destroyed, 1);
+    assert.equal(client.requests.at(0)?.destroyed, 1);
+  }
+  {
+    const response = new FakeResponse(200, "text/event-stream");
+    const client = new FakeClient(response);
+    const opened = await create(client).open(Object.freeze({ body: "{}" }), new Cancellation());
+    assert.ok(opened.ok);
+    let offCalls = 0;
+    Object.defineProperty(response, "off", {
+      value: () => {
+        offCalls += 1;
+        throw new Error("private detach failure");
+      },
+    });
+    let escaped = false;
+    let result: unknown;
+    try {
+      result = await opened.value.close();
+    } catch (_cause: unknown) {
+      escaped = true;
+    }
+    assert.equal(escaped, false);
+    assert.deepEqual(result, {
+      error: { cleanupFailed: true, kind: "connection" },
+      ok: false,
+    });
+    assert.equal(offCalls, 4);
+    assert.equal(response.destroyed, 1);
+    assert.equal(client.requests.at(0)?.destroyed, 1);
+  }
+  for (const event of ["end", "error"] as const) {
+    const response = new FakeResponse(200, "text/event-stream");
+    const client = new FakeClient(response);
+    const opened = await create(client).open(Object.freeze({ body: "{}" }), new Cancellation());
+    assert.ok(opened.ok);
+    const pending = opened.value.read();
+    let offCalls = 0;
+    Object.defineProperty(response, "off", {
+      value: () => {
+        offCalls += 1;
+        throw new Error("private terminal detach failure");
+      },
+    });
+    let escaped = false;
+    try {
+      response.emit(event, new Error("private response failure"));
+    } catch (_cause: unknown) {
+      escaped = true;
+    }
+    assert.equal(escaped, false);
+    assert.deepEqual(await pending, {
+      error: { cleanupFailed: true, kind: "connection" },
+      ok: false,
+    });
+    assert.equal(offCalls, event === "end" ? 8 : 4);
+    assert.equal(response.destroyed, 1);
+    assert.equal(client.requests.at(0)?.destroyed, 1);
+  }
+  for (const target of ["request", "response"] as const) {
+    const response = new FakeResponse();
+    const client = new FakeClient(response);
+    const pending = create(client).catalog(new Cancellation());
+    response.emit("data", ascii('{"models":[]}'));
+    const request = client.requests.at(0);
+    assert.ok(request !== undefined);
+    let offCalls = 0;
+    Object.defineProperty(target === "request" ? request : response, "off", {
+      value: () => {
+        offCalls += 1;
+        throw new Error("private catalog detach failure");
+      },
+    });
+    let escaped = false;
+    try {
+      response.emit("end");
+    } catch (_cause: unknown) {
+      escaped = true;
+    }
+    assert.equal(escaped, false);
+    assert.deepEqual(await pending, {
+      error: { cleanupFailed: true, kind: "protocol" },
+      ok: false,
+    });
+    assert.equal(offCalls, target === "request" ? 2 : 8);
+    assert.equal(response.destroyed, 1);
+    assert.equal(request.destroyed, 1);
   }
 });
 
