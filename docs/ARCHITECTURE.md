@@ -183,13 +183,15 @@ catalog, and Responses boundary. Decision 0091 accepts provider-owned
 non-secret public-client compatibility while requiring every controllable
 caller identity to remain `agent`; the OpenAI contract is
 `specified-compatible-inactive` behind its implementation gate. Decision 0092
-accepts the exact OpenAI public client and device identity semantics and moves
-that contract to `identity-compatible-inactive`. Decision 0093 implements only
-the exact provider-specific record and private native broker transaction, so
-the contract is now `credential-compatible-inactive` behind
-`auth-implementation-required`. The application controller does not call the
-OpenAI broker adapter; there is no login action, network request, provider
-package, provider row, model row, or runtime composition.
+accepts the exact OpenAI public client and device identity semantics. Decision
+0093 implements the exact provider-specific record and private native broker
+transaction. Decision 0094 composes that exclusive mutation with the bounded
+device, poll, PKCE, token, account-binding, expiration, terminal-cancellation,
+and local-removal flow in `agent auth`. The contract is now
+`auth-compatible-inactive` behind `transport-implementation-required`.
+OpenAI authentication is current, but there is no runtime snapshot, refresh or
+revocation request, provider package, catalog, provider/model row, Responses
+transport, or conversation-runtime composition.
 
 Every accepted journal file is synchronized before publication. On POSIX, the
 CLI also synchronizes a staged session directory before publishing it and the
@@ -278,7 +280,10 @@ between:
 
 The session has no default provider or model. `agent auth` is the sole
 interactive credential lifecycle and runs after workspace validation but before
-the alternate screen, with no operands, journal, runtime, tools, or network.
+the alternate screen, with no operands, journal, runtime, or tools. Its Ollama
+credential path performs no network request. Its OpenAI path performs only the
+fixed-origin device, poll, and token HTTPS ceremony owned by decision 0094; it
+does not open a browser or activate provider runtime, catalog, or model traffic.
 The CLI-owned C17 broker resolves the native account home without inherited
 home text and owns the exact Ollama record, strict schema, filesystem controls,
 shared/exclusive byte-range admission, atomic mutation, recovery, and removal.

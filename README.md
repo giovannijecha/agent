@@ -55,8 +55,8 @@ To continue the newest inactive session for the same exact workspace:
 agent resume --latest
 ```
 
-Before entering the TUI, register, replace, or remove the local Ollama Cloud
-credential through the exact zero-echo command:
+Before entering the TUI, manage the local Ollama Cloud API key or OpenAI device
+authentication through the exact command:
 
 ```powershell
 agent auth
@@ -67,10 +67,16 @@ Volume roots, the exact user home, the shared temporary directory, and every
 workspace overlapping the native-home `.agent` state root are rejected. An
 optional root `.agentignore` adds deny-only read exclusions.
 
-Inside the TUI, run `/models`, choose one authenticated provider, then choose
-one model from that provider's fresh catalog. The provider-model pair, catalog,
-and process snapshot disappear on exit; the provider-specific credential record
-remains until `agent auth` removes it. See
+The command first selects a provider. Ollama registration and replacement use
+zero-echo key input and no network. OpenAI sign-in displays the fixed provider
+verification URL and one-time code, then performs the bounded provider-hosted
+device ceremony. OpenAI authentication is currently auth-only: it creates no
+runtime provider or model row.
+
+Inside the TUI, run `/models`, choose one authenticated runtime provider, then
+choose one model from that provider's fresh catalog. The provider-model pair,
+catalog, and process snapshot disappear on exit; a provider-specific credential
+record remains until `agent auth` removes it. See
 [providers and authentication](docs/manual/05-providers-and-authentication.md)
 for the complete workflow and failure contract.
 
@@ -124,9 +130,10 @@ for storage locations, bounds, and deletion.
 - `shell` runs one exact approved command through the fixed native shell with a
   controlled credential-free environment, fixed limits, and owned descendant
   cleanup. It is host-full execution, not filesystem or network sandboxing.
-- The owned Ollama credential record is local plaintext protected by native
-  owner-only controls, not an encrypted vault. Secret bytes never enter source,
-  fixtures, logs, transcripts, command arguments, or documentation values.
+- The owned Ollama and OpenAI credential records are local plaintext protected
+  by native owner-only controls, not an encrypted vault. Secret bytes never
+  enter source, fixtures, logs, transcripts, command arguments, or documentation
+  values. Local OpenAI removal does not revoke provider-side authorization.
 - A completed tool checkpoint remains conversation truth if a later model
   continuation fails; completed effects are not retried implicitly.
 

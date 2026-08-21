@@ -124,6 +124,7 @@ declare module "node:child_process" {
 
 declare module "node:crypto" {
   export interface Hash {
+    digest(): Uint8Array;
     digest(encoding: "hex"): string;
     update(data: string, encoding: "utf8"): this;
   }

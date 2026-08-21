@@ -100,6 +100,48 @@ test("rejects single-agent public contract drift", () => {
   }
 });
 
+test("rejects contradictory authentication network documentation", () => {
+  const context = currentContext();
+  context.files["docs/ARCHITECTURE.md"] = context.files[
+    "docs/ARCHITECTURE.md"
+  ].replace(
+    "Its Ollama\ncredential path performs no network request. Its OpenAI path performs only the\nfixed-origin device, poll, and token HTTPS ceremony owned by decision 0094",
+    "agent auth performs no network request",
+  );
+  assert.throws(
+    () => validatePublicationPolicy(policy, context),
+    PublicationPolicyError,
+  );
+
+  const responseSchema = currentContext();
+  responseSchema.files[
+    "docs/decisions/0094-owned-openai-device-authentication.md"
+  ] = responseSchema.files[
+    "docs/decisions/0094-owned-openai-device-authentication.md"
+  ].replace(
+    "admits only `expires_at` as one optional bounded member",
+    "admits arbitrary response members",
+  );
+  assert.throws(
+    () => validatePublicationPolicy(policy, responseSchema),
+    PublicationPolicyError,
+  );
+
+  const pollSchema = currentContext();
+  pollSchema.files[
+    "docs/decisions/0094-owned-openai-device-authentication.md"
+  ] = pollSchema.files[
+    "docs/decisions/0094-owned-openai-device-authentication.md"
+  ].replace(
+    "sole optional\ninterpreted matching poll challenge",
+    "arbitrary poll metadata",
+  );
+  assert.throws(
+    () => validatePublicationPolicy(policy, pollSchema),
+    PublicationPolicyError,
+  );
+});
+
 test("rejects deterministic motion public contract drift", () => {
   const context = currentContext();
   context.files["docs/decisions/0038-owned-deterministic-tui-motion.md"] =
@@ -643,11 +685,13 @@ test("rejects direct provider admission contract drift", () => {
     "One concrete provider does not authorize a generic provider framework,\narbitrary base URL, unregistered model selector, generic key store, local-server mode,\nor additional integration.",
     "The Ollama API key\nmay never enter source, tests, logs, errors, documentation values, process\narguments, command history, terminal output, transcript, journal, receipt, or\ndiagnostic.",
     "`agent auth` is the sole interactive credential lifecycle and runs outside the\nalternate-screen TUI.",
-    "Decision 0090 records one non-executable OpenAI contract",
+    "Decision 0090 records the OpenAI contract",
     "decision 0092 records OpenAI's exact non-secret\npublic client",
     "Decision 0093 implements the exact OpenAI record and private native\nlifecycle.",
-    "The contract is now `credential-compatible-inactive`",
-    "OpenAI remains blocked by `auth-implementation-required`.",
+    "Decision 0094 activates its fixed-origin device login",
+    "The contract is now `auth-compatible-inactive`",
+    "OpenAI remains blocked by `transport-implementation-required`.",
+    "`tools/provider-policy.json` schema version 14",
   ]) {
     const context = currentContext();
     context.files["docs/PROVIDERS.md"] = providers.replaceAll(
@@ -682,7 +726,7 @@ test("rejects provider-specific OAuth registration conclusion drift", () => {
   for (const [provider, row] of [
     [
       "ChatGPT Plus/Pro",
-      "| ChatGPT Plus/Pro | OpenAI documents subscription browser and device login for Codex clients; decisions 0090 through 0093 fix the independently derived protocol, exact provider-owned public-client identity, and owned record. | The protocol is `credential-compatible-inactive`: identity and storage mechanics are accepted, but auth, transport, and integration remain inactive. |",
+      "| ChatGPT Plus/Pro | OpenAI documents subscription browser and device login for Codex clients; decisions 0090 through 0094 fix the independently derived protocol, exact provider-owned public-client identity, owned record, and active device-auth command. | Authentication is `auth-compatible-inactive`: sign-in and local removal are active without provider endorsement, while refresh, revocation, catalog, model, and conversation runtime remain inactive. |",
     ],
     [
       "Claude Pro/Max",
@@ -715,7 +759,7 @@ test("rejects OAuth contract-test coverage drift", () => {
   const context = currentContext();
   const maintained = context.files["docs/OAUTH-REGISTRATION.md"];
   context.files["docs/OAUTH-REGISTRATION.md"] = maintained.replace(
-    "Offline contract tests must\ncover cancellation, expiry, concurrency, malformed responses, secret leakage,\nrollback, and removal.",
+    "Offline contract tests must cover cancellation, expiry,\nconcurrency, malformed responses, secret leakage, rollback, and removal.",
     "Offline contract tests must cover the happy path.",
   );
   assert.notEqual(context.files["docs/OAUTH-REGISTRATION.md"], maintained);
@@ -729,7 +773,7 @@ test("rejects obsolete OAuth credential-store authority", () => {
   const context = currentContext();
   const maintained = context.files["docs/OAUTH-REGISTRATION.md"];
   context.files["docs/OAUTH-REGISTRATION.md"] = maintained.replace(
-    "For Kimi or xAI, accept a separate provider-specific\ncompatibility decision; for Claude, satisfy the direct-registration gate.",
+    "For Kimi\nor xAI, accept a separate provider-specific compatibility decision; for Claude,\nsatisfy the direct-registration gate.",
     "decision-0088 storage activation",
   );
   assert.notEqual(context.files["docs/OAUTH-REGISTRATION.md"], maintained);

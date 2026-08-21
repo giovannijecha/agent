@@ -1,17 +1,30 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { ok } from "@agent/core";
+import { err, ok } from "@agent/core";
 
 import {
   runAuthCommand,
+  type AuthCommandDependencies,
   type AuthCredentialOpener,
 } from "../dist/auth-command.js";
+import type {
+  AuthCancellationMonitor,
+  AuthCancellationPort,
+} from "../dist/auth-terminal.js";
 import type {
   OllamaCredentialMutationAction,
   OllamaCredentialMutationPort,
   OllamaCredentialMutationResult,
+  OpenAICredentialMutationAction,
+  OpenAICredentialMutationPort,
+  OpenAICredentialMutationResult,
 } from "../dist/credential-broker.js";
+import type { OpenAICredential } from "../dist/credential-broker-protocol.js";
+import type {
+  OpenAIDeviceAuthCancellation,
+  OpenAIDeviceAuthPort,
+} from "../dist/node-openai-device-auth.js";
 
 class FakeInput {
   isTTY = true;
@@ -75,6 +88,8 @@ class FakeOutput {
   readonly writes: string[] = [];
   readonly #errors: ((cause: unknown) => void)[] = [];
 
+  constructor(readonly throwAtWrite?: number) {}
+
   off(event: "error", listener: (cause: unknown) => void): this;
   off(event: "resize", listener: () => void): this;
   off(
@@ -93,20 +108,21 @@ class FakeOutput {
     event: "error" | "resize",
     listener: ((cause: unknown) => void) | (() => void),
   ): this {
-    if (event === "error") {
-      this.#errors.push(listener as (cause: unknown) => void);
-    }
+    if (event === "error") this.#errors.push(listener as (cause: unknown) => void);
     return this;
   }
 
   write(text: string, callback: (cause?: unknown) => void): boolean {
     this.writes.push(text);
+    if (this.writes.length === this.throwAtWrite) {
+      throw new Error("synthetic output failure");
+    }
     callback();
     return true;
   }
 }
 
-class FakeMutation implements OllamaCredentialMutationPort {
+class FakeOllamaMutation implements OllamaCredentialMutationPort {
   readonly actions: OllamaCredentialMutationAction[] = [];
   cancels = 0;
 
@@ -130,111 +146,322 @@ class FakeMutation implements OllamaCredentialMutationPort {
   }
 }
 
-function opener(
-  mutation: FakeMutation,
-  observedEnvironment: boolean[],
-): AuthCredentialOpener {
-  return (_platform, _architecture, environmentPresent) => {
-    observedEnvironment.push(environmentPresent);
-    return Promise.resolve(ok(mutation));
+class FakeOpenAIMutation implements OpenAICredentialMutationPort {
+  readonly actions: OpenAICredentialMutationAction[] = [];
+  cancels = 0;
+
+  constructor(
+    readonly state: "absent" | "present",
+    readonly cancelFailure = false,
+  ) {}
+
+  cancel() {
+    this.cancels += 1;
+    return Promise.resolve(
+      this.cancelFailure
+        ? err(Object.freeze({ kind: "store" as const }))
+        : ok("cancelled" as const),
+    );
+  }
+
+  perform(action: OpenAICredentialMutationAction) {
+    this.actions.push(action);
+    const result: OpenAICredentialMutationResult = action.kind === "register"
+      ? "registered"
+      : action.kind === "replace"
+        ? "replaced"
+        : action.kind === "remove"
+          ? "removed"
+          : "cancelled";
+    return Promise.resolve(ok(result));
+  }
+}
+
+class FakeCancellation implements AuthCancellationPort {
+  readonly #listeners = new Set<() => void>();
+  value = false;
+
+  cancelled(): boolean {
+    return this.value;
+  }
+
+  onCancel(listener: () => void): void {
+    this.#listeners.add(listener);
+  }
+
+  offCancel(listener: () => void): void {
+    this.#listeners.delete(listener);
+  }
+}
+
+class FakeMonitor implements AuthCancellationMonitor {
+  readonly cancellation = new FakeCancellation();
+  closes = 0;
+
+  close() {
+    this.closes += 1;
+    return ok(undefined);
+  }
+}
+
+const SYNTHETIC_OPENAI_CREDENTIAL: OpenAICredential = Object.freeze({
+  accessToken: "synthetic-access-value",
+  accountId: "synthetic-account",
+  expiresAt: 9_000_000_000,
+  refreshToken: "synthetic-refresh-value",
+});
+
+class FakeDeviceAuth implements OpenAIDeviceAuthPort {
+  calls = 0;
+  constructor(readonly outcome: "cancelled" | "success" = "success") {}
+
+  async authenticate(
+    cancellation: OpenAIDeviceAuthCancellation,
+    present: Parameters<OpenAIDeviceAuthPort["authenticate"]>[1],
+  ) {
+    this.calls += 1;
+    assert.equal(cancellation.cancelled(), false);
+    if (this.outcome === "cancelled") {
+      return err(Object.freeze({ kind: "cancelled" as const }));
+    }
+    assert.equal(await present(Object.freeze({
+      userCode: "ABCD-EFGH",
+      verificationUrl: "https://auth.openai.com/codex/device",
+    })), true);
+    return ok(SYNTHETIC_OPENAI_CREDENTIAL);
+  }
+}
+
+function dependencies(
+  ollama: FakeOllamaMutation,
+  openAI: FakeOpenAIMutation,
+  device = new FakeDeviceAuth(),
+  monitor = new FakeMonitor(),
+  observations: string[] = [],
+): AuthCommandDependencies {
+  const openOllamaMutation: AuthCredentialOpener = (
+    _platform,
+    _architecture,
+    environmentPresent,
+  ) => {
+    observations.push("ollama:" + String(environmentPresent));
+    return Promise.resolve(ok(ollama));
   };
+  return Object.freeze({
+    openAIDeviceAuth: device,
+    openOllamaMutation,
+    openOpenAIMutation: (_platform, _architecture) => {
+      observations.push("openai");
+      return Promise.resolve(ok(openAI));
+    },
+    startCancellation: (_input) => ok(monitor),
+  });
 }
 
 async function waitForRaw(input: FakeInput, count: number): Promise<void> {
-  for (let attempt = 0; attempt < 12; attempt += 1) {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
     if (input.raw.length >= count && input.raw.at(-1) === true) return;
     await Promise.resolve();
   }
   assert.equal("auth input", "ready");
 }
 
-test("registers one concealed key without projecting or retaining it in output", async () => {
+test("selects Ollama then registers one concealed key without projection", async () => {
   const input = new FakeInput();
   const output = new FakeOutput();
-  const mutation = new FakeMutation("absent");
-  const environment: boolean[] = [];
+  const ollama = new FakeOllamaMutation("absent");
+  const observations: string[] = [];
   const running = runAuthCommand(
     "win32",
     "x64",
     undefined,
     input,
     output,
-    opener(mutation, environment),
+    dependencies(ollama, new FakeOpenAIMutation("absent"), undefined, undefined, observations),
   );
   await waitForRaw(input, 1);
-  input.emitData("r");
+  input.emitData("o");
   await waitForRaw(input, 3);
+  input.emitData("r");
+  await waitForRaw(input, 5);
   input.emitData("private-fixture-key\r");
 
   const result = await running;
-  assert.ok(result.ok);
-  assert.equal(result.value, "registered");
-  assert.deepEqual(environment, [false]);
-  assert.deepEqual(mutation.actions, [
+  assert.deepEqual(result, { ok: true, value: "registered" });
+  assert.deepEqual(observations, ["ollama:false"]);
+  assert.deepEqual(ollama.actions, [
     { key: "private-fixture-key", kind: "register" },
   ]);
   assert.equal(output.writes.join("").includes("private-fixture-key"), false);
-  assert.equal(output.writes.join("").includes("credential registered"), true);
-  assert.deepEqual(input.raw, [true, false, true, false]);
+  assert.deepEqual(input.raw, [true, false, true, false, true, false]);
 });
 
-test("removes a present record without opening credential input", async () => {
+test("retains Ollama environment dual-authority behavior after selection", async () => {
   const input = new FakeInput();
-  const output = new FakeOutput();
-  const mutation = new FakeMutation("present");
+  const ollama = new FakeOllamaMutation("absent");
+  const running = runAuthCommand(
+    "linux",
+    "x64",
+    "environment-value",
+    input,
+    new FakeOutput(),
+    dependencies(ollama, new FakeOpenAIMutation("absent")),
+  );
+  await waitForRaw(input, 1);
+  input.emitData("o");
+
+  assert.deepEqual(await running, {
+    error: { kind: "environmentAuthority" },
+    ok: false,
+  });
+  assert.equal(ollama.cancels, 1);
+  assert.deepEqual(ollama.actions, []);
+});
+
+test("opens no credential authority when provider selection is cancelled", async () => {
+  const input = new FakeInput();
+  const observations: string[] = [];
   const running = runAuthCommand(
     "linux",
     "x64",
     undefined,
     input,
-    output,
-    opener(mutation, []),
+    new FakeOutput(),
+    dependencies(
+      new FakeOllamaMutation("absent"),
+      new FakeOpenAIMutation("absent"),
+      undefined,
+      undefined,
+      observations,
+    ),
   );
   await waitForRaw(input, 1);
-  input.emitData("d");
+  input.emitData("c");
 
-  const result = await running;
-  assert.ok(result.ok);
-  assert.equal(result.value, "removed");
-  assert.deepEqual(mutation.actions, [{ kind: "remove" }]);
-  assert.deepEqual(input.raw, [true, false]);
-  assert.equal(output.writes.join("").includes("API key:"), false);
+  assert.deepEqual(await running, { ok: true, value: "cancelled" });
+  assert.deepEqual(observations, []);
 });
 
-test("cancels without mutation and blocks environment-only registration", async () => {
-  const cancelledInput = new FakeInput();
-  const cancelledMutation = new FakeMutation("present");
-  const cancelling = runAuthCommand(
+test("registers OpenAI only after disclosure, challenge, and cleanup", async () => {
+  const input = new FakeInput();
+  const output = new FakeOutput();
+  const openAI = new FakeOpenAIMutation("absent");
+  const device = new FakeDeviceAuth();
+  const monitor = new FakeMonitor();
+  const observations: string[] = [];
+  const running = runAuthCommand(
+    "win32",
+    "x64",
+    "unrelated-ollama-environment-value",
+    input,
+    output,
+    dependencies(
+      new FakeOllamaMutation("absent"),
+      openAI,
+      device,
+      monitor,
+      observations,
+    ),
+  );
+  await waitForRaw(input, 1);
+  input.emitData("a");
+  await waitForRaw(input, 3);
+  input.emitData("s");
+
+  assert.deepEqual(await running, { ok: true, value: "registered" });
+  assert.deepEqual(observations, ["openai"]);
+  assert.equal(device.calls, 1);
+  assert.equal(monitor.closes, 1);
+  assert.deepEqual(openAI.actions, [{
+    credential: SYNTHETIC_OPENAI_CREDENTIAL,
+    kind: "register",
+  }]);
+  const visible = output.writes.join("");
+  assert.equal(/not endorsed by OpenAI/u.test(visible), true);
+  assert.equal(/https:\/\/auth\.openai\.com\/codex\/device/u.test(visible), true);
+  assert.equal(/ABCD-EFGH/u.test(visible), true);
+  assert.equal(/synthetic-access-value/u.test(visible), false);
+  assert.equal(/remains unavailable/u.test(visible), true);
+});
+
+test("replaces a present OpenAI record and removes it with honest local scope", async () => {
+  const replacementInput = new FakeInput();
+  const replacement = new FakeOpenAIMutation("present");
+  const replacing = runAuthCommand(
     "linux",
     "x64",
     undefined,
-    cancelledInput,
+    replacementInput,
     new FakeOutput(),
-    opener(cancelledMutation, []),
+    dependencies(new FakeOllamaMutation("absent"), replacement),
   );
-  await waitForRaw(cancelledInput, 1);
-  cancelledInput.emitData("c");
-  const cancelled = await cancelling;
-  assert.ok(cancelled.ok);
-  assert.equal(cancelled.value, "cancelled");
-  assert.equal(cancelledMutation.cancels, 1);
-  assert.deepEqual(cancelledMutation.actions, []);
+  await waitForRaw(replacementInput, 1);
+  replacementInput.emitData("a");
+  await waitForRaw(replacementInput, 3);
+  replacementInput.emitData("s");
+  assert.deepEqual(await replacing, { ok: true, value: "replaced" });
+  assert.equal(replacement.actions.at(0)?.kind, "replace");
 
-  const environmentMutation = new FakeMutation("absent");
-  const environmentOutput = new FakeOutput();
-  const environment = await runAuthCommand(
-    "win32",
+  const removalInput = new FakeInput();
+  const removalOutput = new FakeOutput();
+  const removal = new FakeOpenAIMutation("present");
+  const removing = runAuthCommand(
+    "linux",
     "x64",
-    "environment-key",
-    new FakeInput(),
-    environmentOutput,
-    opener(environmentMutation, []),
+    undefined,
+    removalInput,
+    removalOutput,
+    dependencies(new FakeOllamaMutation("absent"), removal),
   );
-  assert.equal(environment.ok, false);
-  if (!environment.ok) {
-    assert.equal(environment.error.kind, "environmentAuthority");
-  }
-  assert.equal(environmentMutation.cancels, 1);
-  assert.deepEqual(environmentMutation.actions, []);
-  assert.deepEqual(environmentOutput.writes, []);
+  await waitForRaw(removalInput, 1);
+  removalInput.emitData("a");
+  await waitForRaw(removalInput, 3);
+  removalInput.emitData("d");
+  assert.deepEqual(await removing, { ok: true, value: "removed" });
+  assert.deepEqual(removal.actions, [{ kind: "remove" }]);
+  assert.equal(/was not revoked/u.test(removalOutput.writes.join("")), true);
+});
+
+test("cancels the native OpenAI mutation when the device ceremony cancels", async () => {
+  const input = new FakeInput();
+  const openAI = new FakeOpenAIMutation("absent");
+  const running = runAuthCommand(
+    "linux",
+    "x64",
+    undefined,
+    input,
+    new FakeOutput(),
+    dependencies(
+      new FakeOllamaMutation("absent"),
+      openAI,
+      new FakeDeviceAuth("cancelled"),
+    ),
+  );
+  await waitForRaw(input, 1);
+  input.emitData("a");
+  await waitForRaw(input, 3);
+  input.emitData("s");
+
+  assert.deepEqual(await running, { ok: true, value: "cancelled" });
+  assert.equal(openAI.cancels, 1);
+  assert.deepEqual(openAI.actions, []);
+});
+
+test("surfaces native cleanup failure after an OpenAI output failure", async () => {
+  const input = new FakeInput();
+  const openAI = new FakeOpenAIMutation("absent", true);
+  const running = runAuthCommand(
+    "linux",
+    "x64",
+    undefined,
+    input,
+    new FakeOutput(2),
+    dependencies(new FakeOllamaMutation("absent"), openAI),
+  );
+  await waitForRaw(input, 1);
+  input.emitData("a");
+
+  assert.deepEqual(await running, { error: { kind: "store" }, ok: false });
+  assert.equal(openAI.cancels, 1);
+  assert.deepEqual(openAI.actions, []);
 });

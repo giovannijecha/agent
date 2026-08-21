@@ -203,21 +203,38 @@ provider or model. If both authorities are present, startup fails explicitly;
 there is no precedence or automatic import. Provider data-use, retention, billing,
 quota, and model availability terms can change and are not guarantees made by
 this project; review the current Ollama terms before sending sensitive content.
-The four subscription OAuth connections remain disabled.
-Decision 0090 documents the future OpenAI device OAuth data flow;
-decision 0091 accepts a provider-owned public-client compatibility category but
-changes no runtime. Decision 0092 publishes the exact non-secret OpenAI public
-client and device identity contract only in policy. Decision 0093 implements
-the exact plaintext record and private native register, snapshot, replacement,
-recovery, and removal lifecycle. Current commands and runtime do not invoke it,
-so Agent currently collects, stores, refreshes, revokes, or sends no OpenAI
-OAuth material. The private boundary has no environment input and protects
+The Claude, Kimi, and xAI subscription OAuth connections remain disabled.
+Decision 0094 activates only OpenAI device authentication through `agent auth`.
+After the operator selects OpenAI and acknowledges the independent-
+compatibility disclosure, Agent sends its fixed non-secret public-client
+identifier to the fixed OpenAI device endpoint. It displays only the fixed
+provider URL and provider-issued one-time user code, polls the fixed token route
+with the device identity and code, and exchanges the returned authorization
+code and PKCE verifier at the fixed token endpoint. These authentication
+requests contain no conversation, workspace path, file content, tool schema,
+tool result, provider password, browser cookie, recovery code, or payment data.
+
+Successful validation persists only the access token, refresh token, account
+identifier, and access-token expiration in the exact
+`~/.agent/credentials/openai.oauth` plaintext record. The ID token, device
+identity, displayed code, provider `expires_at` metadata, authorization code,
+verifier, challenge, complete responses, and account claims are not persisted
+or projected. Additional poll-success members are decoded only inside the
+fixed body bound after duplicate-name validation, then discarded without local
+authority. The private boundary has no environment input and protects
 ordinary cross-account access with the same native owner-only controls and
-same-user, administrator/root, malware, backup, snapshot, memory, and offline-
-access limitations as the Ollama record. Future compatible login must
-identify the caller as `agent` or omit the caller field, disclose that the
-integration is independent and not provider-endorsed, and never import a
-foreign credential or browser session.
+same-user, administrator/root,
+malware, backup, snapshot, memory, and offline-access limitations as the Ollama
+record. Local removal does not revoke the provider-side authorization and is
+not secure erasure; use an OpenAI-provided account surface when remote
+revocation is required.
+
+OpenAI refresh, revocation, catalog, model selection, and conversation transport
+remain inactive. An OpenAI record therefore does not make OpenAI appear in
+`/models` and no task content or bearer token is sent to an OpenAI model API.
+The compatibility flow identifies the caller as `agent` or omits the caller
+field, discloses that it is independent and not provider-endorsed, and never
+imports a foreign credential or browser session.
 
 ### Thinking data
 

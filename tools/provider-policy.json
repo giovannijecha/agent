@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 11,
+  "schemaVersion": 14,
   "applicationDocument": "docs/PROVIDER-APPLICATIONS.md",
   "researchedOn": "2026-08-08",
   "subscriptionCompatibility": {
@@ -23,7 +23,7 @@
       "id": "chatgpt",
       "displayName": "ChatGPT Plus/Pro",
       "eligibility": "blocked",
-      "blocker": "auth-implementation-required",
+      "blocker": "transport-implementation-required",
       "request": {
         "state": "submitted",
         "kind": "public-client-authorization-inquiry",
@@ -112,7 +112,8 @@
       "decision": "0090",
       "identityDecision": "0092",
       "credentialDecision": "0093",
-      "state": "credential-compatible-inactive",
+      "authDecision": "0094",
+      "state": "auth-compatible-inactive",
       "flow": "openai-device-code-plus-oauth-pkce",
       "issuer": "https://auth.openai.com",
       "deviceCodeEndpoint": "https://auth.openai.com/api/accounts/deviceauth/usercode",
@@ -150,6 +151,56 @@
       ],
       "credentialEnvironment": null,
       "credentialAdmission": "exclusive-session-and-mutation",
+      "credentialCommand": "agent auth",
+      "authCapability": "device-login-relogin-local-remove",
+      "providerRuntime": "inactive",
+      "refreshRuntime": "inactive",
+      "revocationRuntime": "inactive",
+      "deviceResponseFields": [
+        "device_auth_id",
+        "user_code",
+        "interval"
+      ],
+      "deviceOptionalResponseFields": [
+        "expires_at"
+      ],
+      "deviceExpirationBytes": 256,
+      "deviceIntervalEncoding": "canonical-decimal-string",
+      "deviceIntervalSeconds": {
+        "minimum": 1,
+        "maximum": 30
+      },
+      "pollRequestFields": [
+        "device_auth_id",
+        "user_code"
+      ],
+      "pollResponseFields": [
+        "authorization_code",
+        "code_verifier"
+      ],
+      "pollOptionalResponseFields": [
+        "code_challenge"
+      ],
+      "pollAdditionalResponseMembers": "bounded-discarded-after-complete-decode",
+      "tokenRequestFields": [
+        "grant_type",
+        "code",
+        "redirect_uri",
+        "client_id",
+        "code_verifier"
+      ],
+      "tokenResponseFields": [
+        "id_token",
+        "access_token",
+        "refresh_token"
+      ],
+      "accountClaimNamespace": "https://api.openai.com/auth",
+      "accountClaim": "chatgpt_account_id",
+      "expirationClaim": "exp",
+      "authenticationDeadlineMilliseconds": 900000,
+      "challengePresentation": "deadline-and-cancellation-bounded",
+      "firstPoll": "immediate",
+      "credentialRemoval": "local-only-no-provider-revocation",
       "credentialProtocol": {
         "requestKinds": [
           7,

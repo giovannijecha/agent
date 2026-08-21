@@ -500,8 +500,8 @@ replacement implicitly.
 
 ### Owned external authentication
 
-**Owners:** CLI native platform boundary, decision 0089, non-active decisions
-0090 through 0093, superseded decision 0088, and the authentication and selection clauses of decision 0072,
+**Owners:** CLI native platform boundary, decision 0089, OpenAI decisions 0090
+through 0094, superseded decision 0088, and the authentication and selection clauses of decision 0072,
 [providers](PROVIDERS.md), [OAuth registration](OAUTH-REGISTRATION.md),
 [privacy](../PRIVACY.md), and [security](../SECURITY.md).
 
@@ -518,18 +518,37 @@ contract. Decision 0091 accepts only a provider-owned non-secret public client,
 keeps `agent` as every controllable caller identity, and requires explicit
 independent-compatibility disclosure. Decision 0092 accepts OpenAI's exact
 public client, device request, callback, poll status, PKCE, and caller-identity
-semantics only in policy. Decision 0093 owns the exact OpenAI record, lock,
-private frame, exclusive admission, atomic lifecycle, recovery, and local
-removal implementation. The state is `credential-compatible-inactive`; the
-next gate is `auth-implementation-required`. Current commands do not call this
-adapter. Do not add an auth action, endpoint, provider workspace or row,
-catalog, transport, client-identity use, browser operation, environment
-authority, or runtime composition before its separate module.
+semantics. Decision 0093 owns the exact OpenAI record, lock, private frame,
+exclusive admission, atomic lifecycle, recovery, and local removal.
+Decision 0094 owns the exact device login network adapter, terminal
+cancellation, account and expiry validation, command composition, sign-in-
+again, and honest local-only removal. The state is
+`auth-compatible-inactive`; the next blocker is
+`transport-implementation-required`.
+
+Maintain decision 0094 as one serial, fixed-origin ceremony: acquire exclusive
+admission before the first request; request the device identity once; project
+only the fixed verification URL and current one-time code; race challenge
+presentation against the ceremony deadline and terminal cancellation so a
+stalled or late presenter cannot retain mutation authority; admit the three
+required device-response fields plus only bounded optional `expires_at`
+metadata and discard that metadata; poll immediately and then only after each
+admitted server interval; accept only 403 and 404 as pending; require the
+authorization code and verifier, admit only an optional S256 challenge, and
+verify that challenge when present; discard every other bounded poll member
+after complete duplicate-name validation; exchange once; derive the account from the
+ID token and expiration from the access token; close terminal input; then
+publish one complete record. Never add a browser launch, redirect, retry,
+fallback, scope, alternate caller field, environment source, unbounded response
+schema, interpretation of an unregistered member, or response-body diagnostic.
+Do not add refresh, revocation, provider
+workspace or row, catalog, Responses transport, runtime snapshot, or `/models`
+integration before their separate module.
 
 For ChatGPT, Kimi, or xAI compatibility changes, recheck first-party protocol
 and client-ownership evidence, pin any necessary bounded clean-room inspection
 before opening source, and update decision 0091 plus provider-specific decision
-0092 when OpenAI is affected, machine policy, disclosure, privacy, security,
+0092 and 0094 when OpenAI is affected, machine policy, disclosure, privacy, security,
 tests, rollback, and removal together. A foreign caller identity, third-party-
 only client ID, or foreign credential import requires rollback to inactive
 state rather than a compatibility workaround.
@@ -576,7 +595,13 @@ the exact Node registry. The gate does not execute product code or infer partial
 strings, exports, commands, or general data flow.
 
 For every change, run the native lifecycle fixtures on Windows and Linux and
-the CLI contract tests without a real credential. Prove Windows owner/DACL and
+the CLI contract tests without a real credential. OpenAI auth tests use fake
+HTTPS, clock, terminal, and broker boundaries and synthetic non-credential
+values; they must prove exact requests, the sole optional device-expiration
+member, the sole optional interpreted matching poll challenge, bounded
+discarded additional poll members, bounded challenge presentation, bounds, timing,
+cancellation, PKCE, account binding, expiry, one settlement, and zero secret
+projection without a live provider. Prove Windows owner/DACL and
 profile-lineage behavior by driving the complete broker against a controlled
 alternate-owner profile observation and an isolated state root, plus a pre-existing
 decision-0087 state root that retains native owner/DACL metadata. Prove Linux
@@ -592,12 +617,14 @@ reviewed unit. Never leave a record reader without its mutation/removal path or
 restore `/providers` as a second authority. Full local credential removal uses
 `agent auth` to remove the Ollama Cloud record, verifies no process holds its
 store lock, and may then remove only the empty credentials directory and exact
-Ollama lock file. Before OpenAI auth ships, ordinary operation cannot create its
-record. Rollback must nevertheless retain the decision-0093 private remove
-operation until exclusive admission has validated and retired any committed
-`openai.oauth` record and recovered its bounded pending or retired state; only
-then may it remove the empty OpenAI lock. It never removes Ollama state. Local
-removal is not secure erasure and does not revoke a provider grant or key.
+Ollama lock file. OpenAI rollback first disables new sign-in and sign-in-again
+while retaining decision 0094's local remove action and decision 0093's private
+retirement operation. After every OpenAI auth process closes, remove the record
+through exclusive admission, recover any bounded pending or retired state, and
+prove all three names absent; only then may a later removal delete the empty
+OpenAI lock and auth adapter. It never removes Ollama state. Local removal is
+not secure erasure and does not revoke a provider grant or key; decision 0094
+makes no revocation request and reports that limitation explicitly.
 Never repair an unsafe record silently, retry a mutation, restore superseded
 material, or borrow another client's credential store.
 

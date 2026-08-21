@@ -129,7 +129,7 @@ function sessionJournalDiagnostic(kind: SessionJournalErrorKind): string {
 
 function authDiagnostic(error: AuthCommandError): string {
   if (error.kind === "busy") {
-    return "agent found Ollama Cloud authentication busy\n";
+    return "agent found authentication busy\n";
   }
   if (error.kind === "dualAuthority") {
     return "agent found conflicting Ollama Cloud credential authorities\n";
@@ -140,7 +140,25 @@ function authDiagnostic(error: AuthCommandError): string {
   if (error.kind === "invalidCredential") {
     return "agent rejected the Ollama Cloud credential\n";
   }
-  return "agent could not update Ollama Cloud authentication\n";
+  if (error.kind === "denied") {
+    return "agent authentication was denied\n";
+  }
+  if (error.kind === "expired") {
+    return "agent authentication expired\n";
+  }
+  if (error.kind === "connectivity") {
+    return "agent could not reach the authentication service\n";
+  }
+  if (error.kind === "timeout") {
+    return "agent authentication timed out\n";
+  }
+  if (error.kind === "rejected") {
+    return "agent authentication was rejected\n";
+  }
+  if (error.kind === "limit" || error.kind === "protocol") {
+    return "agent rejected the authentication response\n";
+  }
+  return "agent could not update authentication\n";
 }
 
 function monotonicMilliseconds(): number {
@@ -227,8 +245,9 @@ if (!launch.ok) {
       "usage: agent [--evaluation-receipt | --help | --version]\n" +
       "       agent auth\n" +
       "       agent resume --latest\n\n" +
-      "Use agent auth to register, replace, or remove the owned Ollama " +
-      "Cloud credential outside the conversation interface.\n\n" +
+      "Use agent auth to manage owned Ollama Cloud or OpenAI credentials " +
+      "outside the conversation interface. OpenAI authentication does not " +
+      "enable its provider runtime.\n\n" +
       "Use agent resume --latest to continue the newest settled session for " +
       "the exact current workspace.\n\n" +
       "Use --evaluation-receipt only for one interactive owned task " +

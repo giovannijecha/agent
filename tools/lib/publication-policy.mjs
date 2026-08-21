@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 
+import { PROVIDER_POLICY_SCHEMA_VERSION } from "./provider-policy.mjs";
+
 const EXPECTED_PROJECT = Object.freeze({
   name: "agent",
   repository: "giovannijecha/agent",
@@ -47,13 +49,14 @@ const EXPECTED_DOCUMENTS = Object.freeze([
   "docs/decisions/0091-owned-provider-public-client-compatibility.md",
   "docs/decisions/0092-owned-openai-compatible-public-client.md",
   "docs/decisions/0093-owned-openai-oauth-credential-record.md",
+  "docs/decisions/0094-owned-openai-device-authentication.md",
   "assets/brand/README.md",
   "docs/BRAND.md",
   "docs/decisions/0037-canonical-agent-brand.md",
   "docs/decisions/0038-owned-deterministic-tui-motion.md",
 ]);
 const OAUTH_REGISTRATION_ROWS = Object.freeze([
-  "| ChatGPT Plus/Pro | OpenAI documents subscription browser and device login for Codex clients; decisions 0090 through 0093 fix the independently derived protocol, exact provider-owned public-client identity, and owned record. | The protocol is `credential-compatible-inactive`: identity and storage mechanics are accepted, but auth, transport, and integration remain inactive. |",
+  "| ChatGPT Plus/Pro | OpenAI documents subscription browser and device login for Codex clients; decisions 0090 through 0094 fix the independently derived protocol, exact provider-owned public-client identity, owned record, and active device-auth command. | Authentication is `auth-compatible-inactive`: sign-in and local removal are active without provider endorsement, while refresh, revocation, catalog, model, and conversation runtime remain inactive. |",
   "| Claude Pro/Max | Anthropic documents subscription login for Claude Code and subscription-backed third-party use through the Claude Agent SDK. | Claude Code and Agent SDK are foreign runtimes; no accepted direct independent-client registration is recorded for `agent`. |",
   "| Kimi Code | Kimi documents device OAuth for Kimi Code; a pre-recorded clean-room inspection confirmed that current subscription OAuth uses Kimi's first-party public client even though Pi's provider guide omits that route. | Compatibility feasibility is established, but the [recorded provider response](PROVIDER-APPLICATIONS.md#kimi-code) remains a material negative-eligibility risk and a provider-specific decision is still required. |",
   "| Grok subscription | xAI documents browser and RFC 8628 device login for Grok Build plus headless and ACP integration, while its direct API has a separate key path. | A clean-room inspection confirms direct-flow feasibility, but xAI public-client ownership remains unresolved and a provider-specific decision is required. |",
@@ -221,6 +224,26 @@ function validateProvenanceLog(policy, context) {
   if (!entries.includes(openAiIdentityInspectionEntry)) {
     fail("OpenAI identity provenance contract is missing or incomplete");
   }
+  const openAiAuthInspectionEntry =
+    "| 2026-08-21 | Reopened bounded first-party Codex authentication source at " +
+    "[`536f86e5cc9ec1ff38457d099bf320b9d08eeeba`](https://github.com/openai/codex/tree/536f86e5cc9ec1ff38457d099bf320b9d08eeeba) after rechecking " +
+    "[OpenAI Codex authentication](https://developers.openai.com/codex/auth/) and " +
+    "[authorization-server metadata](https://auth.openai.com/.well-known/openid-configuration) | " +
+    "Before reopening source, this row recorded that the public material and earlier inspection did not bind the exact device-success and poll-success response-field spellings, decimal-string interval representation, token-form field set, required token response fields, ID-token account-claim path, access-token expiration source, or first-poll timing needed to implement decision 0094. Only `codex-rs/login/src/device_code_auth.rs` and the relevant account-claim excerpts of `codex-rs/login/src/server.rs` were reopened; no tests or unrelated modules were inspected. A later content-safe live reproduction retained only response family, content type, byte count, field names, and field types, then cleared the body without retaining any response value. | " +
+    "Device success requires `device_auth_id`, `user_code`, and a decimal-string `interval`; the first-party decoder does not deny other response members. The live schema additionally carried one string `expires_at`, which permits only that optional bounded and discarded member in Agent. The first poll is immediate and success carries authorization code, challenge, and verifier. The public-client exchange uses authorization-code grant, the fixed device callback, client identifier, and verifier and requires ID, access, and refresh tokens. The ID token's OpenAI auth namespace supplies `chatgpt_account_id`; access-token `exp` supplies record expiration; the returned verifier must reproduce the returned S256 challenge. These protocol facts informed an independently authored decision-0094 adapter. | " +
+    "None; no response value, implementation structure, code, test, fixture, prompt, credential schema, user agent, error text, or Codex product identity reused |";
+  if (!entries.includes(openAiAuthInspectionEntry)) {
+    fail("OpenAI authentication provenance contract is missing or incomplete");
+  }
+  const reopenedPiOpenAiInspectionEntry =
+    "| 2026-08-21 | Reopened bounded Pi OpenAI OAuth source at " +
+    "[`5cd93f688aaab89dbb6dfa4aca535f21796ae185`](https://github.com/earendil-works/pi/blob/5cd93f688aaab89dbb6dfa4aca535f21796ae185/packages/ai/src/auth/oauth/openai-codex.ts) after repeated content-safe Agent login failures | " +
+    "Current public OpenAI material and the earlier first-party inspection did not explain why a provider-approved live device ceremony was rejected before token exchange. At the user's request, only Pi's OpenAI token-response admission, access-token account extraction, and device-flow composition were reopened; no tests or other modules were inspected. A later temporary diagnostic retained only the failing phase and classified the bounded poll success as containing the valid required projection plus an additional member; it retained no member name, type, or value. | " +
+    "Pi projects the required poll-success values without rejecting additional members. Together with the independently reproduced live classification and the same first-party decoding posture, this supports Agent's independently authored bounded projection-only poll decoder. Pi's separate token and account choices remain differential feasibility evidence only. | " +
+    "None; no code, structure, identifier, endpoint, scope, prompt, test, fixture, error text, response value, credential path, or product identity reused |";
+  if (!entries.includes(reopenedPiOpenAiInspectionEntry)) {
+    fail("reopened Pi OpenAI provenance contract is missing or incomplete");
+  }
   const digest = createHash("sha256")
     .update(entries.join("\n") + "\n", "utf8")
     .digest("hex");
@@ -288,6 +311,7 @@ function validatePublicDocuments(context) {
       "Reduction is deterministic",
       "excludes every owned effect",
       "terminal output remain serialized",
+      "Its Ollama\ncredential path performs no network request. Its OpenAI path performs only the\nfixed-origin device, poll, and token HTTPS ceremony owned by decision 0094",
     ],
     "architecture",
   );
@@ -494,11 +518,14 @@ function validatePublicDocuments(context) {
       "One concrete provider does not authorize a generic provider framework,\narbitrary base URL, unregistered model selector, generic key store, local-server mode,\nor additional integration.",
       "The Ollama API key\nmay never enter source, tests, logs, errors, documentation values, process\narguments, command history, terminal output, transcript, journal, receipt, or\ndiagnostic.",
       "`agent auth` is the sole interactive credential lifecycle and runs outside the\nalternate-screen TUI.",
-      "Decision 0090 records one non-executable OpenAI contract",
+      "Decision 0090 records the OpenAI contract",
       "decision 0092 records OpenAI's exact non-secret\npublic client",
       "Decision 0093 implements the exact OpenAI record and private native\nlifecycle.",
-      "The contract is now `credential-compatible-inactive`",
-      "OpenAI remains blocked by `auth-implementation-required`.",
+      "Decision 0094 activates its fixed-origin device login",
+      "The contract is now `auth-compatible-inactive`",
+      "OpenAI remains blocked by `transport-implementation-required`.",
+      "`tools/provider-policy.json` schema version " +
+      String(PROVIDER_POLICY_SCHEMA_VERSION),
     ],
     "direct provider policy",
   );
@@ -512,11 +539,11 @@ function validatePublicDocuments(context) {
       "Registration state: `blocked`.",
       "Compatibility state: `accepted-runtime-inactive`.",
       "Identity state: `accepted-runtime-inactive`.",
-      "OpenAI credential state: `credential-compatible-inactive`.",
+      "OpenAI authentication state: `auth-compatible-inactive`.",
       ...OAUTH_REGISTRATION_ROWS,
-      "For ChatGPT, implement decision 0090 under decisions 0091 through 0093's identity\nand disclosure boundary.",
-      "For Kimi or xAI, accept a separate provider-specific\ncompatibility decision; for Claude, satisfy the direct-registration gate.",
-      "Offline contract tests must\ncover cancellation, expiry, concurrency, malformed responses, secret leakage,\nrollback, and removal.",
+      "For ChatGPT, decision 0094 completes the auth-only activation under decisions\n0090 through 0093's protocol, identity, disclosure, and record boundaries.",
+      "For Kimi\nor xAI, accept a separate provider-specific compatibility decision; for Claude,\nsatisfy the direct-registration gate.",
+      "Offline contract tests must cover cancellation, expiry,\nconcurrency, malformed responses, secret leakage, rollback, and removal.",
       "No accepted provider-specific implementation means no adapter",
     ],
     "OAuth registration dossier",
@@ -552,6 +579,27 @@ function validatePublicDocuments(context) {
       "The canonical Windows and Linux gates must pass offline.",
     ],
     "OpenAI credential-record decision",
+  );
+  requireMarkers(
+    textFor(
+      context,
+      "docs/decisions/0094-owned-openai-device-authentication.md",
+    ),
+    [
+      "# 0094: Owned OpenAI device authentication",
+      "`auth-compatible-inactive`",
+      "`transport-implementation-required`",
+      "The first poll is immediate.",
+      "requires exact equality before exchange",
+      "sole optional\ninterpreted matching poll challenge",
+      "bounded discarded additional poll\nmembers",
+      "deadline also bounds challenge presentation",
+      "`chatgpt_account_id`",
+      "admits only `expires_at` as one optional bounded member",
+      "provider authorization was not revoked",
+      "no OpenAI\ncatalog request, Responses request",
+    ],
+    "OpenAI device-authentication decision",
   );
   requireMarkers(
     textFor(context, "docs/PROVIDER-APPLICATIONS.md"),

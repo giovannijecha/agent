@@ -112,6 +112,7 @@
     "docs/decisions/0091-owned-provider-public-client-compatibility.md",
     "docs/decisions/0092-owned-openai-compatible-public-client.md",
     "docs/decisions/0093-owned-openai-oauth-credential-record.md",
+    "docs/decisions/0094-owned-openai-device-authentication.md",
     "evaluations/README.md"
   ],
   "workspaces": [
