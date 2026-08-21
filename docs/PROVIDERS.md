@@ -165,6 +165,9 @@ Responses adapter and the exact CLI HTTPS transport. OpenAI transport is
 and the code can be verified through injected doubles, but there is still no
 runtime snapshot, refresh, revocation, provider/model row, transport
 construction, or conversation-runtime composition.
+The inactive CLI transport reads the access-token and account-ID properties
+exactly once during construction, validates those snapshots, and retains those
+same frozen values; accessor or proxy failure rejects the configuration.
 Its strict decoder requires exact empty output arrays on pre-terminal response
 snapshots, accepts null usage only before completion, and keeps each added
 function-call item as the name authority even when the argument-done event

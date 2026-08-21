@@ -550,6 +550,10 @@ identity, catalog projection, request fields, SSE lifecycle, bounds, and no-
 retry/no-redirect posture synchronized with policy and tests. Do not add
 refresh, revocation, runtime snapshot, provider row, transport construction, or
 `/models` integration before their separate module.
+When changing the inactive transport constructor, read each admitted credential
+property once, validate the resulting local snapshots, and freeze those same
+values. Regress accessor-backed values that change across reads and accessor or
+proxy failures; never validate one value and retain another.
 For terminal-stream changes, require exact empty output arrays on pre-terminal
 response snapshots, admit null usage only before completion, keep the added
 function-call item authoritative when the argument-done event omits its

@@ -453,3 +453,37 @@ test("rejects malformed credential snapshots and requests without network author
   });
   assert.equal(client.options.length, 0);
 });
+
+test("validates and retains one credential property snapshot", async () => {
+  let accessReads = 0;
+  let accountReads = 0;
+  const credential = Object.defineProperties({}, {
+    accessToken: {
+      enumerable: true,
+      get: () => {
+        accessReads += 1;
+        return accessReads === 1 ? "token-sentinel" : undefined;
+      },
+    },
+    accountId: {
+      enumerable: true,
+      get: () => {
+        accountReads += 1;
+        return accountReads === 1 ? "account-sentinel" : "bad value";
+      },
+    },
+  });
+  const response = new FakeResponse();
+  const client = new FakeClient(response);
+  const created = NodeOpenAIProviderTransport.create(credential, client, new ManualClock());
+  assert.ok(created.ok);
+  assert.equal(accessReads, 1);
+  assert.equal(accountReads, 1);
+  const pending = created.value.catalog(new Cancellation());
+  response.emit("data", ascii('{"models":[]}'));
+  response.emit("end");
+  assert.ok((await pending).ok);
+  const headers = client.options.at(0)?.headers as Readonly<Record<string, string>>;
+  assert.equal(headers.authorization, "Bearer token-sentinel");
+  assert.equal(headers["chatgpt-account-id"], "account-sentinel");
+});

@@ -309,14 +309,16 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
         return err(Object.freeze({ kind: "invalidConfiguration" as const }));
       }
       const candidate = credential as Readonly<{ accessToken?: unknown; accountId?: unknown }>;
-      if (!visibleAscii(candidate.accessToken, OPENAI_PROVIDER_TRANSPORT_LIMITS.accessBytes) ||
-        !visibleAscii(candidate.accountId, OPENAI_PROVIDER_TRANSPORT_LIMITS.accountBytes) ||
+      const access = candidate.accessToken;
+      const account = candidate.accountId;
+      if (!visibleAscii(access, OPENAI_PROVIDER_TRANSPORT_LIMITS.accessBytes) ||
+        !visibleAscii(account, OPENAI_PROVIDER_TRANSPORT_LIMITS.accountBytes) ||
         client === null || typeof client !== "object" || typeof client.request !== "function" ||
         clock === null || typeof clock !== "object" || typeof clock.schedule !== "function") {
         return err(Object.freeze({ kind: "invalidConfiguration" as const }));
       }
       return ok(new NodeOpenAIProviderTransport(
-        Object.freeze({ accessToken: candidate.accessToken, accountId: candidate.accountId }),
+        Object.freeze({ accessToken: access, accountId: account }),
         client.request.bind(client) as RequestHttps,
         clock.schedule.bind(clock) as TimerClock["schedule"],
       ));

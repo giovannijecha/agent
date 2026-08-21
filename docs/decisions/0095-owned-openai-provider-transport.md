@@ -70,6 +70,9 @@ does not obtain that snapshot; the later integration decision must compose one
 decision-0093 exclusive admission, refresh if required, construction, session
 use, and release. The transport stores the two strings only for its own process
 lifetime and never returns, logs, formats, or includes them in an error.
+Construction reads each credential property exactly once, validates those two
+local values, and freezes the same values for every later request. An accessor
+or proxy failure rejects the configuration without retaining a partial value.
 
 No request accepts an origin, host, port, path, method, arbitrary header, proxy,
 retry policy, or caller identity from configuration. Node's HTTPS client does

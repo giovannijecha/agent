@@ -463,7 +463,7 @@ const EXPECTED_SENSITIVE_STATE_OCCURRENCES = Object.freeze({
   "packages/agent-cli/src/node-ollama-cloud-transport.ts": "authorization=1;credential=10;isValidOllamaCloudCredential=2",
   "packages/agent-cli/src/node-ollama-model-catalog.ts": "authenticated=1;authorization=1;credential=5;isValidOllamaCloudCredential=2",
   "packages/agent-cli/src/node-openai-device-auth.ts": "access_token=1;accessToken=4;auth=5;authenticate=4;authentication=1;authorization_code=3;authorizationCode=3;authorizationCodeBytes=2;AuthorizationGrant=4;credential=5;decodeAuthorizationGrant=2;decodeCredential=2;device_auth_id=5;deviceauth=3;id_token=1;idToken=3;NodeOpenAIDeviceAuth=1;oauth=1;OPENAI_AUTH_ORIGIN=1;OPENAI_DEVICE_AUTH_LIMITS=15;OPENAI_TOKEN_PATH=2;OpenAIAuthSession=2;OpenAICredential=6;OpenAIDeviceAuthCancellation=5;OpenAIDeviceAuthError=19;OpenAIDeviceAuthErrorKind=11;OpenAIDeviceAuthPort=2;refresh_token=1;refreshToken=3;token=7;tokenBody=2;tokenBodyBytes=2;tokenBytes=4",
-  "packages/agent-cli/src/node-openai-provider-transport.ts": "accessToken=8;authorization=2;credential=17",
+  "packages/agent-cli/src/node-openai-provider-transport.ts": "accessToken=7;authorization=2;credential=17",
   "packages/agent-cli/src/notice-scheduler.ts": "NoticeToken=6;token=19",
   "packages/agent-cli/src/notice.ts": "createNoticeToken=1;noticeToken=2;NoticeToken=2",
   "packages/agent-cli/src/provider-configuration.ts": "credential=2;invalidCredential=2;isValidOllamaCloudCredential=2;isValidProviderCredential=2",
@@ -488,7 +488,7 @@ const EXPECTED_SENSITIVE_STATE_OCCURRENCES = Object.freeze({
   "packages/agent-cli/test/node-ollama-cloud-transport.test.ts": "authorization=1;credentials=1",
   "packages/agent-cli/test/node-ollama-model-catalog.test.ts": "authenticated=1;authorization=1;credentials=1",
   "packages/agent-cli/test/node-openai-device-auth.test.ts": "access_token=5;auth=11;authenticate=19;authorization=4;authorization_code=3;device_auth_id=7;Fauth=1;Fdeviceauth=1;id_token=5;NodeOpenAIDeviceAuth=20;OPENAI_DEVICE_AUTH_LIMITS=5;OPENAI_TOKEN_PATH=2;OpenAIDeviceAuthCancellation=2;refresh_token=5;token=3",
-  "packages/agent-cli/test/node-openai-provider-transport.test.ts": "accessToken=3;authenticated=1;authorization=2;credential=1;refreshToken=1;token=4",
+  "packages/agent-cli/test/node-openai-provider-transport.test.ts": "accessToken=4;authenticated=1;authorization=3;credential=4;refreshToken=1;token=6",
   "packages/agent-cli/test/notice-scheduler.test.ts": "createNoticeToken=6;token=10",
   "packages/agent-cli/test/provider-configuration.test.ts": "credential=3;credentials=1;invalidCredential=1;isValidOllamaCloudCredential=2",
   "packages/agent-cli/test/provider-failure-classification.test.ts": "PRIVATE_SECRET=1",
@@ -628,7 +628,7 @@ const APPROVED_CLI_PRODUCT_TREE = Object.freeze({
   pathsSha256:
     "77c8397dbd7beeb160780c808fcbabdc6776af2c12f17a1e3ad40685040975b1",
   sourceSha256:
-    "9e6e993af3f508115d039a81cb2ef06c2b80de4a9141a5862a86a2546a4a0918",
+    "0fc86e1c5b101a244b03435063dcf9e47f54a1318941acf7160368ea8b3f1270",
 });
 
 const APPROVED_CLI_NATIVE_PLATFORM_TREE = Object.freeze({
