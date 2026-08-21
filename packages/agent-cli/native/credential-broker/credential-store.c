@@ -409,7 +409,6 @@ static bool agent_windows_prepare_fixture_lineage(
       return false;
     }
   }
-  observation->account = account;
   observation->owner = owner;
   return true;
 }
@@ -537,7 +536,7 @@ static bool agent_windows_ensure_directory(
   }
   HANDLE handle = exact
     ? agent_windows_open_directory(path, account, true)
-    : agent_windows_open_lineage_directory(path, NULL);
+    : agent_windows_open_lineage_directory(path, account, NULL);
   if (handle == INVALID_HANDLE_VALUE) {
     return false;
   }
@@ -921,6 +920,7 @@ static struct agent_platform_state *agent_platform_open(
 #endif
   HANDLE home_handle = agent_windows_open_lineage_directory(
     home,
+    state->account,
     lineage_observation
   );
   state->agent_root = agent_windows_join(home, L".agent");

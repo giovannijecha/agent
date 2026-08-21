@@ -4,12 +4,12 @@
 #include <windows.h>
 
 struct agent_windows_lineage_observation {
-  PSID account;
   PSID owner;
 };
 
 HANDLE agent_windows_open_lineage_directory(
   const wchar_t *path,
+  PSID account,
   const struct agent_windows_lineage_observation *observation
 );
 
