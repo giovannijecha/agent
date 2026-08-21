@@ -243,7 +243,9 @@ transport cleanup. A pending read cannot decode bytes returned after close, so
 the closed stream retains no partial provider response. The HTTPS stream also
 ignores a retained `data` callback before flow control or copying once EOF,
 failure, settlement, or close is authoritative; late bytes cannot repopulate its
-released queue.
+released queue. Data emitted synchronously by `resume` remains in one bounded
+stage until flow control succeeds, and a terminal callback raised by `pause`
+prevents the chunk from being observed or retained.
 The compatibility flow identifies the caller as `agent` or omits the caller
 field, discloses that it is independent and not provider-endorsed, and never
 imports a foreign credential or browser session.

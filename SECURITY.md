@@ -177,7 +177,9 @@ request-response cleanup. Model close releases every partial decoder and queued
 response owner before awaiting transport teardown, and a pending read cannot
 decode a post-close value. A retained transport `data` callback is inert after
 EOF, failure, settlement, or close before it can pause or retain bytes. A
-response callback delivered after request setup
+read stages one bounded synchronous `data` callback until `resume` succeeds,
+and rechecks terminal authority after callback-capable `pause` before observing
+the chunk. A response callback delivered after request setup
 fails is destroyed under containment and cannot become new staged authority.
 Local removal uses native retirement and explicitly does not
 claim provider-side revocation or secure erasure. The product scanner admits

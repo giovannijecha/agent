@@ -614,6 +614,11 @@ Retain a registered `data` listener in the response double and invoke it directl
 after EOF and after close. It must return before `pause`, chunk snapshot,
 pending-read settlement, or queue retention; never rely on a cooperative emitter
 honoring listener detachment.
+Regress a `resume` double that emits one data callback synchronously and then
+throws: no provider byte may settle the read. Also make `pause` synchronously
+emit EOF and error in separate cases and prove the chunk is not even observed.
+Successful synchronous data may use only one bounded stage and becomes visible
+only after `resume` returns.
 For successful transport-open validation, snapshot valid close authority first,
 read each remaining stream property once, and invoke the retained close before
 rejecting malformed metadata or read authority. Preserve cleanup failure without

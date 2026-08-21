@@ -257,6 +257,10 @@ idempotent destructions and combines cleanup failure without exposing a cause.
 A retained Responses `data` listener invoked after EOF, failure, settlement, or
 close returns before flow control or byte retention and cannot satisfy a pending
 read or repopulate the closed stream.
+One bounded synchronous `data` callback from `resume` remains staged until that
+flow-control call returns successfully. A thrown `resume` or intervening terminal
+callback discards the stage; after callback-capable `pause`, terminal state is
+rechecked before the chunk is observed or copied.
 The catalog adapter reads every returned capture property once, validates those
 local snapshots, and copies only the same bounded body snapshot; an accessor or
 proxy cannot replace validated metadata or bytes through a later read. The copy

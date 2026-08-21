@@ -264,6 +264,11 @@ EOF, failure, and close, without skipping any remaining cleanup operation.
 A retained `data` listener invoked after EOF, failure, terminal settlement, or
 close is inert before flow control, byte copying, pending-read settlement, or
 queue retention. It cannot replace EOF or repopulate a released stream.
+Each read stages at most one bounded `data` callback produced synchronously by
+`resume`. The chunk becomes visible only after `resume` returns successfully;
+a throw or intervening terminal callback discards it and preserves the terminal
+result. A `data` callback also rechecks terminal authority immediately after its
+callback-capable `pause` returns and before it observes or copies the chunk.
 Both the Node transport and Node-free Responses adapter snapshot each chunk's
 length, require 1 through 65,536 bytes, and copy into a fresh `Uint8Array` with
 typed-array `set` before UTF-8 decoding. No source iterator participates in the
@@ -439,6 +444,9 @@ Red-green regression must prove:
 - a retained Responses `data` callback invoked after EOF or close performs no
   flow control, copying, read settlement, or queue retention, so EOF remains
   authoritative and cleanup cannot be repopulated;
+- synchronous Responses data remains staged until `resume` succeeds and is
+  discarded when that call throws; EOF or failure raised by `pause` is rechecked
+  before chunk observation and remains authoritative;
 - synchronous terminal callbacks invoked by response-listener registration stop
   the remaining catalog admission actions, while Responses rejects the
   pre-publication stream and performs its paired rollback exactly once;

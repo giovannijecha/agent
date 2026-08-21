@@ -697,6 +697,61 @@ test("ignores retained data callbacks after Responses termination", async () => 
   }
 });
 
+test("does not publish synchronous Responses data before resume succeeds", async () => {
+  const response = new FakeResponse(200, "text/event-stream");
+  const client = new FakeClient(response);
+  const opened = await create(client).open(Object.freeze({ body: "{}" }), new Cancellation());
+  assert.ok(opened.ok);
+  Object.defineProperty(response, "resume", {
+    value: () => {
+      response.emit("data", ascii("unsafe"));
+      throw new Error("private resume failure after data");
+    },
+  });
+  assert.deepEqual(await opened.value.read(), {
+    error: { cleanupFailed: false, kind: "connection" },
+    ok: false,
+  });
+  assert.equal(response.destroyed, 1);
+  assert.equal(client.requests.at(0)?.destroyed, 1);
+});
+
+test("rechecks Responses termination after pausing a data event", async () => {
+  for (const event of ["end", "error"] as const) {
+    const response = new FakeResponse(200, "text/event-stream");
+    const client = new FakeClient(response);
+    const opened = await create(client).open(Object.freeze({ body: "{}" }), new Cancellation());
+    assert.ok(opened.ok);
+    const pending = opened.value.read();
+    let terminalized = false;
+    Object.defineProperty(response, "pause", {
+      value: () => {
+        if (!terminalized) {
+          terminalized = true;
+          response.emit(event, new Error("private terminal pause event"));
+        }
+        return response;
+      },
+    });
+    const chunk = ascii("unsafe");
+    let lengthReads = 0;
+    Object.defineProperty(chunk, "length", {
+      get: () => {
+        lengthReads += 1;
+        return 6;
+      },
+    });
+    response.emit("data", chunk);
+    assert.deepEqual(await pending, event === "end"
+      ? { ok: true, value: null }
+      : {
+          error: { cleanupFailed: false, kind: "connection" },
+          ok: false,
+        });
+    assert.equal(lengthReads, 0);
+  }
+});
+
 test("rejects a non-string singleton content-type without coercion", async () => {
   for (const operation of ["catalog", "responses"] as const) {
     const response = new FakeResponse();
