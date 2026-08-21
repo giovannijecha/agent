@@ -176,7 +176,9 @@ complete argument string must pass the batch call-count and aggregate argument
 bounds before retention, then match the completed function-call item. An added
 reasoning item admits only absent or exact
 empty initial content, so later streamed projections cannot suppress or replace
-pre-populated state. Its tool projection preserves owned code-unit, UTF-8,
+pre-populated state. Reasoning items, summaries, and content fail closed when
+the captured thinking effort is off. Its tool projection preserves owned code-
+unit, UTF-8,
 projection, NUL, and aggregate-text constraints as explicit annotations: every
 non-literal string exposes its exact minimum and maximum code-unit bounds even
 when it owns no auxiliary string constraint, and every projected object exposes

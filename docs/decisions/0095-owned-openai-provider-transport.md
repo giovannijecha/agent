@@ -134,6 +134,9 @@ The root request has exactly `model`, `instructions`, `input`, `tools`,
 request uses `store: false` and `stream: true`. `include` is the empty array.
 When thinking is off, `reasoning` is null; low, medium, and high map to the same
 provider effort and request summary `auto`.
+The response decoder admits reasoning items and their summary or content events
+only when the captured effort is not off. Any provider reasoning while effort
+is off fails closed before reasoning state or text is retained.
 
 User and assistant messages become ordered text input items. A settled tool
 exchange becomes its optional assistant preamble, the exact ordered public
@@ -307,7 +310,8 @@ Red-green regression must prove:
   cancellation, timeout, and one large frame fragmented into single-code-unit
   chunks without whole-buffer rescanning;
 - an added reasoning item rejects pre-populated or malformed content before any
-  later item projection can omit or replace it;
+  later item projection can omit or replace it, and any reasoning item or delta
+  is rejected when the captured effort is off;
 - stream lifecycle rejects close, concurrent read, malformed framing, unknown
   events, contradictory
   lifecycle, nonempty or malformed pre-terminal output, missing or

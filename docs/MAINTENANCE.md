@@ -567,7 +567,8 @@ function-call item authoritative when the argument-done event omits its
 redundant name, require that argument-done phase before function-item completion,
 enforce batch call-count and aggregate argument bounds before retaining its
 complete string,
-reject nonempty or malformed reasoning content at item addition, retain
+reject nonempty or malformed reasoning content at item addition, reject every
+reasoning item and delta when the captured effort is off, retain
 `response.completed` as provisional until clean EOF,
 compare its provider-ordered output with every completed item, and regress
 missing, malformed, contradictory, reordered, and trailing-frame cases before

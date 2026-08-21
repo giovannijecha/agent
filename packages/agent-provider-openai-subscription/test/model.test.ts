@@ -1405,3 +1405,110 @@ test("enforces function-call retention bounds at argument completion", async () 
     assert.equal(stream.readCalls, expectedReads);
   }
 });
+
+test("rejects provider reasoning when thinking effort is off", async () => {
+  const created = event("response.created", { response: response("in_progress") });
+  const added = event("response.output_item.added", { item: {
+    content: [],
+    id: "reasoning-alpha",
+    status: "in_progress",
+    summary: [],
+    type: "reasoning",
+  }, output_index: 0 });
+  const completedSummary = Object.freeze({
+    content: Object.freeze([]),
+    id: "reasoning-alpha",
+    status: "completed",
+    summary: Object.freeze([Object.freeze({ type: "summary_text", text: "Hidden." })]),
+    type: "reasoning",
+  });
+  const summary = created + added +
+    event("response.reasoning_summary_part.added", {
+      item_id: "reasoning-alpha",
+      output_index: 0,
+      part: { type: "summary_text", text: "" },
+      summary_index: 0,
+    }) +
+    event("response.reasoning_summary_text.delta", {
+      delta: "Hidden.",
+      item_id: "reasoning-alpha",
+      output_index: 0,
+      summary_index: 0,
+    }) +
+    event("response.reasoning_summary_text.done", {
+      item_id: "reasoning-alpha",
+      output_index: 0,
+      summary_index: 0,
+      text: "Hidden.",
+    }) +
+    event("response.reasoning_summary_part.done", {
+      item_id: "reasoning-alpha",
+      output_index: 0,
+      part: { type: "summary_text", text: "Hidden." },
+      summary_index: 0,
+    }) +
+    event("response.output_item.done", { item: completedSummary, output_index: 0 }) +
+    event("response.completed", {
+      response: response("completed", Object.freeze([completedSummary])),
+    });
+  const completedContent = Object.freeze({
+    content: Object.freeze([Object.freeze({ type: "reasoning_text", text: "Hidden." })]),
+    id: "reasoning-alpha",
+    status: "completed",
+    summary: Object.freeze([]),
+    type: "reasoning",
+  });
+  const content = created + added +
+    event("response.content_part.added", {
+      content_index: 0,
+      item_id: "reasoning-alpha",
+      output_index: 0,
+      part: { type: "reasoning_text", text: "" },
+    }) +
+    event("response.reasoning_text.delta", {
+      content_index: 0,
+      delta: "Hidden.",
+      item_id: "reasoning-alpha",
+      output_index: 0,
+    }) +
+    event("response.reasoning_text.done", {
+      content_index: 0,
+      item_id: "reasoning-alpha",
+      output_index: 0,
+      text: "Hidden.",
+    }) +
+    event("response.content_part.done", {
+      content_index: 0,
+      item_id: "reasoning-alpha",
+      output_index: 0,
+      part: { type: "reasoning_text", text: "Hidden." },
+    }) +
+    event("response.output_item.done", { item: completedContent, output_index: 0 }) +
+    event("response.completed", {
+      response: response("completed", Object.freeze([completedContent])),
+    });
+  for (const wire of [summary, content]) {
+    const model = OpenAISubscriptionModel.create(
+      new FakeTransport(ok(new FakeStream([ok(ascii(wire)), ok(null)]))),
+      "Inspect safely.",
+      MODEL,
+    );
+    assert.ok(model.ok);
+    const opened = await model.value.open(
+      conversation(),
+      new Cancellation(),
+      [],
+      Object.freeze({ thinkingEffort: "off" as const }),
+    );
+    assert.ok(opened.ok);
+    assert.deepEqual(await opened.value.read(), {
+      error: {
+        cleanupFailed: false,
+        kind: "openaiSubscription",
+        operation: "read",
+        reason: "protocolMessage",
+      },
+      ok: false,
+    });
+  }
+});

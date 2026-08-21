@@ -520,15 +520,14 @@ export class OpenAIResponsesDecoder {
       return this.#reject("protocolMessage");
     }
     if (reasoning) {
+      if (!this.#exposeReasoning) return this.#reject("protocolMessage");
       this.#reasoningCodeUnits += value.length;
       if (this.#reasoningCodeUnits > OPENAI_PROVIDER_LIMITS.reasoningCodeUnits) {
         return this.#reject("limit");
       }
       if (summary) state.summaryText += value;
       else state.contentText += value;
-      return this.#exposeReasoning
-        ? ok(Object.freeze([Object.freeze({ kind: "reasoningDelta" as const, text: value })]))
-        : ok(Object.freeze([]));
+      return ok(Object.freeze([Object.freeze({ kind: "reasoningDelta" as const, text: value })]));
     }
     this.#answerStarted = true;
     state.contentText += value;
@@ -558,7 +557,8 @@ export class OpenAIResponsesDecoder {
       (parsed.item.role !== "assistant" || !Array.isArray(parsed.item.content) ||
         parsed.item.content.length !== 0)) return this.#reject("protocolMessage");
     if (parsed.item.type === "reasoning" &&
-      (!Array.isArray(parsed.item.summary) || parsed.item.summary.length !== 0 ||
+      (!this.#exposeReasoning || !Array.isArray(parsed.item.summary) ||
+        parsed.item.summary.length !== 0 ||
         (parsed.item.content !== undefined &&
           (!Array.isArray(parsed.item.content) || parsed.item.content.length !== 0)) ||
         parsed.item.encrypted_content !== undefined)) return this.#reject("protocolMessage");
