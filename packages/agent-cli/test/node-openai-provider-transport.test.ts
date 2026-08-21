@@ -874,6 +874,42 @@ test("contains asynchronous response wiring failures and rolls back listeners", 
   }
 });
 
+test("stages synchronous catalog completion until resume succeeds", async () => {
+  const body = ascii('{"models":[]}');
+  for (const resumeFails of [false, true]) {
+    const response = new FakeResponse();
+    const client = new FakeClient(response);
+    client.deferResponses = true;
+    const pending = create(client).catalog(new Cancellation());
+    Object.defineProperty(response, "resume", {
+      value: () => {
+        response.emit("data", body);
+        response.emit("end");
+        if (resumeFails) throw new Error("private resume failure after catalog end");
+        return response;
+      },
+    });
+    client.flushResponse();
+    assert.deepEqual(await pending, resumeFails
+      ? {
+          error: { cleanupFailed: false, kind: "protocol" },
+          ok: false,
+        }
+      : {
+          ok: true,
+          value: {
+            body,
+            cleanupFailed: false,
+            contentType: "application/json",
+            statusCode: 200,
+          },
+        });
+    assert.equal(response.listenerCount(), 0);
+    assert.equal(response.destroyed, resumeFails ? 1 : 0);
+    assert.equal(client.requests.at(0)?.destroyed, resumeFails ? 1 : 0);
+  }
+});
+
 test("stops catalog admission after a synchronous terminal registration event", async () => {
   const response = new FakeResponse();
   response.synchronousRegistrationEvent = "error";

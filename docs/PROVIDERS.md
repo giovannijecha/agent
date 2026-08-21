@@ -251,6 +251,10 @@ admission action. Catalog retains that callback's single settled result without
 registering later listeners or calling the initial `resume`; Responses refuses
 to publish the terminal stream and performs one paired request-response
 rollback as a content-free protocol failure.
+Catalog data and EOF emitted synchronously by its initial `resume` may prepare
+one bounded immutable capture, but that capture is published only after
+`resume` returns successfully. A throw or conflicting event discards it and
+performs paired request-response cleanup.
 After admission, read, data, EOF, failure, and close contain every flow-control
 and listener-detachment throw; teardown still attempts every detach and both
 idempotent destructions and combines cleanup failure without exposing a cause.

@@ -130,6 +130,10 @@ admission transaction. Failure rolls back partial registration, destroys both
 handles, and settles one content-free protocol result. Later catalog and stream
 flow control and listener detachment are individually contained so cleanup
 continues after one throw and its combined failure remains explicit.
+Catalog EOF produced synchronously by the initial `resume` may prepare one
+immutable bounded capture but cannot publish it until `resume` returns
+successfully. A throw, error, duplicate terminal event, or later data during
+that transaction discards the staged capture and performs paired cleanup.
 After every listener registration, the transaction tests whether that newly
 registered callback already terminalized the operation synchronously. Catalog
 admission stops before any later registration or initial `resume` and preserves
@@ -458,6 +462,9 @@ Red-green regression must prove:
 - synchronous terminal callbacks invoked by response-listener registration stop
   the remaining catalog admission actions, while Responses rejects the
   pre-publication stream and performs its paired rollback exactly once;
+- synchronous catalog data and EOF may stage one complete capture during the
+  initial `resume`; success publishes it only after `resume` returns, while a
+  later throw rejects protocol and destroys both handles;
 - reentrant response callbacks invoked by status or content-type access fail the
   claimed catalog or Responses operation before another metadata read, listener,
   or publication; a Responses stream candidate owns cleanup before listener

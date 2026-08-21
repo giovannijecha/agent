@@ -180,7 +180,9 @@ EOF, failure, settlement, or close before it can pause or retain bytes. A
 read stages one bounded synchronous `data` callback until `resume` succeeds,
 and rechecks terminal authority after callback-capable `pause` before observing
 the chunk. Both HTTPS and Node-free boundaries recheck again after untrusted
-chunk snapshotting and before publication or decode. A response callback
+chunk snapshotting and before publication or decode. Catalog completion emitted
+inside initial `resume` remains staged until that call succeeds; a throw forces
+paired cleanup instead of accepting the capture. A response callback
 delivered after request setup
 fails is destroyed under containment and cannot become new staged authority.
 Local removal uses native retirement and explicitly does not

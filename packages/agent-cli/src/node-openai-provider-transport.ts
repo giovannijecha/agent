@@ -541,6 +541,9 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
     let stagedResponse: HttpsResponse | undefined;
     let stagedResponseConflict = false;
     let stagedResponseCleanupFailed = false;
+    let catalogEndInProgress = false;
+    let catalogResumeInProgress = false;
+    let stagedCatalogCapture: OpenAICatalogCapture | undefined;
     const chunks: Uint8Array[] = [];
     let bytes = 0;
     return new Promise((resolve) => {
@@ -597,6 +600,7 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
       ): void => {
         if (settled || terminating) return;
         terminating = true;
+        stagedCatalogCapture = undefined;
         const detachCleanupFailed = detach();
         cancelDeadline();
         const cleanupFailed = destroy() || detachCleanupFailed || earlierCleanupFailed;
@@ -606,6 +610,11 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
       const onRequestError = (_cause: unknown): void => fail("connection");
       const onResponseError = (_cause: unknown): void => fail("connection");
       const onData = (chunk: Uint8Array): void => {
+        if (settled || terminating) return;
+        if (catalogEndInProgress) {
+          fail("protocol");
+          return;
+        }
         const owned = snapshotChunk(chunk);
         if (owned === undefined ||
           bytes + owned.length > OPENAI_PROVIDER_LIMITS.catalogBodyBytes) {
@@ -616,6 +625,9 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
         chunks.push(owned);
       };
       const onEnd = (): void => {
+        if (settled || terminating) return;
+        if (catalogEndInProgress) return fail("protocol");
+        catalogEndInProgress = true;
         const metadata = activeMetadata;
         if (activeResponse === undefined || metadata === undefined) return fail("protocol");
         const body = new Uint8Array(bytes);
@@ -625,13 +637,19 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
           offset += chunk.length;
         }
         const cleanupFailed = detach();
+        if (settled || terminating) return;
         if (cleanupFailed) return fail("protocol", true);
-        settle(ok(Object.freeze({
+        const capture = Object.freeze({
           body,
           cleanupFailed: false,
           contentType: metadata.contentType,
           statusCode: metadata.statusCode,
-        })));
+        });
+        if (catalogResumeInProgress) {
+          stagedCatalogCapture = capture;
+          return;
+        }
+        settle(ok(capture));
       };
       const acceptResponse = (response: HttpsResponse): void => {
         if (settled) {
@@ -678,10 +696,19 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
           if (settled || terminating) return;
           response.on("end", onEnd);
           if (settled || terminating) return;
+          catalogResumeInProgress = true;
           response.resume();
         } catch (_cause: unknown) {
+          catalogResumeInProgress = false;
+          stagedCatalogCapture = undefined;
           fail("protocol");
+          return;
         }
+        catalogResumeInProgress = false;
+        const capture = stagedCatalogCapture;
+        stagedCatalogCapture = undefined;
+        if (settled || terminating) return;
+        if (capture !== undefined) settle(ok(capture));
       };
       const receiveResponse = (response: HttpsResponse): void => {
         if (requestPrepared) {

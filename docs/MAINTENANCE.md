@@ -606,7 +606,11 @@ first listener registration, then reject the pre-publication stream, detach all
 possible listeners, destroy the retained request and response exactly once, and
 report protocol. Regress catalog error, Responses aborted and EOF registration
 callbacks, and a listener that re-enters the response callback separately. For
-an admitted stream, contain later `pause`, `resume`, and every individual
+catalog initial-resume changes, emit data and EOF synchronously before returning;
+the bounded capture may publish only after a successful return. Repeat with a
+throw after EOF and require protocol failure, listener detachment, and paired
+request-response destruction.
+For an admitted stream, contain later `pause`, `resume`, and every individual
 listener detach across read, data, EOF, failure, and close; attempt the remaining
 cleanup after any one cleanup throw and combine the result without exposing its
 cause.

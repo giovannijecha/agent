@@ -247,7 +247,9 @@ released queue. Data emitted synchronously by `resume` remains in one bounded
 stage until flow control succeeds, and a terminal callback raised by `pause`
 prevents the chunk from being observed or retained. Terminal state is checked
 again after every untrusted chunk snapshot, so accessor-triggered EOF, failure,
-or close cannot publish bytes, decode content, or repopulate released state.
+or close cannot publish bytes, decode content, or repopulate released state. A
+catalog capture completed synchronously inside initial `resume` likewise remains
+private until that call succeeds and is released if the flow-control call fails.
 The compatibility flow identifies the caller as `agent` or omits the caller
 field, discloses that it is independent and not provider-endorsed, and never
 imports a foreign credential or browser session.
