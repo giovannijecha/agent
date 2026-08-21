@@ -100,7 +100,10 @@ deadline, a 16,384-byte response-header bound, a 65,536-byte chunk bound, and a
 `application/json` with an optional UTF-8 charset reach the decoder.
 The adapter reads each transport-capture body, cleanup flag, content type, and
 status property exactly once, validates those local snapshots, and copies only
-the same bounded body snapshot into the immutable capture.
+the same bounded body snapshot into a fresh `Uint8Array` with typed-array `set`;
+the source's overridable iterator is never consulted. Catalog list also reads
+`CancellationSignal.requested` once inside containment, requires a boolean, and
+rejects malformed state before invoking the transport.
 
 The decoder accepts one JSON object containing one `models` array with 1
 through 256 entries. Every entry is a bounded object with required `slug`,
@@ -305,7 +308,8 @@ Red-green regression must prove:
 - the catalog sends the exact method, origin, path, query, headers, deadlines,
   and no body, and rejects redirect, status, content-type, encoding, size,
   schema, duplicate, and eligibility drift while retaining only once-read
-  validated capture fields;
+  validated capture fields, ignoring an overridden body iterator, and refusing
+  non-boolean cancellation state before transport;
 - the request encoder preserves ordered messages, tool calls and outputs,
   provider call IDs, exact tool schemas including owned string and aggregate-
   text annotations, thinking mapping, `store: false`, `stream: true`, and the

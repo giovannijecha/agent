@@ -197,7 +197,10 @@ Every rejected catalog response also destroys both its request and response and
 combines cleanup failure from either handle before publishing its empty capture.
 The catalog adapter reads every returned capture property once, validates those
 local snapshots, and copies only the same bounded body snapshot; an accessor or
-proxy cannot replace validated metadata or bytes through a later read.
+proxy cannot replace validated metadata or bytes through a later read. The copy
+uses a fresh typed-array destination without consulting the source iterator.
+Catalog cancellation likewise snapshots `requested` once, requires a boolean,
+and rejects malformed state before transport.
 After a transport reports a successful stream open, the adapter retains valid
 close authority first and closes through it if any other stream property is
 malformed; the protocol failure records whether that cleanup failed.

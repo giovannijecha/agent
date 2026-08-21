@@ -556,9 +556,11 @@ values. Regress accessor-backed values that change across reads and accessor or
 proxy failures; never validate one value and retain another.
 For catalog capture changes, read body, cleanup flag, content type, and status
 exactly once, validate those local snapshots, and copy only the same bounded
-body. For catalog rejection changes, retain the content-type snapshot, detach
-owned listeners, destroy both request and response, and combine either cleanup
-failure before publishing the empty capture.
+body into a fresh typed array without consulting the source iterator. Snapshot
+catalog cancellation once, require a boolean, and reject malformed state before
+transport. For catalog rejection changes, retain the content-type snapshot,
+detach owned listeners, destroy both request and response, and combine either
+cleanup failure before publishing the empty capture.
 For successful transport-open validation, snapshot valid close authority first,
 read each remaining stream property once, and invoke the retained close before
 rejecting malformed metadata or read authority. Preserve cleanup failure without

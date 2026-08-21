@@ -72,6 +72,7 @@ class FakeStream implements OpenAITransportStream {
 class FakeTransport implements OpenAIProviderTransport {
   readonly #capture: Result<OpenAICatalogCapture, OpenAITransportError>;
   readonly #stream: Result<OpenAITransportStream, OpenAITransportError>;
+  catalogCalls = 0;
   request: OpenAITransportRequest | undefined;
 
   constructor(
@@ -90,6 +91,7 @@ class FakeTransport implements OpenAIProviderTransport {
   catalog(
     _cancellation: CancellationSignal,
   ): Promise<Result<OpenAICatalogCapture, OpenAITransportError>> {
+    this.catalogCalls += 1;
     return Promise.resolve(this.#capture);
   }
 
@@ -417,6 +419,55 @@ test("snapshots each catalog capture field exactly once", async () => {
     { bodyReads, cleanupReads, contentTypeReads, statusReads },
     { bodyReads: 1, cleanupReads: 1, contentTypeReads: 1, statusReads: 1 },
   );
+});
+
+test("copies catalog bytes without consulting an overridden iterator", async () => {
+  const body = ascii(JSON.stringify({ models: [
+    { slug: MODEL, visibility: "list", supported_in_api: true },
+  ] }));
+  const replacement = ascii(JSON.stringify({ models: [
+    { slug: "model-replaced", visibility: "list", supported_in_api: true },
+  ] }));
+  let iteratorCalls = 0;
+  Object.defineProperty(body, Symbol.iterator, {
+    value: () => {
+      iteratorCalls += 1;
+      return replacement.values();
+    },
+  });
+  const transport = new FakeTransport(ok(new FakeStream([])), ok(Object.freeze({
+    body,
+    cleanupFailed: false,
+    contentType: "application/json",
+    statusCode: 200,
+  })));
+  const catalog = OpenAIModelCatalog.create(transport);
+  assert.ok(catalog.ok);
+  assert.deepEqual(await catalog.value.list(new Cancellation()), {
+    ok: true,
+    value: [MODEL],
+  });
+  assert.equal(iteratorCalls, 0);
+});
+
+test("rejects a non-boolean catalog cancellation snapshot", async () => {
+  const cancellation = Object.freeze({
+    requested: 0,
+    whenRequested: () => new Promise<void>(() => undefined),
+  }) as unknown as CancellationSignal;
+  const transport = new FakeTransport(ok(new FakeStream([])));
+  const catalog = OpenAIModelCatalog.create(transport);
+  assert.ok(catalog.ok);
+  assert.deepEqual(await catalog.value.list(cancellation), {
+    error: {
+      cleanupFailed: false,
+      kind: "openaiSubscription",
+      operation: "catalog",
+      reason: "protocol",
+    },
+    ok: false,
+  });
+  assert.equal(transport.catalogCalls, 0);
 });
 
 test("preserves a catalog transport reason when cleanup also fails", async () => {

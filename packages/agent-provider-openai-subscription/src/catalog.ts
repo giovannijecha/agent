@@ -85,16 +85,20 @@ function snapshotCapture(value: unknown): OpenAICatalogCapture | undefined {
     const cleanupFailed = value.cleanupFailed;
     const contentType = value.contentType;
     const statusCode = value.statusCode;
-    if (!(body instanceof Uint8Array) ||
-      body.length > OPENAI_PROVIDER_LIMITS.catalogBodyBytes ||
+    if (!(body instanceof Uint8Array)) return undefined;
+    const bodyLength = body.length;
+    if (!Number.isSafeInteger(bodyLength) || bodyLength < 0 ||
+      bodyLength > OPENAI_PROVIDER_LIMITS.catalogBodyBytes ||
       typeof cleanupFailed !== "boolean" ||
       (contentType !== undefined && typeof contentType !== "string") ||
       typeof statusCode !== "number" || !Number.isSafeInteger(statusCode) ||
       statusCode < 100 || statusCode > 599) {
       return undefined;
     }
+    const bodySnapshot = new Uint8Array(bodyLength);
+    bodySnapshot.set(body);
     return Object.freeze({
-      body: Uint8Array.from(body),
+      body: bodySnapshot,
       cleanupFailed,
       contentType,
       statusCode,
@@ -175,7 +179,9 @@ export class OpenAIModelCatalog {
   ): Promise<Result<readonly OpenAIModelId[], OpenAIError>> {
     let requested: boolean;
     try {
-      requested = cancellation.requested;
+      const candidate = cancellation.requested;
+      if (typeof candidate !== "boolean") return err(failure("protocol"));
+      requested = candidate;
     } catch (_cause: unknown) {
       return err(failure("protocol"));
     }
