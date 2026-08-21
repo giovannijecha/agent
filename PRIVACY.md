@@ -240,7 +240,10 @@ The inactive Responses model stream nevertheless applies the runtime privacy
 contract under offline injection: close releases queued output, completion,
 decoded item and text state, SSE fragments, and partial UTF-8 before it awaits
 transport cleanup. A pending read cannot decode bytes returned after close, so
-the closed stream retains no partial provider response.
+the closed stream retains no partial provider response. The HTTPS stream also
+ignores a retained `data` callback before flow control or copying once EOF,
+failure, settlement, or close is authoritative; late bytes cannot repopulate its
+released queue.
 The compatibility flow identifies the caller as `agent` or omits the caller
 field, discloses that it is independent and not provider-endorsed, and never
 imports a foreign credential or browser session.

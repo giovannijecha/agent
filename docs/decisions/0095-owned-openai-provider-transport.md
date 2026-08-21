@@ -261,6 +261,9 @@ A conflict or failure in either step rolls back partial registration and pairs
 response destruction with request destruction exactly once. Once published,
 every `pause`, `resume`, and listener detach is contained across read, data,
 EOF, failure, and close, without skipping any remaining cleanup operation.
+A retained `data` listener invoked after EOF, failure, terminal settlement, or
+close is inert before flow control, byte copying, pending-read settlement, or
+queue retention. It cannot replace EOF or repopulate a released stream.
 Both the Node transport and Node-free Responses adapter snapshot each chunk's
 length, require 1 through 65,536 bytes, and copy into a fresh `Uint8Array` with
 typed-array `set` before UTF-8 decoding. No source iterator participates in the
@@ -433,6 +436,9 @@ Red-green regression must prove:
   back partial listener wiring and contain initial flow-control throws, while
   admitted stream read, data, EOF, failure, and close contain later flow-control
   and detach throws with paired cleanup;
+- a retained Responses `data` callback invoked after EOF or close performs no
+  flow control, copying, read settlement, or queue retention, so EOF remains
+  authoritative and cleanup cannot be repopulated;
 - synchronous terminal callbacks invoked by response-listener registration stop
   the remaining catalog admission actions, while Responses rejects the
   pre-publication stream and performs its paired rollback exactly once;

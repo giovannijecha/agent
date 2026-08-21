@@ -610,6 +610,10 @@ an admitted stream, contain later `pause`, `resume`, and every individual
 listener detach across read, data, EOF, failure, and close; attempt the remaining
 cleanup after any one cleanup throw and combine the result without exposing its
 cause.
+Retain a registered `data` listener in the response double and invoke it directly
+after EOF and after close. It must return before `pause`, chunk snapshot,
+pending-read settlement, or queue retention; never rely on a cooperative emitter
+honoring listener detachment.
 For successful transport-open validation, snapshot valid close authority first,
 read each remaining stream property once, and invoke the retained close before
 rejecting malformed metadata or read authority. Preserve cleanup failure without

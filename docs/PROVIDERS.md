@@ -254,6 +254,9 @@ rollback as a content-free protocol failure.
 After admission, read, data, EOF, failure, and close contain every flow-control
 and listener-detachment throw; teardown still attempts every detach and both
 idempotent destructions and combines cleanup failure without exposing a cause.
+A retained Responses `data` listener invoked after EOF, failure, settlement, or
+close returns before flow control or byte retention and cannot satisfy a pending
+read or repopulate the closed stream.
 The catalog adapter reads every returned capture property once, validates those
 local snapshots, and copies only the same bounded body snapshot; an accessor or
 proxy cannot replace validated metadata or bytes through a later read. The copy

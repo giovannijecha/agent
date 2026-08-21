@@ -70,6 +70,10 @@ class FakeResponse implements IncomingMessage {
       0,
     );
   }
+
+  retainedListener(event: string): Listener | undefined {
+    return this.#listeners.get(event)?.at(0);
+  }
 }
 
 class FakeRequest implements ClientRequest {
@@ -653,6 +657,43 @@ test("fails a duplicate Responses callback before EOF delivery settles", async (
     assert.equal(duplicate.destroyed, 1);
     assert.equal(response.destroyed, 1);
     assert.equal(client.requests.at(0)?.destroyed, 1);
+  }
+});
+
+test("ignores retained data callbacks after Responses termination", async () => {
+  {
+    const response = new FakeResponse(200, "text/event-stream");
+    const opened = await create(new FakeClient(response)).open(
+      Object.freeze({ body: "{}" }),
+      new Cancellation(),
+    );
+    assert.ok(opened.ok);
+    const lateData = response.retainedListener("data");
+    assert.ok(lateData !== undefined);
+    const pending = opened.value.read();
+    response.emit("end");
+    const pauses = response.pauses;
+    lateData(ascii("late after end"));
+    assert.deepEqual(await pending, { ok: true, value: null });
+    assert.equal(response.pauses, pauses);
+  }
+  {
+    const response = new FakeResponse(200, "text/event-stream");
+    const opened = await create(new FakeClient(response)).open(
+      Object.freeze({ body: "{}" }),
+      new Cancellation(),
+    );
+    assert.ok(opened.ok);
+    const lateData = response.retainedListener("data");
+    assert.ok(lateData !== undefined);
+    assert.deepEqual(await opened.value.close(), { ok: true, value: undefined });
+    const pauses = response.pauses;
+    lateData(ascii("late after close"));
+    assert.equal(response.pauses, pauses);
+    assert.deepEqual(await opened.value.read(), {
+      error: { cleanupFailed: false, kind: "closed" },
+      ok: false,
+    });
   }
 });
 

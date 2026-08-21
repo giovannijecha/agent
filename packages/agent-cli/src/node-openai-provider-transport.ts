@@ -296,6 +296,7 @@ class NodeOpenAIStream implements OpenAITransportStream {
   readonly #onError = (_cause: unknown): void => this.#fail("connection");
 
   readonly #onData = (chunk: Uint8Array): void => {
+    if (this.#admissionTerminated()) return;
     try {
       this.#response.pause();
     } catch (_cause: unknown) {
