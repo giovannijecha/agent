@@ -231,11 +231,13 @@ tests to change together. Every provider-specific protocol change requires new
 dated official research and, when reference source is necessary, a new
 pre-inspection gap entry before source access.
 
-Before any runtime activation, rollback removes this decision, its machine
-compatibility rule and tests, the OpenAI compatible-inactive state, the new
-provenance rows, and its documentation routes; it restores decisions 0003,
-0011, and 0090 as the complete identity gates and leaves Ollama credentials and
-runtime untouched.
+Before any runtime activation, rollback requires a successor decision that
+marks this record superseded, removes its current-authority route, machine
+compatibility rule and tests, OpenAI compatible-inactive state, and living
+documentation routes, and restores decisions 0003, 0011, and 0090 as the
+complete current identity gates. It retains this decision and both completed
+provenance rows as immutable design and clean-room audit history, and leaves
+Ollama credentials and runtime untouched.
 
 After a future provider activation, rollback first disables new login and
 refresh, closes every admission, preserves an explicit local removal path,

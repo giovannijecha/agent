@@ -383,6 +383,7 @@ test("binds provider-owned public-client compatibility without activating runtim
     /partially supersedes decision 0003's/u,
     /Kimi subscription\s+OAuth remains technically implemented/u,
     /xAI public-client ownership remains unresolved/u,
+    /retains this decision and both completed\s+provenance rows as immutable design and clean-room audit history/u,
   ]) {
     assert.match(context.files[decision], marker);
   }
