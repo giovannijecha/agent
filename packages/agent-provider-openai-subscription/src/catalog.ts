@@ -14,9 +14,9 @@ import { Utf8Decoder } from "./utf8.js";
 
 type CatalogOperation = OpenAIProviderTransport["catalog"];
 
-function failure(reason: OpenAIFailureReason): OpenAIError {
+function failure(reason: OpenAIFailureReason, cleanupFailed = false): OpenAIError {
   return Object.freeze({
-    cleanupFailed: false,
+    cleanupFailed,
     kind: "openaiSubscription" as const,
     operation: "catalog" as const,
     reason,
@@ -37,8 +37,12 @@ function transportResult<T>(value: unknown): Result<T, OpenAITransportError> | u
   try {
     if (!isRecord(value)) return undefined;
     if (value.ok === true) return ok(value.value as T);
-    if (value.ok === false && isRecord(value.error) && transportKind(value.error.kind)) {
-      return err(Object.freeze({ kind: value.error.kind }));
+    if (value.ok === false && isRecord(value.error) &&
+      typeof value.error.cleanupFailed === "boolean" && transportKind(value.error.kind)) {
+      return err(Object.freeze({
+        cleanupFailed: value.error.cleanupFailed,
+        kind: value.error.kind,
+      }));
     }
     return undefined;
   } catch (_cause: unknown) {
@@ -78,6 +82,7 @@ function snapshotCapture(value: unknown): OpenAICatalogCapture | undefined {
   try {
     if (!isRecord(value) || !(value.body instanceof Uint8Array) ||
       value.body.length > OPENAI_PROVIDER_LIMITS.catalogBodyBytes ||
+      typeof value.cleanupFailed !== "boolean" ||
       (value.contentType !== undefined && typeof value.contentType !== "string") ||
       !Number.isSafeInteger(value.statusCode) ||
       (value.statusCode as number) < 100 || (value.statusCode as number) > 599) {
@@ -85,6 +90,7 @@ function snapshotCapture(value: unknown): OpenAICatalogCapture | undefined {
     }
     return Object.freeze({
       body: Uint8Array.from(value.body),
+      cleanupFailed: value.cleanupFailed,
       contentType: value.contentType as string | undefined,
       statusCode: value.statusCode as number,
     });
@@ -176,11 +182,23 @@ export class OpenAIModelCatalog {
       received = undefined;
     }
     if (received === undefined) return err(failure("transportProtocol"));
-    if (!received.ok) return err(failure(transportReason(received.error.kind)));
+    if (!received.ok) {
+      return err(failure(
+        transportReason(received.error.kind),
+        received.error.cleanupFailed,
+      ));
+    }
     const capture = snapshotCapture(received.value);
     if (capture === undefined) return err(failure("transportProtocol"));
-    if (capture.statusCode !== 200) return err(failure(statusReason(capture.statusCode)));
-    if (!validContentType(capture.contentType)) return err(failure("contentType"));
-    return decodeOpenAIModelCatalog(capture.body);
+    if (capture.statusCode !== 200) {
+      return err(failure(statusReason(capture.statusCode), capture.cleanupFailed));
+    }
+    if (!validContentType(capture.contentType)) {
+      return err(failure("contentType", capture.cleanupFailed));
+    }
+    const decoded = decodeOpenAIModelCatalog(capture.body);
+    return decoded.ok || !capture.cleanupFailed
+      ? decoded
+      : err(failure(decoded.error.reason, true));
   }
 }

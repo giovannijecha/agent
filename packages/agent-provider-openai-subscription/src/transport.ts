@@ -10,11 +10,15 @@ export type OpenAITransportErrorKind =
   | "protocol"
   | "timeout";
 
-export type OpenAITransportError = Readonly<{ kind: OpenAITransportErrorKind }>;
+export type OpenAITransportError = Readonly<{
+  cleanupFailed: boolean;
+  kind: OpenAITransportErrorKind;
+}>;
 export type OpenAITransportRequest = Readonly<{ body: string }>;
 
 export type OpenAICatalogCapture = Readonly<{
   body: Uint8Array;
+  cleanupFailed: boolean;
   contentType: string | undefined;
   statusCode: number;
 }>;

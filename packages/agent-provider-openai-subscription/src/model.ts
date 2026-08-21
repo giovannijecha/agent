@@ -71,7 +71,12 @@ function transportResult<T>(value: unknown): Result<T, OpenAITransportError> | u
     if (candidate.ok === false && candidate.error !== null &&
       typeof candidate.error === "object") {
       const kind = (candidate.error as Readonly<{ kind?: unknown }>).kind;
-      return validTransportErrorKind(kind) ? err(Object.freeze({ kind })) : undefined;
+      const cleanupFailed = (candidate.error as Readonly<{
+        cleanupFailed?: unknown;
+      }>).cleanupFailed;
+      return validTransportErrorKind(kind) && typeof cleanupFailed === "boolean"
+        ? err(Object.freeze({ cleanupFailed, kind }))
+        : undefined;
     }
     return undefined;
   } catch (_cause: unknown) {
@@ -181,7 +186,11 @@ class OpenAIStream implements ModelStream<OpenAIError> {
       if (closed === undefined) return err(modelError("close", "transportProtocol"));
       return closed.ok
         ? ok(undefined)
-        : err(modelError("close", transportReason(closed.error.kind)));
+        : err(modelError(
+            "close",
+            transportReason(closed.error.kind),
+            closed.error.cleanupFailed,
+          ));
     } catch (_cause: unknown) {
       return err(modelError("close", "transportProtocol"));
     }
@@ -218,7 +227,12 @@ class OpenAIStream implements ModelStream<OpenAIError> {
           received = undefined;
         }
         if (received === undefined) return this.#fail("transportProtocol");
-        if (!received.ok) return this.#fail(transportReason(received.error.kind));
+        if (!received.ok) {
+          return this.#fail(
+            transportReason(received.error.kind),
+            received.error.cleanupFailed,
+          );
+        }
         if (received.value === null) {
           const tail = this.#utf8.finish();
           if (!tail.ok) return this.#fail("encoding");
@@ -247,9 +261,12 @@ class OpenAIStream implements ModelStream<OpenAIError> {
     }
   }
 
-  #fail(reason: OpenAIFailureReason): Result<ModelStreamEvent, OpenAIError> {
+  #fail(
+    reason: OpenAIFailureReason,
+    cleanupFailed = false,
+  ): Result<ModelStreamEvent, OpenAIError> {
     this.#failed = true;
-    return err(modelError("read", reason));
+    return err(modelError("read", reason, cleanupFailed));
   }
 }
 
@@ -332,7 +349,13 @@ export class OpenAISubscriptionModel implements StreamingModel<OpenAIError> {
       opened = undefined;
     }
     if (opened === undefined) return err(modelError("open", "transportProtocol"));
-    if (!opened.ok) return err(modelError("open", transportReason(opened.error.kind)));
+    if (!opened.ok) {
+      return err(modelError(
+        "open",
+        transportReason(opened.error.kind),
+        opened.error.cleanupFailed,
+      ));
+    }
     const stream = snapshotTransportStream(opened.value);
     if (stream === undefined) return err(modelError("open", "transportProtocol"));
     if (stream.statusCode !== 200) {

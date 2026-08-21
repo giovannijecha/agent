@@ -57,8 +57,11 @@ export interface HttpsClient {
 
 const NODE_HTTPS_CLIENT: HttpsClient = Object.freeze({ request: nodeHttpsRequest });
 
-function failure(kind: OpenAITransportErrorKind): OpenAITransportError {
-  return Object.freeze({ kind });
+function failure(
+  kind: OpenAITransportErrorKind,
+  cleanupFailed = false,
+): OpenAITransportError {
+  return Object.freeze({ cleanupFailed, kind });
 }
 
 function visibleAscii(value: unknown, maximum: number): value is string {
@@ -171,24 +174,24 @@ class NodeOpenAIStream implements OpenAITransportStream {
       this.#response.destroy();
       return Promise.resolve(ok(undefined));
     } catch (_cause: unknown) {
-      return Promise.resolve(err(failure("connection")));
+      return Promise.resolve(err(failure("connection", true)));
     }
   }
 
-  cancel(): void {
-    this.#fail("cancelled");
+  cancel(earlierCleanupFailed = false): void {
+    this.#fail("cancelled", earlierCleanupFailed);
   }
 
-  connection(): void {
-    this.#fail("connection");
+  connection(earlierCleanupFailed = false): void {
+    this.#fail("connection", earlierCleanupFailed);
   }
 
-  protocol(): void {
-    this.#fail("protocol");
+  protocol(earlierCleanupFailed = false): void {
+    this.#fail("protocol", earlierCleanupFailed);
   }
 
-  timeout(): void {
-    this.#fail("timeout");
+  timeout(earlierCleanupFailed = false): void {
+    this.#fail("timeout", earlierCleanupFailed);
   }
 
   readonly #onAborted = (): void => this.#fail("connection");
@@ -227,22 +230,23 @@ class NodeOpenAIStream implements OpenAITransportStream {
     }
   };
 
-  #fail(kind: OpenAITransportErrorKind): void {
+  #fail(kind: OpenAITransportErrorKind, earlierCleanupFailed = false): void {
     if (this.#closed || this.#ended || this.#failure !== undefined) return;
     this.#response.pause();
-    this.#failure = failure(kind);
     this.#queued = undefined;
     this.#detach();
     this.#settleTerminal();
+    let cleanupFailed = earlierCleanupFailed;
+    try {
+      this.#response.destroy();
+    } catch (_cause: unknown) {
+      cleanupFailed = true;
+    }
+    this.#failure = failure(kind, cleanupFailed);
     const pending = this.#pending;
     if (pending !== undefined) {
       this.#pending = undefined;
       pending(err(this.#failure));
-    }
-    try {
-      this.#response.destroy();
-    } catch (_cause: unknown) {
-      // The typed terminal failure remains authoritative.
     }
   }
 
@@ -377,14 +381,20 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
         cancelDeadline();
         resolve(result);
       };
-      const destroy = (): void => {
-        try { activeResponse?.destroy(); } catch (_cause: unknown) { activeResponse = undefined; }
-        try { activeRequest?.destroy(); } catch (_cause: unknown) { activeRequest = undefined; }
+      const destroy = (): boolean => {
+        let cleanupFailed = false;
+        try { activeResponse?.destroy(); } catch (_cause: unknown) { cleanupFailed = true; }
+        try { activeRequest?.destroy(); } catch (_cause: unknown) { cleanupFailed = true; }
+        activeResponse = undefined;
+        activeRequest = undefined;
+        return cleanupFailed;
       };
       const fail = (kind: OpenAITransportErrorKind): void => {
         if (settled) return;
-        settle(err(failure(kind)));
-        destroy();
+        detach();
+        cancelDeadline();
+        const cleanupFailed = destroy();
+        settle(err(failure(kind, cleanupFailed)));
       };
       const onAborted = (): void => fail("connection");
       const onRequestError = (_cause: unknown): void => fail("connection");
@@ -410,7 +420,12 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
           body.set(chunk, offset);
           offset += chunk.length;
         }
-        settle(ok(Object.freeze({ body, contentType: contentType(activeResponse), statusCode })));
+        settle(ok(Object.freeze({
+          body,
+          cleanupFailed: false,
+          contentType: contentType(activeResponse),
+          statusCode,
+        })));
       };
       let registration: ScheduledTimer;
       let arming = true;
@@ -444,17 +459,23 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
           const statusCode = response.statusCode;
           if (statusCode === undefined || !Number.isSafeInteger(statusCode) ||
             statusCode < 100 || statusCode > 599) return fail("protocol");
-          response.on("aborted", onAborted);
-          response.on("error", onResponseError);
           if (statusCode !== 200 || !validJsonContentType(contentType(response))) {
+            let cleanupFailed = false;
+            try {
+              response.destroy();
+            } catch (_cause: unknown) {
+              cleanupFailed = true;
+            }
             settle(ok(Object.freeze({
               body: new Uint8Array(),
+              cleanupFailed,
               contentType: contentType(response),
               statusCode,
             })));
-            response.destroy();
             return;
           }
+          response.on("aborted", onAborted);
+          response.on("error", onResponseError);
           response.on("data", onData);
           response.on("end", onEnd);
           response.resume();
@@ -487,6 +508,7 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
     let activeRequest: HttpsRequest | undefined;
     let activeStream: NodeOpenAIStream | undefined;
     let deadline: ScheduledTimer | undefined;
+    let terminating = false;
     return new Promise((resolve) => {
       const cancelDeadline = (): void => {
         const retained = deadline;
@@ -504,14 +526,23 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
         if (!result.ok) settleLifecycle();
         resolve(result);
       };
+      const destroyRequest = (): boolean => {
+        try {
+          activeRequest?.destroy();
+          return false;
+        } catch (_cause: unknown) {
+          return true;
+        }
+      };
       const terminate = (kind: OpenAITransportErrorKind): void => {
-        if (lifecycleSettled) return;
-        if (activeStream === undefined) settle(err(failure(kind)));
-        else if (kind === "cancelled") activeStream.cancel();
-        else if (kind === "timeout") activeStream.timeout();
-        else if (kind === "connection") activeStream.connection();
-        else activeStream.protocol();
-        try { activeRequest?.destroy(); } catch (_cause: unknown) { /* typed failure wins */ }
+        if (lifecycleSettled || terminating) return;
+        terminating = true;
+        const cleanupFailed = destroyRequest();
+        if (activeStream === undefined) settle(err(failure(kind, cleanupFailed)));
+        else if (kind === "cancelled") activeStream.cancel(cleanupFailed);
+        else if (kind === "timeout") activeStream.timeout(cleanupFailed);
+        else if (kind === "connection") activeStream.connection(cleanupFailed);
+        else activeStream.protocol(cleanupFailed);
       };
       let registration: ScheduledTimer;
       let arming = true;
@@ -544,8 +575,14 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
           const statusCode = response.statusCode;
           if (statusCode === undefined || !Number.isSafeInteger(statusCode) ||
             statusCode < 100 || statusCode > 599) {
-            settle(err(failure("protocol")));
-            response.destroy();
+            terminating = true;
+            let cleanupFailed = destroyRequest();
+            try {
+              response.destroy();
+            } catch (_cause: unknown) {
+              cleanupFailed = true;
+            }
+            settle(err(failure("protocol", cleanupFailed)));
             return;
           }
           activeStream = new NodeOpenAIStream(response, statusCode, settleLifecycle);
@@ -559,8 +596,7 @@ export class NodeOpenAIProviderTransport implements OpenAIProviderTransport {
         activeRequest.write(body);
         activeRequest.end();
       } catch (_cause: unknown) {
-        settle(err(failure("connection")));
-        try { activeRequest?.destroy(); } catch (_destroyCause: unknown) { /* inert */ }
+        terminate("connection");
       }
       let cancellationPromise: Promise<void>;
       try { cancellationPromise = Promise.resolve(whenRequested()); }

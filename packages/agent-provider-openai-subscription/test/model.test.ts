@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { Conversation, Message, Role, ok, type Result } from "@agent/core";
+import { Conversation, Message, Role, err, ok, type Result } from "@agent/core";
 import {
   decodeOpenAIModelCatalog,
   OpenAIModelCatalog,
@@ -75,6 +75,7 @@ class FakeTransport implements OpenAIProviderTransport {
     stream: Result<OpenAITransportStream, OpenAITransportError>,
     capture: Result<OpenAICatalogCapture, OpenAITransportError> = ok(Object.freeze({
       body: ascii('{"models":[{"slug":"model-alpha","visibility":"list","supported_in_api":true}]}'),
+      cleanupFailed: false,
       contentType: "application/json",
       statusCode: 200,
     })),
@@ -280,6 +281,7 @@ test("projects only eligible authenticated catalog rows in provider order", asyn
   });
   const transport = new FakeTransport(ok(new FakeStream([])), ok(Object.freeze({
     body,
+    cleanupFailed: false,
     contentType: "application/json; charset=utf-8",
     statusCode: 200,
   })));
@@ -288,6 +290,24 @@ test("projects only eligible authenticated catalog rows in provider order", asyn
   assert.deepEqual(await catalog.value.list(new Cancellation()), {
     ok: true,
     value: ["model-alpha", "model-beta"],
+  });
+});
+
+test("preserves a catalog transport reason when cleanup also fails", async () => {
+  const transport = new FakeTransport(
+    ok(new FakeStream([])),
+    err(Object.freeze({ cleanupFailed: true, kind: "timeout" as const })),
+  );
+  const catalog = OpenAIModelCatalog.create(transport);
+  assert.ok(catalog.ok);
+  assert.deepEqual(await catalog.value.list(new Cancellation()), {
+    error: {
+      cleanupFailed: true,
+      kind: "openaiSubscription",
+      operation: "catalog",
+      reason: "transportTimeout",
+    },
+    ok: false,
   });
 });
 

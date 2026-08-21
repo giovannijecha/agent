@@ -22,6 +22,7 @@ class FakeResponse implements IncomingMessage {
   readonly statusCode: number | undefined;
   readonly #listeners = new Map<string, Listener[]>();
   destroyed = 0;
+  destroyFailure = false;
   pauses = 0;
   resumes = 0;
 
@@ -30,7 +31,10 @@ class FakeResponse implements IncomingMessage {
     this.headers = Object.freeze({ "content-type": contentType });
   }
 
-  destroy(): void { this.destroyed += 1; }
+  destroy(): void {
+    this.destroyed += 1;
+    if (this.destroyFailure) throw new Error("private response cleanup failure");
+  }
   pause(): this { this.pauses += 1; return this; }
   resume(): this { this.resumes += 1; return this; }
 
@@ -57,13 +61,17 @@ class FakeRequest implements ClientRequest {
   readonly #listeners: ((cause: unknown) => void)[] = [];
   readonly #onEnd: () => void;
   destroyed = 0;
+  destroyFailure = false;
   ended = 0;
   timeoutMilliseconds: number | undefined;
   timeoutListener: (() => void) | undefined;
   writes: string[] = [];
 
   constructor(onEnd: () => void) { this.#onEnd = onEnd; }
-  destroy(): void { this.destroyed += 1; }
+  destroy(): void {
+    this.destroyed += 1;
+    if (this.destroyFailure) throw new Error("private request cleanup failure");
+  }
   end(): void { this.ended += 1; this.#onEnd(); }
   write(body: string): boolean { this.writes.push(body); return true; }
 
@@ -212,7 +220,7 @@ test("uses the exact fixed-origin Responses request and preserves its body", asy
   assert.equal(client.requests.at(0)?.timeoutMilliseconds, 120_000);
   const pending = opened.value.read();
   assert.deepEqual(await opened.value.read(), {
-    error: { kind: "concurrentRead" },
+    error: { cleanupFailed: false, kind: "concurrentRead" },
     ok: false,
   });
   response.emit("data", ascii("data: {}\n\n"));
@@ -231,9 +239,42 @@ test("cancellation destroys an already-open Responses stream", async () => {
   assert.ok(opened.ok);
   const pending = opened.value.read();
   cancellation.request();
-  assert.deepEqual(await pending, { error: { kind: "cancelled" }, ok: false });
+  assert.deepEqual(await pending, {
+    error: { cleanupFailed: false, kind: "cancelled" },
+    ok: false,
+  });
   assert.equal(response.destroyed, 1);
   assert.equal(client.requests.at(0)?.destroyed, 1);
+});
+
+test("reports Responses cleanup failure without replacing cancellation", async () => {
+  const response = new FakeResponse(200, "text/event-stream");
+  const client = new FakeClient(response);
+  const cancellation = new Cancellation();
+  const opened = await create(client).open(Object.freeze({ body: "{}" }), cancellation);
+  assert.ok(opened.ok);
+  const request = client.requests.at(0);
+  assert.ok(request !== undefined);
+  request.destroyFailure = true;
+  const pending = opened.value.read();
+  cancellation.request();
+  assert.deepEqual(await pending, {
+    error: { cleanupFailed: true, kind: "cancelled" },
+    ok: false,
+  });
+});
+
+test("reports failed-open response cleanup without replacing protocol failure", async () => {
+  const response = new FakeResponse(99, "text/event-stream");
+  response.destroyFailure = true;
+  const opened = await create(new FakeClient(response)).open(
+    Object.freeze({ body: "{}" }),
+    new Cancellation(),
+  );
+  assert.deepEqual(opened, {
+    error: { cleanupFailed: true, kind: "protocol" },
+    ok: false,
+  });
 });
 
 test("propagates a request failure after the Responses stream opens", async () => {
@@ -247,7 +288,10 @@ test("propagates a request failure after the Responses stream opens", async () =
   client.requests.at(0)?.emitError();
   await Promise.resolve();
   assert.equal(settled, true);
-  assert.deepEqual(await pending, { error: { kind: "connection" }, ok: false });
+  assert.deepEqual(await pending, {
+    error: { cleanupFailed: false, kind: "connection" },
+    ok: false,
+  });
   assert.equal(response.destroyed, 1);
 });
 
@@ -273,7 +317,10 @@ test("bounds catalog capture and response chunks before exposing bytes", async (
     "data",
     new Uint8Array(OPENAI_PROVIDER_TRANSPORT_LIMITS.responseChunkBytes + 1),
   );
-  assert.deepEqual(await pendingCatalog, { error: { kind: "limit" }, ok: false });
+  assert.deepEqual(await pendingCatalog, {
+    error: { cleanupFailed: false, kind: "limit" },
+    ok: false,
+  });
   assert.equal(catalogResponse.destroyed, 1);
 
   const response = new FakeResponse(200, "text/event-stream");
@@ -285,7 +332,43 @@ test("bounds catalog capture and response chunks before exposing bytes", async (
     "data",
     new Uint8Array(OPENAI_PROVIDER_TRANSPORT_LIMITS.responseChunkBytes + 1),
   );
-  assert.deepEqual(await pendingRead, { error: { kind: "limit" }, ok: false });
+  assert.deepEqual(await pendingRead, {
+    error: { cleanupFailed: false, kind: "limit" },
+    ok: false,
+  });
+});
+
+test("reports catalog cleanup failure without replacing the primary failure", async () => {
+  for (const target of ["request", "response"] as const) {
+    const response = new FakeResponse();
+    const client = new FakeClient(response);
+    const clock = new ManualClock();
+    const pending = create(client, clock).catalog(new Cancellation());
+    if (target === "request") {
+      const request = client.requests.at(0);
+      assert.ok(request !== undefined);
+      request.destroyFailure = true;
+    } else {
+      response.destroyFailure = true;
+    }
+    clock.registrations.at(0)?.fire();
+    assert.deepEqual(await pending, {
+      error: { cleanupFailed: true, kind: "timeout" },
+      ok: false,
+    });
+  }
+
+  const response = new FakeResponse(401);
+  response.destroyFailure = true;
+  assert.deepEqual(await create(new FakeClient(response)).catalog(new Cancellation()), {
+    ok: true,
+    value: {
+      body: new Uint8Array(),
+      cleanupFailed: true,
+      contentType: "application/json",
+      statusCode: 401,
+    },
+  });
 });
 
 test("rejects malformed credential snapshots and requests without network authority", async () => {
@@ -304,7 +387,7 @@ test("rejects malformed credential snapshots and requests without network author
   assert.equal(client.options.length, 0);
   const transport = create(client);
   assert.deepEqual(await transport.open(Object.freeze({ body: "" }), new Cancellation()), {
-    error: { kind: "protocol" },
+    error: { cleanupFailed: false, kind: "protocol" },
     ok: false,
   });
   assert.equal(client.options.length, 0);
