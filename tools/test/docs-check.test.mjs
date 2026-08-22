@@ -448,6 +448,47 @@ test("validates escaped reference destinations", () => {
   );
 });
 
+test("validates reference definitions inside block quotes", () => {
+  const context = currentContext();
+  context.files["README.md"] += [
+    "> [Missing][target]",
+    ">",
+    "> [target]: docs/missing.md",
+    "",
+  ].join("\n");
+  assert.throws(
+    () =>
+      validateDocumentation(context, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+});
+
+test("decodes Markdown escapes in local destinations", () => {
+  const context = currentContext();
+  context.files["README.md"] +=
+    "[Engineering](docs/ENGINEERING\\.md)\n";
+  validateDocumentation(context, {
+    expectedLicenseDigest: licenseDigest,
+  });
+});
+
+test("recognizes Setext heading anchors", () => {
+  const context = currentContext();
+  context.files["PRIVACY.md"] += [
+    "",
+    "Evaluation data",
+    "---------------",
+    "",
+  ].join("\n");
+  context.files["README.md"] +=
+    "[Evaluation](PRIVACY.md#evaluation-data)\n";
+  validateDocumentation(context, {
+    expectedLicenseDigest: licenseDigest,
+  });
+});
+
 test("validates links after deeply nested labels", () => {
   const context = currentContext();
   context.files["README.md"] += "[a [b [c]]](docs/missing.md)\n";

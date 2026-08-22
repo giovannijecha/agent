@@ -52,10 +52,14 @@ function isAuthorityDocument(file) {
 }
 
 function normalizeTarget(source, rawTarget) {
-  const separator = rawTarget.indexOf("#");
+  const renderedTarget = rawTarget.replaceAll(
+    /\\([!"#$%&'()*+,\-./:;<=>?@\[\\\]^_`{|}~])/gu,
+    "$1",
+  );
+  const separator = renderedTarget.indexOf("#");
   const beforeFragment = separator === -1
-    ? rawTarget
-    : rawTarget.slice(0, separator);
+    ? renderedTarget
+    : renderedTarget.slice(0, separator);
   const withoutQuery = beforeFragment.split("?", 1)[0];
   if (/^https:\/\//iu.test(withoutQuery)) {
     return undefined;
@@ -69,7 +73,7 @@ function normalizeTarget(source, rawTarget) {
     decodedPath = decodeURIComponent(withoutQuery);
     fragment = separator === -1
       ? undefined
-      : decodeURIComponent(rawTarget.slice(separator + 1));
+      : decodeURIComponent(renderedTarget.slice(separator + 1));
   } catch {
     fail("invalid local link in " + source);
   }
@@ -486,9 +490,10 @@ function inlineTargets(markdown) {
 }
 
 function referenceTarget(line) {
-  const indentation = indentationAt(line, 0, 0);
+  const quoted = blockQuoteContent(line);
+  const indentation = quoted.indentation;
   if (
-    indentation.column > 3 ||
+    indentation.column - quoted.contentColumn > 3 ||
     line.at(indentation.index) !== "["
   ) {
     return undefined;
@@ -684,11 +689,23 @@ function headingAnchors(text) {
   const markdown = renderedMarkdown(text);
   const anchors = new Set();
   const occurrences = new Map();
+  const headings = [];
   for (const match of markdown.matchAll(
     /^[ \t]{0,3}#{1,6}(?:[ \t]+(.*?))?[ \t]*$/gmu,
   )) {
     const heading = (match[1] ?? "").replace(/[ \t]+#+[ \t]*$/u, "");
-    const base = headingSlug(heading);
+    headings.push(Object.freeze({ index: match.index, text: heading }));
+  }
+  for (const match of markdown.matchAll(
+    /^[ \t]{0,3}(\S(?:.*?\S)?)[ \t]*\r?\n[ \t]{0,3}(?:=+|-+)[ \t]*\r?$/gmu,
+  )) {
+    if (!/^#{1,6}(?:[ \t]|$)/u.test(match.at(1))) {
+      headings.push(Object.freeze({ index: match.index, text: match.at(1) }));
+    }
+  }
+  headings.sort((left, right) => left.index - right.index);
+  for (const heading of headings) {
+    const base = headingSlug(heading.text);
     if (base.length === 0) {
       continue;
     }
