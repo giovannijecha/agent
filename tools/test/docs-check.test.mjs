@@ -240,7 +240,7 @@ test("rejects broken local links and decision-ledger references", () => {
   commentedHtml.files["README.md"] += [
     "<!--",
     '<img src="examples/not-a-real-file.png">',
-    "-->",
+    "--> [still inactive](docs/not-real.md)",
     "",
   ].join("\n");
   validateDocumentation(commentedHtml, {
@@ -259,6 +259,18 @@ test("rejects broken local links and decision-ledger references", () => {
         expectedLicenseDigest: licenseDigest,
       }),
     /fragment/u,
+  );
+
+  const inlineComment = currentContext();
+  inlineComment.files["README.md"] +=
+    "Text <!-- [inactive](docs/not-real.md) --> " +
+    "[active](docs/still-not-real.md)\n";
+  assert.throws(
+    () =>
+      validateDocumentation(inlineComment, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /docs\/still-not-real\.md/u,
   );
 
   const proseAnchor = currentContext();
@@ -427,6 +439,52 @@ test("ignores apparent HTML tags inside raw-text elements", () => {
   validateDocumentation(context, {
     expectedLicenseDigest: licenseDigest,
   });
+});
+
+test("ignores Markdown-like text inside every terminated raw HTML block", () => {
+  const context = currentContext();
+  context.files["README.md"] += [
+    "<?example",
+    "[instruction](docs/not-real.md)",
+    '<img src="docs/not-real.md">',
+    "?>",
+    "",
+    "<!EXAMPLE",
+    "[declaration](docs/not-real.md)",
+    '<img src="docs/not-real.md">',
+    ">",
+    "",
+    "<![CDATA[",
+    "[cdata](docs/not-real.md)",
+    '<img src="docs/not-real.md">',
+    "]]>",
+    "",
+    "<custom-element>",
+    "[generic](docs/not-real.md)",
+    "</custom-element>",
+    "",
+  ].join("\n");
+  validateDocumentation(context, {
+    expectedLicenseDigest: licenseDigest,
+  });
+});
+
+test("does not let a generic HTML tag interrupt a paragraph", () => {
+  const context = currentContext();
+  context.files["README.md"] += [
+    "Paragraph text",
+    "<custom-element>",
+    "[active](docs/not-real.md)",
+    "</custom-element>",
+    "",
+  ].join("\n");
+  assert.throws(
+    () =>
+      validateDocumentation(context, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
 });
 
 test("retains attributes on raw-text opening tags", () => {
@@ -700,6 +758,23 @@ test("derives heading anchors from rendered link labels", () => {
   ].join("\n");
   context.files["README.md"] +=
     "[Evaluation policy](PRIVACY.md#evaluation-and-policy)\n";
+  validateDocumentation(context, {
+    expectedLicenseDigest: licenseDigest,
+  });
+});
+
+test("preserves visible autolink text in heading anchors", () => {
+  const context = currentContext();
+  context.files["PRIVACY.md"] += [
+    "## <https://example.com>",
+    "## <maintainer@example.com>",
+    "",
+  ].join("\n");
+  context.files["README.md"] += [
+    "[URI](PRIVACY.md#httpsexamplecom)",
+    "[Email](PRIVACY.md#maintainerexamplecom)",
+    "",
+  ].join("\n");
   validateDocumentation(context, {
     expectedLicenseDigest: licenseDigest,
   });

@@ -393,10 +393,22 @@ function normalizeTarget(source, rawTarget) {
   return Object.freeze({ fragment, path: normalized });
 }
 
+function headingHtmlText(text) {
+  return text
+    .replaceAll(
+      /<([A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\u0000-\u0020]*)>/gu,
+      "$1",
+    )
+    .replaceAll(
+      /<([A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*)>/gu,
+      "$1",
+    )
+    .replaceAll(/<[^>]*>/gu, "");
+}
+
 function headingSlug(text) {
-  return decodeCharacterReferences(text)
+  return decodeCharacterReferences(headingHtmlText(text))
     .toLowerCase()
-    .replaceAll(/<[^>]*>/gu, "")
     .replaceAll(/[^\p{L}\p{N}\p{M}\s_-]/gu, "")
     .trim()
     .replaceAll(/\s/gu, "-");
@@ -626,9 +638,7 @@ function renderedMarkdown(text) {
         : line,
     );
   }
-  return rendered
-    .join("\n")
-    .replaceAll(/<!--[\s\S]*?(?:-->|$)/gu, maskedLiteral);
+  return rendered.join("\n");
 }
 
 function containerProjectedMarkdown(text) {
@@ -692,10 +702,18 @@ function containerProjectedMarkdown(text) {
   return projected.join("\n");
 }
 
-function rawHtmlClosingTag(line, tag) {
-  switch (tag) {
+function rawHtmlBlockClosed(line, closing) {
+  switch (closing) {
+    case "cdata":
+      return line.includes("]]>");
+    case "comment":
+      return line.includes("-->");
+    case "declaration":
+      return line.includes(">");
     case "pre":
       return /<\/pre[ \t]*>/iu.test(line);
+    case "processing-instruction":
+      return line.includes("?>");
     case "script":
       return /<\/script[ \t]*>/iu.test(line);
     case "style":
@@ -707,48 +725,114 @@ function rawHtmlClosingTag(line, tag) {
   }
 }
 
+function completeHtmlBlockTag(line) {
+  const indentation = indentationAt(line, 0, 0);
+  if (indentation.column > 3) {
+    return false;
+  }
+  const content = line.slice(indentation.index);
+  if (
+    /^<\/[A-Za-z][A-Za-z0-9-]*[ \t]*>[ \t]*\r?$/u.test(content)
+  ) {
+    return true;
+  }
+  const tag = htmlTags(content).at(0);
+  return (
+    tag?.start === 0 &&
+    /^[ \t]*\r?$/u.test(content.slice(tag.end))
+  );
+}
+
 function rawHtmlBlockOpening(line) {
   const indentation = indentationAt(line, 0, 0);
   if (indentation.column > 3) {
     return undefined;
   }
   const content = line.slice(indentation.index);
+  if (content.startsWith("<!--")) {
+    return Object.freeze({ closing: "comment", interruptsParagraph: true });
+  }
+  if (content.startsWith("<?")) {
+    return Object.freeze({
+      closing: "processing-instruction",
+      interruptsParagraph: true,
+    });
+  }
+  if (content.startsWith("<![CDATA[")) {
+    return Object.freeze({ closing: "cdata", interruptsParagraph: true });
+  }
+  if (/^<![A-Z]/u.test(content)) {
+    return Object.freeze({
+      closing: "declaration",
+      interruptsParagraph: true,
+    });
+  }
   const closedTag = content
-    .match(/^<(pre|script|style|textarea)(?=[ \t>])/iu)
+    .match(/^<(pre|script|style|textarea)(?=[ \t>]|$)/iu)
     ?.at(1)
     ?.toLowerCase();
   if (closedTag !== undefined) {
-    return Object.freeze({ closingTag: closedTag });
+    return Object.freeze({
+      closing: closedTag,
+      interruptsParagraph: true,
+    });
   }
   if (
     /^<\/?(?:address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul)(?=[ \t/>]|$)/iu.test(
       content,
     )
   ) {
-    return Object.freeze({ closingTag: undefined });
+    return Object.freeze({ closing: undefined, interruptsParagraph: true });
+  }
+  if (completeHtmlBlockTag(line)) {
+    return Object.freeze({ closing: undefined, interruptsParagraph: false });
   }
   return undefined;
+}
+
+function paragraphOpenAfterLine(line, wasOpen) {
+  const indentation = indentationAt(line, 0, 0);
+  const content = line.slice(indentation.index);
+  if (/^[ \t]*\r?$/u.test(line)) {
+    return false;
+  }
+  if (
+    indentation.column <= 3 &&
+    (
+      /^#{1,6}(?:[ \t]+|$)/u.test(content) ||
+      /^(?:\*[ \t]*){3,}\r?$/u.test(content) ||
+      /^(?:_[ \t]*){3,}\r?$/u.test(content) ||
+      /^(?:-[ \t]*){3,}\r?$/u.test(content) ||
+      (wasOpen && /^(?:=+|-+)[ \t]*\r?$/u.test(content))
+    )
+  ) {
+    return false;
+  }
+  return true;
 }
 
 function withoutRawHtmlBlocks(markdown) {
   const lines = markdown.split("\n");
   const projected = containerProjectedMarkdown(markdown).split("\n");
   const rendered = [];
-  let closingTag;
+  let closing;
+  let paragraphOpen = false;
   let untilBlank = false;
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines.at(index);
     const content = projected.at(index);
-    if (closingTag !== undefined) {
+    if (closing !== undefined) {
       rendered.push(maskedLiteral(line));
-      if (rawHtmlClosingTag(content, closingTag)) {
-        closingTag = undefined;
+      if (rawHtmlBlockClosed(content, closing)) {
+        closing = undefined;
       }
+      paragraphOpen = false;
       continue;
     }
     if (untilBlank) {
       if (/^[ \t]*\r?$/u.test(content)) {
         untilBlank = false;
+        paragraphOpen = false;
         rendered.push(line);
       } else {
         rendered.push(maskedLiteral(line));
@@ -756,18 +840,27 @@ function withoutRawHtmlBlocks(markdown) {
       continue;
     }
     const opening = rawHtmlBlockOpening(content);
-    if (opening === undefined) {
+    if (
+      opening === undefined ||
+      (!opening.interruptsParagraph && paragraphOpen)
+    ) {
       rendered.push(line);
+      paragraphOpen = paragraphOpenAfterLine(content, paragraphOpen);
       continue;
     }
     rendered.push(maskedLiteral(line));
-    if (opening.closingTag === undefined) {
+    paragraphOpen = false;
+    if (opening.closing === undefined) {
       untilBlank = true;
-    } else if (!rawHtmlClosingTag(content, opening.closingTag)) {
-      closingTag = opening.closingTag;
+    } else if (!rawHtmlBlockClosed(content, opening.closing)) {
+      closing = opening.closing;
     }
   }
   return rendered.join("\n");
+}
+
+function withoutHtmlComments(markdown) {
+  return markdown.replaceAll(/<!--[\s\S]*?(?:-->|$)/gu, maskedLiteral);
 }
 
 function isEscaped(text, index) {
@@ -1342,6 +1435,23 @@ function rawTextElementEnd(markdown, normalizedMarkdown, start, name) {
   return markdown.length;
 }
 
+function htmlNonTagEnd(markdown, opening) {
+  let terminator;
+  if (markdown.startsWith("<!--", opening)) {
+    terminator = "-->";
+  } else if (markdown.startsWith("<?", opening)) {
+    terminator = "?>";
+  } else if (markdown.startsWith("<![CDATA[", opening)) {
+    terminator = "]]>";
+  } else if (/^<![A-Z]/u.test(markdown.slice(opening))) {
+    terminator = ">";
+  } else {
+    return undefined;
+  }
+  const closing = markdown.indexOf(terminator, opening + 2);
+  return closing === -1 ? markdown.length : closing + terminator.length;
+}
+
 function htmlTags(markdown) {
   const tags = [];
   const normalizedMarkdown = markdown.toLowerCase();
@@ -1350,6 +1460,11 @@ function htmlTags(markdown) {
     const opening = markdown.indexOf("<", searchFrom);
     if (opening === -1) {
       break;
+    }
+    const nonTagEnd = htmlNonTagEnd(markdown, opening);
+    if (nonTagEnd !== undefined) {
+      searchFrom = nonTagEnd;
+      continue;
     }
     let cursor = opening + 1;
     if (!/[A-Za-z]/u.test(markdown.at(cursor) ?? "")) {
@@ -1480,7 +1595,7 @@ function withoutHtmlTags(markdown, tags) {
 
 function headingAnchors(text) {
   const markdown = renderedMarkdown(text);
-  const markdownContent = withoutRawHtmlBlocks(markdown);
+  const markdownContent = withoutHtmlComments(withoutRawHtmlBlocks(markdown));
   const headingMarkdown = containerProjectedMarkdown(markdownContent);
   const referenceLabels = new Set(
     referenceDefinitions(markdownContent).map((definition) => definition.label),
@@ -1515,7 +1630,9 @@ function headingAnchors(text) {
     occurrences.set(base, occurrence + 1);
     anchors.add(occurrence === 0 ? base : base + "-" + occurrence);
   }
-  for (const tag of htmlTags(withoutCodeSpans(markdown))) {
+  for (
+    const tag of htmlTags(withoutHtmlComments(withoutCodeSpans(markdown)))
+  ) {
     for (const attribute of tag.attributes) {
       if (
         (attribute.name === "id" || attribute.name === "name") &&
@@ -1530,9 +1647,9 @@ function headingAnchors(text) {
 
 function localTargets(text) {
   const markdown = withoutCodeSpans(renderedMarkdown(text));
-  const tags = htmlTags(markdown);
+  const tags = htmlTags(withoutHtmlComments(markdown));
   const markdownContent = withoutHtmlTags(
-    withoutRawHtmlBlocks(markdown),
+    withoutHtmlComments(withoutRawHtmlBlocks(markdown)),
     tags,
   );
   const definitions = referenceDefinitions(markdownContent);
