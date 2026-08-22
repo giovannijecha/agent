@@ -494,13 +494,16 @@ function decodeHtmlAttributeCharacterReferences(text) {
   return rendered.join("");
 }
 
-function normalizeTarget(source, rawTarget) {
-  const renderedTarget = decodeCharacterReferences(
-    rawTarget.replaceAll(
-      /\\([!"#$%&'()*+,\-./:;<=>?@\[\\\]^_`{|}~])/gu,
-      "$1",
-    ),
-  );
+function normalizeTarget(source, localTarget) {
+  const rawTarget = localTarget.value;
+  const renderedTarget = localTarget.syntax === "html"
+    ? rawTarget
+    : decodeCharacterReferences(
+      rawTarget.replaceAll(
+        /\\([!"#$%&'()*+,\-./:;<=>?@\[\\\]^_`{|}~])/gu,
+        "$1",
+      ),
+    );
   const separator = renderedTarget.indexOf("#");
   const beforeFragment = separator === -1
     ? renderedTarget
@@ -1265,22 +1268,33 @@ function rawHtmlBlockBounds(markdown) {
   );
 }
 
-function markdownHtmlEnd(markdown, opening, rawBlocks) {
+function markdownHtmlContext(markdown, opening, rawBlocks) {
   for (const block of rawBlocks) {
     if (opening < block.start) {
       break;
     }
     if (opening < block.end) {
-      return block.end;
+      return Object.freeze({ end: block.end, raw: true });
     }
   }
-  return paragraphEnd(markdown, opening + 1);
+  return Object.freeze({
+    end: paragraphEnd(markdown, opening + 1),
+    raw: false,
+  });
 }
 
-function htmlCommentEnd(markdown, opening, end = markdown.length) {
+function htmlCommentEnd(
+  markdown,
+  opening,
+  end = markdown.length,
+  raw = false,
+) {
   const closing = markdown.indexOf("-->", opening + 4);
   if (closing === -1 || closing + 3 > end) {
     return undefined;
+  }
+  if (raw) {
+    return closing + 3;
   }
   const body = markdown.slice(opening + 4, closing);
   return body.startsWith(">") ||
@@ -1305,10 +1319,12 @@ function withoutHtmlComments(markdown, preserveColumns = true) {
       searchFrom = opening + 4;
       continue;
     }
+    const context = markdownHtmlContext(markdown, opening, rawBlocks);
     const end = htmlCommentEnd(
       markdown,
       opening,
-      markdownHtmlEnd(markdown, opening, rawBlocks),
+      context.end,
+      context.raw,
     );
     if (end === undefined) {
       searchFrom = opening + 4;
@@ -2258,10 +2274,10 @@ function rawTextElementEnd(
   return end;
 }
 
-function htmlNonTagEnd(markdown, opening, end) {
+function htmlNonTagEnd(markdown, opening, end, raw) {
   let terminator;
   if (markdown.startsWith("<!--", opening)) {
-    return htmlCommentEnd(markdown, opening, end);
+    return htmlCommentEnd(markdown, opening, end, raw);
   } else if (markdown.startsWith("<?", opening)) {
     terminator = "?>";
   } else if (markdown.startsWith("<![CDATA[", opening)) {
@@ -2301,10 +2317,11 @@ function htmlTags(markdown, blockBounded = true) {
       searchFrom = opening + 1;
       continue;
     }
-    const end = blockBounded
-      ? markdownHtmlEnd(markdown, opening, rawBlocks)
-      : markdown.length;
-    const nonTagEnd = htmlNonTagEnd(markdown, opening, end);
+    const context = blockBounded
+      ? markdownHtmlContext(markdown, opening, rawBlocks)
+      : Object.freeze({ end: markdown.length, raw: false });
+    const end = context.end;
+    const nonTagEnd = htmlNonTagEnd(markdown, opening, end, context.raw);
     if (nonTagEnd !== undefined) {
       tags.push(htmlNonTagRange(opening, nonTagEnd));
       searchFrom = nonTagEnd;
@@ -2852,7 +2869,7 @@ function localTargets(text) {
   const targets = inlineTargets(
     withoutReferenceDefinitions(markdownContent, definitions),
     references,
-  );
+  ).map((value) => Object.freeze({ syntax: "markdown", value }));
   for (const tag of tags) {
     for (const attribute of tag.attributes) {
       const { name, value } = attribute;
@@ -2862,14 +2879,14 @@ function localTargets(text) {
       }
       const decoded = decodeHtmlAttributeCharacterReferences(value);
       if (kind === "single") {
-        targets.push(decoded);
+        targets.push(Object.freeze({ syntax: "html", value: decoded }));
         continue;
       }
       const candidates = kind === "srcset"
         ? srcsetTargets(decoded)
         : spaceSeparatedTargets(decoded);
       for (const target of candidates) {
-        targets.push(target);
+        targets.push(Object.freeze({ syntax: "html", value: target }));
       }
     }
   }
@@ -2931,8 +2948,9 @@ export function validateDocumentation(context, options = {}) {
     if (FORBIDDEN_AUTHORSHIP_PATTERNS.some((pattern) => pattern.test(text))) {
       fail("authorship claim is forbidden: " + file);
     }
-    for (const rawTarget of localTargets(text)) {
-      const target = normalizeTarget(file, rawTarget);
+    for (const localTarget of localTargets(text)) {
+      const rawTarget = localTarget.value;
+      const target = normalizeTarget(file, localTarget);
       if (target === undefined) {
         continue;
       }

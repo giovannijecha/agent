@@ -436,6 +436,36 @@ test("does not mask malformed HTML comments", () => {
   );
 });
 
+test("masks permissively terminated raw HTML comments", () => {
+  const fakeAnchor = currentContext();
+  fakeAnchor.files["README.md"] += [
+    "[Missing](#fake)",
+    "",
+    "<!-- open -- invalid",
+    '<a id="fake"></a>',
+    "-->",
+    "",
+  ].join("\n");
+  assert.throws(
+    () =>
+      validateDocumentation(fakeAnchor, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /fragment/u,
+  );
+
+  const inertImage = currentContext();
+  inertImage.files["README.md"] += [
+    "<!-- open -- invalid",
+    '<img src="docs/not-real.md">',
+    "-->",
+    "",
+  ].join("\n");
+  validateDocumentation(inertImage, {
+    expectedLicenseDigest: licenseDigest,
+  });
+});
+
 test("enforces inline title and destination parenthesis bounds", () => {
   const nestedTitle = currentContext();
   nestedTitle.files["README.md"] +=
@@ -1116,6 +1146,26 @@ test("decodes legacy semicolonless references in HTML attributes", () => {
   validateDocumentation(numeric, {
     expectedLicenseDigest: licenseDigest,
   });
+
+  const exactOnce = currentContext();
+  exactOnce.ownedPaths.push("assets/x&amp;.png");
+  exactOnce.files["README.md"] +=
+    '<img src="assets/x&amp;amp;.png">\n';
+  validateDocumentation(exactOnce, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const doubleDecodedDecoy = currentContext();
+  doubleDecodedDecoy.ownedPaths.push("assets/x&.png");
+  doubleDecodedDecoy.files["README.md"] +=
+    '<img src="assets/x&amp;amp;.png">\n';
+  assert.throws(
+    () =>
+      validateDocumentation(doubleDecodedDecoy, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
 });
 
 test("ignores Markdown-like text inside raw HTML blocks", () => {
