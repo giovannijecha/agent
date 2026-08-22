@@ -1065,16 +1065,10 @@ function rawHtmlBlockClosed(line, closing) {
       return line.includes("-->");
     case "declaration":
       return line.includes(">");
-    case "pre":
-      return /<\/pre[ \t]*>/iu.test(line);
     case "processing-instruction":
       return line.includes("?>");
-    case "script":
-      return /<\/script[ \t]*>/iu.test(line);
-    case "style":
-      return /<\/style[ \t]*>/iu.test(line);
-    case "textarea":
-      return /<\/textarea[ \t]*>/iu.test(line);
+    case "type-one":
+      return /<\/(?:pre|script|style|textarea)>/iu.test(line);
     default:
       return false;
   }
@@ -1122,13 +1116,9 @@ function rawHtmlBlockOpening(line) {
       interruptsParagraph: true,
     });
   }
-  const closedTag = content
-    .match(/^<(pre|script|style|textarea)(?=[ \t>]|$)/iu)
-    ?.at(1)
-    ?.toLowerCase();
-  if (closedTag !== undefined) {
+  if (/^<(?:pre|script|style|textarea)(?=[ \t>]|$)/iu.test(content)) {
     return Object.freeze({
-      closing: closedTag,
+      closing: "type-one",
       interruptsParagraph: true,
     });
   }
@@ -1469,10 +1459,15 @@ function closingLabelIndex(markdown, opening) {
   return undefined;
 }
 
+function unicodeCodePointWidthAt(text, index) {
+  return (text.codePointAt(index) ?? 0) > 0xffff ? 2 : 1;
+}
+
 function referenceLabelEnd(markdown, opening) {
   let length = 0;
   const end = paragraphEnd(markdown, opening + 1);
-  for (let cursor = opening + 1; cursor < end; cursor += 1) {
+  let cursor = opening + 1;
+  while (cursor < end) {
     const character = markdown.at(cursor);
     if (!isEscaped(markdown, cursor) && character === "[") {
       return undefined;
@@ -1484,6 +1479,7 @@ function referenceLabelEnd(markdown, opening) {
     if (length > 999) {
       return undefined;
     }
+    cursor += unicodeCodePointWidthAt(markdown, cursor);
   }
   return undefined;
 }
@@ -1990,7 +1986,8 @@ function referenceDefinitionLabel(lines, opening) {
   for (let offset = 0; offset < lines.length; offset += 1) {
     const line = lines.at(offset);
     const start = offset === 0 ? opening + 1 : 0;
-    for (let cursor = start; cursor < line.length; cursor += 1) {
+    let cursor = start;
+    while (cursor < line.length) {
       const character = line.at(cursor);
       if (!isEscaped(line, cursor) && character === "[") {
         return undefined;
@@ -2013,6 +2010,7 @@ function referenceDefinitionLabel(lines, opening) {
       if (length > 999) {
         return undefined;
       }
+      cursor += unicodeCodePointWidthAt(line, cursor);
     }
     parts.push(line.slice(start));
     if (offset + 1 < lines.length) {

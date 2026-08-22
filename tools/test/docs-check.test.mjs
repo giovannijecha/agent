@@ -1068,6 +1068,37 @@ test("ignores apparent HTML tags inside raw-text elements", () => {
   });
 });
 
+test("requires exact type-one raw HTML block end tags", () => {
+  for (const element of ["pre", "script", "style", "textarea"]) {
+    const whitespaceVariant = currentContext();
+    whitespaceVariant.files["README.md"] += [
+      "<" + element + ">",
+      "</" + element + " >",
+      "[Missing](docs/not-real.md)",
+      "</" + element + ">",
+      "",
+    ].join("\n");
+    validateDocumentation(whitespaceVariant, {
+      expectedLicenseDigest: licenseDigest,
+    });
+  }
+
+  const mismatchedExactEnd = currentContext();
+  mismatchedExactEnd.files["README.md"] += [
+    "<pre>",
+    "</ScRiPt>",
+    "[Missing](docs/not-real.md)",
+    "",
+  ].join("\n");
+  assert.throws(
+    () =>
+      validateDocumentation(mismatchedExactEnd, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+});
+
 test("ignores Markdown-like text inside every terminated raw HTML block", () => {
   const context = currentContext();
   context.files["README.md"] += [
@@ -1516,6 +1547,39 @@ test("rejects unescaped brackets in reference labels", () => {
       }),
     /broken local link/u,
   );
+});
+
+test("counts Unicode code points in reference-label bounds", () => {
+  for (const length of [500, 999]) {
+    const label = "\u{1f642}".repeat(length);
+    const active = currentContext();
+    active.files["README.md"] += [
+      "[use][" + label + "]",
+      "",
+      "[" + label + "]: docs/missing.md",
+      "",
+    ].join("\n");
+    assert.throws(
+      () =>
+        validateDocumentation(active, {
+          expectedLicenseDigest: licenseDigest,
+        }),
+      /broken local link/u,
+      String(length),
+    );
+  }
+
+  const oversizedLabel = "\u{1f642}".repeat(1000);
+  const inactive = currentContext();
+  inactive.files["README.md"] += [
+    "[use][" + oversizedLabel + "]",
+    "",
+    "[" + oversizedLabel + "]: docs/missing.md",
+    "",
+  ].join("\n");
+  validateDocumentation(inactive, {
+    expectedLicenseDigest: licenseDigest,
+  });
 });
 
 test("applies full non-Turkic Unicode case folding to reference labels", () => {
