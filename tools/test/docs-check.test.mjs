@@ -280,6 +280,17 @@ test("rejects broken local links and decision-ledger references", () => {
     /docs\/still-not-real\.md/u,
   );
 
+  const escapedComment = currentContext();
+  escapedComment.files["README.md"] +=
+    "\\<!-- [Missing](docs/not-real.md) -->\n";
+  assert.throws(
+    () =>
+      validateDocumentation(escapedComment, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+
   const proseAnchor = currentContext();
   proseAnchor.files["README.md"] += [
     "[Missing](#fake)",
@@ -680,6 +691,10 @@ test("masks next-line reference titles", () => {
       "  README.md",
       '  "title [sample](docs/not-real.md)"',
     ],
+    [
+      "- [selected]: README.md",
+      '  "title [sample](docs/not-real.md)"',
+    ],
   ]) {
     const context = currentContext();
     context.files["README.md"] += [
@@ -692,6 +707,22 @@ test("masks next-line reference titles", () => {
       expectedLicenseDigest: licenseDigest,
     });
   }
+});
+
+test("keeps reference continuations in their Markdown container", () => {
+  const context = currentContext();
+  context.files["README.md"] += [
+    "[selected]: README.md",
+    '- "title [Missing](docs/not-real.md)"',
+    "",
+  ].join("\n");
+  assert.throws(
+    () =>
+      validateDocumentation(context, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
 });
 
 test("validates reference definitions inside block quotes", () => {
@@ -841,6 +872,26 @@ test("decodes character references in explicit anchors", () => {
   validateDocumentation(context, {
     expectedLicenseDigest: licenseDigest,
   });
+});
+
+test("admits legacy name fragments only on anchor elements", () => {
+  const admitted = currentContext();
+  admitted.files["PRIVACY.md"] += '<a name="legacy"></a>\n';
+  admitted.files["README.md"] += "[Legacy](PRIVACY.md#legacy)\n";
+  validateDocumentation(admitted, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const rejected = currentContext();
+  rejected.files["PRIVACY.md"] += '<div name="fake"></div>\n';
+  rejected.files["README.md"] += "[Fake](PRIVACY.md#fake)\n";
+  assert.throws(
+    () =>
+      validateDocumentation(rejected, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /fragment/u,
+  );
 });
 
 test("decodes the complete named character-reference registry", () => {

@@ -970,7 +970,27 @@ function withoutRawHtmlBlocks(markdown) {
 }
 
 function withoutHtmlComments(markdown) {
-  return markdown.replaceAll(/<!--[\s\S]*?(?:-->|$)/gu, maskedLiteral);
+  const rendered = [];
+  let retainedFrom = 0;
+  let searchFrom = 0;
+  while (searchFrom < markdown.length) {
+    const opening = markdown.indexOf("<!--", searchFrom);
+    if (opening === -1) {
+      break;
+    }
+    if (isEscaped(markdown, opening)) {
+      searchFrom = opening + 4;
+      continue;
+    }
+    const closing = markdown.indexOf("-->", opening + 4);
+    const end = closing === -1 ? markdown.length : closing + 3;
+    rendered.push(markdown.slice(retainedFrom, opening));
+    rendered.push(maskedLiteral(markdown.slice(opening, end)));
+    retainedFrom = end;
+    searchFrom = end;
+  }
+  rendered.push(markdown.slice(retainedFrom));
+  return rendered.join("");
 }
 
 function isEscaped(text, index) {
@@ -1570,14 +1590,20 @@ function referenceDefinition(line, continuation, secondContinuation) {
 
 function referenceDefinitions(markdown) {
   const definitions = [];
-  const lines = containerProjectedMarkdown(markdown)
-    .split("\n")
-    .map((line) => line.replace(/\r$/u, ""));
+  const projected = containerProjectedLines(markdown);
+  const lines = projected.map((line) => line.content.replace(/\r$/u, ""));
   for (let index = 0; index < lines.length; index += 1) {
+    const containerKey = projected.at(index).containerKey;
+    const continuation = projected.at(index + 1);
+    const secondContinuation = projected.at(index + 2);
     const definition = referenceDefinition(
       lines.at(index),
-      lines.at(index + 1),
-      lines.at(index + 2),
+      continuation?.containerKey === containerKey
+        ? lines.at(index + 1)
+        : undefined,
+      secondContinuation?.containerKey === containerKey
+        ? lines.at(index + 2)
+        : undefined,
     );
     if (definition !== undefined) {
       definitions.push(Object.freeze({ ...definition, line: index }));
@@ -1649,6 +1675,10 @@ function htmlTags(markdown) {
     const opening = markdown.indexOf("<", searchFrom);
     if (opening === -1) {
       break;
+    }
+    if (isEscaped(markdown, opening)) {
+      searchFrom = opening + 1;
+      continue;
     }
     const nonTagEnd = htmlNonTagEnd(markdown, opening);
     if (nonTagEnd !== undefined) {
@@ -1749,6 +1779,7 @@ function htmlTags(markdown) {
       tags.push(Object.freeze({
         attributes: Object.freeze(tagAttributes),
         end: cursor,
+        name: tagName,
         start: opening,
       }));
     }
@@ -1878,7 +1909,10 @@ function headingAnchors(text) {
   ) {
     for (const attribute of tag.attributes) {
       if (
-        (attribute.name === "id" || attribute.name === "name") &&
+        (
+          attribute.name === "id" ||
+          (tag.name === "a" && attribute.name === "name")
+        ) &&
         attribute.value.length > 0
       ) {
         anchors.add(decodeCharacterReferences(attribute.value));
