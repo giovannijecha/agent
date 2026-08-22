@@ -475,6 +475,19 @@ test("requires exact inline-code closing runs", () => {
   );
 });
 
+test("closes code spans at backslash-prefixed backticks", () => {
+  const context = currentContext();
+  context.files["README.md"] +=
+    "`code\\` [Missing](docs/missing.md) `\n";
+  assert.throws(
+    () =>
+      validateDocumentation(context, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+});
+
 test("keeps code-span matching within one paragraph", () => {
   const crossParagraph = currentContext();
   crossParagraph.files["README.md"] +=
@@ -1034,6 +1047,35 @@ test("retains list containers for lazy paragraph continuations", () => {
   const separated = currentContext();
   separated.files["README.md"] += [
     "- Paragraph",
+    "",
+    "[ref]: docs/missing.md",
+    "[use][ref]",
+    "",
+  ].join("\n");
+  assert.throws(
+    () =>
+      validateDocumentation(separated, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+});
+
+test("retains block quotes for lazy paragraph continuations", () => {
+  const lazy = currentContext();
+  lazy.files["README.md"] += [
+    "> Paragraph",
+    "[ref]: docs/missing.md",
+    "[use][ref]",
+    "",
+  ].join("\n");
+  validateDocumentation(lazy, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const separated = currentContext();
+  separated.files["README.md"] += [
+    "> Paragraph",
     "",
     "[ref]: docs/missing.md",
     "[use][ref]",

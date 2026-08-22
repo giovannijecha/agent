@@ -696,16 +696,7 @@ function closesFence(line, fence, baseColumn, indentation) {
   );
 }
 
-function retainsLazyListContainer(
-  line,
-  quoted,
-  listContainers,
-  paragraphStates,
-) {
-  const containerKey = markdownContainerKey(quoted.depth, listContainers);
-  if (!(paragraphStates.get(containerKey) ?? false)) {
-    return false;
-  }
+function isLazyParagraphContinuation(line, quoted) {
   const content = line.slice(quoted.indentation.index);
   if (!paragraphOpenAfterLine(content, true)) {
     return false;
@@ -734,12 +725,46 @@ function retainsLazyListContainer(
   return htmlOpening === undefined || !htmlOpening.interruptsParagraph;
 }
 
+function retainsLazyListContainer(
+  line,
+  quoted,
+  listContainers,
+  paragraphStates,
+) {
+  const containerKey = markdownContainerKey(quoted.depth, listContainers);
+  return (paragraphStates.get(containerKey) ?? false) &&
+    isLazyParagraphContinuation(line, quoted);
+}
+
+function retainedRootQuoteDepth(
+  line,
+  quoted,
+  listContainers,
+  paragraphStates,
+  previousRootQuoteDepth,
+  previousQuoteDepth,
+) {
+  if (quoted.depth >= previousRootQuoteDepth) {
+    return quoted.depth;
+  }
+  const previousKey = markdownContainerKey(
+    previousQuoteDepth,
+    listContainers,
+  );
+  return (paragraphStates.get(previousKey) ?? false) &&
+      isLazyParagraphContinuation(line, quoted)
+    ? previousRootQuoteDepth
+    : quoted.depth;
+}
+
 function renderedMarkdown(text) {
   const rendered = [];
   const listContainers = [];
   const paragraphStates = new Map();
   let fence;
   let nextContainerIdentity = 0;
+  let previousQuoteDepth = 0;
+  let previousRootQuoteDepth = 0;
   for (const line of text.split("\n")) {
     if (fence !== undefined) {
       const quoted = blockQuoteContent(line, fence.quoteDepth);
@@ -756,13 +781,26 @@ function renderedMarkdown(text) {
         if (closesFence(line, fence, fenceBase, quoted.indentation)) {
           fence = undefined;
         }
+        previousQuoteDepth = quoted.depth;
+        previousRootQuoteDepth = quoted.depth;
         rendered.push(maskedLiteral(line));
         continue;
       }
       fence = undefined;
     }
 
-    const quoted = blockQuoteContent(line);
+    const parsedQuote = blockQuoteContent(line);
+    const rootQuoteDepth = retainedRootQuoteDepth(
+      line,
+      parsedQuote,
+      listContainers,
+      paragraphStates,
+      previousRootQuoteDepth,
+      previousQuoteDepth,
+    );
+    const quoted = rootQuoteDepth === parsedQuote.depth
+      ? parsedQuote
+      : Object.freeze({ ...parsedQuote, depth: rootQuoteDepth });
     const indentation = quoted.indentation;
     let quoteDepth = quoted.depth;
     const blank = /^[ \t]*\r?$/u.test(line.slice(indentation.index));
@@ -836,6 +874,8 @@ function renderedMarkdown(text) {
     const projectedContent = blank ? "" : line.slice(contentIndentation.index);
     if (emptyListMarker) {
       paragraphStates.set(containerKey, false);
+      previousQuoteDepth = quoteDepth;
+      previousRootQuoteDepth = rootQuoteDepth;
       rendered.push(line);
       continue;
     }
@@ -849,6 +889,8 @@ function renderedMarkdown(text) {
         marker: opening.marker,
         quoteDepth,
       });
+      previousQuoteDepth = quoteDepth;
+      previousRootQuoteDepth = rootQuoteDepth;
       rendered.push(maskedLiteral(line));
       continue;
     }
@@ -867,6 +909,8 @@ function renderedMarkdown(text) {
       );
       rendered.push(line);
     }
+    previousQuoteDepth = quoteDepth;
+    previousRootQuoteDepth = rootQuoteDepth;
   }
   return rendered.join("\n");
 }
@@ -876,8 +920,21 @@ function containerProjectedLines(text) {
   const listContainers = [];
   const paragraphStates = new Map();
   let nextContainerIdentity = 0;
+  let previousQuoteDepth = 0;
+  let previousRootQuoteDepth = 0;
   for (const line of text.split("\n")) {
-    const quoted = blockQuoteContent(line);
+    const parsedQuote = blockQuoteContent(line);
+    const rootQuoteDepth = retainedRootQuoteDepth(
+      line,
+      parsedQuote,
+      listContainers,
+      paragraphStates,
+      previousRootQuoteDepth,
+      previousQuoteDepth,
+    );
+    const quoted = rootQuoteDepth === parsedQuote.depth
+      ? parsedQuote
+      : Object.freeze({ ...parsedQuote, depth: rootQuoteDepth });
     let quoteDepth = quoted.depth;
     const blank = /^[ \t]*\r?$/u.test(line.slice(quoted.indentation.index));
     while (
@@ -959,6 +1016,8 @@ function containerProjectedLines(text) {
       );
     }
     projected.push(Object.freeze({ containerKey, content }));
+    previousQuoteDepth = quoteDepth;
+    previousRootQuoteDepth = rootQuoteDepth;
   }
   return Object.freeze(projected);
 }
@@ -1265,7 +1324,7 @@ function codeSpanClosing(text, opening, openingLength) {
       return undefined;
     }
     const closingLength = markerRunLength(text, closing, "`");
-    if (!isEscaped(text, closing) && closingLength === openingLength) {
+    if (closingLength === openingLength) {
       return Object.freeze({
         end: closing + closingLength,
         start: closing,
