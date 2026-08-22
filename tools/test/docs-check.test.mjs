@@ -314,6 +314,39 @@ test("ignores links inside indented code blocks", () => {
   });
 });
 
+test("validates list-relative indented links", () => {
+  const context = currentContext();
+  context.files["README.md"] += [
+    "- item",
+    "    [Missing](docs/missing.md)",
+    "",
+  ].join("\n");
+  assert.throws(
+    () =>
+      validateDocumentation(context, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+});
+
+test("rejects tab-indented fenced-code openers", () => {
+  const context = currentContext();
+  context.files["README.md"] += [
+    "\t```",
+    "[Missing](docs/missing.md)",
+    "```",
+    "",
+  ].join("\n");
+  assert.throws(
+    () =>
+      validateDocumentation(context, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+});
+
 test("validates links after deeply nested labels", () => {
   const context = currentContext();
   context.files["README.md"] += "[a [b [c]]](docs/missing.md)\n";

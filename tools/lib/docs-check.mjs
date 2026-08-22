@@ -101,34 +101,138 @@ function maskedLiteral(text) {
   return text.replaceAll(/[^\r\n]/gu, " ");
 }
 
+function indentationAt(line, start, startColumn) {
+  let column = startColumn;
+  let index = start;
+  while (index < line.length) {
+    const character = line.at(index);
+    if (character === " ") {
+      column += 1;
+    } else if (character === "\t") {
+      column += 4 - (column % 4);
+    } else {
+      break;
+    }
+    index += 1;
+  }
+  return Object.freeze({ column, index });
+}
+
+function listMarkerAt(line, baseColumn, indentation) {
+  const relativeIndent = indentation.column - baseColumn;
+  if (relativeIndent < 0 || relativeIndent > 3) {
+    return undefined;
+  }
+  const marker = line
+    .slice(indentation.index)
+    .match(/^(?:[-+*]|[0-9]{1,9}[.)])(?=$|[ \t\r])/u)
+    ?.at(0);
+  if (marker === undefined) {
+    return undefined;
+  }
+  const markerEndIndex = indentation.index + marker.length;
+  const markerEndColumn = indentation.column + marker.length;
+  const content = indentationAt(line, markerEndIndex, markerEndColumn);
+  const padding = content.column - markerEndColumn;
+  const hasContent = !/^[ \t]*\r?$/u.test(line.slice(markerEndIndex));
+  const contentColumn = hasContent && padding >= 1 && padding <= 4
+    ? content.column
+    : markerEndColumn + 1;
+  return Object.freeze({
+    contentColumn,
+    contentIndentation: content,
+    hasContent,
+  });
+}
+
+function fenceOpeningAt(line, baseColumn, indentation) {
+  const relativeIndent = indentation.column - baseColumn;
+  if (relativeIndent < 0 || relativeIndent > 3) {
+    return undefined;
+  }
+  const match = line
+    .slice(indentation.index)
+    .match(/^(`{3,}|~{3,})([^\r]*)\r?$/u);
+  const marker = match?.at(1);
+  if (
+    marker === undefined ||
+    (marker.at(0) === "`" && match.at(2).includes("`"))
+  ) {
+    return undefined;
+  }
+  return Object.freeze({
+    baseColumn,
+    length: marker.length,
+    marker: marker.at(0),
+  });
+}
+
+function closesFence(line, fence) {
+  const indentation = indentationAt(line, 0, 0);
+  const relativeIndent = indentation.column - fence.baseColumn;
+  if (relativeIndent < 0 || relativeIndent > 3) {
+    return false;
+  }
+  const closing = line
+    .slice(indentation.index)
+    .match(/^(`{3,}|~{3,})[ \t]*\r?$/u)
+    ?.at(1);
+  return (
+    closing !== undefined &&
+    closing.at(0) === fence.marker &&
+    closing.length >= fence.length
+  );
+}
+
 function renderedMarkdown(text) {
   const rendered = [];
+  const listContainers = [];
   let fence;
   for (const line of text.split("\n")) {
-    if (fence === undefined) {
-      const opening = line.match(/^[ \t]{0,3}(`{3,}|~{3,})/u)?.at(1);
-      if (opening === undefined) {
-        rendered.push(/^(?: {4}|\t)/u.test(line) ? maskedLiteral(line) : line);
-      } else {
-        fence = Object.freeze({
-          length: opening.length,
-          marker: opening.at(0),
-        });
-        rendered.push("");
+    if (fence !== undefined) {
+      if (closesFence(line, fence)) {
+        fence = undefined;
       }
+      rendered.push(maskedLiteral(line));
       continue;
     }
-    const closing = line
-      .match(/^[ \t]{0,3}(`{3,}|~{3,})[ \t]*\r?$/u)
-      ?.at(1);
-    if (
-      closing !== undefined &&
-      closing.at(0) === fence.marker &&
-      closing.length >= fence.length
+
+    const indentation = indentationAt(line, 0, 0);
+    const blank = /^[ \t]*\r?$/u.test(line);
+    while (
+      !blank &&
+      listContainers.length > 0 &&
+      indentation.column < listContainers.at(-1).contentColumn
     ) {
-      fence = undefined;
+      listContainers.pop();
     }
-    rendered.push("");
+    const baseColumn = listContainers.at(-1)?.contentColumn ?? 0;
+    const listMarker = listMarkerAt(line, baseColumn, indentation);
+    let contentBase = baseColumn;
+    let contentIndentation = indentation;
+    if (listMarker !== undefined) {
+      listContainers.push(Object.freeze({
+        contentColumn: listMarker.contentColumn,
+      }));
+      contentBase = listMarker.contentColumn;
+      contentIndentation = listMarker.contentIndentation;
+      if (!listMarker.hasContent) {
+        rendered.push(line);
+        continue;
+      }
+    }
+
+    const opening = fenceOpeningAt(line, contentBase, contentIndentation);
+    if (opening !== undefined) {
+      fence = opening;
+      rendered.push(maskedLiteral(line));
+      continue;
+    }
+    rendered.push(
+      contentIndentation.column - contentBase >= 4
+        ? maskedLiteral(line)
+        : line,
+    );
   }
   return rendered
     .join("\n")
