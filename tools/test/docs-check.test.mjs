@@ -436,6 +436,26 @@ test("stops inline destinations at blank lines", () => {
   );
 });
 
+test("stops inline titles at blank lines", () => {
+  const inactive = currentContext();
+  inactive.files["README.md"] +=
+    '[Missing](docs/not-real.md "title\n\ncontinued")\n';
+  validateDocumentation(inactive, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const active = currentContext();
+  active.files["README.md"] +=
+    '[Missing](docs/missing.md "title\ncontinued")\n';
+  assert.throws(
+    () =>
+      validateDocumentation(active, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+});
+
 test("requires exact inline-code closing runs", () => {
   const context = currentContext();
   context.files["README.md"] += "`[Missing](docs/missing.md)``\n";
@@ -448,12 +468,50 @@ test("requires exact inline-code closing runs", () => {
   );
 });
 
+test("keeps code-span matching within one paragraph", () => {
+  const crossParagraph = currentContext();
+  crossParagraph.files["README.md"] +=
+    "`open\n\n[Missing](docs/not-real.md)`\n";
+  assert.throws(
+    () =>
+      validateDocumentation(crossParagraph, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+
+  const sameParagraph = currentContext();
+  sameParagraph.files["README.md"] +=
+    "`open\n[Missing](docs/not-real.md)`\n";
+  validateDocumentation(sameParagraph, {
+    expectedLicenseDigest: licenseDigest,
+  });
+});
+
 test("ignores links inside indented code blocks", () => {
   const context = currentContext();
-  context.files["README.md"] += "    [sample](docs/not-real.md)\n";
+  context.files["README.md"] += "\n    [sample](docs/not-real.md)\n";
   validateDocumentation(context, {
     expectedLicenseDigest: licenseDigest,
   });
+});
+
+test("keeps indented paragraph continuations active", () => {
+  for (const paragraph of [
+    ["Paragraph", "    [Missing](docs/not-real.md)"],
+    ["- Paragraph", "      [Missing](docs/not-real.md)"],
+  ]) {
+    const context = currentContext();
+    context.files["README.md"] += [...paragraph, ""].join("\n");
+    assert.throws(
+      () =>
+        validateDocumentation(context, {
+          expectedLicenseDigest: licenseDigest,
+        }),
+      /broken local link/u,
+      paragraph.join(" | "),
+    );
+  }
 });
 
 test("validates list-relative indented links", () => {

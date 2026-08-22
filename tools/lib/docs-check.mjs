@@ -695,22 +695,21 @@ function renderedMarkdown(text) {
       rendered.push(maskedLiteral(line));
       continue;
     }
+    const paragraphOpen = paragraphStates.get(containerKey) ?? false;
+    const indentedCode = contentIndentation.column - contentBase >= 4;
     if (blank) {
       paragraphStates.clear();
+      rendered.push(line);
+    } else if (indentedCode && !paragraphOpen) {
+      paragraphStates.set(containerKey, false);
+      rendered.push(maskedLiteral(line));
     } else {
       paragraphStates.set(
         containerKey,
-        paragraphOpenAfterLine(
-          projectedContent,
-          paragraphStates.get(containerKey) ?? false,
-        ),
+        paragraphOpenAfterLine(projectedContent, paragraphOpen),
       );
+      rendered.push(line);
     }
-    rendered.push(
-      contentIndentation.column - contentBase >= 4
-        ? maskedLiteral(line)
-        : line,
-    );
   }
   return rendered.join("\n");
 }
@@ -1041,6 +1040,59 @@ function markerRunLength(text, index, marker) {
   return length;
 }
 
+function lineEndingEnd(text, index) {
+  if (text.at(index) === "\n") {
+    return index + 1;
+  }
+  if (text.at(index) === "\r") {
+    return text.at(index + 1) === "\n" ? index + 2 : index + 1;
+  }
+  return undefined;
+}
+
+function paragraphEnd(text, start) {
+  let cursor = start;
+  while (cursor < text.length) {
+    const afterLineEnding = lineEndingEnd(text, cursor);
+    if (afterLineEnding === undefined) {
+      cursor += 1;
+      continue;
+    }
+    let nextContent = afterLineEnding;
+    while (
+      text.at(nextContent) === " " ||
+      text.at(nextContent) === "\t"
+    ) {
+      nextContent += 1;
+    }
+    if (lineEndingEnd(text, nextContent) !== undefined) {
+      return cursor;
+    }
+    cursor = afterLineEnding;
+  }
+  return text.length;
+}
+
+function codeSpanClosing(text, opening, openingLength) {
+  const end = paragraphEnd(text, opening + openingLength);
+  let searchFrom = opening + openingLength;
+  while (searchFrom < end) {
+    const closing = text.indexOf("`", searchFrom);
+    if (closing === -1 || closing >= end) {
+      return undefined;
+    }
+    const closingLength = markerRunLength(text, closing, "`");
+    if (!isEscaped(text, closing) && closingLength === openingLength) {
+      return Object.freeze({
+        end: closing + closingLength,
+        start: closing,
+      });
+    }
+    searchFrom = closing + closingLength;
+  }
+  return undefined;
+}
+
 function withoutCodeSpans(text) {
   const rendered = [];
   let retainedFrom = 0;
@@ -1055,31 +1107,15 @@ function withoutCodeSpans(text) {
       cursor = opening + openingLength;
       continue;
     }
-    let searchFrom = opening + openingLength;
-    let closingEnd;
-    while (searchFrom < text.length) {
-      const closing = text.indexOf("`", searchFrom);
-      if (closing === -1) {
-        break;
-      }
-      const closingLength = markerRunLength(text, closing, "`");
-      if (
-        !isEscaped(text, closing) &&
-        closingLength === openingLength
-      ) {
-        closingEnd = closing + closingLength;
-        break;
-      }
-      searchFrom = closing + closingLength;
-    }
-    if (closingEnd === undefined) {
+    const closing = codeSpanClosing(text, opening, openingLength);
+    if (closing === undefined) {
       cursor = opening + openingLength;
       continue;
     }
     rendered.push(text.slice(retainedFrom, opening));
-    rendered.push(maskedLiteral(text.slice(opening, closingEnd)));
-    retainedFrom = closingEnd;
-    cursor = closingEnd;
+    rendered.push(maskedLiteral(text.slice(opening, closing.end)));
+    retainedFrom = closing.end;
+    cursor = closing.end;
   }
   rendered.push(text.slice(retainedFrom));
   return rendered.join("");
@@ -1087,7 +1123,8 @@ function withoutCodeSpans(text) {
 
 function closingLabelIndex(markdown, opening) {
   let depth = 1;
-  for (let cursor = opening + 1; cursor < markdown.length; cursor += 1) {
+  const end = paragraphEnd(markdown, opening + 1);
+  for (let cursor = opening + 1; cursor < end; cursor += 1) {
     if (isEscaped(markdown, cursor)) {
       continue;
     }
@@ -1106,7 +1143,8 @@ function closingLabelIndex(markdown, opening) {
 
 function referenceLabelEnd(markdown, opening) {
   let length = 0;
-  for (let cursor = opening + 1; cursor < markdown.length; cursor += 1) {
+  const end = paragraphEnd(markdown, opening + 1);
+  for (let cursor = opening + 1; cursor < end; cursor += 1) {
     const character = markdown.at(cursor);
     if (!isEscaped(markdown, cursor) && character === "[") {
       return undefined;
@@ -1157,7 +1195,8 @@ function titleEnd(markdown, opening) {
   const marker = markdown.at(opening);
   const closingMarker = marker === "(" ? ")" : marker;
   let depth = 1;
-  for (let cursor = opening + 1; cursor < markdown.length; cursor += 1) {
+  const end = paragraphEnd(markdown, opening + 1);
+  for (let cursor = opening + 1; cursor < end; cursor += 1) {
     if (isEscaped(markdown, cursor)) {
       continue;
     }
@@ -1367,28 +1406,13 @@ function headingInlineText(markdown, referenceLabels) {
   while (cursor < markdown.length) {
     if (markdown.at(cursor) === "`" && !isEscaped(markdown, cursor)) {
       const openingLength = markerRunLength(markdown, cursor, "`");
-      let searchFrom = cursor + openingLength;
-      let closingEnd;
-      let closingStart;
-      while (searchFrom < markdown.length) {
-        const closing = markdown.indexOf("`", searchFrom);
-        if (closing === -1) {
-          break;
-        }
-        const closingLength = markerRunLength(markdown, closing, "`");
-        if (!isEscaped(markdown, closing) && closingLength === openingLength) {
-          closingEnd = closing + closingLength;
-          closingStart = closing;
-          break;
-        }
-        searchFrom = closing + closingLength;
-      }
-      if (closingEnd === undefined) {
+      const closing = codeSpanClosing(markdown, cursor, openingLength);
+      if (closing === undefined) {
         cursor += openingLength;
         continue;
       }
       let code = markdown
-        .slice(cursor + openingLength, closingStart)
+        .slice(cursor + openingLength, closing.start)
         .replaceAll(/\s+/gu, " ");
       if (
         code.startsWith(" ") &&
@@ -1399,8 +1423,8 @@ function headingInlineText(markdown, referenceLabels) {
       }
       rendered.push(markdown.slice(retainedFrom, cursor));
       rendered.push(code);
-      retainedFrom = closingEnd;
-      cursor = closingEnd;
+      retainedFrom = closing.end;
+      cursor = closing.end;
       continue;
     }
     if (markdown.at(cursor) !== "[" || isEscaped(markdown, cursor)) {
