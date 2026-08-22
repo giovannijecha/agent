@@ -1048,7 +1048,7 @@ function inlineTarget(markdown, opening) {
     : undefined;
 }
 
-function inlineLinkCandidate(markdown, opening, referenceLabels) {
+function inlineLinkCandidate(markdown, opening, references) {
   const closing = closingLabelIndex(markdown, opening);
   if (closing === undefined) {
     return undefined;
@@ -1064,20 +1064,22 @@ function inlineLinkCandidate(markdown, opening, referenceLabels) {
     if (referenceClosing !== undefined) {
       const explicit = markdown.slice(closing + 2, referenceClosing);
       const implicit = markdown.slice(opening + 1, closing);
-      if (
-        referenceLabels.has(
-          normalizedReferenceLabel(explicit.length === 0 ? implicit : explicit),
-        )
-      ) {
+      const referenceTarget = references.get(
+        normalizedReferenceLabel(explicit.length === 0 ? implicit : explicit),
+      );
+      if (referenceTarget !== undefined) {
         end = referenceClosing + 1;
+        target = referenceTarget;
       }
     }
-  } else if (
-    referenceLabels.has(
+  } else {
+    const referenceTarget = references.get(
       normalizedReferenceLabel(markdown.slice(opening + 1, closing)),
-    )
-  ) {
-    end = closing + 1;
+    );
+    if (referenceTarget !== undefined) {
+      end = closing + 1;
+      target = referenceTarget;
+    }
   }
   if (end === undefined) {
     return undefined;
@@ -1094,13 +1096,13 @@ function inlineLinkCandidate(markdown, opening, referenceLabels) {
   });
 }
 
-function inlineTargets(markdown, referenceLabels) {
+function inlineTargets(markdown, references) {
   const candidates = [];
   for (let cursor = 0; cursor < markdown.length; cursor += 1) {
     if (markdown.at(cursor) !== "[" || isEscaped(markdown, cursor)) {
       continue;
     }
-    const candidate = inlineLinkCandidate(markdown, cursor, referenceLabels);
+    const candidate = inlineLinkCandidate(markdown, cursor, references);
     if (candidate !== undefined) {
       candidates.push(candidate);
     }
@@ -1231,9 +1233,22 @@ function emphasisDelimiter(markdown, index) {
   });
 }
 
+function availableDelimiterCharacters(delimiter) {
+  return delimiter.length - delimiter.usedAsCloser - delimiter.usedAsOpener;
+}
+
+function emphasisPairAllowed(opener, closer) {
+  if (!opener.canClose && !closer.canOpen) {
+    return true;
+  }
+  return (
+    (opener.length + closer.length) % 3 !== 0 ||
+    (opener.length % 3 === 0 && closer.length % 3 === 0)
+  );
+}
+
 function headingEmphasisText(markdown) {
-  const openers = [];
-  const removed = new Set();
+  const delimiters = [];
   let cursor = 0;
   while (cursor < markdown.length) {
     if (markdown.at(cursor) === "`" && !isEscaped(markdown, cursor)) {
@@ -1264,29 +1279,55 @@ function headingEmphasisText(markdown) {
       cursor += 1;
       continue;
     }
-    const delimiter = emphasisDelimiter(markdown, cursor);
-    let openerIndex = -1;
-    if (delimiter.canClose) {
-      for (let index = openers.length - 1; index >= 0; index -= 1) {
-        if (openers.at(index).marker === marker) {
-          openerIndex = index;
+    delimiters.push({
+      ...emphasisDelimiter(markdown, cursor),
+      usedAsCloser: 0,
+      usedAsOpener: 0,
+    });
+    const delimiter = delimiters.at(-1);
+    cursor += delimiter.length;
+  }
+
+  const removed = new Set();
+  for (let closerIndex = 0; closerIndex < delimiters.length; closerIndex += 1) {
+    const closer = delimiters.at(closerIndex);
+    if (!closer.canClose) {
+      continue;
+    }
+    while (availableDelimiterCharacters(closer) > 0) {
+      let opener;
+      for (let index = closerIndex - 1; index >= 0; index -= 1) {
+        const candidate = delimiters.at(index);
+        if (
+          candidate.canOpen &&
+          candidate.marker === closer.marker &&
+          availableDelimiterCharacters(candidate) > 0 &&
+          emphasisPairAllowed(candidate, closer)
+        ) {
+          opener = candidate;
           break;
         }
       }
-    }
-    if (openerIndex >= 0) {
-      const opener = openers.at(openerIndex);
-      for (let offset = 0; offset < opener.length; offset += 1) {
-        removed.add(opener.index + offset);
+      if (opener === undefined) {
+        break;
       }
-      for (let offset = 0; offset < delimiter.length; offset += 1) {
-        removed.add(delimiter.index + offset);
+      const used = Math.min(
+        availableDelimiterCharacters(opener),
+        availableDelimiterCharacters(closer),
+      ) >= 2
+        ? 2
+        : 1;
+      const openerEnd = opener.index + opener.length - opener.usedAsOpener;
+      for (let index = openerEnd - used; index < openerEnd; index += 1) {
+        removed.add(index);
       }
-      openers.splice(openerIndex, 1);
-    } else if (delimiter.canOpen) {
-      openers.push(delimiter);
+      const closerStart = closer.index + closer.usedAsCloser;
+      for (let index = closerStart; index < closerStart + used; index += 1) {
+        removed.add(index);
+      }
+      opener.usedAsOpener += used;
+      closer.usedAsCloser += used;
     }
-    cursor += delimiter.length;
   }
 
   const rendered = [];
@@ -1377,7 +1418,11 @@ function referenceDefinition(line, continuation) {
   const afterDestination = cursor;
   cursor = horizontalWhitespaceEnd(destinationLine, cursor);
   if (cursor === destinationLine.length) {
-    return Object.freeze({ label, target });
+    return Object.freeze({
+      label,
+      target,
+      usesContinuation: destinationLine !== line,
+    });
   }
   if (cursor === afterDestination) {
     return undefined;
@@ -1392,7 +1437,11 @@ function referenceDefinition(line, continuation) {
   }
   cursor = horizontalWhitespaceEnd(destinationLine, afterTitle);
   return cursor === destinationLine.length
-    ? Object.freeze({ label, target })
+    ? Object.freeze({
+      label,
+      target,
+      usesContinuation: destinationLine !== line,
+    })
     : undefined;
 }
 
@@ -1407,10 +1456,26 @@ function referenceDefinitions(markdown) {
       lines.at(index + 1),
     );
     if (definition !== undefined) {
-      definitions.push(definition);
+      definitions.push(Object.freeze({ ...definition, line: index }));
     }
   }
   return definitions;
+}
+
+function withoutReferenceDefinitions(markdown, definitions) {
+  const definitionLines = new Set();
+  for (const definition of definitions) {
+    definitionLines.add(definition.line);
+    if (definition.usesContinuation) {
+      definitionLines.add(definition.line + 1);
+    }
+  }
+  return markdown
+    .split("\n")
+    .map((line, index) =>
+      definitionLines.has(index) ? maskedLiteral(line) : line
+    )
+    .join("\n");
 }
 
 function isHtmlWhitespace(character) {
@@ -1653,11 +1718,16 @@ function localTargets(text) {
     tags,
   );
   const definitions = referenceDefinitions(markdownContent);
-  const referenceLabels = new Set(
-    definitions.map((definition) => definition.label),
+  const references = new Map();
+  for (const definition of definitions) {
+    if (!references.has(definition.label)) {
+      references.set(definition.label, definition.target);
+    }
+  }
+  const targets = inlineTargets(
+    withoutReferenceDefinitions(markdownContent, definitions),
+    references,
   );
-  const targets = inlineTargets(markdownContent, referenceLabels);
-  targets.push(...definitions.map((definition) => definition.target));
   for (const tag of tags) {
     for (const attribute of tag.attributes) {
       const { name, value } = attribute;

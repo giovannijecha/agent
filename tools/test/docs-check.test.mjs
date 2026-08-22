@@ -569,8 +569,12 @@ test("ignores fenced HTML after nested list markers", () => {
 
 test("validates escaped reference destinations", () => {
   const context = currentContext();
-  context.files["README.md"] +=
-    "[target]: <docs/missing\\> file.md>\n";
+  context.files["README.md"] += [
+    "[Missing][target]",
+    "",
+    "[target]: <docs/missing\\> file.md>",
+    "",
+  ].join("\n");
   assert.throws(
     () =>
       validateDocumentation(context, {
@@ -578,6 +582,21 @@ test("validates escaped reference destinations", () => {
       }),
     /broken local link/u,
   );
+});
+
+test("validates only the selected active reference definition", () => {
+  const context = currentContext();
+  context.files["README.md"] += [
+    "[Home][selected]",
+    "",
+    "[selected]: README.md",
+    "[selected]: docs/not-real.md",
+    "[unused]: docs/not-real.md",
+    "",
+  ].join("\n");
+  validateDocumentation(context, {
+    expectedLicenseDigest: licenseDigest,
+  });
 });
 
 test("validates reference definitions inside block quotes", () => {
@@ -786,6 +805,25 @@ test("removes emphasis delimiters from heading anchors", () => {
     "# _Emphasized heading_ and snake_case\n";
   context.files["README.md"] +=
     "[Emphasis](PRIVACY.md#emphasized-heading-and-snake_case)\n";
+  validateDocumentation(context, {
+    expectedLicenseDigest: licenseDigest,
+  });
+});
+
+test("preserves unmatched emphasis delimiter characters", () => {
+  const context = currentContext();
+  context.files["PRIVACY.md"] += [
+    "# __foo_",
+    "# ___bar__",
+    "# __baz___",
+    "",
+  ].join("\n");
+  context.files["README.md"] += [
+    "[Long opener](PRIVACY.md#_foo)",
+    "[Strong long opener](PRIVACY.md#_bar)",
+    "[Strong long closer](PRIVACY.md#baz_)",
+    "",
+  ].join("\n");
   validateDocumentation(context, {
     expectedLicenseDigest: licenseDigest,
   });
