@@ -89,6 +89,14 @@ function localTargets(text) {
   for (const match of text.matchAll(/\b(?:href|src)="([^"]+)"/gu)) {
     targets.push(match[1]);
   }
+  for (const match of text.matchAll(/\bsrcset="([^"]+)"/gu)) {
+    for (const candidate of match[1].split(",")) {
+      const target = candidate.trim().split(/\s+/u).at(0);
+      if (target !== undefined && target.length > 0) {
+        targets.push(target);
+      }
+    }
+  }
   return targets;
 }
 

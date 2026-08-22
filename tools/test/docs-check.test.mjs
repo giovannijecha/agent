@@ -82,6 +82,17 @@ test("rejects broken local links and decision-ledger references", () => {
     /link target/u,
   );
 
+  const srcset = currentContext();
+  srcset.files["README.md"] +=
+    '<source srcset="assets/brand/missing.png 1x, assets/brand/other.png 2x">\n';
+  assert.throws(
+    () =>
+      validateDocumentation(srcset, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+
   const decision = currentContext();
   decision.files["docs/ARCHITECTURE.md"] +=
     "See docs/decisions/0042-example.md.\n";
