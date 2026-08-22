@@ -133,7 +133,7 @@ function localTargets(text) {
     targets.push(match[1] ?? match[2]);
   }
   const referenceDefinitions =
-    /^[ \t]{0,3}\[[^\]\r\n]+\]:[ \t]*(?:<([^>\r\n]+)>|([^\s]+))(?:[ \t]+(?:"[^"]*"|'[^']*'|\([^)]*\)))?[ \t]*$/gmu;
+    /^[ \t]{0,3}\[(?:\\.|[^\]\\\r\n])+\]:[ \t]*(?:<([^>\r\n]+)>|([^\s]+))(?:[ \t]+(?:"[^"]*"|'[^']*'|\([^)]*\)))?[ \t]*$/gmu;
   for (const match of text.matchAll(referenceDefinitions)) {
     targets.push(match[1] ?? match[2]);
   }

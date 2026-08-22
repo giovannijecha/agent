@@ -146,6 +146,7 @@ test("rejects broken local links and decision-ledger references", () => {
   for (const referenceLink of [
     "[Missing][target]\n\n[target]: docs/missing.md 'details'",
     "[Missing][]\n\n[Missing]: <docs/missing.md> (details)",
+    "[right\\] bracket][]\n\n[right\\] bracket]: docs/missing.md",
   ]) {
     const reference = currentContext();
     reference.files["README.md"] += referenceLink + "\n";
