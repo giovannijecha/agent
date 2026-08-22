@@ -2,176 +2,140 @@
 
 ## Mission
 
-Build `agent`, an original lightweight personal coding agent with a CLI and
-conversation-first TUI. The canonical repository is
-`giovannijecha/agent`; Giovanni Jecha is the maintainer and copyright holder.
-The public description is “An owned, zero-dependency personal coding agent.”
+Build `agent`, an original lightweight personal coding agent with a CLI and a
+conversation-first TUI. The canonical repository is `giovannijecha/agent`;
+Giovanni Jecha is the maintainer and copyright holder. The public description
+is “An owned, zero-dependency personal coding agent.”
 
-This file is the repository change contract and route map. It intentionally does
-not restate every subsystem contract. Follow the linked authority before changing
-that domain; a summary here never overrides its canonical owner.
+This file is the repository change contract. Keep it short: implementation,
+tests, and the few living documents below are the current authority. Git history
+preserves former designs; this repository has no separate decision ledger.
 
-## Read by task
+## Read before changing
 
-| Task | Canonical authority |
+| Change | Read |
 | --- | --- |
-| Find the right document | [Documentation map](docs/README.md) |
-| Change package boundaries, runtime, tools, CLI, TUI, or platform ownership | [Architecture](docs/ARCHITECTURE.md) |
-| Change source, tests, declarations, verification, or evaluation practice | [Engineering](docs/ENGINEERING.md) |
-| Update, roll back, remove, release, or diagnose a subsystem | [Maintenance](docs/MAINTENANCE.md) |
-| Change observable operator behavior | [Operator manual](docs/manual/README.md) |
-| Change providers, credentials, catalogs, models, or network origins | [Provider policy](docs/PROVIDERS.md), [privacy policy](PRIVACY.md), [decision 0072](docs/decisions/0072-owned-ollama-cloud-provider.md), [decision 0089](docs/decisions/0089-owned-external-authentication-transition.md), and OpenAI [decisions 0090](docs/decisions/0090-owned-openai-subscription-oauth-contract.md), [0091](docs/decisions/0091-owned-provider-public-client-compatibility.md), [0092](docs/decisions/0092-owned-openai-compatible-public-client.md), [0093](docs/decisions/0093-owned-openai-oauth-credential-record.md), [0094](docs/decisions/0094-owned-openai-device-authentication.md), and [0095](docs/decisions/0095-owned-openai-provider-transport.md) |
-| Change security boundaries or vulnerability handling | [Security policy](SECURITY.md) and [privacy policy](PRIVACY.md) |
-| Inspect a reference project or change provenance rules | [Ownership policy](docs/OWNERSHIP.md) |
-| Change brand identity or visual assets | [Brand guide](docs/BRAND.md) |
-| Change the maintained task corpus or evaluation evidence | [Evaluation guide](evaluations/README.md) |
-| Add or supersede a lasting design decision | [Decision index](docs/decisions/README.md) |
-| Change documentation structure or migrate duplicated content | [Decision 0070](docs/decisions/0070-owned-documentation-information-architecture.md) and the [migration ledger](docs/DOCUMENTATION-MIGRATION.md) |
-| Prepare a contribution | [Contributing guide](CONTRIBUTING.md) |
+| Packages, runtime, tools, CLI, TUI, providers, or platform boundaries | [Architecture](docs/ARCHITECTURE.md) |
+| Source, tests, toolchain, verification, maintenance, release, or removal | [Engineering](docs/ENGINEERING.md) |
+| Observable operator behavior | [Operator manual](docs/manual/README.md) |
+| Credentials, personal content, network traffic, or security boundaries | [Privacy](PRIVACY.md) and [Security](SECURITY.md) |
+| Brand assets | [Brand assets](assets/brand/README.md) |
+| Evaluation evidence | [Evaluation guide](evaluations/README.md) |
 
-## Repository invariants
+Read the relevant authority completely before editing that domain. When a
+change affects more than one row, update all affected contracts in the same
+change.
 
-### Source and toolchain
+## Invariants
 
-- Use Node.js `>=22.19.0`, npm workspaces, ESM, ES2022, and external
-  TypeScript `5.9.3`. TypeScript stays outside the repository.
-- Original private native primitives use C17 and external Clang `>=18`.
-  Generated native binaries remain ignored and are never committed.
-- Third-party source, npm packages, SDKs, frameworks, snippets, vendored code,
-  foreign generated code, and `@types/node` are forbidden.
-- Every package dependency is an exact edge to a registered local workspace.
-  Use only local imports and explicitly allowlisted `node:` built-ins.
-- Never use bare built-in names, `npx`, `npm exec`, dynamic imports,
-  `require`, or loaders.
-- Shipped modules use only statically proven computed member names and explicit
-  collection APIs such as `.at()` for runtime indexing.
-- Minimal Node declarations are authored here from authoritative runtime
-  contracts. The verifier-enforced source rules in the engineering guide are
-  normative.
+### Ownership and dependencies
 
-### Architecture and authority
+- Product source is original to this repository. Do not copy, translate, adapt,
+  vendor, or reconstruct third-party implementations, tests, prompts, fixtures,
+  identifiers, or source structure.
+- Public specifications and provider-owned non-secret protocol constants may be
+  used as facts. If official documentation is incomplete, inspect only the
+  smallest public reference-project area needed to establish one interoperability
+  fact and record the source and immutable revision in the change description.
+- Runtime packages, SDKs, frameworks, snippets, foreign generated code,
+  `@types/node`, and install-time scripts are forbidden.
+- Use Node.js `>=22.19.0`, npm `11.16.0`, ESM, ES2022, external TypeScript
+  `5.9.3`, C17, and external Clang `>=18`. Generated output stays ignored.
+- Imports use registered local workspaces, explicitly admitted `node:` built-ins,
+  and runtime extensions. Bare built-in names, `npx`, `npm exec`, dynamic
+  imports, `require`, and loaders are forbidden.
+
+### Architecture
 
 - `@agent/core` owns deterministic domain state and performs no I/O.
 - `@agent/tools` is Node-free and depends only on core.
 - `@agent/runtime` is Node-free and depends only on core and tools.
-- `@agent/tui` is agent-agnostic and Node-free. Core and TUI never depend on
+- Provider packages are Node-free adapters. The OpenAI subscription package is
+  installed but remains uncomposed until its runtime activation is implemented.
+- `@agent/tui` is Node-free and agent-agnostic. Core and TUI never depend on
   each other.
 - `@agent/cli` is the sole Node and platform boundary. It owns commands,
-  workspace resolution, read policy, built-in tools, terminal lifecycle,
-  provider composition, and the serialized application controller.
-- Dependencies point inward, public package surfaces go through `src/index.ts`,
-  and deep cross-package imports are forbidden.
-- `agent` is a single-agent product with one identity and one controller. It owns
-  one active runtime session and one active model loop. Providers are
-  interchangeable backends, never agents. Do not add sub-agents, delegation,
-  swarms, or concurrent conversations.
-- Model turns, permission decisions, writes, process execution, conversation
-  commits, and terminal output remain serialized. Two to four explicitly
-  registered independent read handlers may overlap as one bounded cohort only
-  after every permission settles. They never overlap an owned effect and their
-  results return to the sole controller in provider order.
-- Core owns one bounded immutable conversation tree. Runtime
-  exposes exactly one selected root-to-node model path; `/timeline` is the sole
-  idle-only selector, and appending after an older selection retains siblings.
-  Selection never replays tools. The CLI persists only settled nodes and the
-  active identity through decision 0076; compaction, merge, branch deletion,
-  import, and export remain disabled without a separate accepted decision.
+  workspace and read policy, native helpers, terminal lifecycle, credentials,
+  provider composition, persistence, and the serialized application controller.
+- Dependencies point inward and public package surfaces go through `src/index.ts`.
+  Deep cross-package imports are forbidden.
 - Keep modules cohesive, independently testable, replaceable, and removable.
-  Do not add speculative layers or overlapping authority.
+  Do not create speculative layers or overlapping authorities.
 
-### Tools and permissions
+### Execution model
 
-- The exact model-facing inventory is `read_file`, `list_directory`,
-  `search_text`, `apply_patch`, `manage_path`, and `shell`.
-  Tool aliases and convenience overlaps are forbidden.
-- The provider-neutral boundary validates one bounded ordered batch, plans calls
-  in provider order, and requests one exact permission for each successfully
-  planned call. It either executes sequentially or admits one decision-0074
-  cohort of two to four independent registered reads, then emits results in
-  provider order, checkpoints them, and commits one complete exchange.
-- The owned instruction permits one batch of two to four independent sibling
-  inspection calls; every dependent read, write, or `shell` response contains
-  at most one call. It requires reassessment after every checkpoint until the
-  task is complete or one explicit blocker remains. Never add implicit retry,
-  replay, fallback, or unregistered concurrency.
-- `/permissions` is the sole session-only policy editor. Exact tools hold
-  `Allow`, `Ask`, or `Deny`; reads default to `Allow`, writes and
-  execution to `Ask`. `/approve` and `/deny` do not exist.
-- `apply_patch`, `manage_path`, and `shell` keep their accepted object-bound,
-  namespace, and contained-process contracts. Shell execution uses one fixed
-  platform shell, an exact approved command, a controlled credential-free
-  environment, fixed bounds, and whole-tree cleanup. Their exact bounds,
-  platform behavior, failures, and removal order live in architecture,
-  engineering, maintenance, and the indexed decisions.
+- `agent` has one identity, one controller, one active runtime session, and one
+  model loop. Providers are interchangeable backends, never agents. Do not add
+  sub-agents, delegation, swarms, or concurrent conversations.
+- Model turns, permissions, effects, conversation commits, persistence, and
+  terminal output remain serialized.
+- One explicitly admitted cohort of two to four independent registered reads may
+  overlap after every permission settles. It never overlaps an effect and its
+  results return in provider order.
+- Conversation state is one bounded immutable tree. Exactly one root-to-node
+  path is exposed to the model. `/timeline` is the idle-only selector; selecting
+  history never replays tools or restores filesystem state.
+
+### Tools and authority
+
+- The model-facing tools are exactly `read_file`, `list_directory`,
+  `search_text`, `apply_patch`, `manage_path`, and `shell`. Aliases and
+  overlapping convenience tools are forbidden.
+- Every call is bounded, schema-validated, planned, and authorized before
+  execution. There is no implicit retry, replay, fallback, or hidden concurrency.
+- `/permissions` is the sole session-only policy editor. Reads default to
+  `Allow`; writes and execution default to `Ask`; every tool can also be `Deny`.
+- One immutable canonical workspace and deny-only read policy are fixed before
+  credentials, providers, tools, or terminal ownership.
+- Writes and namespace changes bind permission to observed state and use the
+  owned native Windows/Linux commit boundaries. Missing guarantees fail closed.
+- `shell` runs one exact approved command through the fixed platform shell with
+  a controlled credential-free environment, fixed bounds, and whole-tree
+  cleanup. It is not a filesystem or network sandbox.
 
 ### Providers and secrets
 
-- Ollama Cloud is the sole admitted direct API-key provider under the
-  [provider policy](docs/PROVIDERS.md) and decision 0072. Do not add another
-  provider, origin, compatibility endpoint, SDK, CLI, local daemon, alias,
-  redirect, retry, router, or fallback without a new accepted decision and
-  complete contract evidence.
-- Ollama Cloud credentials are admitted either from its exact provider-specific
-  owned record under `~/.agent/credentials` or temporarily from
-  `AGENT_OLLAMA_API_KEY`. Catalog results, provider selection, and model
-  selection remain process-only. `agent` starts without a backend.
+- Ollama Cloud is the only active runtime provider. Its exact catalog and chat
+  origins, bearer authentication, native protocol, and no-redirect/no-retry/
+  no-fallback behavior remain fixed.
 - `agent auth` is the sole interactive credential lifecycle and runs outside
   the alternate-screen TUI. `/providers` does not exist.
-- `/models` first stages one authenticated provider, then performs one
-  bearer-authenticated request to that provider's exact admitted catalog path.
-  Accepting a catalog model atomically selects both provider and model.
-- Environment input never persists or selects a provider or model. A durable
-  record and environment input together fail explicitly as dual authority;
-  neither has precedence and neither is imported.
-- Decision 0094 activates OpenAI device sign-in, sign-in-again, and local
-  removal through `agent auth` under the decision-0093 exclusive record
-  admission. Decision 0095 installs an inactive OpenAI catalog and Responses
-  adapter. OpenAI credential snapshots, refresh, revocation, provider/model
-  selection, transport construction, and conversation runtime remain disabled.
-- Secrets, credentials, sessions, and personal content never enter source,
-  fixtures, logs, errors, receipts, or documentation values.
-
-### Workspace, provenance, and presentation
-
-- CLI resolves one immutable canonical workspace boundary before credentials,
-  providers, tools, or terminal ownership. It never discovers a broader
-  repository root. All built-in tools consume that same boundary and read policy.
-- Reference-project source may be inspected only when public documentation is
-  demonstrably stale or incomplete for one exact interoperability fact. Record
-  the dated gap, commit, bounded material, and allowed facts in the
-  [ownership policy](docs/OWNERSHIP.md) before opening source. Never copy,
-  translate, adapt, or reuse implementation, tests, prompts, structure, foreign
-  caller identity, or product identity. Only a provider-owned non-secret public
-  client admitted by decision 0091 and provider-specific decision 0092 may
-  become the OpenAI protocol constant; `agent` remains the caller identity.
-- TUI reference inspection is limited to observable outcomes; foreign component
-  structures, identifiers, style literals, timings, redraw algorithms, and
-  source organization are forbidden.
-- The canonical product, executable, package, and repository identity is
-  `agent`. The exact lowercase `.agent` wordmark is a visual signature only;
-  canonical assets and digests remain registered in
-  `assets/brand/manifest.json`.
-- Observable TUI, Markdown, activity, selection, pointer, composer, and failure
-  behavior is owned by the architecture and operator manual. Do not create
-  private rendering paths or parallel view models.
+- Ollama credentials come from its owner-protected record under
+  `~/.agent/credentials` or temporarily from `AGENT_OLLAMA_API_KEY`. Both at
+  once fail as dual authority. Neither source selects a provider or model.
+- `/models` selects one authenticated provider, fetches only that provider’s
+  fresh catalog, and atomically selects the provider-model pair.
+- OpenAI device sign-in and local record removal are active through `agent auth`.
+  The owned OpenAI catalog and Responses adapter are installed but inactive:
+  startup, `/models`, refresh, revocation, transport construction, and runtime
+  conversation use do not compose them.
+- No other provider, endpoint, compatibility route, credential authority, SDK,
+  CLI, daemon, redirect, discovery, retry, router, or fallback is admitted
+  without its complete owned implementation, tests, security/privacy update,
+  operator documentation, and removal path.
+- Credentials, sessions, and personal content never enter source, fixtures,
+  logs, errors, receipts, or documentation values.
 
 ## Change discipline
 
-- Project artifacts are written in English; chat may use Italian.
-- Do not add automated tool signatures, generated-by banners, or tool co-author
-  trailers. Do not claim that development occurred without tool assistance.
-- External issues may open after publication; external code pull requests stay
-  closed during the initial maintainer-only clean-room phase.
-- Update behavior, tests, documentation, ownership policy, and removal guidance
-  in the same change.
-- Record lasting design or toolchain changes under `docs/decisions/` first.
-- Use explicit immutable results at library boundaries; no swallowed errors,
-  silent fallback, hidden global state, or ambient network access.
-- Every bug fix needs a regression test; every integration needs contract tests.
-- Owned evaluation evidence remains maintainer tooling, never product runtime.
-  One observation cannot justify a product change without maintained recurrence.
-- Do not edit generated `dist/`, `.test-dist/`, `node_modules/`, or lock
-  metadata manually. Change owned inputs and regenerate through the toolchain.
+- Project artifacts are English; chat may use another language.
+- Start from a clean branch based on current `main`. Preserve unrelated user
+  changes and never edit generated `dist/`, `.test-dist/`, `node_modules/`, or
+  lock metadata manually.
+- Work in small coherent modules. Establish a failing regression, implement the
+  smallest complete fix, then run focused checks and the full platform gate.
+- Every bug fix needs a regression. Every integration needs contract tests.
+- Update behavior, tests, operator guidance, privacy/security, maintenance, and
+  removal together when they are affected.
+- The change itself—source, tests, living documentation, review, and Git
+  history—is the design record. Do not add numbered decisions, migration
+  ledgers, prose digests, or parallel documentation authorities.
+- Use explicit immutable results. Do not swallow errors or add silent fallback,
+  ambient network access, hidden global state, or weaker platform paths.
+- Do not add automated tool signatures, generated-by banners, tool co-author
+  trailers, or claims that development occurred without tool assistance.
+- Do not initialize Git, publish, deploy, add dependencies, connect a real
+  provider, or mutate external state without explicit maintainer authorization.
 
 ## Canonical commands
 
@@ -185,16 +149,6 @@ agent
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1
 ```
 
-On Linux, use `bash tools/verify.sh`; it runs the same ordered gate with the
-platform-native shell wrapper.
-
-The final verification command must pass before work is complete. It validates
-the toolchain, documents, manifests, lockfile, imports, source hygiene, build,
-tests, native boundaries, and CLI. The owned GitHub workflow runs the same gate
-for pull requests and `main` without imported actions or repository secrets.
-
-## Scope boundaries
-
-Work only inside this repository unless an umbrella registry update is required.
-Do not initialize Git, publish, deploy, add packages, connect a real provider, or
-change external state unless the user explicitly asks.
+On Linux, run `bash tools/verify.sh`. The final platform-native verifier must
+pass before a change is complete. Pull requests and `main` run the same owned
+gate on Windows and Linux without imported actions or repository secrets.

@@ -390,7 +390,7 @@ function ordinaryLine(line: string, baseTone: Tone): DisplayLine {
   return parsedLine(line, Object.freeze([]), line, baseTone);
 }
 
-/** Pure line-oriented compiler for the closed Markdown subset in decision 0023. */
+/** Pure line-oriented compiler for the closed Markdown subset. */
 export function* markdownDisplayLines(
   text: string,
   baseTone: Tone = "plain",

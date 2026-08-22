@@ -1,9 +1,9 @@
-# 01 - Running agent
+# 01 - Running Agent
 
 ## Install
 
-Agent requires Node.js `>=22.19.0`, npm `11.16.0`, TypeScript `5.9.3`, and
-Clang `>=18` installed outside this repository. From the repository root:
+Agent requires Node.js `>=22.19.0`, npm `11.16.0`, external TypeScript `5.9.3`,
+and external Clang `>=18`.
 
 ```powershell
 npm ci --offline --ignore-scripts --no-audit --no-fund
@@ -11,154 +11,89 @@ npm run build
 npm run install:command
 ```
 
-`npm run install:command` creates the local command link. It is needed once per
-clone and again after unlinking. Maintainers can use `npm run dev` to rebuild
-and start, or `npm start` to run an existing build. Use `agent --help` for the
-accepted launch forms and `agent --version` for the installed version.
+`npm run dev` rebuilds and starts the repository command. `npm start` runs an
+existing build. Use `agent --help` for launch forms and `agent --version` for
+the installed version.
 
 ## Choose a workspace
 
-Run `agent` from the directory that should become the workspace. Agent
-canonicalizes that exact directory once; it does not search upward for a Git
-root. The accepted absolute path appears in the footer and is shared by every
-built-in tool.
+Start Agent inside the exact directory it should control. That canonical path
+is fixed for the process, shown in the footer, and passed to every built-in
+tool. Agent does not search upward for a Git root.
 
-A volume root, the exact user home, the shared temporary directory, and any
-workspace containing `~/.agent` or located inside it are rejected before
-credentials, providers, tools, or terminal ownership. An ordinary project
-directory elsewhere under the home remains valid. Startup then loads the
-built-in sensitive-path denials and the optional root
-`.agentignore`. Its deny-only grammar is documented in
-[Tools and permissions](04-tools-and-approval.md). The policy remains fixed
-until restart.
+A volume root, exact user home, shared temporary directory, or workspace
+containing or located within the native `~/.agent` state root is rejected before
+credentials or terminal ownership. A root `.agentignore` may add deny-only read
+rules; invalid, linked, changed, inaccessible, or oversized policy input blocks
+startup.
 
-## Start or resume a session
+## Start or resume
 
-Run `agent` to start a new durable local session. Agent stores only settled
-conversation turns and the selected timeline node under
-`~/.agent/sessions`, outside the workspace. Run this exact form from the same
-canonical workspace to continue the newest inactive session:
+Start a new interactive session:
+
+```powershell
+agent
+```
+
+Resume the newest inactive session for the same canonical workspace:
 
 ```powershell
 agent resume --latest
 ```
 
-Resume is a CLI launch form, not a TUI slash command. It reconstructs the
-bounded branch tree and visible transcript, then creates a new continuation;
-it does not append to the previous journal or rerun tools. If the previous
-process is still active, the latest journal is corrupt, or no journal exists
-for this workspace, startup fails content-free.
+Resume validates the journal and creates a separate continuation. It does not
+append to the source journal, replay tools, restore old files, or restore
+provider/model/permission settings. A live peer, missing session, unsafe state,
+interior corruption, or ambiguous legacy/current storage fails content-free.
+One incomplete final journal line may be discarded while retaining its valid
+prefix.
 
-Creation and resume briefly publish one unique workspace session-admission
-token while validating retention and publishing the continuation. A launch
-proceeds only when no other live token exists. Simultaneous launches for the
-same workspace may all fail content-free as busy instead of waiting or
-exceeding the retained-session bound; run again after the other admission has
-finished. A token whose exact process no longer exists may be removed through
-its never-reused pathname during a later launch.
+## Authenticate and select a model
 
-A crash during the final append may leave one incomplete last line. Resume
-discards only that line, restores the validated complete prefix, and shows a
-recovery notice. Any earlier corruption fails closed. See the
-[privacy policy](../../PRIVACY.md#local-sessions) for retained data, locations,
-bounds, and deletion.
+Exit the TUI before managing credentials:
 
-On the first launch of an existing workspace after this storage change, Agent
-moves only that workspace's inactive session directory from the former Windows
-LocalAppData or POSIX XDG state location into `~/.agent/sessions`. It does not
-copy or merge session trees. If a legacy session is active, both locations hold
-that workspace, or the move crosses filesystems or otherwise fails, startup
-stops without changing the retained journals. Close every Agent process and
-resolve the exact directory conflict before trying again.
+```powershell
+agent auth
+```
 
-## Configure the session
+The command requires interactive input/output and accepts no operands. It can
+register, replace, or remove Ollama Cloud authentication and can sign in, sign
+in again, or remove the local OpenAI record. OpenAI authentication does not yet
+create a runtime provider row.
 
-Manage Ollama Cloud or OpenAI authentication outside the TUI with exact
-`agent auth`. The command requires TTY input and output, runs after workspace
-validation but before any session journal or alternate screen, accepts no
-operands, and begins with a provider selector. Ollama registration and
-replacement read the API key with terminal echo disabled and make no network
-request. OpenAI sign-in presents the independent-compatibility disclosure,
-displays the fixed provider verification URL and one-time code, and performs
-the bounded provider-hosted device ceremony. Both providers support local
-removal and cancellation; OpenAI also supports sign in again.
-
-Every new or resumed session starts without a selected provider or model.
-Use `/models` to choose an authenticated runtime provider and then one exact
-model from that provider's fresh catalog. OpenAI authentication is currently
-auth-only and does not add a provider or model row. Both selections are
-process-only and atomic; a credential never selects either one.
-
-Provider eligibility, model discovery, and failure behavior are covered in
-[Providers and authentication](05-providers-and-authentication.md). Tool modes
-can be changed with `/permissions`. Native reasoning effort and its transcript
-stream both remain `Off` by default; after selecting the provider and model,
-use `/thinking` to configure either for later turns in this process. Both values
-remain unchanged if another model is selected.
+Every TUI process starts without a provider or model. Run `/models`, select an
+authenticated runtime provider, then select one current catalog model. Use
+`/permissions` for tool policy and `/thinking` for reasoning Effort and Stream;
+both settings default to `Off`.
 
 ## Exit
 
-Use `/exit`, Ctrl+D, or terminal EOF. Shutdown restores terminal modes, releases
-the session lock, and attempts cleanup even when another operation has failed.
+Use `/exit`, Ctrl+D, or terminal EOF. Ctrl+C cancels active work and exits while
+idle. Shutdown restores terminal modes and attempts runtime, native, credential,
+and session cleanup even after another failure.
 
-Interactive mode requires TTY input and output. Redirected execution prints a
-short plain status without ANSI. Unknown, duplicated, or combined launch
-options fail; credentials are never accepted as command-line arguments.
+Interactive launch requires TTY input and output. Unknown, duplicated, combined,
+or redirected launch options fail. Credentials are never accepted as arguments.
 
 ## Evaluation mode
 
-Use the exact `agent --evaluation-receipt` launch form only for a maintained
-interactive evaluation. It runs the same product with unchanged tools and
-permissions. After terminal cleanup it prints one content-free JSON line with
-elapsed time and accepted turn, tool-call, approval, and repeated-read counts.
-It creates no session journal and writes no evaluation state to the workspace.
+`agent --evaluation-receipt` runs the normal interactive product without a
+session journal and prints one content-free JSON receipt after terminal cleanup.
+It is maintainer evaluation evidence, not a different runtime. See
+[Verification and diagnostics](06-verification-and-diagnostics.md).
 
-The evaluation workflow and interpretation rules live in
-[Verification and diagnostics](06-verification-and-diagnostics.md) and the
-[evaluation guide](../../evaluations/README.md).
+## Common startup failures
 
-## Failures
+- `agent rejected the workspace root`: choose a narrower ordinary project
+  directory outside the protected state root.
+- `agent rejected the workspace privacy policy`: repair or remove the root
+  `.agentignore`, then restart.
+- Resume failure: close other Agent processes and verify the exact workspace’s
+  session state; do not merge or rewrite journals manually.
+- Authentication busy: close the TUI or other `agent auth` process holding the
+  provider admission, then run the complete command again.
+- Ollama dual authority: unset `AGENT_OLLAMA_API_KEY` before managing or using a
+  durable record.
 
-- A missing build or command link prevents startup; rebuild and reinstall the
-  link from the repository root.
-- An invalid, inaccessible, non-directory, or over-broad root prints
-  `agent rejected the workspace root` and exits nonzero.
-- An invalid, linked, inaccessible, changed, or oversized `.agentignore`
-  prints `agent rejected the workspace privacy policy` and exits nonzero.
-- A missing, active, corrupt, oversized, or inaccessible latest session makes
-  `agent resume --latest` fail without printing its path or content.
-- A simultaneous session admission for the same workspace reports that session
-  admission is busy and exits without opening a journal.
-- An active legacy session, dual-root workspace, cross-filesystem move, or
-  failed legacy rename reports that Agent could not migrate legacy session
-  state and exits without copying, merging, or overwriting either location.
-- A linked or non-directory `.agent` or `sessions` namespace is rejected with
-  the content-free workspace-root diagnostic before any tool opens.
-- Do not run an older Agent executable after a workspace has migrated. Roll its
-  exact session directory back first using the maintenance procedure; otherwise
-  the older executable can recreate legacy state and the current executable
-  will reject the resulting dual-root conflict.
-- `agent auth` fails if redirected, given an operand, or run while another
-  process holds the selected provider's credential admission. Ollama
-  authentication also fails while `AGENT_OLLAMA_API_KEY` is set; a durable
-  Ollama record plus that variable makes normal startup and the Ollama auth path
-  fail as dual authority.
-- OpenAI device authentication can fail or be cancelled without publishing a
-  record. Retry the complete command after resolving connectivity, timeout,
-  provider rejection, terminal input, or unsafe-store state; Agent never
-  resumes, replays, or exposes the provider response.
-- An unsafe credential owner, access control, link, record, inventory, or
-  recovery state fails content-free without falling back to the environment.
-- Credential, provider, input, rendering, and cleanup failures expose only a
-  short content-safe classification and return a nonzero status when startup
-  or shutdown cannot complete.
-
-## References
-
-- [Executable lifecycle decision](../decisions/0018-owned-executable-startup.md)
-- [Workspace trust-boundary decision](../decisions/0042-owned-workspace-trust-boundary.md)
-- [Evaluation-receipt decision](../decisions/0048-owned-content-free-evaluation-receipt.md)
-- [Durable-session decision](../decisions/0076-owned-bounded-session-journal.md)
-- [User-scoped state-root decision](../decisions/0087-owned-user-scoped-state-root.md)
-- [Architecture](../ARCHITECTURE.md)
-- [Maintenance and removal](../MAINTENANCE.md)
+Continue with [providers and authentication](05-providers-and-authentication.md)
+and [Privacy](../../PRIVACY.md) for retained-state details.

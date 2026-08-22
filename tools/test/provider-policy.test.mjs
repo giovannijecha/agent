@@ -44,10 +44,6 @@ const currentProductSources = collectFiles(projectRoot)
 const currentPolicy = JSON.parse(
   readFileSync(new URL("../provider-policy.json", import.meta.url), "utf8"),
 );
-const currentApplications = readFileSync(
-  new URL("../../docs/PROVIDER-APPLICATIONS.md", import.meta.url),
-  "utf8",
-);
 const emptyContext = {
   workspaceNames: [
     "@agent/core",
@@ -59,7 +55,6 @@ const emptyContext = {
     "@agent/cli",
   ],
   productSources: currentProductSources,
-  applicationText: currentApplications,
 };
 
 function contextWithSources(...sources) {
@@ -86,7 +81,6 @@ test("accepts the canonical compatibility, blocked, and direct provider registry
     ["ollama-cloud"],
   );
   assert.deepEqual(currentPolicy.subscriptionCompatibility, {
-    decision: "0091",
     state: "accepted-runtime-inactive",
     providers: ["chatgpt", "kimi", "grok"],
     registrationAuthority: "provider-owned-non-secret-public-client",
@@ -112,11 +106,6 @@ test("binds OpenAI authentication and inactive provider transport", () => {
   assert.deepEqual(currentPolicy.subscriptionContracts, [
     {
       id: "chatgpt",
-      decision: "0090",
-      identityDecision: "0092",
-      credentialDecision: "0093",
-      authDecision: "0094",
-      transportDecision: "0095",
       state: "transport-compatible-inactive",
       flow: "openai-device-code-plus-oauth-pkce",
       issuer: "https://auth.openai.com",
@@ -266,7 +255,6 @@ test("binds OpenAI authentication and inactive provider transport", () => {
 test("rejects drift that would activate or misidentify the OpenAI OAuth contract", () => {
   for (const [field, value] of [
     ["state", "enabled"],
-    ["credentialDecision", "0092"],
     ["clientId", "foreign-application"],
     ["clientType", "agent-owned-client"],
     ["clientIdentityAuthority", "borrowed-codex-client"],
@@ -368,55 +356,16 @@ test("rejects drift in the admitted direct provider", () => {
   );
 });
 
-test("rejects incomplete or stale provider registration requests", () => {
-  const missingAnswer = currentApplications.replace(
-    "### Required written answer",
-    "### Missing answer contract",
-  );
-  assert.throws(
-    () =>
-      validateProviderPolicy(currentPolicy, {
-        ...emptyContext,
-        applicationText: missingAnswer,
-      }),
-    ProviderPolicyError,
-  );
-
+test("rejects stale provider research", () => {
   const stalePolicy = structuredClone(currentPolicy);
   stalePolicy.researchedOn = "2026-08-07";
   assert.throws(
     () => validateProviderPolicy(stalePolicy, emptyContext),
     ProviderPolicyError,
   );
-
-  const untrustedEvidence = currentApplications.replace(
-    "https://developers.openai.com/codex/auth/",
-    "https://example.com/unverified",
-  );
-  assert.throws(
-    () =>
-      validateProviderPolicy(currentPolicy, {
-        ...emptyContext,
-        applicationText: untrustedEvidence,
-      }),
-    ProviderPolicyError,
-  );
-
-  const untrustedRoute = currentApplications.replace(
-    "code@moonshot.ai",
-    "unverified@example.com",
-  );
-  assert.throws(
-    () =>
-      validateProviderPolicy(currentPolicy, {
-        ...emptyContext,
-        applicationText: untrustedRoute,
-      }),
-    ProviderPolicyError,
-  );
 });
 
-test("rejects submission-record drift and personal email addresses", () => {
+test("rejects submission-record drift", () => {
   const reverted = structuredClone(currentPolicy);
   reverted.providers[0].request.state = "ready-not-submitted";
   assert.throws(
@@ -461,69 +410,9 @@ test("rejects submission-record drift and personal email addresses", () => {
     ProviderPolicyError,
   );
 
-  const missingPrivateDocumentReference = currentApplications.replace(
-    "anthropic-support-messenger-2026-08-08",
-    "conversation-unverified",
-  );
-  assert.throws(
-    () =>
-      validateProviderPolicy(currentPolicy, {
-        ...emptyContext,
-        applicationText: missingPrivateDocumentReference,
-      }),
-    ProviderPolicyError,
-  );
-
-  const missingKimiDocumentReference = currentApplications.replace(
-    "kimi-support-email-2026-08-08",
-    "kimi-support-email-unverified",
-  );
-  assert.throws(
-    () =>
-      validateProviderPolicy(currentPolicy, {
-        ...emptyContext,
-        applicationText: missingKimiDocumentReference,
-      }),
-    ProviderPolicyError,
-  );
-
-  const missingXaiDocumentReference = currentApplications.replace(
-    "xai-support-email-2026-08-08",
-    "xai-support-email-unverified",
-  );
-  assert.throws(
-    () =>
-      validateProviderPolicy(currentPolicy, {
-        ...emptyContext,
-        applicationText: missingXaiDocumentReference,
-      }),
-    ProviderPolicyError,
-  );
-
-  const missingDocumentReference = currentApplications.replace(
-    "https://community.openai.com/t/independent-native-oauth-public-client-registration-request-for-agent/1389585",
-    "https://example.com/unverified-submission",
-  );
-  assert.throws(
-    () =>
-      validateProviderPolicy(currentPolicy, {
-        ...emptyContext,
-        applicationText: missingDocumentReference,
-      }),
-    ProviderPolicyError,
-  );
-
-  assert.throws(
-    () =>
-      validateProviderPolicy(currentPolicy, {
-        ...emptyContext,
-        applicationText: currentApplications + "\nprivate@example.com\n",
-      }),
-    ProviderPolicyError,
-  );
 });
 
-test("rejects response-record drift and private response disclosure", () => {
+test("rejects response-record drift", () => {
   const invalidState = structuredClone(currentPolicy);
   invalidState.providers[2].request.response.state = "approved";
   assert.throws(
@@ -553,31 +442,6 @@ test("rejects response-record drift and private response disclosure", () => {
     ProviderPolicyError,
   );
 
-  const missingResponseReference = currentApplications.replace(
-    "kimi-support-response-2026-08-11",
-    "kimi-support-response-unverified",
-  );
-  assert.throws(
-    () =>
-      validateProviderPolicy(currentPolicy, {
-        ...emptyContext,
-        applicationText: missingResponseReference,
-      }),
-    ProviderPolicyError,
-  );
-
-  const falseResponse = currentApplications.replace(
-    "- Response state: `received`",
-    "- Response state: `approved`",
-  );
-  assert.throws(
-    () =>
-      validateProviderPolicy(currentPolicy, {
-        ...emptyContext,
-        applicationText: falseResponse,
-      }),
-    ProviderPolicyError,
-  );
 });
 
 test("rejects every provider or auth workspace that was not admitted", () => {

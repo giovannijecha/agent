@@ -1,4 +1,4 @@
-/** Fixed bounds for decision 0095's owned OpenAI transport. */
+/** Fixed bounds for the owned OpenAI transport. */
 export const OPENAI_PROVIDER_LIMITS = Object.freeze({
   catalogBodyBytes: 1_048_576,
   catalogModels: 256,

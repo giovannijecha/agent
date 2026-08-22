@@ -73,11 +73,8 @@ const SECRET_SEGMENTS = Object.freeze([
   ".kube",
   ".ssh",
 ]);
-const RESOLUTION_PREFIXES = Object.freeze([
-  "docs/decisions/",
-  "packages/",
-  "tools/test/",
-]);
+const RESOLUTION_PREFIX = "tools/test/";
+const RESOLUTION_SUFFIX = ".test.mjs";
 
 export class EvaluationFailureRegistryError extends Error {
   constructor(code) {
@@ -257,8 +254,10 @@ function validateResolution(entry, repositoryPaths) {
     return;
   }
   const resolution = safeRelativePath(entry.resolution, "invalidLifecycle");
+  const expectedResolution =
+    RESOLUTION_PREFIX + entry.id + RESOLUTION_SUFFIX;
   if (
-    !RESOLUTION_PREFIXES.some((prefix) => resolution.startsWith(prefix)) ||
+    resolution !== expectedResolution ||
     !repositoryPaths.has(resolution)
   ) {
     fail("invalidLifecycle");

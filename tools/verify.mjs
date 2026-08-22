@@ -13,16 +13,18 @@ import { fileURLToPath } from "node:url";
 import { analyzeModule } from "./lib/module-specifiers.mjs";
 import { validateBrandPolicy } from "./lib/brand-policy.mjs";
 import { validateCiPolicy } from "./lib/ci-policy.mjs";
-import { validateDocumentationPolicy } from "./lib/documentation-policy.mjs";
+import {
+  DOCUMENT_PATHS,
+  isLineAddressableSource,
+  validateDocumentation,
+} from "./lib/docs-check.mjs";
 import {
   EVALUATION_FAILURE_LIMITS,
   parseEvaluationFailureRegistry,
   validateEvaluationFailureRegistry,
 } from "./lib/evaluation-failure-registry.mjs";
 import { validateEvaluationSuite } from "./lib/evaluation-suite.mjs";
-import { validateManualPolicy } from "./lib/manual-policy.mjs";
 import { validateProviderPolicy } from "./lib/provider-policy.mjs";
-import { validatePublicationPolicy } from "./lib/publication-policy.mjs";
 import {
   isIgnoredRepositorySourceDirectory,
   readBoundedRegularSourceFile,
@@ -39,12 +41,9 @@ if (
 const requireGenerated = arguments_[0] === "--require-generated";
 const brandManifest = readJson("assets/brand/manifest.json");
 const ciPolicy = readJson("tools/ci-policy.json");
-const documentationPolicy = readJson("tools/documentation-policy.json");
 const evaluationPolicy = readJson("tools/evaluation-policy.json");
 const policy = readJson("tools/ownership-policy.json");
-const manualPolicy = readJson("tools/manual-policy.json");
 const providerPolicy = readJson("tools/provider-policy.json");
-const publicationPolicy = readJson("tools/publication-policy.json");
 const toolchain = readJson("tools/toolchain.json");
 let evaluationOwnedPaths = new Set();
 const workspaceByName = new Map(
@@ -116,6 +115,19 @@ function readJson(relativePath) {
   } catch (error) {
     fail("invalid JSON in " + relativePath + ": " + String(error));
   }
+}
+
+function sourceLineCount(text) {
+  if (text.length === 0) {
+    return 0;
+  }
+  let count = text.endsWith("\n") ? 0 : 1;
+  for (const character of text) {
+    if (character === "\n") {
+      count += 1;
+    }
+  }
+  return count;
 }
 
 function listFiles(relativeDirectory, includeGenerated = false) {
@@ -298,24 +310,18 @@ function verifyBrandPolicy() {
 
 function verifyDocumentation() {
   const ownedPaths = listFiles(".");
-  const decisionPaths = ownedPaths
-    .filter((file) =>
-      /^docs\/decisions\/[0-9]{4}-[a-z0-9-]+\.md$/u.test(file),
-    )
-    .sort();
-  const inputs = new Set([
-    documentationPolicy.index,
-    documentationPolicy.decisionIndex,
-    documentationPolicy.migrationLedger,
-    ...documentationPolicy.livingDocuments.map((entry) => entry.path),
-    ...decisionPaths,
-  ]);
-  validateDocumentationPolicy(documentationPolicy, {
+  validateDocumentation({
     files: Object.fromEntries(
-      [...inputs].map((file) => [file, readText(file)]),
+      DOCUMENT_PATHS.map((file) => [file, readText(file)]),
     ),
-    decisionPaths,
+    gitAttributesText: readText(".gitattributes"),
+    licenseText: readText("LICENSE"),
     ownedPaths,
+    sourceLineCounts: Object.fromEntries(
+      ownedPaths
+        .filter(isLineAddressableSource)
+        .map((file) => [file, sourceLineCount(readText(file))]),
+    ),
   });
 }
 
@@ -354,32 +360,6 @@ function verifyEvaluationPolicy() {
   evaluationOwnedPaths = new Set(ownedPaths);
 }
 
-function verifyManual() {
-  const ownedPaths = listFiles(".");
-  const manualPaths = ownedPaths.filter(
-    (file) => file.startsWith("docs/manual/") && file.endsWith(".md"),
-  );
-  const productSources = ownedPaths.filter((file) =>
-    /^packages\/[a-z0-9-]+\/src\/[a-z0-9-]+\.ts$/u.test(file),
-  );
-  const decisionPaths = ownedPaths.filter((file) =>
-    /^docs\/decisions\/[0-9]{4}-[a-z0-9-]+\.md$/u.test(file),
-  );
-  const inputs = [
-    "README.md",
-    "PRIVACY.md",
-    "docs/MAINTENANCE.md",
-    ...productSources,
-    ...manualPaths,
-    ...decisionPaths,
-  ];
-  validateManualPolicy(manualPolicy, {
-    files: Object.fromEntries(inputs.map((file) => [file, readText(file)])),
-    manualPaths,
-    ownedPaths,
-  });
-}
-
 function verifyProviderPolicy() {
   const workspaceSources = policy.workspaces.flatMap((workspace) =>
     [workspace.path + "/src", workspace.path + "/test"].flatMap((directory) =>
@@ -397,15 +377,6 @@ function verifyProviderPolicy() {
   validateProviderPolicy(providerPolicy, {
     workspaceNames: policy.workspaces.map((workspace) => workspace.name),
     productSources: [...workspaceSources, ...declarationSources, ...nativeSources],
-    applicationText: readText(providerPolicy.applicationDocument),
-  });
-}
-
-function verifyPublicationPolicy() {
-  validatePublicationPolicy(publicationPolicy, {
-    files: Object.fromEntries(
-      publicationPolicy.documents.map((file) => [file, readText(file)]),
-    ),
   });
 }
 
@@ -621,7 +592,6 @@ function verifyRepositoryLayout() {
     ".gitignore",
     ".npmrc",
     "AGENTS.md",
-    "CONTRIBUTING.md",
     "LICENSE",
     "PRIVACY.md",
     "README.md",
@@ -644,7 +614,7 @@ function verifyRepositoryLayout() {
     if (evaluationOwnedPaths.has(file)) {
       continue;
     }
-    if (/^docs\/(?:decisions\/)?[A-Za-z0-9-]+\.md$/u.test(file)) {
+    if (/^docs\/[A-Za-z0-9-]+\.md$/u.test(file)) {
       continue;
     }
     if (/^docs\/manual\/(?:README|[0-9]{2}-[a-z0-9-]+)\.md$/u.test(file)) {
@@ -1102,9 +1072,7 @@ verifyCiPolicy();
 verifyBrandPolicy();
 verifyDocumentation();
 verifyEvaluationPolicy();
-verifyManual();
 verifyProviderPolicy();
-verifyPublicationPolicy();
 verifyManifests();
 verifyLockfile();
 verifyNpmPolicy();
@@ -1117,5 +1085,5 @@ verifyImports();
 verifyNodeModules();
 
 process.stdout.write(
-  "Ownership verification passed: toolchain, CI, brand, documentation, evaluation, manual, publication, manifests, lockfile, source, imports, and workspace links.\n",
+  "Ownership verification passed: toolchain, CI, brand, documentation, evaluation, providers, manifests, lockfile, source, imports, and workspace links.\n",
 );

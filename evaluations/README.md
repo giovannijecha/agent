@@ -76,22 +76,24 @@ file, and complete byte allowance but do not parse it or inspect ignored runs.
 
 Increment only after reviewed recurrence of the same failure. A first occurrence
 remains `observing`; promote it to `actionable` only when frequency or impact
-justifies a correction. `resolved` needs tracked decision/regression
-evidence. Remove evidence if a corpus correction proves its expected snapshot
+justifies a correction. `resolved` needs tracked fix and regression evidence.
+Its `resolution` is the exact tracked regression path
+`tools/test/<failure-id>.test.mjs`; prose and generic source paths are not
+resolution evidence.
+Remove evidence if a corpus correction proves its expected snapshot
 could not satisfy its own check; never resolve or use it.
 
 ## Update or remove the corpus
 
-Change a task atomically with its brief, snapshots, manifest, completion
-contract, owning decision, evidence, docs, ownership/manual policy registrations,
-and tests. Validate paths, regular files, bounds, reconstruction; grade offline;
-run focused tests. Revisions invalidate old results.
+Change a task with its brief, snapshots, manifest, completion contract, evidence,
+documentation, and tests. Validate it offline; revisions invalidate old results.
 
-Rollback restores that set. Task removal deletes that registered set; never move
-or reconstruct ignored runs or receipts. Framework removal:
-[decision 0047](../docs/decisions/0047-owned-reproducible-task-evaluation.md).
+Rollback restores that set. Removal deletes it without moving or reconstructing
+ignored runs or receipts. Remove the complete framework and retained runs
+together.
 
 ## References
 
-See [privacy](../PRIVACY.md#local-task-evaluation) and
-[evaluation decisions](../docs/decisions/README.md#current-authority-by-domain).
+See [privacy](../PRIVACY.md#evaluation-data),
+[security](../SECURITY.md#supply-chain-and-verification), and
+[engineering](../docs/ENGINEERING.md#packages-and-tests).

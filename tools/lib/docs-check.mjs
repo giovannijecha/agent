@@ -1,0 +1,3211 @@
+import { createHash } from "node:crypto";
+import path from "node:path";
+
+const CANONICAL_LICENSE_DIGEST =
+  "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4";
+const CANONICAL_GIT_ATTRIBUTES = "* text=auto eol=lf\n";
+const MAX_BARE_DESTINATION_PARENTHESIS_DEPTH = 32;
+const MAX_SRCDOC_NESTING_DEPTH = 16;
+
+export const DOCUMENT_PATHS = Object.freeze([
+  "AGENTS.md",
+  "PRIVACY.md",
+  "README.md",
+  "SECURITY.md",
+  "assets/brand/README.md",
+  "docs/ARCHITECTURE.md",
+  "docs/ENGINEERING.md",
+  "docs/manual/01-running-agent.md",
+  "docs/manual/02-turn-lifecycle.md",
+  "docs/manual/03-terminal-interface.md",
+  "docs/manual/04-tools-and-approval.md",
+  "docs/manual/05-providers-and-authentication.md",
+  "docs/manual/06-verification-and-diagnostics.md",
+  "docs/manual/README.md",
+  "evaluations/README.md",
+  "evaluations/tasks/c-count-positive/TASK.md",
+  "evaluations/tasks/documentation-check-command/TASK.md",
+  "evaluations/tasks/documentation-check-command/expected/README.md",
+  "evaluations/tasks/documentation-check-command/input/README.md",
+  "evaluations/tasks/javascript-collapse-whitespace/TASK.md",
+  "evaluations/tasks/javascript-red-green-recovery/TASK.md",
+  "evaluations/tasks/typescript-inclusive-range/TASK.md",
+  "evaluations/tasks/web-compound-page-edit/TASK.md",
+  "evaluations/tasks/web-extract-script/TASK.md",
+  "evaluations/tasks/web-extract-stylesheet/TASK.md",
+]);
+
+const FORBIDDEN_AUTHORSHIP_PATTERNS = Object.freeze([
+  /^co-authored-by:\s*(?:codex|openai)\b/imu,
+  /^generated[- ]by\b/imu,
+  /^written[- ]by\s+(?:codex|openai)\b/imu,
+  /^(?:ai|machine)[- ]generated\b/imu,
+  /\b100% (?:human(?:-written)?|hand[- ]written)\b/iu,
+  /\bentirely human(?:-written)?\b/iu,
+  /\bmade without (?:ai|tools?)\b/iu,
+  /\bno (?:ai|tools?) (?:(?:was|were) )?used\b/iu,
+]);
+
+function fail(message) {
+  throw new Error(message);
+}
+
+function sorted(values) {
+  return [...values].sort((left, right) => left.localeCompare(right, "en"));
+}
+
+function isAuthorityDocument(file) {
+  return /\.md$/iu.test(file);
+}
+
+export function isLineAddressableSource(file) {
+  return file === "LICENSE" ||
+    /\.(?:c|css|h|html|js|json|mjs|ps1|sh|svg|ts|ya?ml)$/u.test(file);
+}
+
+const NAMED_CHARACTER_REFERENCES = Object.freeze(
+  [
+    "AElig:c6;AMP:26;Aacute:c1;Abreve:102;Acirc:c2;Acy:410;Afr:1d504;Agrave:c0;Alpha:391;Amacr:100;And:2a53",
+    "Aogon:104;Aopf:1d538;ApplyFunction:2061;Aring:c5;Ascr:1d49c;Assign:2254;Atilde:c3;Auml:c4;Backslash:2216",
+    "Barv:2ae7;Barwed:2306;Bcy:411;Because:2235;Bernoullis:212c;Beta:392;Bfr:1d505;Bopf:1d539;Breve:2d8;Bscr:212c",
+    "Bumpeq:224e;CHcy:427;COPY:a9;Cacute:106;Cap:22d2;CapitalDifferentialD:2145;Cayleys:212d;Ccaron:10c;Ccedil:c7",
+    "Ccirc:108;Cconint:2230;Cdot:10a;Cedilla:b8;CenterDot:b7;Cfr:212d;Chi:3a7;CircleDot:2299;CircleMinus:2296",
+    "CirclePlus:2295;CircleTimes:2297;ClockwiseContourIntegral:2232;CloseCurlyDoubleQuote:201d;CloseCurlyQuote:2019",
+    "Colon:2237;Colone:2a74;Congruent:2261;Conint:222f;ContourIntegral:222e;Copf:2102;Coproduct:2210",
+    "CounterClockwiseContourIntegral:2233;Cross:2a2f;Cscr:1d49e;Cup:22d3;CupCap:224d;DD:2145;DDotrahd:2911;DJcy:402",
+    "DScy:405;DZcy:40f;Dagger:2021;Darr:21a1;Dashv:2ae4;Dcaron:10e;Dcy:414;Del:2207;Delta:394;Dfr:1d507",
+    "DiacriticalAcute:b4;DiacriticalDot:2d9;DiacriticalDoubleAcute:2dd;DiacriticalGrave:60;DiacriticalTilde:2dc",
+    "Diamond:22c4;DifferentialD:2146;Dopf:1d53b;Dot:a8;DotDot:20dc;DotEqual:2250;DoubleContourIntegral:222f",
+    "DoubleDot:a8;DoubleDownArrow:21d3;DoubleLeftArrow:21d0;DoubleLeftRightArrow:21d4;DoubleLeftTee:2ae4",
+    "DoubleLongLeftArrow:27f8;DoubleLongLeftRightArrow:27fa;DoubleLongRightArrow:27f9;DoubleRightArrow:21d2",
+    "DoubleRightTee:22a8;DoubleUpArrow:21d1;DoubleUpDownArrow:21d5;DoubleVerticalBar:2225;DownArrow:2193",
+    "DownArrowBar:2913;DownArrowUpArrow:21f5;DownBreve:311;DownLeftRightVector:2950;DownLeftTeeVector:295e",
+    "DownLeftVector:21bd;DownLeftVectorBar:2956;DownRightTeeVector:295f;DownRightVector:21c1",
+    "DownRightVectorBar:2957;DownTee:22a4;DownTeeArrow:21a7;Downarrow:21d3;Dscr:1d49f;Dstrok:110;ENG:14a;ETH:d0",
+    "Eacute:c9;Ecaron:11a;Ecirc:ca;Ecy:42d;Edot:116;Efr:1d508;Egrave:c8;Element:2208;Emacr:112",
+    "EmptySmallSquare:25fb;EmptyVerySmallSquare:25ab;Eogon:118;Eopf:1d53c;Epsilon:395;Equal:2a75;EqualTilde:2242",
+    "Equilibrium:21cc;Escr:2130;Esim:2a73;Eta:397;Euml:cb;Exists:2203;ExponentialE:2147;Fcy:424;Ffr:1d509",
+    "FilledSmallSquare:25fc;FilledVerySmallSquare:25aa;Fopf:1d53d;ForAll:2200;Fouriertrf:2131;Fscr:2131;GJcy:403",
+    "GT:3e;Gamma:393;Gammad:3dc;Gbreve:11e;Gcedil:122;Gcirc:11c;Gcy:413;Gdot:120;Gfr:1d50a;Gg:22d9;Gopf:1d53e",
+    "GreaterEqual:2265;GreaterEqualLess:22db;GreaterFullEqual:2267;GreaterGreater:2aa2;GreaterLess:2277",
+    "GreaterSlantEqual:2a7e;GreaterTilde:2273;Gscr:1d4a2;Gt:226b;HARDcy:42a;Hacek:2c7;Hat:5e;Hcirc:124;Hfr:210c",
+    "HilbertSpace:210b;Hopf:210d;HorizontalLine:2500;Hscr:210b;Hstrok:126;HumpDownHump:224e;HumpEqual:224f;IEcy:415",
+    "IJlig:132;IOcy:401;Iacute:cd;Icirc:ce;Icy:418;Idot:130;Ifr:2111;Igrave:cc;Im:2111;Imacr:12a;ImaginaryI:2148",
+    "Implies:21d2;Int:222c;Integral:222b;Intersection:22c2;InvisibleComma:2063;InvisibleTimes:2062;Iogon:12e",
+    "Iopf:1d540;Iota:399;Iscr:2110;Itilde:128;Iukcy:406;Iuml:cf;Jcirc:134;Jcy:419;Jfr:1d50d;Jopf:1d541;Jscr:1d4a5",
+    "Jsercy:408;Jukcy:404;KHcy:425;KJcy:40c;Kappa:39a;Kcedil:136;Kcy:41a;Kfr:1d50e;Kopf:1d542;Kscr:1d4a6;LJcy:409",
+    "LT:3c;Lacute:139;Lambda:39b;Lang:27ea;Laplacetrf:2112;Larr:219e;Lcaron:13d;Lcedil:13b;Lcy:41b",
+    "LeftAngleBracket:27e8;LeftArrow:2190;LeftArrowBar:21e4;LeftArrowRightArrow:21c6;LeftCeiling:2308",
+    "LeftDoubleBracket:27e6;LeftDownTeeVector:2961;LeftDownVector:21c3;LeftDownVectorBar:2959;LeftFloor:230a",
+    "LeftRightArrow:2194;LeftRightVector:294e;LeftTee:22a3;LeftTeeArrow:21a4;LeftTeeVector:295a;LeftTriangle:22b2",
+    "LeftTriangleBar:29cf;LeftTriangleEqual:22b4;LeftUpDownVector:2951;LeftUpTeeVector:2960;LeftUpVector:21bf",
+    "LeftUpVectorBar:2958;LeftVector:21bc;LeftVectorBar:2952;Leftarrow:21d0;Leftrightarrow:21d4",
+    "LessEqualGreater:22da;LessFullEqual:2266;LessGreater:2276;LessLess:2aa1;LessSlantEqual:2a7d;LessTilde:2272",
+    "Lfr:1d50f;Ll:22d8;Lleftarrow:21da;Lmidot:13f;LongLeftArrow:27f5;LongLeftRightArrow:27f7;LongRightArrow:27f6",
+    "Longleftarrow:27f8;Longleftrightarrow:27fa;Longrightarrow:27f9;Lopf:1d543;LowerLeftArrow:2199",
+    "LowerRightArrow:2198;Lscr:2112;Lsh:21b0;Lstrok:141;Lt:226a;Map:2905;Mcy:41c;MediumSpace:205f;Mellintrf:2133",
+    "Mfr:1d510;MinusPlus:2213;Mopf:1d544;Mscr:2133;Mu:39c;NJcy:40a;Nacute:143;Ncaron:147;Ncedil:145;Ncy:41d",
+    "NegativeMediumSpace:200b;NegativeThickSpace:200b;NegativeThinSpace:200b;NegativeVeryThinSpace:200b",
+    "NestedGreaterGreater:226b;NestedLessLess:226a;NewLine:a;Nfr:1d511;NoBreak:2060;NonBreakingSpace:a0;Nopf:2115",
+    "Not:2aec;NotCongruent:2262;NotCupCap:226d;NotDoubleVerticalBar:2226;NotElement:2209;NotEqual:2260",
+    "NotEqualTilde:2242,338;NotExists:2204;NotGreater:226f;NotGreaterEqual:2271;NotGreaterFullEqual:2267,338",
+    "NotGreaterGreater:226b,338;NotGreaterLess:2279;NotGreaterSlantEqual:2a7e,338;NotGreaterTilde:2275",
+    "NotHumpDownHump:224e,338;NotHumpEqual:224f,338;NotLeftTriangle:22ea;NotLeftTriangleBar:29cf,338",
+    "NotLeftTriangleEqual:22ec;NotLess:226e;NotLessEqual:2270;NotLessGreater:2278;NotLessLess:226a,338",
+    "NotLessSlantEqual:2a7d,338;NotLessTilde:2274;NotNestedGreaterGreater:2aa2,338;NotNestedLessLess:2aa1,338",
+    "NotPrecedes:2280;NotPrecedesEqual:2aaf,338;NotPrecedesSlantEqual:22e0;NotReverseElement:220c",
+    "NotRightTriangle:22eb;NotRightTriangleBar:29d0,338;NotRightTriangleEqual:22ed;NotSquareSubset:228f,338",
+    "NotSquareSubsetEqual:22e2;NotSquareSuperset:2290,338;NotSquareSupersetEqual:22e3;NotSubset:2282,20d2",
+    "NotSubsetEqual:2288;NotSucceeds:2281;NotSucceedsEqual:2ab0,338;NotSucceedsSlantEqual:22e1",
+    "NotSucceedsTilde:227f,338;NotSuperset:2283,20d2;NotSupersetEqual:2289;NotTilde:2241;NotTildeEqual:2244",
+    "NotTildeFullEqual:2247;NotTildeTilde:2249;NotVerticalBar:2224;Nscr:1d4a9;Ntilde:d1;Nu:39d;OElig:152;Oacute:d3",
+    "Ocirc:d4;Ocy:41e;Odblac:150;Ofr:1d512;Ograve:d2;Omacr:14c;Omega:3a9;Omicron:39f;Oopf:1d546",
+    "OpenCurlyDoubleQuote:201c;OpenCurlyQuote:2018;Or:2a54;Oscr:1d4aa;Oslash:d8;Otilde:d5;Otimes:2a37;Ouml:d6",
+    "OverBar:203e;OverBrace:23de;OverBracket:23b4;OverParenthesis:23dc;PartialD:2202;Pcy:41f;Pfr:1d513;Phi:3a6",
+    "Pi:3a0;PlusMinus:b1;Poincareplane:210c;Popf:2119;Pr:2abb;Precedes:227a;PrecedesEqual:2aaf",
+    "PrecedesSlantEqual:227c;PrecedesTilde:227e;Prime:2033;Product:220f;Proportion:2237;Proportional:221d",
+    "Pscr:1d4ab;Psi:3a8;QUOT:22;Qfr:1d514;Qopf:211a;Qscr:1d4ac;RBarr:2910;REG:ae;Racute:154;Rang:27eb;Rarr:21a0",
+    "Rarrtl:2916;Rcaron:158;Rcedil:156;Rcy:420;Re:211c;ReverseElement:220b;ReverseEquilibrium:21cb",
+    "ReverseUpEquilibrium:296f;Rfr:211c;Rho:3a1;RightAngleBracket:27e9;RightArrow:2192;RightArrowBar:21e5",
+    "RightArrowLeftArrow:21c4;RightCeiling:2309;RightDoubleBracket:27e7;RightDownTeeVector:295d",
+    "RightDownVector:21c2;RightDownVectorBar:2955;RightFloor:230b;RightTee:22a2;RightTeeArrow:21a6",
+    "RightTeeVector:295b;RightTriangle:22b3;RightTriangleBar:29d0;RightTriangleEqual:22b5;RightUpDownVector:294f",
+    "RightUpTeeVector:295c;RightUpVector:21be;RightUpVectorBar:2954;RightVector:21c0;RightVectorBar:2953",
+    "Rightarrow:21d2;Ropf:211d;RoundImplies:2970;Rrightarrow:21db;Rscr:211b;Rsh:21b1;RuleDelayed:29f4;SHCHcy:429",
+    "SHcy:428;SOFTcy:42c;Sacute:15a;Sc:2abc;Scaron:160;Scedil:15e;Scirc:15c;Scy:421;Sfr:1d516;ShortDownArrow:2193",
+    "ShortLeftArrow:2190;ShortRightArrow:2192;ShortUpArrow:2191;Sigma:3a3;SmallCircle:2218;Sopf:1d54a;Sqrt:221a",
+    "Square:25a1;SquareIntersection:2293;SquareSubset:228f;SquareSubsetEqual:2291;SquareSuperset:2290",
+    "SquareSupersetEqual:2292;SquareUnion:2294;Sscr:1d4ae;Star:22c6;Sub:22d0;Subset:22d0;SubsetEqual:2286",
+    "Succeeds:227b;SucceedsEqual:2ab0;SucceedsSlantEqual:227d;SucceedsTilde:227f;SuchThat:220b;Sum:2211;Sup:22d1",
+    "Superset:2283;SupersetEqual:2287;Supset:22d1;THORN:de;TRADE:2122;TSHcy:40b;TScy:426;Tab:9;Tau:3a4;Tcaron:164",
+    "Tcedil:162;Tcy:422;Tfr:1d517;Therefore:2234;Theta:398;ThickSpace:205f,200a;ThinSpace:2009;Tilde:223c",
+    "TildeEqual:2243;TildeFullEqual:2245;TildeTilde:2248;Topf:1d54b;TripleDot:20db;Tscr:1d4af;Tstrok:166;Uacute:da",
+    "Uarr:219f;Uarrocir:2949;Ubrcy:40e;Ubreve:16c;Ucirc:db;Ucy:423;Udblac:170;Ufr:1d518;Ugrave:d9;Umacr:16a",
+    "UnderBar:5f;UnderBrace:23df;UnderBracket:23b5;UnderParenthesis:23dd;Union:22c3;UnionPlus:228e;Uogon:172",
+    "Uopf:1d54c;UpArrow:2191;UpArrowBar:2912;UpArrowDownArrow:21c5;UpDownArrow:2195;UpEquilibrium:296e;UpTee:22a5",
+    "UpTeeArrow:21a5;Uparrow:21d1;Updownarrow:21d5;UpperLeftArrow:2196;UpperRightArrow:2197;Upsi:3d2;Upsilon:3a5",
+    "Uring:16e;Uscr:1d4b0;Utilde:168;Uuml:dc;VDash:22ab;Vbar:2aeb;Vcy:412;Vdash:22a9;Vdashl:2ae6;Vee:22c1",
+    "Verbar:2016;Vert:2016;VerticalBar:2223;VerticalLine:7c;VerticalSeparator:2758;VerticalTilde:2240",
+    "VeryThinSpace:200a;Vfr:1d519;Vopf:1d54d;Vscr:1d4b1;Vvdash:22aa;Wcirc:174;Wedge:22c0;Wfr:1d51a;Wopf:1d54e",
+    "Wscr:1d4b2;Xfr:1d51b;Xi:39e;Xopf:1d54f;Xscr:1d4b3;YAcy:42f;YIcy:407;YUcy:42e;Yacute:dd;Ycirc:176;Ycy:42b",
+    "Yfr:1d51c;Yopf:1d550;Yscr:1d4b4;Yuml:178;ZHcy:416;Zacute:179;Zcaron:17d;Zcy:417;Zdot:17b;ZeroWidthSpace:200b",
+    "Zeta:396;Zfr:2128;Zopf:2124;Zscr:1d4b5;aacute:e1;abreve:103;ac:223e;acE:223e,333;acd:223f;acirc:e2;acute:b4",
+    "acy:430;aelig:e6;af:2061;afr:1d51e;agrave:e0;alefsym:2135;aleph:2135;alpha:3b1;amacr:101;amalg:2a3f;amp:26",
+    "and:2227;andand:2a55;andd:2a5c;andslope:2a58;andv:2a5a;ang:2220;ange:29a4;angle:2220;angmsd:2221;angmsdaa:29a8",
+    "angmsdab:29a9;angmsdac:29aa;angmsdad:29ab;angmsdae:29ac;angmsdaf:29ad;angmsdag:29ae;angmsdah:29af;angrt:221f",
+    "angrtvb:22be;angrtvbd:299d;angsph:2222;angst:c5;angzarr:237c;aogon:105;aopf:1d552;ap:2248;apE:2a70;apacir:2a6f",
+    "ape:224a;apid:224b;apos:27;approx:2248;approxeq:224a;aring:e5;ascr:1d4b6;ast:2a;asymp:2248;asympeq:224d",
+    "atilde:e3;auml:e4;awconint:2233;awint:2a11;bNot:2aed;backcong:224c;backepsilon:3f6;backprime:2035;backsim:223d",
+    "backsimeq:22cd;barvee:22bd;barwed:2305;barwedge:2305;bbrk:23b5;bbrktbrk:23b6;bcong:224c;bcy:431;bdquo:201e",
+    "becaus:2235;because:2235;bemptyv:29b0;bepsi:3f6;bernou:212c;beta:3b2;beth:2136;between:226c;bfr:1d51f",
+    "bigcap:22c2;bigcirc:25ef;bigcup:22c3;bigodot:2a00;bigoplus:2a01;bigotimes:2a02;bigsqcup:2a06;bigstar:2605",
+    "bigtriangledown:25bd;bigtriangleup:25b3;biguplus:2a04;bigvee:22c1;bigwedge:22c0;bkarow:290d;blacklozenge:29eb",
+    "blacksquare:25aa;blacktriangle:25b4;blacktriangledown:25be;blacktriangleleft:25c2;blacktriangleright:25b8",
+    "blank:2423;blk12:2592;blk14:2591;blk34:2593;block:2588;bne:3d,20e5;bnequiv:2261,20e5;bnot:2310;bopf:1d553",
+    "bot:22a5;bottom:22a5;bowtie:22c8;boxDL:2557;boxDR:2554;boxDl:2556;boxDr:2553;boxH:2550;boxHD:2566;boxHU:2569",
+    "boxHd:2564;boxHu:2567;boxUL:255d;boxUR:255a;boxUl:255c;boxUr:2559;boxV:2551;boxVH:256c;boxVL:2563;boxVR:2560",
+    "boxVh:256b;boxVl:2562;boxVr:255f;boxbox:29c9;boxdL:2555;boxdR:2552;boxdl:2510;boxdr:250c;boxh:2500;boxhD:2565",
+    "boxhU:2568;boxhd:252c;boxhu:2534;boxminus:229f;boxplus:229e;boxtimes:22a0;boxuL:255b;boxuR:2558;boxul:2518",
+    "boxur:2514;boxv:2502;boxvH:256a;boxvL:2561;boxvR:255e;boxvh:253c;boxvl:2524;boxvr:251c;bprime:2035;breve:2d8",
+    "brvbar:a6;bscr:1d4b7;bsemi:204f;bsim:223d;bsime:22cd;bsol:5c;bsolb:29c5;bsolhsub:27c8;bull:2022;bullet:2022",
+    "bump:224e;bumpE:2aae;bumpe:224f;bumpeq:224f;cacute:107;cap:2229;capand:2a44;capbrcup:2a49;capcap:2a4b",
+    "capcup:2a47;capdot:2a40;caps:2229,fe00;caret:2041;caron:2c7;ccaps:2a4d;ccaron:10d;ccedil:e7;ccirc:109",
+    "ccups:2a4c;ccupssm:2a50;cdot:10b;cedil:b8;cemptyv:29b2;cent:a2;centerdot:b7;cfr:1d520;chcy:447;check:2713",
+    "checkmark:2713;chi:3c7;cir:25cb;cirE:29c3;circ:2c6;circeq:2257;circlearrowleft:21ba;circlearrowright:21bb",
+    "circledR:ae;circledS:24c8;circledast:229b;circledcirc:229a;circleddash:229d;cire:2257;cirfnint:2a10",
+    "cirmid:2aef;cirscir:29c2;clubs:2663;clubsuit:2663;colon:3a;colone:2254;coloneq:2254;comma:2c;commat:40",
+    "comp:2201;compfn:2218;complement:2201;complexes:2102;cong:2245;congdot:2a6d;conint:222e;copf:1d554;coprod:2210",
+    "copy:a9;copysr:2117;crarr:21b5;cross:2717;cscr:1d4b8;csub:2acf;csube:2ad1;csup:2ad0;csupe:2ad2;ctdot:22ef",
+    "cudarrl:2938;cudarrr:2935;cuepr:22de;cuesc:22df;cularr:21b6;cularrp:293d;cup:222a;cupbrcap:2a48;cupcap:2a46",
+    "cupcup:2a4a;cupdot:228d;cupor:2a45;cups:222a,fe00;curarr:21b7;curarrm:293c;curlyeqprec:22de;curlyeqsucc:22df",
+    "curlyvee:22ce;curlywedge:22cf;curren:a4;curvearrowleft:21b6;curvearrowright:21b7;cuvee:22ce;cuwed:22cf",
+    "cwconint:2232;cwint:2231;cylcty:232d;dArr:21d3;dHar:2965;dagger:2020;daleth:2138;darr:2193;dash:2010",
+    "dashv:22a3;dbkarow:290f;dblac:2dd;dcaron:10f;dcy:434;dd:2146;ddagger:2021;ddarr:21ca;ddotseq:2a77;deg:b0",
+    "delta:3b4;demptyv:29b1;dfisht:297f;dfr:1d521;dharl:21c3;dharr:21c2;diam:22c4;diamond:22c4;diamondsuit:2666",
+    "diams:2666;die:a8;digamma:3dd;disin:22f2;div:f7;divide:f7;divideontimes:22c7;divonx:22c7;djcy:452;dlcorn:231e",
+    "dlcrop:230d;dollar:24;dopf:1d555;dot:2d9;doteq:2250;doteqdot:2251;dotminus:2238;dotplus:2214;dotsquare:22a1",
+    "doublebarwedge:2306;downarrow:2193;downdownarrows:21ca;downharpoonleft:21c3;downharpoonright:21c2",
+    "drbkarow:2910;drcorn:231f;drcrop:230c;dscr:1d4b9;dscy:455;dsol:29f6;dstrok:111;dtdot:22f1;dtri:25bf;dtrif:25be",
+    "duarr:21f5;duhar:296f;dwangle:29a6;dzcy:45f;dzigrarr:27ff;eDDot:2a77;eDot:2251;eacute:e9;easter:2a6e",
+    "ecaron:11b;ecir:2256;ecirc:ea;ecolon:2255;ecy:44d;edot:117;ee:2147;efDot:2252;efr:1d522;eg:2a9a;egrave:e8",
+    "egs:2a96;egsdot:2a98;el:2a99;elinters:23e7;ell:2113;els:2a95;elsdot:2a97;emacr:113;empty:2205;emptyset:2205",
+    "emptyv:2205;emsp13:2004;emsp14:2005;emsp:2003;eng:14b;ensp:2002;eogon:119;eopf:1d556;epar:22d5;eparsl:29e3",
+    "eplus:2a71;epsi:3b5;epsilon:3b5;epsiv:3f5;eqcirc:2256;eqcolon:2255;eqsim:2242;eqslantgtr:2a96;eqslantless:2a95",
+    "equals:3d;equest:225f;equiv:2261;equivDD:2a78;eqvparsl:29e5;erDot:2253;erarr:2971;escr:212f;esdot:2250",
+    "esim:2242;eta:3b7;eth:f0;euml:eb;euro:20ac;excl:21;exist:2203;expectation:2130;exponentiale:2147",
+    "fallingdotseq:2252;fcy:444;female:2640;ffilig:fb03;fflig:fb00;ffllig:fb04;ffr:1d523;filig:fb01;fjlig:66,6a",
+    "flat:266d;fllig:fb02;fltns:25b1;fnof:192;fopf:1d557;forall:2200;fork:22d4;forkv:2ad9;fpartint:2a0d;frac12:bd",
+    "frac13:2153;frac14:bc;frac15:2155;frac16:2159;frac18:215b;frac23:2154;frac25:2156;frac34:be;frac35:2157",
+    "frac38:215c;frac45:2158;frac56:215a;frac58:215d;frac78:215e;frasl:2044;frown:2322;fscr:1d4bb;gE:2267;gEl:2a8c",
+    "gacute:1f5;gamma:3b3;gammad:3dd;gap:2a86;gbreve:11f;gcirc:11d;gcy:433;gdot:121;ge:2265;gel:22db;geq:2265",
+    "geqq:2267;geqslant:2a7e;ges:2a7e;gescc:2aa9;gesdot:2a80;gesdoto:2a82;gesdotol:2a84;gesl:22db,fe00;gesles:2a94",
+    "gfr:1d524;gg:226b;ggg:22d9;gimel:2137;gjcy:453;gl:2277;glE:2a92;gla:2aa5;glj:2aa4;gnE:2269;gnap:2a8a",
+    "gnapprox:2a8a;gne:2a88;gneq:2a88;gneqq:2269;gnsim:22e7;gopf:1d558;grave:60;gscr:210a;gsim:2273;gsime:2a8e",
+    "gsiml:2a90;gt:3e;gtcc:2aa7;gtcir:2a7a;gtdot:22d7;gtlPar:2995;gtquest:2a7c;gtrapprox:2a86;gtrarr:2978",
+    "gtrdot:22d7;gtreqless:22db;gtreqqless:2a8c;gtrless:2277;gtrsim:2273;gvertneqq:2269,fe00;gvnE:2269,fe00",
+    "hArr:21d4;hairsp:200a;half:bd;hamilt:210b;hardcy:44a;harr:2194;harrcir:2948;harrw:21ad;hbar:210f;hcirc:125",
+    "hearts:2665;heartsuit:2665;hellip:2026;hercon:22b9;hfr:1d525;hksearow:2925;hkswarow:2926;hoarr:21ff",
+    "homtht:223b;hookleftarrow:21a9;hookrightarrow:21aa;hopf:1d559;horbar:2015;hscr:1d4bd;hslash:210f;hstrok:127",
+    "hybull:2043;hyphen:2010;iacute:ed;ic:2063;icirc:ee;icy:438;iecy:435;iexcl:a1;iff:21d4;ifr:1d526;igrave:ec",
+    "ii:2148;iiiint:2a0c;iiint:222d;iinfin:29dc;iiota:2129;ijlig:133;imacr:12b;image:2111;imagline:2110",
+    "imagpart:2111;imath:131;imof:22b7;imped:1b5;in:2208;incare:2105;infin:221e;infintie:29dd;inodot:131;int:222b",
+    "intcal:22ba;integers:2124;intercal:22ba;intlarhk:2a17;intprod:2a3c;iocy:451;iogon:12f;iopf:1d55a;iota:3b9",
+    "iprod:2a3c;iquest:bf;iscr:1d4be;isin:2208;isinE:22f9;isindot:22f5;isins:22f4;isinsv:22f3;isinv:2208;it:2062",
+    "itilde:129;iukcy:456;iuml:ef;jcirc:135;jcy:439;jfr:1d527;jmath:237;jopf:1d55b;jscr:1d4bf;jsercy:458;jukcy:454",
+    "kappa:3ba;kappav:3f0;kcedil:137;kcy:43a;kfr:1d528;kgreen:138;khcy:445;kjcy:45c;kopf:1d55c;kscr:1d4c0",
+    "lAarr:21da;lArr:21d0;lAtail:291b;lBarr:290e;lE:2266;lEg:2a8b;lHar:2962;lacute:13a;laemptyv:29b4;lagran:2112",
+    "lambda:3bb;lang:27e8;langd:2991;langle:27e8;lap:2a85;laquo:ab;larr:2190;larrb:21e4;larrbfs:291f;larrfs:291d",
+    "larrhk:21a9;larrlp:21ab;larrpl:2939;larrsim:2973;larrtl:21a2;lat:2aab;latail:2919;late:2aad;lates:2aad,fe00",
+    "lbarr:290c;lbbrk:2772;lbrace:7b;lbrack:5b;lbrke:298b;lbrksld:298f;lbrkslu:298d;lcaron:13e;lcedil:13c",
+    "lceil:2308;lcub:7b;lcy:43b;ldca:2936;ldquo:201c;ldquor:201e;ldrdhar:2967;ldrushar:294b;ldsh:21b2;le:2264",
+    "leftarrow:2190;leftarrowtail:21a2;leftharpoondown:21bd;leftharpoonup:21bc;leftleftarrows:21c7",
+    "leftrightarrow:2194;leftrightarrows:21c6;leftrightharpoons:21cb;leftrightsquigarrow:21ad;leftthreetimes:22cb",
+    "leg:22da;leq:2264;leqq:2266;leqslant:2a7d;les:2a7d;lescc:2aa8;lesdot:2a7f;lesdoto:2a81;lesdotor:2a83",
+    "lesg:22da,fe00;lesges:2a93;lessapprox:2a85;lessdot:22d6;lesseqgtr:22da;lesseqqgtr:2a8b;lessgtr:2276",
+    "lesssim:2272;lfisht:297c;lfloor:230a;lfr:1d529;lg:2276;lgE:2a91;lhard:21bd;lharu:21bc;lharul:296a;lhblk:2584",
+    "ljcy:459;ll:226a;llarr:21c7;llcorner:231e;llhard:296b;lltri:25fa;lmidot:140;lmoust:23b0;lmoustache:23b0",
+    "lnE:2268;lnap:2a89;lnapprox:2a89;lne:2a87;lneq:2a87;lneqq:2268;lnsim:22e6;loang:27ec;loarr:21fd;lobrk:27e6",
+    "longleftarrow:27f5;longleftrightarrow:27f7;longmapsto:27fc;longrightarrow:27f6;looparrowleft:21ab",
+    "looparrowright:21ac;lopar:2985;lopf:1d55d;loplus:2a2d;lotimes:2a34;lowast:2217;lowbar:5f;loz:25ca;lozenge:25ca",
+    "lozf:29eb;lpar:28;lparlt:2993;lrarr:21c6;lrcorner:231f;lrhar:21cb;lrhard:296d;lrm:200e;lrtri:22bf;lsaquo:2039",
+    "lscr:1d4c1;lsh:21b0;lsim:2272;lsime:2a8d;lsimg:2a8f;lsqb:5b;lsquo:2018;lsquor:201a;lstrok:142;lt:3c;ltcc:2aa6",
+    "ltcir:2a79;ltdot:22d6;lthree:22cb;ltimes:22c9;ltlarr:2976;ltquest:2a7b;ltrPar:2996;ltri:25c3;ltrie:22b4",
+    "ltrif:25c2;lurdshar:294a;luruhar:2966;lvertneqq:2268,fe00;lvnE:2268,fe00;mDDot:223a;macr:af;male:2642",
+    "malt:2720;maltese:2720;map:21a6;mapsto:21a6;mapstodown:21a7;mapstoleft:21a4;mapstoup:21a5;marker:25ae",
+    "mcomma:2a29;mcy:43c;mdash:2014;measuredangle:2221;mfr:1d52a;mho:2127;micro:b5;mid:2223;midast:2a;midcir:2af0",
+    "middot:b7;minus:2212;minusb:229f;minusd:2238;minusdu:2a2a;mlcp:2adb;mldr:2026;mnplus:2213;models:22a7",
+    "mopf:1d55e;mp:2213;mscr:1d4c2;mstpos:223e;mu:3bc;multimap:22b8;mumap:22b8;nGg:22d9,338;nGt:226b,20d2",
+    "nGtv:226b,338;nLeftarrow:21cd;nLeftrightarrow:21ce;nLl:22d8,338;nLt:226a,20d2;nLtv:226a,338;nRightarrow:21cf",
+    "nVDash:22af;nVdash:22ae;nabla:2207;nacute:144;nang:2220,20d2;nap:2249;napE:2a70,338;napid:224b,338;napos:149",
+    "napprox:2249;natur:266e;natural:266e;naturals:2115;nbsp:a0;nbump:224e,338;nbumpe:224f,338;ncap:2a43;ncaron:148",
+    "ncedil:146;ncong:2247;ncongdot:2a6d,338;ncup:2a42;ncy:43d;ndash:2013;ne:2260;neArr:21d7;nearhk:2924;nearr:2197",
+    "nearrow:2197;nedot:2250,338;nequiv:2262;nesear:2928;nesim:2242,338;nexist:2204;nexists:2204;nfr:1d52b",
+    "ngE:2267,338;nge:2271;ngeq:2271;ngeqq:2267,338;ngeqslant:2a7e,338;nges:2a7e,338;ngsim:2275;ngt:226f;ngtr:226f",
+    "nhArr:21ce;nharr:21ae;nhpar:2af2;ni:220b;nis:22fc;nisd:22fa;niv:220b;njcy:45a;nlArr:21cd;nlE:2266,338",
+    "nlarr:219a;nldr:2025;nle:2270;nleftarrow:219a;nleftrightarrow:21ae;nleq:2270;nleqq:2266,338;nleqslant:2a7d,338",
+    "nles:2a7d,338;nless:226e;nlsim:2274;nlt:226e;nltri:22ea;nltrie:22ec;nmid:2224;nopf:1d55f;not:ac;notin:2209",
+    "notinE:22f9,338;notindot:22f5,338;notinva:2209;notinvb:22f7;notinvc:22f6;notni:220c;notniva:220c;notnivb:22fe",
+    "notnivc:22fd;npar:2226;nparallel:2226;nparsl:2afd,20e5;npart:2202,338;npolint:2a14;npr:2280;nprcue:22e0",
+    "npre:2aaf,338;nprec:2280;npreceq:2aaf,338;nrArr:21cf;nrarr:219b;nrarrc:2933,338;nrarrw:219d,338",
+    "nrightarrow:219b;nrtri:22eb;nrtrie:22ed;nsc:2281;nsccue:22e1;nsce:2ab0,338;nscr:1d4c3;nshortmid:2224",
+    "nshortparallel:2226;nsim:2241;nsime:2244;nsimeq:2244;nsmid:2224;nspar:2226;nsqsube:22e2;nsqsupe:22e3;nsub:2284",
+    "nsubE:2ac5,338;nsube:2288;nsubset:2282,20d2;nsubseteq:2288;nsubseteqq:2ac5,338;nsucc:2281;nsucceq:2ab0,338",
+    "nsup:2285;nsupE:2ac6,338;nsupe:2289;nsupset:2283,20d2;nsupseteq:2289;nsupseteqq:2ac6,338;ntgl:2279;ntilde:f1",
+    "ntlg:2278;ntriangleleft:22ea;ntrianglelefteq:22ec;ntriangleright:22eb;ntrianglerighteq:22ed;nu:3bd;num:23",
+    "numero:2116;numsp:2007;nvDash:22ad;nvHarr:2904;nvap:224d,20d2;nvdash:22ac;nvge:2265,20d2;nvgt:3e,20d2",
+    "nvinfin:29de;nvlArr:2902;nvle:2264,20d2;nvlt:3c,20d2;nvltrie:22b4,20d2;nvrArr:2903;nvrtrie:22b5,20d2",
+    "nvsim:223c,20d2;nwArr:21d6;nwarhk:2923;nwarr:2196;nwarrow:2196;nwnear:2927;oS:24c8;oacute:f3;oast:229b",
+    "ocir:229a;ocirc:f4;ocy:43e;odash:229d;odblac:151;odiv:2a38;odot:2299;odsold:29bc;oelig:153;ofcir:29bf",
+    "ofr:1d52c;ogon:2db;ograve:f2;ogt:29c1;ohbar:29b5;ohm:3a9;oint:222e;olarr:21ba;olcir:29be;olcross:29bb",
+    "oline:203e;olt:29c0;omacr:14d;omega:3c9;omicron:3bf;omid:29b6;ominus:2296;oopf:1d560;opar:29b7;operp:29b9",
+    "oplus:2295;or:2228;orarr:21bb;ord:2a5d;order:2134;orderof:2134;ordf:aa;ordm:ba;origof:22b6;oror:2a56",
+    "orslope:2a57;orv:2a5b;oscr:2134;oslash:f8;osol:2298;otilde:f5;otimes:2297;otimesas:2a36;ouml:f6;ovbar:233d",
+    "par:2225;para:b6;parallel:2225;parsim:2af3;parsl:2afd;part:2202;pcy:43f;percnt:25;period:2e;permil:2030",
+    "perp:22a5;pertenk:2031;pfr:1d52d;phi:3c6;phiv:3d5;phmmat:2133;phone:260e;pi:3c0;pitchfork:22d4;piv:3d6",
+    "planck:210f;planckh:210e;plankv:210f;plus:2b;plusacir:2a23;plusb:229e;pluscir:2a22;plusdo:2214;plusdu:2a25",
+    "pluse:2a72;plusmn:b1;plussim:2a26;plustwo:2a27;pm:b1;pointint:2a15;popf:1d561;pound:a3;pr:227a;prE:2ab3",
+    "prap:2ab7;prcue:227c;pre:2aaf;prec:227a;precapprox:2ab7;preccurlyeq:227c;preceq:2aaf;precnapprox:2ab9",
+    "precneqq:2ab5;precnsim:22e8;precsim:227e;prime:2032;primes:2119;prnE:2ab5;prnap:2ab9;prnsim:22e8;prod:220f",
+    "profalar:232e;profline:2312;profsurf:2313;prop:221d;propto:221d;prsim:227e;prurel:22b0;pscr:1d4c5;psi:3c8",
+    "puncsp:2008;qfr:1d52e;qint:2a0c;qopf:1d562;qprime:2057;qscr:1d4c6;quaternions:210d;quatint:2a16;quest:3f",
+    "questeq:225f;quot:22;rAarr:21db;rArr:21d2;rAtail:291c;rBarr:290f;rHar:2964;race:223d,331;racute:155;radic:221a",
+    "raemptyv:29b3;rang:27e9;rangd:2992;range:29a5;rangle:27e9;raquo:bb;rarr:2192;rarrap:2975;rarrb:21e5",
+    "rarrbfs:2920;rarrc:2933;rarrfs:291e;rarrhk:21aa;rarrlp:21ac;rarrpl:2945;rarrsim:2974;rarrtl:21a3;rarrw:219d",
+    "ratail:291a;ratio:2236;rationals:211a;rbarr:290d;rbbrk:2773;rbrace:7d;rbrack:5d;rbrke:298c;rbrksld:298e",
+    "rbrkslu:2990;rcaron:159;rcedil:157;rceil:2309;rcub:7d;rcy:440;rdca:2937;rdldhar:2969;rdquo:201d;rdquor:201d",
+    "rdsh:21b3;real:211c;realine:211b;realpart:211c;reals:211d;rect:25ad;reg:ae;rfisht:297d;rfloor:230b;rfr:1d52f",
+    "rhard:21c1;rharu:21c0;rharul:296c;rho:3c1;rhov:3f1;rightarrow:2192;rightarrowtail:21a3;rightharpoondown:21c1",
+    "rightharpoonup:21c0;rightleftarrows:21c4;rightleftharpoons:21cc;rightrightarrows:21c9;rightsquigarrow:219d",
+    "rightthreetimes:22cc;ring:2da;risingdotseq:2253;rlarr:21c4;rlhar:21cc;rlm:200f;rmoust:23b1;rmoustache:23b1",
+    "rnmid:2aee;roang:27ed;roarr:21fe;robrk:27e7;ropar:2986;ropf:1d563;roplus:2a2e;rotimes:2a35;rpar:29;rpargt:2994",
+    "rppolint:2a12;rrarr:21c9;rsaquo:203a;rscr:1d4c7;rsh:21b1;rsqb:5d;rsquo:2019;rsquor:2019;rthree:22cc",
+    "rtimes:22ca;rtri:25b9;rtrie:22b5;rtrif:25b8;rtriltri:29ce;ruluhar:2968;rx:211e;sacute:15b;sbquo:201a;sc:227b",
+    "scE:2ab4;scap:2ab8;scaron:161;sccue:227d;sce:2ab0;scedil:15f;scirc:15d;scnE:2ab6;scnap:2aba;scnsim:22e9",
+    "scpolint:2a13;scsim:227f;scy:441;sdot:22c5;sdotb:22a1;sdote:2a66;seArr:21d8;searhk:2925;searr:2198",
+    "searrow:2198;sect:a7;semi:3b;seswar:2929;setminus:2216;setmn:2216;sext:2736;sfr:1d530;sfrown:2322;sharp:266f",
+    "shchcy:449;shcy:448;shortmid:2223;shortparallel:2225;shy:ad;sigma:3c3;sigmaf:3c2;sigmav:3c2;sim:223c",
+    "simdot:2a6a;sime:2243;simeq:2243;simg:2a9e;simgE:2aa0;siml:2a9d;simlE:2a9f;simne:2246;simplus:2a24",
+    "simrarr:2972;slarr:2190;smallsetminus:2216;smashp:2a33;smeparsl:29e4;smid:2223;smile:2323;smt:2aaa;smte:2aac",
+    "smtes:2aac,fe00;softcy:44c;sol:2f;solb:29c4;solbar:233f;sopf:1d564;spades:2660;spadesuit:2660;spar:2225",
+    "sqcap:2293;sqcaps:2293,fe00;sqcup:2294;sqcups:2294,fe00;sqsub:228f;sqsube:2291;sqsubset:228f;sqsubseteq:2291",
+    "sqsup:2290;sqsupe:2292;sqsupset:2290;sqsupseteq:2292;squ:25a1;square:25a1;squarf:25aa;squf:25aa;srarr:2192",
+    "sscr:1d4c8;ssetmn:2216;ssmile:2323;sstarf:22c6;star:2606;starf:2605;straightepsilon:3f5;straightphi:3d5",
+    "strns:af;sub:2282;subE:2ac5;subdot:2abd;sube:2286;subedot:2ac3;submult:2ac1;subnE:2acb;subne:228a;subplus:2abf",
+    "subrarr:2979;subset:2282;subseteq:2286;subseteqq:2ac5;subsetneq:228a;subsetneqq:2acb;subsim:2ac7;subsub:2ad5",
+    "subsup:2ad3;succ:227b;succapprox:2ab8;succcurlyeq:227d;succeq:2ab0;succnapprox:2aba;succneqq:2ab6",
+    "succnsim:22e9;succsim:227f;sum:2211;sung:266a;sup1:b9;sup2:b2;sup3:b3;sup:2283;supE:2ac6;supdot:2abe",
+    "supdsub:2ad8;supe:2287;supedot:2ac4;suphsol:27c9;suphsub:2ad7;suplarr:297b;supmult:2ac2;supnE:2acc;supne:228b",
+    "supplus:2ac0;supset:2283;supseteq:2287;supseteqq:2ac6;supsetneq:228b;supsetneqq:2acc;supsim:2ac8;supsub:2ad4",
+    "supsup:2ad6;swArr:21d9;swarhk:2926;swarr:2199;swarrow:2199;swnwar:292a;szlig:df;target:2316;tau:3c4;tbrk:23b4",
+    "tcaron:165;tcedil:163;tcy:442;tdot:20db;telrec:2315;tfr:1d531;there4:2234;therefore:2234;theta:3b8",
+    "thetasym:3d1;thetav:3d1;thickapprox:2248;thicksim:223c;thinsp:2009;thkap:2248;thksim:223c;thorn:fe;tilde:2dc",
+    "times:d7;timesb:22a0;timesbar:2a31;timesd:2a30;tint:222d;toea:2928;top:22a4;topbot:2336;topcir:2af1;topf:1d565",
+    "topfork:2ada;tosa:2929;tprime:2034;trade:2122;triangle:25b5;triangledown:25bf;triangleleft:25c3",
+    "trianglelefteq:22b4;triangleq:225c;triangleright:25b9;trianglerighteq:22b5;tridot:25ec;trie:225c;triminus:2a3a",
+    "triplus:2a39;trisb:29cd;tritime:2a3b;trpezium:23e2;tscr:1d4c9;tscy:446;tshcy:45b;tstrok:167;twixt:226c",
+    "twoheadleftarrow:219e;twoheadrightarrow:21a0;uArr:21d1;uHar:2963;uacute:fa;uarr:2191;ubrcy:45e;ubreve:16d",
+    "ucirc:fb;ucy:443;udarr:21c5;udblac:171;udhar:296e;ufisht:297e;ufr:1d532;ugrave:f9;uharl:21bf;uharr:21be",
+    "uhblk:2580;ulcorn:231c;ulcorner:231c;ulcrop:230f;ultri:25f8;umacr:16b;uml:a8;uogon:173;uopf:1d566;uparrow:2191",
+    "updownarrow:2195;upharpoonleft:21bf;upharpoonright:21be;uplus:228e;upsi:3c5;upsih:3d2;upsilon:3c5",
+    "upuparrows:21c8;urcorn:231d;urcorner:231d;urcrop:230e;uring:16f;urtri:25f9;uscr:1d4ca;utdot:22f0;utilde:169",
+    "utri:25b5;utrif:25b4;uuarr:21c8;uuml:fc;uwangle:29a7;vArr:21d5;vBar:2ae8;vBarv:2ae9;vDash:22a8;vangrt:299c",
+    "varepsilon:3f5;varkappa:3f0;varnothing:2205;varphi:3d5;varpi:3d6;varpropto:221d;varr:2195;varrho:3f1",
+    "varsigma:3c2;varsubsetneq:228a,fe00;varsubsetneqq:2acb,fe00;varsupsetneq:228b,fe00;varsupsetneqq:2acc,fe00",
+    "vartheta:3d1;vartriangleleft:22b2;vartriangleright:22b3;vcy:432;vdash:22a2;vee:2228;veebar:22bb;veeeq:225a",
+    "vellip:22ee;verbar:7c;vert:7c;vfr:1d533;vltri:22b2;vnsub:2282,20d2;vnsup:2283,20d2;vopf:1d567;vprop:221d",
+    "vrtri:22b3;vscr:1d4cb;vsubnE:2acb,fe00;vsubne:228a,fe00;vsupnE:2acc,fe00;vsupne:228b,fe00;vzigzag:299a",
+    "wcirc:175;wedbar:2a5f;wedge:2227;wedgeq:2259;weierp:2118;wfr:1d534;wopf:1d568;wp:2118;wr:2240;wreath:2240",
+    "wscr:1d4cc;xcap:22c2;xcirc:25ef;xcup:22c3;xdtri:25bd;xfr:1d535;xhArr:27fa;xharr:27f7;xi:3be;xlArr:27f8",
+    "xlarr:27f5;xmap:27fc;xnis:22fb;xodot:2a00;xopf:1d569;xoplus:2a01;xotime:2a02;xrArr:27f9;xrarr:27f6;xscr:1d4cd",
+    "xsqcup:2a06;xuplus:2a04;xutri:25b3;xvee:22c1;xwedge:22c0;yacute:fd;yacy:44f;ycirc:177;ycy:44b;yen:a5;yfr:1d536",
+    "yicy:457;yopf:1d56a;yscr:1d4ce;yucy:44e;yuml:ff;zacute:17a;zcaron:17e;zcy:437;zdot:17c;zeetrf:2128;zeta:3b6",
+    "zfr:1d537;zhcy:436;zigrarr:21dd;zopf:1d56b;zscr:1d4cf;zwj:200d;zwnj:200c",
+  ].join(";").split(";"),
+);
+
+function namedCharacterReference(name) {
+  let lower = 0;
+  let upper = NAMED_CHARACTER_REFERENCES.length - 1;
+  while (lower <= upper) {
+    const middle = Math.floor((lower + upper) / 2);
+    const entry = NAMED_CHARACTER_REFERENCES.at(middle);
+    const separator = entry.indexOf(":");
+    const candidate = entry.slice(0, separator);
+    if (candidate === name) {
+      return entry
+        .slice(separator + 1)
+        .split(",")
+        .map((codePoint) => String.fromCodePoint(Number.parseInt(codePoint, 16)))
+        .join("");
+    }
+    if (candidate < name) {
+      lower = middle + 1;
+    } else {
+      upper = middle - 1;
+    }
+  }
+  return undefined;
+}
+
+const LEGACY_NAMED_CHARACTER_REFERENCES = new Set(
+  [
+    "aacute,Aacute,acirc,Acirc,acute,aelig,AElig,agrave,Agrave,amp,AMP",
+    "aring,Aring,atilde,Atilde,auml,Auml,brvbar,ccedil,Ccedil,cedil,cent",
+    "copy,COPY,curren,deg,divide,eacute,Eacute,ecirc,Ecirc,egrave,Egrave",
+    "eth,ETH,euml,Euml,frac12,frac14,frac34,gt,GT,iacute,Iacute,icirc",
+    "Icirc,iexcl,igrave,Igrave,iquest,iuml,Iuml,laquo,lt,LT,macr,micro",
+    "middot,nbsp,not,ntilde,Ntilde,oacute,Oacute,ocirc,Ocirc,ograve",
+    "Ograve,ordf,ordm,oslash,Oslash,otilde,Otilde,ouml,Ouml,para,plusmn",
+    "pound,quot,QUOT,raquo,reg,REG,sect,shy,sup1,sup2,sup3,szlig,thorn",
+    "THORN,times,uacute,Uacute,ucirc,Ucirc,ugrave,Ugrave,uml,uuml,Uuml",
+    "yacute,Yacute,yen,yuml",
+  ].join(",").split(","),
+);
+
+const NUMERIC_CHARACTER_REFERENCE_REPLACEMENTS = new Map([
+  [0x80, 0x20ac],
+  [0x82, 0x201a],
+  [0x83, 0x0192],
+  [0x84, 0x201e],
+  [0x85, 0x2026],
+  [0x86, 0x2020],
+  [0x87, 0x2021],
+  [0x88, 0x02c6],
+  [0x89, 0x2030],
+  [0x8a, 0x0160],
+  [0x8b, 0x2039],
+  [0x8c, 0x0152],
+  [0x8e, 0x017d],
+  [0x91, 0x2018],
+  [0x92, 0x2019],
+  [0x93, 0x201c],
+  [0x94, 0x201d],
+  [0x95, 0x2022],
+  [0x96, 0x2013],
+  [0x97, 0x2014],
+  [0x98, 0x02dc],
+  [0x99, 0x2122],
+  [0x9a, 0x0161],
+  [0x9b, 0x203a],
+  [0x9c, 0x0153],
+  [0x9e, 0x017e],
+  [0x9f, 0x0178],
+]);
+
+function decodeCharacterReferences(text) {
+  return text.replaceAll(
+    /&(?:#([0-9]{1,7})|#[xX]([0-9A-Fa-f]{1,6})|([A-Za-z][A-Za-z0-9]{1,31}));/gu,
+    (reference, decimal, hexadecimal, name) => {
+      if (name !== undefined) {
+        return namedCharacterReference(name) ?? reference;
+      }
+      return decodedNumericCharacterReference(
+        decimal ?? hexadecimal,
+        decimal === undefined ? 16 : 10,
+      );
+    },
+  );
+}
+
+function decodedNumericCharacterReference(digits, radix) {
+  const value = Number.parseInt(digits, radix);
+  return value === 0 ||
+      value > 0x10ffff ||
+      (value >= 0xd800 && value <= 0xdfff)
+    ? "\uFFFD"
+    : String.fromCodePoint(
+      NUMERIC_CHARACTER_REFERENCE_REPLACEMENTS.get(value) ?? value,
+    );
+}
+
+function htmlAttributeCharacterReference(text, opening) {
+  if (text.at(opening + 1) === "#") {
+    let digitsStart = opening + 2;
+    let radix = 10;
+    if (text.at(digitsStart) === "x" || text.at(digitsStart) === "X") {
+      digitsStart += 1;
+      radix = 16;
+    }
+    const digitPattern = radix === 16 ? /[0-9A-Fa-f]/u : /[0-9]/u;
+    let end = digitsStart;
+    while (digitPattern.test(text.at(end) ?? "")) {
+      end += 1;
+    }
+    if (end === digitsStart) {
+      return undefined;
+    }
+    const value = decodedNumericCharacterReference(
+      text.slice(digitsStart, end),
+      radix,
+    );
+    return Object.freeze({
+      end: text.at(end) === ";" ? end + 1 : end,
+      value,
+    });
+  }
+
+  let end = opening + 1;
+  let legacy;
+  while (
+    end - opening - 1 < 31 &&
+    /[A-Za-z0-9]/u.test(text.at(end) ?? "")
+  ) {
+    end += 1;
+    const name = text.slice(opening + 1, end);
+    const value = namedCharacterReference(name);
+    if (text.at(end) === ";" && value !== undefined) {
+      return Object.freeze({ end: end + 1, value });
+    }
+    if (
+      value !== undefined &&
+      LEGACY_NAMED_CHARACTER_REFERENCES.has(name)
+    ) {
+      legacy = Object.freeze({ end, value });
+    }
+  }
+  if (
+    legacy === undefined ||
+    /[=A-Za-z0-9]/u.test(text.at(legacy.end) ?? "")
+  ) {
+    return undefined;
+  }
+  return legacy;
+}
+
+function decodeHtmlAttributeCharacterReferences(text) {
+  const rendered = [];
+  let retainedFrom = 0;
+  let searchFrom = 0;
+  while (searchFrom < text.length) {
+    const opening = text.indexOf("&", searchFrom);
+    if (opening === -1) {
+      break;
+    }
+    const reference = htmlAttributeCharacterReference(text, opening);
+    if (reference === undefined) {
+      searchFrom = opening + 1;
+      continue;
+    }
+    rendered.push(text.slice(retainedFrom, opening));
+    rendered.push(reference.value);
+    retainedFrom = reference.end;
+    searchFrom = reference.end;
+  }
+  rendered.push(text.slice(retainedFrom));
+  return rendered.join("");
+}
+
+function preprocessHtmlUrl(value) {
+  return value
+    .replace(/^[\u0000-\u0020]+|[\u0000-\u0020]+$/gu, "")
+    .replaceAll(/[\t\n\r]/gu, "");
+}
+
+function targetReference(source, renderedTarget) {
+  const separator = renderedTarget.indexOf("#");
+  const beforeFragment = separator === -1
+    ? renderedTarget
+    : renderedTarget.slice(0, separator);
+  const withoutQuery = beforeFragment.split("?", 1)[0];
+  if (/^https:\/\//iu.test(withoutQuery)) {
+    return Object.freeze({ external: true });
+  }
+  if (/^[a-z][a-z0-9+.-]*:/iu.test(withoutQuery)) {
+    fail("forbidden link target in " + source);
+  }
+  let decodedPath;
+  let fragment;
+  try {
+    decodedPath = decodeURIComponent(withoutQuery);
+    fragment = separator === -1
+      ? undefined
+      : decodeURIComponent(renderedTarget.slice(separator + 1));
+  } catch {
+    fail("invalid local link in " + source);
+  }
+  const portableTarget = decodedPath.replaceAll("\\", "/");
+  if (path.posix.isAbsolute(portableTarget)) {
+    fail("forbidden link target in " + source);
+  }
+  return Object.freeze({
+    external: false,
+    fragment,
+    path: portableTarget,
+  });
+}
+
+function normalizedRepositoryPath(source, directory, target) {
+  const normalized = path.posix.normalize(path.posix.join(directory, target));
+  if (normalized === ".." || normalized.startsWith("../")) {
+    fail("local link escaped the repository in " + source);
+  }
+  return normalized;
+}
+
+function repositoryDocumentBase(source) {
+  return Object.freeze({
+    directory: path.posix.dirname(source),
+    external: false,
+    path: source,
+    scopeLocal: true,
+  });
+}
+
+function resolveHtmlBase(source, inherited, value) {
+  const reference = targetReference(source, preprocessHtmlUrl(value));
+  if (reference.external) {
+    return Object.freeze({ external: true });
+  }
+  if (inherited.external) {
+    return inherited;
+  }
+  if (reference.path.length === 0) {
+    return inherited;
+  }
+  const resolved = normalizedRepositoryPath(
+    source,
+    inherited.directory,
+    reference.path,
+  );
+  return Object.freeze({
+    directory: reference.path.endsWith("/")
+      ? resolved
+      : path.posix.dirname(resolved),
+    external: false,
+    path: resolved,
+    scopeLocal: false,
+  });
+}
+
+function normalizeTarget(source, localTarget) {
+  const rawTarget = localTarget.value;
+  const renderedTarget = localTarget.syntax === "html"
+    ? preprocessHtmlUrl(rawTarget)
+    : decodeCharacterReferences(
+      rawTarget.replaceAll(
+        /\\([!"#$%&'()*+,\-./:;<=>?@\[\\\]^_`{|}~])/gu,
+        "$1",
+      ),
+    );
+  const reference = targetReference(source, renderedTarget);
+  if (reference.external) {
+    return undefined;
+  }
+  const base = localTarget.base ?? repositoryDocumentBase(source);
+  if (base.external) {
+    return undefined;
+  }
+  const normalized = reference.path.length === 0
+    ? base.path
+    : normalizedRepositoryPath(source, base.directory, reference.path);
+  return Object.freeze({
+    fragment: reference.fragment,
+    path: normalized,
+    sameDocument: reference.path.length === 0 && base.scopeLocal,
+  });
+}
+
+function headingHtmlText(text) {
+  const rendered = [];
+  let retainedFrom = 0;
+  for (const tag of htmlTags(text)) {
+    rendered.push(text.slice(retainedFrom, tag.start));
+    retainedFrom = tag.end;
+  }
+  rendered.push(text.slice(retainedFrom));
+  return rendered.join("")
+    .replaceAll(
+      /<([A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\u0000-\u0020]*)>/gu,
+      "$1",
+    )
+    .replaceAll(
+      /<([A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*)>/gu,
+      "$1",
+    );
+}
+
+function headingRenderedText(text, literalCodeIndices) {
+  const literalCode = new Set(literalCodeIndices);
+  const rendered = [];
+  let ordinary = "";
+  for (let index = 0; index < text.length; index += 1) {
+    if (!literalCode.has(index)) {
+      ordinary += text.at(index);
+      continue;
+    }
+    if (ordinary.length > 0) {
+      rendered.push(decodeCharacterReferences(headingHtmlText(ordinary)));
+      ordinary = "";
+    }
+    rendered.push(text.at(index));
+  }
+  if (ordinary.length > 0) {
+    rendered.push(decodeCharacterReferences(headingHtmlText(ordinary)));
+  }
+  return rendered.join("");
+}
+
+function headingSlug(text, literalCodeIndices) {
+  return headingRenderedText(text, literalCodeIndices)
+    .toLowerCase()
+    .replaceAll(/[^\p{L}\p{N}\p{M}\s_-]/gu, "")
+    .trim()
+    .replaceAll(/\s/gu, "-");
+}
+
+function maskedLiteral(text) {
+  return text.replaceAll(/[^\r\n]/gu, " ");
+}
+
+function indentationAt(line, start, startColumn) {
+  let column = startColumn;
+  let index = start;
+  while (index < line.length) {
+    const character = line.at(index);
+    if (character === " ") {
+      column += 1;
+    } else if (character === "\t") {
+      column += 4 - (column % 4);
+    } else {
+      break;
+    }
+    index += 1;
+  }
+  return Object.freeze({ column, index });
+}
+
+function blockQuoteContentAt(
+  line,
+  startIndex,
+  startColumn,
+  maximumDepth = Number.POSITIVE_INFINITY,
+) {
+  let contentColumn = startColumn;
+  let contentIndex = startIndex;
+  let depth = 0;
+  let indentation = indentationAt(line, contentIndex, contentColumn);
+  while (depth < maximumDepth) {
+    const relativeIndent = indentation.column - contentColumn;
+    if (
+      relativeIndent < 0 ||
+      relativeIndent > 3 ||
+      line.at(indentation.index) !== ">"
+    ) {
+      break;
+    }
+    contentIndex = indentation.index + 1;
+    contentColumn = indentation.column + 1;
+    const separator = line.at(contentIndex);
+    if (separator === " ") {
+      contentIndex += 1;
+      contentColumn += 1;
+    } else if (separator === "\t") {
+      contentIndex += 1;
+      contentColumn += 4 - (contentColumn % 4);
+    }
+    depth += 1;
+    indentation = indentationAt(line, contentIndex, contentColumn);
+  }
+  return Object.freeze({ contentColumn, depth, indentation });
+}
+
+function blockQuoteContent(line, maximumDepth = Number.POSITIVE_INFINITY) {
+  return blockQuoteContentAt(line, 0, 0, maximumDepth);
+}
+
+function listMarkerAt(line, baseColumn, indentation, paragraphOpen = false) {
+  const relativeIndent = indentation.column - baseColumn;
+  if (relativeIndent < 0 || relativeIndent > 3) {
+    return undefined;
+  }
+  const match = line
+    .slice(indentation.index)
+    .match(/^(?:[-+*]|([0-9]{1,9})[.)])(?=$|[ \t\r])/u);
+  const marker = match?.at(0);
+  if (marker === undefined) {
+    return undefined;
+  }
+  const markerEndIndex = indentation.index + marker.length;
+  const markerEndColumn = indentation.column + marker.length;
+  const content = indentationAt(line, markerEndIndex, markerEndColumn);
+  const padding = content.column - markerEndColumn;
+  const hasContent = !/^[ \t]*\r?$/u.test(line.slice(markerEndIndex));
+  if (
+    paragraphOpen &&
+    (!hasContent || Number(match.at(1) ?? "1") !== 1)
+  ) {
+    return undefined;
+  }
+  const contentColumn = hasContent && padding >= 1 && padding <= 4
+    ? content.column
+    : markerEndColumn + 1;
+  return Object.freeze({
+    contentColumn,
+    contentIndentation: content,
+    hasContent,
+  });
+}
+
+function markdownContainerKey(quoteDepth, listContainers) {
+  const identities = [];
+  for (const container of listContainers) {
+    identities.push(container.identity);
+  }
+  return String(quoteDepth) + ":" + identities.join(".");
+}
+
+function fenceOpeningAt(line, baseColumn, indentation) {
+  const relativeIndent = indentation.column - baseColumn;
+  if (relativeIndent < 0 || relativeIndent > 3) {
+    return undefined;
+  }
+  const match = line
+    .slice(indentation.index)
+    .match(/^(`{3,}|~{3,})([^\r]*)\r?$/u);
+  const marker = match?.at(1);
+  if (
+    marker === undefined ||
+    (marker.at(0) === "`" && match.at(2).includes("`"))
+  ) {
+    return undefined;
+  }
+  return Object.freeze({
+    length: marker.length,
+    marker: marker.at(0),
+  });
+}
+
+function closesFence(line, fence, baseColumn, indentation) {
+  const relativeIndent = indentation.column - baseColumn;
+  if (relativeIndent < 0 || relativeIndent > 3) {
+    return false;
+  }
+  const closing = line
+    .slice(indentation.index)
+    .match(/^(`{3,}|~{3,})[ \t]*\r?$/u)
+    ?.at(1);
+  return (
+    closing !== undefined &&
+    closing.at(0) === fence.marker &&
+    closing.length >= fence.length
+  );
+}
+
+function isLazyParagraphContinuation(line, quoted) {
+  const content = line.slice(quoted.indentation.index);
+  if (!paragraphOpenAfterLine(content, true)) {
+    return false;
+  }
+  if (
+    listMarkerAt(
+      line,
+      quoted.contentColumn,
+      quoted.indentation,
+      true,
+    ) !== undefined ||
+    blockQuoteContentAt(
+      line,
+      quoted.indentation.index,
+      quoted.contentColumn,
+    ).depth > 0 ||
+    fenceOpeningAt(
+      line,
+      quoted.contentColumn,
+      quoted.indentation,
+    ) !== undefined
+  ) {
+    return false;
+  }
+  const htmlOpening = rawHtmlBlockOpening(content);
+  return htmlOpening === undefined || !htmlOpening.interruptsParagraph;
+}
+
+function retainsLazyListContainer(
+  line,
+  quoted,
+  listContainers,
+  paragraphStates,
+) {
+  const containerKey = markdownContainerKey(quoted.depth, listContainers);
+  return (paragraphStates.get(containerKey) ?? false) &&
+    isLazyParagraphContinuation(line, quoted);
+}
+
+function retainedRootQuoteDepth(
+  line,
+  quoted,
+  listContainers,
+  paragraphStates,
+  previousRootQuoteDepth,
+  previousQuoteDepth,
+) {
+  if (quoted.depth >= previousRootQuoteDepth) {
+    return quoted.depth;
+  }
+  const previousKey = markdownContainerKey(
+    previousQuoteDepth,
+    listContainers,
+  );
+  return (paragraphStates.get(previousKey) ?? false) &&
+      isLazyParagraphContinuation(line, quoted)
+    ? previousRootQuoteDepth
+    : quoted.depth;
+}
+
+function renderedMarkdown(text) {
+  const rendered = [];
+  const listContainers = [];
+  const paragraphStates = new Map();
+  let fence;
+  let nextContainerIdentity = 0;
+  let previousQuoteDepth = 0;
+  let previousRootQuoteDepth = 0;
+  for (const line of text.split("\n")) {
+    if (fence !== undefined) {
+      const quoted = blockQuoteContent(line, fence.quoteDepth);
+      const fenceBase = fence.contentColumn;
+      const blank = /^[ \t]*\r?$/u.test(line.slice(quoted.indentation.index));
+      if (
+        quoted.depth === fence.quoteDepth &&
+        (
+          fence.contentColumn === 0 ||
+          blank ||
+          quoted.indentation.column >= fenceBase
+        )
+      ) {
+        if (closesFence(line, fence, fenceBase, quoted.indentation)) {
+          fence = undefined;
+        }
+        previousQuoteDepth = quoted.depth;
+        previousRootQuoteDepth = quoted.depth;
+        rendered.push(maskedLiteral(line));
+        continue;
+      }
+      fence = undefined;
+    }
+
+    const parsedQuote = blockQuoteContent(line);
+    const rootQuoteDepth = retainedRootQuoteDepth(
+      line,
+      parsedQuote,
+      listContainers,
+      paragraphStates,
+      previousRootQuoteDepth,
+      previousQuoteDepth,
+    );
+    const quoted = rootQuoteDepth === parsedQuote.depth
+      ? parsedQuote
+      : Object.freeze({ ...parsedQuote, depth: rootQuoteDepth });
+    const indentation = quoted.indentation;
+    let quoteDepth = quoted.depth;
+    const blank = /^[ \t]*\r?$/u.test(line.slice(indentation.index));
+    while (
+      listContainers.length > 0 &&
+      listContainers.at(-1).quoteDepth !== quoted.depth
+    ) {
+      listContainers.pop();
+    }
+    while (
+      !blank &&
+      listContainers.length > 0 &&
+      indentation.column < listContainers.at(-1).contentColumn
+    ) {
+      if (
+        retainsLazyListContainer(
+          line,
+          quoted,
+          listContainers,
+          paragraphStates,
+        )
+      ) {
+        break;
+      }
+      listContainers.pop();
+    }
+    const lazyContinuation = listContainers.length > 0 &&
+      indentation.column < listContainers.at(-1).contentColumn;
+    let contentBase = lazyContinuation
+      ? quoted.contentColumn
+      : listContainers.at(-1)?.contentColumn ?? quoted.contentColumn;
+    let contentIndentation = indentation;
+    let emptyListMarker = false;
+    while (true) {
+      const parentKey = markdownContainerKey(quoteDepth, listContainers);
+      const listMarker = listMarkerAt(
+        line,
+        contentBase,
+        contentIndentation,
+        paragraphStates.get(parentKey) ?? false,
+      );
+      if (listMarker !== undefined) {
+        paragraphStates.set(parentKey, false);
+        listContainers.push(Object.freeze({
+          contentColumn: listMarker.contentColumn,
+          identity: nextContainerIdentity,
+          quoteDepth,
+        }));
+        nextContainerIdentity += 1;
+        contentBase = listMarker.contentColumn;
+        contentIndentation = listMarker.contentIndentation;
+        if (!listMarker.hasContent) {
+          emptyListMarker = true;
+          break;
+        }
+        continue;
+      }
+      const nestedQuote = blockQuoteContentAt(
+        line,
+        contentIndentation.index,
+        contentBase,
+      );
+      if (nestedQuote.depth === 0) {
+        break;
+      }
+      quoteDepth += nestedQuote.depth;
+      contentBase = nestedQuote.contentColumn;
+      contentIndentation = nestedQuote.indentation;
+    }
+    const containerKey = markdownContainerKey(quoteDepth, listContainers);
+    const projectedContent = blank ? "" : line.slice(contentIndentation.index);
+    if (emptyListMarker) {
+      paragraphStates.set(containerKey, false);
+      previousQuoteDepth = quoteDepth;
+      previousRootQuoteDepth = rootQuoteDepth;
+      rendered.push(line);
+      continue;
+    }
+
+    const opening = fenceOpeningAt(line, contentBase, contentIndentation);
+    if (opening !== undefined) {
+      paragraphStates.set(containerKey, false);
+      fence = Object.freeze({
+        contentColumn: contentBase,
+        length: opening.length,
+        marker: opening.marker,
+        quoteDepth,
+      });
+      previousQuoteDepth = quoteDepth;
+      previousRootQuoteDepth = rootQuoteDepth;
+      rendered.push(maskedLiteral(line));
+      continue;
+    }
+    const paragraphOpen = paragraphStates.get(containerKey) ?? false;
+    const indentedCode = contentIndentation.column - contentBase >= 4;
+    if (blank) {
+      paragraphStates.clear();
+      rendered.push(line);
+    } else if (indentedCode && !paragraphOpen) {
+      paragraphStates.set(containerKey, false);
+      rendered.push(maskedLiteral(line));
+    } else {
+      paragraphStates.set(
+        containerKey,
+        paragraphOpenAfterLine(projectedContent, paragraphOpen),
+      );
+      rendered.push(line);
+    }
+    previousQuoteDepth = quoteDepth;
+    previousRootQuoteDepth = rootQuoteDepth;
+  }
+  return rendered.join("\n");
+}
+
+function containerProjectedLines(text) {
+  const projected = [];
+  const listContainers = [];
+  const paragraphStates = new Map();
+  let nextContainerIdentity = 0;
+  let previousQuoteDepth = 0;
+  let previousRootQuoteDepth = 0;
+  for (const line of text.split("\n")) {
+    const parsedQuote = blockQuoteContent(line);
+    const rootQuoteDepth = retainedRootQuoteDepth(
+      line,
+      parsedQuote,
+      listContainers,
+      paragraphStates,
+      previousRootQuoteDepth,
+      previousQuoteDepth,
+    );
+    const quoted = rootQuoteDepth === parsedQuote.depth
+      ? parsedQuote
+      : Object.freeze({ ...parsedQuote, depth: rootQuoteDepth });
+    let quoteDepth = quoted.depth;
+    const blank = /^[ \t]*\r?$/u.test(line.slice(quoted.indentation.index));
+    while (
+      listContainers.length > 0 &&
+      listContainers.at(-1).quoteDepth !== quoted.depth
+    ) {
+      listContainers.pop();
+    }
+    while (
+      !blank &&
+      listContainers.length > 0 &&
+      quoted.indentation.column < listContainers.at(-1).contentColumn
+    ) {
+      if (
+        retainsLazyListContainer(
+          line,
+          quoted,
+          listContainers,
+          paragraphStates,
+        )
+      ) {
+        break;
+      }
+      listContainers.pop();
+    }
+
+    const lazyContinuation = listContainers.length > 0 &&
+      quoted.indentation.column < listContainers.at(-1).contentColumn;
+    let contentBase = lazyContinuation
+      ? quoted.contentColumn
+      : listContainers.at(-1)?.contentColumn ?? quoted.contentColumn;
+    let contentIndentation = quoted.indentation;
+    while (!blank) {
+      const parentKey = markdownContainerKey(quoteDepth, listContainers);
+      const listMarker = listMarkerAt(
+        line,
+        contentBase,
+        contentIndentation,
+        paragraphStates.get(parentKey) ?? false,
+      );
+      if (listMarker !== undefined) {
+        paragraphStates.set(parentKey, false);
+        listContainers.push(Object.freeze({
+          contentColumn: listMarker.contentColumn,
+          identity: nextContainerIdentity,
+          quoteDepth,
+        }));
+        nextContainerIdentity += 1;
+        contentBase = listMarker.contentColumn;
+        contentIndentation = listMarker.contentIndentation;
+        if (!listMarker.hasContent) {
+          break;
+        }
+        continue;
+      }
+      const nestedQuote = blockQuoteContentAt(
+        line,
+        contentIndentation.index,
+        contentBase,
+      );
+      if (nestedQuote.depth === 0) {
+        break;
+      }
+      quoteDepth += nestedQuote.depth;
+      contentBase = nestedQuote.contentColumn;
+      contentIndentation = nestedQuote.indentation;
+    }
+    const containerKey = markdownContainerKey(quoteDepth, listContainers);
+    const content = blank ? "" : line.slice(contentIndentation.index);
+    if (blank) {
+      paragraphStates.clear();
+    } else {
+      paragraphStates.set(
+        containerKey,
+        paragraphOpenAfterLine(
+          content,
+          paragraphStates.get(containerKey) ?? false,
+        ),
+      );
+    }
+    projected.push(Object.freeze({ containerKey, content }));
+    previousQuoteDepth = quoteDepth;
+    previousRootQuoteDepth = rootQuoteDepth;
+  }
+  return Object.freeze(projected);
+}
+
+function containerProjectedMarkdown(text) {
+  const projected = [];
+  for (const line of containerProjectedLines(text)) {
+    projected.push(line.content);
+  }
+  return projected.join("\n");
+}
+
+function rawHtmlBlockClosed(line, closing) {
+  switch (closing) {
+    case "cdata":
+      return line.includes("]]>");
+    case "comment":
+      return line.includes("-->");
+    case "declaration":
+      return line.includes(">");
+    case "processing-instruction":
+      return line.includes("?>");
+    case "type-one":
+      return /<\/(?:pre|script|style|textarea)>/iu.test(line);
+    default:
+      return false;
+  }
+}
+
+function completeHtmlBlockTag(line) {
+  const indentation = indentationAt(line, 0, 0);
+  if (indentation.column > 3) {
+    return false;
+  }
+  const content = line.slice(indentation.index);
+  if (
+    /^<\/[A-Za-z][A-Za-z0-9-]*[ \t]*>[ \t]*\r?$/u.test(content)
+  ) {
+    return true;
+  }
+  const tag = htmlTags(content, false).at(0);
+  return (
+    tag?.start === 0 &&
+    /^[ \t]*\r?$/u.test(content.slice(tag.end))
+  );
+}
+
+function rawHtmlBlockOpening(line) {
+  const indentation = indentationAt(line, 0, 0);
+  if (indentation.column > 3) {
+    return undefined;
+  }
+  const content = line.slice(indentation.index);
+  if (content.startsWith("<!--")) {
+    return Object.freeze({ closing: "comment", interruptsParagraph: true });
+  }
+  if (content.startsWith("<?")) {
+    return Object.freeze({
+      closing: "processing-instruction",
+      interruptsParagraph: true,
+    });
+  }
+  if (content.startsWith("<![CDATA[")) {
+    return Object.freeze({ closing: "cdata", interruptsParagraph: true });
+  }
+  if (/^<![A-Z]/u.test(content)) {
+    return Object.freeze({
+      closing: "declaration",
+      interruptsParagraph: true,
+    });
+  }
+  if (/^<(?:pre|script|style|textarea)(?=[ \t>]|$)/iu.test(content)) {
+    return Object.freeze({
+      closing: "type-one",
+      interruptsParagraph: true,
+    });
+  }
+  if (
+    /^<\/?(?:address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul)(?=[ \t/>]|$)/iu.test(
+      content,
+    )
+  ) {
+    return Object.freeze({ closing: undefined, interruptsParagraph: true });
+  }
+  if (completeHtmlBlockTag(line)) {
+    return Object.freeze({ closing: undefined, interruptsParagraph: false });
+  }
+  return undefined;
+}
+
+function paragraphOpenAfterLine(line, wasOpen) {
+  const indentation = indentationAt(line, 0, 0);
+  const content = line.slice(indentation.index);
+  if (/^[ \t]*\r?$/u.test(line)) {
+    return false;
+  }
+  const htmlOpening = rawHtmlBlockOpening(line);
+  if (
+    htmlOpening !== undefined &&
+    (htmlOpening.interruptsParagraph || !wasOpen)
+  ) {
+    return false;
+  }
+  if (
+    indentation.column <= 3 &&
+    (
+      /^#{1,6}(?:[ \t]+|$)/u.test(content) ||
+      /^(?:\*[ \t]*){3,}\r?$/u.test(content) ||
+      /^(?:_[ \t]*){3,}\r?$/u.test(content) ||
+      /^(?:-[ \t]*){3,}\r?$/u.test(content) ||
+      (wasOpen && /^(?:=+|-+)[ \t]*\r?$/u.test(content))
+    )
+  ) {
+    return false;
+  }
+  return true;
+}
+
+function rawHtmlBlockProjection(markdown) {
+  const lines = markdown.split("\n");
+  const projected = containerProjectedLines(markdown);
+  const blocks = [];
+  const rendered = [];
+  let blockStart;
+  let closing;
+  let paragraphOpen = false;
+  let rawContainerKey;
+  let untilBlank = false;
+  const finishBlock = (endLine) => {
+    blocks.push(Object.freeze({ endLine, startLine: blockStart }));
+    blockStart = undefined;
+  };
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines.at(index);
+    const projection = projected.at(index);
+    const content = projection.content;
+    if (
+      (closing !== undefined || untilBlank) &&
+      projection.containerKey !== rawContainerKey
+    ) {
+      finishBlock(index);
+      closing = undefined;
+      paragraphOpen = false;
+      rawContainerKey = undefined;
+      untilBlank = false;
+    }
+    if (closing !== undefined) {
+      rendered.push(maskedLiteral(line));
+      if (rawHtmlBlockClosed(content, closing)) {
+        finishBlock(index + 1);
+        closing = undefined;
+        rawContainerKey = undefined;
+      }
+      paragraphOpen = false;
+      continue;
+    }
+    if (untilBlank) {
+      if (/^[ \t]*\r?$/u.test(content)) {
+        finishBlock(index);
+        untilBlank = false;
+        paragraphOpen = false;
+        rawContainerKey = undefined;
+        rendered.push(line);
+      } else {
+        rendered.push(maskedLiteral(line));
+      }
+      continue;
+    }
+    const opening = rawHtmlBlockOpening(content);
+    if (
+      opening === undefined ||
+      (!opening.interruptsParagraph && paragraphOpen)
+    ) {
+      rendered.push(line);
+      paragraphOpen = paragraphOpenAfterLine(content, paragraphOpen);
+      continue;
+    }
+    blockStart = index;
+    rendered.push(maskedLiteral(line));
+    paragraphOpen = false;
+    rawContainerKey = projection.containerKey;
+    if (opening.closing === undefined) {
+      untilBlank = true;
+    } else if (!rawHtmlBlockClosed(content, opening.closing)) {
+      closing = opening.closing;
+    } else {
+      finishBlock(index + 1);
+      rawContainerKey = undefined;
+    }
+  }
+  if (blockStart !== undefined) {
+    finishBlock(lines.length);
+  }
+  return Object.freeze({
+    blocks: Object.freeze(blocks),
+    markdown: rendered.join("\n"),
+  });
+}
+
+function withoutRawHtmlBlocks(markdown) {
+  return rawHtmlBlockProjection(markdown).markdown;
+}
+
+function rawHtmlBlockBounds(markdown) {
+  const lineStarts = [0];
+  for (let index = 0; index < markdown.length; index += 1) {
+    if (markdown.at(index) === "\n") {
+      lineStarts.push(index + 1);
+    }
+  }
+  return Object.freeze(
+    rawHtmlBlockProjection(markdown).blocks.map((block) =>
+      Object.freeze({
+        end: lineStarts.at(block.endLine) ?? markdown.length,
+        start: lineStarts.at(block.startLine),
+      })
+    ),
+  );
+}
+
+function markdownHtmlContext(markdown, opening, rawBlocks) {
+  for (const block of rawBlocks) {
+    if (opening < block.start) {
+      break;
+    }
+    if (opening < block.end) {
+      return Object.freeze({ end: block.end, raw: true });
+    }
+  }
+  return Object.freeze({
+    end: paragraphEnd(markdown, opening + 1),
+    raw: false,
+  });
+}
+
+function htmlCommentEnd(
+  markdown,
+  opening,
+  end = markdown.length,
+  raw = false,
+) {
+  const closing = markdown.indexOf("-->", opening + 4);
+  if (closing === -1 || closing + 3 > end) {
+    return undefined;
+  }
+  if (raw) {
+    return closing + 3;
+  }
+  const body = markdown.slice(opening + 4, closing);
+  return body.startsWith(">") ||
+    body.startsWith("->") ||
+    body.includes("--") ||
+    body.endsWith("-")
+    ? undefined
+    : closing + 3;
+}
+
+function withoutHtmlComments(markdown, preserveColumns = true) {
+  const rawBlocks = rawHtmlBlockBounds(markdown);
+  const rendered = [];
+  let retainedFrom = 0;
+  let searchFrom = 0;
+  while (searchFrom < markdown.length) {
+    const opening = markdown.indexOf("<!--", searchFrom);
+    if (opening === -1) {
+      break;
+    }
+    const context = markdownHtmlContext(markdown, opening, rawBlocks);
+    if (!context.raw && isEscaped(markdown, opening)) {
+      searchFrom = opening + 4;
+      continue;
+    }
+    const end = htmlCommentEnd(
+      markdown,
+      opening,
+      context.end,
+      context.raw,
+    );
+    if (end === undefined) {
+      searchFrom = opening + 4;
+      continue;
+    }
+    rendered.push(markdown.slice(retainedFrom, opening));
+    const comment = markdown.slice(opening, end);
+    rendered.push(
+      preserveColumns
+        ? maskedLiteral(comment)
+        : comment.replaceAll(/[^\r\n]/gu, ""),
+    );
+    retainedFrom = end;
+    searchFrom = end;
+  }
+  rendered.push(markdown.slice(retainedFrom));
+  return rendered.join("");
+}
+
+function isEscaped(text, index) {
+  let backslashes = 0;
+  for (
+    let cursor = index - 1;
+    cursor >= 0 && text.at(cursor) === "\\";
+    cursor -= 1
+  ) {
+    backslashes += 1;
+  }
+  return backslashes % 2 === 1;
+}
+
+function isMarkdownEscaped(text, index) {
+  return /[!"#$%&'()*+,\-./:;<=>?@[\]\\^_`{|}~]/u.test(
+    text.at(index) ?? "",
+  ) && isEscaped(text, index);
+}
+
+function markerRunLength(text, index, marker) {
+  let length = 0;
+  while (text.at(index + length) === marker) {
+    length += 1;
+  }
+  return length;
+}
+
+function paragraphEnd(text, start) {
+  const lineStarts = [0];
+  for (let index = 0; index < text.length; index += 1) {
+    if (text.at(index) === "\n") {
+      lineStarts.push(index + 1);
+    }
+  }
+  let lineIndex = 0;
+  while (
+    lineIndex + 1 < lineStarts.length &&
+    lineStarts.at(lineIndex + 1) <= start
+  ) {
+    lineIndex += 1;
+  }
+  const projected = containerProjectedLines(text);
+  const current = projected.at(lineIndex);
+  if (current === undefined) {
+    return text.length;
+  }
+  const currentEnd = lineIndex + 1 < lineStarts.length
+    ? lineStarts.at(lineIndex + 1) - 1
+    : text.length;
+  if (!paragraphOpenAfterLine(current.content, false)) {
+    return currentEnd;
+  }
+  for (let index = lineIndex + 1; index < projected.length; index += 1) {
+    const line = projected.at(index);
+    if (
+      line.containerKey !== current.containerKey ||
+      !paragraphOpenAfterLine(line.content, true)
+    ) {
+      return lineStarts.at(index) - 1;
+    }
+  }
+  return text.length;
+}
+
+function codeSpanClosing(text, opening, openingLength) {
+  const end = paragraphEnd(text, opening + openingLength);
+  let searchFrom = opening + openingLength;
+  while (searchFrom < end) {
+    const closing = text.indexOf("`", searchFrom);
+    if (closing === -1 || closing >= end) {
+      return undefined;
+    }
+    const closingLength = markerRunLength(text, closing, "`");
+    if (closingLength === openingLength) {
+      return Object.freeze({
+        end: closing + closingLength,
+        start: closing,
+      });
+    }
+    searchFrom = closing + closingLength;
+  }
+  return undefined;
+}
+
+function withoutCodeSpans(text, protectedBounds = []) {
+  const rendered = [];
+  let retainedFrom = 0;
+  let cursor = 0;
+  let protectedIndex = 0;
+  while (cursor < text.length) {
+    const opening = text.indexOf("`", cursor);
+    if (opening === -1) {
+      break;
+    }
+    while (
+      protectedBounds.at(protectedIndex)?.end <= opening
+    ) {
+      protectedIndex += 1;
+    }
+    const protectedBound = protectedBounds.at(protectedIndex);
+    if (
+      protectedBound !== undefined &&
+      opening >= protectedBound.start
+    ) {
+      cursor = protectedBound.end;
+      continue;
+    }
+    const openingLength = markerRunLength(text, opening, "`");
+    if (isEscaped(text, opening)) {
+      cursor = opening + 1;
+      continue;
+    }
+    const closing = codeSpanClosing(text, opening, openingLength);
+    if (
+      closing === undefined ||
+      (
+        protectedBound !== undefined &&
+        closing.start >= protectedBound.start
+      )
+    ) {
+      cursor = opening + openingLength;
+      continue;
+    }
+    rendered.push(text.slice(retainedFrom, opening));
+    rendered.push(maskedLiteral(text.slice(opening, closing.end)));
+    retainedFrom = closing.end;
+    cursor = closing.end;
+  }
+  rendered.push(text.slice(retainedFrom));
+  return rendered.join("");
+}
+
+function closingLabelIndex(markdown, opening) {
+  let depth = 1;
+  const end = paragraphEnd(markdown, opening + 1);
+  for (let cursor = opening + 1; cursor < end; cursor += 1) {
+    if (isEscaped(markdown, cursor)) {
+      continue;
+    }
+    const character = markdown.at(cursor);
+    if (character === "[") {
+      depth += 1;
+    } else if (character === "]") {
+      depth -= 1;
+      if (depth === 0) {
+        return cursor;
+      }
+    }
+  }
+  return undefined;
+}
+
+function unicodeCodePointWidthAt(text, index) {
+  return (text.codePointAt(index) ?? 0) > 0xffff ? 2 : 1;
+}
+
+function referenceLabelEnd(markdown, opening) {
+  let length = 0;
+  const end = paragraphEnd(markdown, opening + 1);
+  let cursor = opening + 1;
+  while (cursor < end) {
+    const character = markdown.at(cursor);
+    if (!isEscaped(markdown, cursor) && character === "[") {
+      return undefined;
+    }
+    if (!isEscaped(markdown, cursor) && character === "]") {
+      return cursor;
+    }
+    length += 1;
+    if (length > 999) {
+      return undefined;
+    }
+    cursor += unicodeCodePointWidthAt(markdown, cursor);
+  }
+  return undefined;
+}
+
+function inlineWhitespaceEnd(markdown, start) {
+  let cursor = start;
+  let lineEndings = 0;
+  while (cursor < markdown.length) {
+    const character = markdown.at(cursor);
+    if (character === " " || character === "\t") {
+      cursor += 1;
+      continue;
+    }
+    if (character !== "\r" && character !== "\n") {
+      break;
+    }
+    lineEndings += 1;
+    if (lineEndings > 1) {
+      return undefined;
+    }
+    cursor += character === "\r" && markdown.at(cursor + 1) === "\n"
+      ? 2
+      : 1;
+  }
+  return cursor;
+}
+
+function horizontalWhitespaceEnd(markdown, start) {
+  let cursor = start;
+  while (/[ \t]/u.test(markdown.at(cursor) ?? "")) {
+    cursor += 1;
+  }
+  return cursor;
+}
+
+function delimitedTitleEnd(markdown, opening, end) {
+  const marker = markdown.at(opening);
+  const closingMarker = marker === "(" ? ")" : marker;
+  for (let cursor = opening + 1; cursor < end; cursor += 1) {
+    if (isEscaped(markdown, cursor)) {
+      continue;
+    }
+    const character = markdown.at(cursor);
+    if (marker === "(" && character === "(") {
+      return undefined;
+    }
+    if (character === closingMarker) {
+      return cursor + 1;
+    }
+  }
+  return undefined;
+}
+
+function titleEnd(markdown, opening) {
+  return delimitedTitleEnd(
+    markdown,
+    opening,
+    paragraphEnd(markdown, opening + 1),
+  );
+}
+
+function bareDestinationEnd(
+  markdown,
+  start,
+  unmatchedClosingEndsDestination,
+) {
+  let cursor = start;
+  let depth = 0;
+  while (cursor < markdown.length) {
+    const character = markdown.at(cursor);
+    if (!isMarkdownEscaped(markdown, cursor)) {
+      if (character === "(") {
+        depth += 1;
+        if (depth > MAX_BARE_DESTINATION_PARENTHESIS_DEPTH) {
+          return undefined;
+        }
+      } else if (character === ")") {
+        if (depth === 0) {
+          return unmatchedClosingEndsDestination ? cursor : undefined;
+        }
+        depth -= 1;
+      } else if (/\s/u.test(character ?? "")) {
+        break;
+      }
+    }
+    cursor += 1;
+  }
+  return depth === 0 ? cursor : undefined;
+}
+
+function inlineTarget(markdown, opening) {
+  let cursor = inlineWhitespaceEnd(markdown, opening + 1);
+  if (cursor === undefined) {
+    return undefined;
+  }
+  const destinationStart = cursor;
+  let target;
+  if (markdown.at(cursor) === "<") {
+    cursor += 1;
+    const targetStart = cursor;
+    while (
+      cursor < markdown.length &&
+      (markdown.at(cursor) !== ">" || isMarkdownEscaped(markdown, cursor)) &&
+      !/[\r\n]/u.test(markdown.at(cursor) ?? "")
+    ) {
+      if (
+        markdown.at(cursor) === "<" &&
+        !isMarkdownEscaped(markdown, cursor)
+      ) {
+        return undefined;
+      }
+      cursor += 1;
+    }
+    if (markdown.at(cursor) !== ">") {
+      return undefined;
+    }
+    target = markdown.slice(targetStart, cursor);
+    cursor += 1;
+  } else {
+    const destinationEnd = bareDestinationEnd(markdown, cursor, true);
+    if (destinationEnd === undefined) {
+      return undefined;
+    }
+    cursor = destinationEnd;
+    target = markdown.slice(destinationStart, cursor);
+  }
+
+  const afterDestination = cursor;
+  cursor = inlineWhitespaceEnd(markdown, cursor);
+  if (cursor === undefined) {
+    return undefined;
+  }
+  if (markdown.at(cursor) === ")") {
+    return Object.freeze({ end: cursor + 1, target });
+  }
+  if (cursor === afterDestination) {
+    return undefined;
+  }
+  const titleMarker = markdown.at(cursor);
+  if (titleMarker !== '"' && titleMarker !== "'" && titleMarker !== "(") {
+    return undefined;
+  }
+  const afterTitle = titleEnd(markdown, cursor);
+  if (afterTitle === undefined) {
+    return undefined;
+  }
+  cursor = inlineWhitespaceEnd(markdown, afterTitle);
+  if (cursor === undefined) {
+    return undefined;
+  }
+  return markdown.at(cursor) === ")"
+    ? Object.freeze({ end: cursor + 1, target })
+    : undefined;
+}
+
+function inlineLinkCandidate(markdown, opening, references) {
+  const closing = closingLabelIndex(markdown, opening);
+  if (closing === undefined) {
+    return undefined;
+  }
+  let end;
+  let target;
+  if (markdown.at(closing + 1) === "(") {
+    const parsed = inlineTarget(markdown, closing + 1);
+    end = parsed?.end;
+    target = parsed?.target;
+  } else if (markdown.at(closing + 1) === "[") {
+    const referenceClosing = referenceLabelEnd(markdown, closing + 1);
+    if (referenceClosing !== undefined) {
+      const explicit = markdown.slice(closing + 2, referenceClosing);
+      const implicit = markdown.slice(opening + 1, closing);
+      const implicitValid = referenceLabelEnd(markdown, opening) === closing;
+      const referenceTarget = explicit.length === 0 && !implicitValid
+        ? undefined
+        : references.get(
+          normalizedReferenceLabel(explicit.length === 0 ? implicit : explicit),
+        );
+      if (referenceTarget !== undefined) {
+        end = referenceClosing + 1;
+        target = referenceTarget;
+      }
+    }
+  } else if (referenceLabelEnd(markdown, opening) === closing) {
+    const referenceTarget = references.get(
+      normalizedReferenceLabel(markdown.slice(opening + 1, closing)),
+    );
+    if (referenceTarget !== undefined) {
+      end = closing + 1;
+      target = referenceTarget;
+    }
+  }
+  if (end === undefined) {
+    return undefined;
+  }
+  const marker = opening - 1;
+  return Object.freeze({
+    end,
+    image: marker >= 0 &&
+      markdown.at(marker) === "!" &&
+      !isEscaped(markdown, marker),
+    labelEnd: closing,
+    opening,
+    target,
+  });
+}
+
+function activeInlineLinkCandidates(markdown, references) {
+  const candidates = [];
+  for (let cursor = 0; cursor < markdown.length; cursor += 1) {
+    if (markdown.at(cursor) !== "[" || isEscaped(markdown, cursor)) {
+      continue;
+    }
+    const candidate = inlineLinkCandidate(markdown, cursor, references);
+    if (candidate !== undefined) {
+      candidates.push(candidate);
+    }
+  }
+  return candidates.filter(
+    (candidate) =>
+      !candidates.some(
+        (image) =>
+          image.image &&
+          image.opening < candidate.opening &&
+          candidate.end <= image.labelEnd,
+      ) &&
+      (
+        candidate.image ||
+        !candidates.some(
+          (nested) =>
+            !nested.image &&
+            nested.opening > candidate.opening &&
+            nested.end <= candidate.labelEnd,
+        )
+      ),
+  );
+}
+
+function inlineTargets(markdown, references) {
+  return activeInlineLinkCandidates(markdown, references)
+    .filter((candidate) => candidate.target !== undefined)
+    .map((candidate) => candidate.target);
+}
+
+function unicodeCaselessKey(text) {
+  let key = "";
+  for (const character of text) {
+    // Default Unicode folding closes over case mappings but keeps dotless i
+    // outside the non-Turkic I equivalence class.
+    key += character === "\u0131"
+      ? character
+      : character.toLowerCase().toUpperCase();
+  }
+  return key;
+}
+
+function normalizedReferenceLabel(label) {
+  return unicodeCaselessKey(label
+    .replaceAll(/\\([!"#$%&'()*+,\-./:;<=>?@[\]^_`{|}~])/gu, "$1")
+    .trim()
+    .replaceAll(/\s+/gu, " "));
+}
+
+function headingInlineProjection(markdown, referenceLabels) {
+  const references = new Map();
+  for (const label of referenceLabels) {
+    references.set(label, "");
+  }
+  const activeLinks = new Map();
+  for (
+    const candidate of activeInlineLinkCandidates(
+      withoutCodeSpans(markdown),
+      references,
+    )
+  ) {
+    activeLinks.set(candidate.opening, candidate);
+  }
+  const rendered = [];
+  const literalCodeIndices = [];
+  let renderedLength = 0;
+  function append(text, protectedIndices = []) {
+    rendered.push(text);
+    for (const index of protectedIndices) {
+      literalCodeIndices.push(renderedLength + index);
+    }
+    renderedLength += text.length;
+  }
+  let retainedFrom = 0;
+  let cursor = 0;
+  while (cursor < markdown.length) {
+    if (markdown.at(cursor) === "`" && !isEscaped(markdown, cursor)) {
+      const openingLength = markerRunLength(markdown, cursor, "`");
+      const closing = codeSpanClosing(markdown, cursor, openingLength);
+      if (closing === undefined) {
+        cursor += openingLength;
+        continue;
+      }
+      let code = markdown
+        .slice(cursor + openingLength, closing.start)
+        .replaceAll(/\s+/gu, " ");
+      if (
+        code.startsWith(" ") &&
+        code.endsWith(" ") &&
+        code.trim().length > 0
+      ) {
+        code = code.slice(1, -1);
+      }
+      append(markdown.slice(retainedFrom, cursor));
+      const protectedIndices = [];
+      for (let index = 0; index < code.length; index += 1) {
+        protectedIndices.push(index);
+      }
+      append(code, protectedIndices);
+      retainedFrom = closing.end;
+      cursor = closing.end;
+      continue;
+    }
+    if (markdown.at(cursor) !== "[" || isEscaped(markdown, cursor)) {
+      cursor += 1;
+      continue;
+    }
+    const candidate = activeLinks.get(cursor);
+    if (candidate === undefined) {
+      cursor += 1;
+      continue;
+    }
+    append(markdown.slice(retainedFrom, cursor));
+    const nested = headingInlineProjection(
+      markdown.slice(cursor + 1, candidate.labelEnd),
+      referenceLabels,
+    );
+    append(nested.text, nested.literalCodeIndices);
+    retainedFrom = candidate.end;
+    cursor = candidate.end;
+  }
+  append(markdown.slice(retainedFrom));
+  return Object.freeze({
+    literalCodeIndices: Object.freeze(literalCodeIndices),
+    text: rendered.join(""),
+  });
+}
+
+function emphasisDelimiter(markdown, index, literalEmphasis) {
+  const marker = markdown.at(index);
+  let length = 0;
+  while (
+    markdown.at(index + length) === marker &&
+    !literalEmphasis.has(index + length)
+  ) {
+    length += 1;
+  }
+  const previous = index === 0 ? "\n" : markdown.at(index - 1);
+  const next = markdown.at(index + length) ?? "\n";
+  const previousWhitespace = /\s/u.test(previous);
+  const nextWhitespace = /\s/u.test(next);
+  const previousPunctuation = /[\p{P}\p{S}]/u.test(previous);
+  const nextPunctuation = /[\p{P}\p{S}]/u.test(next);
+  const leftFlanking = !nextWhitespace &&
+    (!nextPunctuation || previousWhitespace || previousPunctuation);
+  const rightFlanking = !previousWhitespace &&
+    (!previousPunctuation || nextWhitespace || nextPunctuation);
+  return Object.freeze({
+    canClose: marker === "_"
+      ? rightFlanking && (!leftFlanking || nextPunctuation)
+      : rightFlanking,
+    canOpen: marker === "_"
+      ? leftFlanking && (!rightFlanking || previousPunctuation)
+      : leftFlanking,
+    index,
+    length,
+    marker,
+  });
+}
+
+function availableDelimiterCharacters(delimiter) {
+  return delimiter.length - delimiter.usedAsCloser - delimiter.usedAsOpener;
+}
+
+function emphasisPairAllowed(opener, closer) {
+  if (!opener.canClose && !closer.canOpen) {
+    return true;
+  }
+  return (
+    (opener.length + closer.length) % 3 !== 0 ||
+    (opener.length % 3 === 0 && closer.length % 3 === 0)
+  );
+}
+
+function headingEmphasisText(markdown, literalCodeIndices) {
+  const literalCode = new Set(literalCodeIndices);
+  const delimiters = [];
+  let cursor = 0;
+  while (cursor < markdown.length) {
+    if (
+      markdown.at(cursor) === "`" &&
+      !isEscaped(markdown, cursor) &&
+      !literalCode.has(cursor)
+    ) {
+      const openingLength = markerRunLength(markdown, cursor, "`");
+      const closing = codeSpanClosing(markdown, cursor, openingLength);
+      cursor = closing?.end ?? cursor + openingLength;
+      continue;
+    }
+    const marker = markdown.at(cursor);
+    if (
+      (marker !== "_" && marker !== "*") ||
+      isEscaped(markdown, cursor) ||
+      literalCode.has(cursor)
+    ) {
+      cursor += 1;
+      continue;
+    }
+    delimiters.push({
+      ...emphasisDelimiter(markdown, cursor, literalCode),
+      usedAsCloser: 0,
+      usedAsOpener: 0,
+    });
+    const delimiter = delimiters.at(-1);
+    cursor += delimiter.length;
+  }
+
+  const removed = new Set();
+  for (let closerIndex = 0; closerIndex < delimiters.length; closerIndex += 1) {
+    const closer = delimiters.at(closerIndex);
+    if (!closer.canClose) {
+      continue;
+    }
+    while (availableDelimiterCharacters(closer) > 0) {
+      let opener;
+      for (let index = closerIndex - 1; index >= 0; index -= 1) {
+        const candidate = delimiters.at(index);
+        if (
+          candidate.canOpen &&
+          candidate.marker === closer.marker &&
+          availableDelimiterCharacters(candidate) > 0 &&
+          emphasisPairAllowed(candidate, closer)
+        ) {
+          opener = candidate;
+          break;
+        }
+      }
+      if (opener === undefined) {
+        break;
+      }
+      const used = Math.min(
+        availableDelimiterCharacters(opener),
+        availableDelimiterCharacters(closer),
+      ) >= 2
+        ? 2
+        : 1;
+      const openerEnd = opener.index + opener.length - opener.usedAsOpener;
+      for (let index = openerEnd - used; index < openerEnd; index += 1) {
+        removed.add(index);
+      }
+      const closerStart = closer.index + closer.usedAsCloser;
+      for (let index = closerStart; index < closerStart + used; index += 1) {
+        removed.add(index);
+      }
+      opener.usedAsOpener += used;
+      closer.usedAsCloser += used;
+    }
+  }
+
+  const rendered = [];
+  const renderedLiteralCodeIndices = [];
+  for (let index = 0; index < markdown.length; index += 1) {
+    if (!removed.has(index)) {
+      if (literalCode.has(index)) {
+        renderedLiteralCodeIndices.push(rendered.length);
+      }
+      rendered.push(markdown.at(index));
+    }
+  }
+  return Object.freeze({
+    literalCodeIndices: Object.freeze(renderedLiteralCodeIndices),
+    text: rendered.join(""),
+  });
+}
+
+function referenceTitleSpan(lines, startOffset, opening) {
+  const titleLines = [];
+  for (let offset = startOffset; offset < lines.length; offset += 1) {
+    const line = lines.at(offset);
+    if (/^[ \t]*\r?$/u.test(line)) {
+      return undefined;
+    }
+    titleLines.push(
+      offset === startOffset ? line.slice(opening) : line,
+    );
+    const title = titleLines.join("\n");
+    const afterTitle = delimitedTitleEnd(title, 0, title.length);
+    if (afterTitle === undefined) {
+      continue;
+    }
+    return horizontalWhitespaceEnd(title, afterTitle) === title.length
+      ? offset - startOffset + 1
+      : undefined;
+  }
+  return undefined;
+}
+
+function referenceDefinitionLabel(lines, opening) {
+  const parts = [];
+  let length = 0;
+  for (let offset = 0; offset < lines.length; offset += 1) {
+    const line = lines.at(offset);
+    const start = offset === 0 ? opening + 1 : 0;
+    let cursor = start;
+    while (cursor < line.length) {
+      const character = line.at(cursor);
+      if (!isEscaped(line, cursor) && character === "[") {
+        return undefined;
+      }
+      if (!isEscaped(line, cursor) && character === "]") {
+        if (line.at(cursor + 1) !== ":") {
+          return undefined;
+        }
+        parts.push(line.slice(start, cursor));
+        const label = normalizedReferenceLabel(parts.join("\n"));
+        return label.length === 0
+          ? undefined
+          : Object.freeze({
+            cursor: cursor + 2,
+            label,
+            lineOffset: offset,
+          });
+      }
+      length += 1;
+      if (length > 999) {
+        return undefined;
+      }
+      cursor += unicodeCodePointWidthAt(line, cursor);
+    }
+    parts.push(line.slice(start));
+    if (offset + 1 < lines.length) {
+      length += 1;
+      if (length > 999) {
+        return undefined;
+      }
+    }
+  }
+  return undefined;
+}
+
+function referenceDefinition(line, continuations) {
+  const indentation = indentationAt(line, 0, 0);
+  if (
+    indentation.column > 3 ||
+    line.at(indentation.index) !== "["
+  ) {
+    return undefined;
+  }
+  if (line.at(indentation.index + 1) === "^") {
+    return undefined;
+  }
+  const lines = [line, ...continuations];
+  const definitionLabel = referenceDefinitionLabel(
+    lines,
+    indentation.index,
+  );
+  if (definitionLabel === undefined) {
+    return undefined;
+  }
+
+  const label = definitionLabel.label;
+  let destinationOffset = definitionLabel.lineOffset;
+  let destinationLine = lines.at(destinationOffset);
+  let cursor = horizontalWhitespaceEnd(
+    destinationLine,
+    definitionLabel.cursor,
+  );
+  if (cursor === destinationLine.length) {
+    destinationOffset += 1;
+    destinationLine = lines.at(destinationOffset);
+    if (destinationLine === undefined) {
+      return undefined;
+    }
+    cursor = horizontalWhitespaceEnd(destinationLine, 0);
+  }
+  const destinationStart = cursor;
+  let target;
+  if (destinationLine.at(cursor) === "<") {
+    cursor += 1;
+    const targetStart = cursor;
+    while (
+      cursor < destinationLine.length &&
+      (destinationLine.at(cursor) !== ">" ||
+        isMarkdownEscaped(destinationLine, cursor))
+    ) {
+      if (
+        destinationLine.at(cursor) === "<" &&
+        !isMarkdownEscaped(destinationLine, cursor)
+      ) {
+        return undefined;
+      }
+      cursor += 1;
+    }
+    if (destinationLine.at(cursor) !== ">") {
+      return undefined;
+    }
+    target = destinationLine.slice(targetStart, cursor);
+    cursor += 1;
+  } else {
+    const destinationEnd = bareDestinationEnd(
+      destinationLine,
+      cursor,
+      false,
+    );
+    if (destinationEnd === undefined) {
+      return undefined;
+    }
+    cursor = destinationEnd;
+    target = destinationLine.slice(destinationStart, cursor);
+    if (target.length === 0) {
+      return undefined;
+    }
+  }
+
+  const afterDestination = cursor;
+  cursor = horizontalWhitespaceEnd(destinationLine, cursor);
+  if (cursor === destinationLine.length) {
+    const titleOffset = destinationOffset + 1;
+    const titleLine = lines.at(titleOffset);
+    if (titleLine !== undefined) {
+      const titleOpening = horizontalWhitespaceEnd(titleLine, 0);
+      const titleMarker = titleLine.at(titleOpening);
+      if (
+        (titleMarker === '"' || titleMarker === "'" || titleMarker === "(")
+      ) {
+        const titleSpan = referenceTitleSpan(
+          lines,
+          titleOffset,
+          titleOpening,
+        );
+        if (titleSpan !== undefined) {
+          return Object.freeze({
+            label,
+            lineCount: titleOffset + titleSpan,
+            target,
+          });
+        }
+      }
+    }
+    return Object.freeze({
+      label,
+      lineCount: destinationOffset + 1,
+      target,
+    });
+  }
+  if (cursor === afterDestination) {
+    return undefined;
+  }
+  const titleMarker = destinationLine.at(cursor);
+  if (titleMarker !== '"' && titleMarker !== "'" && titleMarker !== "(") {
+    return undefined;
+  }
+  const titleSpan = referenceTitleSpan(lines, destinationOffset, cursor);
+  if (titleSpan === undefined) {
+    return undefined;
+  }
+  return Object.freeze({
+    label,
+    lineCount: destinationOffset + titleSpan,
+    target,
+  });
+}
+
+function referenceDefinitions(markdown) {
+  const definitions = [];
+  const paragraphStates = new Map();
+  const projected = containerProjectedLines(markdown);
+  const lines = projected.map((line) => line.content.replace(/\r$/u, ""));
+  let previousContainerKey;
+  for (let index = 0; index < lines.length; index += 1) {
+    const containerKey = projected.at(index).containerKey;
+    if (
+      previousContainerKey !== undefined &&
+      previousContainerKey !== containerKey
+    ) {
+      paragraphStates.clear();
+    }
+    previousContainerKey = containerKey;
+    const paragraphOpen = paragraphStates.get(containerKey) ?? false;
+    let definition;
+    if (!paragraphOpen) {
+      const continuations = [];
+      for (let offset = 1; index + offset < lines.length; offset += 1) {
+        if (
+          projected.at(index + offset).containerKey !== containerKey ||
+          /^[ \t]*\r?$/u.test(lines.at(index + offset))
+        ) {
+          break;
+        }
+        continuations.push(lines.at(index + offset));
+      }
+      definition = referenceDefinition(lines.at(index), continuations);
+    }
+    if (definition !== undefined) {
+      definitions.push(Object.freeze({ ...definition, line: index }));
+      paragraphStates.set(containerKey, false);
+      index += definition.lineCount - 1;
+    } else if (/^[ \t]*\r?$/u.test(lines.at(index))) {
+      paragraphStates.clear();
+    } else {
+      paragraphStates.set(
+        containerKey,
+        paragraphOpenAfterLine(lines.at(index), paragraphOpen),
+      );
+    }
+  }
+  return definitions;
+}
+
+function withoutReferenceDefinitions(markdown, definitions) {
+  const definitionLines = new Set();
+  for (const definition of definitions) {
+    for (let offset = 0; offset < definition.lineCount; offset += 1) {
+      definitionLines.add(definition.line + offset);
+    }
+  }
+  return markdown
+    .split("\n")
+    .map((line, index) =>
+      definitionLines.has(index) ? maskedLiteral(line) : line
+    )
+    .join("\n");
+}
+
+function isHtmlWhitespace(character) {
+  return /[\t\n\f\r ]/u.test(character ?? "");
+}
+
+function rawTextElementEnd(
+  markdown,
+  normalizedMarkdown,
+  start,
+  name,
+  end,
+) {
+  const marker = "</" + name;
+  let searchFrom = start;
+  while (searchFrom < end) {
+    const closing = normalizedMarkdown.indexOf(marker, searchFrom);
+    if (closing === -1 || closing >= end) {
+      return end;
+    }
+    if (closing + marker.length >= end) {
+      return end;
+    }
+    const boundary = markdown.at(closing + marker.length);
+    if (
+      boundary === ">" ||
+      boundary === "/" ||
+      isHtmlWhitespace(boundary)
+    ) {
+      const tagEnd = markdown.indexOf(">", closing + marker.length);
+      return tagEnd === -1 || tagEnd >= end ? end : tagEnd + 1;
+    }
+    searchFrom = closing + marker.length;
+  }
+  return end;
+}
+
+function htmlNonTagEnd(markdown, opening, end, raw) {
+  let terminator;
+  if (markdown.startsWith("<!--", opening)) {
+    return htmlCommentEnd(markdown, opening, end, raw);
+  } else if (markdown.startsWith("<?", opening)) {
+    terminator = "?>";
+  } else if (markdown.startsWith("<![CDATA[", opening)) {
+    terminator = "]]>";
+  } else if (/^<![A-Z]/u.test(markdown.slice(opening))) {
+    terminator = ">";
+  } else {
+    return undefined;
+  }
+  const closing = markdown.indexOf(terminator, opening + 2);
+  return closing === -1 || closing + terminator.length > end
+    ? undefined
+    : closing + terminator.length;
+}
+
+function htmlNonTagRange(start, end) {
+  return Object.freeze({
+    attributeNames: Object.freeze([]),
+    attributes: Object.freeze([]),
+    end,
+    name: "",
+    start,
+  });
+}
+
+function htmlTemplateRange(template, end) {
+  return Object.freeze({
+    attributeNames: template.attributeNames,
+    attributes: template.attributes,
+    closing: false,
+    end,
+    name: template.name,
+    start: template.start,
+  });
+}
+
+function collapseHtmlTemplateContents(tags, templateEnd) {
+  const collapsed = [];
+  let depth = 0;
+  let outerTemplate;
+  let outerEnd;
+  const finishOuter = (end) => {
+    collapsed.push(htmlTemplateRange(outerTemplate, end));
+    depth = 0;
+    outerTemplate = undefined;
+    outerEnd = undefined;
+  };
+  for (const tag of tags) {
+    if (outerTemplate !== undefined && tag.start >= outerEnd) {
+      finishOuter(outerEnd);
+    }
+    if (tag.name !== "template") {
+      if (depth === 0) {
+        collapsed.push(tag);
+      }
+      continue;
+    }
+    if (tag.closing) {
+      if (depth === 0) {
+        collapsed.push(tag);
+        continue;
+      }
+      depth -= 1;
+      if (depth === 0) {
+        finishOuter(tag.end);
+      }
+      continue;
+    }
+    if (depth === 0) {
+      outerTemplate = tag;
+      outerEnd = templateEnd;
+    }
+    depth += 1;
+  }
+  if (outerTemplate !== undefined) {
+    finishOuter(outerEnd);
+  }
+  return collapsed;
+}
+
+function htmlTags(markdown, blockBounded = true) {
+  const tags = [];
+  const normalizedMarkdown = markdown.toLowerCase();
+  const rawBlocks = blockBounded ? rawHtmlBlockBounds(markdown) : [];
+  let searchFrom = 0;
+  while (searchFrom < markdown.length) {
+    const opening = markdown.indexOf("<", searchFrom);
+    if (opening === -1) {
+      break;
+    }
+    const context = blockBounded
+      ? markdownHtmlContext(markdown, opening, rawBlocks)
+      : Object.freeze({ end: markdown.length, raw: true });
+    if (!context.raw && isEscaped(markdown, opening)) {
+      searchFrom = opening + 1;
+      continue;
+    }
+    const end = context.end;
+    const nonTagEnd = htmlNonTagEnd(markdown, opening, end, context.raw);
+    if (nonTagEnd !== undefined) {
+      tags.push(htmlNonTagRange(opening, nonTagEnd));
+      searchFrom = nonTagEnd;
+      continue;
+    }
+    let cursor = opening + 1;
+    let closingTag = false;
+    if (markdown.at(cursor) === "/") {
+      closingTag = true;
+      cursor += 1;
+    }
+    if (!/[A-Za-z]/u.test(markdown.at(cursor) ?? "")) {
+      searchFrom = cursor;
+      continue;
+    }
+    const nameStart = cursor;
+    cursor += 1;
+    while (
+      cursor < end &&
+      /[A-Za-z0-9-]/u.test(markdown.at(cursor) ?? "")
+    ) {
+      cursor += 1;
+    }
+    const tagName = normalizedMarkdown.slice(nameStart, cursor);
+    const tagBoundary = markdown.at(cursor);
+    if (
+      tagBoundary !== ">" &&
+      tagBoundary !== "/" &&
+      !isHtmlWhitespace(tagBoundary)
+    ) {
+      searchFrom = opening + 1;
+      continue;
+    }
+
+    let complete = false;
+    const seenAttributeNames = new Set();
+    const tagAttributes = [];
+    if (closingTag) {
+      while (cursor < end && isHtmlWhitespace(markdown.at(cursor))) {
+        cursor += 1;
+      }
+      if (cursor < end && markdown.at(cursor) === ">") {
+        cursor += 1;
+        complete = true;
+      }
+    }
+    while (!closingTag && cursor < end) {
+      const whitespaceStart = cursor;
+      while (cursor < end && isHtmlWhitespace(markdown.at(cursor))) {
+        cursor += 1;
+      }
+      if (cursor >= end) {
+        break;
+      }
+      if (markdown.at(cursor) === ">") {
+        cursor += 1;
+        complete = true;
+        break;
+      }
+      if (
+        cursor + 1 < end &&
+        markdown.at(cursor) === "/" &&
+        markdown.at(cursor + 1) === ">"
+      ) {
+        cursor += 2;
+        complete = true;
+        break;
+      }
+      if (cursor === whitespaceStart) {
+        break;
+      }
+
+      const nameStart = cursor;
+      if (!/[A-Za-z_:]/u.test(markdown.at(cursor) ?? "")) {
+        break;
+      }
+      cursor += 1;
+      while (
+        cursor < end &&
+        /[A-Za-z0-9_.:-]/u.test(markdown.at(cursor) ?? "")
+      ) {
+        cursor += 1;
+      }
+      const name = markdown.slice(nameStart, cursor).toLowerCase();
+      const duplicate = seenAttributeNames.has(name);
+      seenAttributeNames.add(name);
+      const afterName = cursor;
+      while (cursor < end && isHtmlWhitespace(markdown.at(cursor))) {
+        cursor += 1;
+      }
+      let value;
+      if (cursor < end && markdown.at(cursor) === "=") {
+        cursor += 1;
+        while (cursor < end && isHtmlWhitespace(markdown.at(cursor))) {
+          cursor += 1;
+        }
+        const quote = markdown.at(cursor);
+        if (quote === '"' || quote === "'") {
+          const valueStart = cursor + 1;
+          const valueEnd = markdown.indexOf(quote, valueStart);
+          if (valueEnd === -1 || valueEnd >= end) {
+            break;
+          }
+          value = markdown.slice(valueStart, valueEnd);
+          cursor = valueEnd + 1;
+        } else {
+          const valueStart = cursor;
+          let valid = true;
+          while (
+            cursor < end &&
+            !isHtmlWhitespace(markdown.at(cursor)) &&
+            markdown.at(cursor) !== ">" &&
+            !(
+              cursor + 1 < end &&
+              markdown.at(cursor) === "/" &&
+              markdown.at(cursor + 1) === ">"
+            )
+          ) {
+            if (/["'=<`]/u.test(markdown.at(cursor))) {
+              valid = false;
+              break;
+            }
+            cursor += 1;
+          }
+          if (!valid || cursor === valueStart) {
+            break;
+          }
+          value = markdown.slice(valueStart, cursor);
+        }
+      } else {
+        cursor = afterName;
+      }
+      if (!duplicate && value !== undefined) {
+        tagAttributes.push(Object.freeze({ name, value }));
+      }
+    }
+    if (complete) {
+      const tag = Object.freeze({
+        attributeNames: Object.freeze([...seenAttributeNames]),
+        attributes: Object.freeze(tagAttributes),
+        closing: closingTag,
+        end: cursor,
+        name: tagName,
+        start: opening,
+      });
+      tags.push(tag);
+    }
+    if (
+      complete &&
+      !closingTag &&
+      /^(?:iframe|noembed|noframes|script|style|textarea|title|xmp)$/u.test(
+        tagName,
+      )
+    ) {
+      searchFrom = rawTextElementEnd(
+        markdown,
+        normalizedMarkdown,
+        cursor,
+        tagName,
+        markdown.length,
+      );
+    } else {
+      searchFrom = complete ? cursor : opening + 1;
+    }
+  }
+  return collapseHtmlTemplateContents(tags, markdown.length);
+}
+
+function withoutHtmlTags(markdown, tags) {
+  const rendered = [];
+  let retainedFrom = 0;
+  for (const tag of tags) {
+    rendered.push(markdown.slice(retainedFrom, tag.start));
+    rendered.push(maskedLiteral(markdown.slice(tag.start, tag.end)));
+    retainedFrom = tag.end;
+  }
+  rendered.push(markdown.slice(retainedFrom));
+  return rendered.join("");
+}
+
+function setextParagraphLine(line) {
+  const indentation = indentationAt(line, 0, 0);
+  if (indentation.column > 3) {
+    return false;
+  }
+  const content = line.slice(indentation.index);
+  return (
+    !/^[ \t]*\r?$/u.test(content) &&
+    !/^#{1,6}(?:[ \t]+|$)/u.test(content) &&
+    !/^=+[ \t]*\r?$/u.test(content) &&
+    !/^(?:\*[ \t]*){3,}\r?$/u.test(content) &&
+    !/^(?:_[ \t]*){3,}\r?$/u.test(content) &&
+    !/^(?:-[ \t]*){3,}\r?$/u.test(content)
+  );
+}
+
+function setextHeadings(projected) {
+  const headings = [];
+  const lines = projected.map((line) => line.content);
+  const offsets = [];
+  let offset = 0;
+  for (const line of lines) {
+    offsets.push(offset);
+    offset += line.length + 1;
+  }
+  for (let index = 1; index < lines.length; index += 1) {
+    if (!/^[ \t]{0,3}(?:=+|-+)[ \t]*\r?$/u.test(lines.at(index))) {
+      continue;
+    }
+    const containerKey = projected.at(index).containerKey;
+    let paragraphStart = index - 1;
+    while (
+      paragraphStart >= 0 &&
+      projected.at(paragraphStart).containerKey === containerKey &&
+      setextParagraphLine(lines.at(paragraphStart))
+    ) {
+      paragraphStart -= 1;
+    }
+    paragraphStart += 1;
+    if (paragraphStart === index) {
+      continue;
+    }
+    const heading = lines
+      .slice(paragraphStart, index)
+      .map((line) => {
+        const indentation = indentationAt(line, 0, 0);
+        return line
+          .slice(indentation.index)
+          .replace(/[ \t]*\r?$/u, "");
+      })
+      .join("\n");
+    headings.push(Object.freeze({
+      index: offsets.at(paragraphStart),
+      text: heading,
+    }));
+  }
+  return headings;
+}
+
+function htmlAnchorValues(tags) {
+  const anchors = new Set();
+  for (const tag of tags) {
+    for (const attribute of tag.attributes) {
+      if (
+        (
+          attribute.name === "id" ||
+          (tag.name === "a" && attribute.name === "name")
+        ) &&
+        attribute.value.length > 0
+      ) {
+        anchors.add(
+          decodeHtmlAttributeCharacterReferences(attribute.value),
+        );
+      }
+    }
+  }
+  return Object.freeze([...anchors]);
+}
+
+function headingAnchors(text) {
+  const markdown = renderedMarkdown(text);
+  const rawMarkdownContent = withoutRawHtmlBlocks(markdown);
+  const markdownContent = withoutHtmlComments(rawMarkdownContent);
+  const definitions = referenceDefinitions(markdownContent);
+  const headingProjection = containerProjectedLines(
+    withoutReferenceDefinitions(
+      withoutHtmlComments(rawMarkdownContent, false),
+      definitions,
+    ),
+  );
+  const headingMarkdown = headingProjection
+    .map((line) => line.content)
+    .join("\n");
+  const referenceLabels = new Set(
+    definitions.map((definition) => definition.label),
+  );
+  const anchors = new Set();
+  const headings = [];
+  for (const match of headingMarkdown.matchAll(
+    /^[ \t]{0,3}#{1,6}(?:[ \t]+(.*?))?[ \t]*$/gmu,
+  )) {
+    const heading = (match[1] ?? "").replace(/[ \t]+#+[ \t]*$/u, "");
+    headings.push(Object.freeze({ index: match.index, text: heading }));
+  }
+  headings.push(...setextHeadings(headingProjection));
+  headings.sort((left, right) => left.index - right.index);
+  for (const heading of headings) {
+    const inline = headingInlineProjection(heading.text, referenceLabels);
+    const emphasis = headingEmphasisText(
+      inline.text,
+      inline.literalCodeIndices,
+    );
+    const base = headingSlug(emphasis.text, emphasis.literalCodeIndices);
+    if (base.length === 0) {
+      continue;
+    }
+    let anchor = base;
+    let suffix = 0;
+    while (anchors.has(anchor)) {
+      suffix += 1;
+      anchor = base + "-" + suffix;
+    }
+    anchors.add(anchor);
+  }
+  const htmlMarkdown = withoutCodeSpans(
+    markdown,
+    rawHtmlBlockBounds(markdown),
+  );
+  const tags = htmlTags(withoutHtmlComments(htmlMarkdown));
+  for (const anchor of htmlAnchorValues(tags)) {
+    anchors.add(anchor);
+  }
+  return anchors;
+}
+
+function isPositiveSrcsetInteger(value) {
+  return /^[0-9]+$/u.test(value) && /[1-9]/u.test(value);
+}
+
+function isSrcsetDensity(value) {
+  if (
+    !/^-?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$/u.test(
+      value,
+    )
+  ) {
+    return false;
+  }
+  return Number(value) >= 0;
+}
+
+function validSrcsetDescriptors(descriptors) {
+  let hasWidth = false;
+  let hasDensity = false;
+  let hasFutureHeight = false;
+  for (const descriptor of descriptors) {
+    const value = descriptor.slice(0, -1);
+    if (descriptor.endsWith("w") && isPositiveSrcsetInteger(value)) {
+      if (hasWidth || hasDensity) {
+        return false;
+      }
+      hasWidth = true;
+    } else if (descriptor.endsWith("x") && isSrcsetDensity(value)) {
+      if (hasWidth || hasDensity || hasFutureHeight) {
+        return false;
+      }
+      hasDensity = true;
+    } else if (
+      descriptor.endsWith("h") &&
+      isPositiveSrcsetInteger(value)
+    ) {
+      if (hasDensity || hasFutureHeight) {
+        return false;
+      }
+      hasFutureHeight = true;
+    } else {
+      return false;
+    }
+  }
+  return !hasFutureHeight || hasWidth;
+}
+
+function srcsetDescriptorTokens(value, start) {
+  const descriptors = [];
+  let cursor = start;
+  let current = "";
+  let state = "descriptor";
+  while (true) {
+    const character = value.at(cursor);
+    if (character === undefined) {
+      if (current.length > 0) {
+        descriptors.push(current);
+      }
+      return Object.freeze({ cursor, descriptors });
+    }
+    if (state === "in-parentheses") {
+      current += character;
+      cursor += 1;
+      if (character === ")") {
+        state = "descriptor";
+      }
+      continue;
+    }
+    if (state === "after-descriptor") {
+      if (isHtmlWhitespace(character)) {
+        cursor += 1;
+        continue;
+      }
+      state = "descriptor";
+      continue;
+    }
+    if (isHtmlWhitespace(character)) {
+      if (current.length > 0) {
+        descriptors.push(current);
+        current = "";
+        state = "after-descriptor";
+      }
+      cursor += 1;
+    } else if (character === ",") {
+      if (current.length > 0) {
+        descriptors.push(current);
+      }
+      return Object.freeze({ cursor: cursor + 1, descriptors });
+    } else {
+      current += character;
+      cursor += 1;
+      if (character === "(") {
+        state = "in-parentheses";
+      }
+    }
+  }
+}
+
+function srcsetTargets(value) {
+  const targets = [];
+  let cursor = 0;
+  while (cursor < value.length) {
+    while (
+      cursor < value.length &&
+      (value.at(cursor) === "," || isHtmlWhitespace(value.at(cursor)))
+    ) {
+      cursor += 1;
+    }
+    const start = cursor;
+    while (
+      cursor < value.length &&
+      !isHtmlWhitespace(value.at(cursor))
+    ) {
+      cursor += 1;
+    }
+    let target = value.slice(start, cursor);
+    if (target.length === 0) {
+      continue;
+    }
+    if (target.endsWith(",")) {
+      while (target.endsWith(",")) {
+        target = target.slice(0, -1);
+      }
+      if (target.length > 0) {
+        targets.push(target);
+      }
+      continue;
+    }
+    const parsed = srcsetDescriptorTokens(value, cursor);
+    cursor = parsed.cursor;
+    if (validSrcsetDescriptors(parsed.descriptors)) {
+      targets.push(target);
+    }
+  }
+  return targets;
+}
+
+function htmlAttributeValue(tag, name) {
+  for (const attribute of tag.attributes) {
+    if (attribute.name === name) {
+      return decodeHtmlAttributeCharacterReferences(attribute.value);
+    }
+  }
+  return undefined;
+}
+
+function hasHtmlAttribute(tag, name) {
+  return tag.attributeNames.includes(name);
+}
+
+function htmlAttributeHasToken(tag, name, expected) {
+  const value = htmlAttributeValue(tag, name);
+  if (value === undefined) {
+    return false;
+  }
+  return value
+    .toLowerCase()
+    .split(/[\t\n\f\r ]+/u)
+    .includes(expected);
+}
+
+function htmlInputType(tag) {
+  return (htmlAttributeValue(tag, "type") ?? "text").toLowerCase();
+}
+
+function isHtmlSubmitButton(tag) {
+  const type = htmlAttributeValue(tag, "type")?.toLowerCase();
+  if (tag.name === "input") {
+    return type === "image" || type === "submit";
+  }
+  return tag.name === "button" && type !== "button" && type !== "reset";
+}
+
+function htmlUrlAttributeKind(tag, attribute) {
+  const element = tag.name;
+  if (attribute === "href") {
+    return /^(?:a|area|link)$/u.test(element) ? "single" : undefined;
+  }
+  if (attribute === "src") {
+    if (element === "iframe" && hasHtmlAttribute(tag, "srcdoc")) {
+      return undefined;
+    }
+    if (element === "input") {
+      return htmlInputType(tag) === "image" ? "single" : undefined;
+    }
+    return /^(?:audio|embed|iframe|img|script|source|track|video)$/u.test(
+      element,
+    )
+      ? "single"
+      : undefined;
+  }
+  if (attribute === "srcset") {
+    return /^(?:img|source)$/u.test(element) ? "srcset" : undefined;
+  }
+  if (attribute === "poster") {
+    return element === "video" ? "single" : undefined;
+  }
+  if (attribute === "data") {
+    return element === "object" ? "single" : undefined;
+  }
+  if (attribute === "cite") {
+    return /^(?:blockquote|del|ins|q)$/u.test(element) ? "single" : undefined;
+  }
+  if (attribute === "action") {
+    return element === "form" ? "single" : undefined;
+  }
+  if (attribute === "formaction") {
+    return isHtmlSubmitButton(tag) ? "single" : undefined;
+  }
+  if (attribute === "ping") {
+    return /^(?:a|area)$/u.test(element) && hasHtmlAttribute(tag, "href")
+      ? "space-separated"
+      : undefined;
+  }
+  if (attribute === "imagesrcset") {
+    return element === "link" &&
+        htmlAttributeHasToken(tag, "rel", "preload") &&
+        htmlAttributeValue(tag, "as")?.toLowerCase() === "image"
+      ? "srcset"
+      : undefined;
+  }
+  return undefined;
+}
+
+function spaceSeparatedTargets(value) {
+  return value.split(/[\t\n\f\r ]+/u).filter((target) => target.length > 0);
+}
+
+function htmlDocumentBase(source, tags, inheritedBase) {
+  for (const tag of tags) {
+    if (tag.name === "base" && hasHtmlAttribute(tag, "href")) {
+      return resolveHtmlBase(
+        source,
+        inheritedBase,
+        htmlAttributeValue(tag, "href") ?? "",
+      );
+    }
+  }
+  return inheritedBase;
+}
+
+function htmlLocalTarget(value, fragmentScope, base) {
+  return Object.freeze(
+    fragmentScope === undefined
+      ? { base, syntax: "html", value }
+      : { base, fragmentScope, syntax: "html", value },
+  );
+}
+
+function appendHtmlLocalTargets(
+  targets,
+  tags,
+  srcdocDepth,
+  fragmentScope,
+  source,
+  inheritedBase,
+) {
+  const base = htmlDocumentBase(source, tags, inheritedBase);
+  for (const tag of tags) {
+    for (const attribute of tag.attributes) {
+      const { name, value } = attribute;
+      const decoded = decodeHtmlAttributeCharacterReferences(value);
+      if (tag.name === "iframe" && name === "srcdoc") {
+        if (srcdocDepth >= MAX_SRCDOC_NESTING_DEPTH) {
+          fail("HTML srcdoc nesting limit exceeded");
+        }
+        const nestedTags = htmlTags(decoded, false);
+        appendHtmlLocalTargets(
+          targets,
+          nestedTags,
+          srcdocDepth + 1,
+          htmlAnchorValues(nestedTags),
+          source,
+          base,
+        );
+        continue;
+      }
+      const kind = htmlUrlAttributeKind(tag, name);
+      if (kind === undefined) {
+        continue;
+      }
+      if (kind === "single") {
+        targets.push(htmlLocalTarget(decoded, fragmentScope, base));
+        continue;
+      }
+      const candidates = kind === "srcset"
+        ? srcsetTargets(decoded)
+        : spaceSeparatedTargets(decoded);
+      for (const target of candidates) {
+        targets.push(htmlLocalTarget(target, fragmentScope, base));
+      }
+    }
+  }
+}
+
+function localTargets(text, source) {
+  const rendered = renderedMarkdown(text);
+  const markdown = withoutCodeSpans(rendered, rawHtmlBlockBounds(rendered));
+  const tags = htmlTags(withoutHtmlComments(markdown));
+  const markdownContent = withoutHtmlTags(
+    withoutHtmlComments(withoutRawHtmlBlocks(markdown)),
+    tags,
+  );
+  const initialBase = repositoryDocumentBase(source);
+  const documentBase = htmlDocumentBase(source, tags, initialBase);
+  const definitions = referenceDefinitions(markdownContent);
+  const references = new Map();
+  for (const definition of definitions) {
+    if (!references.has(definition.label)) {
+      references.set(definition.label, definition.target);
+    }
+  }
+  const targets = inlineTargets(
+    withoutReferenceDefinitions(markdownContent, definitions),
+    references,
+  ).map((value) => Object.freeze({ base: documentBase, syntax: "markdown", value }));
+  appendHtmlLocalTargets(
+    targets,
+    tags,
+    0,
+    undefined,
+    source,
+    initialBase,
+  );
+  return targets;
+}
+
+export function validateDocumentation(context, options = {}) {
+  if (
+    context === null ||
+    typeof context !== "object" ||
+    context.files === null ||
+    typeof context.files !== "object" ||
+    typeof context.gitAttributesText !== "string" ||
+    !Array.isArray(context.ownedPaths) ||
+    context.sourceLineCounts === null ||
+    typeof context.sourceLineCounts !== "object" ||
+    typeof context.licenseText !== "string"
+  ) {
+    fail("documentation context is invalid");
+  }
+
+  if (context.gitAttributesText !== CANONICAL_GIT_ATTRIBUTES) {
+    fail("Git text policy mismatch");
+  }
+
+  if (context.ownedPaths.some((file) => file.startsWith("docs/decisions/"))) {
+    fail("decision ledger is forbidden");
+  }
+
+  const actualDocuments = sorted(context.ownedPaths.filter(isAuthorityDocument));
+  const expectedDocuments = sorted(DOCUMENT_PATHS);
+  if (JSON.stringify(actualDocuments) !== JSON.stringify(expectedDocuments)) {
+    fail("documentation inventory mismatch");
+  }
+
+  const owned = new Set(context.ownedPaths);
+  for (const [file, lineCount] of Object.entries(context.sourceLineCounts)) {
+    if (
+      !owned.has(file) ||
+      !isLineAddressableSource(file) ||
+      !Number.isSafeInteger(lineCount) ||
+      lineCount < 0
+    ) {
+      fail("documentation source-line context is invalid");
+    }
+  }
+  const anchorSets = new Map();
+  for (const file of DOCUMENT_PATHS) {
+    const text = context.files[file];
+    if (typeof text !== "string" || text.length === 0) {
+      fail("documentation input is missing: " + file);
+    }
+    if (text.charCodeAt(0) === 0xfeff) {
+      fail("documentation contains a byte-order mark: " + file);
+    }
+    if (/docs\/decisions\/|\bdecisions?[\s-]+[0-9]{4}\b/iu.test(text)) {
+      fail("decision ledger reference is forbidden: " + file);
+    }
+    if (FORBIDDEN_AUTHORSHIP_PATTERNS.some((pattern) => pattern.test(text))) {
+      fail("authorship claim is forbidden: " + file);
+    }
+    for (const localTarget of localTargets(text, file)) {
+      const rawTarget = localTarget.value;
+      const target = normalizeTarget(file, localTarget);
+      if (target === undefined) {
+        continue;
+      }
+      if (!owned.has(target.path)) {
+        fail("broken local link in " + file + ": " + rawTarget);
+      }
+      if (target.fragment !== undefined && target.fragment.length > 0) {
+        if (
+          target.sameDocument &&
+          localTarget.fragmentScope !== undefined
+        ) {
+          if (!localTarget.fragmentScope.includes(target.fragment)) {
+            fail("broken local link fragment in " + file + ": " + rawTarget);
+          }
+          continue;
+        }
+        const targetText = context.files[target.path];
+        if (typeof targetText !== "string") {
+          const lineMatch = /^L([1-9][0-9]*)(?:-L([1-9][0-9]*))?$/u.exec(
+            target.fragment,
+          );
+          const lineCount = context.sourceLineCounts[target.path];
+          const firstLine = Number(lineMatch?.at(1));
+          const lastLine = Number(lineMatch?.at(2) ?? lineMatch?.at(1));
+          if (
+            lineMatch === null ||
+            !Number.isSafeInteger(lineCount) ||
+            firstLine > lastLine ||
+            lastLine > lineCount
+          ) {
+            fail("broken local link fragment in " + file + ": " + rawTarget);
+          }
+          continue;
+        }
+        let anchors = anchorSets.get(target.path);
+        if (anchors === undefined) {
+          anchors = headingAnchors(targetText);
+          anchorSets.set(target.path, anchors);
+        }
+        if (!anchors.has(target.fragment)) {
+          fail("broken local link fragment in " + file + ": " + rawTarget);
+        }
+      }
+    }
+  }
+
+  if (!context.files["README.md"].includes(
+    "An owned, zero-dependency personal coding agent.",
+  )) {
+    fail("public product description mismatch");
+  }
+  if (!context.files["AGENTS.md"].includes("`giovannijecha/agent`")) {
+    fail("canonical repository identity mismatch");
+  }
+
+  const expectedLicenseDigest =
+    options.expectedLicenseDigest ?? CANONICAL_LICENSE_DIGEST;
+  const actualLicenseDigest = createHash("sha256")
+    .update(context.licenseText)
+    .digest("hex");
+  if (actualLicenseDigest !== expectedLicenseDigest) {
+    fail("license digest mismatch");
+  }
+}

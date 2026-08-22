@@ -1,103 +1,61 @@
 # 02 - Turn lifecycle
 
-## Submit a task
+## Submit and follow a task
 
-Enter one nonblank request in the composer. Agent accepts one active turn at a
-time and keeps the submitted text and streamed answer provisional until the turn
-settles. The fixed runtime limits are listed in
-[Architecture](../ARCHITECTURE.md#composition-and-turn-lifecycle).
+Enter one nonblank request. Agent accepts one active turn at a time. User input,
+streamed assistant text, and native reasoning remain provisional until the
+owning response segment settles. With no selected runtime, the draft is
+discarded after a notice and no conversation entry is created.
 
-## Follow progress
-
-Assistant text appears as it streams, but partial text is not conversation
-history. When thinking Effort is enabled and Stream is `On`, validated native
-reasoning streams first into a distinct muted transcript segment and never
-joins the assistant answer. Both remain provisional until the corresponding
-response segment settles. The contextual activity area shows only the current
-tool step and its
-written state. A moving footer pulse means autonomous work is advancing; it
-stops while Agent waits for a permission decision.
+The current contextual activity shows only the latest tool step. Footer motion
+means autonomous work is advancing and stops while a permission decision is
+pending.
 
 ## Tool checkpoints
 
-Agent validates a complete model-selected tool batch before planning or
-permission. Each plan receives its own decision in provider order. Effects and
-dependent reads run one at a time. A batch of two to four independent sibling
-inspection calls may start together only after every permission settles; their
-completion is reported in provider order. See
-[Tools and permissions](04-tools-and-approval.md) for the available actions.
+Agent validates a complete provider tool-call batch before planning or
+permission. Every valid plan receives its own decision in provider order.
+Effects and dependent reads execute one at a time. Two to four independent
+sibling inspection calls may overlap only after all their permissions settle;
+results still return in provider order.
 
-After one serial attempt or the complete read cohort settles, its ordered calls,
-results, and any native reasoning settled with that exchange become one
-truthful conversation checkpoint before the model continues. A later failure
-or cancellation cannot erase that completed truth.
+After one call or read cohort settles, Agent commits its calls, truthful results,
+and associated settled reasoning as one checkpoint before asking the model to
+continue. Later failure or cancellation cannot erase or implicitly repeat that
+completed work.
 
-## Complete or continue
+## Completion and branches
 
-After a checkpoint, the same model receives the result and reassesses the
-remaining task. A final assistant response enters the transcript only after the
-runtime prepares it and the CLI acknowledges the commit. If no runtime is
-configured, submitted text is discarded and no turn starts.
+A final assistant response enters conversation only after runtime and CLI
+settlement. Every settled turn becomes one timeline node and is appended to the
+local journal.
 
-Every settled turn becomes one bounded timeline node. After runtime and display
-settlement, the serialized controller appends that complete node, including any
-separate settled reasoning, to the local session journal. While idle,
-`/timeline` can select the root or an earlier
-settled node; an accepted selection also updates the durable head. The transcript
-then shows only that root-to-node path, and the next submitted task creates a
-new child there without deleting the former continuation. Selecting history
-does not rerun tools or restore old workspace state; mutations still plan and
-request permission against current state.
+While idle, `/timeline` may select the root or an earlier settled node. The
+transcript and next model context change to that root-to-node path. A later task
+creates a new child without deleting the former continuation. Selection never
+replays a tool or restores filesystem state.
 
-Stream `Off` changes only this transcript projection. It hides reasoning from
-the selected conversation path but does not remove settled reasoning from the
-model path or journal; turning Stream `On` while idle reveals it again.
+Reasoning Stream `Off` hides separate reasoning documents but does not delete
+settled reasoning needed for model continuity or resume. Effort controls whether
+later requests ask for native reasoning.
 
-The durable head records the journal revision it observed. If interruption
-occurs after one complete turn reaches the journal but before its head
-replacement, `agent resume --latest` selects that turn only when it is the child
-of the preceding head and shows a recovery notice. Deliberate selections at the
-current revision remain unchanged; ambiguous gaps fail closed.
+## Cancellation and failure
 
-## Cancel or exit
+Ctrl+C during active work requests cancellation and keeps Agent open. Only state
+newer than the last checkpoint is discarded. `/exit`, Ctrl+D, and EOF close from
+any phase while still attempting cleanup and publication of already settled
+truth.
 
-During active work, Ctrl+C requests cancellation and keeps Agent open. Only
-state newer than the last completed tool checkpoint, including prospective
-reasoning, is discarded. At idle,
-Ctrl+C exits. `/exit`, Ctrl+D, and terminal EOF exit in every phase and still
-attempt terminal and runtime cleanup. If shutdown settles a completed tool
-checkpoint, Agent journals that settled turn before closing the session; it
-does not rerun the tool or retry a journal append already attempted.
+Failure codes are deliberately content-free:
 
-## Failures
+- `model/...` identifies response opening or reading;
+- `tool/invalid-call/...` identifies name, input, or identity validation;
+- `tool/...` identifies planning, permission, execution, or settlement; and
+- `runtime/failure` is the closed residual classification.
 
-A failed turn discards partial assistant text and prospective reasoning and
-reports one content-free code:
+A failure after a checkpoint preserves that checkpoint. Inspect the category
+before retrying so a completed write, command, or provider-visible effect is not
+repeated. Cleanup failure is reported separately from the primary outcome.
 
-- `model/...` means opening or reading the model response failed;
-- `tool/...` means tool validation, availability, limits, or engine settlement
-  failed; and
-- `runtime/failure` is the closed residual runtime classification.
-
-Invalid calls are rejected before planning and permission as
-`tool/invalid-call/name`, `tool/invalid-call/input`, or
-`tool/invalid-call/identity`. A failure after a checkpoint keeps the completed
-tool result in conversation and marks only the later continuation as failed.
-Check the code before retrying so an already completed effect is not repeated.
-Cleanup failures remain separate from the primary failure.
-`model/empty-reasoning-delta` and `model/reasoning-limit` identify the two
-reasoning-specific runtime rejections without exposing model content.
-
-## References
-
-- [Current runtime architecture](../ARCHITECTURE.md#composition-and-turn-lifecycle)
-- [Runtime and application maintenance](../MAINTENANCE.md#streaming-runtime)
-- [Tool-call batch decision](../decisions/0029-canonical-tool-call-batches.md)
-- [Checkpointed failure decision](../decisions/0052-owned-checkpointed-turn-failure-classification.md)
-- [Convergent turn decision](../decisions/0061-owned-convergent-tool-turns.md)
-- [Tool-call interoperability decision](../decisions/0069-owned-tool-call-interoperability.md)
-- [Deterministic read-overlap decision](../decisions/0074-owned-deterministic-read-overlap.md)
-- [Branching conversation-tree decision](../decisions/0075-owned-branching-conversation-tree.md)
-- [Durable-session decision](../decisions/0076-owned-bounded-session-journal.md)
-- [Bounded-thinking decision](../decisions/0083-owned-bounded-thinking-stream.md)
-- [Reasoning-journal decision](../decisions/0085-owned-reasoning-journal-migration.md)
+See [Tools and permissions](04-tools-and-approval.md) for effect behavior and
+[Architecture](../ARCHITECTURE.md) for fixed lifecycle bounds.

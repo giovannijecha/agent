@@ -1,267 +1,232 @@
 # Engineering
 
-## Scope
+This is the development, verification, and maintenance contract for Agent.
+Architecture describes what the product is; this document describes how to
+change it safely without turning process into a second product.
 
-This document defines how repository changes are designed, implemented, and
-proved. It is the development standard, not a second architecture description
-or an operational runbook.
+## Working method
 
-Use the [contributing guide](../CONTRIBUTING.md) for participation and issue
-intake, [architecture](ARCHITECTURE.md) for current boundaries,
-[maintenance](MAINTENANCE.md) for update and rollback procedures, and
-[decisions](decisions/README.md) for accepted rationale. Use the
-[evaluation guide](../evaluations/README.md) for task-corpus operation and the
-maintained evidence lifecycle.
+1. Start from a clean branch based on current `main` and inspect the existing
+   behavior, tests, and relevant living documents.
+2. Define one coherent module with an explicit observable or structural
+   boundary.
+3. Add a focused regression that fails for the missing behavior or reproduced
+   defect.
+4. Implement the smallest complete change at the owning package boundary.
+5. Update affected operator behavior, architecture, privacy/security, registry,
+   maintenance, and removal guidance in the same module.
+6. Run focused build/tests, review the diff, and finish with the complete
+   platform-native verifier.
 
-All integrations preserve the single-agent execution model.
-Any mutation excludes concurrent mechanics. Only decision-0074 registered
-independent read handlers may overlap, within the fixed four-call cohort bound
-and deterministic provider-order reduction.
+Keep one source of authority per fact. Source and tests own executable detail;
+the operator manual owns use; Architecture owns package and effect boundaries;
+Privacy and Security own retained data and threat boundaries. Git history and
+review preserve change rationale. Do not add numbered decision records, prose
+digests, migration ledgers, or duplicate runbooks.
 
-## Definition of done
+## Toolchain
 
-A change is complete only when:
+The registered toolchain is:
 
-1. its authority domain and canonical owner are explicit;
-2. the smallest complete implementation is in owned source;
-3. package boundaries and public exports remain valid;
-4. failures are explicit and bounded;
-5. a bug has a regression test or an integration has contract tests;
-6. visible behavior and maintainer guidance change in the same commit;
-7. removal and rollback remain possible without unrelated rewrites;
-8. focused checks pass;
-9. the canonical verifier passes from source;
-10. generated output, credentials, and unrelated work are absent.
+- Node.js `>=22.19.0`;
+- npm `11.16.0`;
+- external TypeScript `5.9.3` targeting ESM/ES2022; and
+- external Clang `>=18`, C17, Windows/Linux x64.
 
-Passing compilation alone is not completion.
+Toolchain software remains outside the repository. Installation is offline and
+does not run package scripts:
 
-## Change workflow
+```powershell
+npm ci --offline --ignore-scripts --no-audit --no-fund
+```
 
-Maintainer changes use a protected branch.
-
-Follow this order:
-
-1. **Route the change.** Read the owning living document and accepted decision.
-   If no owner exists, establish one before implementation.
-2. **Record lasting design first.** Add a decision when the change introduces
-   or replaces a durable boundary, authority, tool, provider, protocol, or
-   toolchain contract.
-3. **Define the failure contract.** State bounds, invalid inputs, cancellation,
-   stale-state behavior, cleanup, and removal before adding the happy path.
-4. **Change one authority domain.** Do not retain overlapping names, adapters,
-   commands, tools, or compatibility paths after a replacement.
-5. **Add evidence with the source.** Tests must fail for the missing behavior
-   and pass for the implemented behavior.
-6. **Update documentation and policy.** Change the canonical living document,
-   manual, policy registry, and migration ledger entries that actually moved.
-7. **Verify in layers.** Run the narrowest relevant checks, then the canonical
-   verifier.
-8. **Inspect the final diff.** Confirm scope, generated-artifact hygiene, and
-   clean removal of obsolete authority.
-
-Do not widen the task because an adjacent cleanup is attractive. Record a
-separate follow-up unless the adjacent change is necessary for correctness.
-
-Decision 0089's external-authentication contract is active. Its complete source,
-native broker, policy, manual, privacy, security, maintenance, rollback, and
-removal evidence remain one publication unit. No revision may restore
-`/providers`, leave `agent auth` without its record removal path, or create a
-second credential authority.
+Do not add npm packages, vendored source, SDKs, frameworks, generated foreign
+code, `@types/node`, or repository-local compiler binaries. Generated `dist/`,
+`.test-dist/`, native build directories, and workspace links are derived and
+ignored; never edit them manually.
 
 ## Source rules
 
-- Use Node.js `>=22.19.0`, npm workspaces, ESM, ES2022, external TypeScript
-  `5.9.3`, and original C17 for private native primitives.
-- Keep third-party source, npm packages, SDKs, frameworks, snippets, vendored
-  code, foreign generated code, and `@types/node` out of the repository.
-- Keep TypeScript external. Every package dependency is an exact edge to a
-  registered local workspace.
-- Use local imports and explicitly allowlisted `node:` built-ins. Do not use
-  bare built-in names, dynamic imports, `require`, loaders, `npx`, or
-  `npm exec`.
-- Access runtime-selected collection members through explicit APIs such as
-  `.at()`; shipped modules admit only statically proven computed names.
-- Source-policy identifier allowances bind each case-sensitive spelling to its
-  reviewed path and exact occurrence count. A spelling admitted elsewhere never
-  authorizes a new declaration or use.
-- Closed source-policy inventories are bidirectional. Every registered path must
-  remain in the canonical product-source set. Each approved CLI module with a
-  direct `node:fs`, `node:child_process`, or `node:https` effect authority must
-  retain its reviewed module specifier and import bindings. The complete
-  CLI product tree and native C/H platform tree each retain their exact ordered
-  path set and aggregate source digest. The CLI tree includes every TypeScript
-  module recursively under `packages/agent-cli/src/`; moving authority into a
-  child directory cannot leave it outside the snapshot. Source integrity
-  normalizes only CRLF to LF and uses SHA-256 over complete UTF-8 path/source
-  records. Renaming, deleting, reducing, expanding, or otherwise changing an
-  inventoried authority fails closed.
-- The exact source digest is the sole verifier authority for code flow within an
-  approved CLI product or native source tree; the direct Node registry
-  owns only exact effect edges. The verifier does not execute product code or
-  attempt partial string evaluation, command, export, alias, assignment, or
-  capability-flow inference. Any legitimate source edit requires an explicit
-  review and digest update in the same policy change; a new direct filesystem,
-  child-process, network, CLI product, or native platform path requires a new
-  exact authority record.
-- Put minimal Node declarations in `types/` from authoritative runtime
-  contracts.
-- Cross package boundaries only through `src/index.ts`.
-- Keep core, tools, runtime, provider, and TUI Node-free. Platform I/O belongs
-  to the CLI.
-- Never edit or commit generated `dist/`, `.test-dist/`, or native
-  binaries.
-- Preserve user changes in a dirty worktree and keep unrelated edits out of the
-  patch.
+- Use ESM with explicit runtime extensions and public `src/index.ts` package
+  surfaces.
+- Product dependencies are exact edges between registered local workspaces.
+- Use only explicitly admitted `node:` built-ins at the CLI boundary and in
+  maintainer tooling. Node-free packages must remain Node-free.
+- Bare built-in names, `require`, loaders, dynamic imports, `npx`, `npm exec`,
+  install scripts, and external specifiers are forbidden.
+- Keep computed member access statically provable. Use explicit collection APIs
+  such as `.at()` for runtime indexing.
+- Author the minimal Node declarations required by the exact runtime contract.
+  Do not reproduce the full platform surface.
+- Return explicit immutable results across package boundaries. Do not swallow
+  errors, mutate hidden global authority, discover network origins, or add
+  fallback paths.
+- Product source, tests, prompts, fixtures, identifiers, and structure must be
+  original. Public specifications may supply facts, not implementations.
 
-## Evidence by change type
+Native C helpers are private CLI implementation. They receive bounded binary
+protocols through private pipes, run with a controlled environment, return
+content-free closed results where required, and never become model-facing tools
+or public packages. Missing native guarantees fail closed; JavaScript pathname
+fallbacks do not replace an object-bound security primitive.
 
-| Change | Required evidence |
-| --- | --- |
-| bug fix | a focused regression that fails without the fix |
-| new or replaced integration | contract tests for lifecycle, bounds, failures, cleanup, and removal |
-| public or visible behavior | focused state/presentation tests plus operator-manual update |
-| schema or policy change | validator tests for acceptance and fail-closed rejection |
-| provider change | offline request/stream contract tests; no live network in canonical verification |
-| native boundary | focused native tests on each admitted platform plus canonical Linux and Windows gates |
-| tool change | schema, planner, permission, handler, stale-state, and presentation coverage as applicable |
-| conversation-tree change | pure append/select/path/bound tests, runtime settlement tests, and one CLI selection smoke path |
-| durable-session change | codec and corruption tests when the schema changes; native-home root resolution; file and directory durability; bounded per-workspace migration and conflict preservation; independent payload bounds; unique-token admission and stale-token races; monotonic publication under tied or regressed clocks; storage bounds and lock tests; stop-settlement cleanup; exact-workspace recovery; and one controller composition round trip |
-| documentation topology | documentation-policy regression and link/route validation |
-| evaluation task | input and expected-tree validation without executing candidate workspaces |
+## Packages and tests
 
-Tests prove contracts at the narrowest owner. Avoid end-to-end tests for a
-condition that a pure library test can prove, but retain one composition smoke
-path for each shipped integration.
+Test behavior at its owner:
 
-Discriminated model-facing inputs expose capability fields directly. When a
-wire schema omits a cross-field combinator for interoperability, one immutable
-provider-neutral schema constraint must still reject unknown discriminants and
-inexact field sets during complete batch preflight. Prove the local validator,
-the exact provider projection, and one composed tool path separately. Never
-move structural rejection into a planner or add a provider argument rewrite.
+- core tests prove deterministic state and bounds;
+- tool tests prove schema, planning, permission, stale-state, and result truth;
+- runtime tests prove ordering, checkpoints, cancellation, and cleanup;
+- provider tests use injected transports and inert protocol fixtures;
+- TUI tests prove pure state, layout, rendering, and input behavior;
+- CLI tests prove platform composition and lifecycle through owned boundaries;
+- native fixture tests prove Windows/Linux primitive behavior; and
+- tooling tests prove registries, source constraints, and the release gate.
 
-## Verification
+Every bug fix requires a regression that fails for the defect. Every
+integration requires contract tests for success, bounds, cancellation, unsafe
+input, cleanup, and removal. Tests never contact a real provider, contain a real
+credential, depend on wall-clock races, import third-party code, or weaken a
+production boundary through a test-only branch.
 
-Canonical repository checks are:
+Use inert sentinels for credential-shaped data. Numeric provider statuses may be
+fixtures only when they prove a closed content-free classification; captured
+provider bodies, prompts, personal content, and foreign causes are forbidden.
+
+## Documentation
+
+The maintained authority documents are intentionally few:
+
+- root README, Privacy, Security, and this repository contract;
+- Architecture and Engineering;
+- the task-oriented operator manual;
+- brand-asset guidance; and
+- the evaluation guide.
+
+The documentation checker verifies the exact authority inventory, local links,
+canonical public identity, license text, absence of a decision ledger, and
+absence of automated attribution. It does not classify prose, pin paragraphs,
+or pretend to prove semantics. Behavioral tests and maintainer review do that.
+
+Write project artifacts in English. Link to an existing authority instead of
+creating another document. When a document becomes obsolete, move any still-
+current operator or engineering fact to its live owner, update incoming links,
+then delete the document and its mechanical checks together.
+
+## Focused verification
+
+Common focused commands are:
+
+```powershell
+npm run build
+node --test tools/test/docs-check.test.mjs
+node --test tools/test/provider-policy.test.mjs
+node --test tools/test/brand-policy.test.mjs
+node --test tools/test/ci-policy.test.mjs
+node --test tools/test/evaluation-suite.test.mjs
+```
+
+Package tests execute from generated `.test-dist` output after the build. Use a
+focused test while iterating, but never treat it as the complete release gate.
+
+## Canonical verification
+
+Windows:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify.ps1
 ```
 
+Linux:
+
 ```bash
 bash tools/verify.sh
 ```
 
-Both must validate the same owned source policy and product behavior. The
-verifier is offline: it never contacts a provider, reads credentials, creates
-an evaluation run, or executes model-authored candidate workspaces.
+The gate checks, in owned order:
 
-Useful narrow checks include:
+1. registered external toolchain versions;
+2. documentation, CI, brand, evaluation, and provider contracts;
+3. manifests, lockfile, workspace graph, and npm policy;
+4. declarations, source hygiene, import boundaries, and registered source
+   authority;
+5. clean generation, TypeScript build, and all tests;
+6. native helper builds and fixtures; and
+7. the CLI smoke lifecycle.
 
-```powershell
-node --test tools/test/documentation-policy.test.mjs
-node --test tools/test/manual-policy.test.mjs
-node --test tools/test/provider-policy.test.mjs
-node tools/verify.mjs
-npm test
-npm run build
-```
+The GitHub workflow uses repository-owned shell instructions, no imported
+actions, read-only contents permission, no provider secrets, and the same
+Windows/Linux gate. Both required jobs must pass before merge.
 
-Run only checks relevant to the active change while iterating. Run the complete
-canonical verifier before publication. If a narrow command depends on compiled
-test output, use the repository build path rather than inventing a loader.
+## Diagnosis
 
-Verification claims name the exact command and result. A substituted command
-does not prove a contract that names an exact invocation.
+Start with the first failing boundary. A pre-build failure usually identifies a
+registry, manifest, document, source inventory, toolchain, or workspace-graph
+drift. Correct the owned input; do not edit derived output or reduce validation
+to make a symptom disappear.
 
-## Regression and failure policy
+For a behavioral defect:
 
-- Diagnose the first failed authority boundary, not the final generic symptom.
-- Never convert a parse, protocol, timeout, stale-state, or cleanup failure into
-  success.
-- Do not add a retry, redirect, alias, router, fallback, or broader permission
-  unless an accepted decision explicitly owns it.
-- A failed tool request must be corrected from returned truth or reported as
-  one blocker; it is never repeated blindly.
-- A completed tool checkpoint remains authoritative if a later model
-  continuation fails.
-- A durable settled turn and its selected-head identity form one recoverable
-  transition; interruption must restore the newest proven state or fail closed.
-- Selecting retained history changes only the active model path. It never
-  retries or replays a tool, and every later mutation replans against current
-  state.
-- User-facing failures expose only the closed product classification. Provider
-  bodies, credentials, paths, call identifiers, and model payloads stay private.
-- Provider contract tests use offline native fixtures to cover every admitted
-  optional representation, canonical history encoding, malformed framing,
-  envelope, message, tool-call, finish, and terminal input, and the exact
-  content-free public phase. They validate an entire native record before any
-  thinking, content, or tool-call contribution can be observed. A model name is
-  never a parser branch or a fixture rationale. Regressions prove that one
-  admitted read failure terminalizes the owning stream across later reads and
-  clean end, including transport, UTF-8, NDJSON, and rejected-record failures,
-  and that an unexpected HTTP response class remains an unphased open failure.
-- One observed evaluation failure is evidence to investigate, not authority for
-  a product change.
-- Invalid evaluation fixtures are corrected or removed before their evidence is
-  used.
-- Every async owner has one settlement path. Late events are inert after
-  settlement and cleanup has a hard bound.
+1. reproduce it with the smallest inert input;
+2. identify the package that owns the rejected or missing transition;
+3. establish the red regression there;
+4. inspect adjacent lifecycle, bounds, cancellation, and cleanup paths; and
+5. rerun both focused and canonical verification.
 
-### Thinking-stream contract verification
+Diagnostics stay content-free. Never add credentials, prompts, response bodies,
+file contents, account identifiers, private paths, or foreign error text to make
+a failure easier to inspect.
 
-Decisions 0086 and 0085 require one complete provider-to-journal-to-TUI proof.
-Regressions cover exact `think: false`, `"low"`, `"medium"`, and `"high"`
-requests, independent reasoning bounds, whole-record atomicity, rejection of
-late or malformed native reasoning, provider-neutral event order, immutable
-turn effort across tool continuations, selected-path history, version-one
-rejection and version-two round trips, crash recovery, two-row staged dock
-navigation, atomic apply and dismissal, hidden and shown transcripts, footer
-truth, provider and model prerequisites, model-selection preservation, explicit
-unsupported-effort failure, privacy, rollback, and removal. Failed or cancelled
-prospective reasoning must not enter core history, the journal, or a settled
-transcript. Text and tags remain non-executable, and no test may introduce an
-implicit retry, replay, fallback, or model-specific compatibility branch.
+## Update and rollback
 
-## Documentation changes
+Update a subsystem as one vertical module: public surface, owner implementation,
+composition, tests, living documents, registry entries, generated declarations,
+and removal path. Preserve the prior working boundary until its replacement is
+complete; do not create dual authority or silent migration.
 
-Every durable topic has one canonical owner:
+Rollback restores the last coherent contract rather than only reverting the
+visible symptom. Restore source, tests, registry, documentation, and generated
+artifacts through the normal build. If a durable format has already been
+published, retain explicit backward admission or provide an exact operator
+rollback; never reinterpret records silently.
 
-- `README.md` is the short public entry;
-- `AGENTS.md` routes repository work and states concise invariants;
-- `docs/ARCHITECTURE.md` describes current product structure;
-- this document defines development and proof;
-- `docs/MAINTENANCE.md` owns runbooks, rollback, and removal;
-- `docs/manual/` owns operator behavior;
-- `docs/decisions/` preserves accepted rationale.
+Provider changes additionally require exact origins, authentication authority,
+request/response bounds, redirect/retry/fallback posture, credential lifecycle,
+privacy/security analysis, offline transport tests, and a disabled-state proof
+until composition is intentionally activated.
 
-Do not copy a contract into several documents. State it once and link to it.
-When moving content:
+## Removal
 
-1. update the canonical owner;
-2. update incoming links and anchors;
-3. update the documentation policy if structure changed;
-4. mark only completed rows in
-   [the migration ledger](DOCUMENTATION-MIGRATION.md);
-5. keep stable decisions immutable except for status or index maintenance
-   explicitly allowed by their governance.
+Removal is a first-class implementation path:
 
-New documents require a named audience, canonical route, update trigger, and
-removal condition. Temporary migration documents must state their completion
-condition.
+1. disable new composition and operator entry points;
+2. remove runtime reachability and package edges;
+3. remove credentials or durable state through the documented bounded process;
+4. delete source, declarations, native helpers, fixtures, registries, tests, and
+   documentation owned only by that subsystem;
+5. regenerate owned output and lock topology; and
+6. run the full gate on both supported platforms.
 
-## Review checklist
+Do not leave placeholders, dead adapters, stale provider identities, accepting
+decoders, orphaned records, or a second compatibility route. Local credential
+deletion is not provider revocation or secure erasure; operator documentation
+must state any external account action that remains.
 
-Before publishing, verify:
+## Release
 
-- [ ] the change has one authority owner;
-- [ ] lasting design was recorded before implementation when required;
-- [ ] package edges and public exports remain exact;
-- [ ] bounds, cancellation, cleanup, and stale events fail closed;
-- [ ] no implicit retry, fallback, or widened permission was introduced;
-- [ ] regression or contract tests cover the changed behavior;
-- [ ] operator and maintainer documentation changed with behavior;
-- [ ] obsolete code, names, routes, and documentation were removed;
-- [ ] focused checks passed;
-- [ ] the canonical verifier passed;
-- [ ] `git diff --check` passed and the final diff is intentional.
+Before a release or merge:
+
+- inspect the complete diff and tracked-file inventory;
+- confirm no secret, personal content, foreign source, generated artifact, or
+  automated attribution entered the change;
+- run the canonical verifier on the current platform;
+- require successful Windows and Linux CI on the exact reviewed commit;
+- resolve every review finding and rerun affected focused checks; and
+- merge only a clean, reviewable, reversible module.
+
+## Definition of done
+
+A change is complete only when the requested outcome exists, the red regression
+is green, adjacent risks have focused coverage, observable documentation is
+current, privacy/security and removal remain honest, generated output comes only
+from the toolchain, the diff is clean, and the complete verifier passes.
