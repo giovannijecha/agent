@@ -335,6 +335,21 @@ function namedCharacterReference(name) {
   return undefined;
 }
 
+const LEGACY_NAMED_CHARACTER_REFERENCES = new Set(
+  [
+    "aacute,Aacute,acirc,Acirc,acute,aelig,AElig,agrave,Agrave,amp,AMP",
+    "aring,Aring,atilde,Atilde,auml,Auml,brvbar,ccedil,Ccedil,cedil,cent",
+    "copy,COPY,curren,deg,divide,eacute,Eacute,ecirc,Ecirc,egrave,Egrave",
+    "eth,ETH,euml,Euml,frac12,frac14,frac34,gt,GT,iacute,Iacute,icirc",
+    "Icirc,iexcl,igrave,Igrave,iquest,iuml,Iuml,laquo,lt,LT,macr,micro",
+    "middot,nbsp,not,ntilde,Ntilde,oacute,Oacute,ocirc,Ocirc,ograve",
+    "Ograve,ordf,ordm,oslash,Oslash,otilde,Otilde,ouml,Ouml,para,plusmn",
+    "pound,quot,QUOT,raquo,reg,REG,sect,shy,sup1,sup2,sup3,szlig,thorn",
+    "THORN,times,uacute,Uacute,ucirc,Ucirc,ugrave,Ugrave,uml,uuml,Uuml",
+    "yacute,Yacute,yen,yuml",
+  ].join(",").split(","),
+);
+
 const NUMERIC_CHARACTER_REFERENCE_REPLACEMENTS = new Map([
   [0x80, 0x20ac],
   [0x82, 0x201a],
@@ -372,14 +387,100 @@ function decodeCharacterReferences(text) {
       if (name !== undefined) {
         return namedCharacterReference(name) ?? reference;
       }
-      const value = Number.parseInt(decimal ?? hexadecimal, decimal === undefined ? 16 : 10);
-      return value === 0 || value > 0x10ffff || (value >= 0xd800 && value <= 0xdfff)
-        ? "\uFFFD"
-        : String.fromCodePoint(
-          NUMERIC_CHARACTER_REFERENCE_REPLACEMENTS.get(value) ?? value,
-        );
+      return decodedNumericCharacterReference(
+        decimal ?? hexadecimal,
+        decimal === undefined ? 16 : 10,
+      );
     },
   );
+}
+
+function decodedNumericCharacterReference(digits, radix) {
+  const value = Number.parseInt(digits, radix);
+  return value === 0 ||
+      value > 0x10ffff ||
+      (value >= 0xd800 && value <= 0xdfff)
+    ? "\uFFFD"
+    : String.fromCodePoint(
+      NUMERIC_CHARACTER_REFERENCE_REPLACEMENTS.get(value) ?? value,
+    );
+}
+
+function htmlAttributeCharacterReference(text, opening) {
+  if (text.at(opening + 1) === "#") {
+    let digitsStart = opening + 2;
+    let radix = 10;
+    if (text.at(digitsStart) === "x" || text.at(digitsStart) === "X") {
+      digitsStart += 1;
+      radix = 16;
+    }
+    const digitPattern = radix === 16 ? /[0-9A-Fa-f]/u : /[0-9]/u;
+    let end = digitsStart;
+    while (digitPattern.test(text.at(end) ?? "")) {
+      end += 1;
+    }
+    if (end === digitsStart) {
+      return undefined;
+    }
+    const value = decodedNumericCharacterReference(
+      text.slice(digitsStart, end),
+      radix,
+    );
+    return Object.freeze({
+      end: text.at(end) === ";" ? end + 1 : end,
+      value,
+    });
+  }
+
+  let end = opening + 1;
+  let legacy;
+  while (
+    end - opening - 1 < 31 &&
+    /[A-Za-z0-9]/u.test(text.at(end) ?? "")
+  ) {
+    end += 1;
+    const name = text.slice(opening + 1, end);
+    const value = namedCharacterReference(name);
+    if (text.at(end) === ";" && value !== undefined) {
+      return Object.freeze({ end: end + 1, value });
+    }
+    if (
+      value !== undefined &&
+      LEGACY_NAMED_CHARACTER_REFERENCES.has(name)
+    ) {
+      legacy = Object.freeze({ end, value });
+    }
+  }
+  if (
+    legacy === undefined ||
+    /[=A-Za-z0-9]/u.test(text.at(legacy.end) ?? "")
+  ) {
+    return undefined;
+  }
+  return legacy;
+}
+
+function decodeHtmlAttributeCharacterReferences(text) {
+  const rendered = [];
+  let retainedFrom = 0;
+  let searchFrom = 0;
+  while (searchFrom < text.length) {
+    const opening = text.indexOf("&", searchFrom);
+    if (opening === -1) {
+      break;
+    }
+    const reference = htmlAttributeCharacterReference(text, opening);
+    if (reference === undefined) {
+      searchFrom = opening + 1;
+      continue;
+    }
+    rendered.push(text.slice(retainedFrom, opening));
+    rendered.push(reference.value);
+    retainedFrom = reference.end;
+    searchFrom = reference.end;
+  }
+  rendered.push(text.slice(retainedFrom));
+  return rendered.join("");
 }
 
 function normalizeTarget(source, rawTarget) {
@@ -1840,7 +1941,16 @@ function htmlNonTagEnd(markdown, opening) {
     return undefined;
   }
   const closing = markdown.indexOf(terminator, opening + 2);
-  return closing === -1 ? markdown.length : closing + terminator.length;
+  return closing === -1 ? undefined : closing + terminator.length;
+}
+
+function htmlNonTagRange(start, end) {
+  return Object.freeze({
+    attributes: Object.freeze([]),
+    end,
+    name: "",
+    start,
+  });
 }
 
 function htmlTags(markdown) {
@@ -1858,6 +1968,7 @@ function htmlTags(markdown) {
     }
     const nonTagEnd = htmlNonTagEnd(markdown, opening);
     if (nonTagEnd !== undefined) {
+      tags.push(htmlNonTagRange(opening, nonTagEnd));
       searchFrom = nonTagEnd;
       continue;
     }
@@ -2123,7 +2234,9 @@ function headingAnchors(text) {
         ) &&
         attribute.value.length > 0
       ) {
-        anchors.add(decodeCharacterReferences(attribute.value));
+        anchors.add(
+          decodeHtmlAttributeCharacterReferences(attribute.value),
+        );
       }
     }
   }
@@ -2192,10 +2305,14 @@ function localTargets(text) {
         continue;
       }
       if (name !== "srcset") {
-        targets.push(value);
+        targets.push(decodeHtmlAttributeCharacterReferences(value));
         continue;
       }
-      for (const target of srcsetTargets(value)) {
+      for (
+        const target of srcsetTargets(
+          decodeHtmlAttributeCharacterReferences(value),
+        )
+      ) {
         targets.push(target);
       }
     }

@@ -634,6 +634,107 @@ test("ignores Markdown-like text inside HTML attributes", () => {
   });
 });
 
+test("masks complete inline HTML non-tag constructs", () => {
+  for (const construct of [
+    "<? [Missing](docs/not-real.md) ?>",
+    "<!EXAMPLE [Missing](docs/not-real.md)>",
+    "<![CDATA[[Missing](docs/not-real.md)]]>",
+    '<? <a href="docs/not-real.md"> ?>',
+    '<!EXAMPLE <a href="docs/not-real.md">>',
+    '<![CDATA[<a href="docs/not-real.md">]]>',
+  ]) {
+    const context = currentContext();
+    context.files["README.md"] += "Before " + construct + " after\n";
+    validateDocumentation(context, {
+      expectedLicenseDigest: licenseDigest,
+    });
+  }
+});
+
+test("continues HTML scanning after incomplete non-tag constructs", () => {
+  for (const opening of ["<? literal", "<![CDATA[ literal"]) {
+    const context = currentContext();
+    context.files["README.md"] += [
+      "Before " + opening,
+      '<a href="docs/missing.md">Missing</a>',
+      "",
+    ].join("\n");
+    assert.throws(
+      () =>
+        validateDocumentation(context, {
+          expectedLicenseDigest: licenseDigest,
+        }),
+      /broken local link/u,
+      opening,
+    );
+  }
+
+  const declaration = currentContext();
+  declaration.files["README.md"] += [
+    "Before <!EXAMPLE literal",
+    "[Missing](docs/missing.md)",
+    "",
+  ].join("\n");
+  assert.throws(
+    () =>
+      validateDocumentation(declaration, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+});
+
+test("decodes legacy semicolonless references in HTML attributes", () => {
+  const admitted = currentContext();
+  admitted.ownedPaths.push("assets/x&.png");
+  admitted.files["README.md"] += '<img src="assets/x&amp.png">\n';
+  validateDocumentation(admitted, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const decoy = currentContext();
+  decoy.ownedPaths.push("assets/x&amp.png");
+  decoy.files["README.md"] += '<img src="assets/x&amp.png">\n';
+  assert.throws(
+    () =>
+      validateDocumentation(decoy, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+
+  const alphanumericBoundary = currentContext();
+  alphanumericBoundary.ownedPaths.push("assets/x&ampx.png");
+  alphanumericBoundary.files["README.md"] +=
+    '<img src="assets/x&ampx.png">\n';
+  validateDocumentation(alphanumericBoundary, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const equalsBoundary = currentContext();
+  equalsBoundary.ownedPaths.push("assets/x&amp=.png");
+  equalsBoundary.files["README.md"] +=
+    '<img src="assets/x&amp=.png">\n';
+  validateDocumentation(equalsBoundary, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const singlePass = currentContext();
+  singlePass.ownedPaths.push("assets/x&copy.png");
+  singlePass.files["README.md"] +=
+    '<img src="assets/x&amp;copy.png">\n';
+  validateDocumentation(singlePass, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const numeric = currentContext();
+  numeric.ownedPaths.push("assets/x&.png");
+  numeric.files["README.md"] += '<img src="assets/x&#38.png">\n';
+  validateDocumentation(numeric, {
+    expectedLicenseDigest: licenseDigest,
+  });
+});
+
 test("ignores Markdown-like text inside raw HTML blocks", () => {
   const context = currentContext();
   context.files["README.md"] += [
