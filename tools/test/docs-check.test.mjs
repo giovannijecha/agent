@@ -436,6 +436,55 @@ test("does not mask malformed HTML comments", () => {
   );
 });
 
+test("enforces inline title and destination parenthesis bounds", () => {
+  const nestedTitle = currentContext();
+  nestedTitle.files["README.md"] +=
+    "[Missing](docs/not-real.md (outer (inner)))\n";
+  validateDocumentation(nestedTitle, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const escapedTitle = currentContext();
+  escapedTitle.files["README.md"] +=
+    "[Missing](docs/missing.md (outer \\(inner\\)))\n";
+  assert.throws(
+    () =>
+      validateDocumentation(escapedTitle, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+
+  const depth32 =
+    "docs/missing.md" + "(".repeat(32) + "x" + ")".repeat(32);
+  const admitted = currentContext();
+  admitted.files["README.md"] += "[Missing](" + depth32 + ")\n";
+  assert.throws(
+    () =>
+      validateDocumentation(admitted, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+
+  const depth33 =
+    "docs/not-real.md" + "(".repeat(33) + "x" + ")".repeat(33);
+  const rejected = currentContext();
+  rejected.files["README.md"] += "[Missing](" + depth33 + ")\n";
+  validateDocumentation(rejected, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const escapedPrefix =
+    "docs/not-real.md\\(" + "(".repeat(33) + "x" + ")".repeat(32);
+  const escapeBoundary = currentContext();
+  escapeBoundary.files["README.md"] +=
+    "[Missing](" + escapedPrefix + ")\n";
+  validateDocumentation(escapeBoundary, {
+    expectedLicenseDigest: licenseDigest,
+  });
+});
+
 test("stops inline destinations at blank lines", () => {
   const inactive = currentContext();
   inactive.files["README.md"] +=
@@ -1034,6 +1083,77 @@ test("validates escaped reference destinations", () => {
       }),
     /broken local link/u,
   );
+});
+
+test("enforces reference title and destination parenthesis bounds", () => {
+  const nestedTitle = currentContext();
+  nestedTitle.files["README.md"] += [
+    "[Missing][target]",
+    "",
+    "[target]: docs/not-real.md (outer (inner))",
+    "",
+  ].join("\n");
+  validateDocumentation(nestedTitle, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const escapedTitle = currentContext();
+  escapedTitle.files["README.md"] += [
+    "[Missing][target]",
+    "",
+    "[target]: docs/missing.md (outer \\(inner\\))",
+    "",
+  ].join("\n");
+  assert.throws(
+    () =>
+      validateDocumentation(escapedTitle, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+
+  const depth32 =
+    "docs/missing.md" + "(".repeat(32) + "x" + ")".repeat(32);
+  const admitted = currentContext();
+  admitted.files["README.md"] += [
+    "[Missing][target]",
+    "",
+    "[target]: " + depth32,
+    "",
+  ].join("\n");
+  assert.throws(
+    () =>
+      validateDocumentation(admitted, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+
+  const depth33 =
+    "docs/not-real.md" + "(".repeat(33) + "x" + ")".repeat(33);
+  const rejected = currentContext();
+  rejected.files["README.md"] += [
+    "[Missing][target]",
+    "",
+    "[target]: " + depth33,
+    "",
+  ].join("\n");
+  validateDocumentation(rejected, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const escapedPrefix =
+    "docs/not-real.md\\(" + "(".repeat(33) + "x" + ")".repeat(32);
+  const escapeBoundary = currentContext();
+  escapeBoundary.files["README.md"] += [
+    "[Missing][target]",
+    "",
+    "[target]: " + escapedPrefix,
+    "",
+  ].join("\n");
+  validateDocumentation(escapeBoundary, {
+    expectedLicenseDigest: licenseDigest,
+  });
 });
 
 test("validates only the selected active reference definition", () => {

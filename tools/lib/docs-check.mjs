@@ -4,6 +4,7 @@ import path from "node:path";
 const CANONICAL_LICENSE_DIGEST =
   "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4";
 const CANONICAL_GIT_ATTRIBUTES = "* text=auto eol=lf\n";
+const MAX_BARE_DESTINATION_PARENTHESIS_DEPTH = 32;
 
 export const DOCUMENT_PATHS = Object.freeze([
   "AGENTS.md",
@@ -1445,7 +1446,6 @@ function horizontalWhitespaceEnd(markdown, start) {
 function titleEnd(markdown, opening) {
   const marker = markdown.at(opening);
   const closingMarker = marker === "(" ? ")" : marker;
-  let depth = 1;
   const end = paragraphEnd(markdown, opening + 1);
   for (let cursor = opening + 1; cursor < end; cursor += 1) {
     if (isEscaped(markdown, cursor)) {
@@ -1453,15 +1453,42 @@ function titleEnd(markdown, opening) {
     }
     const character = markdown.at(cursor);
     if (marker === "(" && character === "(") {
-      depth += 1;
-    } else if (character === closingMarker) {
-      depth -= 1;
-      if (depth === 0) {
-        return cursor + 1;
-      }
+      return undefined;
+    }
+    if (character === closingMarker) {
+      return cursor + 1;
     }
   }
   return undefined;
+}
+
+function bareDestinationEnd(
+  markdown,
+  start,
+  unmatchedClosingEndsDestination,
+) {
+  let cursor = start;
+  let depth = 0;
+  while (cursor < markdown.length) {
+    const character = markdown.at(cursor);
+    if (!isMarkdownEscaped(markdown, cursor)) {
+      if (character === "(") {
+        depth += 1;
+        if (depth > MAX_BARE_DESTINATION_PARENTHESIS_DEPTH) {
+          return undefined;
+        }
+      } else if (character === ")") {
+        if (depth === 0) {
+          return unmatchedClosingEndsDestination ? cursor : undefined;
+        }
+        depth -= 1;
+      } else if (/\s/u.test(character ?? "")) {
+        break;
+      }
+    }
+    cursor += 1;
+  }
+  return depth === 0 ? cursor : undefined;
 }
 
 function inlineTarget(markdown, opening) {
@@ -1493,26 +1520,11 @@ function inlineTarget(markdown, opening) {
     target = markdown.slice(targetStart, cursor);
     cursor += 1;
   } else {
-    let depth = 0;
-    while (cursor < markdown.length) {
-      const character = markdown.at(cursor);
-      if (isMarkdownEscaped(markdown, cursor)) {
-        cursor += 1;
-      } else if (character === "(") {
-        depth += 1;
-      } else if (character === ")") {
-        if (depth === 0) {
-          break;
-        }
-        depth -= 1;
-      } else if (/\s/u.test(character ?? "")) {
-        break;
-      }
-      cursor += 1;
-    }
-    if (depth !== 0) {
+    const destinationEnd = bareDestinationEnd(markdown, cursor, true);
+    if (destinationEnd === undefined) {
       return undefined;
     }
+    cursor = destinationEnd;
     target = markdown.slice(destinationStart, cursor);
   }
 
@@ -1943,26 +1955,15 @@ function referenceDefinition(line, continuations) {
     target = destinationLine.slice(targetStart, cursor);
     cursor += 1;
   } else {
-    let depth = 0;
-    while (cursor < destinationLine.length) {
-      const character = destinationLine.at(cursor);
-      if (isMarkdownEscaped(destinationLine, cursor)) {
-        cursor += 1;
-      } else if (character === "(") {
-        depth += 1;
-      } else if (character === ")") {
-        if (depth === 0) {
-          return undefined;
-        }
-        depth -= 1;
-      } else if (/\s/u.test(character ?? "")) {
-        break;
-      }
-      cursor += 1;
-    }
-    if (depth !== 0) {
+    const destinationEnd = bareDestinationEnd(
+      destinationLine,
+      cursor,
+      false,
+    );
+    if (destinationEnd === undefined) {
       return undefined;
     }
+    cursor = destinationEnd;
     target = destinationLine.slice(destinationStart, cursor);
   }
   if (target.length === 0) {
