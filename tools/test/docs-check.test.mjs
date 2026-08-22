@@ -1230,10 +1230,45 @@ test("parses HTML before code spans inside raw blocks", () => {
     expectedLicenseDigest: licenseDigest,
   });
 
+  const escapedLookingRawTag = currentContext();
+  escapedLookingRawTag.files["README.md"] += [
+    "<div>",
+    '\\<img src="docs/missing.md">',
+    "</div>",
+    "",
+  ].join("\n");
+  assert.throws(
+    () =>
+      validateDocumentation(escapedLookingRawTag, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+
+  const escapedLookingRawAnchor = currentContext();
+  escapedLookingRawAnchor.files["README.md"] += [
+    "<div>",
+    '\\<a id="raw-anchor"></a>',
+    "</div>",
+    "",
+    "[Anchor](#raw-anchor)",
+    "",
+  ].join("\n");
+  validateDocumentation(escapedLookingRawAnchor, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
   const inlineCode = currentContext();
   inlineCode.files["README.md"] +=
     '`<img src="docs/not-real.md">`\n';
   validateDocumentation(inlineCode, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const escapedInlineTag = currentContext();
+  escapedInlineTag.files["README.md"] +=
+    '\\<img src="docs/not-real.md">\n';
+  validateDocumentation(escapedInlineTag, {
     expectedLicenseDigest: licenseDigest,
   });
 });

@@ -1315,11 +1315,11 @@ function withoutHtmlComments(markdown, preserveColumns = true) {
     if (opening === -1) {
       break;
     }
-    if (isEscaped(markdown, opening)) {
+    const context = markdownHtmlContext(markdown, opening, rawBlocks);
+    if (!context.raw && isEscaped(markdown, opening)) {
       searchFrom = opening + 4;
       continue;
     }
-    const context = markdownHtmlContext(markdown, opening, rawBlocks);
     const end = htmlCommentEnd(
       markdown,
       opening,
@@ -2368,13 +2368,13 @@ function htmlTags(markdown, blockBounded = true) {
     if (opening === -1) {
       break;
     }
-    if (isEscaped(markdown, opening)) {
-      searchFrom = opening + 1;
-      continue;
-    }
     const context = blockBounded
       ? markdownHtmlContext(markdown, opening, rawBlocks)
       : Object.freeze({ end: markdown.length, raw: false });
+    if (!context.raw && isEscaped(markdown, opening)) {
+      searchFrom = opening + 1;
+      continue;
+    }
     const end = context.end;
     const nonTagEnd = htmlNonTagEnd(markdown, opening, end, context.raw);
     if (nonTagEnd !== undefined) {
