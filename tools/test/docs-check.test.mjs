@@ -1085,6 +1085,36 @@ test("validates escaped reference destinations", () => {
   );
 });
 
+test("admits empty angle-bracket reference destinations", () => {
+  const admitted = currentContext();
+  admitted.files["PRIVACY.md"] += [
+    "# [Foo][empty]",
+    "",
+    "[empty]: <>",
+    "",
+  ].join("\n");
+  admitted.files["README.md"] += "[Foo](PRIVACY.md#foo)\n";
+  validateDocumentation(admitted, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const rejected = currentContext();
+  rejected.files["PRIVACY.md"] += [
+    "# [Foo][empty]",
+    "",
+    "[empty]: <>",
+    "",
+  ].join("\n");
+  rejected.files["README.md"] += "[Literal](PRIVACY.md#fooempty)\n";
+  assert.throws(
+    () =>
+      validateDocumentation(rejected, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /fragment/u,
+  );
+});
+
 test("enforces reference title and destination parenthesis bounds", () => {
   const nestedTitle = currentContext();
   nestedTitle.files["README.md"] += [
@@ -1820,6 +1850,25 @@ test("preserves emphasis delimiters rendered by heading code spans", () => {
       }),
     /fragment/u,
   );
+});
+
+test("preserves heading code-span literals through inline parsing", () => {
+  const context = currentContext();
+  context.files["PRIVACY.md"] += [
+    "# `<span>`",
+    "# `&amp;`",
+    "# `` ` `` _Visible_ `",
+    "",
+  ].join("\n");
+  context.files["README.md"] += [
+    "[Tag literal](PRIVACY.md#span)",
+    "[Reference literal](PRIVACY.md#amp)",
+    "[Backtick literal](PRIVACY.md#visible)",
+    "",
+  ].join("\n");
+  validateDocumentation(context, {
+    expectedLicenseDigest: licenseDigest,
+  });
 });
 
 test("preserves escaped tag text in heading anchors", () => {

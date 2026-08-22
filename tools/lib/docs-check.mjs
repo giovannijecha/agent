@@ -556,8 +556,29 @@ function headingHtmlText(text) {
     );
 }
 
-function headingSlug(text) {
-  return decodeCharacterReferences(headingHtmlText(text))
+function headingRenderedText(text, literalCodeIndices) {
+  const literalCode = new Set(literalCodeIndices);
+  const rendered = [];
+  let ordinary = "";
+  for (let index = 0; index < text.length; index += 1) {
+    if (!literalCode.has(index)) {
+      ordinary += text.at(index);
+      continue;
+    }
+    if (ordinary.length > 0) {
+      rendered.push(decodeCharacterReferences(headingHtmlText(ordinary)));
+      ordinary = "";
+    }
+    rendered.push(text.at(index));
+  }
+  if (ordinary.length > 0) {
+    rendered.push(decodeCharacterReferences(headingHtmlText(ordinary)));
+  }
+  return rendered.join("");
+}
+
+function headingSlug(text, literalCodeIndices) {
+  return headingRenderedText(text, literalCodeIndices)
     .toLowerCase()
     .replaceAll(/[^\p{L}\p{N}\p{M}\s_-]/gu, "")
     .trim()
@@ -1678,12 +1699,12 @@ function headingInlineProjection(markdown, referenceLabels) {
     activeLinks.set(candidate.opening, candidate);
   }
   const rendered = [];
-  const literalEmphasisIndices = [];
+  const literalCodeIndices = [];
   let renderedLength = 0;
   function append(text, protectedIndices = []) {
     rendered.push(text);
     for (const index of protectedIndices) {
-      literalEmphasisIndices.push(renderedLength + index);
+      literalCodeIndices.push(renderedLength + index);
     }
     renderedLength += text.length;
   }
@@ -1710,9 +1731,7 @@ function headingInlineProjection(markdown, referenceLabels) {
       append(markdown.slice(retainedFrom, cursor));
       const protectedIndices = [];
       for (let index = 0; index < code.length; index += 1) {
-        if (code.at(index) === "_" || code.at(index) === "*") {
-          protectedIndices.push(index);
-        }
+        protectedIndices.push(index);
       }
       append(code, protectedIndices);
       retainedFrom = closing.end;
@@ -1733,13 +1752,13 @@ function headingInlineProjection(markdown, referenceLabels) {
       markdown.slice(cursor + 1, candidate.labelEnd),
       referenceLabels,
     );
-    append(nested.text, nested.literalEmphasisIndices);
+    append(nested.text, nested.literalCodeIndices);
     retainedFrom = candidate.end;
     cursor = candidate.end;
   }
   append(markdown.slice(retainedFrom));
   return Object.freeze({
-    literalEmphasisIndices: Object.freeze(literalEmphasisIndices),
+    literalCodeIndices: Object.freeze(literalCodeIndices),
     text: rendered.join(""),
   });
 }
@@ -1790,12 +1809,16 @@ function emphasisPairAllowed(opener, closer) {
   );
 }
 
-function headingEmphasisText(markdown, literalEmphasisIndices) {
-  const literalEmphasis = new Set(literalEmphasisIndices);
+function headingEmphasisText(markdown, literalCodeIndices) {
+  const literalCode = new Set(literalCodeIndices);
   const delimiters = [];
   let cursor = 0;
   while (cursor < markdown.length) {
-    if (markdown.at(cursor) === "`" && !isEscaped(markdown, cursor)) {
+    if (
+      markdown.at(cursor) === "`" &&
+      !isEscaped(markdown, cursor) &&
+      !literalCode.has(cursor)
+    ) {
       const openingLength = markerRunLength(markdown, cursor, "`");
       const closing = codeSpanClosing(markdown, cursor, openingLength);
       cursor = closing?.end ?? cursor + openingLength;
@@ -1805,13 +1828,13 @@ function headingEmphasisText(markdown, literalEmphasisIndices) {
     if (
       (marker !== "_" && marker !== "*") ||
       isEscaped(markdown, cursor) ||
-      literalEmphasis.has(cursor)
+      literalCode.has(cursor)
     ) {
       cursor += 1;
       continue;
     }
     delimiters.push({
-      ...emphasisDelimiter(markdown, cursor, literalEmphasis),
+      ...emphasisDelimiter(markdown, cursor, literalCode),
       usedAsCloser: 0,
       usedAsOpener: 0,
     });
@@ -1862,12 +1885,19 @@ function headingEmphasisText(markdown, literalEmphasisIndices) {
   }
 
   const rendered = [];
+  const renderedLiteralCodeIndices = [];
   for (let index = 0; index < markdown.length; index += 1) {
     if (!removed.has(index)) {
+      if (literalCode.has(index)) {
+        renderedLiteralCodeIndices.push(rendered.length);
+      }
       rendered.push(markdown.at(index));
     }
   }
-  return rendered.join("");
+  return Object.freeze({
+    literalCodeIndices: Object.freeze(renderedLiteralCodeIndices),
+    text: rendered.join(""),
+  });
 }
 
 function referenceTitleSpan(lines, startOffset, opening) {
@@ -1965,9 +1995,9 @@ function referenceDefinition(line, continuations) {
     }
     cursor = destinationEnd;
     target = destinationLine.slice(destinationStart, cursor);
-  }
-  if (target.length === 0) {
-    return undefined;
+    if (target.length === 0) {
+      return undefined;
+    }
   }
 
   const afterDestination = cursor;
@@ -2387,9 +2417,11 @@ function headingAnchors(text) {
   headings.sort((left, right) => left.index - right.index);
   for (const heading of headings) {
     const inline = headingInlineProjection(heading.text, referenceLabels);
-    const base = headingSlug(
-      headingEmphasisText(inline.text, inline.literalEmphasisIndices),
+    const emphasis = headingEmphasisText(
+      inline.text,
+      inline.literalCodeIndices,
     );
+    const base = headingSlug(emphasis.text, emphasis.literalCodeIndices);
     if (base.length === 0) {
       continue;
     }
