@@ -97,10 +97,43 @@ function headingSlug(text) {
     .replaceAll(/\s/gu, "-");
 }
 
+function renderedMarkdown(text) {
+  const rendered = [];
+  let fence;
+  for (const line of text.split("\n")) {
+    if (fence === undefined) {
+      const opening = line.match(/^[ \t]{0,3}(`{3,}|~{3,})/u)?.at(1);
+      if (opening === undefined) {
+        rendered.push(line);
+      } else {
+        fence = Object.freeze({
+          length: opening.length,
+          marker: opening.at(0),
+        });
+        rendered.push("");
+      }
+      continue;
+    }
+    const closing = line
+      .match(/^[ \t]{0,3}(`{3,}|~{3,})[ \t]*\r?$/u)
+      ?.at(1);
+    if (
+      closing !== undefined &&
+      closing.at(0) === fence.marker &&
+      closing.length >= fence.length
+    ) {
+      fence = undefined;
+    }
+    rendered.push("");
+  }
+  return rendered.join("\n");
+}
+
 function headingAnchors(text) {
+  const markdown = renderedMarkdown(text);
   const anchors = new Set();
   const occurrences = new Map();
-  for (const match of text.matchAll(
+  for (const match of markdown.matchAll(
     /^[ \t]{0,3}#{1,6}(?:[ \t]+(.*?))?[ \t]*$/gmu,
   )) {
     const heading = (match[1] ?? "").replace(/[ \t]+#+[ \t]*$/u, "");
@@ -114,32 +147,33 @@ function headingAnchors(text) {
   }
   const identifiers =
     /(?:^|[\s<])(?:id|name)\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s"'=<>`]+))/gimu;
-  for (const match of text.matchAll(identifiers)) {
+  for (const match of markdown.matchAll(identifiers)) {
     anchors.add(match[1] ?? match[2] ?? match[3]);
   }
   return anchors;
 }
 
 function localTargets(text) {
+  const markdown = renderedMarkdown(text);
   const targets = [];
   const markdownImages =
-    /!\[(?:\\.|[^\[\]\\]|\[(?:\\.|[^\[\]\\])*\])*\]\(\s*(?:<([^>\r\n]+)>|([^\s)]+))(?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?\s*\)/gu;
-  for (const match of text.matchAll(markdownImages)) {
+    /!\[(?:\\.|[^\[\]\\]|\[(?:\\.|[^\[\]\\])*\])*\]\(\s*(?:<([^>\r\n]+)>|([^\s)]+))(?:\s+(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\((?:\\.|[^)\\])*\)))?\s*\)/gu;
+  for (const match of markdown.matchAll(markdownImages)) {
     targets.push(match[1] ?? match[2]);
   }
   const markdownLinks =
-    /(?<!!)\[(?:\\.|[^\[\]\\]|\[(?:\\.|[^\[\]\\])*\])*\]\(\s*(?:<([^>\r\n]+)>|([^\s)]+))(?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?\s*\)/gu;
-  for (const match of text.matchAll(markdownLinks)) {
+    /(?<!!)\[(?:\\.|[^\[\]\\]|\[(?:\\.|[^\[\]\\])*\])*\]\(\s*(?:<([^>\r\n]+)>|([^\s)]+))(?:\s+(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\((?:\\.|[^)\\])*\)))?\s*\)/gu;
+  for (const match of markdown.matchAll(markdownLinks)) {
     targets.push(match[1] ?? match[2]);
   }
   const referenceDefinitions =
-    /^[ \t]{0,3}\[(?:\\.|[^\]\\\r\n])+\]:[ \t]*(?:<([^>\r\n]+)>|([^\s]+))(?:[ \t]+(?:"[^"]*"|'[^']*'|\([^)]*\)))?[ \t]*$/gmu;
-  for (const match of text.matchAll(referenceDefinitions)) {
+    /^[ \t]{0,3}\[(?:\\.|[^\]\\\r\n])+\]:[ \t]*(?:<([^>\r\n]+)>|([^\s]+))(?:[ \t]+(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\((?:\\.|[^)\\])*\)))?[ \t]*$/gmu;
+  for (const match of markdown.matchAll(referenceDefinitions)) {
     targets.push(match[1] ?? match[2]);
   }
   const attributes =
     /(?:^|[\s<])(href|src|srcset)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/gimu;
-  for (const match of text.matchAll(attributes)) {
+  for (const match of markdown.matchAll(attributes)) {
     const name = match[1].toLowerCase();
     const value = match[2] ?? match[3] ?? match[4];
     if (name !== "srcset") {

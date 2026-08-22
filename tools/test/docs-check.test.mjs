@@ -130,6 +130,9 @@ test("rejects broken local links and decision-ledger references", () => {
     "[Missing](docs/missing.md 'single title')",
     "[Missing](docs/missing.md (parenthesized title))",
     "[Missing](<docs/missing.md> \"angle destination\")",
+    '[Missing](docs/missing.md "a \\"quoted\\" title")',
+    "[Missing](docs/missing.md 'a \\'quoted\\' title')",
+    "[Missing](docs/missing.md (a \\) title))",
   ]) {
     const titled = currentContext();
     titled.files["README.md"] += markdownLink + "\n";
@@ -210,6 +213,34 @@ test("rejects broken local links and decision-ledger references", () => {
   assert.throws(
     () =>
       validateDocumentation(localFragment, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /fragment/u,
+  );
+
+  const fencedHtml = currentContext();
+  fencedHtml.files["README.md"] += [
+    "```html",
+    '<img src="examples/not-a-real-file.png">',
+    "```",
+    "",
+  ].join("\n");
+  validateDocumentation(fencedHtml, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const fencedHeading = currentContext();
+  fencedHeading.files["README.md"] += [
+    "[Missing](#not-an-anchor)",
+    "",
+    "~~~markdown",
+    "## Not an anchor",
+    "~~~",
+    "",
+  ].join("\n");
+  assert.throws(
+    () =>
+      validateDocumentation(fencedHeading, {
         expectedLicenseDigest: licenseDigest,
       }),
     /fragment/u,
