@@ -796,6 +796,45 @@ test("does not resolve GFM footnotes as ordinary references", () => {
   );
 });
 
+test("rejects unescaped brackets in reference labels", () => {
+  const literal = currentContext();
+  literal.files["README.md"] += [
+    "[use][foo[bar]] [foo[bar]] [foo[bar]][]",
+    "",
+    "[foo\\[bar\\]]: docs/missing.md",
+    "",
+  ].join("\n");
+  validateDocumentation(literal, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const invalidDefinition = currentContext();
+  invalidDefinition.files["README.md"] += [
+    "[use][foo\\[bar\\]]",
+    "",
+    "[foo[bar]]: docs/missing.md",
+    "",
+  ].join("\n");
+  validateDocumentation(invalidDefinition, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const escaped = currentContext();
+  escaped.files["README.md"] += [
+    "[use][foo\\[bar\\]]",
+    "",
+    "[foo\\[bar\\]]: docs/missing.md",
+    "",
+  ].join("\n");
+  assert.throws(
+    () =>
+      validateDocumentation(escaped, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+});
+
 test("masks next-line reference titles", () => {
   for (const definition of [
     [
@@ -1186,6 +1225,37 @@ test("preserves escaped tag text in heading anchors", () => {
   context.files["PRIVACY.md"] += "# \\<span>\n";
   context.files["README.md"] += "[Span](PRIVACY.md#span)\n";
   validateDocumentation(context, {
+    expectedLicenseDigest: licenseDigest,
+  });
+});
+
+test("preserves non-tag angle text in heading anchors", () => {
+  const admitted = currentContext();
+  admitted.files["PRIVACY.md"] += "# 1 < 2 > 0\n";
+  admitted.files["README.md"] +=
+    "[Comparison](PRIVACY.md#1--2--0)\n";
+  validateDocumentation(admitted, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const rejected = currentContext();
+  rejected.files["PRIVACY.md"] += "# 1 < 2 > 0\n";
+  rejected.files["README.md"] +=
+    "[Comparison](PRIVACY.md#1--0)\n";
+  assert.throws(
+    () =>
+      validateDocumentation(rejected, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /fragment/u,
+  );
+
+  const tagged = currentContext();
+  tagged.files["PRIVACY.md"] +=
+    "# Before <span>inside</span> after\n";
+  tagged.files["README.md"] +=
+    "[Tagged](PRIVACY.md#before-inside-after)\n";
+  validateDocumentation(tagged, {
     expectedLicenseDigest: licenseDigest,
   });
 });

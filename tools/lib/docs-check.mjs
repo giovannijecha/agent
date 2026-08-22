@@ -426,7 +426,14 @@ function normalizeTarget(source, rawTarget) {
 }
 
 function headingHtmlText(text) {
-  return text
+  const rendered = [];
+  let retainedFrom = 0;
+  for (const tag of htmlTags(text)) {
+    rendered.push(text.slice(retainedFrom, tag.start));
+    retainedFrom = tag.end;
+  }
+  rendered.push(text.slice(retainedFrom));
+  return rendered.join("")
     .replaceAll(
       /<([A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\u0000-\u0020]*)>/gu,
       "$1",
@@ -434,10 +441,6 @@ function headingHtmlText(text) {
     .replaceAll(
       /<([A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*)>/gu,
       "$1",
-    )
-    .replaceAll(
-      /<[^>]*>/gu,
-      (tag, offset) => isEscaped(text, offset) ? tag : "",
     );
 }
 
@@ -972,6 +975,20 @@ function withoutRawHtmlBlocks(markdown) {
   return rendered.join("\n");
 }
 
+function htmlCommentEnd(markdown, opening) {
+  const closing = markdown.indexOf("-->", opening + 4);
+  if (closing === -1) {
+    return undefined;
+  }
+  const body = markdown.slice(opening + 4, closing);
+  return body.startsWith(">") ||
+    body.startsWith("->") ||
+    body.includes("--") ||
+    body.endsWith("-")
+    ? undefined
+    : closing + 3;
+}
+
 function withoutHtmlComments(markdown, preserveColumns = true) {
   const rendered = [];
   let retainedFrom = 0;
@@ -985,22 +1002,11 @@ function withoutHtmlComments(markdown, preserveColumns = true) {
       searchFrom = opening + 4;
       continue;
     }
-    const closing = markdown.indexOf("-->", opening + 4);
-    if (closing === -1) {
+    const end = htmlCommentEnd(markdown, opening);
+    if (end === undefined) {
       searchFrom = opening + 4;
       continue;
     }
-    const body = markdown.slice(opening + 4, closing);
-    if (
-      body.startsWith(">") ||
-      body.startsWith("->") ||
-      body.includes("--") ||
-      body.endsWith("-")
-    ) {
-      searchFrom = opening + 4;
-      continue;
-    }
-    const end = closing + 3;
     rendered.push(markdown.slice(retainedFrom, opening));
     const comment = markdown.slice(opening, end);
     rendered.push(
@@ -1093,6 +1099,24 @@ function closingLabelIndex(markdown, opening) {
       if (depth === 0) {
         return cursor;
       }
+    }
+  }
+  return undefined;
+}
+
+function referenceLabelEnd(markdown, opening) {
+  let length = 0;
+  for (let cursor = opening + 1; cursor < markdown.length; cursor += 1) {
+    const character = markdown.at(cursor);
+    if (!isEscaped(markdown, cursor) && character === "[") {
+      return undefined;
+    }
+    if (!isEscaped(markdown, cursor) && character === "]") {
+      return cursor;
+    }
+    length += 1;
+    if (length > 999) {
+      return undefined;
     }
   }
   return undefined;
@@ -1239,19 +1263,22 @@ function inlineLinkCandidate(markdown, opening, references) {
     end = parsed?.end;
     target = parsed?.target;
   } else if (markdown.at(closing + 1) === "[") {
-    const referenceClosing = closingLabelIndex(markdown, closing + 1);
+    const referenceClosing = referenceLabelEnd(markdown, closing + 1);
     if (referenceClosing !== undefined) {
       const explicit = markdown.slice(closing + 2, referenceClosing);
       const implicit = markdown.slice(opening + 1, closing);
-      const referenceTarget = references.get(
-        normalizedReferenceLabel(explicit.length === 0 ? implicit : explicit),
-      );
+      const implicitValid = referenceLabelEnd(markdown, opening) === closing;
+      const referenceTarget = explicit.length === 0 && !implicitValid
+        ? undefined
+        : references.get(
+          normalizedReferenceLabel(explicit.length === 0 ? implicit : explicit),
+        );
       if (referenceTarget !== undefined) {
         end = referenceClosing + 1;
         target = referenceTarget;
       }
     }
-  } else {
+  } else if (referenceLabelEnd(markdown, opening) === closing) {
     const referenceTarget = references.get(
       normalizedReferenceLabel(markdown.slice(opening + 1, closing)),
     );
@@ -1558,7 +1585,7 @@ function referenceDefinition(line, continuation, secondContinuation) {
   ) {
     return undefined;
   }
-  const closingLabel = closingLabelIndex(line, indentation.index);
+  const closingLabel = referenceLabelEnd(line, indentation.index);
   if (closingLabel === undefined || line.at(closingLabel + 1) !== ":") {
     return undefined;
   }
@@ -1756,7 +1783,7 @@ function rawTextElementEnd(markdown, normalizedMarkdown, start, name) {
 function htmlNonTagEnd(markdown, opening) {
   let terminator;
   if (markdown.startsWith("<!--", opening)) {
-    terminator = "-->";
+    return htmlCommentEnd(markdown, opening);
   } else if (markdown.startsWith("<?", opening)) {
     terminator = "?>";
   } else if (markdown.startsWith("<![CDATA[", opening)) {
@@ -1789,6 +1816,11 @@ function htmlTags(markdown) {
       continue;
     }
     let cursor = opening + 1;
+    let closingTag = false;
+    if (markdown.at(cursor) === "/") {
+      closingTag = true;
+      cursor += 1;
+    }
     if (!/[A-Za-z]/u.test(markdown.at(cursor) ?? "")) {
       searchFrom = cursor;
       continue;
@@ -1812,7 +1844,16 @@ function htmlTags(markdown) {
     let complete = false;
     let selfClosing = false;
     const tagAttributes = [];
-    while (cursor < markdown.length) {
+    if (closingTag) {
+      while (isHtmlWhitespace(markdown.at(cursor))) {
+        cursor += 1;
+      }
+      if (markdown.at(cursor) === ">") {
+        cursor += 1;
+        complete = true;
+      }
+    }
+    while (!closingTag && cursor < markdown.length) {
       while (isHtmlWhitespace(markdown.at(cursor))) {
         cursor += 1;
       }
@@ -1893,6 +1934,7 @@ function htmlTags(markdown) {
     }
     if (
       complete &&
+      !closingTag &&
       !selfClosing &&
       /^(?:pre|script|style|textarea)$/u.test(tagName)
     ) {
