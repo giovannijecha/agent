@@ -394,6 +394,15 @@ test("ignores illustrative HTML attributes in prose", () => {
   });
 });
 
+test("ignores Markdown-like text inside HTML attributes", () => {
+  const context = currentContext();
+  context.files["README.md"] +=
+    '<div title="[sample](docs/not-real.md)"></div>\n';
+  validateDocumentation(context, {
+    expectedLicenseDigest: licenseDigest,
+  });
+});
+
 test("ignores fenced HTML inside block quotes", () => {
   const context = currentContext();
   context.files["README.md"] += [
@@ -580,6 +589,15 @@ test("recognizes Setext heading anchors", () => {
   ].join("\n");
   context.files["README.md"] +=
     "[Evaluation](PRIVACY.md#evaluation-data)\n";
+  validateDocumentation(context, {
+    expectedLicenseDigest: licenseDigest,
+  });
+});
+
+test("decodes character references in explicit anchors", () => {
+  const context = currentContext();
+  context.files["PRIVACY.md"] += '<a id="exact&#45;anchor"></a>\n';
+  context.files["README.md"] += "[Exact](PRIVACY.md#exact-anchor)\n";
   validateDocumentation(context, {
     expectedLicenseDigest: licenseDigest,
   });

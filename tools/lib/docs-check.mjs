@@ -892,8 +892,8 @@ function isHtmlWhitespace(character) {
   return /[\t\n\f\r ]/u.test(character ?? "");
 }
 
-function htmlAttributes(markdown) {
-  const attributes = [];
+function htmlTags(markdown) {
+  const tags = [];
   let searchFrom = 0;
   while (searchFrom < markdown.length) {
     const opening = markdown.indexOf("<", searchFrom);
@@ -987,11 +987,27 @@ function htmlAttributes(markdown) {
       }
     }
     if (complete) {
-      attributes.push(...tagAttributes);
+      tags.push(Object.freeze({
+        attributes: Object.freeze(tagAttributes),
+        end: cursor,
+        start: opening,
+      }));
     }
     searchFrom = complete ? cursor : opening + 1;
   }
-  return attributes;
+  return tags;
+}
+
+function withoutHtmlTags(markdown, tags) {
+  const rendered = [];
+  let retainedFrom = 0;
+  for (const tag of tags) {
+    rendered.push(markdown.slice(retainedFrom, tag.start));
+    rendered.push(maskedLiteral(markdown.slice(tag.start, tag.end)));
+    retainedFrom = tag.end;
+  }
+  rendered.push(markdown.slice(retainedFrom));
+  return rendered.join("");
 }
 
 function headingAnchors(text) {
@@ -1026,12 +1042,14 @@ function headingAnchors(text) {
     occurrences.set(base, occurrence + 1);
     anchors.add(occurrence === 0 ? base : base + "-" + occurrence);
   }
-  for (const attribute of htmlAttributes(withoutCodeSpans(markdown))) {
-    if (
-      (attribute.name === "id" || attribute.name === "name") &&
-      attribute.value.length > 0
-    ) {
-      anchors.add(attribute.value);
+  for (const tag of htmlTags(withoutCodeSpans(markdown))) {
+    for (const attribute of tag.attributes) {
+      if (
+        (attribute.name === "id" || attribute.name === "name") &&
+        attribute.value.length > 0
+      ) {
+        anchors.add(decodeCharacterReferences(attribute.value));
+      }
     }
   }
   return anchors;
@@ -1039,21 +1057,25 @@ function headingAnchors(text) {
 
 function localTargets(text) {
   const markdown = withoutCodeSpans(renderedMarkdown(text));
-  const targets = inlineTargets(markdown);
-  targets.push(...referenceTargets(markdown));
-  for (const attribute of htmlAttributes(markdown)) {
-    const { name, value } = attribute;
-    if (name !== "href" && name !== "src" && name !== "srcset") {
-      continue;
-    }
-    if (name !== "srcset") {
-      targets.push(value);
-      continue;
-    }
-    for (const candidate of value.split(",")) {
-      const target = candidate.trim().split(/\s+/u).at(0);
-      if (target !== undefined && target.length > 0) {
-        targets.push(target);
+  const tags = htmlTags(markdown);
+  const markdownContent = withoutHtmlTags(markdown, tags);
+  const targets = inlineTargets(markdownContent);
+  targets.push(...referenceTargets(markdownContent));
+  for (const tag of tags) {
+    for (const attribute of tag.attributes) {
+      const { name, value } = attribute;
+      if (name !== "href" && name !== "src" && name !== "srcset") {
+        continue;
+      }
+      if (name !== "srcset") {
+        targets.push(value);
+        continue;
+      }
+      for (const candidate of value.split(",")) {
+        const target = candidate.trim().split(/\s+/u).at(0);
+        if (target !== undefined && target.length > 0) {
+          targets.push(target);
+        }
       }
     }
   }
