@@ -22,11 +22,15 @@ export const DOCUMENT_PATHS = Object.freeze([
   "evaluations/README.md",
 ]);
 
-const ATTRIBUTION_PATTERNS = Object.freeze([
-  /^co-authored-by:/imu,
+const FORBIDDEN_AUTHORSHIP_PATTERNS = Object.freeze([
+  /^co-authored-by:\s*(?:codex|openai)\b/imu,
   /^generated[- ]by\b/imu,
+  /^written[- ]by\s+(?:codex|openai)\b/imu,
   /^(?:ai|machine)[- ]generated\b/imu,
-  /^100% (?:human|hand)[- ]written\b/imu,
+  /\b100% (?:human(?:-written)?|hand[- ]written)\b/iu,
+  /\bentirely human(?:-written)?\b/iu,
+  /\bmade without (?:ai|tools?)\b/iu,
+  /\bno (?:ai|tool) (?:was )?used\b/iu,
 ]);
 
 function fail(message) {
@@ -114,8 +118,8 @@ export function validateDocumentation(context, options = {}) {
     if (/docs\/decisions\/|\bdecision\s+[0-9]{4}\b/iu.test(text)) {
       fail("decision ledger reference is forbidden: " + file);
     }
-    if (ATTRIBUTION_PATTERNS.some((pattern) => pattern.test(text))) {
-      fail("automated attribution is forbidden: " + file);
+    if (FORBIDDEN_AUTHORSHIP_PATTERNS.some((pattern) => pattern.test(text))) {
+      fail("authorship claim is forbidden: " + file);
     }
     for (const rawTarget of localTargets(text)) {
       const target = normalizeTarget(file, rawTarget);
