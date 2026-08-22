@@ -416,6 +416,37 @@ test("ignores Markdown-like text inside raw HTML blocks", () => {
   });
 });
 
+test("ignores apparent HTML tags inside raw-text elements", () => {
+  const context = currentContext();
+  context.files["README.md"] += [
+    "<script>",
+    'const sample = \'<img src="docs/not-real.md">\';',
+    "</script>",
+    "",
+  ].join("\n");
+  validateDocumentation(context, {
+    expectedLicenseDigest: licenseDigest,
+  });
+});
+
+test("retains attributes on raw-text opening tags", () => {
+  const context = currentContext();
+  context.files["README.md"] += [
+    "<script",
+    '  src="docs/not-real.md">',
+    'const sample = \'<img src="README.md">\';',
+    "</script>",
+    "",
+  ].join("\n");
+  assert.throws(
+    () =>
+      validateDocumentation(context, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+});
+
 test("ignores fenced HTML inside block quotes", () => {
   const context = currentContext();
   context.files["README.md"] += [
@@ -616,6 +647,15 @@ test("decodes character references in explicit anchors", () => {
   });
 });
 
+test("decodes the complete named character-reference registry", () => {
+  const context = currentContext();
+  context.files["PRIVACY.md"] += '<a id="exact&copy;"></a>\n';
+  context.files["README.md"] += "[Exact](PRIVACY.md#exact%C2%A9)\n";
+  validateDocumentation(context, {
+    expectedLicenseDigest: licenseDigest,
+  });
+});
+
 test("recognizes heading anchors inside Markdown containers", () => {
   const context = currentContext();
   context.files["PRIVACY.md"] += [
@@ -682,6 +722,38 @@ test("validates links after deeply nested labels", () => {
   assert.throws(
     () =>
       validateDocumentation(context, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+});
+
+test("ignores inactive outer destinations in nested links", () => {
+  const context = currentContext();
+  context.files["README.md"] +=
+    "[outer [inner](README.md)](docs/not-real.md)\n";
+  validateDocumentation(context, {
+    expectedLicenseDigest: licenseDigest,
+  });
+});
+
+test("recognizes nested reference links and images", () => {
+  const inactiveOuter = currentContext();
+  inactiveOuter.files["README.md"] += [
+    "[outer [inner][home]](docs/not-real.md)",
+    "[home]: README.md",
+    "",
+  ].join("\n");
+  validateDocumentation(inactiveOuter, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const activeOuter = currentContext();
+  activeOuter.files["README.md"] +=
+    "[outer ![image](README.md)](docs/not-real.md)\n";
+  assert.throws(
+    () =>
+      validateDocumentation(activeOuter, {
         expectedLicenseDigest: licenseDigest,
       }),
     /broken local link/u,
