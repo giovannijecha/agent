@@ -159,6 +159,20 @@ test("rejects broken local links and decision-ledger references", () => {
     );
   }
 
+  const nested = currentContext();
+  nested.ownedPaths.push(
+    "assets/brand/agent-wordmark-transparent.png",
+  );
+  nested.files["README.md"] +=
+    "[![Agent](assets/brand/agent-wordmark-transparent.png)](docs/missing.md)\n";
+  assert.throws(
+    () =>
+      validateDocumentation(nested, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+
   const decision = currentContext();
   decision.files["docs/ARCHITECTURE.md"] +=
     "See docs/decisions/0042-example.md.\n";
@@ -181,6 +195,7 @@ test("rejects automated attribution and license drift", () => {
     "Written by Codex.",
     "Made without AI.",
     "No tool was used.",
+    "No tools were used.",
     "Entirely human-written.",
     "100% human.",
   ]) {

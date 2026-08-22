@@ -31,7 +31,7 @@ const FORBIDDEN_AUTHORSHIP_PATTERNS = Object.freeze([
   /\b100% (?:human(?:-written)?|hand[- ]written)\b/iu,
   /\bentirely human(?:-written)?\b/iu,
   /\bmade without (?:ai|tools?)\b/iu,
-  /\bno (?:ai|tool) (?:was )?used\b/iu,
+  /\bno (?:ai|tools?) (?:(?:was|were) )?used\b/iu,
 ]);
 
 function fail(message) {
@@ -83,8 +83,13 @@ function normalizeTarget(source, rawTarget) {
 
 function localTargets(text) {
   const targets = [];
+  const markdownImages =
+    /!\[(?:[^\[\]]|\[[^\[\]]*\])*\]\(\s*(?:<([^>\r\n]+)>|([^\s)]+))(?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?\s*\)/gu;
+  for (const match of text.matchAll(markdownImages)) {
+    targets.push(match[1] ?? match[2]);
+  }
   const markdownLinks =
-    /!?\[[^\]]*\]\(\s*(?:<([^>\r\n]+)>|([^\s)]+))(?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?\s*\)/gu;
+    /(?<!!)\[(?:[^\[\]]|\[[^\[\]]*\])*\]\(\s*(?:<([^>\r\n]+)>|([^\s)]+))(?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?\s*\)/gu;
   for (const match of text.matchAll(markdownLinks)) {
     targets.push(match[1] ?? match[2]);
   }
