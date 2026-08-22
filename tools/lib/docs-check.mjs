@@ -1339,7 +1339,26 @@ function headingEmphasisText(markdown) {
   return rendered.join("");
 }
 
-function referenceDefinition(line, continuation) {
+function referenceTitleLine(line) {
+  if (line === undefined) {
+    return false;
+  }
+  const indentation = indentationAt(line, 0, 0);
+  if (indentation.column > 3) {
+    return false;
+  }
+  const marker = line.at(indentation.index);
+  if (marker !== '"' && marker !== "'" && marker !== "(") {
+    return false;
+  }
+  const afterTitle = titleEnd(line, indentation.index);
+  return (
+    afterTitle !== undefined &&
+    horizontalWhitespaceEnd(line, afterTitle) === line.length
+  );
+}
+
+function referenceDefinition(line, continuation, secondContinuation) {
   const indentation = indentationAt(line, 0, 0);
   if (
     indentation.column > 3 ||
@@ -1359,6 +1378,7 @@ function referenceDefinition(line, continuation) {
   }
 
   let destinationLine = line;
+  let lineCount = 1;
   let cursor = horizontalWhitespaceEnd(line, closingLabel + 2);
   if (cursor === line.length) {
     if (continuation === undefined) {
@@ -1369,6 +1389,7 @@ function referenceDefinition(line, continuation) {
       return undefined;
     }
     destinationLine = continuation;
+    lineCount = 2;
     cursor = continuationIndentation.index;
   }
   const destinationStart = cursor;
@@ -1418,10 +1439,14 @@ function referenceDefinition(line, continuation) {
   const afterDestination = cursor;
   cursor = horizontalWhitespaceEnd(destinationLine, cursor);
   if (cursor === destinationLine.length) {
+    const titleLine = lineCount === 1 ? continuation : secondContinuation;
+    if (referenceTitleLine(titleLine)) {
+      lineCount += 1;
+    }
     return Object.freeze({
       label,
+      lineCount,
       target,
-      usesContinuation: destinationLine !== line,
     });
   }
   if (cursor === afterDestination) {
@@ -1439,8 +1464,8 @@ function referenceDefinition(line, continuation) {
   return cursor === destinationLine.length
     ? Object.freeze({
       label,
+      lineCount,
       target,
-      usesContinuation: destinationLine !== line,
     })
     : undefined;
 }
@@ -1454,9 +1479,11 @@ function referenceDefinitions(markdown) {
     const definition = referenceDefinition(
       lines.at(index),
       lines.at(index + 1),
+      lines.at(index + 2),
     );
     if (definition !== undefined) {
       definitions.push(Object.freeze({ ...definition, line: index }));
+      index += definition.lineCount - 1;
     }
   }
   return definitions;
@@ -1465,9 +1492,8 @@ function referenceDefinitions(markdown) {
 function withoutReferenceDefinitions(markdown, definitions) {
   const definitionLines = new Set();
   for (const definition of definitions) {
-    definitionLines.add(definition.line);
-    if (definition.usesContinuation) {
-      definitionLines.add(definition.line + 1);
+    for (let offset = 0; offset < definition.lineCount; offset += 1) {
+      definitionLines.add(definition.line + offset);
     }
   }
   return markdown
@@ -1658,12 +1684,72 @@ function withoutHtmlTags(markdown, tags) {
   return rendered.join("");
 }
 
+function setextParagraphLine(line) {
+  const indentation = indentationAt(line, 0, 0);
+  if (indentation.column > 3) {
+    return false;
+  }
+  const content = line.slice(indentation.index);
+  return (
+    !/^[ \t]*\r?$/u.test(content) &&
+    !/^#{1,6}(?:[ \t]+|$)/u.test(content) &&
+    !/^=+[ \t]*\r?$/u.test(content) &&
+    !/^(?:\*[ \t]*){3,}\r?$/u.test(content) &&
+    !/^(?:_[ \t]*){3,}\r?$/u.test(content) &&
+    !/^(?:-[ \t]*){3,}\r?$/u.test(content)
+  );
+}
+
+function setextHeadings(markdown) {
+  const headings = [];
+  const lines = markdown.split("\n");
+  const offsets = [];
+  let offset = 0;
+  for (const line of lines) {
+    offsets.push(offset);
+    offset += line.length + 1;
+  }
+  for (let index = 1; index < lines.length; index += 1) {
+    if (!/^[ \t]{0,3}(?:=+|-+)[ \t]*\r?$/u.test(lines.at(index))) {
+      continue;
+    }
+    let paragraphStart = index - 1;
+    while (
+      paragraphStart >= 0 &&
+      setextParagraphLine(lines.at(paragraphStart))
+    ) {
+      paragraphStart -= 1;
+    }
+    paragraphStart += 1;
+    if (paragraphStart === index) {
+      continue;
+    }
+    const heading = lines
+      .slice(paragraphStart, index)
+      .map((line) => {
+        const indentation = indentationAt(line, 0, 0);
+        return line
+          .slice(indentation.index)
+          .replace(/[ \t]*\r?$/u, "");
+      })
+      .join("\n");
+    headings.push(Object.freeze({
+      index: offsets.at(paragraphStart),
+      text: heading,
+    }));
+  }
+  return headings;
+}
+
 function headingAnchors(text) {
   const markdown = renderedMarkdown(text);
   const markdownContent = withoutHtmlComments(withoutRawHtmlBlocks(markdown));
-  const headingMarkdown = containerProjectedMarkdown(markdownContent);
+  const definitions = referenceDefinitions(markdownContent);
+  const headingMarkdown = containerProjectedMarkdown(
+    withoutReferenceDefinitions(markdownContent, definitions),
+  );
   const referenceLabels = new Set(
-    referenceDefinitions(markdownContent).map((definition) => definition.label),
+    definitions.map((definition) => definition.label),
   );
   const anchors = new Set();
   const occurrences = new Map();
@@ -1674,13 +1760,7 @@ function headingAnchors(text) {
     const heading = (match[1] ?? "").replace(/[ \t]+#+[ \t]*$/u, "");
     headings.push(Object.freeze({ index: match.index, text: heading }));
   }
-  for (const match of headingMarkdown.matchAll(
-    /^[ \t]{0,3}(\S(?:.*?\S)?)[ \t]*\r?\n[ \t]{0,3}(?:=+|-+)[ \t]*\r?$/gmu,
-  )) {
-    if (!/^#{1,6}(?:[ \t]|$)/u.test(match.at(1))) {
-      headings.push(Object.freeze({ index: match.index, text: match.at(1) }));
-    }
-  }
+  headings.push(...setextHeadings(headingMarkdown));
   headings.sort((left, right) => left.index - right.index);
   for (const heading of headings) {
     const base = headingSlug(

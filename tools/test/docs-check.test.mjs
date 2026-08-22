@@ -599,6 +599,31 @@ test("validates only the selected active reference definition", () => {
   });
 });
 
+test("masks next-line reference titles", () => {
+  for (const definition of [
+    [
+      "[selected]: README.md",
+      '  "title [sample](docs/not-real.md)"',
+    ],
+    [
+      "[selected]:",
+      "  README.md",
+      '  "title [sample](docs/not-real.md)"',
+    ],
+  ]) {
+    const context = currentContext();
+    context.files["README.md"] += [
+      "[Home][selected]",
+      "",
+      ...definition,
+      "",
+    ].join("\n");
+    validateDocumentation(context, {
+      expectedLicenseDigest: licenseDigest,
+    });
+  }
+});
+
 test("validates reference definitions inside block quotes", () => {
   const context = currentContext();
   context.files["README.md"] += [
@@ -710,6 +735,30 @@ test("recognizes Setext heading anchors", () => {
   ].join("\n");
   context.files["README.md"] +=
     "[Evaluation](PRIVACY.md#evaluation-data)\n";
+  validateDocumentation(context, {
+    expectedLicenseDigest: licenseDigest,
+  });
+});
+
+test("collects complete multiline Setext heading paragraphs", () => {
+  const context = currentContext();
+  context.files["PRIVACY.md"] += [
+    "First line",
+    "second line",
+    "-----------",
+    "",
+    "First adjacent",
+    "==============",
+    "Second adjacent",
+    "---------------",
+    "",
+  ].join("\n");
+  context.files["README.md"] += [
+    "[Multiline](PRIVACY.md#first-line-second-line)",
+    "[First adjacent](PRIVACY.md#first-adjacent)",
+    "[Second adjacent](PRIVACY.md#second-adjacent)",
+    "",
+  ].join("\n");
   validateDocumentation(context, {
     expectedLicenseDigest: licenseDigest,
   });
