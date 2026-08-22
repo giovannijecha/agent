@@ -3,6 +3,7 @@ import path from "node:path";
 
 const CANONICAL_LICENSE_DIGEST =
   "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4";
+const CANONICAL_GIT_ATTRIBUTES = "* text=auto eol=lf\n";
 
 export const DOCUMENT_PATHS = Object.freeze([
   "AGENTS.md",
@@ -55,8 +56,11 @@ function normalizeTarget(source, rawTarget) {
   if (withoutFragment.length === 0) {
     return undefined;
   }
-  if (/^(?:[a-z][a-z0-9+.-]*:|\/)/iu.test(withoutFragment)) {
+  if (/^https:\/\//iu.test(withoutFragment)) {
     return undefined;
+  }
+  if (/^[a-z][a-z0-9+.-]*:/iu.test(withoutFragment)) {
+    fail("forbidden link target in " + source);
   }
   let decoded;
   try {
@@ -64,8 +68,12 @@ function normalizeTarget(source, rawTarget) {
   } catch {
     fail("invalid local link in " + source);
   }
+  const portableTarget = decoded.replaceAll("\\", "/");
+  if (path.posix.isAbsolute(portableTarget)) {
+    fail("forbidden link target in " + source);
+  }
   const normalized = path.posix.normalize(
-    path.posix.join(path.posix.dirname(source), decoded.replaceAll("\\", "/")),
+    path.posix.join(path.posix.dirname(source), portableTarget),
   );
   if (normalized === ".." || normalized.startsWith("../")) {
     fail("local link escaped the repository in " + source);
@@ -90,10 +98,15 @@ export function validateDocumentation(context, options = {}) {
     typeof context !== "object" ||
     context.files === null ||
     typeof context.files !== "object" ||
+    typeof context.gitAttributesText !== "string" ||
     !Array.isArray(context.ownedPaths) ||
     typeof context.licenseText !== "string"
   ) {
     fail("documentation context is invalid");
+  }
+
+  if (context.gitAttributesText !== CANONICAL_GIT_ATTRIBUTES) {
+    fail("Git text policy mismatch");
   }
 
   if (context.ownedPaths.some((file) => file.startsWith("docs/decisions/"))) {

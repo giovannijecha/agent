@@ -300,6 +300,7 @@ function verifyDocumentation() {
     files: Object.fromEntries(
       DOCUMENT_PATHS.map((file) => [file, readText(file)]),
     ),
+    gitAttributesText: readText(".gitattributes"),
     licenseText: readText("LICENSE"),
     ownedPaths,
   });

@@ -30,6 +30,7 @@ function currentContext() {
   ].join("\n");
   return {
     files,
+    gitAttributesText: "* text=auto eol=lf\n",
     licenseText,
     ownedPaths: [...DOCUMENT_PATHS, "LICENSE"],
   };
@@ -71,6 +72,16 @@ test("rejects broken local links and decision-ledger references", () => {
   broken.files["README.md"] += "[Missing](docs/missing.md)\n";
   assert.throws(() => validateDocumentation(broken), /broken local link/u);
 
+  const rooted = currentContext();
+  rooted.files["README.md"] += "[Privacy](/PRIVACY.md)\n";
+  assert.throws(
+    () =>
+      validateDocumentation(rooted, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /link target/u,
+  );
+
   const decision = currentContext();
   decision.files["docs/ARCHITECTURE.md"] +=
     "See docs/decisions/0042-example.md.\n";
@@ -107,6 +118,16 @@ test("rejects automated attribution and license drift", () => {
       marker,
     );
   }
+
+  const attributes = currentContext();
+  attributes.gitAttributesText = "* text=auto\n";
+  assert.throws(
+    () =>
+      validateDocumentation(attributes, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /Git text policy/u,
+  );
 
   const license = currentContext();
   license.licenseText += " drift";
