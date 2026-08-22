@@ -51,10 +51,106 @@ function isAuthorityDocument(file) {
   );
 }
 
+function namedCharacterReference(name) {
+  switch (name) {
+    case "AMP":
+    case "amp":
+      return "&";
+    case "apos":
+      return "'";
+    case "ast":
+      return "*";
+    case "bsol":
+      return "\\";
+    case "colon":
+      return ":";
+    case "comma":
+      return ",";
+    case "commat":
+      return "@";
+    case "dollar":
+      return "$";
+    case "equals":
+      return "=";
+    case "excl":
+      return "!";
+    case "GT":
+    case "gt":
+      return ">";
+    case "Hat":
+      return "^";
+    case "lbrace":
+    case "lcub":
+      return "{";
+    case "lbrack":
+    case "lsqb":
+      return "[";
+    case "lpar":
+      return "(";
+    case "LT":
+    case "lt":
+      return "<";
+    case "lowbar":
+      return "_";
+    case "NewLine":
+      return "\n";
+    case "num":
+      return "#";
+    case "percnt":
+      return "%";
+    case "period":
+      return ".";
+    case "plus":
+      return "+";
+    case "quest":
+      return "?";
+    case "QUOT":
+    case "quot":
+      return '"';
+    case "rbrace":
+    case "rcub":
+      return "}";
+    case "rbrack":
+    case "rsqb":
+      return "]";
+    case "rpar":
+      return ")";
+    case "semi":
+      return ";";
+    case "sol":
+      return "/";
+    case "Tab":
+      return "\t";
+    case "VerticalLine":
+    case "verbar":
+    case "vert":
+      return "|";
+    default:
+      return undefined;
+  }
+}
+
+function decodeCharacterReferences(text) {
+  return text.replaceAll(
+    /&(?:#([0-9]{1,7})|#[xX]([0-9A-Fa-f]{1,6})|([A-Za-z][A-Za-z0-9]{1,31}));/gu,
+    (reference, decimal, hexadecimal, name) => {
+      if (name !== undefined) {
+        return namedCharacterReference(name) ?? reference;
+      }
+      const value = Number.parseInt(decimal ?? hexadecimal, decimal === undefined ? 16 : 10);
+      return value === 0 || value > 0x10ffff || (value >= 0xd800 && value <= 0xdfff)
+        ? "\uFFFD"
+        : String.fromCodePoint(value);
+    },
+  );
+}
+
 function normalizeTarget(source, rawTarget) {
-  const renderedTarget = rawTarget.replaceAll(
-    /\\([!"#$%&'()*+,\-./:;<=>?@\[\\\]^_`{|}~])/gu,
-    "$1",
+  const renderedTarget = decodeCharacterReferences(
+    rawTarget.replaceAll(
+      /\\([!"#$%&'()*+,\-./:;<=>?@\[\\\]^_`{|}~])/gu,
+      "$1",
+    ),
   );
   const separator = renderedTarget.indexOf("#");
   const beforeFragment = separator === -1
@@ -93,7 +189,7 @@ function normalizeTarget(source, rawTarget) {
 }
 
 function headingSlug(text) {
-  return text
+  return decodeCharacterReferences(text)
     .toLowerCase()
     .replaceAll(/<[^>]*>/gu, "")
     .replaceAll(/[^\p{L}\p{N}\p{M}\s_-]/gu, "")
@@ -122,9 +218,14 @@ function indentationAt(line, start, startColumn) {
   return Object.freeze({ column, index });
 }
 
-function blockQuoteContent(line, maximumDepth = Number.POSITIVE_INFINITY) {
-  let contentColumn = 0;
-  let contentIndex = 0;
+function blockQuoteContentAt(
+  line,
+  startIndex,
+  startColumn,
+  maximumDepth = Number.POSITIVE_INFINITY,
+) {
+  let contentColumn = startColumn;
+  let contentIndex = startIndex;
   let depth = 0;
   let indentation = indentationAt(line, contentIndex, contentColumn);
   while (depth < maximumDepth) {
@@ -150,6 +251,10 @@ function blockQuoteContent(line, maximumDepth = Number.POSITIVE_INFINITY) {
     indentation = indentationAt(line, contentIndex, contentColumn);
   }
   return Object.freeze({ contentColumn, depth, indentation });
+}
+
+function blockQuoteContent(line, maximumDepth = Number.POSITIVE_INFINITY) {
+  return blockQuoteContentAt(line, 0, 0, maximumDepth);
 }
 
 function listMarkerAt(line, baseColumn, indentation) {
@@ -223,12 +328,12 @@ function renderedMarkdown(text) {
   for (const line of text.split("\n")) {
     if (fence !== undefined) {
       const quoted = blockQuoteContent(line, fence.quoteDepth);
-      const fenceBase = quoted.contentColumn + fence.containerOffset;
+      const fenceBase = fence.contentColumn;
       const blank = /^[ \t]*\r?$/u.test(line.slice(quoted.indentation.index));
       if (
         quoted.depth === fence.quoteDepth &&
         (
-          fence.containerOffset === 0 ||
+          fence.contentColumn === 0 ||
           blank ||
           quoted.indentation.column >= fenceBase
         )
@@ -244,6 +349,7 @@ function renderedMarkdown(text) {
 
     const quoted = blockQuoteContent(line);
     const indentation = quoted.indentation;
+    let quoteDepth = quoted.depth;
     const blank = /^[ \t]*\r?$/u.test(line.slice(indentation.index));
     while (
       listContainers.length > 0 &&
@@ -254,13 +360,12 @@ function renderedMarkdown(text) {
     while (
       !blank &&
       listContainers.length > 0 &&
-      indentation.column <
-        quoted.contentColumn + listContainers.at(-1).contentOffset
+      indentation.column < listContainers.at(-1).contentColumn
     ) {
       listContainers.pop();
     }
-    let contentBase = quoted.contentColumn +
-      (listContainers.at(-1)?.contentOffset ?? 0);
+    let contentBase = listContainers.at(-1)?.contentColumn ??
+      quoted.contentColumn;
     let contentIndentation = indentation;
     let emptyListMarker = false;
     while (true) {
@@ -269,20 +374,30 @@ function renderedMarkdown(text) {
         contentBase,
         contentIndentation,
       );
-      if (listMarker === undefined) {
+      if (listMarker !== undefined) {
+        listContainers.push(Object.freeze({
+          contentColumn: listMarker.contentColumn,
+          quoteDepth,
+        }));
+        contentBase = listMarker.contentColumn;
+        contentIndentation = listMarker.contentIndentation;
+        if (!listMarker.hasContent) {
+          emptyListMarker = true;
+          break;
+        }
+        continue;
+      }
+      const nestedQuote = blockQuoteContentAt(
+        line,
+        contentIndentation.index,
+        contentBase,
+      );
+      if (nestedQuote.depth === 0) {
         break;
       }
-      const contentOffset = listMarker.contentColumn - quoted.contentColumn;
-      listContainers.push(Object.freeze({
-        contentOffset,
-        quoteDepth: quoted.depth,
-      }));
-      contentBase = listMarker.contentColumn;
-      contentIndentation = listMarker.contentIndentation;
-      if (!listMarker.hasContent) {
-        emptyListMarker = true;
-        break;
-      }
+      quoteDepth += nestedQuote.depth;
+      contentBase = nestedQuote.contentColumn;
+      contentIndentation = nestedQuote.indentation;
     }
     if (emptyListMarker) {
       rendered.push(line);
@@ -292,10 +407,10 @@ function renderedMarkdown(text) {
     const opening = fenceOpeningAt(line, contentBase, contentIndentation);
     if (opening !== undefined) {
       fence = Object.freeze({
-        containerOffset: contentBase - quoted.contentColumn,
+        contentColumn: contentBase,
         length: opening.length,
         marker: opening.marker,
-        quoteDepth: quoted.depth,
+        quoteDepth,
       });
       rendered.push(maskedLiteral(line));
       continue;
@@ -316,6 +431,7 @@ function containerProjectedMarkdown(text) {
   const listContainers = [];
   for (const line of text.split("\n")) {
     const quoted = blockQuoteContent(line);
+    let quoteDepth = quoted.depth;
     const blank = /^[ \t]*\r?$/u.test(line.slice(quoted.indentation.index));
     while (
       listContainers.length > 0 &&
@@ -326,14 +442,13 @@ function containerProjectedMarkdown(text) {
     while (
       !blank &&
       listContainers.length > 0 &&
-      quoted.indentation.column <
-        quoted.contentColumn + listContainers.at(-1).contentOffset
+      quoted.indentation.column < listContainers.at(-1).contentColumn
     ) {
       listContainers.pop();
     }
 
-    let contentBase = quoted.contentColumn +
-      (listContainers.at(-1)?.contentOffset ?? 0);
+    let contentBase = listContainers.at(-1)?.contentColumn ??
+      quoted.contentColumn;
     let contentIndentation = quoted.indentation;
     while (!blank) {
       const listMarker = listMarkerAt(
@@ -341,19 +456,29 @@ function containerProjectedMarkdown(text) {
         contentBase,
         contentIndentation,
       );
-      if (listMarker === undefined) {
+      if (listMarker !== undefined) {
+        listContainers.push(Object.freeze({
+          contentColumn: listMarker.contentColumn,
+          quoteDepth,
+        }));
+        contentBase = listMarker.contentColumn;
+        contentIndentation = listMarker.contentIndentation;
+        if (!listMarker.hasContent) {
+          break;
+        }
+        continue;
+      }
+      const nestedQuote = blockQuoteContentAt(
+        line,
+        contentIndentation.index,
+        contentBase,
+      );
+      if (nestedQuote.depth === 0) {
         break;
       }
-      const contentOffset = listMarker.contentColumn - quoted.contentColumn;
-      listContainers.push(Object.freeze({
-        contentOffset,
-        quoteDepth: quoted.depth,
-      }));
-      contentBase = listMarker.contentColumn;
-      contentIndentation = listMarker.contentIndentation;
-      if (!listMarker.hasContent) {
-        break;
-      }
+      quoteDepth += nestedQuote.depth;
+      contentBase = nestedQuote.contentColumn;
+      contentIndentation = nestedQuote.indentation;
     }
     projected.push(
       blank ? "" : line.slice(contentIndentation.index),

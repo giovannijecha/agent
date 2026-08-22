@@ -436,16 +436,24 @@ test("stops list fences at an unindented continuation", () => {
 });
 
 test("ignores fenced HTML after nested list markers", () => {
-  const context = currentContext();
-  context.files["README.md"] += [
-    "- - ```html",
-    '    <img src="docs/missing.md">',
-    "    ```",
-    "",
-  ].join("\n");
-  validateDocumentation(context, {
-    expectedLicenseDigest: licenseDigest,
-  });
+  for (const fence of [
+    [
+      "- - ```html",
+      '    <img src="docs/missing.md">',
+      "    ```",
+    ],
+    [
+      "- > ```html",
+      '  > <img src="docs/missing.md">',
+      "  > ```",
+    ],
+  ]) {
+    const context = currentContext();
+    context.files["README.md"] += [...fence, ""].join("\n");
+    validateDocumentation(context, {
+      expectedLicenseDigest: licenseDigest,
+    });
+  }
 });
 
 test("validates escaped reference destinations", () => {
@@ -495,6 +503,28 @@ test("validates reference definitions after list markers", () => {
   );
 });
 
+test("validates reference definitions after alternating containers", () => {
+  for (const definition of [
+    "- > [target]: docs/missing.md",
+    "> - > [target]: docs/missing.md",
+  ]) {
+    const context = currentContext();
+    context.files["README.md"] += [
+      definition,
+      "",
+      "[Missing][target]",
+      "",
+    ].join("\n");
+    assert.throws(
+      () =>
+        validateDocumentation(context, {
+          expectedLicenseDigest: licenseDigest,
+        }),
+      /broken local link/u,
+    );
+  }
+});
+
 test("validates reference destinations on the following line", () => {
   for (const definition of [
     ["[target]:", "  docs/missing.md"],
@@ -522,6 +552,19 @@ test("decodes Markdown escapes in local destinations", () => {
   const context = currentContext();
   context.files["README.md"] +=
     "[Engineering](docs/ENGINEERING\\.md)\n";
+  validateDocumentation(context, {
+    expectedLicenseDigest: licenseDigest,
+  });
+});
+
+test("decodes character references in local destinations", () => {
+  const context = currentContext();
+  context.files["README.md"] += [
+    "[Decimal](docs/ENGINEERING&#46;md)",
+    "[Hexadecimal](docs/ENGINEERING&#x2e;md)",
+    "[Named](docs&sol;ENGINEERING&period;md)",
+    "",
+  ].join("\n");
   validateDocumentation(context, {
     expectedLicenseDigest: licenseDigest,
   });
@@ -558,6 +601,8 @@ test("recognizes heading anchors inside Markdown containers", () => {
     "> - Nested Setext heading",
     ">   ---------------------",
     "",
+    "- > # Alternating heading",
+    "",
   ].join("\n");
   context.files["README.md"] += [
     "[Quoted ATX](PRIVACY.md#quoted-atx-heading)",
@@ -565,6 +610,7 @@ test("recognizes heading anchors inside Markdown containers", () => {
     "[Listed ATX](PRIVACY.md#listed-atx-heading)",
     "[Listed Setext](PRIVACY.md#listed-setext-heading)",
     "[Nested Setext](PRIVACY.md#nested-setext-heading)",
+    "[Alternating](PRIVACY.md#alternating-heading)",
     "",
   ].join("\n");
   validateDocumentation(context, {
