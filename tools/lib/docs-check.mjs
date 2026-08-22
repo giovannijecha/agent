@@ -2276,7 +2276,11 @@ function rawTextElementEnd(
       return end;
     }
     const boundary = markdown.at(closing + marker.length);
-    if (boundary === ">" || isHtmlWhitespace(boundary)) {
+    if (
+      boundary === ">" ||
+      boundary === "/" ||
+      isHtmlWhitespace(boundary)
+    ) {
       const tagEnd = markdown.indexOf(">", closing + marker.length);
       return tagEnd === -1 || tagEnd >= end ? end : tagEnd + 1;
     }
@@ -2881,6 +2885,9 @@ function htmlUrlAttributeKind(tag, attribute) {
     return /^(?:a|area|base|link)$/u.test(element) ? "single" : undefined;
   }
   if (attribute === "src") {
+    if (element === "iframe" && hasHtmlAttribute(tag, "srcdoc")) {
+      return undefined;
+    }
     if (element === "input") {
       return htmlInputType(tag) === "image" ? "single" : undefined;
     }

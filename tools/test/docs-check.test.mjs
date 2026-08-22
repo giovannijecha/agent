@@ -948,6 +948,24 @@ test("validates bounded iframe srcdoc with isolated anchors", () => {
       }),
     /srcdoc nesting/u,
   );
+
+  for (const markup of [
+    '<iframe src="docs/missing.html" srcdoc="<p>ok</p>"></iframe>',
+    '<iframe src="docs/missing.html" srcdoc=""></iframe>',
+    '<iframe src="docs/missing.html" srcdoc></iframe>',
+    '<iframe srcdoc srcdoc="<img src=\'docs/missing.md\'>" ' +
+      'src="docs/missing.html"></iframe>',
+  ]) {
+    const srcdocPrecedence = currentContext();
+    srcdocPrecedence.files["README.md"] += markup + "\n";
+    assert.doesNotThrow(
+      () =>
+        validateDocumentation(srcdocPrecedence, {
+          expectedLicenseDigest: licenseDigest,
+        }),
+      markup,
+    );
+  }
 });
 
 test("uses the first effective input type for image source admission", () => {
@@ -1376,6 +1394,35 @@ test("ignores apparent HTML tags inside raw-text elements", () => {
         validateDocumentation(context, {
           expectedLicenseDigest: licenseDigest,
         }),
+      element,
+    );
+  }
+});
+
+test("recognizes slash-terminated raw-text end tags", () => {
+  for (const element of [
+    "iframe",
+    "noembed",
+    "noframes",
+    "script",
+    "style",
+    "textarea",
+    "title",
+    "xmp",
+  ]) {
+    const context = currentContext();
+    context.files["README.md"] += [
+      "<" + element + ">",
+      "</" + element + "/>",
+      '<img src="docs/missing.md">',
+      "",
+    ].join("\n");
+    assert.throws(
+      () =>
+        validateDocumentation(context, {
+          expectedLicenseDigest: licenseDigest,
+        }),
+      /broken local link/u,
       element,
     );
   }
