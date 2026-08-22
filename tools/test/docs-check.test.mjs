@@ -895,6 +895,70 @@ test("rejects targets in effective URL-list HTML attributes", () => {
   }
 });
 
+test("validates only parsed srcset candidates", () => {
+  for (const descriptor of [
+    "2q",
+    "0w",
+    "-1x",
+    "1w 2x",
+    "1h",
+    "1x 2x",
+    "1w 2w",
+    "(future)",
+    "2X",
+    "1.0w",
+    "1.x",
+  ]) {
+    const inert = currentContext();
+    inert.files["README.md"] +=
+      '<img srcset="docs/not-real.md ' + descriptor + '">\n';
+    validateDocumentation(inert, {
+      expectedLicenseDigest: licenseDigest,
+    });
+  }
+
+  for (const descriptor of ["", "1w", "1x", "0x", ".5x", "1e2x",
+    "100w 200h"]) {
+    const active = currentContext();
+    active.files["README.md"] +=
+      '<img srcset="docs/missing.md' +
+      (descriptor.length === 0 ? "" : " " + descriptor) + '">\n';
+    assert.throws(
+      () =>
+        validateDocumentation(active, {
+          expectedLicenseDigest: licenseDigest,
+        }),
+      /broken local link/u,
+      descriptor,
+    );
+  }
+
+  for (const srcset of [
+    "README.md, docs/missing.md 2x",
+    "README.md,, docs/missing.md 2x",
+    "docs/not-real.md 2q, docs/missing.md 1x",
+  ]) {
+    const nextCandidate = currentContext();
+    nextCandidate.files["README.md"] +=
+      '<img srcset="' + srcset + '">\n';
+    assert.throws(
+      () =>
+        validateDocumentation(nextCandidate, {
+          expectedLicenseDigest: licenseDigest,
+        }),
+      /broken local link/u,
+      srcset,
+    );
+  }
+
+  const invalidSecond = currentContext();
+  invalidSecond.files["README.md"] +=
+    '<img srcset="README.md 1x, docs/not-real.md 2q">\n';
+  validateDocumentation(invalidSecond, {
+    expectedLicenseDigest: licenseDigest,
+  });
+});
+
 test("ignores Markdown-like text inside HTML attributes", () => {
   const context = currentContext();
   context.files["README.md"] +=

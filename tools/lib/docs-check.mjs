@@ -2588,38 +2588,137 @@ function headingAnchors(text) {
   return anchors;
 }
 
+function isPositiveSrcsetInteger(value) {
+  return /^[0-9]+$/u.test(value) && /[1-9]/u.test(value);
+}
+
+function isSrcsetDensity(value) {
+  if (
+    !/^-?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$/u.test(
+      value,
+    )
+  ) {
+    return false;
+  }
+  return Number(value) >= 0;
+}
+
+function validSrcsetDescriptors(descriptors) {
+  let hasWidth = false;
+  let hasDensity = false;
+  let hasFutureHeight = false;
+  for (const descriptor of descriptors) {
+    const value = descriptor.slice(0, -1);
+    if (descriptor.endsWith("w") && isPositiveSrcsetInteger(value)) {
+      if (hasWidth || hasDensity) {
+        return false;
+      }
+      hasWidth = true;
+    } else if (descriptor.endsWith("x") && isSrcsetDensity(value)) {
+      if (hasWidth || hasDensity || hasFutureHeight) {
+        return false;
+      }
+      hasDensity = true;
+    } else if (
+      descriptor.endsWith("h") &&
+      isPositiveSrcsetInteger(value)
+    ) {
+      if (hasDensity || hasFutureHeight) {
+        return false;
+      }
+      hasFutureHeight = true;
+    } else {
+      return false;
+    }
+  }
+  return !hasFutureHeight || hasWidth;
+}
+
+function srcsetDescriptorTokens(value, start) {
+  const descriptors = [];
+  let cursor = start;
+  let current = "";
+  let state = "descriptor";
+  while (true) {
+    const character = value.at(cursor);
+    if (character === undefined) {
+      if (current.length > 0) {
+        descriptors.push(current);
+      }
+      return Object.freeze({ cursor, descriptors });
+    }
+    if (state === "in-parentheses") {
+      current += character;
+      cursor += 1;
+      if (character === ")") {
+        state = "descriptor";
+      }
+      continue;
+    }
+    if (state === "after-descriptor") {
+      if (isHtmlWhitespace(character)) {
+        cursor += 1;
+        continue;
+      }
+      state = "descriptor";
+      continue;
+    }
+    if (isHtmlWhitespace(character)) {
+      if (current.length > 0) {
+        descriptors.push(current);
+        current = "";
+        state = "after-descriptor";
+      }
+      cursor += 1;
+    } else if (character === ",") {
+      if (current.length > 0) {
+        descriptors.push(current);
+      }
+      return Object.freeze({ cursor: cursor + 1, descriptors });
+    } else {
+      current += character;
+      cursor += 1;
+      if (character === "(") {
+        state = "in-parentheses";
+      }
+    }
+  }
+}
+
 function srcsetTargets(value) {
   const targets = [];
   let cursor = 0;
   while (cursor < value.length) {
-    while (/[,\t\n\f\r ]/u.test(value.at(cursor) ?? "")) {
+    while (
+      cursor < value.length &&
+      (value.at(cursor) === "," || isHtmlWhitespace(value.at(cursor)))
+    ) {
       cursor += 1;
     }
     const start = cursor;
     while (
       cursor < value.length &&
-      !/[\t\n\f\r ]/u.test(value.at(cursor))
+      !isHtmlWhitespace(value.at(cursor))
     ) {
       cursor += 1;
     }
     let target = value.slice(start, cursor);
-    while (target.endsWith(",")) {
-      target = target.slice(0, -1);
+    if (target.length === 0) {
+      continue;
     }
-    if (target.length > 0) {
-      targets.push(target);
-    }
-    let parenthesisDepth = 0;
-    while (cursor < value.length) {
-      const character = value.at(cursor);
-      cursor += 1;
-      if (character === "(") {
-        parenthesisDepth += 1;
-      } else if (character === ")" && parenthesisDepth > 0) {
-        parenthesisDepth -= 1;
-      } else if (character === "," && parenthesisDepth === 0) {
-        break;
+    if (target.endsWith(",")) {
+      while (target.endsWith(",")) {
+        target = target.slice(0, -1);
       }
+      if (target.length > 0) {
+        targets.push(target);
+      }
+      continue;
+    }
+    const parsed = srcsetDescriptorTokens(value, cursor);
+    cursor = parsed.cursor;
+    if (validSrcsetDescriptors(parsed.descriptors)) {
+      targets.push(target);
     }
   }
   return targets;
