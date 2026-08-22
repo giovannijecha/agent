@@ -2261,6 +2261,7 @@ function htmlNonTagEnd(markdown, opening, end) {
 
 function htmlNonTagRange(start, end) {
   return Object.freeze({
+    attributeNames: Object.freeze([]),
     attributes: Object.freeze([]),
     end,
     name: "",
@@ -2426,6 +2427,7 @@ function htmlTags(markdown, blockBounded = true) {
     }
     if (complete) {
       tags.push(Object.freeze({
+        attributeNames: Object.freeze([...seenAttributeNames]),
         attributes: Object.freeze(tagAttributes),
         end: cursor,
         name: tagName,
@@ -2625,16 +2627,92 @@ function srcsetTargets(value) {
   return targets;
 }
 
-function ownsHtmlUrlAttribute(element, attribute) {
+function htmlAttributeValue(tag, name) {
+  for (const attribute of tag.attributes) {
+    if (attribute.name === name) {
+      return decodeHtmlAttributeCharacterReferences(attribute.value);
+    }
+  }
+  return undefined;
+}
+
+function hasHtmlAttribute(tag, name) {
+  return tag.attributeNames.includes(name);
+}
+
+function htmlAttributeHasToken(tag, name, expected) {
+  const value = htmlAttributeValue(tag, name);
+  if (value === undefined) {
+    return false;
+  }
+  return value
+    .toLowerCase()
+    .split(/[\t\n\f\r ]+/u)
+    .includes(expected);
+}
+
+function htmlInputType(tag) {
+  return (htmlAttributeValue(tag, "type") ?? "text").toLowerCase();
+}
+
+function isHtmlSubmitButton(tag) {
+  const type = htmlAttributeValue(tag, "type")?.toLowerCase();
+  if (tag.name === "input") {
+    return type === "image" || type === "submit";
+  }
+  return tag.name === "button" && type !== "button" && type !== "reset";
+}
+
+function htmlUrlAttributeKind(tag, attribute) {
+  const element = tag.name;
   if (attribute === "href") {
-    return /^(?:a|area|base|link)$/u.test(element);
+    return /^(?:a|area|base|link)$/u.test(element) ? "single" : undefined;
   }
   if (attribute === "src") {
-    return /^(?:audio|embed|iframe|img|input|script|source|track|video)$/u.test(
+    if (element === "input") {
+      return htmlInputType(tag) === "image" ? "single" : undefined;
+    }
+    return /^(?:audio|embed|iframe|img|script|source|track|video)$/u.test(
       element,
-    );
+    )
+      ? "single"
+      : undefined;
   }
-  return attribute === "srcset" && /^(?:img|source)$/u.test(element);
+  if (attribute === "srcset") {
+    return /^(?:img|source)$/u.test(element) ? "srcset" : undefined;
+  }
+  if (attribute === "poster") {
+    return element === "video" ? "single" : undefined;
+  }
+  if (attribute === "data") {
+    return element === "object" ? "single" : undefined;
+  }
+  if (attribute === "cite") {
+    return /^(?:blockquote|del|ins|q)$/u.test(element) ? "single" : undefined;
+  }
+  if (attribute === "action") {
+    return element === "form" ? "single" : undefined;
+  }
+  if (attribute === "formaction") {
+    return isHtmlSubmitButton(tag) ? "single" : undefined;
+  }
+  if (attribute === "ping") {
+    return /^(?:a|area)$/u.test(element) && hasHtmlAttribute(tag, "href")
+      ? "space-separated"
+      : undefined;
+  }
+  if (attribute === "imagesrcset") {
+    return element === "link" &&
+        htmlAttributeHasToken(tag, "rel", "preload") &&
+        htmlAttributeValue(tag, "as")?.toLowerCase() === "image"
+      ? "srcset"
+      : undefined;
+  }
+  return undefined;
+}
+
+function spaceSeparatedTargets(value) {
+  return value.split(/[\t\n\f\r ]+/u).filter((target) => target.length > 0);
 }
 
 function localTargets(text) {
@@ -2658,18 +2736,19 @@ function localTargets(text) {
   for (const tag of tags) {
     for (const attribute of tag.attributes) {
       const { name, value } = attribute;
-      if (!ownsHtmlUrlAttribute(tag.name, name)) {
+      const kind = htmlUrlAttributeKind(tag, name);
+      if (kind === undefined) {
         continue;
       }
-      if (name !== "srcset") {
-        targets.push(decodeHtmlAttributeCharacterReferences(value));
+      const decoded = decodeHtmlAttributeCharacterReferences(value);
+      if (kind === "single") {
+        targets.push(decoded);
         continue;
       }
-      for (
-        const target of srcsetTargets(
-          decodeHtmlAttributeCharacterReferences(value),
-        )
-      ) {
+      const candidates = kind === "srcset"
+        ? srcsetTargets(decoded)
+        : spaceSeparatedTargets(decoded);
+      for (const target of candidates) {
         targets.push(target);
       }
     }

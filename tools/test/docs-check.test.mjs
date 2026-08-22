@@ -727,53 +727,146 @@ test("honors first-wins duplicate HTML attributes", () => {
   );
 });
 
-test("filters URL attributes by their owning HTML elements", () => {
+test("ignores URL attributes outside their effective HTML semantics", () => {
   const inert = currentContext();
-  inert.files["README.md"] +=
+  inert.files["README.md"] += [
     '<span href="docs/missing.md" src="docs/missing.md" ' +
-    'srcset="docs/missing.md 1x">Text</span>\n';
+      'srcset="docs/missing.md 1x">Text</span>',
+    '<input type="text" src="docs/missing.md">',
+    '<input src="docs/missing.md" type="text">',
+    '<input src="docs/missing.md">',
+    '<input type="text" type="image" src="docs/missing.md">',
+    '<input type type="image" src="docs/missing.md">',
+    '<button type="button" formaction="docs/missing.md">Text</button>',
+    '<button type="reset" formaction="docs/missing.md">Text</button>',
+    '<input type="text" formaction="docs/missing.md">',
+    '<a ping="docs/missing.md">Placeholder</a>',
+    '<link rel="stylesheet" as="image" ' +
+      'imagesrcset="docs/missing.md 1x">',
+    '<link rel="preload" as="script" ' +
+      'imagesrcset="docs/missing.md 1x">',
+    '<link rel="stylesheet" rel="preload" as="image" ' +
+      'imagesrcset="docs/missing.md 1x">',
+    '<link rel="preload" as="script" as="image" ' +
+      'imagesrcset="docs/missing.md 1x">',
+    "",
+  ].join("\n");
   validateDocumentation(inert, {
     expectedLicenseDigest: licenseDigest,
   });
+});
 
-  for (const [element, attribute, prefix] of [
+test("rejects targets in effective single-URL HTML attributes", () => {
+  for (const [label, markup] of [
     ...["a", "area", "base", "link"].map((element) => [
-      element,
-      "href",
-      "",
+      element + "[href]",
+      "<" + element + ' href="docs/missing.md"></' + element + ">",
     ]),
-    ...[
-      "audio",
-      "embed",
-      "iframe",
-      "img",
-      "input",
-      "script",
-      "source",
-      "track",
-      "video",
-    ].map((element) => [
-      element,
-      "src",
-      element === "input" ? 'type="image" ' : "",
+    ...["audio", "embed", "iframe", "img", "script", "source", "track",
+      "video"].map((element) => [
+      element + "[src]",
+      "<" + element + ' src="docs/missing.md"></' + element + ">",
     ]),
-    ...["img", "source"].map((element) => [
-      element,
-      "srcset",
-      "",
+    [
+      "input[type=image][src]",
+      '<input type="image" src="docs/missing.md">',
+    ],
+    ["video[poster]", '<video poster="docs/missing.md"></video>'],
+    ["object[data]", '<object data="docs/missing.md"></object>'],
+    ...["blockquote", "del", "ins", "q"].map((element) => [
+      element + "[cite]",
+      "<" + element + ' cite="docs/missing.md"></' + element + ">",
     ]),
+    ["form[action]", '<form action="docs/missing.md"></form>'],
+    [
+      "button default [formaction]",
+      '<button formaction="docs/missing.md">Submit</button>',
+    ],
+    [
+      "button[type=submit][formaction]",
+      '<button type="submit" formaction="docs/missing.md">Submit</button>',
+    ],
+    [
+      "input[type=submit][formaction]",
+      '<input type="submit" formaction="docs/missing.md">',
+    ],
+    [
+      "input[type=image][formaction]",
+      '<input type="image" formaction="docs/missing.md">',
+    ],
   ]) {
     const active = currentContext();
-    active.files["README.md"] +=
-      "<" + element + " " + prefix + attribute +
-      '="docs/missing.md"></' + element + ">\n";
+    active.files["README.md"] += markup + "\n";
     assert.throws(
       () =>
         validateDocumentation(active, {
           expectedLicenseDigest: licenseDigest,
         }),
       /broken local link/u,
-      element + "[" + attribute + "]",
+      label,
+    );
+  }
+});
+
+test("uses the first effective input type for image source admission", () => {
+  for (const markup of [
+    '<input type="ImAgE" src="docs/missing.md">',
+    '<input type="im&#97;ge" src="docs/missing.md">',
+    '<input src="docs/missing.md" type="image">',
+    '<input type="image" type="text" src="docs/missing.md">',
+  ]) {
+    const context = currentContext();
+    context.files["README.md"] += markup + "\n";
+    assert.throws(
+      () =>
+        validateDocumentation(context, {
+          expectedLicenseDigest: licenseDigest,
+        }),
+      /broken local link/u,
+      markup,
+    );
+  }
+});
+
+test("rejects targets in effective URL-list HTML attributes", () => {
+  for (const [label, markup] of [
+    ["img[srcset]", '<img srcset="README.md 1x, docs/missing.md 2x">'],
+    [
+      "source[srcset]",
+      '<source srcset="README.md 1x, docs/missing.md 2x">',
+    ],
+    [
+      "link[imagesrcset]",
+      '<link rel="preload" as="image" ' +
+        'imagesrcset="README.md 1x, docs/missing.md 2x">',
+    ],
+    [
+      "link[imagesrcset] before conditions",
+      '<link imagesrcset="README.md 1x, docs/missing.md 2x" ' +
+        'rel="pre&#108;oad" as="IMAGE">',
+    ],
+    [
+      "a[ping]",
+      '<a href="README.md" ping="README.md docs/missing.md">Home</a>',
+    ],
+    [
+      "area[ping]",
+      '<area href="README.md" ping="README.md docs/missing.md">',
+    ],
+    [
+      "a[ping] before valueless href",
+      '<a ping="README.md&#32;docs/missing.md" href>Home</a>',
+    ],
+  ]) {
+    const context = currentContext();
+    context.files["README.md"] += markup + "\n";
+    assert.throws(
+      () =>
+        validateDocumentation(context, {
+          expectedLicenseDigest: licenseDigest,
+        }),
+      /broken local link/u,
+      label,
     );
   }
 });
