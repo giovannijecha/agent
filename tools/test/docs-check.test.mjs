@@ -1460,6 +1460,98 @@ test("validates multiline reference-definition titles", () => {
   });
 });
 
+test("keeps block-like lines inside open reference titles", () => {
+  const blockLikeTitle = currentContext();
+  blockLikeTitle.files["README.md"] += [
+    "[use][ref]",
+    "",
+    '[ref]: docs/missing.md "title',
+    '# continued"',
+    "",
+  ].join("\n");
+  assert.throws(
+    () =>
+      validateDocumentation(blockLikeTitle, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+
+  const maskedHeading = currentContext();
+  maskedHeading.files["PRIVACY.md"] += [
+    '[ref]: README.md "title',
+    '# hidden"',
+    "",
+  ].join("\n");
+  maskedHeading.files["README.md"] +=
+    "[Hidden](PRIVACY.md#hidden)\n";
+  assert.throws(
+    () =>
+      validateDocumentation(maskedHeading, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /fragment/u,
+  );
+
+  const deepContinuation = currentContext();
+  deepContinuation.files["README.md"] += [
+    "[use][ref]",
+    "",
+    "[ref]:",
+    "          docs/missing.md",
+    "               'title'",
+    "",
+  ].join("\n");
+  assert.throws(
+    () =>
+      validateDocumentation(deepContinuation, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+});
+
+test("parses and masks multiline reference-definition labels", () => {
+  for (const definition of [
+    ["[foo", "bar]: docs/missing.md"],
+    ["[", "foo", "]: docs/missing.md"],
+  ]) {
+    const context = currentContext();
+    context.files["README.md"] += [
+      "[use][foo bar]",
+      "[use][foo]",
+      "",
+      ...definition,
+      "",
+    ].join("\n");
+    assert.throws(
+      () =>
+        validateDocumentation(context, {
+          expectedLicenseDigest: licenseDigest,
+        }),
+      /broken local link/u,
+      definition.join("\n"),
+    );
+  }
+
+  const maskedHeading = currentContext();
+  maskedHeading.files["PRIVACY.md"] += [
+    "[foo",
+    "# hidden",
+    "]: README.md",
+    "",
+  ].join("\n");
+  maskedHeading.files["README.md"] +=
+    "[Hidden](PRIVACY.md#hidden)\n";
+  assert.throws(
+    () =>
+      validateDocumentation(maskedHeading, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /fragment/u,
+  );
+});
+
 test("keeps reference continuations in their Markdown container", () => {
   const context = currentContext();
   context.files["README.md"] += [

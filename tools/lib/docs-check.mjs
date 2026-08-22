@@ -1464,10 +1464,9 @@ function horizontalWhitespaceEnd(markdown, start) {
   return cursor;
 }
 
-function titleEnd(markdown, opening) {
+function delimitedTitleEnd(markdown, opening, end) {
   const marker = markdown.at(opening);
   const closingMarker = marker === "(" ? ")" : marker;
-  const end = paragraphEnd(markdown, opening + 1);
   for (let cursor = opening + 1; cursor < end; cursor += 1) {
     if (isEscaped(markdown, cursor)) {
       continue;
@@ -1481,6 +1480,14 @@ function titleEnd(markdown, opening) {
     }
   }
   return undefined;
+}
+
+function titleEnd(markdown, opening) {
+  return delimitedTitleEnd(
+    markdown,
+    opening,
+    paragraphEnd(markdown, opening + 1),
+  );
 }
 
 function bareDestinationEnd(
@@ -1904,21 +1911,61 @@ function referenceTitleSpan(lines, startOffset, opening) {
   const titleLines = [];
   for (let offset = startOffset; offset < lines.length; offset += 1) {
     const line = lines.at(offset);
-    const indentation = indentationAt(line, 0, 0);
-    if (indentation.column > 3 || /^[ \t]*\r?$/u.test(line)) {
+    if (/^[ \t]*\r?$/u.test(line)) {
       return undefined;
     }
     titleLines.push(
       offset === startOffset ? line.slice(opening) : line,
     );
     const title = titleLines.join("\n");
-    const afterTitle = titleEnd(title, 0);
+    const afterTitle = delimitedTitleEnd(title, 0, title.length);
     if (afterTitle === undefined) {
       continue;
     }
     return horizontalWhitespaceEnd(title, afterTitle) === title.length
       ? offset - startOffset + 1
       : undefined;
+  }
+  return undefined;
+}
+
+function referenceDefinitionLabel(lines, opening) {
+  const parts = [];
+  let length = 0;
+  for (let offset = 0; offset < lines.length; offset += 1) {
+    const line = lines.at(offset);
+    const start = offset === 0 ? opening + 1 : 0;
+    for (let cursor = start; cursor < line.length; cursor += 1) {
+      const character = line.at(cursor);
+      if (!isEscaped(line, cursor) && character === "[") {
+        return undefined;
+      }
+      if (!isEscaped(line, cursor) && character === "]") {
+        if (line.at(cursor + 1) !== ":") {
+          return undefined;
+        }
+        parts.push(line.slice(start, cursor));
+        const label = normalizedReferenceLabel(parts.join("\n"));
+        return label.length === 0
+          ? undefined
+          : Object.freeze({
+            cursor: cursor + 2,
+            label,
+            lineOffset: offset,
+          });
+      }
+      length += 1;
+      if (length > 999) {
+        return undefined;
+      }
+    }
+    parts.push(line.slice(start));
+    if (offset + 1 < lines.length) {
+      length += 1;
+      if (length > 999) {
+        return undefined;
+      }
+    }
   }
   return undefined;
 }
@@ -1931,35 +1978,32 @@ function referenceDefinition(line, continuations) {
   ) {
     return undefined;
   }
-  const closingLabel = referenceLabelEnd(line, indentation.index);
-  if (closingLabel === undefined || line.at(closingLabel + 1) !== ":") {
-    return undefined;
-  }
   if (line.at(indentation.index + 1) === "^") {
     return undefined;
   }
-  const label = normalizedReferenceLabel(
-    line.slice(indentation.index + 1, closingLabel),
+  const lines = [line, ...continuations];
+  const definitionLabel = referenceDefinitionLabel(
+    lines,
+    indentation.index,
   );
-  if (label.length === 0) {
+  if (definitionLabel === undefined) {
     return undefined;
   }
 
-  const lines = [line, ...continuations];
-  let destinationLine = line;
-  let destinationOffset = 0;
-  let cursor = horizontalWhitespaceEnd(line, closingLabel + 2);
-  if (cursor === line.length) {
-    destinationLine = lines.at(1);
+  const label = definitionLabel.label;
+  let destinationOffset = definitionLabel.lineOffset;
+  let destinationLine = lines.at(destinationOffset);
+  let cursor = horizontalWhitespaceEnd(
+    destinationLine,
+    definitionLabel.cursor,
+  );
+  if (cursor === destinationLine.length) {
+    destinationOffset += 1;
+    destinationLine = lines.at(destinationOffset);
     if (destinationLine === undefined) {
       return undefined;
     }
-    const continuationIndentation = indentationAt(destinationLine, 0, 0);
-    if (continuationIndentation.column > 3) {
-      return undefined;
-    }
-    destinationOffset = 1;
-    cursor = continuationIndentation.index;
+    cursor = horizontalWhitespaceEnd(destinationLine, 0);
   }
   const destinationStart = cursor;
   let target;
@@ -2006,16 +2050,15 @@ function referenceDefinition(line, continuations) {
     const titleOffset = destinationOffset + 1;
     const titleLine = lines.at(titleOffset);
     if (titleLine !== undefined) {
-      const titleIndentation = indentationAt(titleLine, 0, 0);
-      const titleMarker = titleLine.at(titleIndentation.index);
+      const titleOpening = horizontalWhitespaceEnd(titleLine, 0);
+      const titleMarker = titleLine.at(titleOpening);
       if (
-        titleIndentation.column <= 3 &&
         (titleMarker === '"' || titleMarker === "'" || titleMarker === "(")
       ) {
         const titleSpan = referenceTitleSpan(
           lines,
           titleOffset,
-          titleIndentation.index,
+          titleOpening,
         );
         if (titleSpan !== undefined) {
           return Object.freeze({
