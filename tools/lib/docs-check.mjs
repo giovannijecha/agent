@@ -969,7 +969,7 @@ function withoutRawHtmlBlocks(markdown) {
   return rendered.join("\n");
 }
 
-function withoutHtmlComments(markdown) {
+function withoutHtmlComments(markdown, preserveColumns = true) {
   const rendered = [];
   let retainedFrom = 0;
   let searchFrom = 0;
@@ -985,7 +985,12 @@ function withoutHtmlComments(markdown) {
     const closing = markdown.indexOf("-->", opening + 4);
     const end = closing === -1 ? markdown.length : closing + 3;
     rendered.push(markdown.slice(retainedFrom, opening));
-    rendered.push(maskedLiteral(markdown.slice(opening, end)));
+    const comment = markdown.slice(opening, end);
+    rendered.push(
+      preserveColumns
+        ? maskedLiteral(comment)
+        : comment.replaceAll(/[^\r\n]/gu, ""),
+    );
     retainedFrom = end;
     searchFrom = end;
   }
@@ -1239,12 +1244,20 @@ function activeInlineLinkCandidates(markdown, references) {
   }
   return candidates.filter(
     (candidate) =>
-      candidate.image ||
       !candidates.some(
-        (nested) =>
-          !nested.image &&
-          nested.opening > candidate.opening &&
-          nested.end <= candidate.labelEnd,
+        (image) =>
+          image.image &&
+          image.opening < candidate.opening &&
+          candidate.end <= image.labelEnd,
+      ) &&
+      (
+        candidate.image ||
+        !candidates.some(
+          (nested) =>
+            !nested.image &&
+            nested.opening > candidate.opening &&
+            nested.end <= candidate.labelEnd,
+        )
       ),
   );
 }
@@ -1726,15 +1739,12 @@ function htmlTags(markdown) {
       }
 
       const nameStart = cursor;
-      while (
-        cursor < markdown.length &&
-        !isHtmlWhitespace(markdown.at(cursor)) &&
-        !/[=/>]/u.test(markdown.at(cursor) ?? "")
-      ) {
-        cursor += 1;
-      }
-      if (cursor === nameStart) {
+      if (!/[A-Za-z_:]/u.test(markdown.at(cursor) ?? "")) {
         break;
+      }
+      cursor += 1;
+      while (/[A-Za-z0-9_.:-]/u.test(markdown.at(cursor) ?? "")) {
+        cursor += 1;
       }
       const name = markdown.slice(nameStart, cursor).toLowerCase();
       while (isHtmlWhitespace(markdown.at(cursor))) {
@@ -1757,6 +1767,7 @@ function htmlTags(markdown) {
           cursor = valueEnd + 1;
         } else {
           const valueStart = cursor;
+          let valid = true;
           while (
             cursor < markdown.length &&
             !isHtmlWhitespace(markdown.at(cursor)) &&
@@ -1766,7 +1777,14 @@ function htmlTags(markdown) {
               markdown.at(cursor + 1) === ">"
             )
           ) {
+            if (/["'=<`]/u.test(markdown.at(cursor))) {
+              valid = false;
+              break;
+            }
             cursor += 1;
+          }
+          if (!valid || cursor === valueStart) {
+            break;
           }
           value = markdown.slice(valueStart, cursor);
         }
@@ -1874,10 +1892,14 @@ function setextHeadings(projected) {
 
 function headingAnchors(text) {
   const markdown = renderedMarkdown(text);
-  const markdownContent = withoutHtmlComments(withoutRawHtmlBlocks(markdown));
+  const rawMarkdownContent = withoutRawHtmlBlocks(markdown);
+  const markdownContent = withoutHtmlComments(rawMarkdownContent);
   const definitions = referenceDefinitions(markdownContent);
   const headingProjection = containerProjectedLines(
-    withoutReferenceDefinitions(markdownContent, definitions),
+    withoutReferenceDefinitions(
+      withoutHtmlComments(rawMarkdownContent, false),
+      definitions,
+    ),
   );
   const headingMarkdown = headingProjection
     .map((line) => line.content)

@@ -133,6 +133,17 @@ test("rejects broken local links and decision-ledger references", () => {
     /broken local link/u,
   );
 
+  const invalidUnquoted = currentContext();
+  invalidUnquoted.files["README.md"] +=
+    "<span title=[inner](docs/missing.md)=x>\n";
+  assert.throws(
+    () =>
+      validateDocumentation(invalidUnquoted, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+
   for (const markdownLink of [
     "[Missing](docs/missing.md 'single title')",
     "[Missing](docs/missing.md (parenthesized title))",
@@ -992,6 +1003,17 @@ test("derives heading anchors from rendered link labels", () => {
   });
 });
 
+test("removes HTML comment bytes from heading anchors", () => {
+  const context = currentContext();
+  context.files["PRIVACY.md"] +=
+    "## Evaluation <!-- note --> data\n";
+  context.files["README.md"] +=
+    "[Evaluation](PRIVACY.md#evaluation--data)\n";
+  validateDocumentation(context, {
+    expectedLicenseDigest: licenseDigest,
+  });
+});
+
 test("preserves inactive outer link syntax in heading anchors", () => {
   const context = currentContext();
   context.files["PRIVACY.md"] +=
@@ -1100,6 +1122,24 @@ test("recognizes nested reference links and images", () => {
   assert.throws(
     () =>
       validateDocumentation(activeOuter, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+
+  const imageDescription = currentContext();
+  imageDescription.files["README.md"] +=
+    "![outer [inner](docs/not-real.md)](README.md)\n";
+  validateDocumentation(imageDescription, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const missingImage = currentContext();
+  missingImage.files["README.md"] +=
+    "![outer [inner](README.md)](docs/not-real.md)\n";
+  assert.throws(
+    () =>
+      validateDocumentation(missingImage, {
         expectedLicenseDigest: licenseDigest,
       }),
     /broken local link/u,
