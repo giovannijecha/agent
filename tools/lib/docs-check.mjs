@@ -88,6 +88,11 @@ function localTargets(text) {
   for (const match of text.matchAll(markdownLinks)) {
     targets.push(match[1] ?? match[2]);
   }
+  const referenceDefinitions =
+    /^[ \t]{0,3}\[[^\]\r\n]+\]:[ \t]*(?:<([^>\r\n]+)>|([^\s]+))(?:[ \t]+(?:"[^"]*"|'[^']*'|\([^)]*\)))?[ \t]*$/gmu;
+  for (const match of text.matchAll(referenceDefinitions)) {
+    targets.push(match[1] ?? match[2]);
+  }
   const attributes =
     /(?:^|[\s<])(href|src|srcset)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/gimu;
   for (const match of text.matchAll(attributes)) {
