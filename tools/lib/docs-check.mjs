@@ -86,11 +86,16 @@ function localTargets(text) {
   for (const match of text.matchAll(/!?\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/gu)) {
     targets.push(match[1]);
   }
-  for (const match of text.matchAll(/\b(?:href|src)="([^"]+)"/gu)) {
-    targets.push(match[1]);
-  }
-  for (const match of text.matchAll(/\bsrcset="([^"]+)"/gu)) {
-    for (const candidate of match[1].split(",")) {
+  const attributes =
+    /(?:^|[\s<])(href|src|srcset)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/gimu;
+  for (const match of text.matchAll(attributes)) {
+    const name = match[1].toLowerCase();
+    const value = match[2] ?? match[3] ?? match[4];
+    if (name !== "srcset") {
+      targets.push(value);
+      continue;
+    }
+    for (const candidate of value.split(",")) {
       const target = candidate.trim().split(/\s+/u).at(0);
       if (target !== undefined && target.length > 0) {
         targets.push(target);

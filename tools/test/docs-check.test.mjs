@@ -93,6 +93,39 @@ test("rejects broken local links and decision-ledger references", () => {
     /broken local link/u,
   );
 
+  const singleQuoted = currentContext();
+  singleQuoted.files["README.md"] +=
+    "<img src='assets/brand/missing.png'>\n";
+  assert.throws(
+    () =>
+      validateDocumentation(singleQuoted, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+
+  const uppercase = currentContext();
+  uppercase.files["README.md"] +=
+    '<source SRCSET="assets/brand/missing.png 1x">\n';
+  assert.throws(
+    () =>
+      validateDocumentation(uppercase, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+
+  const unquoted = currentContext();
+  unquoted.files["README.md"] +=
+    "<img src=assets/brand/missing.png>\n";
+  assert.throws(
+    () =>
+      validateDocumentation(unquoted, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+
   const decision = currentContext();
   decision.files["docs/ARCHITECTURE.md"] +=
     "See docs/decisions/0042-example.md.\n";
