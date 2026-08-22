@@ -97,6 +97,10 @@ function headingSlug(text) {
     .replaceAll(/\s/gu, "-");
 }
 
+function maskedLiteral(text) {
+  return text.replaceAll(/[^\r\n]/gu, " ");
+}
+
 function renderedMarkdown(text) {
   const rendered = [];
   let fence;
@@ -126,7 +130,13 @@ function renderedMarkdown(text) {
     }
     rendered.push("");
   }
-  return rendered.join("\n");
+  return rendered
+    .join("\n")
+    .replaceAll(/<!--[\s\S]*?(?:-->|$)/gu, maskedLiteral);
+}
+
+function withoutCodeSpans(text) {
+  return text.replaceAll(/(?<!\\)(`+)[\s\S]*?\1/gu, maskedLiteral);
 }
 
 function headingAnchors(text) {
@@ -147,14 +157,14 @@ function headingAnchors(text) {
   }
   const identifiers =
     /(?:^|[\s<])(?:id|name)\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s"'=<>`]+))/gimu;
-  for (const match of markdown.matchAll(identifiers)) {
+  for (const match of withoutCodeSpans(markdown).matchAll(identifiers)) {
     anchors.add(match[1] ?? match[2] ?? match[3]);
   }
   return anchors;
 }
 
 function localTargets(text) {
-  const markdown = renderedMarkdown(text);
+  const markdown = withoutCodeSpans(renderedMarkdown(text));
   const targets = [];
   const markdownImages =
     /!\[(?:\\.|[^\[\]\\]|\[(?:\\.|[^\[\]\\])*\])*\]\(\s*(?:<([^>\r\n]+)>|([^\s)]+))(?:\s+(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\((?:\\.|[^)\\])*\)))?\s*\)/gu;
