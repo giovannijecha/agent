@@ -407,6 +407,47 @@ test("ignores fenced HTML inside block quotes", () => {
   });
 });
 
+test("stops list fences at an unindented continuation", () => {
+  const context = currentContext();
+  context.files["README.md"] += [
+    "- ```",
+    "[Missing](docs/missing.md)",
+    "```",
+    "",
+  ].join("\n");
+  assert.throws(
+    () =>
+      validateDocumentation(context, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+
+  const retainedFence = currentContext();
+  retainedFence.files["README.md"] += [
+    "- ```html",
+    '  <img src="docs/missing.md">',
+    "  ```",
+    "",
+  ].join("\n");
+  validateDocumentation(retainedFence, {
+    expectedLicenseDigest: licenseDigest,
+  });
+});
+
+test("validates escaped reference destinations", () => {
+  const context = currentContext();
+  context.files["README.md"] +=
+    "[target]: <docs/missing\\> file.md>\n";
+  assert.throws(
+    () =>
+      validateDocumentation(context, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+});
+
 test("validates links after deeply nested labels", () => {
   const context = currentContext();
   context.files["README.md"] += "[a [b [c]]](docs/missing.md)\n";

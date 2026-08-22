@@ -219,8 +219,16 @@ function renderedMarkdown(text) {
   for (const line of text.split("\n")) {
     if (fence !== undefined) {
       const quoted = blockQuoteContent(line, fence.quoteDepth);
-      if (quoted.depth === fence.quoteDepth) {
-        const fenceBase = quoted.contentColumn + fence.containerOffset;
+      const fenceBase = quoted.contentColumn + fence.containerOffset;
+      const blank = /^[ \t]*\r?$/u.test(line.slice(quoted.indentation.index));
+      if (
+        quoted.depth === fence.quoteDepth &&
+        (
+          fence.containerOffset === 0 ||
+          blank ||
+          quoted.indentation.column >= fenceBase
+        )
+      ) {
         if (closesFence(line, fence, fenceBase, quoted.indentation)) {
           fence = undefined;
         }
@@ -228,7 +236,6 @@ function renderedMarkdown(text) {
         continue;
       }
       fence = undefined;
-      listContainers.length = 0;
     }
 
     const quoted = blockQuoteContent(line);
@@ -478,6 +485,95 @@ function inlineTargets(markdown) {
   return targets;
 }
 
+function referenceTarget(line) {
+  const indentation = indentationAt(line, 0, 0);
+  if (
+    indentation.column > 3 ||
+    line.at(indentation.index) !== "["
+  ) {
+    return undefined;
+  }
+  const closingLabel = closingLabelIndex(line, indentation.index);
+  if (closingLabel === undefined || line.at(closingLabel + 1) !== ":") {
+    return undefined;
+  }
+
+  let cursor = whitespaceEnd(line, closingLabel + 2);
+  const destinationStart = cursor;
+  let target;
+  if (line.at(cursor) === "<") {
+    cursor += 1;
+    const targetStart = cursor;
+    while (
+      cursor < line.length &&
+      (line.at(cursor) !== ">" || isEscaped(line, cursor)) &&
+      !/[\r\n]/u.test(line.at(cursor) ?? "")
+    ) {
+      cursor += 1;
+    }
+    if (line.at(cursor) !== ">") {
+      return undefined;
+    }
+    target = line.slice(targetStart, cursor);
+    cursor += 1;
+  } else {
+    let depth = 0;
+    while (cursor < line.length) {
+      const character = line.at(cursor);
+      if (isEscaped(line, cursor)) {
+        cursor += 1;
+      } else if (character === "(") {
+        depth += 1;
+      } else if (character === ")") {
+        if (depth === 0) {
+          return undefined;
+        }
+        depth -= 1;
+      } else if (/\s/u.test(character ?? "")) {
+        break;
+      }
+      cursor += 1;
+    }
+    if (depth !== 0) {
+      return undefined;
+    }
+    target = line.slice(destinationStart, cursor);
+  }
+  if (target.length === 0) {
+    return undefined;
+  }
+
+  const afterDestination = cursor;
+  cursor = whitespaceEnd(line, cursor);
+  if (cursor === line.length) {
+    return target;
+  }
+  if (cursor === afterDestination) {
+    return undefined;
+  }
+  const titleMarker = line.at(cursor);
+  if (titleMarker !== '"' && titleMarker !== "'" && titleMarker !== "(") {
+    return undefined;
+  }
+  const afterTitle = titleEnd(line, cursor);
+  if (afterTitle === undefined) {
+    return undefined;
+  }
+  cursor = whitespaceEnd(line, afterTitle);
+  return cursor === line.length ? target : undefined;
+}
+
+function referenceTargets(markdown) {
+  const targets = [];
+  for (const line of markdown.split("\n")) {
+    const target = referenceTarget(line);
+    if (target !== undefined) {
+      targets.push(target);
+    }
+  }
+  return targets;
+}
+
 function isHtmlWhitespace(character) {
   return /[\t\n\f\r ]/u.test(character ?? "");
 }
@@ -614,11 +710,7 @@ function headingAnchors(text) {
 function localTargets(text) {
   const markdown = withoutCodeSpans(renderedMarkdown(text));
   const targets = inlineTargets(markdown);
-  const referenceDefinitions =
-    /^[ \t]{0,3}\[(?:\\.|[^\]\\\r\n])+\]:[ \t]*(?:<([^>\r\n]+)>|([^\s]+))(?:[ \t]+(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\((?:\\.|[^)\\])*\)))?[ \t]*$/gmu;
-  for (const match of markdown.matchAll(referenceDefinitions)) {
-    targets.push(match[1] ?? match[2]);
-  }
+  targets.push(...referenceTargets(markdown));
   for (const attribute of htmlAttributes(markdown)) {
     const { name, value } = attribute;
     if (name !== "href" && name !== "src" && name !== "srcset") {
