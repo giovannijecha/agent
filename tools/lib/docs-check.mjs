@@ -1829,9 +1829,9 @@ function setextParagraphLine(line) {
   );
 }
 
-function setextHeadings(markdown) {
+function setextHeadings(projected) {
   const headings = [];
-  const lines = markdown.split("\n");
+  const lines = projected.map((line) => line.content);
   const offsets = [];
   let offset = 0;
   for (const line of lines) {
@@ -1842,9 +1842,11 @@ function setextHeadings(markdown) {
     if (!/^[ \t]{0,3}(?:=+|-+)[ \t]*\r?$/u.test(lines.at(index))) {
       continue;
     }
+    const containerKey = projected.at(index).containerKey;
     let paragraphStart = index - 1;
     while (
       paragraphStart >= 0 &&
+      projected.at(paragraphStart).containerKey === containerKey &&
       setextParagraphLine(lines.at(paragraphStart))
     ) {
       paragraphStart -= 1;
@@ -1874,9 +1876,12 @@ function headingAnchors(text) {
   const markdown = renderedMarkdown(text);
   const markdownContent = withoutHtmlComments(withoutRawHtmlBlocks(markdown));
   const definitions = referenceDefinitions(markdownContent);
-  const headingMarkdown = containerProjectedMarkdown(
+  const headingProjection = containerProjectedLines(
     withoutReferenceDefinitions(markdownContent, definitions),
   );
+  const headingMarkdown = headingProjection
+    .map((line) => line.content)
+    .join("\n");
   const referenceLabels = new Set(
     definitions.map((definition) => definition.label),
   );
@@ -1889,7 +1894,7 @@ function headingAnchors(text) {
     const heading = (match[1] ?? "").replace(/[ \t]+#+[ \t]*$/u, "");
     headings.push(Object.freeze({ index: match.index, text: heading }));
   }
-  headings.push(...setextHeadings(headingMarkdown));
+  headings.push(...setextHeadings(headingProjection));
   headings.sort((left, right) => left.index - right.index);
   for (const heading of headings) {
     const base = headingSlug(

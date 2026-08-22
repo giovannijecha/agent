@@ -865,6 +865,37 @@ test("collects complete multiline Setext heading paragraphs", () => {
   });
 });
 
+test("keeps Setext heading paragraphs in one Markdown container", () => {
+  const admitted = currentContext();
+  admitted.files["PRIVACY.md"] += [
+    "- First line",
+    "- Second line",
+    "  -----------",
+    "",
+  ].join("\n");
+  admitted.files["README.md"] += "[Second](PRIVACY.md#second-line)\n";
+  validateDocumentation(admitted, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const rejected = currentContext();
+  rejected.files["PRIVACY.md"] += [
+    "- First line",
+    "- Second line",
+    "  -----------",
+    "",
+  ].join("\n");
+  rejected.files["README.md"] +=
+    "[Combined](PRIVACY.md#first-line-second-line)\n";
+  assert.throws(
+    () =>
+      validateDocumentation(rejected, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /fragment/u,
+  );
+});
+
 test("decodes character references in explicit anchors", () => {
   const context = currentContext();
   context.files["PRIVACY.md"] += '<a id="exact&#45;anchor"></a>\n';
