@@ -53,6 +53,17 @@ test("rejects missing and additional authority documents", () => {
   additional.files["docs/decisions/0001-example.md"] = "# Decision\n";
   additional.ownedPaths.push("docs/decisions/0001-example.md");
   assert.throws(() => validateDocumentation(additional), /decision ledger/u);
+
+  const lowercase = currentContext();
+  lowercase.files["docs/notes.md"] = "# Parallel authority\n";
+  lowercase.ownedPaths.push("docs/notes.md");
+  assert.throws(
+    () =>
+      validateDocumentation(lowercase, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /documentation inventory/u,
+  );
 });
 
 test("rejects broken local links and decision-ledger references", () => {

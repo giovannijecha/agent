@@ -41,8 +41,7 @@ function isAuthorityDocument(file) {
   return (
     /^[A-Z][A-Z-]*\.md$/u.test(file) ||
     file === "assets/brand/README.md" ||
-    /^docs\/[A-Z][A-Z-]*\.md$/u.test(file) ||
-    /^docs\/manual\/(?:README|[0-9]{2}-[a-z0-9-]+)\.md$/u.test(file) ||
+    /^docs\/.+\.md$/u.test(file) ||
     file === "evaluations/README.md"
   );
 }
