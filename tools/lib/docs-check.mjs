@@ -501,23 +501,14 @@ function preprocessHtmlUrl(value) {
     .replaceAll(/[\t\n\r]/gu, "");
 }
 
-function normalizeTarget(source, localTarget) {
-  const rawTarget = localTarget.value;
-  const renderedTarget = localTarget.syntax === "html"
-    ? preprocessHtmlUrl(rawTarget)
-    : decodeCharacterReferences(
-      rawTarget.replaceAll(
-        /\\([!"#$%&'()*+,\-./:;<=>?@\[\\\]^_`{|}~])/gu,
-        "$1",
-      ),
-    );
+function targetReference(source, renderedTarget) {
   const separator = renderedTarget.indexOf("#");
   const beforeFragment = separator === -1
     ? renderedTarget
     : renderedTarget.slice(0, separator);
   const withoutQuery = beforeFragment.split("?", 1)[0];
   if (/^https:\/\//iu.test(withoutQuery)) {
-    return undefined;
+    return Object.freeze({ external: true });
   }
   if (/^[a-z][a-z0-9+.-]*:/iu.test(withoutQuery)) {
     fail("forbidden link target in " + source);
@@ -536,18 +527,81 @@ function normalizeTarget(source, localTarget) {
   if (path.posix.isAbsolute(portableTarget)) {
     fail("forbidden link target in " + source);
   }
-  const normalized = portableTarget.length === 0
-    ? source
-    : path.posix.normalize(
-      path.posix.join(path.posix.dirname(source), portableTarget),
-    );
+  return Object.freeze({
+    external: false,
+    fragment,
+    path: portableTarget,
+  });
+}
+
+function normalizedRepositoryPath(source, directory, target) {
+  const normalized = path.posix.normalize(path.posix.join(directory, target));
   if (normalized === ".." || normalized.startsWith("../")) {
     fail("local link escaped the repository in " + source);
   }
+  return normalized;
+}
+
+function repositoryDocumentBase(source) {
   return Object.freeze({
-    fragment,
+    directory: path.posix.dirname(source),
+    external: false,
+    path: source,
+    scopeLocal: true,
+  });
+}
+
+function resolveHtmlBase(source, inherited, value) {
+  const reference = targetReference(source, preprocessHtmlUrl(value));
+  if (reference.external) {
+    return Object.freeze({ external: true });
+  }
+  if (inherited.external) {
+    return inherited;
+  }
+  if (reference.path.length === 0) {
+    return inherited;
+  }
+  const resolved = normalizedRepositoryPath(
+    source,
+    inherited.directory,
+    reference.path,
+  );
+  return Object.freeze({
+    directory: reference.path.endsWith("/")
+      ? resolved
+      : path.posix.dirname(resolved),
+    external: false,
+    path: resolved,
+    scopeLocal: false,
+  });
+}
+
+function normalizeTarget(source, localTarget) {
+  const rawTarget = localTarget.value;
+  const renderedTarget = localTarget.syntax === "html"
+    ? preprocessHtmlUrl(rawTarget)
+    : decodeCharacterReferences(
+      rawTarget.replaceAll(
+        /\\([!"#$%&'()*+,\-./:;<=>?@\[\\\]^_`{|}~])/gu,
+        "$1",
+      ),
+    );
+  const reference = targetReference(source, renderedTarget);
+  if (reference.external) {
+    return undefined;
+  }
+  const base = localTarget.base ?? repositoryDocumentBase(source);
+  if (base.external) {
+    return undefined;
+  }
+  const normalized = reference.path.length === 0
+    ? base.path
+    : normalizedRepositoryPath(source, base.directory, reference.path);
+  return Object.freeze({
+    fragment: reference.fragment,
     path: normalized,
-    sameDocument: withoutQuery.length === 0,
+    sameDocument: reference.path.length === 0 && base.scopeLocal,
   });
 }
 
@@ -2882,7 +2936,7 @@ function isHtmlSubmitButton(tag) {
 function htmlUrlAttributeKind(tag, attribute) {
   const element = tag.name;
   if (attribute === "href") {
-    return /^(?:a|area|base|link)$/u.test(element) ? "single" : undefined;
+    return /^(?:a|area|link)$/u.test(element) ? "single" : undefined;
   }
   if (attribute === "src") {
     if (element === "iframe" && hasHtmlAttribute(tag, "srcdoc")) {
@@ -2934,11 +2988,24 @@ function spaceSeparatedTargets(value) {
   return value.split(/[\t\n\f\r ]+/u).filter((target) => target.length > 0);
 }
 
-function htmlLocalTarget(value, fragmentScope) {
+function htmlDocumentBase(source, tags, inheritedBase) {
+  for (const tag of tags) {
+    if (tag.name === "base" && hasHtmlAttribute(tag, "href")) {
+      return resolveHtmlBase(
+        source,
+        inheritedBase,
+        htmlAttributeValue(tag, "href") ?? "",
+      );
+    }
+  }
+  return inheritedBase;
+}
+
+function htmlLocalTarget(value, fragmentScope, base) {
   return Object.freeze(
     fragmentScope === undefined
-      ? { syntax: "html", value }
-      : { fragmentScope, syntax: "html", value },
+      ? { base, syntax: "html", value }
+      : { base, fragmentScope, syntax: "html", value },
   );
 }
 
@@ -2947,7 +3014,10 @@ function appendHtmlLocalTargets(
   tags,
   srcdocDepth,
   fragmentScope,
+  source,
+  inheritedBase,
 ) {
+  const base = htmlDocumentBase(source, tags, inheritedBase);
   for (const tag of tags) {
     for (const attribute of tag.attributes) {
       const { name, value } = attribute;
@@ -2962,6 +3032,8 @@ function appendHtmlLocalTargets(
           nestedTags,
           srcdocDepth + 1,
           htmlAnchorValues(nestedTags),
+          source,
+          base,
         );
         continue;
       }
@@ -2970,20 +3042,20 @@ function appendHtmlLocalTargets(
         continue;
       }
       if (kind === "single") {
-        targets.push(htmlLocalTarget(decoded, fragmentScope));
+        targets.push(htmlLocalTarget(decoded, fragmentScope, base));
         continue;
       }
       const candidates = kind === "srcset"
         ? srcsetTargets(decoded)
         : spaceSeparatedTargets(decoded);
       for (const target of candidates) {
-        targets.push(htmlLocalTarget(target, fragmentScope));
+        targets.push(htmlLocalTarget(target, fragmentScope, base));
       }
     }
   }
 }
 
-function localTargets(text) {
+function localTargets(text, source) {
   const rendered = renderedMarkdown(text);
   const markdown = withoutCodeSpans(rendered, rawHtmlBlockBounds(rendered));
   const tags = htmlTags(withoutHtmlComments(markdown));
@@ -2991,6 +3063,8 @@ function localTargets(text) {
     withoutHtmlComments(withoutRawHtmlBlocks(markdown)),
     tags,
   );
+  const initialBase = repositoryDocumentBase(source);
+  const documentBase = htmlDocumentBase(source, tags, initialBase);
   const definitions = referenceDefinitions(markdownContent);
   const references = new Map();
   for (const definition of definitions) {
@@ -3001,8 +3075,15 @@ function localTargets(text) {
   const targets = inlineTargets(
     withoutReferenceDefinitions(markdownContent, definitions),
     references,
-  ).map((value) => Object.freeze({ syntax: "markdown", value }));
-  appendHtmlLocalTargets(targets, tags, 0, undefined);
+  ).map((value) => Object.freeze({ base: documentBase, syntax: "markdown", value }));
+  appendHtmlLocalTargets(
+    targets,
+    tags,
+    0,
+    undefined,
+    source,
+    initialBase,
+  );
   return targets;
 }
 
@@ -3061,7 +3142,7 @@ export function validateDocumentation(context, options = {}) {
     if (FORBIDDEN_AUTHORSHIP_PATTERNS.some((pattern) => pattern.test(text))) {
       fail("authorship claim is forbidden: " + file);
     }
-    for (const localTarget of localTargets(text)) {
+    for (const localTarget of localTargets(text, file)) {
       const rawTarget = localTarget.value;
       const target = normalizeTarget(file, localTarget);
       if (target === undefined) {

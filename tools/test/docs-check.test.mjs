@@ -820,7 +820,7 @@ test("ignores URL attributes outside their effective HTML semantics", () => {
 
 test("rejects targets in effective single-URL HTML attributes", () => {
   for (const [label, markup] of [
-    ...["a", "area", "base", "link"].map((element) => [
+    ...["a", "area", "link"].map((element) => [
       element + "[href]",
       "<" + element + ' href="docs/missing.md"></' + element + ">",
     ]),
@@ -878,6 +878,48 @@ test("preprocesses HTML URL whitespace before path validation", () => {
   validateDocumentation(context, {
     expectedLicenseDigest: licenseDigest,
   });
+});
+
+test("uses the first effective HTML base href per document", () => {
+  const inherited = currentContext();
+  inherited.files["docs/ENGINEERING.md"] += [
+    '<base href="ARCHITECTURE.md">',
+    '<base href="missing/">',
+    '<a href="ENGINEERING.md">Engineering</a>',
+    '<iframe srcdoc="<a href=\'ENGINEERING.md\'>Engineering</a>"></iframe>',
+    "",
+    "[Engineering](ENGINEERING.md)",
+    "",
+  ].join("\n");
+  validateDocumentation(inherited, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const overridden = currentContext();
+  overridden.files["docs/ENGINEERING.md"] += [
+    '<base href="ARCHITECTURE.md">',
+    '<iframe srcdoc="<base href=\'../PRIVACY.md\'>' +
+      '<a href=\'SECURITY.md\'>Security</a>"></iframe>',
+    "",
+  ].join("\n");
+  validateDocumentation(overridden, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const valuelessFirst = currentContext();
+  valuelessFirst.files["docs/ENGINEERING.md"] += [
+    "<base href>",
+    '<base href="../PRIVACY.md">',
+    '<a href="SECURITY.md">Missing</a>',
+    "",
+  ].join("\n");
+  assert.throws(
+    () =>
+      validateDocumentation(valuelessFirst, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
 });
 
 test("validates bounded iframe srcdoc with isolated anchors", () => {
