@@ -259,12 +259,19 @@ function renderedMarkdown(text) {
     ) {
       listContainers.pop();
     }
-    const baseColumn = quoted.contentColumn +
+    let contentBase = quoted.contentColumn +
       (listContainers.at(-1)?.contentOffset ?? 0);
-    const listMarker = listMarkerAt(line, baseColumn, indentation);
-    let contentBase = baseColumn;
     let contentIndentation = indentation;
-    if (listMarker !== undefined) {
+    let emptyListMarker = false;
+    while (true) {
+      const listMarker = listMarkerAt(
+        line,
+        contentBase,
+        contentIndentation,
+      );
+      if (listMarker === undefined) {
+        break;
+      }
       const contentOffset = listMarker.contentColumn - quoted.contentColumn;
       listContainers.push(Object.freeze({
         contentOffset,
@@ -273,9 +280,13 @@ function renderedMarkdown(text) {
       contentBase = listMarker.contentColumn;
       contentIndentation = listMarker.contentIndentation;
       if (!listMarker.hasContent) {
-        rendered.push(line);
-        continue;
+        emptyListMarker = true;
+        break;
       }
+    }
+    if (emptyListMarker) {
+      rendered.push(line);
+      continue;
     }
 
     const opening = fenceOpeningAt(line, contentBase, contentIndentation);

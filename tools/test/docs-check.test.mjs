@@ -435,6 +435,19 @@ test("stops list fences at an unindented continuation", () => {
   });
 });
 
+test("ignores fenced HTML after nested list markers", () => {
+  const context = currentContext();
+  context.files["README.md"] += [
+    "- - ```html",
+    '    <img src="docs/missing.md">',
+    "    ```",
+    "",
+  ].join("\n");
+  validateDocumentation(context, {
+    expectedLicenseDigest: licenseDigest,
+  });
+});
+
 test("validates escaped reference destinations", () => {
   const context = currentContext();
   context.files["README.md"] +=
