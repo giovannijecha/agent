@@ -482,6 +482,29 @@ test("validates reference definitions after list markers", () => {
   );
 });
 
+test("validates reference destinations on the following line", () => {
+  for (const definition of [
+    ["[target]:", "  docs/missing.md"],
+    ["> [target]:", ">   docs/missing.md"],
+    ["- [target]:", "    docs/missing.md"],
+  ]) {
+    const context = currentContext();
+    context.files["README.md"] += [
+      ...definition,
+      "",
+      "[Missing][target]",
+      "",
+    ].join("\n");
+    assert.throws(
+      () =>
+        validateDocumentation(context, {
+          expectedLicenseDigest: licenseDigest,
+        }),
+      /broken local link/u,
+    );
+  }
+});
+
 test("decodes Markdown escapes in local destinations", () => {
   const context = currentContext();
   context.files["README.md"] +=
@@ -531,6 +554,22 @@ test("recognizes heading anchors inside Markdown containers", () => {
     "[Nested Setext](PRIVACY.md#nested-setext-heading)",
     "",
   ].join("\n");
+  validateDocumentation(context, {
+    expectedLicenseDigest: licenseDigest,
+  });
+});
+
+test("derives heading anchors from rendered link labels", () => {
+  const context = currentContext();
+  context.files["PRIVACY.md"] += [
+    "",
+    "# [Evaluation](https://example.com) and [policy][policy]",
+    "",
+    "[policy]: https://example.com/policy",
+    "",
+  ].join("\n");
+  context.files["README.md"] +=
+    "[Evaluation policy](PRIVACY.md#evaluation-and-policy)\n";
   validateDocumentation(context, {
     expectedLicenseDigest: licenseDigest,
   });

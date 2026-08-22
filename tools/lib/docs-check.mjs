@@ -438,6 +438,14 @@ function whitespaceEnd(markdown, start) {
   return cursor;
 }
 
+function horizontalWhitespaceEnd(markdown, start) {
+  let cursor = start;
+  while (/[ \t]/u.test(markdown.at(cursor) ?? "")) {
+    cursor += 1;
+  }
+  return cursor;
+}
+
 function titleEnd(markdown, opening) {
   const marker = markdown.at(opening);
   const closingMarker = marker === "(" ? ")" : marker;
@@ -505,7 +513,7 @@ function inlineTarget(markdown, opening) {
   const afterDestination = cursor;
   cursor = whitespaceEnd(markdown, cursor);
   if (markdown.at(cursor) === ")") {
-    return target;
+    return Object.freeze({ end: cursor + 1, target });
   }
   if (cursor === afterDestination) {
     return undefined;
@@ -519,7 +527,9 @@ function inlineTarget(markdown, opening) {
     return undefined;
   }
   cursor = whitespaceEnd(markdown, afterTitle);
-  return markdown.at(cursor) === ")" ? target : undefined;
+  return markdown.at(cursor) === ")"
+    ? Object.freeze({ end: cursor + 1, target })
+    : undefined;
 }
 
 function inlineTargets(markdown) {
@@ -532,31 +542,101 @@ function inlineTargets(markdown) {
     if (closing === undefined || markdown.at(closing + 1) !== "(") {
       continue;
     }
-    const target = inlineTarget(markdown, closing + 1);
-    if (target !== undefined) {
-      targets.push(target);
+    const parsed = inlineTarget(markdown, closing + 1);
+    if (parsed !== undefined) {
+      targets.push(parsed.target);
     }
   }
   return targets;
 }
 
-function referenceTarget(line) {
-  const quoted = blockQuoteContent(line);
-  let contentBase = quoted.contentColumn;
-  let indentation = quoted.indentation;
-  while (true) {
-    const listMarker = listMarkerAt(line, contentBase, indentation);
-    if (listMarker === undefined) {
-      break;
+function normalizedReferenceLabel(label) {
+  return label
+    .replaceAll(/\\([!"#$%&'()*+,\-./:;<=>?@[\]^_`{|}~])/gu, "$1")
+    .trim()
+    .replaceAll(/\s+/gu, " ")
+    .toLowerCase();
+}
+
+function headingInlineText(markdown, referenceLabels) {
+  const rendered = [];
+  let retainedFrom = 0;
+  let cursor = 0;
+  while (cursor < markdown.length) {
+    if (markdown.at(cursor) === "`" && !isEscaped(markdown, cursor)) {
+      const openingLength = markerRunLength(markdown, cursor, "`");
+      let searchFrom = cursor + openingLength;
+      while (searchFrom < markdown.length) {
+        const closing = markdown.indexOf("`", searchFrom);
+        if (closing === -1) {
+          searchFrom = markdown.length;
+          break;
+        }
+        const closingLength = markerRunLength(markdown, closing, "`");
+        if (!isEscaped(markdown, closing) && closingLength === openingLength) {
+          cursor = closing + closingLength;
+          break;
+        }
+        searchFrom = closing + closingLength;
+      }
+      if (searchFrom === markdown.length) {
+        cursor += openingLength;
+      }
+      continue;
     }
-    if (!listMarker.hasContent) {
-      return undefined;
+    if (markdown.at(cursor) !== "[" || isEscaped(markdown, cursor)) {
+      cursor += 1;
+      continue;
     }
-    contentBase = listMarker.contentColumn;
-    indentation = listMarker.contentIndentation;
+    const closing = closingLabelIndex(markdown, cursor);
+    if (closing === undefined) {
+      cursor += 1;
+      continue;
+    }
+    let renderedEnd;
+    if (markdown.at(closing + 1) === "(") {
+      renderedEnd = inlineTarget(markdown, closing + 1)?.end;
+    } else if (markdown.at(closing + 1) === "[") {
+      const referenceClosing = closingLabelIndex(markdown, closing + 1);
+      if (referenceClosing !== undefined) {
+        const reference = markdown.slice(closing + 2, referenceClosing);
+        const label = markdown.slice(cursor + 1, closing);
+        const normalized = normalizedReferenceLabel(
+          reference.length === 0 ? label : reference,
+        );
+        if (referenceLabels.has(normalized)) {
+          renderedEnd = referenceClosing + 1;
+        }
+      }
+    } else if (
+      referenceLabels.has(
+        normalizedReferenceLabel(markdown.slice(cursor + 1, closing)),
+      )
+    ) {
+      renderedEnd = closing + 1;
+    }
+    if (renderedEnd === undefined) {
+      cursor += 1;
+      continue;
+    }
+    rendered.push(markdown.slice(retainedFrom, cursor));
+    rendered.push(
+      headingInlineText(
+        markdown.slice(cursor + 1, closing),
+        referenceLabels,
+      ),
+    );
+    retainedFrom = renderedEnd;
+    cursor = renderedEnd;
   }
+  rendered.push(markdown.slice(retainedFrom));
+  return rendered.join("");
+}
+
+function referenceDefinition(line, continuation) {
+  const indentation = indentationAt(line, 0, 0);
   if (
-    indentation.column - contentBase > 3 ||
+    indentation.column > 3 ||
     line.at(indentation.index) !== "["
   ) {
     return undefined;
@@ -565,30 +645,48 @@ function referenceTarget(line) {
   if (closingLabel === undefined || line.at(closingLabel + 1) !== ":") {
     return undefined;
   }
+  const label = normalizedReferenceLabel(
+    line.slice(indentation.index + 1, closingLabel),
+  );
+  if (label.length === 0) {
+    return undefined;
+  }
 
-  let cursor = whitespaceEnd(line, closingLabel + 2);
+  let destinationLine = line;
+  let cursor = horizontalWhitespaceEnd(line, closingLabel + 2);
+  if (cursor === line.length) {
+    if (continuation === undefined) {
+      return undefined;
+    }
+    const continuationIndentation = indentationAt(continuation, 0, 0);
+    if (continuationIndentation.column > 3) {
+      return undefined;
+    }
+    destinationLine = continuation;
+    cursor = continuationIndentation.index;
+  }
   const destinationStart = cursor;
   let target;
-  if (line.at(cursor) === "<") {
+  if (destinationLine.at(cursor) === "<") {
     cursor += 1;
     const targetStart = cursor;
     while (
-      cursor < line.length &&
-      (line.at(cursor) !== ">" || isEscaped(line, cursor)) &&
-      !/[\r\n]/u.test(line.at(cursor) ?? "")
+      cursor < destinationLine.length &&
+      (destinationLine.at(cursor) !== ">" ||
+        isEscaped(destinationLine, cursor))
     ) {
       cursor += 1;
     }
-    if (line.at(cursor) !== ">") {
+    if (destinationLine.at(cursor) !== ">") {
       return undefined;
     }
-    target = line.slice(targetStart, cursor);
+    target = destinationLine.slice(targetStart, cursor);
     cursor += 1;
   } else {
     let depth = 0;
-    while (cursor < line.length) {
-      const character = line.at(cursor);
-      if (isEscaped(line, cursor)) {
+    while (cursor < destinationLine.length) {
+      const character = destinationLine.at(cursor);
+      if (isEscaped(destinationLine, cursor)) {
         cursor += 1;
       } else if (character === "(") {
         depth += 1;
@@ -605,41 +703,53 @@ function referenceTarget(line) {
     if (depth !== 0) {
       return undefined;
     }
-    target = line.slice(destinationStart, cursor);
+    target = destinationLine.slice(destinationStart, cursor);
   }
   if (target.length === 0) {
     return undefined;
   }
 
   const afterDestination = cursor;
-  cursor = whitespaceEnd(line, cursor);
-  if (cursor === line.length) {
-    return target;
+  cursor = horizontalWhitespaceEnd(destinationLine, cursor);
+  if (cursor === destinationLine.length) {
+    return Object.freeze({ label, target });
   }
   if (cursor === afterDestination) {
     return undefined;
   }
-  const titleMarker = line.at(cursor);
+  const titleMarker = destinationLine.at(cursor);
   if (titleMarker !== '"' && titleMarker !== "'" && titleMarker !== "(") {
     return undefined;
   }
-  const afterTitle = titleEnd(line, cursor);
+  const afterTitle = titleEnd(destinationLine, cursor);
   if (afterTitle === undefined) {
     return undefined;
   }
-  cursor = whitespaceEnd(line, afterTitle);
-  return cursor === line.length ? target : undefined;
+  cursor = horizontalWhitespaceEnd(destinationLine, afterTitle);
+  return cursor === destinationLine.length
+    ? Object.freeze({ label, target })
+    : undefined;
+}
+
+function referenceDefinitions(markdown) {
+  const definitions = [];
+  const lines = containerProjectedMarkdown(markdown)
+    .split("\n")
+    .map((line) => line.replace(/\r$/u, ""));
+  for (let index = 0; index < lines.length; index += 1) {
+    const definition = referenceDefinition(
+      lines.at(index),
+      lines.at(index + 1),
+    );
+    if (definition !== undefined) {
+      definitions.push(definition);
+    }
+  }
+  return definitions;
 }
 
 function referenceTargets(markdown) {
-  const targets = [];
-  for (const line of markdown.split("\n")) {
-    const target = referenceTarget(line);
-    if (target !== undefined) {
-      targets.push(target);
-    }
-  }
-  return targets;
+  return referenceDefinitions(markdown).map((definition) => definition.target);
 }
 
 function isHtmlWhitespace(character) {
@@ -751,6 +861,9 @@ function htmlAttributes(markdown) {
 function headingAnchors(text) {
   const markdown = renderedMarkdown(text);
   const headingMarkdown = containerProjectedMarkdown(markdown);
+  const referenceLabels = new Set(
+    referenceDefinitions(markdown).map((definition) => definition.label),
+  );
   const anchors = new Set();
   const occurrences = new Map();
   const headings = [];
@@ -769,7 +882,7 @@ function headingAnchors(text) {
   }
   headings.sort((left, right) => left.index - right.index);
   for (const heading of headings) {
-    const base = headingSlug(heading.text);
+    const base = headingSlug(headingInlineText(heading.text, referenceLabels));
     if (base.length === 0) {
       continue;
     }
