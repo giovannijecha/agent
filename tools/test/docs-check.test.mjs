@@ -465,6 +465,23 @@ test("validates reference definitions inside block quotes", () => {
   );
 });
 
+test("validates reference definitions after list markers", () => {
+  const context = currentContext();
+  context.files["README.md"] += [
+    "- [target]: docs/missing.md",
+    "",
+    "[Missing][target]",
+    "",
+  ].join("\n");
+  assert.throws(
+    () =>
+      validateDocumentation(context, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+});
+
 test("decodes Markdown escapes in local destinations", () => {
   const context = currentContext();
   context.files["README.md"] +=

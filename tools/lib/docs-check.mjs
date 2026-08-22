@@ -491,9 +491,21 @@ function inlineTargets(markdown) {
 
 function referenceTarget(line) {
   const quoted = blockQuoteContent(line);
-  const indentation = quoted.indentation;
+  let contentBase = quoted.contentColumn;
+  let indentation = quoted.indentation;
+  while (true) {
+    const listMarker = listMarkerAt(line, contentBase, indentation);
+    if (listMarker === undefined) {
+      break;
+    }
+    if (!listMarker.hasContent) {
+      return undefined;
+    }
+    contentBase = listMarker.contentColumn;
+    indentation = listMarker.contentIndentation;
+  }
   if (
-    indentation.column - quoted.contentColumn > 3 ||
+    indentation.column - contentBase > 3 ||
     line.at(indentation.index) !== "["
   ) {
     return undefined;
