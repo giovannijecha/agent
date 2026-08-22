@@ -173,6 +173,47 @@ test("rejects broken local links and decision-ledger references", () => {
     /broken local link/u,
   );
 
+  const escapedLabel = currentContext();
+  escapedLabel.files["README.md"] +=
+    "[right\\] bracket](docs/missing.md)\n";
+  assert.throws(
+    () =>
+      validateDocumentation(escapedLabel, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+
+  const validFragment = currentContext();
+  validFragment.files["PRIVACY.md"] += "\n## Evaluation data\n";
+  validFragment.files["README.md"] +=
+    "[Evaluation](PRIVACY.md#evaluation-data)\n";
+  validateDocumentation(validFragment, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const missingFragment = currentContext();
+  missingFragment.files["PRIVACY.md"] += "\n## Evaluation data\n";
+  missingFragment.files["README.md"] +=
+    "[Evaluation](PRIVACY.md#missing)\n";
+  assert.throws(
+    () =>
+      validateDocumentation(missingFragment, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /fragment/u,
+  );
+
+  const localFragment = currentContext();
+  localFragment.files["README.md"] += "[Missing](#missing)\n";
+  assert.throws(
+    () =>
+      validateDocumentation(localFragment, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /fragment/u,
+  );
+
   const decision = currentContext();
   decision.files["docs/ARCHITECTURE.md"] +=
     "See docs/decisions/0042-example.md.\n";

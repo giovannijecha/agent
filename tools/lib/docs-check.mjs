@@ -52,44 +52,83 @@ function isAuthorityDocument(file) {
 }
 
 function normalizeTarget(source, rawTarget) {
-  const withoutFragment = rawTarget.split("#", 1)[0].split("?", 1)[0];
-  if (withoutFragment.length === 0) {
+  const separator = rawTarget.indexOf("#");
+  const beforeFragment = separator === -1
+    ? rawTarget
+    : rawTarget.slice(0, separator);
+  const withoutQuery = beforeFragment.split("?", 1)[0];
+  if (/^https:\/\//iu.test(withoutQuery)) {
     return undefined;
   }
-  if (/^https:\/\//iu.test(withoutFragment)) {
-    return undefined;
-  }
-  if (/^[a-z][a-z0-9+.-]*:/iu.test(withoutFragment)) {
+  if (/^[a-z][a-z0-9+.-]*:/iu.test(withoutQuery)) {
     fail("forbidden link target in " + source);
   }
-  let decoded;
+  let decodedPath;
+  let fragment;
   try {
-    decoded = decodeURIComponent(withoutFragment);
+    decodedPath = decodeURIComponent(withoutQuery);
+    fragment = separator === -1
+      ? undefined
+      : decodeURIComponent(rawTarget.slice(separator + 1));
   } catch {
     fail("invalid local link in " + source);
   }
-  const portableTarget = decoded.replaceAll("\\", "/");
+  const portableTarget = decodedPath.replaceAll("\\", "/");
   if (path.posix.isAbsolute(portableTarget)) {
     fail("forbidden link target in " + source);
   }
-  const normalized = path.posix.normalize(
-    path.posix.join(path.posix.dirname(source), portableTarget),
-  );
+  const normalized = portableTarget.length === 0
+    ? source
+    : path.posix.normalize(
+      path.posix.join(path.posix.dirname(source), portableTarget),
+    );
   if (normalized === ".." || normalized.startsWith("../")) {
     fail("local link escaped the repository in " + source);
   }
-  return normalized;
+  return Object.freeze({ fragment, path: normalized });
+}
+
+function headingSlug(text) {
+  return text
+    .toLowerCase()
+    .replaceAll(/<[^>]*>/gu, "")
+    .replaceAll(/[^\p{L}\p{N}\p{M}\s_-]/gu, "")
+    .trim()
+    .replaceAll(/\s/gu, "-");
+}
+
+function headingAnchors(text) {
+  const anchors = new Set();
+  const occurrences = new Map();
+  for (const match of text.matchAll(
+    /^[ \t]{0,3}#{1,6}(?:[ \t]+(.*?))?[ \t]*$/gmu,
+  )) {
+    const heading = (match[1] ?? "").replace(/[ \t]+#+[ \t]*$/u, "");
+    const base = headingSlug(heading);
+    if (base.length === 0) {
+      continue;
+    }
+    const occurrence = occurrences.get(base) ?? 0;
+    occurrences.set(base, occurrence + 1);
+    anchors.add(occurrence === 0 ? base : base + "-" + occurrence);
+  }
+  const identifiers =
+    /(?:^|[\s<])(?:id|name)\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s"'=<>`]+))/gimu;
+  for (const match of text.matchAll(identifiers)) {
+    anchors.add(match[1] ?? match[2] ?? match[3]);
+  }
+  return anchors;
 }
 
 function localTargets(text) {
   const targets = [];
   const markdownImages =
-    /!\[(?:[^\[\]]|\[[^\[\]]*\])*\]\(\s*(?:<([^>\r\n]+)>|([^\s)]+))(?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?\s*\)/gu;
+    /!\[(?:\\.|[^\[\]\\]|\[(?:\\.|[^\[\]\\])*\])*\]\(\s*(?:<([^>\r\n]+)>|([^\s)]+))(?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?\s*\)/gu;
   for (const match of text.matchAll(markdownImages)) {
     targets.push(match[1] ?? match[2]);
   }
   const markdownLinks =
-    /(?<!!)\[(?:[^\[\]]|\[[^\[\]]*\])*\]\(\s*(?:<([^>\r\n]+)>|([^\s)]+))(?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?\s*\)/gu;
+    /(?<!!)\[(?:\\.|[^\[\]\\]|\[(?:\\.|[^\[\]\\])*\])*\]\(\s*(?:<([^>\r\n]+)>|([^\s)]+))(?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?\s*\)/gu;
   for (const match of text.matchAll(markdownLinks)) {
     targets.push(match[1] ?? match[2]);
   }
@@ -145,6 +184,7 @@ export function validateDocumentation(context, options = {}) {
   }
 
   const owned = new Set(context.ownedPaths);
+  const anchorSets = new Map();
   for (const file of DOCUMENT_PATHS) {
     const text = context.files[file];
     if (typeof text !== "string" || text.length === 0) {
@@ -161,8 +201,24 @@ export function validateDocumentation(context, options = {}) {
     }
     for (const rawTarget of localTargets(text)) {
       const target = normalizeTarget(file, rawTarget);
-      if (target !== undefined && !owned.has(target)) {
+      if (target === undefined) {
+        continue;
+      }
+      if (!owned.has(target.path)) {
         fail("broken local link in " + file + ": " + rawTarget);
+      }
+      if (target.fragment !== undefined && target.fragment.length > 0) {
+        let anchors = anchorSets.get(target.path);
+        if (anchors === undefined) {
+          const targetText = context.files[target.path];
+          anchors = typeof targetText === "string"
+            ? headingAnchors(targetText)
+            : new Set();
+          anchorSets.set(target.path, anchors);
+        }
+        if (!anchors.has(target.fragment)) {
+          fail("broken local link fragment in " + file + ": " + rawTarget);
+        }
       }
     }
   }
