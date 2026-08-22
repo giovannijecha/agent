@@ -506,6 +506,36 @@ test("recognizes Setext heading anchors", () => {
   });
 });
 
+test("recognizes heading anchors inside Markdown containers", () => {
+  const context = currentContext();
+  context.files["PRIVACY.md"] += [
+    "",
+    "> # Quoted ATX heading",
+    ">",
+    "> Quoted Setext heading",
+    "> ---------------------",
+    "",
+    "- # Listed ATX heading",
+    "- Listed Setext heading",
+    "  ---------------------",
+    "",
+    "> - Nested Setext heading",
+    ">   ---------------------",
+    "",
+  ].join("\n");
+  context.files["README.md"] += [
+    "[Quoted ATX](PRIVACY.md#quoted-atx-heading)",
+    "[Quoted Setext](PRIVACY.md#quoted-setext-heading)",
+    "[Listed ATX](PRIVACY.md#listed-atx-heading)",
+    "[Listed Setext](PRIVACY.md#listed-setext-heading)",
+    "[Nested Setext](PRIVACY.md#nested-setext-heading)",
+    "",
+  ].join("\n");
+  validateDocumentation(context, {
+    expectedLicenseDigest: licenseDigest,
+  });
+});
+
 test("validates links after deeply nested labels", () => {
   const context = currentContext();
   context.files["README.md"] += "[a [b [c]]](docs/missing.md)\n";

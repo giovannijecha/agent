@@ -300,6 +300,57 @@ function renderedMarkdown(text) {
     .replaceAll(/<!--[\s\S]*?(?:-->|$)/gu, maskedLiteral);
 }
 
+function containerProjectedMarkdown(text) {
+  const projected = [];
+  const listContainers = [];
+  for (const line of text.split("\n")) {
+    const quoted = blockQuoteContent(line);
+    const blank = /^[ \t]*\r?$/u.test(line.slice(quoted.indentation.index));
+    while (
+      listContainers.length > 0 &&
+      listContainers.at(-1).quoteDepth !== quoted.depth
+    ) {
+      listContainers.pop();
+    }
+    while (
+      !blank &&
+      listContainers.length > 0 &&
+      quoted.indentation.column <
+        quoted.contentColumn + listContainers.at(-1).contentOffset
+    ) {
+      listContainers.pop();
+    }
+
+    let contentBase = quoted.contentColumn +
+      (listContainers.at(-1)?.contentOffset ?? 0);
+    let contentIndentation = quoted.indentation;
+    while (!blank) {
+      const listMarker = listMarkerAt(
+        line,
+        contentBase,
+        contentIndentation,
+      );
+      if (listMarker === undefined) {
+        break;
+      }
+      const contentOffset = listMarker.contentColumn - quoted.contentColumn;
+      listContainers.push(Object.freeze({
+        contentOffset,
+        quoteDepth: quoted.depth,
+      }));
+      contentBase = listMarker.contentColumn;
+      contentIndentation = listMarker.contentIndentation;
+      if (!listMarker.hasContent) {
+        break;
+      }
+    }
+    projected.push(
+      blank ? "" : line.slice(contentIndentation.index),
+    );
+  }
+  return projected.join("\n");
+}
+
 function isEscaped(text, index) {
   let backslashes = 0;
   for (let cursor = index - 1; text.at(cursor) === "\\"; cursor -= 1) {
@@ -699,16 +750,17 @@ function htmlAttributes(markdown) {
 
 function headingAnchors(text) {
   const markdown = renderedMarkdown(text);
+  const headingMarkdown = containerProjectedMarkdown(markdown);
   const anchors = new Set();
   const occurrences = new Map();
   const headings = [];
-  for (const match of markdown.matchAll(
+  for (const match of headingMarkdown.matchAll(
     /^[ \t]{0,3}#{1,6}(?:[ \t]+(.*?))?[ \t]*$/gmu,
   )) {
     const heading = (match[1] ?? "").replace(/[ \t]+#+[ \t]*$/u, "");
     headings.push(Object.freeze({ index: match.index, text: heading }));
   }
-  for (const match of markdown.matchAll(
+  for (const match of headingMarkdown.matchAll(
     /^[ \t]{0,3}(\S(?:.*?\S)?)[ \t]*\r?\n[ \t]{0,3}(?:=+|-+)[ \t]*\r?$/gmu,
   )) {
     if (!/^#{1,6}(?:[ \t]|$)/u.test(match.at(1))) {
