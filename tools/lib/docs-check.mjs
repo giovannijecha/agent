@@ -428,6 +428,112 @@ function inlineTargets(markdown) {
   return targets;
 }
 
+function isHtmlWhitespace(character) {
+  return /[\t\n\f\r ]/u.test(character ?? "");
+}
+
+function htmlIdentifiers(markdown) {
+  const identifiers = [];
+  let searchFrom = 0;
+  while (searchFrom < markdown.length) {
+    const opening = markdown.indexOf("<", searchFrom);
+    if (opening === -1) {
+      break;
+    }
+    let cursor = opening + 1;
+    if (!/[A-Za-z]/u.test(markdown.at(cursor) ?? "")) {
+      searchFrom = cursor;
+      continue;
+    }
+    cursor += 1;
+    while (/[A-Za-z0-9-]/u.test(markdown.at(cursor) ?? "")) {
+      cursor += 1;
+    }
+    const tagBoundary = markdown.at(cursor);
+    if (
+      tagBoundary !== ">" &&
+      tagBoundary !== "/" &&
+      !isHtmlWhitespace(tagBoundary)
+    ) {
+      searchFrom = opening + 1;
+      continue;
+    }
+
+    let complete = false;
+    const tagIdentifiers = [];
+    while (cursor < markdown.length) {
+      while (isHtmlWhitespace(markdown.at(cursor))) {
+        cursor += 1;
+      }
+      if (markdown.at(cursor) === ">") {
+        cursor += 1;
+        complete = true;
+        break;
+      }
+      if (markdown.at(cursor) === "/" && markdown.at(cursor + 1) === ">") {
+        cursor += 2;
+        complete = true;
+        break;
+      }
+
+      const nameStart = cursor;
+      while (
+        cursor < markdown.length &&
+        !isHtmlWhitespace(markdown.at(cursor)) &&
+        !/[=/>]/u.test(markdown.at(cursor) ?? "")
+      ) {
+        cursor += 1;
+      }
+      if (cursor === nameStart) {
+        break;
+      }
+      const name = markdown.slice(nameStart, cursor).toLowerCase();
+      while (isHtmlWhitespace(markdown.at(cursor))) {
+        cursor += 1;
+      }
+      let value;
+      if (markdown.at(cursor) === "=") {
+        cursor += 1;
+        while (isHtmlWhitespace(markdown.at(cursor))) {
+          cursor += 1;
+        }
+        const quote = markdown.at(cursor);
+        if (quote === '"' || quote === "'") {
+          const valueStart = cursor + 1;
+          const valueEnd = markdown.indexOf(quote, valueStart);
+          if (valueEnd === -1) {
+            break;
+          }
+          value = markdown.slice(valueStart, valueEnd);
+          cursor = valueEnd + 1;
+        } else {
+          const valueStart = cursor;
+          while (
+            cursor < markdown.length &&
+            !isHtmlWhitespace(markdown.at(cursor)) &&
+            markdown.at(cursor) !== ">" &&
+            !(
+              markdown.at(cursor) === "/" &&
+              markdown.at(cursor + 1) === ">"
+            )
+          ) {
+            cursor += 1;
+          }
+          value = markdown.slice(valueStart, cursor);
+        }
+      }
+      if ((name === "id" || name === "name") && value?.length > 0) {
+        tagIdentifiers.push(value);
+      }
+    }
+    if (complete) {
+      identifiers.push(...tagIdentifiers);
+    }
+    searchFrom = complete ? cursor : opening + 1;
+  }
+  return identifiers;
+}
+
 function headingAnchors(text) {
   const markdown = renderedMarkdown(text);
   const anchors = new Set();
@@ -444,10 +550,8 @@ function headingAnchors(text) {
     occurrences.set(base, occurrence + 1);
     anchors.add(occurrence === 0 ? base : base + "-" + occurrence);
   }
-  const identifiers =
-    /(?:^|[\s<])(?:id|name)\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s"'=<>`]+))/gimu;
-  for (const match of withoutCodeSpans(markdown).matchAll(identifiers)) {
-    anchors.add(match[1] ?? match[2] ?? match[3]);
+  for (const identifier of htmlIdentifiers(withoutCodeSpans(markdown))) {
+    anchors.add(identifier);
   }
   return anchors;
 }

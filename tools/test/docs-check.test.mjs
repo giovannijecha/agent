@@ -261,6 +261,44 @@ test("rejects broken local links and decision-ledger references", () => {
     /fragment/u,
   );
 
+  const proseAnchor = currentContext();
+  proseAnchor.files["README.md"] += [
+    "[Missing](#fake)",
+    'The value id="fake" is illustrative.',
+    "",
+  ].join("\n");
+  assert.throws(
+    () =>
+      validateDocumentation(proseAnchor, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /fragment/u,
+  );
+
+  const htmlAnchor = currentContext();
+  htmlAnchor.files["README.md"] += [
+    '<a title=example id="exact-anchor"></a>',
+    "[Exact](#exact-anchor)",
+    "",
+  ].join("\n");
+  validateDocumentation(htmlAnchor, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const incompleteHtmlAnchor = currentContext();
+  incompleteHtmlAnchor.files["README.md"] += [
+    "[Missing](#fake)",
+    '<a id="fake"',
+    "",
+  ].join("\n");
+  assert.throws(
+    () =>
+      validateDocumentation(incompleteHtmlAnchor, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /fragment/u,
+  );
+
   const fencedHeading = currentContext();
   fencedHeading.files["README.md"] += [
     "[Missing](#not-an-anchor)",
