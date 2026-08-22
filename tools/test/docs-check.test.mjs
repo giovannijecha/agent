@@ -632,6 +632,57 @@ test("honors first-wins duplicate HTML attributes", () => {
   );
 });
 
+test("filters URL attributes by their owning HTML elements", () => {
+  const inert = currentContext();
+  inert.files["README.md"] +=
+    '<span href="docs/missing.md" src="docs/missing.md" ' +
+    'srcset="docs/missing.md 1x">Text</span>\n';
+  validateDocumentation(inert, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  for (const [element, attribute, prefix] of [
+    ...["a", "area", "base", "link"].map((element) => [
+      element,
+      "href",
+      "",
+    ]),
+    ...[
+      "audio",
+      "embed",
+      "iframe",
+      "img",
+      "input",
+      "script",
+      "source",
+      "track",
+      "video",
+    ].map((element) => [
+      element,
+      "src",
+      element === "input" ? 'type="image" ' : "",
+    ]),
+    ...["img", "source"].map((element) => [
+      element,
+      "srcset",
+      "",
+    ]),
+  ]) {
+    const active = currentContext();
+    active.files["README.md"] +=
+      "<" + element + " " + prefix + attribute +
+      '="docs/missing.md"></' + element + ">\n";
+    assert.throws(
+      () =>
+        validateDocumentation(active, {
+          expectedLicenseDigest: licenseDigest,
+        }),
+      /broken local link/u,
+      element + "[" + attribute + "]",
+    );
+  }
+});
+
 test("ignores Markdown-like text inside HTML attributes", () => {
   const context = currentContext();
   context.files["README.md"] +=
@@ -1278,6 +1329,22 @@ test("recognizes Setext heading anchors", () => {
   ].join("\n");
   context.files["README.md"] +=
     "[Evaluation](PRIVACY.md#evaluation-data)\n";
+  validateDocumentation(context, {
+    expectedLicenseDigest: licenseDigest,
+  });
+});
+
+test("avoids collisions with generated heading suffixes", () => {
+  const context = currentContext();
+  context.files["PRIVACY.md"] += [
+    "",
+    "# Foo",
+    "# Foo",
+    "# Foo-1",
+    "",
+  ].join("\n");
+  context.files["README.md"] +=
+    "[Allocated suffix](PRIVACY.md#foo-1-1)\n";
   validateDocumentation(context, {
     expectedLicenseDigest: licenseDigest,
   });

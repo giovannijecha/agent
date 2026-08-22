@@ -2285,7 +2285,6 @@ function headingAnchors(text) {
     definitions.map((definition) => definition.label),
   );
   const anchors = new Set();
-  const occurrences = new Map();
   const headings = [];
   for (const match of headingMarkdown.matchAll(
     /^[ \t]{0,3}#{1,6}(?:[ \t]+(.*?))?[ \t]*$/gmu,
@@ -2304,9 +2303,13 @@ function headingAnchors(text) {
     if (base.length === 0) {
       continue;
     }
-    const occurrence = occurrences.get(base) ?? 0;
-    occurrences.set(base, occurrence + 1);
-    anchors.add(occurrence === 0 ? base : base + "-" + occurrence);
+    let anchor = base;
+    let suffix = 0;
+    while (anchors.has(anchor)) {
+      suffix += 1;
+      anchor = base + "-" + suffix;
+    }
+    anchors.add(anchor);
   }
   for (
     const tag of htmlTags(withoutHtmlComments(withoutCodeSpans(markdown)))
@@ -2365,6 +2368,18 @@ function srcsetTargets(value) {
   return targets;
 }
 
+function ownsHtmlUrlAttribute(element, attribute) {
+  if (attribute === "href") {
+    return /^(?:a|area|base|link)$/u.test(element);
+  }
+  if (attribute === "src") {
+    return /^(?:audio|embed|iframe|img|input|script|source|track|video)$/u.test(
+      element,
+    );
+  }
+  return attribute === "srcset" && /^(?:img|source)$/u.test(element);
+}
+
 function localTargets(text) {
   const markdown = withoutCodeSpans(renderedMarkdown(text));
   const tags = htmlTags(withoutHtmlComments(markdown));
@@ -2386,7 +2401,7 @@ function localTargets(text) {
   for (const tag of tags) {
     for (const attribute of tag.attributes) {
       const { name, value } = attribute;
-      if (name !== "href" && name !== "src" && name !== "srcset") {
+      if (!ownsHtmlUrlAttribute(tag.name, name)) {
         continue;
       }
       if (name !== "srcset") {
