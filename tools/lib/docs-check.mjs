@@ -1558,26 +1558,30 @@ function headingEmphasisText(markdown) {
   return rendered.join("");
 }
 
-function referenceTitleLine(line) {
-  if (line === undefined) {
-    return false;
+function referenceTitleSpan(lines, startOffset, opening) {
+  const titleLines = [];
+  for (let offset = startOffset; offset < lines.length; offset += 1) {
+    const line = lines.at(offset);
+    const indentation = indentationAt(line, 0, 0);
+    if (indentation.column > 3 || /^[ \t]*\r?$/u.test(line)) {
+      return undefined;
+    }
+    titleLines.push(
+      offset === startOffset ? line.slice(opening) : line,
+    );
+    const title = titleLines.join("\n");
+    const afterTitle = titleEnd(title, 0);
+    if (afterTitle === undefined) {
+      continue;
+    }
+    return horizontalWhitespaceEnd(title, afterTitle) === title.length
+      ? offset - startOffset + 1
+      : undefined;
   }
-  const indentation = indentationAt(line, 0, 0);
-  if (indentation.column > 3) {
-    return false;
-  }
-  const marker = line.at(indentation.index);
-  if (marker !== '"' && marker !== "'" && marker !== "(") {
-    return false;
-  }
-  const afterTitle = titleEnd(line, indentation.index);
-  return (
-    afterTitle !== undefined &&
-    horizontalWhitespaceEnd(line, afterTitle) === line.length
-  );
+  return undefined;
 }
 
-function referenceDefinition(line, continuation, secondContinuation) {
+function referenceDefinition(line, continuations) {
   const indentation = indentationAt(line, 0, 0);
   if (
     indentation.column > 3 ||
@@ -1599,19 +1603,20 @@ function referenceDefinition(line, continuation, secondContinuation) {
     return undefined;
   }
 
+  const lines = [line, ...continuations];
   let destinationLine = line;
-  let lineCount = 1;
+  let destinationOffset = 0;
   let cursor = horizontalWhitespaceEnd(line, closingLabel + 2);
   if (cursor === line.length) {
-    if (continuation === undefined) {
+    destinationLine = lines.at(1);
+    if (destinationLine === undefined) {
       return undefined;
     }
-    const continuationIndentation = indentationAt(continuation, 0, 0);
+    const continuationIndentation = indentationAt(destinationLine, 0, 0);
     if (continuationIndentation.column > 3) {
       return undefined;
     }
-    destinationLine = continuation;
-    lineCount = 2;
+    destinationOffset = 1;
     cursor = continuationIndentation.index;
   }
   const destinationStart = cursor;
@@ -1667,13 +1672,32 @@ function referenceDefinition(line, continuation, secondContinuation) {
   const afterDestination = cursor;
   cursor = horizontalWhitespaceEnd(destinationLine, cursor);
   if (cursor === destinationLine.length) {
-    const titleLine = lineCount === 1 ? continuation : secondContinuation;
-    if (referenceTitleLine(titleLine)) {
-      lineCount += 1;
+    const titleOffset = destinationOffset + 1;
+    const titleLine = lines.at(titleOffset);
+    if (titleLine !== undefined) {
+      const titleIndentation = indentationAt(titleLine, 0, 0);
+      const titleMarker = titleLine.at(titleIndentation.index);
+      if (
+        titleIndentation.column <= 3 &&
+        (titleMarker === '"' || titleMarker === "'" || titleMarker === "(")
+      ) {
+        const titleSpan = referenceTitleSpan(
+          lines,
+          titleOffset,
+          titleIndentation.index,
+        );
+        if (titleSpan !== undefined) {
+          return Object.freeze({
+            label,
+            lineCount: titleOffset + titleSpan,
+            target,
+          });
+        }
+      }
     }
     return Object.freeze({
       label,
-      lineCount,
+      lineCount: destinationOffset + 1,
       target,
     });
   }
@@ -1684,18 +1708,15 @@ function referenceDefinition(line, continuation, secondContinuation) {
   if (titleMarker !== '"' && titleMarker !== "'" && titleMarker !== "(") {
     return undefined;
   }
-  const afterTitle = titleEnd(destinationLine, cursor);
-  if (afterTitle === undefined) {
+  const titleSpan = referenceTitleSpan(lines, destinationOffset, cursor);
+  if (titleSpan === undefined) {
     return undefined;
   }
-  cursor = horizontalWhitespaceEnd(destinationLine, afterTitle);
-  return cursor === destinationLine.length
-    ? Object.freeze({
-      label,
-      lineCount,
-      target,
-    })
-    : undefined;
+  return Object.freeze({
+    label,
+    lineCount: destinationOffset + titleSpan,
+    target,
+  });
 }
 
 function referenceDefinitions(markdown) {
@@ -1714,19 +1735,20 @@ function referenceDefinitions(markdown) {
     }
     previousContainerKey = containerKey;
     const paragraphOpen = paragraphStates.get(containerKey) ?? false;
-    const continuation = projected.at(index + 1);
-    const secondContinuation = projected.at(index + 2);
-    const definition = paragraphOpen
-      ? undefined
-      : referenceDefinition(
-        lines.at(index),
-        continuation?.containerKey === containerKey
-          ? lines.at(index + 1)
-          : undefined,
-        secondContinuation?.containerKey === containerKey
-          ? lines.at(index + 2)
-          : undefined,
-      );
+    let definition;
+    if (!paragraphOpen) {
+      const continuations = [];
+      for (let offset = 1; index + offset < lines.length; offset += 1) {
+        if (
+          projected.at(index + offset).containerKey !== containerKey ||
+          /^[ \t]*\r?$/u.test(lines.at(index + offset))
+        ) {
+          break;
+        }
+        continuations.push(lines.at(index + offset));
+      }
+      definition = referenceDefinition(lines.at(index), continuations);
+    }
     if (definition !== undefined) {
       definitions.push(Object.freeze({ ...definition, line: index }));
       paragraphStates.set(containerKey, false);
@@ -1843,6 +1865,7 @@ function htmlTags(markdown) {
 
     let complete = false;
     let selfClosing = false;
+    const seenAttributeNames = new Set();
     const tagAttributes = [];
     if (closingTag) {
       while (isHtmlWhitespace(markdown.at(cursor))) {
@@ -1878,6 +1901,8 @@ function htmlTags(markdown) {
         cursor += 1;
       }
       const name = markdown.slice(nameStart, cursor).toLowerCase();
+      const duplicate = seenAttributeNames.has(name);
+      seenAttributeNames.add(name);
       while (isHtmlWhitespace(markdown.at(cursor))) {
         cursor += 1;
       }
@@ -1920,7 +1945,7 @@ function htmlTags(markdown) {
           value = markdown.slice(valueStart, cursor);
         }
       }
-      if (value !== undefined) {
+      if (!duplicate && value !== undefined) {
         tagAttributes.push(Object.freeze({ name, value }));
       }
     }

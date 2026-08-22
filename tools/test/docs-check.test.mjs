@@ -533,6 +533,40 @@ test("ignores illustrative HTML attributes in prose", () => {
   });
 });
 
+test("honors first-wins duplicate HTML attributes", () => {
+  const admitted = currentContext();
+  admitted.files["README.md"] +=
+    '<a HREF="README.md" href="docs/missing.md">Home</a> ' +
+    '<a href href="docs/missing.md">Empty</a>\n';
+  validateDocumentation(admitted, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const rejected = currentContext();
+  rejected.files["README.md"] +=
+    '<a href="docs/missing.md" href="README.md">Missing</a>\n';
+  assert.throws(
+    () =>
+      validateDocumentation(rejected, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+
+  const duplicateId = currentContext();
+  duplicateId.files["PRIVACY.md"] +=
+    '<a id="exact" id="fake"></a>\n';
+  duplicateId.files["README.md"] +=
+    "[Fake](PRIVACY.md#fake)\n";
+  assert.throws(
+    () =>
+      validateDocumentation(duplicateId, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /fragment/u,
+  );
+});
+
 test("ignores Markdown-like text inside HTML attributes", () => {
   const context = currentContext();
   context.files["README.md"] +=
@@ -862,6 +896,38 @@ test("masks next-line reference titles", () => {
       expectedLicenseDigest: licenseDigest,
     });
   }
+});
+
+test("validates multiline reference-definition titles", () => {
+  const context = currentContext();
+  context.files["README.md"] += [
+    "[use][ref]",
+    "",
+    '[ref]: docs/missing.md "title',
+    " continued",
+    ' still"',
+    "",
+  ].join("\n");
+  assert.throws(
+    () =>
+      validateDocumentation(context, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+
+  const nextLineTitle = currentContext();
+  nextLineTitle.files["README.md"] += [
+    "[use][ref]",
+    "",
+    "[ref]: README.md",
+    ' "title',
+    ' continued [sample](docs/not-real.md)"',
+    "",
+  ].join("\n");
+  validateDocumentation(nextLineTitle, {
+    expectedLicenseDigest: licenseDigest,
+  });
 });
 
 test("keeps reference continuations in their Markdown container", () => {
