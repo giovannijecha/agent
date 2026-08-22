@@ -108,7 +108,7 @@ function renderedMarkdown(text) {
     if (fence === undefined) {
       const opening = line.match(/^[ \t]{0,3}(`{3,}|~{3,})/u)?.at(1);
       if (opening === undefined) {
-        rendered.push(line);
+        rendered.push(/^(?: {4}|\t)/u.test(line) ? maskedLiteral(line) : line);
       } else {
         fence = Object.freeze({
           length: opening.length,
@@ -135,8 +135,193 @@ function renderedMarkdown(text) {
     .replaceAll(/<!--[\s\S]*?(?:-->|$)/gu, maskedLiteral);
 }
 
+function isEscaped(text, index) {
+  let backslashes = 0;
+  for (let cursor = index - 1; text.at(cursor) === "\\"; cursor -= 1) {
+    backslashes += 1;
+  }
+  return backslashes % 2 === 1;
+}
+
+function markerRunLength(text, index, marker) {
+  let length = 0;
+  while (text.at(index + length) === marker) {
+    length += 1;
+  }
+  return length;
+}
+
 function withoutCodeSpans(text) {
-  return text.replaceAll(/(?<!\\)(`+)[\s\S]*?\1/gu, maskedLiteral);
+  const rendered = [];
+  let retainedFrom = 0;
+  let cursor = 0;
+  while (cursor < text.length) {
+    const opening = text.indexOf("`", cursor);
+    if (opening === -1) {
+      break;
+    }
+    const openingLength = markerRunLength(text, opening, "`");
+    if (isEscaped(text, opening)) {
+      cursor = opening + openingLength;
+      continue;
+    }
+    let searchFrom = opening + openingLength;
+    let closingEnd;
+    while (searchFrom < text.length) {
+      const closing = text.indexOf("`", searchFrom);
+      if (closing === -1) {
+        break;
+      }
+      const closingLength = markerRunLength(text, closing, "`");
+      if (
+        !isEscaped(text, closing) &&
+        closingLength === openingLength
+      ) {
+        closingEnd = closing + closingLength;
+        break;
+      }
+      searchFrom = closing + closingLength;
+    }
+    if (closingEnd === undefined) {
+      cursor = opening + openingLength;
+      continue;
+    }
+    rendered.push(text.slice(retainedFrom, opening));
+    rendered.push(maskedLiteral(text.slice(opening, closingEnd)));
+    retainedFrom = closingEnd;
+    cursor = closingEnd;
+  }
+  rendered.push(text.slice(retainedFrom));
+  return rendered.join("");
+}
+
+function closingLabelIndex(markdown, opening) {
+  let depth = 1;
+  for (let cursor = opening + 1; cursor < markdown.length; cursor += 1) {
+    if (isEscaped(markdown, cursor)) {
+      continue;
+    }
+    const character = markdown.at(cursor);
+    if (character === "[") {
+      depth += 1;
+    } else if (character === "]") {
+      depth -= 1;
+      if (depth === 0) {
+        return cursor;
+      }
+    }
+  }
+  return undefined;
+}
+
+function whitespaceEnd(markdown, start) {
+  let cursor = start;
+  while (/\s/u.test(markdown.at(cursor) ?? "")) {
+    cursor += 1;
+  }
+  return cursor;
+}
+
+function titleEnd(markdown, opening) {
+  const marker = markdown.at(opening);
+  const closingMarker = marker === "(" ? ")" : marker;
+  let depth = 1;
+  for (let cursor = opening + 1; cursor < markdown.length; cursor += 1) {
+    if (isEscaped(markdown, cursor)) {
+      continue;
+    }
+    const character = markdown.at(cursor);
+    if (marker === "(" && character === "(") {
+      depth += 1;
+    } else if (character === closingMarker) {
+      depth -= 1;
+      if (depth === 0) {
+        return cursor + 1;
+      }
+    }
+  }
+  return undefined;
+}
+
+function inlineTarget(markdown, opening) {
+  let cursor = whitespaceEnd(markdown, opening + 1);
+  const destinationStart = cursor;
+  let target;
+  if (markdown.at(cursor) === "<") {
+    cursor += 1;
+    const targetStart = cursor;
+    while (
+      cursor < markdown.length &&
+      (markdown.at(cursor) !== ">" || isEscaped(markdown, cursor)) &&
+      !/[\r\n]/u.test(markdown.at(cursor) ?? "")
+    ) {
+      cursor += 1;
+    }
+    if (markdown.at(cursor) !== ">") {
+      return undefined;
+    }
+    target = markdown.slice(targetStart, cursor);
+    cursor += 1;
+  } else {
+    let depth = 0;
+    while (cursor < markdown.length) {
+      const character = markdown.at(cursor);
+      if (isEscaped(markdown, cursor)) {
+        cursor += 1;
+      } else if (character === "(") {
+        depth += 1;
+      } else if (character === ")") {
+        if (depth === 0) {
+          break;
+        }
+        depth -= 1;
+      } else if (/\s/u.test(character ?? "")) {
+        break;
+      }
+      cursor += 1;
+    }
+    if (depth !== 0) {
+      return undefined;
+    }
+    target = markdown.slice(destinationStart, cursor);
+  }
+
+  const afterDestination = cursor;
+  cursor = whitespaceEnd(markdown, cursor);
+  if (markdown.at(cursor) === ")") {
+    return target;
+  }
+  if (cursor === afterDestination) {
+    return undefined;
+  }
+  const titleMarker = markdown.at(cursor);
+  if (titleMarker !== '"' && titleMarker !== "'" && titleMarker !== "(") {
+    return undefined;
+  }
+  const afterTitle = titleEnd(markdown, cursor);
+  if (afterTitle === undefined) {
+    return undefined;
+  }
+  cursor = whitespaceEnd(markdown, afterTitle);
+  return markdown.at(cursor) === ")" ? target : undefined;
+}
+
+function inlineTargets(markdown) {
+  const targets = [];
+  for (let cursor = 0; cursor < markdown.length; cursor += 1) {
+    if (markdown.at(cursor) !== "[" || isEscaped(markdown, cursor)) {
+      continue;
+    }
+    const closing = closingLabelIndex(markdown, cursor);
+    if (closing === undefined || markdown.at(closing + 1) !== "(") {
+      continue;
+    }
+    const target = inlineTarget(markdown, closing + 1);
+    if (target !== undefined) {
+      targets.push(target);
+    }
+  }
+  return targets;
 }
 
 function headingAnchors(text) {
@@ -165,17 +350,7 @@ function headingAnchors(text) {
 
 function localTargets(text) {
   const markdown = withoutCodeSpans(renderedMarkdown(text));
-  const targets = [];
-  const markdownImages =
-    /!\[(?:\\.|[^\[\]\\]|\[(?:\\.|[^\[\]\\])*\])*\]\(\s*(?:<([^>\r\n]+)>|([^\s)]+))(?:\s+(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\((?:\\.|[^)\\])*\)))?\s*\)/gu;
-  for (const match of markdown.matchAll(markdownImages)) {
-    targets.push(match[1] ?? match[2]);
-  }
-  const markdownLinks =
-    /(?<!!)\[(?:\\.|[^\[\]\\]|\[(?:\\.|[^\[\]\\])*\])*\]\(\s*(?:<([^>\r\n]+)>|([^\s)]+))(?:\s+(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\((?:\\.|[^)\\])*\)))?\s*\)/gu;
-  for (const match of markdown.matchAll(markdownLinks)) {
-    targets.push(match[1] ?? match[2]);
-  }
+  const targets = inlineTargets(markdown);
   const referenceDefinitions =
     /^[ \t]{0,3}\[(?:\\.|[^\]\\\r\n])+\]:[ \t]*(?:<([^>\r\n]+)>|([^\s]+))(?:[ \t]+(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\((?:\\.|[^)\\])*\)))?[ \t]*$/gmu;
   for (const match of markdown.matchAll(referenceDefinitions)) {
