@@ -1287,35 +1287,39 @@ function markerRunLength(text, index, marker) {
   return length;
 }
 
-function lineEndingEnd(text, index) {
-  if (text.at(index) === "\n") {
-    return index + 1;
-  }
-  if (text.at(index) === "\r") {
-    return text.at(index + 1) === "\n" ? index + 2 : index + 1;
-  }
-  return undefined;
-}
-
 function paragraphEnd(text, start) {
-  let cursor = start;
-  while (cursor < text.length) {
-    const afterLineEnding = lineEndingEnd(text, cursor);
-    if (afterLineEnding === undefined) {
-      cursor += 1;
-      continue;
+  const lineStarts = [0];
+  for (let index = 0; index < text.length; index += 1) {
+    if (text.at(index) === "\n") {
+      lineStarts.push(index + 1);
     }
-    let nextContent = afterLineEnding;
-    while (
-      text.at(nextContent) === " " ||
-      text.at(nextContent) === "\t"
+  }
+  let lineIndex = 0;
+  while (
+    lineIndex + 1 < lineStarts.length &&
+    lineStarts.at(lineIndex + 1) <= start
+  ) {
+    lineIndex += 1;
+  }
+  const projected = containerProjectedLines(text);
+  const current = projected.at(lineIndex);
+  if (current === undefined) {
+    return text.length;
+  }
+  const currentEnd = lineIndex + 1 < lineStarts.length
+    ? lineStarts.at(lineIndex + 1) - 1
+    : text.length;
+  if (!paragraphOpenAfterLine(current.content, false)) {
+    return currentEnd;
+  }
+  for (let index = lineIndex + 1; index < projected.length; index += 1) {
+    const line = projected.at(index);
+    if (
+      line.containerKey !== current.containerKey ||
+      !paragraphOpenAfterLine(line.content, true)
     ) {
-      nextContent += 1;
+      return lineStarts.at(index) - 1;
     }
-    if (lineEndingEnd(text, nextContent) !== undefined) {
-      return cursor;
-    }
-    cursor = afterLineEnding;
   }
   return text.length;
 }
@@ -1647,7 +1651,7 @@ function normalizedReferenceLabel(label) {
     .replaceAll(/\s+/gu, " "));
 }
 
-function headingInlineText(markdown, referenceLabels) {
+function headingInlineProjection(markdown, referenceLabels) {
   const references = new Map();
   for (const label of referenceLabels) {
     references.set(label, "");
@@ -1662,6 +1666,15 @@ function headingInlineText(markdown, referenceLabels) {
     activeLinks.set(candidate.opening, candidate);
   }
   const rendered = [];
+  const literalEmphasisIndices = [];
+  let renderedLength = 0;
+  function append(text, protectedIndices = []) {
+    rendered.push(text);
+    for (const index of protectedIndices) {
+      literalEmphasisIndices.push(renderedLength + index);
+    }
+    renderedLength += text.length;
+  }
   let retainedFrom = 0;
   let cursor = 0;
   while (cursor < markdown.length) {
@@ -1682,8 +1695,14 @@ function headingInlineText(markdown, referenceLabels) {
       ) {
         code = code.slice(1, -1);
       }
-      rendered.push(markdown.slice(retainedFrom, cursor));
-      rendered.push(code);
+      append(markdown.slice(retainedFrom, cursor));
+      const protectedIndices = [];
+      for (let index = 0; index < code.length; index += 1) {
+        if (code.at(index) === "_" || code.at(index) === "*") {
+          protectedIndices.push(index);
+        }
+      }
+      append(code, protectedIndices);
       retainedFrom = closing.end;
       cursor = closing.end;
       continue;
@@ -1697,23 +1716,31 @@ function headingInlineText(markdown, referenceLabels) {
       cursor += 1;
       continue;
     }
-    rendered.push(markdown.slice(retainedFrom, cursor));
-    rendered.push(
-      headingInlineText(
-        markdown.slice(cursor + 1, candidate.labelEnd),
-        referenceLabels,
-      ),
+    append(markdown.slice(retainedFrom, cursor));
+    const nested = headingInlineProjection(
+      markdown.slice(cursor + 1, candidate.labelEnd),
+      referenceLabels,
     );
+    append(nested.text, nested.literalEmphasisIndices);
     retainedFrom = candidate.end;
     cursor = candidate.end;
   }
-  rendered.push(markdown.slice(retainedFrom));
-  return rendered.join("");
+  append(markdown.slice(retainedFrom));
+  return Object.freeze({
+    literalEmphasisIndices: Object.freeze(literalEmphasisIndices),
+    text: rendered.join(""),
+  });
 }
 
-function emphasisDelimiter(markdown, index) {
+function emphasisDelimiter(markdown, index, literalEmphasis) {
   const marker = markdown.at(index);
-  const length = markerRunLength(markdown, index, marker);
+  let length = 0;
+  while (
+    markdown.at(index + length) === marker &&
+    !literalEmphasis.has(index + length)
+  ) {
+    length += 1;
+  }
   const previous = index === 0 ? "\n" : markdown.at(index - 1);
   const next = markdown.at(index + length) ?? "\n";
   const previousWhitespace = /\s/u.test(previous);
@@ -1751,40 +1778,28 @@ function emphasisPairAllowed(opener, closer) {
   );
 }
 
-function headingEmphasisText(markdown) {
+function headingEmphasisText(markdown, literalEmphasisIndices) {
+  const literalEmphasis = new Set(literalEmphasisIndices);
   const delimiters = [];
   let cursor = 0;
   while (cursor < markdown.length) {
     if (markdown.at(cursor) === "`" && !isEscaped(markdown, cursor)) {
       const openingLength = markerRunLength(markdown, cursor, "`");
-      let searchFrom = cursor + openingLength;
-      while (searchFrom < markdown.length) {
-        const closing = markdown.indexOf("`", searchFrom);
-        if (closing === -1) {
-          break;
-        }
-        const closingLength = markerRunLength(markdown, closing, "`");
-        if (!isEscaped(markdown, closing) && closingLength === openingLength) {
-          cursor = closing + closingLength;
-          break;
-        }
-        searchFrom = closing + closingLength;
-      }
-      if (cursor < searchFrom) {
-        cursor += openingLength;
-      }
+      const closing = codeSpanClosing(markdown, cursor, openingLength);
+      cursor = closing?.end ?? cursor + openingLength;
       continue;
     }
     const marker = markdown.at(cursor);
     if (
       (marker !== "_" && marker !== "*") ||
-      isEscaped(markdown, cursor)
+      isEscaped(markdown, cursor) ||
+      literalEmphasis.has(cursor)
     ) {
       cursor += 1;
       continue;
     }
     delimiters.push({
-      ...emphasisDelimiter(markdown, cursor),
+      ...emphasisDelimiter(markdown, cursor, literalEmphasis),
       usedAsCloser: 0,
       usedAsOpener: 0,
     });
@@ -2370,10 +2385,9 @@ function headingAnchors(text) {
   headings.push(...setextHeadings(headingProjection));
   headings.sort((left, right) => left.index - right.index);
   for (const heading of headings) {
+    const inline = headingInlineProjection(heading.text, referenceLabels);
     const base = headingSlug(
-      headingEmphasisText(
-        headingInlineText(heading.text, referenceLabels),
-      ),
+      headingEmphasisText(inline.text, inline.literalEmphasisIndices),
     );
     if (base.length === 0) {
       continue;

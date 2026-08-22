@@ -519,6 +519,26 @@ test("keeps code-span matching within one paragraph", () => {
   validateDocumentation(sameParagraph, {
     expectedLicenseDigest: licenseDigest,
   });
+
+  for (const markdown of [
+    "# `open\n[Missing](docs/not-real.md)`",
+    "`open\n# [Missing](docs/not-real.md)`",
+    "`open\n- [Missing](docs/not-real.md)`",
+    "`open\n> [Missing](docs/not-real.md)`",
+    "`open\n---\n[Missing](docs/not-real.md)`",
+    "> # `open\n> [Missing](docs/not-real.md)`",
+    "- # `open\n  [Missing](docs/not-real.md)`",
+  ]) {
+    const crossBlock = currentContext();
+    crossBlock.files["README.md"] += markdown + "\n";
+    assert.throws(
+      () =>
+        validateDocumentation(crossBlock, {
+          expectedLicenseDigest: licenseDigest,
+        }),
+      /broken local link/u,
+    );
+  }
 });
 
 test("ignores links inside indented code blocks", () => {
@@ -1653,6 +1673,26 @@ test("normalizes code-span whitespace in heading anchors", () => {
   const rejected = currentContext();
   rejected.files["PRIVACY.md"] += "# `foo   bar`\n";
   rejected.files["README.md"] += "[Code](PRIVACY.md#foo---bar)\n";
+  assert.throws(
+    () =>
+      validateDocumentation(rejected, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /fragment/u,
+  );
+});
+
+test("preserves emphasis delimiters rendered by heading code spans", () => {
+  const admitted = currentContext();
+  admitted.files["PRIVACY.md"] += "# `_x_`\n";
+  admitted.files["README.md"] += "[Literal](PRIVACY.md#_x_)\n";
+  validateDocumentation(admitted, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const rejected = currentContext();
+  rejected.files["PRIVACY.md"] += "# `_x_`\n";
+  rejected.files["README.md"] += "[Emphasis](PRIVACY.md#x)\n";
   assert.throws(
     () =>
       validateDocumentation(rejected, {
