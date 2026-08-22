@@ -118,6 +118,36 @@ function indentationAt(line, start, startColumn) {
   return Object.freeze({ column, index });
 }
 
+function blockQuoteContent(line, maximumDepth = Number.POSITIVE_INFINITY) {
+  let contentColumn = 0;
+  let contentIndex = 0;
+  let depth = 0;
+  let indentation = indentationAt(line, contentIndex, contentColumn);
+  while (depth < maximumDepth) {
+    const relativeIndent = indentation.column - contentColumn;
+    if (
+      relativeIndent < 0 ||
+      relativeIndent > 3 ||
+      line.at(indentation.index) !== ">"
+    ) {
+      break;
+    }
+    contentIndex = indentation.index + 1;
+    contentColumn = indentation.column + 1;
+    const separator = line.at(contentIndex);
+    if (separator === " ") {
+      contentIndex += 1;
+      contentColumn += 1;
+    } else if (separator === "\t") {
+      contentIndex += 1;
+      contentColumn += 4 - (contentColumn % 4);
+    }
+    depth += 1;
+    indentation = indentationAt(line, contentIndex, contentColumn);
+  }
+  return Object.freeze({ contentColumn, depth, indentation });
+}
+
 function listMarkerAt(line, baseColumn, indentation) {
   const relativeIndent = indentation.column - baseColumn;
   if (relativeIndent < 0 || relativeIndent > 3) {
@@ -161,15 +191,13 @@ function fenceOpeningAt(line, baseColumn, indentation) {
     return undefined;
   }
   return Object.freeze({
-    baseColumn,
     length: marker.length,
     marker: marker.at(0),
   });
 }
 
-function closesFence(line, fence) {
-  const indentation = indentationAt(line, 0, 0);
-  const relativeIndent = indentation.column - fence.baseColumn;
+function closesFence(line, fence, baseColumn, indentation) {
+  const relativeIndent = indentation.column - baseColumn;
   if (relativeIndent < 0 || relativeIndent > 3) {
     return false;
   }
@@ -190,29 +218,46 @@ function renderedMarkdown(text) {
   let fence;
   for (const line of text.split("\n")) {
     if (fence !== undefined) {
-      if (closesFence(line, fence)) {
-        fence = undefined;
+      const quoted = blockQuoteContent(line, fence.quoteDepth);
+      if (quoted.depth === fence.quoteDepth) {
+        const fenceBase = quoted.contentColumn + fence.containerOffset;
+        if (closesFence(line, fence, fenceBase, quoted.indentation)) {
+          fence = undefined;
+        }
+        rendered.push(maskedLiteral(line));
+        continue;
       }
-      rendered.push(maskedLiteral(line));
-      continue;
+      fence = undefined;
+      listContainers.length = 0;
     }
 
-    const indentation = indentationAt(line, 0, 0);
-    const blank = /^[ \t]*\r?$/u.test(line);
+    const quoted = blockQuoteContent(line);
+    const indentation = quoted.indentation;
+    const blank = /^[ \t]*\r?$/u.test(line.slice(indentation.index));
     while (
-      !blank &&
       listContainers.length > 0 &&
-      indentation.column < listContainers.at(-1).contentColumn
+      listContainers.at(-1).quoteDepth !== quoted.depth
     ) {
       listContainers.pop();
     }
-    const baseColumn = listContainers.at(-1)?.contentColumn ?? 0;
+    while (
+      !blank &&
+      listContainers.length > 0 &&
+      indentation.column <
+        quoted.contentColumn + listContainers.at(-1).contentOffset
+    ) {
+      listContainers.pop();
+    }
+    const baseColumn = quoted.contentColumn +
+      (listContainers.at(-1)?.contentOffset ?? 0);
     const listMarker = listMarkerAt(line, baseColumn, indentation);
     let contentBase = baseColumn;
     let contentIndentation = indentation;
     if (listMarker !== undefined) {
+      const contentOffset = listMarker.contentColumn - quoted.contentColumn;
       listContainers.push(Object.freeze({
-        contentColumn: listMarker.contentColumn,
+        contentOffset,
+        quoteDepth: quoted.depth,
       }));
       contentBase = listMarker.contentColumn;
       contentIndentation = listMarker.contentIndentation;
@@ -224,7 +269,12 @@ function renderedMarkdown(text) {
 
     const opening = fenceOpeningAt(line, contentBase, contentIndentation);
     if (opening !== undefined) {
-      fence = opening;
+      fence = Object.freeze({
+        containerOffset: contentBase - quoted.contentColumn,
+        length: opening.length,
+        marker: opening.marker,
+        quoteDepth: quoted.depth,
+      });
       rendered.push(maskedLiteral(line));
       continue;
     }
@@ -432,8 +482,8 @@ function isHtmlWhitespace(character) {
   return /[\t\n\f\r ]/u.test(character ?? "");
 }
 
-function htmlIdentifiers(markdown) {
-  const identifiers = [];
+function htmlAttributes(markdown) {
+  const attributes = [];
   let searchFrom = 0;
   while (searchFrom < markdown.length) {
     const opening = markdown.indexOf("<", searchFrom);
@@ -460,7 +510,7 @@ function htmlIdentifiers(markdown) {
     }
 
     let complete = false;
-    const tagIdentifiers = [];
+    const tagAttributes = [];
     while (cursor < markdown.length) {
       while (isHtmlWhitespace(markdown.at(cursor))) {
         cursor += 1;
@@ -522,16 +572,16 @@ function htmlIdentifiers(markdown) {
           value = markdown.slice(valueStart, cursor);
         }
       }
-      if ((name === "id" || name === "name") && value?.length > 0) {
-        tagIdentifiers.push(value);
+      if (value !== undefined) {
+        tagAttributes.push(Object.freeze({ name, value }));
       }
     }
     if (complete) {
-      identifiers.push(...tagIdentifiers);
+      attributes.push(...tagAttributes);
     }
     searchFrom = complete ? cursor : opening + 1;
   }
-  return identifiers;
+  return attributes;
 }
 
 function headingAnchors(text) {
@@ -550,8 +600,13 @@ function headingAnchors(text) {
     occurrences.set(base, occurrence + 1);
     anchors.add(occurrence === 0 ? base : base + "-" + occurrence);
   }
-  for (const identifier of htmlIdentifiers(withoutCodeSpans(markdown))) {
-    anchors.add(identifier);
+  for (const attribute of htmlAttributes(withoutCodeSpans(markdown))) {
+    if (
+      (attribute.name === "id" || attribute.name === "name") &&
+      attribute.value.length > 0
+    ) {
+      anchors.add(attribute.value);
+    }
   }
   return anchors;
 }
@@ -564,11 +619,11 @@ function localTargets(text) {
   for (const match of markdown.matchAll(referenceDefinitions)) {
     targets.push(match[1] ?? match[2]);
   }
-  const attributes =
-    /(?:^|[\s<])(href|src|srcset)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/gimu;
-  for (const match of markdown.matchAll(attributes)) {
-    const name = match[1].toLowerCase();
-    const value = match[2] ?? match[3] ?? match[4];
+  for (const attribute of htmlAttributes(markdown)) {
+    const { name, value } = attribute;
+    if (name !== "href" && name !== "src" && name !== "srcset") {
+      continue;
+    }
     if (name !== "srcset") {
       targets.push(value);
       continue;

@@ -385,6 +385,28 @@ test("rejects tab-indented fenced-code openers", () => {
   );
 });
 
+test("ignores illustrative HTML attributes in prose", () => {
+  const context = currentContext();
+  context.files["README.md"] +=
+    'The literal src="docs/missing.md" is illustrative.\n';
+  validateDocumentation(context, {
+    expectedLicenseDigest: licenseDigest,
+  });
+});
+
+test("ignores fenced HTML inside block quotes", () => {
+  const context = currentContext();
+  context.files["README.md"] += [
+    "> ~~~html",
+    '> <img src="docs/missing.md">',
+    "> ~~~",
+    "",
+  ].join("\n");
+  validateDocumentation(context, {
+    expectedLicenseDigest: licenseDigest,
+  });
+});
+
 test("validates links after deeply nested labels", () => {
   const context = currentContext();
   context.files["README.md"] += "[a [b [c]]](docs/missing.md)\n";
