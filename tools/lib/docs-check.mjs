@@ -83,8 +83,10 @@ function normalizeTarget(source, rawTarget) {
 
 function localTargets(text) {
   const targets = [];
-  for (const match of text.matchAll(/!?\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/gu)) {
-    targets.push(match[1]);
+  const markdownLinks =
+    /!?\[[^\]]*\]\(\s*(?:<([^>\r\n]+)>|([^\s)]+))(?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?\s*\)/gu;
+  for (const match of text.matchAll(markdownLinks)) {
+    targets.push(match[1] ?? match[2]);
   }
   const attributes =
     /(?:^|[\s<])(href|src|srcset)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/gimu;

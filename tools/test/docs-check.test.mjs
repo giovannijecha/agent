@@ -126,6 +126,23 @@ test("rejects broken local links and decision-ledger references", () => {
     /broken local link/u,
   );
 
+  for (const markdownLink of [
+    "[Missing](docs/missing.md 'single title')",
+    "[Missing](docs/missing.md (parenthesized title))",
+    "[Missing](<docs/missing.md> \"angle destination\")",
+  ]) {
+    const titled = currentContext();
+    titled.files["README.md"] += markdownLink + "\n";
+    assert.throws(
+      () =>
+        validateDocumentation(titled, {
+          expectedLicenseDigest: licenseDigest,
+        }),
+      /broken local link/u,
+      markdownLink,
+    );
+  }
+
   const decision = currentContext();
   decision.files["docs/ARCHITECTURE.md"] +=
     "See docs/decisions/0042-example.md.\n";
