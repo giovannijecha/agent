@@ -335,6 +335,36 @@ function namedCharacterReference(name) {
   return undefined;
 }
 
+const NUMERIC_CHARACTER_REFERENCE_REPLACEMENTS = new Map([
+  [0x80, 0x20ac],
+  [0x82, 0x201a],
+  [0x83, 0x0192],
+  [0x84, 0x201e],
+  [0x85, 0x2026],
+  [0x86, 0x2020],
+  [0x87, 0x2021],
+  [0x88, 0x02c6],
+  [0x89, 0x2030],
+  [0x8a, 0x0160],
+  [0x8b, 0x2039],
+  [0x8c, 0x0152],
+  [0x8e, 0x017d],
+  [0x91, 0x2018],
+  [0x92, 0x2019],
+  [0x93, 0x201c],
+  [0x94, 0x201d],
+  [0x95, 0x2022],
+  [0x96, 0x2013],
+  [0x97, 0x2014],
+  [0x98, 0x02dc],
+  [0x99, 0x2122],
+  [0x9a, 0x0161],
+  [0x9b, 0x203a],
+  [0x9c, 0x0153],
+  [0x9e, 0x017e],
+  [0x9f, 0x0178],
+]);
+
 function decodeCharacterReferences(text) {
   return text.replaceAll(
     /&(?:#([0-9]{1,7})|#[xX]([0-9A-Fa-f]{1,6})|([A-Za-z][A-Za-z0-9]{1,31}));/gu,
@@ -345,7 +375,9 @@ function decodeCharacterReferences(text) {
       const value = Number.parseInt(decimal ?? hexadecimal, decimal === undefined ? 16 : 10);
       return value === 0 || value > 0x10ffff || (value >= 0xd800 && value <= 0xdfff)
         ? "\uFFFD"
-        : String.fromCodePoint(value);
+        : String.fromCodePoint(
+          NUMERIC_CHARACTER_REFERENCE_REPLACEMENTS.get(value) ?? value,
+        );
     },
   );
 }
@@ -1174,7 +1206,7 @@ function inlineLinkCandidate(markdown, opening, references) {
   });
 }
 
-function inlineTargets(markdown, references) {
+function activeInlineLinkCandidates(markdown, references) {
   const candidates = [];
   for (let cursor = 0; cursor < markdown.length; cursor += 1) {
     if (markdown.at(cursor) !== "[" || isEscaped(markdown, cursor)) {
@@ -1185,20 +1217,21 @@ function inlineTargets(markdown, references) {
       candidates.push(candidate);
     }
   }
-  return candidates
-    .filter(
-      (candidate) =>
-        candidate.target !== undefined &&
-        (
-          candidate.image ||
-          !candidates.some(
-            (nested) =>
-              !nested.image &&
-              nested.opening > candidate.opening &&
-              nested.end <= candidate.labelEnd,
-          )
-        ),
-    )
+  return candidates.filter(
+    (candidate) =>
+      candidate.image ||
+      !candidates.some(
+        (nested) =>
+          !nested.image &&
+          nested.opening > candidate.opening &&
+          nested.end <= candidate.labelEnd,
+      ),
+  );
+}
+
+function inlineTargets(markdown, references) {
+  return activeInlineLinkCandidates(markdown, references)
+    .filter((candidate) => candidate.target !== undefined)
     .map((candidate) => candidate.target);
 }
 
@@ -1211,6 +1244,19 @@ function normalizedReferenceLabel(label) {
 }
 
 function headingInlineText(markdown, referenceLabels) {
+  const references = new Map();
+  for (const label of referenceLabels) {
+    references.set(label, "");
+  }
+  const activeLinks = new Map();
+  for (
+    const candidate of activeInlineLinkCandidates(
+      withoutCodeSpans(markdown),
+      references,
+    )
+  ) {
+    activeLinks.set(candidate.opening, candidate);
+  }
   const rendered = [];
   let retainedFrom = 0;
   let cursor = 0;
@@ -1240,46 +1286,20 @@ function headingInlineText(markdown, referenceLabels) {
       cursor += 1;
       continue;
     }
-    const closing = closingLabelIndex(markdown, cursor);
-    if (closing === undefined) {
-      cursor += 1;
-      continue;
-    }
-    let renderedEnd;
-    if (markdown.at(closing + 1) === "(") {
-      renderedEnd = inlineTarget(markdown, closing + 1)?.end;
-    } else if (markdown.at(closing + 1) === "[") {
-      const referenceClosing = closingLabelIndex(markdown, closing + 1);
-      if (referenceClosing !== undefined) {
-        const reference = markdown.slice(closing + 2, referenceClosing);
-        const label = markdown.slice(cursor + 1, closing);
-        const normalized = normalizedReferenceLabel(
-          reference.length === 0 ? label : reference,
-        );
-        if (referenceLabels.has(normalized)) {
-          renderedEnd = referenceClosing + 1;
-        }
-      }
-    } else if (
-      referenceLabels.has(
-        normalizedReferenceLabel(markdown.slice(cursor + 1, closing)),
-      )
-    ) {
-      renderedEnd = closing + 1;
-    }
-    if (renderedEnd === undefined) {
+    const candidate = activeLinks.get(cursor);
+    if (candidate === undefined) {
       cursor += 1;
       continue;
     }
     rendered.push(markdown.slice(retainedFrom, cursor));
     rendered.push(
       headingInlineText(
-        markdown.slice(cursor + 1, closing),
+        markdown.slice(cursor + 1, candidate.labelEnd),
         referenceLabels,
       ),
     );
-    retainedFrom = renderedEnd;
-    cursor = renderedEnd;
+    retainedFrom = candidate.end;
+    cursor = candidate.end;
   }
   rendered.push(markdown.slice(retainedFrom));
   return rendered.join("");
@@ -1868,6 +1888,43 @@ function headingAnchors(text) {
   return anchors;
 }
 
+function srcsetTargets(value) {
+  const targets = [];
+  let cursor = 0;
+  while (cursor < value.length) {
+    while (/[,\t\n\f\r ]/u.test(value.at(cursor) ?? "")) {
+      cursor += 1;
+    }
+    const start = cursor;
+    while (
+      cursor < value.length &&
+      !/[\t\n\f\r ]/u.test(value.at(cursor))
+    ) {
+      cursor += 1;
+    }
+    let target = value.slice(start, cursor);
+    while (target.endsWith(",")) {
+      target = target.slice(0, -1);
+    }
+    if (target.length > 0) {
+      targets.push(target);
+    }
+    let parenthesisDepth = 0;
+    while (cursor < value.length) {
+      const character = value.at(cursor);
+      cursor += 1;
+      if (character === "(") {
+        parenthesisDepth += 1;
+      } else if (character === ")" && parenthesisDepth > 0) {
+        parenthesisDepth -= 1;
+      } else if (character === "," && parenthesisDepth === 0) {
+        break;
+      }
+    }
+  }
+  return targets;
+}
+
 function localTargets(text) {
   const markdown = withoutCodeSpans(renderedMarkdown(text));
   const tags = htmlTags(withoutHtmlComments(markdown));
@@ -1896,11 +1953,8 @@ function localTargets(text) {
         targets.push(value);
         continue;
       }
-      for (const candidate of value.split(",")) {
-        const target = candidate.trim().split(/\s+/u).at(0);
-        if (target !== undefined && target.length > 0) {
-          targets.push(target);
-        }
+      for (const target of srcsetTargets(value)) {
+        targets.push(target);
       }
     }
   }

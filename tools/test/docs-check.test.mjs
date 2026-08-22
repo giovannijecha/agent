@@ -93,6 +93,13 @@ test("rejects broken local links and decision-ledger references", () => {
     /broken local link/u,
   );
 
+  const commaInSource = currentContext();
+  commaInSource.files["README.md"] +=
+    '<source srcset="https://example.com/image,large.png 2x">\n';
+  validateDocumentation(commaInSource, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
   const singleQuoted = currentContext();
   singleQuoted.files["README.md"] +=
     "<img src='assets/brand/missing.png'>\n";
@@ -845,6 +852,15 @@ test("decodes the complete named character-reference registry", () => {
   });
 });
 
+test("applies HTML control mappings to numeric references", () => {
+  const context = currentContext();
+  context.files["PRIVACY.md"] += '<a id="exact&#128;"></a>\n';
+  context.files["README.md"] += "[Exact](PRIVACY.md#exact%E2%82%AC)\n";
+  validateDocumentation(context, {
+    expectedLicenseDigest: licenseDigest,
+  });
+});
+
 test("recognizes heading anchors inside Markdown containers", () => {
   const context = currentContext();
   context.files["PRIVACY.md"] += [
@@ -892,6 +908,29 @@ test("derives heading anchors from rendered link labels", () => {
   validateDocumentation(context, {
     expectedLicenseDigest: licenseDigest,
   });
+});
+
+test("preserves inactive outer link syntax in heading anchors", () => {
+  const context = currentContext();
+  context.files["PRIVACY.md"] +=
+    "# [outer [inner](https://example.com)](README.md)\n";
+  context.files["README.md"] +=
+    "[Nested](PRIVACY.md#outer-innerreadmemd)\n";
+  validateDocumentation(context, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const rejected = currentContext();
+  rejected.files["PRIVACY.md"] +=
+    "# [outer [inner](https://example.com)](README.md)\n";
+  rejected.files["README.md"] += "[Nested](PRIVACY.md#outer-inner)\n";
+  assert.throws(
+    () =>
+      validateDocumentation(rejected, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /fragment/u,
+  );
 });
 
 test("preserves visible autolink text in heading anchors", () => {
