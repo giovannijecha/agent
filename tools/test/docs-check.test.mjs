@@ -550,6 +550,30 @@ test("closes code spans at backslash-prefixed backticks", () => {
   );
 });
 
+test("rescans the unescaped remainder of backtick runs", () => {
+  for (const markdown of [
+    "\\``[Missing](docs/not-real.md)`",
+    "\\```[Missing](docs/not-real.md)``",
+  ]) {
+    const context = currentContext();
+    context.files["README.md"] += markdown + "\n";
+    validateDocumentation(context, {
+      expectedLicenseDigest: licenseDigest,
+    });
+  }
+
+  const escapedOnly = currentContext();
+  escapedOnly.files["README.md"] +=
+    "\\`[Missing](docs/missing.md)`\n";
+  assert.throws(
+    () =>
+      validateDocumentation(escapedOnly, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+});
+
 test("keeps code-span matching within one paragraph", () => {
   const crossParagraph = currentContext();
   crossParagraph.files["README.md"] +=

@@ -1422,7 +1422,7 @@ function withoutCodeSpans(text) {
     }
     const openingLength = markerRunLength(text, opening, "`");
     if (isEscaped(text, opening)) {
-      cursor = opening + openingLength;
+      cursor = opening + 1;
       continue;
     }
     const closing = codeSpanClosing(text, opening, openingLength);
