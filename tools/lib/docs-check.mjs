@@ -487,9 +487,91 @@ function containerProjectedMarkdown(text) {
   return projected.join("\n");
 }
 
+function rawHtmlClosingTag(line, tag) {
+  switch (tag) {
+    case "pre":
+      return /<\/pre[ \t]*>/iu.test(line);
+    case "script":
+      return /<\/script[ \t]*>/iu.test(line);
+    case "style":
+      return /<\/style[ \t]*>/iu.test(line);
+    case "textarea":
+      return /<\/textarea[ \t]*>/iu.test(line);
+    default:
+      return false;
+  }
+}
+
+function rawHtmlBlockOpening(line) {
+  const indentation = indentationAt(line, 0, 0);
+  if (indentation.column > 3) {
+    return undefined;
+  }
+  const content = line.slice(indentation.index);
+  const closedTag = content
+    .match(/^<(pre|script|style|textarea)(?=[ \t>])/iu)
+    ?.at(1)
+    ?.toLowerCase();
+  if (closedTag !== undefined) {
+    return Object.freeze({ closingTag: closedTag });
+  }
+  if (
+    /^<\/?(?:address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul)(?=[ \t/>]|$)/iu.test(
+      content,
+    )
+  ) {
+    return Object.freeze({ closingTag: undefined });
+  }
+  return undefined;
+}
+
+function withoutRawHtmlBlocks(markdown) {
+  const lines = markdown.split("\n");
+  const projected = containerProjectedMarkdown(markdown).split("\n");
+  const rendered = [];
+  let closingTag;
+  let untilBlank = false;
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines.at(index);
+    const content = projected.at(index);
+    if (closingTag !== undefined) {
+      rendered.push(maskedLiteral(line));
+      if (rawHtmlClosingTag(content, closingTag)) {
+        closingTag = undefined;
+      }
+      continue;
+    }
+    if (untilBlank) {
+      if (/^[ \t]*\r?$/u.test(content)) {
+        untilBlank = false;
+        rendered.push(line);
+      } else {
+        rendered.push(maskedLiteral(line));
+      }
+      continue;
+    }
+    const opening = rawHtmlBlockOpening(content);
+    if (opening === undefined) {
+      rendered.push(line);
+      continue;
+    }
+    rendered.push(maskedLiteral(line));
+    if (opening.closingTag === undefined) {
+      untilBlank = true;
+    } else if (!rawHtmlClosingTag(content, opening.closingTag)) {
+      closingTag = opening.closingTag;
+    }
+  }
+  return rendered.join("\n");
+}
+
 function isEscaped(text, index) {
   let backslashes = 0;
-  for (let cursor = index - 1; text.at(cursor) === "\\"; cursor -= 1) {
+  for (
+    let cursor = index - 1;
+    cursor >= 0 && text.at(cursor) === "\\";
+    cursor -= 1
+  ) {
     backslashes += 1;
   }
   return backslashes % 2 === 1;
@@ -769,6 +851,99 @@ function headingInlineText(markdown, referenceLabels) {
   return rendered.join("");
 }
 
+function emphasisDelimiter(markdown, index) {
+  const marker = markdown.at(index);
+  const length = markerRunLength(markdown, index, marker);
+  const previous = index === 0 ? "\n" : markdown.at(index - 1);
+  const next = markdown.at(index + length) ?? "\n";
+  const previousWhitespace = /\s/u.test(previous);
+  const nextWhitespace = /\s/u.test(next);
+  const previousPunctuation = /[\p{P}\p{S}]/u.test(previous);
+  const nextPunctuation = /[\p{P}\p{S}]/u.test(next);
+  const leftFlanking = !nextWhitespace &&
+    (!nextPunctuation || previousWhitespace || previousPunctuation);
+  const rightFlanking = !previousWhitespace &&
+    (!previousPunctuation || nextWhitespace || nextPunctuation);
+  return Object.freeze({
+    canClose: marker === "_"
+      ? rightFlanking && (!leftFlanking || nextPunctuation)
+      : rightFlanking,
+    canOpen: marker === "_"
+      ? leftFlanking && (!rightFlanking || previousPunctuation)
+      : leftFlanking,
+    index,
+    length,
+    marker,
+  });
+}
+
+function headingEmphasisText(markdown) {
+  const openers = [];
+  const removed = new Set();
+  let cursor = 0;
+  while (cursor < markdown.length) {
+    if (markdown.at(cursor) === "`" && !isEscaped(markdown, cursor)) {
+      const openingLength = markerRunLength(markdown, cursor, "`");
+      let searchFrom = cursor + openingLength;
+      while (searchFrom < markdown.length) {
+        const closing = markdown.indexOf("`", searchFrom);
+        if (closing === -1) {
+          break;
+        }
+        const closingLength = markerRunLength(markdown, closing, "`");
+        if (!isEscaped(markdown, closing) && closingLength === openingLength) {
+          cursor = closing + closingLength;
+          break;
+        }
+        searchFrom = closing + closingLength;
+      }
+      if (cursor < searchFrom) {
+        cursor += openingLength;
+      }
+      continue;
+    }
+    const marker = markdown.at(cursor);
+    if (
+      (marker !== "_" && marker !== "*") ||
+      isEscaped(markdown, cursor)
+    ) {
+      cursor += 1;
+      continue;
+    }
+    const delimiter = emphasisDelimiter(markdown, cursor);
+    let openerIndex = -1;
+    if (delimiter.canClose) {
+      for (let index = openers.length - 1; index >= 0; index -= 1) {
+        if (openers.at(index).marker === marker) {
+          openerIndex = index;
+          break;
+        }
+      }
+    }
+    if (openerIndex >= 0) {
+      const opener = openers.at(openerIndex);
+      for (let offset = 0; offset < opener.length; offset += 1) {
+        removed.add(opener.index + offset);
+      }
+      for (let offset = 0; offset < delimiter.length; offset += 1) {
+        removed.add(delimiter.index + offset);
+      }
+      openers.splice(openerIndex, 1);
+    } else if (delimiter.canOpen) {
+      openers.push(delimiter);
+    }
+    cursor += delimiter.length;
+  }
+
+  const rendered = [];
+  for (let index = 0; index < markdown.length; index += 1) {
+    if (!removed.has(index)) {
+      rendered.push(markdown.at(index));
+    }
+  }
+  return rendered.join("");
+}
+
 function referenceDefinition(line, continuation) {
   const indentation = indentationAt(line, 0, 0);
   if (
@@ -1012,9 +1187,10 @@ function withoutHtmlTags(markdown, tags) {
 
 function headingAnchors(text) {
   const markdown = renderedMarkdown(text);
-  const headingMarkdown = containerProjectedMarkdown(markdown);
+  const markdownContent = withoutRawHtmlBlocks(markdown);
+  const headingMarkdown = containerProjectedMarkdown(markdownContent);
   const referenceLabels = new Set(
-    referenceDefinitions(markdown).map((definition) => definition.label),
+    referenceDefinitions(markdownContent).map((definition) => definition.label),
   );
   const anchors = new Set();
   const occurrences = new Map();
@@ -1034,7 +1210,11 @@ function headingAnchors(text) {
   }
   headings.sort((left, right) => left.index - right.index);
   for (const heading of headings) {
-    const base = headingSlug(headingInlineText(heading.text, referenceLabels));
+    const base = headingSlug(
+      headingEmphasisText(
+        headingInlineText(heading.text, referenceLabels),
+      ),
+    );
     if (base.length === 0) {
       continue;
     }
@@ -1058,7 +1238,10 @@ function headingAnchors(text) {
 function localTargets(text) {
   const markdown = withoutCodeSpans(renderedMarkdown(text));
   const tags = htmlTags(markdown);
-  const markdownContent = withoutHtmlTags(markdown, tags);
+  const markdownContent = withoutHtmlTags(
+    withoutRawHtmlBlocks(markdown),
+    tags,
+  );
   const targets = inlineTargets(markdownContent);
   targets.push(...referenceTargets(markdownContent));
   for (const tag of tags) {

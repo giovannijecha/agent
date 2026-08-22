@@ -403,6 +403,19 @@ test("ignores Markdown-like text inside HTML attributes", () => {
   });
 });
 
+test("ignores Markdown-like text inside raw HTML blocks", () => {
+  const context = currentContext();
+  context.files["README.md"] += [
+    "<pre>",
+    "[sample](docs/not-real.md)",
+    "</pre>",
+    "",
+  ].join("\n");
+  validateDocumentation(context, {
+    expectedLicenseDigest: licenseDigest,
+  });
+});
+
 test("ignores fenced HTML inside block quotes", () => {
   const context = currentContext();
   context.files["README.md"] += [
@@ -647,6 +660,17 @@ test("derives heading anchors from rendered link labels", () => {
   ].join("\n");
   context.files["README.md"] +=
     "[Evaluation policy](PRIVACY.md#evaluation-and-policy)\n";
+  validateDocumentation(context, {
+    expectedLicenseDigest: licenseDigest,
+  });
+});
+
+test("removes emphasis delimiters from heading anchors", () => {
+  const context = currentContext();
+  context.files["PRIVACY.md"] +=
+    "# _Emphasized heading_ and snake_case\n";
+  context.files["README.md"] +=
+    "[Emphasis](PRIVACY.md#emphasized-heading-and-snake_case)\n";
   validateDocumentation(context, {
     expectedLicenseDigest: licenseDigest,
   });
