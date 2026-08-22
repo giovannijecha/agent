@@ -115,7 +115,7 @@ export function validateDocumentation(context, options = {}) {
     if (text.charCodeAt(0) === 0xfeff) {
       fail("documentation contains a byte-order mark: " + file);
     }
-    if (/docs\/decisions\/|\bdecision\s+[0-9]{4}\b/iu.test(text)) {
+    if (/docs\/decisions\/|\bdecisions?[\s-]+[0-9]{4}\b/iu.test(text)) {
       fail("decision ledger reference is forbidden: " + file);
     }
     if (FORBIDDEN_AUTHORSHIP_PATTERNS.some((pattern) => pattern.test(text))) {

@@ -75,6 +75,16 @@ test("rejects broken local links and decision-ledger references", () => {
   decision.files["docs/ARCHITECTURE.md"] +=
     "See docs/decisions/0042-example.md.\n";
   assert.throws(() => validateDocumentation(decision), /decision ledger/u);
+
+  const hyphenated = currentContext();
+  hyphenated.files["docs/ARCHITECTURE.md"] += "See decision-0095.\n";
+  assert.throws(
+    () =>
+      validateDocumentation(hyphenated, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /decision ledger/u,
+  );
 });
 
 test("rejects automated attribution and license drift", () => {
