@@ -435,7 +435,10 @@ function headingHtmlText(text) {
       /<([A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*)>/gu,
       "$1",
     )
-    .replaceAll(/<[^>]*>/gu, "");
+    .replaceAll(
+      /<[^>]*>/gu,
+      (tag, offset) => isEscaped(text, offset) ? tag : "",
+    );
 }
 
 function headingSlug(text) {
@@ -1130,6 +1133,9 @@ function inlineTarget(markdown, opening) {
       (markdown.at(cursor) !== ">" || isEscaped(markdown, cursor)) &&
       !/[\r\n]/u.test(markdown.at(cursor) ?? "")
     ) {
+      if (markdown.at(cursor) === "<" && !isEscaped(markdown, cursor)) {
+        return undefined;
+      }
       cursor += 1;
     }
     if (markdown.at(cursor) !== ">") {
@@ -1297,22 +1303,39 @@ function headingInlineText(markdown, referenceLabels) {
     if (markdown.at(cursor) === "`" && !isEscaped(markdown, cursor)) {
       const openingLength = markerRunLength(markdown, cursor, "`");
       let searchFrom = cursor + openingLength;
+      let closingEnd;
+      let closingStart;
       while (searchFrom < markdown.length) {
         const closing = markdown.indexOf("`", searchFrom);
         if (closing === -1) {
-          searchFrom = markdown.length;
           break;
         }
         const closingLength = markerRunLength(markdown, closing, "`");
         if (!isEscaped(markdown, closing) && closingLength === openingLength) {
-          cursor = closing + closingLength;
+          closingEnd = closing + closingLength;
+          closingStart = closing;
           break;
         }
         searchFrom = closing + closingLength;
       }
-      if (searchFrom === markdown.length) {
+      if (closingEnd === undefined) {
         cursor += openingLength;
+        continue;
       }
+      let code = markdown
+        .slice(cursor + openingLength, closingStart)
+        .replaceAll(/\s+/gu, " ");
+      if (
+        code.startsWith(" ") &&
+        code.endsWith(" ") &&
+        code.trim().length > 0
+      ) {
+        code = code.slice(1, -1);
+      }
+      rendered.push(markdown.slice(retainedFrom, cursor));
+      rendered.push(code);
+      retainedFrom = closingEnd;
+      cursor = closingEnd;
       continue;
     }
     if (markdown.at(cursor) !== "[" || isEscaped(markdown, cursor)) {
@@ -1533,6 +1556,12 @@ function referenceDefinition(line, continuation, secondContinuation) {
       (destinationLine.at(cursor) !== ">" ||
         isEscaped(destinationLine, cursor))
     ) {
+      if (
+        destinationLine.at(cursor) === "<" &&
+        !isEscaped(destinationLine, cursor)
+      ) {
+        return undefined;
+      }
       cursor += 1;
     }
     if (destinationLine.at(cursor) !== ">") {
@@ -1603,24 +1632,44 @@ function referenceDefinition(line, continuation, secondContinuation) {
 
 function referenceDefinitions(markdown) {
   const definitions = [];
+  const paragraphStates = new Map();
   const projected = containerProjectedLines(markdown);
   const lines = projected.map((line) => line.content.replace(/\r$/u, ""));
+  let previousContainerKey;
   for (let index = 0; index < lines.length; index += 1) {
     const containerKey = projected.at(index).containerKey;
+    if (
+      previousContainerKey !== undefined &&
+      previousContainerKey !== containerKey
+    ) {
+      paragraphStates.clear();
+    }
+    previousContainerKey = containerKey;
+    const paragraphOpen = paragraphStates.get(containerKey) ?? false;
     const continuation = projected.at(index + 1);
     const secondContinuation = projected.at(index + 2);
-    const definition = referenceDefinition(
-      lines.at(index),
-      continuation?.containerKey === containerKey
-        ? lines.at(index + 1)
-        : undefined,
-      secondContinuation?.containerKey === containerKey
-        ? lines.at(index + 2)
-        : undefined,
-    );
+    const definition = paragraphOpen
+      ? undefined
+      : referenceDefinition(
+        lines.at(index),
+        continuation?.containerKey === containerKey
+          ? lines.at(index + 1)
+          : undefined,
+        secondContinuation?.containerKey === containerKey
+          ? lines.at(index + 2)
+          : undefined,
+      );
     if (definition !== undefined) {
       definitions.push(Object.freeze({ ...definition, line: index }));
+      paragraphStates.set(containerKey, false);
       index += definition.lineCount - 1;
+    } else if (/^[ \t]*\r?$/u.test(lines.at(index))) {
+      paragraphStates.clear();
+    } else {
+      paragraphStates.set(
+        containerKey,
+        paragraphOpenAfterLine(lines.at(index), paragraphOpen),
+      );
     }
   }
   return definitions;

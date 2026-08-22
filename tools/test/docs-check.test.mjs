@@ -164,6 +164,13 @@ test("rejects broken local links and decision-ledger references", () => {
     );
   }
 
+  const invalidAngleDestination = currentContext();
+  invalidAngleDestination.files["README.md"] +=
+    "[sample](<docs/missing<.md>)\n";
+  validateDocumentation(invalidAngleDestination, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
   for (const referenceLink of [
     "[Missing][target]\n\n[target]: docs/missing.md 'details'",
     "[Missing][]\n\n[Missing]: <docs/missing.md> (details)",
@@ -691,6 +698,20 @@ test("validates only the selected active reference definition", () => {
   });
 });
 
+test("does not parse reference definitions inside open paragraphs", () => {
+  const context = currentContext();
+  context.files["README.md"] += [
+    "",
+    "Paragraph",
+    "[ref]: docs/missing.md",
+    "[use][ref]",
+    "",
+  ].join("\n");
+  validateDocumentation(context, {
+    expectedLicenseDigest: licenseDigest,
+  });
+});
+
 test("masks next-line reference titles", () => {
   for (const definition of [
     [
@@ -800,6 +821,7 @@ test("validates reference destinations on the following line", () => {
   ]) {
     const context = currentContext();
     context.files["README.md"] += [
+      "",
       ...definition,
       "",
       "[Missing][target]",
@@ -811,6 +833,7 @@ test("validates reference destinations on the following line", () => {
           expectedLicenseDigest: licenseDigest,
         }),
       /broken local link/u,
+      definition.join(" | "),
     );
   }
 });
@@ -1054,6 +1077,35 @@ test("preserves visible autolink text in heading anchors", () => {
   });
 });
 
+test("normalizes code-span whitespace in heading anchors", () => {
+  const admitted = currentContext();
+  admitted.files["PRIVACY.md"] += "# `foo   bar`\n";
+  admitted.files["README.md"] += "[Code](PRIVACY.md#foo-bar)\n";
+  validateDocumentation(admitted, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const rejected = currentContext();
+  rejected.files["PRIVACY.md"] += "# `foo   bar`\n";
+  rejected.files["README.md"] += "[Code](PRIVACY.md#foo---bar)\n";
+  assert.throws(
+    () =>
+      validateDocumentation(rejected, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /fragment/u,
+  );
+});
+
+test("preserves escaped tag text in heading anchors", () => {
+  const context = currentContext();
+  context.files["PRIVACY.md"] += "# \\<span>\n";
+  context.files["README.md"] += "[Span](PRIVACY.md#span)\n";
+  validateDocumentation(context, {
+    expectedLicenseDigest: licenseDigest,
+  });
+});
+
 test("removes emphasis delimiters from heading anchors", () => {
   const context = currentContext();
   context.files["PRIVACY.md"] +=
@@ -1109,6 +1161,7 @@ test("recognizes nested reference links and images", () => {
   const inactiveOuter = currentContext();
   inactiveOuter.files["README.md"] += [
     "[outer [inner][home]](docs/not-real.md)",
+    "",
     "[home]: README.md",
     "",
   ].join("\n");
