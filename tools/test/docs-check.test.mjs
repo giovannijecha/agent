@@ -1231,14 +1231,87 @@ test("parses HTML before code spans inside raw blocks", () => {
 });
 
 test("ignores apparent HTML tags inside raw-text elements", () => {
+  for (const element of [
+    "iframe",
+    "noembed",
+    "noframes",
+    "script",
+    "style",
+    "textarea",
+    "title",
+    "xmp",
+  ]) {
+    const context = currentContext();
+    context.files["README.md"] += [
+      "<" + element + ">",
+      '<img src="docs/not-real.md">',
+      "</" + element + ">",
+      "",
+    ].join("\n");
+    assert.doesNotThrow(
+      () =>
+        validateDocumentation(context, {
+          expectedLicenseDigest: licenseDigest,
+        }),
+      element,
+    );
+  }
+});
+
+test("parses active child tags inside pre elements", () => {
   const context = currentContext();
   context.files["README.md"] += [
-    "<script>",
-    'const sample = \'<img src="docs/not-real.md">\';',
-    "</script>",
+    "<pre>",
+    '<img src="docs/missing.md">',
+    "</pre>",
     "",
   ].join("\n");
-  validateDocumentation(context, {
+  assert.throws(
+    () =>
+      validateDocumentation(context, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+});
+
+test("keeps template contents inert and the template element active", () => {
+  const fakeAnchor = currentContext();
+  fakeAnchor.files["README.md"] += [
+    "[Missing](#fake)",
+    "",
+    '<template id="template-anchor">',
+    '<a id="fake"></a>',
+    "<template>",
+    '<a id="nested-fake"></a>',
+    "</template>",
+    '<img src="docs/not-real.md">',
+    "</template>",
+    "",
+    "[Template](#template-anchor)",
+    "",
+  ].join("\n");
+  assert.throws(
+    () =>
+      validateDocumentation(fakeAnchor, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /fragment/u,
+  );
+
+  const inertContents = currentContext();
+  inertContents.files["README.md"] += [
+    '<template id="template-anchor">',
+    '<a id="fake"></a>',
+    "<template>",
+    '<img src="docs/not-real.md">',
+    "</template>",
+    "</template>",
+    "",
+    "[Template](#template-anchor)",
+    "",
+  ].join("\n");
+  validateDocumentation(inertContents, {
     expectedLicenseDigest: licenseDigest,
   });
 });

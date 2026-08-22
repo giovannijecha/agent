@@ -2303,6 +2303,61 @@ function htmlNonTagRange(start, end) {
   });
 }
 
+function htmlTemplateRange(template, end) {
+  return Object.freeze({
+    attributeNames: template.attributeNames,
+    attributes: template.attributes,
+    closing: false,
+    end,
+    name: template.name,
+    start: template.start,
+  });
+}
+
+function collapseHtmlTemplateContents(tags, templateEnd) {
+  const collapsed = [];
+  let depth = 0;
+  let outerTemplate;
+  let outerEnd;
+  const finishOuter = (end) => {
+    collapsed.push(htmlTemplateRange(outerTemplate, end));
+    depth = 0;
+    outerTemplate = undefined;
+    outerEnd = undefined;
+  };
+  for (const tag of tags) {
+    if (outerTemplate !== undefined && tag.start >= outerEnd) {
+      finishOuter(outerEnd);
+    }
+    if (tag.name !== "template") {
+      if (depth === 0) {
+        collapsed.push(tag);
+      }
+      continue;
+    }
+    if (tag.closing) {
+      if (depth === 0) {
+        collapsed.push(tag);
+        continue;
+      }
+      depth -= 1;
+      if (depth === 0) {
+        finishOuter(tag.end);
+      }
+      continue;
+    }
+    if (depth === 0) {
+      outerTemplate = tag;
+      outerEnd = templateEnd;
+    }
+    depth += 1;
+  }
+  if (outerTemplate !== undefined) {
+    finishOuter(outerEnd);
+  }
+  return collapsed;
+}
+
 function htmlTags(markdown, blockBounded = true) {
   const tags = [];
   const normalizedMarkdown = markdown.toLowerCase();
@@ -2357,7 +2412,6 @@ function htmlTags(markdown, blockBounded = true) {
     }
 
     let complete = false;
-    let selfClosing = false;
     const seenAttributeNames = new Set();
     const tagAttributes = [];
     if (closingTag) {
@@ -2389,7 +2443,6 @@ function htmlTags(markdown, blockBounded = true) {
       ) {
         cursor += 2;
         complete = true;
-        selfClosing = true;
         break;
       }
       if (cursor === whitespaceStart) {
@@ -2461,32 +2514,35 @@ function htmlTags(markdown, blockBounded = true) {
       }
     }
     if (complete) {
-      tags.push(Object.freeze({
+      const tag = Object.freeze({
         attributeNames: Object.freeze([...seenAttributeNames]),
         attributes: Object.freeze(tagAttributes),
+        closing: closingTag,
         end: cursor,
         name: tagName,
         start: opening,
-      }));
+      });
+      tags.push(tag);
     }
     if (
       complete &&
       !closingTag &&
-      !selfClosing &&
-      /^(?:pre|script|style|textarea)$/u.test(tagName)
+      /^(?:iframe|noembed|noframes|script|style|textarea|title|xmp)$/u.test(
+        tagName,
+      )
     ) {
       searchFrom = rawTextElementEnd(
         markdown,
         normalizedMarkdown,
         cursor,
         tagName,
-        end,
+        markdown.length,
       );
     } else {
       searchFrom = complete ? cursor : opening + 1;
     }
   }
-  return tags;
+  return collapseHtmlTemplateContents(tags, markdown.length);
 }
 
 function withoutHtmlTags(markdown, tags) {
