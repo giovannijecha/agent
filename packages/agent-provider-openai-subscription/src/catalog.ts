@@ -98,7 +98,7 @@ function snapshotCapture(value: unknown): OpenAICatalogCapture | undefined {
   }
 }
 
-/** Strictly decodes the decision-0095 authenticated catalog projection. */
+/** Strictly decodes the authenticated catalog projection. */
 export function decodeOpenAIModelCatalog(
   bytes: Uint8Array,
 ): Result<readonly OpenAIModelId[], OpenAIError> {

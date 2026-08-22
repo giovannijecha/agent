@@ -39,12 +39,11 @@ const exampleRegistry = {
   schemaVersion: 1,
 };
 const evaluationSuite = loadEvaluationSuite(projectRoot);
-const decisionPath =
-  "docs/decisions/0049-owned-evaluation-failure-registry.md";
+const resolutionPath = "docs/ENGINEERING.md";
 
 function context(overrides = {}) {
   return {
-    repositoryPaths: [decisionPath],
+    repositoryPaths: [resolutionPath],
     sourceBytes: registryBytes.length,
     taskExpectedPaths: evaluationSuite.tasks.map((task) => ({
       paths: task.expected.map((entry) => entry.path),
@@ -268,14 +267,14 @@ test("binds lifecycle state to tracked resolution evidence", () => {
 
   const firstResolved = clone();
   firstResolved.entries.at(0).status = "resolved";
-  firstResolved.entries.at(0).resolution = decisionPath;
+  firstResolved.entries.at(0).resolution = resolutionPath;
   assert.throws(
     () => validateEvaluationFailureRegistry(firstResolved, context()),
     expectCode("invalidLifecycle"),
   );
 
   const prematureResolution = clone();
-  prematureResolution.entries.at(0).resolution = decisionPath;
+  prematureResolution.entries.at(0).resolution = resolutionPath;
   assert.throws(
     () => validateEvaluationFailureRegistry(prematureResolution, context()),
     expectCode("invalidLifecycle"),
@@ -294,7 +293,7 @@ test("binds lifecycle state to tracked resolution evidence", () => {
   const resolved = clone();
   resolved.entries.at(0).occurrences = 2;
   resolved.entries.at(0).status = "resolved";
-  resolved.entries.at(0).resolution = decisionPath;
+  resolved.entries.at(0).resolution = resolutionPath;
   assert.deepEqual(validateEvaluationFailureRegistry(resolved, context()), {
     actionable: 0,
     entries: 1,
@@ -317,7 +316,7 @@ test("rejects oversized source and malformed context without leaking content", (
   );
 
   const duplicatePaths = context({
-    repositoryPaths: [decisionPath, decisionPath],
+    repositoryPaths: [resolutionPath, resolutionPath],
   });
   assert.throws(
     () => validateEvaluationFailureRegistry(exampleRegistry, duplicatePaths),

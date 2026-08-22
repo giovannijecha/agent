@@ -1,4 +1,4 @@
-/** Public surface for decision 0095's inactive OpenAI provider transport. */
+/** Public surface for the inactive owned OpenAI provider transport. */
 
 export { decodeOpenAIModelCatalog, OpenAIModelCatalog } from "./catalog.js";
 export type {

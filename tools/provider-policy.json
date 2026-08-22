@@ -1,9 +1,7 @@
 {
-  "schemaVersion": 15,
-  "applicationDocument": "docs/PROVIDER-APPLICATIONS.md",
+  "schemaVersion": 16,
   "researchedOn": "2026-08-08",
   "subscriptionCompatibility": {
-    "decision": "0091",
     "state": "accepted-runtime-inactive",
     "providers": [
       "chatgpt",
@@ -109,11 +107,6 @@
   "subscriptionContracts": [
     {
       "id": "chatgpt",
-      "decision": "0090",
-      "identityDecision": "0092",
-      "credentialDecision": "0093",
-      "authDecision": "0094",
-      "transportDecision": "0095",
       "state": "transport-compatible-inactive",
       "flow": "openai-device-code-plus-oauth-pkce",
       "issuer": "https://auth.openai.com",

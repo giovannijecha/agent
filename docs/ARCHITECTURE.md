@@ -1,501 +1,259 @@
 # Architecture
 
-## Scope
+This document describes the current product. It is a living contract: when the
+runtime changes, update the implementation, tests, operator manual, and this
+document together.
 
-This document describes the current product shape: package boundaries, authority
-flow, runtime composition, capabilities, provider integration, terminal
-ownership, and security boundaries.
+## System shape
 
-It does not explain why those boundaries were chosen or how maintainers change
-them. Use:
-
-- [decisions](decisions/README.md) for accepted rationale;
-- [engineering](ENGINEERING.md) for change and evidence requirements;
-- [maintenance](MAINTENANCE.md) for update, rollback, and removal procedures;
-- the [operator manual](manual/README.md) for visible behavior.
-
-## Single-agent execution model
-
-`agent` is one local process with one identity, one application controller,
-one active runtime session, and one active model decision loop. It
-does not create sub-agents; providers are replaceable backends, not additional
-agents.
-
-Single-agent is an identity and authority contract, not a claim that every
-mechanical operation must be synchronous. Reduction is deterministic. The sole
-controller may overlap two to four explicitly registered independent read
-handlers after all permissions settle. This observation cohort is not an atomic
-filesystem snapshot. It excludes every owned effect, then returns all results
-in provider order. Model turns, permission decisions, writes, process
-execution, conversation commits, and terminal output remain serialized.
+Agent is one process with one identity, one serialized controller, one active
+runtime session, and one selected provider-model pair. The product does not
+contain sub-agents, delegation, swarms, background conversations, or a project
+backend.
 
 ```text
 terminal
    |
-@agent/cli
-   +-- canonical workspace and read policy
-   +-- session provider, model, permissions, and tools
-   +-- @agent/runtime
-   |      +-- @agent/core
-   |      +-- @agent/tools
-   |      +-- model port
-   +-- @agent/tui
-   +-- @agent/provider-ollama-cloud
-   +-- @agent/provider-openai-subscription (installed, uncomposed)
+@agent/cli  -- credentials, workspace, persistence, network, native helpers
+   |\
+   | +-- @agent/tui
+   | +-- @agent/provider-ollama-cloud
+   | +-- @agent/provider-openai-subscription (installed, not composed)
+   |
+@agent/runtime -- @agent/tools -- @agent/core
 ```
 
-Startup does not select a provider or model. The operator authenticates through
-`agent auth` outside the TUI, then selects a currently admitted provider and
-model inside the running TUI. Owned credentials are user-scoped; the admitted
-credential snapshot, provider choice, catalog result, and model choice remain
-process-local. The installed OpenAI transport has no startup or TUI composition.
+Dependencies point inward. Every package exports through `src/index.ts`; deep
+cross-package imports are forbidden.
 
-## Dependency graph
-
-The workspace contains seven shipped packages:
-
-```text
-@agent/core
-   ^
-   |
-@agent/tools
-   ^
-   |
-@agent/runtime <----- @agent/provider-ollama-cloud
-   ^             <--- @agent/provider-openai-subscription
-   |                         ^
-   +--------- @agent/cli ----+
-                  |
-               @agent/tui
-```
-
-Direct package edges are exact:
-
-| Package | Direct local dependencies |
+| Package | Authority |
 | --- | --- |
-| `@agent/core` | none |
-| `@agent/tools` | `@agent/core` |
-| `@agent/runtime` | `@agent/core`, `@agent/tools` |
-| `@agent/provider-ollama-cloud` | `@agent/core`, `@agent/runtime`, `@agent/tools` |
-| `@agent/provider-openai-subscription` | `@agent/core`, `@agent/runtime`, `@agent/tools` |
-| `@agent/tui` | none |
-| `@agent/cli` | all six packages above |
+| `@agent/core` | Immutable conversation state, tool-call identity, model and permission domain types; no I/O |
+| `@agent/tools` | Provider-neutral schemas, plans, results, and engine; Node-free |
+| `@agent/runtime` | One bounded checkpointed model/tool loop; Node-free |
+| `@agent/provider-ollama-cloud` | Ollama catalog, chat request, streaming decoder, and failure mapping; Node-free |
+| `@agent/provider-openai-subscription` | OpenAI catalog and Responses protocol adapter; Node-free and currently uncomposed |
+| `@agent/tui` | Agent-agnostic terminal state, layout, rendering, and input reduction; Node-free |
+| `@agent/cli` | Sole Node/platform boundary and application composition |
 
-Core, tools, runtime, both providers, and TUI remain Node-free. The CLI is the sole
-Node and operating-system boundary.
+Core and TUI never depend on each other. Provider packages never own terminal,
+filesystem, credential, or process authority. The CLI injects those effects
+through explicit bounded interfaces.
 
-## Package boundaries
+## Application lifecycle
 
-| Package | Owns |
-| --- | --- |
-| `@agent/core` | deterministic domain state, immutable conversation trees, journal codecs, and immutable results |
-| `@agent/tools` | tool schemas, risk classes, registry validation, and bounded handler execution |
-| `@agent/runtime` | bounded streaming turns, cancellation, tool checkpoints, conversation-tree selection, and commits |
-| `@agent/provider-ollama-cloud` | provider-neutral request translation and Ollama Cloud stream decoding |
-| `@agent/provider-openai-subscription` | inactive OpenAI catalog projection, Responses request encoding, strict SSE decoding, and provider-neutral normalization |
-| `@agent/tui` | input decoding, editors, structured rows, Markdown, layout, viewports, and frame rendering |
-| `@agent/cli` | application state, commands, durable session journals, branch-aware transcript projection, provider/session state, built-in tools, terminal arbitration, filesystem/process access, and native brokers |
+The CLI accepts only the documented launch forms, resolves one canonical
+workspace, fixes its deny-only read policy, admits credentials, prepares local
+session state, takes terminal ownership, and starts the sole controller.
 
-Dependencies point inward and public package access goes through each
-`src/index.ts`. Deep cross-package imports are not part of the architecture.
+Normal interactive launch creates a new session. `agent resume --latest`
+validates the newest inactive journal for the exact workspace and creates a
+separate continuation. `agent auth` runs outside the alternate-screen TUI and
+owns interactive credential mutation. Redirected input or output fails for
+interactive commands.
 
-## Composition and turn lifecycle
+The controller serializes:
 
-The CLI composition root performs startup in this order:
+1. input reduction and slash commands;
+2. model turns and cancellation;
+3. permission decisions;
+4. writes, namespace mutations, and shell execution;
+5. conversation checkpoints and journal publication; and
+6. terminal frames and shutdown.
 
-1. resolve the exact startup directory into one immutable canonical workspace;
-2. load the built-in and optional root `.agentignore` read-denial policy;
-3. route exact `agent auth` before journal, provider, tool, runtime, or terminal
-   composition, or continue ordinary startup;
-4. create a new bounded local journal or restore the exact latest inactive one;
-5. register the fixed provider and tool inventories plus session permissions;
-6. acquire one shared native credential admission and immutable startup snapshot;
-7. acquire terminal ownership and enter the conversation-first TUI;
-8. use `/models` to stage an authenticated provider, load its exact catalog,
-   and atomically accept the provider-model pair.
+The only concurrency exception is one cohort of two to four independent
+registered read calls. The complete batch is validated and every permission is
+settled first. The cohort cannot overlap an effect, and results are reduced in
+provider order before the next model decision.
 
-A submitted user message is prospective until the complete turn settles. One
-model response may contain one bounded ordered tool-call batch. The runtime:
+## Conversation and turn lifecycle
 
-1. validates the complete batch before effects;
-2. plans calls serially in provider order;
-3. obtains one exact permission decision for every successfully planned call;
-4. executes calls sequentially, except for one admitted cohort of two to four
-   independently registered reads after all cohort permissions settle;
-5. checkpoints every tool result into conversation truth;
-6. returns that truth before the next model decision;
-7. appends one settled-turn node and commits one complete exchange when the
-   turn settles.
+Core owns one bounded immutable conversation tree. A node records one settled
+user/assistant turn or one complete tool checkpoint and its parent identity.
+Runtime sees exactly the selected root-to-node path. `/timeline` changes the
+selected node only while idle. Appending after an older selection creates a
+sibling without deleting its former continuation.
 
-A later model failure does not erase a completed tool checkpoint. The CLI
-publishes a closed content-free failure family and retains the confirmed tool
-truth. Read-cohort settlements are buffered and emitted in provider order.
-There are no implicit retries, concurrent effects, fallback providers, or
-parallel conversations.
+Selection never replays a tool, rewinds the workspace, or treats an old
+observation as current. Every later effect is planned and authorized against
+current state.
 
-If shutdown takes ownership after a checkpoint, runtime stop returns cleanup
-truth separately from the immutable checkpointed turn it settles. The sole CLI
-controller attempts that node's journal append before journal close and never
-attempts the same node twice. Shutdown therefore cannot discard confirmed tool
-truth or cause a completed effect to be replayed on resume.
+A model turn follows this order:
 
-Core retains a bounded immutable tree whose content-free root is node zero.
-Each other node owns one completed turn or one checkpointed incomplete turn and
-one parent identity. Runtime exposes exactly one selected root-to-node path as
-the linear conversation sent to the model. Selecting an earlier node while
-idle and submitting another task appends a child there without deleting any
-existing descendants. Alternate branches are inert retained data, not
-parallel conversations, and selection never replays a tool or effect.
-The core snapshots each public turn delta through its bounded indexed surface
-before validation, measurement, and storage; caller iteration is never used.
-The CLI mirror cannot reject an accepted tree transition because of its bounded
-checkpoint markers or separators, and `/timeline` keeps all retained identities
-navigable while projecting at most 32 insertion-ordered rows at once.
+1. validate the selected provider, model, bounded conversation, and input;
+2. open exactly one provider response stream;
+3. accumulate bounded assistant text, native reasoning, or one ordered tool
+   batch;
+4. validate and plan the complete batch in provider order;
+5. obtain one exact permission per successfully planned call;
+6. execute serially or as the one admitted read cohort;
+7. commit one truthful tool checkpoint before continuing; and
+8. commit the final assistant result only after runtime and CLI settlement.
 
-Interactive `agent` creates one version-two per-user local journal outside the
-workspace. Only complete settled turns, their optional separately bounded
-native reasoning, and the selected node identity cross that CLI-owned
-boundary. `agent resume --latest` validates the newest inactive version-one or
-version-two journal for the exact workspace, rebuilds the immutable tree and
-transcript, and creates a separate version-two continuation before providers,
-tools, or terminal ownership. Credential snapshots, catalogs, provider/model
-selection, thinking effort and display settings, permissions, drafts,
-provisional turns, activity, and notices remain process-only. Durable provider
-records are a separate credential-store authority and never enter the journal. A final
-truncated line recovers only its complete prefix. A complete final turn whose
-head is exactly one journal revision behind is selected only when its parent is
-that previous head; current-revision selections remain authoritative and every
-other mismatch fails closed. Evaluation-receipt and non-TTY runs create no
-journal.
+Streamed content remains provisional until its segment settles. Cancellation or
+failure discards only content newer than the last completed checkpoint. A
+completed effect is never retried, replayed, or erased implicitly.
 
-The current session authority is the exact `~/.agent/sessions` child of the
-native-resolved account home. Session code creates no `settings` namespace and
-never owns the separate `credentials` sibling. Before creation or resume,
-the CLI considers only the current workspace digest under the former
-platform-state root. When only that legacy directory exists, the CLI holds its
-cross-version workspace admission, validates its bounded inactive inventory,
-and renames the complete directory into the current root. Both locations,
-cross-device movement, an active session, or any ambiguous path or storage
-state fail closed without copy, merge, overwrite, deletion, or fallback.
-
-Decision 0089 supersedes decision 0088's OAuth-only future design and the
-credential-selection portions of decision 0072. Its Ollama-first transition is
-active: `agent auth`, the provider-specific owned record, shared/exclusive
-native admission, complete `/providers` removal, and two-stage `/models`
-selection ship as one authority.
-Decision 0090 specifies a future OpenAI device OAuth, exclusive credential,
-catalog, and Responses boundary. Decision 0091 accepts provider-owned
-non-secret public-client compatibility while requiring every controllable
-caller identity to remain `agent`; the OpenAI contract is
-`specified-compatible-inactive` behind its implementation gate. Decision 0092
-accepts the exact OpenAI public client and device identity semantics. Decision
-0093 implements the exact provider-specific record and private native broker
-transaction. Decision 0094 composes that exclusive mutation with the bounded
-device, poll, PKCE, token, account-binding, expiration, terminal-cancellation,
-and local-removal flow in `agent auth`. Decision 0095 adds one Node-free catalog
-and Responses adapter plus one exact CLI HTTPS boundary without composing them.
-The contract is now `transport-compatible-inactive` behind
-`runtime-integration-required`. OpenAI authentication and transport code are
-current, but there is no runtime credential snapshot, refresh or revocation
-request, provider/model row, transport construction, or conversation-runtime
-composition.
-
-Every accepted journal file is synchronized before publication. On POSIX, the
-CLI also synchronizes a staged session directory before publishing it and the
-containing directory after every head replacement, session publication,
-retirement, or lock transition; unsupported directory synchronization fails
-closed. Each launcher publishes one uniquely named, never-reused workspace
-admission token before scanning the bounded token set. Scan, retention, resume
-selection, and continuation publication proceed only while no other live token
-exists. Overlapping live contenders fail busy without waiting and may all fail;
-an operating-system-proven stale token can be removed only through its unique
-pathname, so reclamation cannot delete a successor. While admitted, every new
-session receives a creation value strictly greater than the newest validated
-session even when the wall clock ties or moves backward.
-
-Each encoded tool input and result retains the same independent structured-value
-limits enforced when that payload entered the runtime; sibling payloads do not
-share a parser budget.
-
-The principal runtime bounds are fixed:
-
-| Boundary | Limit |
-| --- | ---: |
-| user message | 4,096 code points |
-| one streamed text delta | 16,384 code units |
-| one assistant response | 262,144 code units |
-| one streamed reasoning delta | 16,384 code units |
-| one model-response reasoning value | 262,144 code units |
-| one stream | 4,096 events |
-| one parallel read cohort | 2-4 calls |
-| one selected conversation path | 256 messages / 1,048,576 code units |
-| retained conversation tree | 128 settled turns / 256 messages / 1,048,576 code units |
-| one local session journal | 16,777,216 UTF-8 bytes |
-| retained sessions per workspace | 32 validated directories / 64 scanned |
-| workspace admission scan | 64 exact tokens |
-| one turn | 32 model/tool steps |
+The conversation retains at most 128 settled turns, 256 provider-message units,
+and 1,048,576 code units. One provider response admits at most 32 tool calls and
+every input, result, stream, and render surface has a fixed bound enforced by
+its owner.
 
 ## Capability surface
 
-The advertised model-facing inventory is exactly:
+The model sees exactly six tools:
 
-| Tool | Capability | Default permission |
+| Tool | Capability | Default |
 | --- | --- | --- |
-| `read_file` | bounded complete or line-projected file observation | Allow |
-| `list_directory` | bounded directory observation | Allow |
-| `search_text` | bounded text search under the read policy | Allow |
-| `apply_patch` | one object-bound structured text commit | Ask |
-| `manage_path` | one object-bound namespace commit | Ask |
-| `shell` | one bounded native-shell command execution | Ask |
+| `read_file` | Read one bounded file, optionally projecting logical lines | `Allow` |
+| `list_directory` | Enumerate one directory without recursion | `Allow` |
+| `search_text` | Search bounded text under the workspace | `Allow` |
+| `apply_patch` | Create or update one text file through exact ordered hunks | `Ask` |
+| `manage_path` | Create one directory, move one object, or remove one file/empty directory | `Ask` |
+| `shell` | Run one exact approved native-shell command | `Ask` |
 
-The tool registry, schemas, planners, permissions, and handlers remain separate
-authorities. A permission approves one exact planned call; it cannot widen a
-schema, path, program, limit, disclosure policy, or native committer.
+The provider-neutral tool boundary validates one complete ordered batch before
+execution. Planning observes current state just in time and produces immutable
+plans. `/permissions` stores one process-only `Allow`, `Ask`, or `Deny` value per
+exact tool; permission cannot widen a schema, path, platform, limit, or effect.
 
-Registration separately marks a direct read handler as `independentRead`.
-Only `read_file`, `list_directory`, and `search_text` carry that declaration.
-The runtime does not infer concurrency from the `read` risk alone; mixed,
-single, unregistered, and oversized batches remain serial.
+### Workspace and reads
 
-`apply_patch` binds approval to the observed object or absence, exact ordered
-hunks, and state digests. `manage_path` exposes `operation`, `path`, and the
-move-only `destination` directly in one flat closed object. One provider-neutral
-bounded discriminant validates the three exact operation field sets during
-complete batch preflight while the provider projects no nested request envelope
-or schema combinator. The tool owns only `create_directory`, `move`, and
-`remove`; Linux currently admits only directory creation. `shell` admits one
-exact command and a workspace-relative working directory. The CLI fixes Bash
-without profiles on Linux or Windows PowerShell without profiles on Windows,
-projects only the decision-0073 environment allowlist, excludes provider
-credentials, and retains fixed whole-tree containment and execution bounds.
-Approved shell code has the launching user's filesystem and network authority.
+Startup canonicalizes the exact current directory once and never discovers a
+broader repository. Volume roots, the exact native account home, shared
+temporary storage, and workspaces containing or located inside the native
+`~/.agent` state root fail before credentials or terminal ownership.
 
-The read tools share one deny-only disclosure policy. Sensitive built-in paths
-are always denied; an optional root `.agentignore` can add denials but cannot
-grant access.
+All filesystem tools receive that same root. Built-in rules deny
+`.agentignore`, `.git`, `.env` variants, common SSH/cloud/package credential
+locations, conventional private-key names, and sensitive key/certificate file
+extensions. A bounded root `.agentignore` may add denials but cannot negate a
+built-in rule. Linked, malformed, changed, inaccessible, or oversized policy
+input fails closed. Read tools recheck resolved targets before opening content.
+
+### Mutations
+
+`apply_patch` binds one authorization to a canonical target, exact ordered
+hunks, object identity or absence, strict UTF-8 source, and content digests. Its
+owned native Windows/Linux committer rejects stale or retargeted state before
+one file publication. It is not a multi-file transaction, durability guarantee,
+rollback system, or sandbox.
+
+`manage_path` binds one authorization to a canonical source/destination,
+observed kind and identity, parent identities, and destination absence. It
+never overwrites, merges, recursively removes, or creates parents implicitly.
+Windows supports create, move, and removal through the native object boundary.
+Linux currently admits verified directory creation and rejects move/removal
+before permission because the available primitive cannot preserve the approved
+object identity.
+
+### Shell
+
+`shell` receives one exact command and workspace-relative working directory.
+Linux uses profile-free `/bin/bash`; Windows uses profile-free, non-interactive
+Windows PowerShell with a fixed UTF-8 prelude. The environment contains only the
+documented platform, locale, home, temporary, application-data, and PATH values;
+provider credentials and the unfiltered parent environment are excluded.
+
+The command may still use the launching user’s filesystem and network
+authority. Owned native containment bounds execution, output, cancellation, and
+descendant-tree cleanup. Interactive programs, retained services, and work that
+outlives settlement are unsupported.
 
 ## Provider boundary
 
-Ollama Cloud is the sole admitted direct provider. The integration is split
-between:
+Agent starts without a provider or model. Authentication never selects either.
+`/models` first stages one authenticated runtime provider, requests only that
+provider’s fresh catalog, and then atomically selects its provider-model pair.
+Catalog and selection remain process-only.
 
-- the Node-free package adapter, which builds bounded requests, normalizes the
-  admitted native Ollama message and tool-call variants, and decodes the
-  provider stream into runtime events;
-- the CLI transport, which owns HTTPS, exact origins, bearer authentication,
-  response limits, inactivity limits, and wall-clock deadlines.
+### Ollama Cloud
 
-The session has no default provider or model. `agent auth` is the sole
-interactive credential lifecycle and runs after workspace validation but before
-the alternate screen, with no operands, journal, runtime, or tools. Its Ollama
-credential path performs no network request. Its OpenAI path performs only the
-fixed-origin device, poll, and token HTTPS ceremony owned by decision 0094; it
-does not open a browser or activate provider runtime, catalog, or model traffic.
-The CLI-owned C17 broker resolves the native account home without inherited
-home text and owns the exact Ollama record, strict schema, filesystem controls,
-shared/exclusive byte-range admission, atomic mutation, recovery, and removal.
-The resolved Windows profile is validated as non-reparse lineage without
-requiring it to share the credential SID owner; ownership enforcement begins at
-the exact credential lock and `credentials` child. The decision-0087 `.agent`
-root remains shared non-reparse lineage and may retain its operating-system
-owner and DACL. Linux recovery opens a fresh validated credential directory
-description for every inventory scan. The store is owned plaintext, not an OS
-keychain or encrypted vault.
+Ollama Cloud is the sole active runtime provider. It uses exactly:
 
-Every TUI process snapshots the durable record or the temporary environment
-source while holding a shared admission through provider cleanup. Auth mutation
-holds the exclusive admission. Lock conflicts fail busy without waiting or
-retry. A durable record and `AGENT_OLLAMA_API_KEY` together fail as dual
-authority after safe-envelope validation and before secret payload read; unsafe
-state never falls back to the environment. `/models` lists only authenticated
-providers, stages one without changing the active backend, performs one exact
-catalog request, and atomically replaces provider and model only when a fresh
-catalog model is accepted. Failure or cancellation preserves the prior pair.
-The latest process-memory catalog is the model-availability authority; it does
-not locally infer account entitlement, credit, quota, or provider capacity.
+- `GET https://ollama.com/api/tags` for a bearer-authenticated catalog; and
+- `POST https://ollama.com/api/chat` for bearer-authenticated native streaming
+  chat.
 
-There is no redirect, alias, retry, router, or fallback. Provider errors cross
-the product boundary only through closed content-free failure families. A
-non-successful chat status is classified by HTTP outcome before the response is
-closed, without retaining its number or reading its body. Every protocol
-rejection before stream admission, including an unexpected status class,
-invalid content type, or malformed transport opening, is the unphased
-`model/open/protocol` outcome because no response stream was admitted.
-The adapter treats a missing, null, or empty native `tool_calls` member as no
-contribution, validates every non-empty call into one bounded ordered batch,
-and writes settled assistant tool history in one canonical native
-`type`/`function.index` form. Protocol failures on an opened stream identify
-only the closed
-`transport`, `framing`, `envelope`, `message`, `tool-call`, `finish`, or
-`terminal` phase; they never expose provider content or authorize
-model-specific behavior.
-One valid terminal record completes the stream normally. A clean HTTP end also
-completes it only after the decoder has accepted a non-empty native thinking,
-content, or tool-call contribution. Empty clean streams fail at `terminal`;
-incomplete framing and aborted or errored transports retain their own failure
-boundaries. Any non-null finish reason is checked before those contributions
-can change decoder state and is admitted only as `stop` on `done: true`.
-Every native record validates thinking, content, and its complete tool-call
-member against staged state before committing any of them to the stream.
-Rejecting any record terminalizes that decoder: later records and a later clean
-HTTP end cannot recover, contribute, or complete the response.
-Any transport, UTF-8, NDJSON, or native-record failure returned by an admitted
-read also terminalizes the owning stream before control returns. A later read
-cannot consult the transport, framer, or decoder and returns only the closed
-terminal failure, so accepted partial evidence can never become completion.
-Credentials and catalog content never enter the transcript, logs, fixtures, or
-documentation.
+Only catalog rows with equal non-empty `name` and `model` identifiers are
+selectable. The adapter uses Ollama’s native chat and tool-call contract. It
+does not follow redirects, discover origins, retry, alias models, route through
+another process, use a local daemon, or fall back.
 
-See [providers](PROVIDERS.md) and [privacy](../PRIVACY.md) for the public
-contract.
+The streaming decoder admits bounded native text, separate reasoning, and one
+ordered tool-call batch. The first transport, framing, envelope, message,
+tool-call, finish, or terminal violation permanently fails that stream. Later
+records cannot recover partial output or convert it into success.
 
-### Bounded thinking stream
+### OpenAI subscription
 
-Decisions 0086 and 0085 define one optional provider-neutral reasoning stream.
-`/thinking` is an idle two-row session editor available only after one
-configured provider and one model are selected. Effort is exactly `off`, `low`,
-`medium`, or `high`; display is exactly `off` or `on`; both default to `off`.
-The controller captures effort with one turn and every continuation in that
-tool loop uses the same value. Both settings remain unchanged through accepted
-model selections in the same process. There is no model-name inference,
-implicit retry, replay, compatibility parsing, router, or fallback; rejection
-by a newly selected model fails the turn without mutating either setting.
+`agent auth` implements the fixed provider-hosted device ceremony with PKCE and
+stores only the validated access token, refresh token, account identifier, and
+expiration. It identifies the caller as `agent` or omits the caller field and
+states that the compatibility flow is independent and not provider-endorsed.
 
-Ollama requests map effort exactly to `think: false`, `"low"`, `"medium"`, or
-`"high"`. The adapter validates the entire native record before emitting a
-separate `reasoningDelta`; assistant text never becomes reasoning. Runtime
-stages and bounds reasoning independently from answer text, attaches it to the
-exact assistant message or tool exchange, and commits it only with the
-corresponding settled conversation node. Failed or cancelled prospective
-segments are discarded. Tool-loop and resumed selected-path history preserve
-settled reasoning where the native provider requires it.
+The `@agent/provider-openai-subscription` package implements bounded offline-
+injectable catalog and Responses contracts. It is deliberately not composed:
+no startup, command, TUI, provider session, or runtime path reads the OpenAI
+record, refreshes or revokes it, constructs the transport, lists its models, or
+sends conversation content. Activation requires a complete later change across
+composition, lifecycle, tests, privacy/security, operator behavior, and removal.
 
-Display is owned only by the CLI. `on` projects reasoning as its own muted
-document above assistant text; `off` filters every reasoning document from the
-selected transcript without deleting the underlying state. The TUI remains
-agent-agnostic and uses no parallel renderer. Journal version two is unchanged:
-it requires an explicit string-or-null reasoning member on assistant records;
-the version-one decoder remains exact, and a resumed version-one source
-produces a separate version-two continuation.
+Claude, Kimi, and xAI subscription connections remain absent.
+
+## Credentials and sessions
+
+The CLI owns separate user-scoped plaintext state beneath the native-resolved
+`~/.agent` root.
+
+Ollama Cloud uses one provider-specific API-key record or the temporary
+`AGENT_OLLAMA_API_KEY`; simultaneous sources fail as dual authority. OpenAI has
+no environment input. A TUI holds an immutable credential snapshot under shared
+native admission for its lifetime; `agent auth` holds exclusive admission across
+recovery, input, mutation, atomic publication, and cleanup. Unsafe links,
+inventory, ownership, access, schema, or recovery fail before secret bytes are
+read.
+
+Interactive sessions store only settled conversation nodes and the selected
+head under `~/.agent/sessions`, keyed by an irreversible canonical-workspace
+digest. Provider/model selection, permission policy, thinking settings, drafts,
+provisional output, credentials, and foreign causes are excluded. Journals are
+bounded JSONL plaintext, owner-protected where supported, and serialized by
+unique admission tokens. An incomplete final line may recover its valid prefix;
+interior corruption and ambiguous concurrency fail closed.
+
+The credential store and session journal do not claim encryption, secure
+erasure, tamper resistance, or protection from same-user processes,
+administrators/root, malware, backups, snapshots, memory inspection, or
+privileged offline access.
 
 ## Terminal boundary
 
-The TUI is conversation-first. The transcript is dominant; completion,
-activity, notices, one interaction dock, and the footer are contextual regions
-projected from authoritative application state.
+TUI state is pure and Node-free. The CLI owns raw mode, alternate-screen entry,
+mouse and bracketed-paste modes, input decoding, frame output, clipboard/native
+helpers, and cleanup. Only the renderer produces ANSI and terminal control
+sequences; model and tool text cannot select styling.
 
-`@agent/tui` owns generic, deterministic terminal mechanics:
+The transcript is primary. One interaction dock hosts the composer and all
+selectors. Contextual notices and tool activity are bounded, replaceable, and
+never become transcript history. The renderer recognizes only the documented
+bounded Markdown subset and exposes a visible ASCII `https://` URL only as a
+link to that identical visible address.
 
-- semantic rows, surfaces, wrapping, Markdown, highlighting, and layout;
-- the bounded line editor, generic selection list, and six-row interaction dock;
-- input decoding, pointer semantics, scroll geometry, and frame diffs;
-- ANSI emission and terminal-width rules.
+Ctrl+C cancels active work and exits while idle. `/exit`, Ctrl+D, and EOF close
+from any phase. Shutdown restores terminal state and attempts runtime, native,
+credential, and session cleanup even after another failure.
 
-`@agent/cli` owns product meaning:
+## Verification and maintenance
 
-- transcript entries, `/thinking` mode, `/timeline` branch selection, durable journal settlement, command dispatch, and provider/session state;
-- one latest ephemeral activity or notice;
-- permission decisions and tool lifecycle projection;
-- terminal/runtime event serialization and cancellation;
-- filesystem, process, clipboard, and native-platform effects.
+`tools/verify.ps1` and `tools/verify.sh` own the platform-native release gate.
+The gate validates toolchain, documentation, CI, brand, evaluation corpus,
+provider registry, manifests, lock topology, declarations, source hygiene,
+package imports, build, tests, native helpers, and CLI smoke behavior.
 
-The ruled interaction dock has one focus owner. Editor focus renders the draft
-and admits the frame's one caret. Selection focus replaces that editor body with
-the authenticated-provider, model, permission,
-pending-tool, or timeline list, retains at most one header plus five visible
-items, and admits no caret. A composer-placed transient notice remains visible
-in selection focus through that header's trailing edge, temporarily replacing
-its ordinary context without restoring the hidden draft or another editor. The
-notice side has retention priority over the selector title when width is scarce.
-Focus and composer-pointer authority are separate:
-only a visible draft admits composer pointer effects; selection focus admits
-none while transcript selection and scrolling remain active. Slash completion stays above the dock because it remains an
-editor-owned draft operation. The immutable render projection carries both the
-visible dock focus and composer-pointer authority into pointer reduction; one
- coalesced input chunk never reclassifies stale geometry from newer application
- state.
-Contextual provider, model, session-permission, and timeline selectors retain
-selection focus through ordinary text and editing keys. Up and Down navigate,
-Enter keeps the selector's acceptance meaning, Escape or Ctrl+C cancels, and
-every accepting or cancelling event is consumed without touching the retained
-draft. Page navigation and EOF remain global. The Node terminal host retains at
-most one trailing raw Escape byte for 30 milliseconds so fragmented terminal
-sequences stay ordered; an uncontinued byte returns through the same event queue
-as an explicitly settled Escape for the generic decoder.
-
-Tool activity never becomes transcript content. User and assistant messages
-remain structured role entries but render without redundant role labels.
-Only the renderer emits ANSI and owns alternate-screen, paste, mouse, caret,
-and cleanup lifecycles. On initialization it selects one terminal-controlled
-blinking block for the frame's logical caret; it owns no blink timer or cursor
-glyph. It shows the hardware cursor only when that logical caret is visible in
-the current viewport; a frame without a visible caret keeps the cursor hidden
-instead of synthesizing a position on other content. Cleanup restores the
-terminal-default style and cursor visibility.
-
-User entries compose one stage-wide transparent `Surface` with the shared
-one-cell content inset and no rail, marker, border, or background. Generic
-selection uses only the selected-row `accent` foreground. Patch previews use
-the `diffRemoved` red foreground for removed rows and
-the `diffAdded` green foreground for added rows.
-
-## Platform and security boundary
-
-The CLI establishes the workspace boundary before credentials, provider
-selection, tools, or terminal ownership. Volume roots, the exact user home, the
-shared temporary directory, and every workspace overlapping the native-home
-`.agent` state root fail closed. Ordinary non-overlapping project descendants
-of the home remain valid. Existing `.agent` and `sessions` namespaces must be
-real directories rather than symbolic links before any workspace tool opens.
-
-Portable TypeScript never performs pathname mutation after authorization.
-Owned native C17 brokers provide:
-
-- canonical protected-root discovery;
-- whole-process-tree containment for `shell`;
-- object-bound text commits;
-- object-bound namespace commits;
-- Windows clipboard transfer.
-
-Unsupported operating-system or filesystem primitives fail closed. Session
-records are synchronized and recover one interrupted final append or its exact
-one-revision head replacement window, but these guarantees are not a filesystem
-sandbox, general transaction, rollback system, encrypted vault, or arbitrary
-crash-recovery protocol.
-
-The repository follows a clean-room ownership boundary. External runtime and
-platform documentation may define contracts; foreign source, prompts, tests,
-identifiers, component structures, and implementation patterns are not product
-inputs. Approved inspections are pinned in
-[ownership](OWNERSHIP.md).
-
-## Repository control plane
-
-Repository policy is executable:
-
-| Authority | Registry or verifier |
-| --- | --- |
-| package graph and built-ins | `tools/ownership-policy.json` |
-| documentation topology | `tools/documentation-policy.json` |
-| manual coverage | `tools/manual-policy.json` |
-| publication metadata | `tools/publication-policy.json` |
-| provider admission | `tools/provider-policy.json` |
-| evaluation corpus | `tools/evaluation-policy.json` |
-| brand assets | `assets/brand/manifest.json` |
-
-The canonical verifier validates source ownership, package edges,
-documentation, generated-artifact hygiene, builds, native builds, and the CLI
-smoke path without contacting a provider or reading credentials.
-
-## Authority routes
-
-| Question | Canonical owner |
-| --- | --- |
-| What does the product do for an operator? | [operator manual](manual/README.md) |
-| What is the current system shape? | this document |
-| How must a change be developed and proved? | [engineering](ENGINEERING.md) |
-| How is a subsystem updated, rolled back, or removed? | [maintenance](MAINTENANCE.md) |
-| Why was a lasting boundary accepted? | [decisions](decisions/README.md) |
-| Which provider and privacy guarantees are public? | [providers](PROVIDERS.md) and [privacy](../PRIVACY.md) |
-| Which external material was inspected? | [ownership](OWNERSHIP.md) |
-| How are maintained tasks evaluated? | [evaluation](../evaluations/README.md) |
+The machine registries under `tools/` describe exact executable contracts; they
+are not a second prose manual. Update a registry only with the code and focused
+regressions it protects. Diagnosis, rollback, release, and removal practice is
+defined in [Engineering](ENGINEERING.md). Operator behavior lives in the
+[manual](manual/README.md), and data/security boundaries live in
+[Privacy](../PRIVACY.md) and [Security](../SECURITY.md).

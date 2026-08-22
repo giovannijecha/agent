@@ -1,7 +1,7 @@
 # Brand assets
 
-This directory is the scoped distribution entry point for the canonical visual
-assets registered by the [brand guide](../../docs/BRAND.md).
+This directory is the distribution and maintenance authority for Agent’s
+canonical visual assets.
 
 The product, repository, executable, and package identity is always `agent`.
 The exact lowercase `.agent` form is a visual wordmark only; it is not an
@@ -16,4 +16,7 @@ The files, roles, dimensions, provenance, palette, and digests are registered
 in [`manifest.json`](manifest.json). The canonical verifier rejects unregistered
 files, byte drift, unsafe SVG content, and dimension drift.
 
-The brand guide owns allowed uses and the replacement and removal procedure.
+Use assets only for Agent itself, keep adequate clear space and contrast, and do
+not imply provider endorsement. Replacement updates the source and raster forms,
+manifest metadata and digests, public uses, and verifier tests together. Removal
+deletes the complete registered family and every reference in the same change.

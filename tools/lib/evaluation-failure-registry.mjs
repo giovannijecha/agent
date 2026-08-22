@@ -74,7 +74,7 @@ const SECRET_SEGMENTS = Object.freeze([
   ".ssh",
 ]);
 const RESOLUTION_PREFIXES = Object.freeze([
-  "docs/decisions/",
+  "docs/",
   "packages/",
   "tools/test/",
 ]);

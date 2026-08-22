@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-export const PROVIDER_POLICY_SCHEMA_VERSION = 15;
+export const PROVIDER_POLICY_SCHEMA_VERSION = 16;
 
 const OPENAI_SUBMISSION_URL =
   "https://community.openai.com/t/independent-native-oauth-public-client-registration-request-for-agent/1389585";
@@ -9,6 +9,7 @@ const CLAUDE_SUBMISSION_REFERENCE =
 const KIMI_SUBMISSION_REFERENCE = "kimi-support-email-2026-08-08";
 const KIMI_RESPONSE_REFERENCE = "kimi-support-response-2026-08-11";
 const XAI_SUBMISSION_REFERENCE = "xai-support-email-2026-08-08";
+const PROVIDER_RESEARCH_DATE = "2026-08-08";
 
 const EXPECTED_PROVIDERS = [
   {
@@ -101,7 +102,6 @@ const EXPECTED_DIRECT_PROVIDERS = [
 ];
 
 const EXPECTED_SUBSCRIPTION_COMPATIBILITY = {
-  decision: "0091",
   state: "accepted-runtime-inactive",
   providers: ["chatgpt", "kimi", "grok"],
   registrationAuthority: "provider-owned-non-secret-public-client",
@@ -116,11 +116,6 @@ const EXPECTED_SUBSCRIPTION_COMPATIBILITY = {
 const EXPECTED_SUBSCRIPTION_CONTRACTS = [
   {
     id: "chatgpt",
-    decision: "0090",
-    identityDecision: "0092",
-    credentialDecision: "0093",
-    authDecision: "0094",
-    transportDecision: "0095",
     state: "transport-compatible-inactive",
     flow: "openai-device-code-plus-oauth-pkce",
     issuer: "https://auth.openai.com",
@@ -265,61 +260,6 @@ const EXPECTED_SUBSCRIPTION_CONTRACTS = [
     researchedOn: "2026-08-21",
   },
 ];
-
-const APPLICATION_DOCUMENT = "docs/PROVIDER-APPLICATIONS.md";
-const RESEARCH_DATE = "2026-08-08";
-const APPLICATION_HEADINGS = [
-  "Submission rules",
-  ...EXPECTED_PROVIDERS.map((provider) => provider.displayName),
-  "Maintenance and removal",
-];
-const REQUEST_HEADINGS = [
-  "Status",
-  "Official route",
-  "Subject",
-  "Request",
-  "Public attachments",
-  "Required written answer",
-  "Do not include",
-  "Official evidence",
-];
-const ALLOWED_APPLICATION_EMAILS = new Set([
-  "code@moonshot.ai",
-  "support@x.ai",
-]);
-const PUBLIC_ATTACHMENT_URLS = [
-  "https://github.com/giovannijecha/agent",
-  "https://github.com/giovannijecha/agent/blob/main/docs/OAUTH-REGISTRATION.md",
-  "https://github.com/giovannijecha/agent/blob/main/PRIVACY.md",
-  "https://github.com/giovannijecha/agent/blob/main/SECURITY.md",
-];
-const OFFICIAL_ROUTE_MARKERS = Object.freeze({
-  chatgpt: "https://community.openai.com/",
-  claude: "https://support.claude.com/en/articles/9015913-how-to-get-support",
-  kimi: "code@moonshot.ai",
-  grok: "support@x.ai",
-});
-const OFFICIAL_EVIDENCE_URLS = Object.freeze({
-  chatgpt: [
-    "https://developers.openai.com/codex/auth/",
-    "https://developers.openai.com/codex/app-server/",
-    "https://developers.openai.com/community",
-  ],
-  claude: [
-    "https://code.claude.com/docs/en/authentication",
-    "https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan",
-    "https://support.claude.com/en/articles/9015913-how-to-get-support",
-  ],
-  kimi: [
-    "https://www.kimi.com/code/docs/en/",
-    "https://www.kimi.com/code/docs/en/kimi-code/contact-and-feedback.html",
-  ],
-  grok: [
-    "https://docs.x.ai/build/overview",
-    "https://docs.x.ai/build/enterprise",
-    "https://x.ai/contact",
-  ],
-});
 
 const EXPECTED_WORKSPACES = [
   "@agent/core",
@@ -729,12 +669,6 @@ function assertExactKeys(value, expected, label) {
   }
 }
 
-function assertSame(actual, expected, label) {
-  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
-    fail(label + " mismatch");
-  }
-}
-
 function validateRequestLifecycle(request, label) {
   if (request.state === "ready-not-submitted") {
     if (request.submittedOn !== null || request.reference !== null) {
@@ -788,171 +722,11 @@ function validateResponseLifecycle(response, label) {
   }
 }
 
-function markdownHeadings(text, level) {
-  const prefix = "#".repeat(level) + " ";
-  return text
-    .split("\n")
-    .filter((line) => line.startsWith(prefix) && !line.startsWith(prefix + "#"))
-    .map((line) => line.slice(prefix.length));
-}
-
-function markdownSection(text, heading, nextHeading) {
-  const startToken = "## " + heading + "\n";
-  const start = text.indexOf(startToken);
-  if (start < 0 || text.indexOf(startToken, start + startToken.length) >= 0) {
-    fail("provider application section is missing or duplicated: " + heading);
-  }
-  const bodyStart = start + startToken.length;
-  const end = nextHeading === undefined
-    ? text.length
-    : text.indexOf("## " + nextHeading + "\n", bodyStart);
-  if (end < 0) {
-    fail("provider application section order is invalid: " + heading);
-  }
-  return text.slice(bodyStart, end);
-}
-
-function markdownSubsection(text, heading, nextHeading) {
-  const startToken = "### " + heading + "\n";
-  const start = text.indexOf(startToken);
-  if (start < 0 || text.indexOf(startToken, start + startToken.length) >= 0) {
-    fail("provider application subsection is missing or duplicated: " + heading);
-  }
-  const bodyStart = start + startToken.length;
-  const end = nextHeading === undefined
-    ? text.length
-    : text.indexOf("### " + nextHeading + "\n", bodyStart);
-  if (end < 0) {
-    fail("provider application subsection order is invalid: " + heading);
-  }
-  return text.slice(bodyStart, end);
-}
-
-function requestBody(section, provider) {
-  const startToken = "### Request\n\n```text\n";
-  const start = section.indexOf(startToken);
-  const end = start < 0 ? -1 : section.indexOf("\n```", start + startToken.length);
-  if (start < 0 || end < 0) {
-    fail("provider request is not a copyable text block: " + provider.id);
-  }
-  const body = section.slice(start + startToken.length, end);
-  if (
-    body.length < 500 ||
-    !body.includes("giovannijecha/agent") ||
-    !body.includes("Giovanni Jecha") ||
-    /\b(?:TODO|TBD|CHANGEME)\b/iu.test(body)
-  ) {
-    fail("provider request body is incomplete: " + provider.id);
-  }
-  return body;
-}
-
-function validateApplicationDocument(policy, text) {
-  if (
-    policy.applicationDocument !== APPLICATION_DOCUMENT ||
-    policy.researchedOn !== RESEARCH_DATE ||
-    !text.startsWith("# Provider registration requests\n") ||
-    !text.includes("- Research date: `" + RESEARCH_DATE + "`")
-  ) {
-    fail("provider application identity or research date mismatch");
-  }
-  assertSame(markdownHeadings(text, 2), APPLICATION_HEADINGS, "provider application headings");
-
-  for (let index = 0; index < EXPECTED_PROVIDERS.length; index += 1) {
-    const provider = EXPECTED_PROVIDERS[index];
-    const nextHeading = APPLICATION_HEADINGS[index + 2];
-    const section = markdownSection(text, provider.displayName, nextHeading);
-    assertSame(
-      markdownHeadings(section, 3),
-      REQUEST_HEADINGS,
-      provider.id + " request headings",
-    );
-    for (const marker of [
-      "- Eligibility: `" + provider.eligibility + "`",
-      "- Request state: `" + provider.request.state + "`",
-      "- Request kind: `" + provider.request.kind + "`",
-      "- Submission route: `" + provider.request.route + "`",
-      "- Channel visibility: `" + provider.request.visibility + "`",
-    ]) {
-      if (!section.includes(marker)) {
-        fail(provider.id + " request metadata mismatch");
-      }
-    }
-    if (provider.request.state === "submitted") {
-      const referenceMarker = provider.request.visibility === "public"
-        ? "- Public reference: [Submission record](" + provider.request.reference + ")"
-        : "- Private reference: `" + provider.request.reference + "`";
-      for (const marker of [
-        "- Submitted on: `" + provider.request.submittedOn + "`",
-        referenceMarker,
-      ]) {
-        if (!section.includes(marker)) {
-          fail(provider.id + " submitted request metadata mismatch");
-        }
-      }
-    } else if (
-      section.includes("- Submitted on:") ||
-      section.includes("- Public reference:") ||
-      section.includes("- Private reference:")
-    ) {
-      fail(provider.id + " unsubmitted request contains submission metadata");
-    }
-    if (provider.request.response !== null) {
-      for (const marker of [
-        "- Response state: `" + provider.request.response.state + "`",
-        "- Response received on: `" + provider.request.response.receivedOn + "`",
-        "- Response outcome: `" + provider.request.response.outcome + "`",
-        "- Private response reference: `" + provider.request.response.reference + "`",
-      ]) {
-        if (!section.includes(marker)) {
-          fail(provider.id + " response metadata mismatch");
-        }
-      }
-    } else if (
-      section.includes("- Response state:") ||
-      section.includes("- Response received on:") ||
-      section.includes("- Response outcome:") ||
-      section.includes("- Private response reference:")
-    ) {
-      fail(provider.id + " request contains unregistered response metadata");
-    }
-    requestBody(section, provider);
-    const route = markdownSubsection(section, "Official route", "Subject");
-    if (!route.includes(OFFICIAL_ROUTE_MARKERS[provider.id])) {
-      fail(provider.id + " request official route is incomplete");
-    }
-    const attachments = markdownSubsection(
-      section,
-      "Public attachments",
-      "Required written answer",
-    );
-    for (const url of PUBLIC_ATTACHMENT_URLS) {
-      if (!attachments.includes("](" + url + ")")) {
-        fail(provider.id + " request public attachments are incomplete");
-      }
-    }
-    const evidence = markdownSubsection(section, "Official evidence", undefined);
-    for (const url of OFFICIAL_EVIDENCE_URLS[provider.id]) {
-      if (!evidence.includes(url)) {
-        fail(provider.id + " request official evidence is incomplete");
-      }
-    }
-  }
-
-  const emails = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/giu) ?? [];
-  for (const email of emails) {
-    if (!ALLOWED_APPLICATION_EMAILS.has(email.toLowerCase())) {
-      fail("provider applications contain an unapproved email address");
-    }
-  }
-}
-
 function validateRegistry(policy) {
   assertExactKeys(
     policy,
     [
       "schemaVersion",
-      "applicationDocument",
       "researchedOn",
       "subscriptionCompatibility",
       "providers",
@@ -964,10 +738,12 @@ function validateRegistry(policy) {
   if (policy.schemaVersion !== PROVIDER_POLICY_SCHEMA_VERSION) {
     fail("unsupported provider policy schema");
   }
+  if (policy.researchedOn !== PROVIDER_RESEARCH_DATE) {
+    fail("provider research date mismatch");
+  }
   assertExactKeys(
     policy.subscriptionCompatibility,
     [
-      "decision",
       "state",
       "providers",
       "registrationAuthority",
@@ -1080,11 +856,6 @@ function validateRegistry(policy) {
       contract,
       [
         "id",
-        "decision",
-        "identityDecision",
-        "credentialDecision",
-        "authDecision",
-        "transportDecision",
         "state",
         "flow",
         "issuer",
@@ -1367,13 +1138,11 @@ export function validateProviderPolicy(policy, context) {
   if (
     !isRecord(context) ||
     !Array.isArray(context.workspaceNames) ||
-    !Array.isArray(context.productSources) ||
-    typeof context.applicationText !== "string"
+    !Array.isArray(context.productSources)
   ) {
     fail("provider policy validation context is invalid");
   }
   validateRegistry(policy);
-  validateApplicationDocument(policy, context.applicationText);
   validateWorkspaces(context.workspaceNames);
   validateProductSources(context.productSources);
 }
