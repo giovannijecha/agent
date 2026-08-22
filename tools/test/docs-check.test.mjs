@@ -66,6 +66,19 @@ test("rejects missing and additional authority documents", () => {
       }),
     /documentation inventory/u,
   );
+
+  for (const file of ["guide.md", "guide.MD", "packages/example/README.md"]) {
+    const unregistered = currentContext();
+    unregistered.files[file] = "# Parallel authority\n";
+    unregistered.ownedPaths.push(file);
+    assert.throws(
+      () =>
+        validateDocumentation(unregistered, {
+          expectedLicenseDigest: licenseDigest,
+        }),
+      /documentation inventory/u,
+    );
+  }
 });
 
 test("rejects broken local links and decision-ledger references", () => {
@@ -1179,6 +1192,41 @@ test("rejects unescaped brackets in reference labels", () => {
       }),
     /broken local link/u,
   );
+});
+
+test("applies full non-Turkic Unicode case folding to reference labels", () => {
+  for (const [useLabel, definitionLabel] of [
+    ["ẞ", "SS"],
+    ["İ", "i\u0307"],
+    ["ς", "σ"],
+    ["ﬃ", "FFI"],
+  ]) {
+    const equivalent = currentContext();
+    equivalent.files["README.md"] += [
+      "[" + useLabel + "]",
+      "",
+      "[" + definitionLabel + "]: docs/missing.md",
+      "",
+    ].join("\n");
+    assert.throws(
+      () =>
+        validateDocumentation(equivalent, {
+          expectedLicenseDigest: licenseDigest,
+        }),
+      /broken local link/u,
+    );
+  }
+
+  const dotless = currentContext();
+  dotless.files["README.md"] += [
+    "[I]",
+    "",
+    "[ı]: docs/missing.md",
+    "",
+  ].join("\n");
+  validateDocumentation(dotless, {
+    expectedLicenseDigest: licenseDigest,
+  });
 });
 
 test("masks next-line reference titles", () => {

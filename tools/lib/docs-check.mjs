@@ -21,6 +21,16 @@ export const DOCUMENT_PATHS = Object.freeze([
   "docs/manual/06-verification-and-diagnostics.md",
   "docs/manual/README.md",
   "evaluations/README.md",
+  "evaluations/tasks/c-count-positive/TASK.md",
+  "evaluations/tasks/documentation-check-command/TASK.md",
+  "evaluations/tasks/documentation-check-command/expected/README.md",
+  "evaluations/tasks/documentation-check-command/input/README.md",
+  "evaluations/tasks/javascript-collapse-whitespace/TASK.md",
+  "evaluations/tasks/javascript-red-green-recovery/TASK.md",
+  "evaluations/tasks/typescript-inclusive-range/TASK.md",
+  "evaluations/tasks/web-compound-page-edit/TASK.md",
+  "evaluations/tasks/web-extract-script/TASK.md",
+  "evaluations/tasks/web-extract-stylesheet/TASK.md",
 ]);
 
 const FORBIDDEN_AUTHORSHIP_PATTERNS = Object.freeze([
@@ -43,12 +53,7 @@ function sorted(values) {
 }
 
 function isAuthorityDocument(file) {
-  return (
-    /^[A-Z][A-Z-]*\.md$/u.test(file) ||
-    file === "assets/brand/README.md" ||
-    /^docs\/.+\.md$/u.test(file) ||
-    file === "evaluations/README.md"
-  );
+  return /\.md$/iu.test(file);
 }
 
 export function isLineAddressableSource(file) {
@@ -1623,12 +1628,23 @@ function inlineTargets(markdown, references) {
     .map((candidate) => candidate.target);
 }
 
+function unicodeCaselessKey(text) {
+  let key = "";
+  for (const character of text) {
+    // Default Unicode folding closes over case mappings but keeps dotless i
+    // outside the non-Turkic I equivalence class.
+    key += character === "\u0131"
+      ? character
+      : character.toLowerCase().toUpperCase();
+  }
+  return key;
+}
+
 function normalizedReferenceLabel(label) {
-  return label
+  return unicodeCaselessKey(label
     .replaceAll(/\\([!"#$%&'()*+,\-./:;<=>?@[\]^_`{|}~])/gu, "$1")
     .trim()
-    .replaceAll(/\s+/gu, " ")
-    .toLowerCase();
+    .replaceAll(/\s+/gu, " "));
 }
 
 function headingInlineText(markdown, referenceLabels) {
