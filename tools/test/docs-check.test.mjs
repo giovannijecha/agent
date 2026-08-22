@@ -33,6 +33,7 @@ function currentContext() {
     gitAttributesText: "* text=auto eol=lf\n",
     licenseText,
     ownedPaths: [...DOCUMENT_PATHS, "LICENSE"],
+    sourceLineCounts: {},
   };
 }
 
@@ -383,24 +384,30 @@ test("rejects broken local links and decision-ledger references", () => {
 test("accepts only line fragments on tracked non-document files", () => {
   const admitted = currentContext();
   admitted.ownedPaths.push("tools/verify.mjs");
+  admitted.sourceLineCounts["tools/verify.mjs"] = 2;
   admitted.files["README.md"] +=
     "[Implementation](tools/verify.mjs#L1) " +
+    "[Last](tools/verify.mjs#L2) " +
     "[Range](tools/verify.mjs#L1-L2)\n";
   validateDocumentation(admitted, {
     expectedLicenseDigest: licenseDigest,
   });
 
-  const rejected = currentContext();
-  rejected.ownedPaths.push("tools/verify.mjs");
-  rejected.files["README.md"] +=
-    "[Implementation](tools/verify.mjs#implementation)\n";
-  assert.throws(
-    () =>
-      validateDocumentation(rejected, {
-        expectedLicenseDigest: licenseDigest,
-      }),
-    /fragment/u,
-  );
+  for (const fragment of ["implementation", "L3", "L1-L3", "L2-L1"]) {
+    const rejected = currentContext();
+    rejected.ownedPaths.push("tools/verify.mjs");
+    rejected.sourceLineCounts["tools/verify.mjs"] = 2;
+    rejected.files["README.md"] +=
+      "[Implementation](tools/verify.mjs#" + fragment + ")\n";
+    assert.throws(
+      () =>
+        validateDocumentation(rejected, {
+          expectedLicenseDigest: licenseDigest,
+        }),
+      /fragment/u,
+      fragment,
+    );
+  }
 });
 
 test("does not mask malformed HTML comments", () => {
@@ -959,6 +966,59 @@ test("does not parse reference definitions inside open paragraphs", () => {
   validateDocumentation(context, {
     expectedLicenseDigest: licenseDigest,
   });
+});
+
+test("retains list containers for lazy paragraph continuations", () => {
+  const lazy = currentContext();
+  lazy.files["README.md"] += [
+    "- Paragraph",
+    "[ref]: docs/missing.md",
+    "[use][ref]",
+    "",
+  ].join("\n");
+  validateDocumentation(lazy, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const separated = currentContext();
+  separated.files["README.md"] += [
+    "- Paragraph",
+    "",
+    "[ref]: docs/missing.md",
+    "[use][ref]",
+    "",
+  ].join("\n");
+  assert.throws(
+    () =>
+      validateDocumentation(separated, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+});
+
+test("rejects non-punctuation destination escapes", () => {
+  for (const markdown of [
+    "[Missing](docs/not\\ real.md)",
+    "[Missing][ref]\n\n[ref]: docs/not\\ real.md",
+  ]) {
+    const context = currentContext();
+    context.files["README.md"] += markdown + "\n";
+    validateDocumentation(context, {
+      expectedLicenseDigest: licenseDigest,
+    });
+  }
+
+  const punctuation = currentContext();
+  punctuation.files["README.md"] +=
+    "[Missing](docs/not\\(real\\).md)\n";
+  assert.throws(
+    () =>
+      validateDocumentation(punctuation, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
 });
 
 test("does not resolve GFM footnotes as ordinary references", () => {

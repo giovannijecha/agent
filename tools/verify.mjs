@@ -15,6 +15,7 @@ import { validateBrandPolicy } from "./lib/brand-policy.mjs";
 import { validateCiPolicy } from "./lib/ci-policy.mjs";
 import {
   DOCUMENT_PATHS,
+  isLineAddressableSource,
   validateDocumentation,
 } from "./lib/docs-check.mjs";
 import {
@@ -114,6 +115,19 @@ function readJson(relativePath) {
   } catch (error) {
     fail("invalid JSON in " + relativePath + ": " + String(error));
   }
+}
+
+function sourceLineCount(text) {
+  if (text.length === 0) {
+    return 0;
+  }
+  let count = text.endsWith("\n") ? 0 : 1;
+  for (const character of text) {
+    if (character === "\n") {
+      count += 1;
+    }
+  }
+  return count;
 }
 
 function listFiles(relativeDirectory, includeGenerated = false) {
@@ -303,6 +317,11 @@ function verifyDocumentation() {
     gitAttributesText: readText(".gitattributes"),
     licenseText: readText("LICENSE"),
     ownedPaths,
+    sourceLineCounts: Object.fromEntries(
+      ownedPaths
+        .filter(isLineAddressableSource)
+        .map((file) => [file, sourceLineCount(readText(file))]),
+    ),
   });
 }
 

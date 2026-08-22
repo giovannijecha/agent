@@ -51,6 +51,11 @@ function isAuthorityDocument(file) {
   );
 }
 
+export function isLineAddressableSource(file) {
+  return file === "LICENSE" ||
+    /\.(?:c|css|h|html|js|json|mjs|ps1|sh|svg|ts)$/u.test(file);
+}
+
 const NAMED_CHARACTER_REFERENCES = Object.freeze(
   [
     "AElig:c6;AMP:26;Aacute:c1;Abreve:102;Acirc:c2;Acy:410;Afr:1d504;Agrave:c0;Alpha:391;Amacr:100;And:2a53",
@@ -691,6 +696,44 @@ function closesFence(line, fence, baseColumn, indentation) {
   );
 }
 
+function retainsLazyListContainer(
+  line,
+  quoted,
+  listContainers,
+  paragraphStates,
+) {
+  const containerKey = markdownContainerKey(quoted.depth, listContainers);
+  if (!(paragraphStates.get(containerKey) ?? false)) {
+    return false;
+  }
+  const content = line.slice(quoted.indentation.index);
+  if (!paragraphOpenAfterLine(content, true)) {
+    return false;
+  }
+  if (
+    listMarkerAt(
+      line,
+      quoted.contentColumn,
+      quoted.indentation,
+      true,
+    ) !== undefined ||
+    blockQuoteContentAt(
+      line,
+      quoted.indentation.index,
+      quoted.contentColumn,
+    ).depth > 0 ||
+    fenceOpeningAt(
+      line,
+      quoted.contentColumn,
+      quoted.indentation,
+    ) !== undefined
+  ) {
+    return false;
+  }
+  const htmlOpening = rawHtmlBlockOpening(content);
+  return htmlOpening === undefined || !htmlOpening.interruptsParagraph;
+}
+
 function renderedMarkdown(text) {
   const rendered = [];
   const listContainers = [];
@@ -734,10 +777,23 @@ function renderedMarkdown(text) {
       listContainers.length > 0 &&
       indentation.column < listContainers.at(-1).contentColumn
     ) {
+      if (
+        retainsLazyListContainer(
+          line,
+          quoted,
+          listContainers,
+          paragraphStates,
+        )
+      ) {
+        break;
+      }
       listContainers.pop();
     }
-    let contentBase = listContainers.at(-1)?.contentColumn ??
-      quoted.contentColumn;
+    const lazyContinuation = listContainers.length > 0 &&
+      indentation.column < listContainers.at(-1).contentColumn;
+    let contentBase = lazyContinuation
+      ? quoted.contentColumn
+      : listContainers.at(-1)?.contentColumn ?? quoted.contentColumn;
     let contentIndentation = indentation;
     let emptyListMarker = false;
     while (true) {
@@ -835,11 +891,24 @@ function containerProjectedLines(text) {
       listContainers.length > 0 &&
       quoted.indentation.column < listContainers.at(-1).contentColumn
     ) {
+      if (
+        retainsLazyListContainer(
+          line,
+          quoted,
+          listContainers,
+          paragraphStates,
+        )
+      ) {
+        break;
+      }
       listContainers.pop();
     }
 
-    let contentBase = listContainers.at(-1)?.contentColumn ??
-      quoted.contentColumn;
+    const lazyContinuation = listContainers.length > 0 &&
+      quoted.indentation.column < listContainers.at(-1).contentColumn;
+    let contentBase = lazyContinuation
+      ? quoted.contentColumn
+      : listContainers.at(-1)?.contentColumn ?? quoted.contentColumn;
     let contentIndentation = quoted.indentation;
     while (!blank) {
       const parentKey = markdownContainerKey(quoteDepth, listContainers);
@@ -996,6 +1065,13 @@ function paragraphOpenAfterLine(line, wasOpen) {
   if (/^[ \t]*\r?$/u.test(line)) {
     return false;
   }
+  const htmlOpening = rawHtmlBlockOpening(line);
+  if (
+    htmlOpening !== undefined &&
+    (htmlOpening.interruptsParagraph || !wasOpen)
+  ) {
+    return false;
+  }
   if (
     indentation.column <= 3 &&
     (
@@ -1131,6 +1207,12 @@ function isEscaped(text, index) {
     backslashes += 1;
   }
   return backslashes % 2 === 1;
+}
+
+function isMarkdownEscaped(text, index) {
+  return /[!"#$%&'()*+,\-./:;<=>?@[\]\\^_`{|}~]/u.test(
+    text.at(index) ?? "",
+  ) && isEscaped(text, index);
 }
 
 function markerRunLength(text, index, marker) {
@@ -1326,10 +1408,13 @@ function inlineTarget(markdown, opening) {
     const targetStart = cursor;
     while (
       cursor < markdown.length &&
-      (markdown.at(cursor) !== ">" || isEscaped(markdown, cursor)) &&
+      (markdown.at(cursor) !== ">" || isMarkdownEscaped(markdown, cursor)) &&
       !/[\r\n]/u.test(markdown.at(cursor) ?? "")
     ) {
-      if (markdown.at(cursor) === "<" && !isEscaped(markdown, cursor)) {
+      if (
+        markdown.at(cursor) === "<" &&
+        !isMarkdownEscaped(markdown, cursor)
+      ) {
         return undefined;
       }
       cursor += 1;
@@ -1343,7 +1428,7 @@ function inlineTarget(markdown, opening) {
     let depth = 0;
     while (cursor < markdown.length) {
       const character = markdown.at(cursor);
-      if (isEscaped(markdown, cursor)) {
+      if (isMarkdownEscaped(markdown, cursor)) {
         cursor += 1;
       } else if (character === "(") {
         depth += 1;
@@ -1752,11 +1837,11 @@ function referenceDefinition(line, continuations) {
     while (
       cursor < destinationLine.length &&
       (destinationLine.at(cursor) !== ">" ||
-        isEscaped(destinationLine, cursor))
+        isMarkdownEscaped(destinationLine, cursor))
     ) {
       if (
         destinationLine.at(cursor) === "<" &&
-        !isEscaped(destinationLine, cursor)
+        !isMarkdownEscaped(destinationLine, cursor)
       ) {
         return undefined;
       }
@@ -1771,7 +1856,7 @@ function referenceDefinition(line, continuations) {
     let depth = 0;
     while (cursor < destinationLine.length) {
       const character = destinationLine.at(cursor);
-      if (isEscaped(destinationLine, cursor)) {
+      if (isMarkdownEscaped(destinationLine, cursor)) {
         cursor += 1;
       } else if (character === "(") {
         depth += 1;
@@ -2328,6 +2413,8 @@ export function validateDocumentation(context, options = {}) {
     typeof context.files !== "object" ||
     typeof context.gitAttributesText !== "string" ||
     !Array.isArray(context.ownedPaths) ||
+    context.sourceLineCounts === null ||
+    typeof context.sourceLineCounts !== "object" ||
     typeof context.licenseText !== "string"
   ) {
     fail("documentation context is invalid");
@@ -2348,6 +2435,16 @@ export function validateDocumentation(context, options = {}) {
   }
 
   const owned = new Set(context.ownedPaths);
+  for (const [file, lineCount] of Object.entries(context.sourceLineCounts)) {
+    if (
+      !owned.has(file) ||
+      !isLineAddressableSource(file) ||
+      !Number.isSafeInteger(lineCount) ||
+      lineCount < 0
+    ) {
+      fail("documentation source-line context is invalid");
+    }
+  }
   const anchorSets = new Map();
   for (const file of DOCUMENT_PATHS) {
     const text = context.files[file];
@@ -2374,7 +2471,18 @@ export function validateDocumentation(context, options = {}) {
       if (target.fragment !== undefined && target.fragment.length > 0) {
         const targetText = context.files[target.path];
         if (typeof targetText !== "string") {
-          if (!/^L[1-9][0-9]*(?:-L[1-9][0-9]*)?$/u.test(target.fragment)) {
+          const lineMatch = /^L([1-9][0-9]*)(?:-L([1-9][0-9]*))?$/u.exec(
+            target.fragment,
+          );
+          const lineCount = context.sourceLineCounts[target.path];
+          const firstLine = Number(lineMatch?.at(1));
+          const lastLine = Number(lineMatch?.at(2) ?? lineMatch?.at(1));
+          if (
+            lineMatch === null ||
+            !Number.isSafeInteger(lineCount) ||
+            firstLine > lastLine ||
+            lastLine > lineCount
+          ) {
             fail("broken local link fragment in " + file + ": " + rawTarget);
           }
           continue;
