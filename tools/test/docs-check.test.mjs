@@ -787,6 +787,55 @@ test("ignores Markdown-like text inside HTML attributes", () => {
   });
 });
 
+test("stops inline HTML tags at Markdown block boundaries", () => {
+  for (const markup of [
+    ['<span title="', "", '[Missing](docs/missing.md)">'],
+    ['<span title="', '# [Missing](docs/missing.md)">'],
+    ['- <span title="', '- [Missing](docs/missing.md)">'],
+    ["Text <!-- open", "", "[Missing](docs/missing.md) -->"],
+    ["Text <? open", "", "[Missing](docs/missing.md) ?>"],
+    ["Text <!EXAMPLE open", "", "[Missing](docs/missing.md)>"],
+    ["Text <![CDATA[open", "", "[Missing](docs/missing.md)]]>"],
+  ]) {
+    const context = currentContext();
+    context.files["README.md"] += [...markup, ""].join("\n");
+    assert.throws(
+      () =>
+        validateDocumentation(context, {
+          expectedLicenseDigest: licenseDigest,
+        }),
+      /broken local link/u,
+      markup.join("\n"),
+    );
+  }
+});
+
+test("requires whitespace between inline HTML attributes", () => {
+  const context = currentContext();
+  context.files["README.md"] +=
+    '<span title="[Missing](docs/missing.md)"id=x>Text</span>\n';
+  assert.throws(
+    () =>
+      validateDocumentation(context, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+
+  for (const markup of [
+    '<span title="[Missing](docs/missing.md)" id=x>Text</span>',
+    '<span title="[Missing](docs/missing.md)"/>',
+    '<span hidden title="[Missing](docs/missing.md)">',
+    '<span title="safe"\n data-note="[Missing](docs/missing.md)">',
+  ]) {
+    const admitted = currentContext();
+    admitted.files["README.md"] += markup + "\n";
+    validateDocumentation(admitted, {
+      expectedLicenseDigest: licenseDigest,
+    });
+  }
+});
+
 test("masks complete inline HTML non-tag constructs", () => {
   for (const construct of [
     "<? [Missing](docs/not-real.md) ?>",
@@ -897,6 +946,18 @@ test("ignores Markdown-like text inside raw HTML blocks", () => {
     "",
   ].join("\n");
   validateDocumentation(context, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const comment = currentContext();
+  comment.files["README.md"] += [
+    "<!-- open",
+    "",
+    "[sample](docs/not-real.md)",
+    "-->",
+    "",
+  ].join("\n");
+  validateDocumentation(comment, {
     expectedLicenseDigest: licenseDigest,
   });
 });

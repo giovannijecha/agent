@@ -1091,7 +1091,7 @@ function completeHtmlBlockTag(line) {
   ) {
     return true;
   }
-  const tag = htmlTags(content).at(0);
+  const tag = htmlTags(content, false).at(0);
   return (
     tag?.start === 0 &&
     /^[ \t]*\r?$/u.test(content.slice(tag.end))
@@ -1173,14 +1173,20 @@ function paragraphOpenAfterLine(line, wasOpen) {
   return true;
 }
 
-function withoutRawHtmlBlocks(markdown) {
+function rawHtmlBlockProjection(markdown) {
   const lines = markdown.split("\n");
   const projected = containerProjectedLines(markdown);
+  const blocks = [];
   const rendered = [];
+  let blockStart;
   let closing;
   let paragraphOpen = false;
   let rawContainerKey;
   let untilBlank = false;
+  const finishBlock = (endLine) => {
+    blocks.push(Object.freeze({ endLine, startLine: blockStart }));
+    blockStart = undefined;
+  };
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines.at(index);
     const projection = projected.at(index);
@@ -1189,6 +1195,7 @@ function withoutRawHtmlBlocks(markdown) {
       (closing !== undefined || untilBlank) &&
       projection.containerKey !== rawContainerKey
     ) {
+      finishBlock(index);
       closing = undefined;
       paragraphOpen = false;
       rawContainerKey = undefined;
@@ -1197,6 +1204,7 @@ function withoutRawHtmlBlocks(markdown) {
     if (closing !== undefined) {
       rendered.push(maskedLiteral(line));
       if (rawHtmlBlockClosed(content, closing)) {
+        finishBlock(index + 1);
         closing = undefined;
         rawContainerKey = undefined;
       }
@@ -1205,6 +1213,7 @@ function withoutRawHtmlBlocks(markdown) {
     }
     if (untilBlank) {
       if (/^[ \t]*\r?$/u.test(content)) {
+        finishBlock(index);
         untilBlank = false;
         paragraphOpen = false;
         rawContainerKey = undefined;
@@ -1223,6 +1232,7 @@ function withoutRawHtmlBlocks(markdown) {
       paragraphOpen = paragraphOpenAfterLine(content, paragraphOpen);
       continue;
     }
+    blockStart = index;
     rendered.push(maskedLiteral(line));
     paragraphOpen = false;
     rawContainerKey = projection.containerKey;
@@ -1231,15 +1241,55 @@ function withoutRawHtmlBlocks(markdown) {
     } else if (!rawHtmlBlockClosed(content, opening.closing)) {
       closing = opening.closing;
     } else {
+      finishBlock(index + 1);
       rawContainerKey = undefined;
     }
   }
-  return rendered.join("\n");
+  if (blockStart !== undefined) {
+    finishBlock(lines.length);
+  }
+  return Object.freeze({
+    blocks: Object.freeze(blocks),
+    markdown: rendered.join("\n"),
+  });
 }
 
-function htmlCommentEnd(markdown, opening) {
+function withoutRawHtmlBlocks(markdown) {
+  return rawHtmlBlockProjection(markdown).markdown;
+}
+
+function rawHtmlBlockBounds(markdown) {
+  const lineStarts = [0];
+  for (let index = 0; index < markdown.length; index += 1) {
+    if (markdown.at(index) === "\n") {
+      lineStarts.push(index + 1);
+    }
+  }
+  return Object.freeze(
+    rawHtmlBlockProjection(markdown).blocks.map((block) =>
+      Object.freeze({
+        end: lineStarts.at(block.endLine) ?? markdown.length,
+        start: lineStarts.at(block.startLine),
+      })
+    ),
+  );
+}
+
+function markdownHtmlEnd(markdown, opening, rawBlocks) {
+  for (const block of rawBlocks) {
+    if (opening < block.start) {
+      break;
+    }
+    if (opening < block.end) {
+      return block.end;
+    }
+  }
+  return paragraphEnd(markdown, opening + 1);
+}
+
+function htmlCommentEnd(markdown, opening, end = markdown.length) {
   const closing = markdown.indexOf("-->", opening + 4);
-  if (closing === -1) {
+  if (closing === -1 || closing + 3 > end) {
     return undefined;
   }
   const body = markdown.slice(opening + 4, closing);
@@ -1252,6 +1302,7 @@ function htmlCommentEnd(markdown, opening) {
 }
 
 function withoutHtmlComments(markdown, preserveColumns = true) {
+  const rawBlocks = rawHtmlBlockBounds(markdown);
   const rendered = [];
   let retainedFrom = 0;
   let searchFrom = 0;
@@ -1264,7 +1315,11 @@ function withoutHtmlComments(markdown, preserveColumns = true) {
       searchFrom = opening + 4;
       continue;
     }
-    const end = htmlCommentEnd(markdown, opening);
+    const end = htmlCommentEnd(
+      markdown,
+      opening,
+      markdownHtmlEnd(markdown, opening, rawBlocks),
+    );
     if (end === undefined) {
       searchFrom = opening + 4;
       continue;
@@ -2158,28 +2213,37 @@ function isHtmlWhitespace(character) {
   return /[\t\n\f\r ]/u.test(character ?? "");
 }
 
-function rawTextElementEnd(markdown, normalizedMarkdown, start, name) {
+function rawTextElementEnd(
+  markdown,
+  normalizedMarkdown,
+  start,
+  name,
+  end,
+) {
   const marker = "</" + name;
   let searchFrom = start;
-  while (searchFrom < markdown.length) {
+  while (searchFrom < end) {
     const closing = normalizedMarkdown.indexOf(marker, searchFrom);
-    if (closing === -1) {
-      return markdown.length;
+    if (closing === -1 || closing >= end) {
+      return end;
+    }
+    if (closing + marker.length >= end) {
+      return end;
     }
     const boundary = markdown.at(closing + marker.length);
     if (boundary === ">" || isHtmlWhitespace(boundary)) {
-      const end = markdown.indexOf(">", closing + marker.length);
-      return end === -1 ? markdown.length : end + 1;
+      const tagEnd = markdown.indexOf(">", closing + marker.length);
+      return tagEnd === -1 || tagEnd >= end ? end : tagEnd + 1;
     }
     searchFrom = closing + marker.length;
   }
-  return markdown.length;
+  return end;
 }
 
-function htmlNonTagEnd(markdown, opening) {
+function htmlNonTagEnd(markdown, opening, end) {
   let terminator;
   if (markdown.startsWith("<!--", opening)) {
-    return htmlCommentEnd(markdown, opening);
+    return htmlCommentEnd(markdown, opening, end);
   } else if (markdown.startsWith("<?", opening)) {
     terminator = "?>";
   } else if (markdown.startsWith("<![CDATA[", opening)) {
@@ -2190,7 +2254,9 @@ function htmlNonTagEnd(markdown, opening) {
     return undefined;
   }
   const closing = markdown.indexOf(terminator, opening + 2);
-  return closing === -1 ? undefined : closing + terminator.length;
+  return closing === -1 || closing + terminator.length > end
+    ? undefined
+    : closing + terminator.length;
 }
 
 function htmlNonTagRange(start, end) {
@@ -2202,9 +2268,10 @@ function htmlNonTagRange(start, end) {
   });
 }
 
-function htmlTags(markdown) {
+function htmlTags(markdown, blockBounded = true) {
   const tags = [];
   const normalizedMarkdown = markdown.toLowerCase();
+  const rawBlocks = blockBounded ? rawHtmlBlockBounds(markdown) : [];
   let searchFrom = 0;
   while (searchFrom < markdown.length) {
     const opening = markdown.indexOf("<", searchFrom);
@@ -2215,7 +2282,10 @@ function htmlTags(markdown) {
       searchFrom = opening + 1;
       continue;
     }
-    const nonTagEnd = htmlNonTagEnd(markdown, opening);
+    const end = blockBounded
+      ? markdownHtmlEnd(markdown, opening, rawBlocks)
+      : markdown.length;
+    const nonTagEnd = htmlNonTagEnd(markdown, opening, end);
     if (nonTagEnd !== undefined) {
       tags.push(htmlNonTagRange(opening, nonTagEnd));
       searchFrom = nonTagEnd;
@@ -2233,7 +2303,10 @@ function htmlTags(markdown) {
     }
     const nameStart = cursor;
     cursor += 1;
-    while (/[A-Za-z0-9-]/u.test(markdown.at(cursor) ?? "")) {
+    while (
+      cursor < end &&
+      /[A-Za-z0-9-]/u.test(markdown.at(cursor) ?? "")
+    ) {
       cursor += 1;
     }
     const tagName = normalizedMarkdown.slice(nameStart, cursor);
@@ -2252,27 +2325,38 @@ function htmlTags(markdown) {
     const seenAttributeNames = new Set();
     const tagAttributes = [];
     if (closingTag) {
-      while (isHtmlWhitespace(markdown.at(cursor))) {
+      while (cursor < end && isHtmlWhitespace(markdown.at(cursor))) {
         cursor += 1;
       }
-      if (markdown.at(cursor) === ">") {
+      if (cursor < end && markdown.at(cursor) === ">") {
         cursor += 1;
         complete = true;
       }
     }
-    while (!closingTag && cursor < markdown.length) {
-      while (isHtmlWhitespace(markdown.at(cursor))) {
+    while (!closingTag && cursor < end) {
+      const whitespaceStart = cursor;
+      while (cursor < end && isHtmlWhitespace(markdown.at(cursor))) {
         cursor += 1;
+      }
+      if (cursor >= end) {
+        break;
       }
       if (markdown.at(cursor) === ">") {
         cursor += 1;
         complete = true;
         break;
       }
-      if (markdown.at(cursor) === "/" && markdown.at(cursor + 1) === ">") {
+      if (
+        cursor + 1 < end &&
+        markdown.at(cursor) === "/" &&
+        markdown.at(cursor + 1) === ">"
+      ) {
         cursor += 2;
         complete = true;
         selfClosing = true;
+        break;
+      }
+      if (cursor === whitespaceStart) {
         break;
       }
 
@@ -2281,26 +2365,30 @@ function htmlTags(markdown) {
         break;
       }
       cursor += 1;
-      while (/[A-Za-z0-9_.:-]/u.test(markdown.at(cursor) ?? "")) {
+      while (
+        cursor < end &&
+        /[A-Za-z0-9_.:-]/u.test(markdown.at(cursor) ?? "")
+      ) {
         cursor += 1;
       }
       const name = markdown.slice(nameStart, cursor).toLowerCase();
       const duplicate = seenAttributeNames.has(name);
       seenAttributeNames.add(name);
-      while (isHtmlWhitespace(markdown.at(cursor))) {
+      const afterName = cursor;
+      while (cursor < end && isHtmlWhitespace(markdown.at(cursor))) {
         cursor += 1;
       }
       let value;
-      if (markdown.at(cursor) === "=") {
+      if (cursor < end && markdown.at(cursor) === "=") {
         cursor += 1;
-        while (isHtmlWhitespace(markdown.at(cursor))) {
+        while (cursor < end && isHtmlWhitespace(markdown.at(cursor))) {
           cursor += 1;
         }
         const quote = markdown.at(cursor);
         if (quote === '"' || quote === "'") {
           const valueStart = cursor + 1;
           const valueEnd = markdown.indexOf(quote, valueStart);
-          if (valueEnd === -1) {
+          if (valueEnd === -1 || valueEnd >= end) {
             break;
           }
           value = markdown.slice(valueStart, valueEnd);
@@ -2309,10 +2397,11 @@ function htmlTags(markdown) {
           const valueStart = cursor;
           let valid = true;
           while (
-            cursor < markdown.length &&
+            cursor < end &&
             !isHtmlWhitespace(markdown.at(cursor)) &&
             markdown.at(cursor) !== ">" &&
             !(
+              cursor + 1 < end &&
               markdown.at(cursor) === "/" &&
               markdown.at(cursor + 1) === ">"
             )
@@ -2328,6 +2417,8 @@ function htmlTags(markdown) {
           }
           value = markdown.slice(valueStart, cursor);
         }
+      } else {
+        cursor = afterName;
       }
       if (!duplicate && value !== undefined) {
         tagAttributes.push(Object.freeze({ name, value }));
@@ -2352,6 +2443,7 @@ function htmlTags(markdown) {
         normalizedMarkdown,
         cursor,
         tagName,
+        end,
       );
     } else {
       searchFrom = complete ? cursor : opening + 1;
