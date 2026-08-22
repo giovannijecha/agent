@@ -1411,14 +1411,28 @@ function codeSpanClosing(text, opening, openingLength) {
   return undefined;
 }
 
-function withoutCodeSpans(text) {
+function withoutCodeSpans(text, protectedBounds = []) {
   const rendered = [];
   let retainedFrom = 0;
   let cursor = 0;
+  let protectedIndex = 0;
   while (cursor < text.length) {
     const opening = text.indexOf("`", cursor);
     if (opening === -1) {
       break;
+    }
+    while (
+      protectedBounds.at(protectedIndex)?.end <= opening
+    ) {
+      protectedIndex += 1;
+    }
+    const protectedBound = protectedBounds.at(protectedIndex);
+    if (
+      protectedBound !== undefined &&
+      opening >= protectedBound.start
+    ) {
+      cursor = protectedBound.end;
+      continue;
     }
     const openingLength = markerRunLength(text, opening, "`");
     if (isEscaped(text, opening)) {
@@ -1426,7 +1440,13 @@ function withoutCodeSpans(text) {
       continue;
     }
     const closing = codeSpanClosing(text, opening, openingLength);
-    if (closing === undefined) {
+    if (
+      closing === undefined ||
+      (
+        protectedBound !== undefined &&
+        closing.start >= protectedBound.start
+      )
+    ) {
       cursor = opening + openingLength;
       continue;
     }
@@ -2568,9 +2588,11 @@ function headingAnchors(text) {
     }
     anchors.add(anchor);
   }
-  for (
-    const tag of htmlTags(withoutHtmlComments(withoutCodeSpans(markdown)))
-  ) {
+  const htmlMarkdown = withoutCodeSpans(
+    markdown,
+    rawHtmlBlockBounds(markdown),
+  );
+  for (const tag of htmlTags(withoutHtmlComments(htmlMarkdown))) {
     for (const attribute of tag.attributes) {
       if (
         (
@@ -2813,7 +2835,8 @@ function spaceSeparatedTargets(value) {
 }
 
 function localTargets(text) {
-  const markdown = withoutCodeSpans(renderedMarkdown(text));
+  const rendered = renderedMarkdown(text);
+  const markdown = withoutCodeSpans(rendered, rawHtmlBlockBounds(rendered));
   const tags = htmlTags(withoutHtmlComments(markdown));
   const markdownContent = withoutHtmlTags(
     withoutHtmlComments(withoutRawHtmlBlocks(markdown)),

@@ -1143,6 +1143,43 @@ test("ignores Markdown-like text inside raw HTML blocks", () => {
   });
 });
 
+test("parses HTML before code spans inside raw blocks", () => {
+  const rawBlock = currentContext();
+  rawBlock.files["README.md"] += [
+    "<div>",
+    '`<img src="docs/missing.md">`',
+    "</div>",
+    "",
+  ].join("\n");
+  assert.throws(
+    () =>
+      validateDocumentation(rawBlock, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+
+  const rawAnchor = currentContext();
+  rawAnchor.files["README.md"] += [
+    "<div>",
+    '`<a id="raw-anchor"></a>`',
+    "</div>",
+    "",
+    "[Anchor](#raw-anchor)",
+    "",
+  ].join("\n");
+  validateDocumentation(rawAnchor, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const inlineCode = currentContext();
+  inlineCode.files["README.md"] +=
+    '`<img src="docs/not-real.md">`\n';
+  validateDocumentation(inlineCode, {
+    expectedLicenseDigest: licenseDigest,
+  });
+});
+
 test("ignores apparent HTML tags inside raw-text elements", () => {
   const context = currentContext();
   context.files["README.md"] += [
