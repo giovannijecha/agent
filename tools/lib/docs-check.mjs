@@ -986,7 +986,21 @@ function withoutHtmlComments(markdown, preserveColumns = true) {
       continue;
     }
     const closing = markdown.indexOf("-->", opening + 4);
-    const end = closing === -1 ? markdown.length : closing + 3;
+    if (closing === -1) {
+      searchFrom = opening + 4;
+      continue;
+    }
+    const body = markdown.slice(opening + 4, closing);
+    if (
+      body.startsWith(">") ||
+      body.startsWith("->") ||
+      body.includes("--") ||
+      body.endsWith("-")
+    ) {
+      searchFrom = opening + 4;
+      continue;
+    }
+    const end = closing + 3;
     rendered.push(markdown.slice(retainedFrom, opening));
     const comment = markdown.slice(opening, end);
     rendered.push(
@@ -1084,10 +1098,25 @@ function closingLabelIndex(markdown, opening) {
   return undefined;
 }
 
-function whitespaceEnd(markdown, start) {
+function inlineWhitespaceEnd(markdown, start) {
   let cursor = start;
-  while (/\s/u.test(markdown.at(cursor) ?? "")) {
-    cursor += 1;
+  let lineEndings = 0;
+  while (cursor < markdown.length) {
+    const character = markdown.at(cursor);
+    if (character === " " || character === "\t") {
+      cursor += 1;
+      continue;
+    }
+    if (character !== "\r" && character !== "\n") {
+      break;
+    }
+    lineEndings += 1;
+    if (lineEndings > 1) {
+      return undefined;
+    }
+    cursor += character === "\r" && markdown.at(cursor + 1) === "\n"
+      ? 2
+      : 1;
   }
   return cursor;
 }
@@ -1122,7 +1151,10 @@ function titleEnd(markdown, opening) {
 }
 
 function inlineTarget(markdown, opening) {
-  let cursor = whitespaceEnd(markdown, opening + 1);
+  let cursor = inlineWhitespaceEnd(markdown, opening + 1);
+  if (cursor === undefined) {
+    return undefined;
+  }
   const destinationStart = cursor;
   let target;
   if (markdown.at(cursor) === "<") {
@@ -1168,7 +1200,10 @@ function inlineTarget(markdown, opening) {
   }
 
   const afterDestination = cursor;
-  cursor = whitespaceEnd(markdown, cursor);
+  cursor = inlineWhitespaceEnd(markdown, cursor);
+  if (cursor === undefined) {
+    return undefined;
+  }
   if (markdown.at(cursor) === ")") {
     return Object.freeze({ end: cursor + 1, target });
   }
@@ -1183,7 +1218,10 @@ function inlineTarget(markdown, opening) {
   if (afterTitle === undefined) {
     return undefined;
   }
-  cursor = whitespaceEnd(markdown, afterTitle);
+  cursor = inlineWhitespaceEnd(markdown, afterTitle);
+  if (cursor === undefined) {
+    return undefined;
+  }
   return markdown.at(cursor) === ")"
     ? Object.freeze({ end: cursor + 1, target })
     : undefined;
@@ -1522,6 +1560,9 @@ function referenceDefinition(line, continuation, secondContinuation) {
   }
   const closingLabel = closingLabelIndex(line, indentation.index);
   if (closingLabel === undefined || line.at(closingLabel + 1) !== ":") {
+    return undefined;
+  }
+  if (line.at(indentation.index + 1) === "^") {
     return undefined;
   }
   const label = normalizedReferenceLabel(
@@ -2123,12 +2164,16 @@ export function validateDocumentation(context, options = {}) {
         fail("broken local link in " + file + ": " + rawTarget);
       }
       if (target.fragment !== undefined && target.fragment.length > 0) {
+        const targetText = context.files[target.path];
+        if (typeof targetText !== "string") {
+          if (!/^L[1-9][0-9]*(?:-L[1-9][0-9]*)?$/u.test(target.fragment)) {
+            fail("broken local link fragment in " + file + ": " + rawTarget);
+          }
+          continue;
+        }
         let anchors = anchorSets.get(target.path);
         if (anchors === undefined) {
-          const targetText = context.files[target.path];
-          anchors = typeof targetText === "string"
-            ? headingAnchors(targetText)
-            : new Set();
+          anchors = headingAnchors(targetText);
           anchorSets.set(target.path, anchors);
         }
         if (!anchors.has(target.fragment)) {

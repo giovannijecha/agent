@@ -380,6 +380,62 @@ test("rejects broken local links and decision-ledger references", () => {
   );
 });
 
+test("accepts only line fragments on tracked non-document files", () => {
+  const admitted = currentContext();
+  admitted.ownedPaths.push("tools/verify.mjs");
+  admitted.files["README.md"] +=
+    "[Implementation](tools/verify.mjs#L1) " +
+    "[Range](tools/verify.mjs#L1-L2)\n";
+  validateDocumentation(admitted, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const rejected = currentContext();
+  rejected.ownedPaths.push("tools/verify.mjs");
+  rejected.files["README.md"] +=
+    "[Implementation](tools/verify.mjs#implementation)\n";
+  assert.throws(
+    () =>
+      validateDocumentation(rejected, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /fragment/u,
+  );
+});
+
+test("does not mask malformed HTML comments", () => {
+  const context = currentContext();
+  context.files["README.md"] +=
+    "Text <!-- [Missing](docs/missing.md) -- invalid -->\n";
+  assert.throws(
+    () =>
+      validateDocumentation(context, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+});
+
+test("stops inline destinations at blank lines", () => {
+  const inactive = currentContext();
+  inactive.files["README.md"] +=
+    "[Missing](\n\ndocs/not-real.md)\n";
+  validateDocumentation(inactive, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const active = currentContext();
+  active.files["README.md"] +=
+    "[Missing](\n docs/missing.md)\n";
+  assert.throws(
+    () =>
+      validateDocumentation(active, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+});
+
 test("requires exact inline-code closing runs", () => {
   const context = currentContext();
   context.files["README.md"] += "`[Missing](docs/missing.md)``\n";
@@ -710,6 +766,34 @@ test("does not parse reference definitions inside open paragraphs", () => {
   validateDocumentation(context, {
     expectedLicenseDigest: licenseDigest,
   });
+});
+
+test("does not resolve GFM footnotes as ordinary references", () => {
+  const context = currentContext();
+  context.files["README.md"] += [
+    "Footnote.[^1]",
+    "",
+    "[^1]: Missing",
+    "",
+  ].join("\n");
+  validateDocumentation(context, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const activeBodyLink = currentContext();
+  activeBodyLink.files["README.md"] += [
+    "Footnote.[^1]",
+    "",
+    "[^1]: [Missing](docs/missing.md)",
+    "",
+  ].join("\n");
+  assert.throws(
+    () =>
+      validateDocumentation(activeBodyLink, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
 });
 
 test("masks next-line reference titles", () => {
