@@ -396,12 +396,20 @@ test("rejects broken local links and decision-ledger references", () => {
 
 test("accepts only line fragments on tracked non-document files", () => {
   const admitted = currentContext();
-  admitted.ownedPaths.push("tools/verify.mjs");
+  admitted.ownedPaths.push(
+    ".github/workflows/verify.yml",
+    "config/example.yaml",
+    "tools/verify.mjs",
+  );
+  admitted.sourceLineCounts[".github/workflows/verify.yml"] = 157;
+  admitted.sourceLineCounts["config/example.yaml"] = 3;
   admitted.sourceLineCounts["tools/verify.mjs"] = 2;
   admitted.files["README.md"] +=
     "[Implementation](tools/verify.mjs#L1) " +
     "[Last](tools/verify.mjs#L2) " +
-    "[Range](tools/verify.mjs#L1-L2)\n";
+    "[Range](tools/verify.mjs#L1-L2) " +
+    "[CI](.github/workflows/verify.yml#L1) " +
+    "[YAML](config/example.yaml#L2)\n";
   validateDocumentation(admitted, {
     expectedLicenseDigest: licenseDigest,
   });

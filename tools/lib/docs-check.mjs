@@ -59,7 +59,7 @@ function isAuthorityDocument(file) {
 
 export function isLineAddressableSource(file) {
   return file === "LICENSE" ||
-    /\.(?:c|css|h|html|js|json|mjs|ps1|sh|svg|ts)$/u.test(file);
+    /\.(?:c|css|h|html|js|json|mjs|ps1|sh|svg|ts|ya?ml)$/u.test(file);
 }
 
 const NAMED_CHARACTER_REFERENCES = Object.freeze(
