@@ -474,15 +474,15 @@ function blockQuoteContent(line, maximumDepth = Number.POSITIVE_INFINITY) {
   return blockQuoteContentAt(line, 0, 0, maximumDepth);
 }
 
-function listMarkerAt(line, baseColumn, indentation) {
+function listMarkerAt(line, baseColumn, indentation, paragraphOpen = false) {
   const relativeIndent = indentation.column - baseColumn;
   if (relativeIndent < 0 || relativeIndent > 3) {
     return undefined;
   }
-  const marker = line
+  const match = line
     .slice(indentation.index)
-    .match(/^(?:[-+*]|[0-9]{1,9}[.)])(?=$|[ \t\r])/u)
-    ?.at(0);
+    .match(/^(?:[-+*]|([0-9]{1,9})[.)])(?=$|[ \t\r])/u);
+  const marker = match?.at(0);
   if (marker === undefined) {
     return undefined;
   }
@@ -491,6 +491,12 @@ function listMarkerAt(line, baseColumn, indentation) {
   const content = indentationAt(line, markerEndIndex, markerEndColumn);
   const padding = content.column - markerEndColumn;
   const hasContent = !/^[ \t]*\r?$/u.test(line.slice(markerEndIndex));
+  if (
+    paragraphOpen &&
+    (!hasContent || Number(match.at(1) ?? "1") !== 1)
+  ) {
+    return undefined;
+  }
   const contentColumn = hasContent && padding >= 1 && padding <= 4
     ? content.column
     : markerEndColumn + 1;
@@ -499,6 +505,14 @@ function listMarkerAt(line, baseColumn, indentation) {
     contentIndentation: content,
     hasContent,
   });
+}
+
+function markdownContainerKey(quoteDepth, listContainers) {
+  const identities = [];
+  for (const container of listContainers) {
+    identities.push(container.identity);
+  }
+  return String(quoteDepth) + ":" + identities.join(".");
 }
 
 function fenceOpeningAt(line, baseColumn, indentation) {
@@ -541,7 +555,9 @@ function closesFence(line, fence, baseColumn, indentation) {
 function renderedMarkdown(text) {
   const rendered = [];
   const listContainers = [];
+  const paragraphStates = new Map();
   let fence;
+  let nextContainerIdentity = 0;
   for (const line of text.split("\n")) {
     if (fence !== undefined) {
       const quoted = blockQuoteContent(line, fence.quoteDepth);
@@ -586,16 +602,21 @@ function renderedMarkdown(text) {
     let contentIndentation = indentation;
     let emptyListMarker = false;
     while (true) {
+      const parentKey = markdownContainerKey(quoteDepth, listContainers);
       const listMarker = listMarkerAt(
         line,
         contentBase,
         contentIndentation,
+        paragraphStates.get(parentKey) ?? false,
       );
       if (listMarker !== undefined) {
+        paragraphStates.set(parentKey, false);
         listContainers.push(Object.freeze({
           contentColumn: listMarker.contentColumn,
+          identity: nextContainerIdentity,
           quoteDepth,
         }));
+        nextContainerIdentity += 1;
         contentBase = listMarker.contentColumn;
         contentIndentation = listMarker.contentIndentation;
         if (!listMarker.hasContent) {
@@ -616,13 +637,17 @@ function renderedMarkdown(text) {
       contentBase = nestedQuote.contentColumn;
       contentIndentation = nestedQuote.indentation;
     }
+    const containerKey = markdownContainerKey(quoteDepth, listContainers);
+    const projectedContent = blank ? "" : line.slice(contentIndentation.index);
     if (emptyListMarker) {
+      paragraphStates.set(containerKey, false);
       rendered.push(line);
       continue;
     }
 
     const opening = fenceOpeningAt(line, contentBase, contentIndentation);
     if (opening !== undefined) {
+      paragraphStates.set(containerKey, false);
       fence = Object.freeze({
         contentColumn: contentBase,
         length: opening.length,
@@ -631,6 +656,17 @@ function renderedMarkdown(text) {
       });
       rendered.push(maskedLiteral(line));
       continue;
+    }
+    if (blank) {
+      paragraphStates.clear();
+    } else {
+      paragraphStates.set(
+        containerKey,
+        paragraphOpenAfterLine(
+          projectedContent,
+          paragraphStates.get(containerKey) ?? false,
+        ),
+      );
     }
     rendered.push(
       contentIndentation.column - contentBase >= 4
@@ -641,9 +677,11 @@ function renderedMarkdown(text) {
   return rendered.join("\n");
 }
 
-function containerProjectedMarkdown(text) {
+function containerProjectedLines(text) {
   const projected = [];
   const listContainers = [];
+  const paragraphStates = new Map();
+  let nextContainerIdentity = 0;
   for (const line of text.split("\n")) {
     const quoted = blockQuoteContent(line);
     let quoteDepth = quoted.depth;
@@ -666,16 +704,21 @@ function containerProjectedMarkdown(text) {
       quoted.contentColumn;
     let contentIndentation = quoted.indentation;
     while (!blank) {
+      const parentKey = markdownContainerKey(quoteDepth, listContainers);
       const listMarker = listMarkerAt(
         line,
         contentBase,
         contentIndentation,
+        paragraphStates.get(parentKey) ?? false,
       );
       if (listMarker !== undefined) {
+        paragraphStates.set(parentKey, false);
         listContainers.push(Object.freeze({
           contentColumn: listMarker.contentColumn,
+          identity: nextContainerIdentity,
           quoteDepth,
         }));
+        nextContainerIdentity += 1;
         contentBase = listMarker.contentColumn;
         contentIndentation = listMarker.contentIndentation;
         if (!listMarker.hasContent) {
@@ -695,9 +738,28 @@ function containerProjectedMarkdown(text) {
       contentBase = nestedQuote.contentColumn;
       contentIndentation = nestedQuote.indentation;
     }
-    projected.push(
-      blank ? "" : line.slice(contentIndentation.index),
-    );
+    const containerKey = markdownContainerKey(quoteDepth, listContainers);
+    const content = blank ? "" : line.slice(contentIndentation.index);
+    if (blank) {
+      paragraphStates.clear();
+    } else {
+      paragraphStates.set(
+        containerKey,
+        paragraphOpenAfterLine(
+          content,
+          paragraphStates.get(containerKey) ?? false,
+        ),
+      );
+    }
+    projected.push(Object.freeze({ containerKey, content }));
+  }
+  return Object.freeze(projected);
+}
+
+function containerProjectedMarkdown(text) {
+  const projected = [];
+  for (const line of containerProjectedLines(text)) {
+    projected.push(line.content);
   }
   return projected.join("\n");
 }
@@ -813,18 +875,30 @@ function paragraphOpenAfterLine(line, wasOpen) {
 
 function withoutRawHtmlBlocks(markdown) {
   const lines = markdown.split("\n");
-  const projected = containerProjectedMarkdown(markdown).split("\n");
+  const projected = containerProjectedLines(markdown);
   const rendered = [];
   let closing;
   let paragraphOpen = false;
+  let rawContainerKey;
   let untilBlank = false;
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines.at(index);
-    const content = projected.at(index);
+    const projection = projected.at(index);
+    const content = projection.content;
+    if (
+      (closing !== undefined || untilBlank) &&
+      projection.containerKey !== rawContainerKey
+    ) {
+      closing = undefined;
+      paragraphOpen = false;
+      rawContainerKey = undefined;
+      untilBlank = false;
+    }
     if (closing !== undefined) {
       rendered.push(maskedLiteral(line));
       if (rawHtmlBlockClosed(content, closing)) {
         closing = undefined;
+        rawContainerKey = undefined;
       }
       paragraphOpen = false;
       continue;
@@ -833,6 +907,7 @@ function withoutRawHtmlBlocks(markdown) {
       if (/^[ \t]*\r?$/u.test(content)) {
         untilBlank = false;
         paragraphOpen = false;
+        rawContainerKey = undefined;
         rendered.push(line);
       } else {
         rendered.push(maskedLiteral(line));
@@ -850,10 +925,13 @@ function withoutRawHtmlBlocks(markdown) {
     }
     rendered.push(maskedLiteral(line));
     paragraphOpen = false;
+    rawContainerKey = projection.containerKey;
     if (opening.closing === undefined) {
       untilBlank = true;
     } else if (!rawHtmlBlockClosed(content, opening.closing)) {
       closing = opening.closing;
+    } else {
+      rawContainerKey = undefined;
     }
   }
   return rendered.join("\n");

@@ -380,6 +380,41 @@ test("validates list-relative indented links", () => {
   );
 });
 
+test("admits only one as an ordered-list paragraph interruption", () => {
+  const rejectedInterruption = currentContext();
+  rejectedInterruption.files["PRIVACY.md"] += [
+    "Paragraph text",
+    "2. # Fake heading",
+    "",
+  ].join("\n");
+  rejectedInterruption.files["README.md"] +=
+    "[Fake](PRIVACY.md#fake-heading)\n";
+  assert.throws(
+    () =>
+      validateDocumentation(rejectedInterruption, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /fragment/u,
+  );
+
+  const admittedInterruption = currentContext();
+  admittedInterruption.files["PRIVACY.md"] += [
+    "Paragraph text",
+    "1. # First heading",
+    "",
+    "2. # Second heading",
+    "",
+  ].join("\n");
+  admittedInterruption.files["README.md"] += [
+    "[First](PRIVACY.md#first-heading)",
+    "[Second](PRIVACY.md#second-heading)",
+    "",
+  ].join("\n");
+  validateDocumentation(admittedInterruption, {
+    expectedLicenseDigest: licenseDigest,
+  });
+});
+
 test("rejects tab-indented fenced-code openers", () => {
   const context = currentContext();
   context.files["README.md"] += [
@@ -485,6 +520,34 @@ test("does not let a generic HTML tag interrupt a paragraph", () => {
       }),
     /broken local link/u,
   );
+});
+
+test("ends raw HTML when its Markdown container ends", () => {
+  for (const block of [
+    ["- <div>", "[Missing](docs/not-real.md)"],
+    ["- <div>", "- [Missing](docs/not-real.md)"],
+    ["> <div>", "[Missing](docs/not-real.md)"],
+  ]) {
+    const context = currentContext();
+    context.files["README.md"] += [...block, ""].join("\n");
+    assert.throws(
+      () =>
+        validateDocumentation(context, {
+          expectedLicenseDigest: licenseDigest,
+        }),
+      /broken local link/u,
+    );
+  }
+
+  const continued = currentContext();
+  continued.files["README.md"] += [
+    "- <div>",
+    "  [inactive](docs/not-real.md)",
+    "",
+  ].join("\n");
+  validateDocumentation(continued, {
+    expectedLicenseDigest: licenseDigest,
+  });
 });
 
 test("retains attributes on raw-text opening tags", () => {
