@@ -870,6 +870,86 @@ test("rejects targets in effective single-URL HTML attributes", () => {
   }
 });
 
+test("preprocesses HTML URL whitespace before path validation", () => {
+  const context = currentContext();
+  context.ownedPaths.push("assets/x.png");
+  context.files["README.md"] +=
+    '<img src=" \tassets/x.\r\npng ">\n';
+  validateDocumentation(context, {
+    expectedLicenseDigest: licenseDigest,
+  });
+});
+
+test("validates bounded iframe srcdoc with isolated anchors", () => {
+  const missing = currentContext();
+  missing.files["README.md"] +=
+    '<iframe srcdoc="<img src=\'docs/missing.md\'>"></iframe>\n';
+  assert.throws(
+    () =>
+      validateDocumentation(missing, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /broken local link/u,
+  );
+
+  const admitted = currentContext();
+  admitted.ownedPaths.push("assets/x.png");
+  admitted.files["README.md"] += [
+    '<div id="outer"></div>',
+    '<iframe srcdoc="<img src=\'assets/x.png\'>' +
+      '<a id=\'inner\'></a><a href=\'#inner\'>Inner</a>"></iframe>',
+    "",
+  ].join("\n");
+  validateDocumentation(admitted, {
+    expectedLicenseDigest: licenseDigest,
+  });
+
+  const parentCannotSeeChild = currentContext();
+  parentCannotSeeChild.files["README.md"] += [
+    '<iframe srcdoc="<a id=\'inner\'></a>"></iframe>',
+    "",
+    "[Inner](#inner)",
+    "",
+  ].join("\n");
+  assert.throws(
+    () =>
+      validateDocumentation(parentCannotSeeChild, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /fragment/u,
+  );
+
+  const childCannotSeeParent = currentContext();
+  childCannotSeeParent.files["README.md"] += [
+    '<div id="outer"></div>',
+    '<iframe srcdoc="<a href=\'#outer\'>Outer</a>"></iframe>',
+    "",
+  ].join("\n");
+  assert.throws(
+    () =>
+      validateDocumentation(childCannotSeeParent, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /fragment/u,
+  );
+
+  let nested = '<img src="docs/missing.md">';
+  for (let depth = 0; depth < 17; depth += 1) {
+    nested = '<iframe srcdoc="' +
+      nested.replaceAll("&", "&amp;").replaceAll('"', "&quot;") +
+      '"></iframe>';
+  }
+  const excessive = currentContext();
+  excessive.files["README.md"] += nested + "\n";
+  assert.throws(
+    () =>
+      validateDocumentation(excessive, {
+        expectedLicenseDigest: licenseDigest,
+      }),
+    /srcdoc nesting/u,
+  );
+});
+
 test("uses the first effective input type for image source admission", () => {
   for (const markup of [
     '<input type="ImAgE" src="docs/missing.md">',

@@ -5,6 +5,7 @@ const CANONICAL_LICENSE_DIGEST =
   "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4";
 const CANONICAL_GIT_ATTRIBUTES = "* text=auto eol=lf\n";
 const MAX_BARE_DESTINATION_PARENTHESIS_DEPTH = 32;
+const MAX_SRCDOC_NESTING_DEPTH = 16;
 
 export const DOCUMENT_PATHS = Object.freeze([
   "AGENTS.md",
@@ -494,10 +495,16 @@ function decodeHtmlAttributeCharacterReferences(text) {
   return rendered.join("");
 }
 
+function preprocessHtmlUrl(value) {
+  return value
+    .replace(/^[\u0000-\u0020]+|[\u0000-\u0020]+$/gu, "")
+    .replaceAll(/[\t\n\r]/gu, "");
+}
+
 function normalizeTarget(source, localTarget) {
   const rawTarget = localTarget.value;
   const renderedTarget = localTarget.syntax === "html"
-    ? rawTarget
+    ? preprocessHtmlUrl(rawTarget)
     : decodeCharacterReferences(
       rawTarget.replaceAll(
         /\\([!"#$%&'()*+,\-./:;<=>?@\[\\\]^_`{|}~])/gu,
@@ -537,7 +544,11 @@ function normalizeTarget(source, localTarget) {
   if (normalized === ".." || normalized.startsWith("../")) {
     fail("local link escaped the repository in " + source);
   }
-  return Object.freeze({ fragment, path: normalized });
+  return Object.freeze({
+    fragment,
+    path: normalized,
+    sameDocument: withoutQuery.length === 0,
+  });
 }
 
 function headingHtmlText(text) {
@@ -2370,7 +2381,7 @@ function htmlTags(markdown, blockBounded = true) {
     }
     const context = blockBounded
       ? markdownHtmlContext(markdown, opening, rawBlocks)
-      : Object.freeze({ end: markdown.length, raw: false });
+      : Object.freeze({ end: markdown.length, raw: true });
     if (!context.raw && isEscaped(markdown, opening)) {
       searchFrom = opening + 1;
       continue;
@@ -2616,6 +2627,26 @@ function setextHeadings(projected) {
   return headings;
 }
 
+function htmlAnchorValues(tags) {
+  const anchors = new Set();
+  for (const tag of tags) {
+    for (const attribute of tag.attributes) {
+      if (
+        (
+          attribute.name === "id" ||
+          (tag.name === "a" && attribute.name === "name")
+        ) &&
+        attribute.value.length > 0
+      ) {
+        anchors.add(
+          decodeHtmlAttributeCharacterReferences(attribute.value),
+        );
+      }
+    }
+  }
+  return Object.freeze([...anchors]);
+}
+
 function headingAnchors(text) {
   const markdown = renderedMarkdown(text);
   const rawMarkdownContent = withoutRawHtmlBlocks(markdown);
@@ -2665,20 +2696,9 @@ function headingAnchors(text) {
     markdown,
     rawHtmlBlockBounds(markdown),
   );
-  for (const tag of htmlTags(withoutHtmlComments(htmlMarkdown))) {
-    for (const attribute of tag.attributes) {
-      if (
-        (
-          attribute.name === "id" ||
-          (tag.name === "a" && attribute.name === "name")
-        ) &&
-        attribute.value.length > 0
-      ) {
-        anchors.add(
-          decodeHtmlAttributeCharacterReferences(attribute.value),
-        );
-      }
-    }
+  const tags = htmlTags(withoutHtmlComments(htmlMarkdown));
+  for (const anchor of htmlAnchorValues(tags)) {
+    anchors.add(anchor);
   }
   return anchors;
 }
@@ -2907,6 +2927,55 @@ function spaceSeparatedTargets(value) {
   return value.split(/[\t\n\f\r ]+/u).filter((target) => target.length > 0);
 }
 
+function htmlLocalTarget(value, fragmentScope) {
+  return Object.freeze(
+    fragmentScope === undefined
+      ? { syntax: "html", value }
+      : { fragmentScope, syntax: "html", value },
+  );
+}
+
+function appendHtmlLocalTargets(
+  targets,
+  tags,
+  srcdocDepth,
+  fragmentScope,
+) {
+  for (const tag of tags) {
+    for (const attribute of tag.attributes) {
+      const { name, value } = attribute;
+      const decoded = decodeHtmlAttributeCharacterReferences(value);
+      if (tag.name === "iframe" && name === "srcdoc") {
+        if (srcdocDepth >= MAX_SRCDOC_NESTING_DEPTH) {
+          fail("HTML srcdoc nesting limit exceeded");
+        }
+        const nestedTags = htmlTags(decoded, false);
+        appendHtmlLocalTargets(
+          targets,
+          nestedTags,
+          srcdocDepth + 1,
+          htmlAnchorValues(nestedTags),
+        );
+        continue;
+      }
+      const kind = htmlUrlAttributeKind(tag, name);
+      if (kind === undefined) {
+        continue;
+      }
+      if (kind === "single") {
+        targets.push(htmlLocalTarget(decoded, fragmentScope));
+        continue;
+      }
+      const candidates = kind === "srcset"
+        ? srcsetTargets(decoded)
+        : spaceSeparatedTargets(decoded);
+      for (const target of candidates) {
+        targets.push(htmlLocalTarget(target, fragmentScope));
+      }
+    }
+  }
+}
+
 function localTargets(text) {
   const rendered = renderedMarkdown(text);
   const markdown = withoutCodeSpans(rendered, rawHtmlBlockBounds(rendered));
@@ -2926,26 +2995,7 @@ function localTargets(text) {
     withoutReferenceDefinitions(markdownContent, definitions),
     references,
   ).map((value) => Object.freeze({ syntax: "markdown", value }));
-  for (const tag of tags) {
-    for (const attribute of tag.attributes) {
-      const { name, value } = attribute;
-      const kind = htmlUrlAttributeKind(tag, name);
-      if (kind === undefined) {
-        continue;
-      }
-      const decoded = decodeHtmlAttributeCharacterReferences(value);
-      if (kind === "single") {
-        targets.push(Object.freeze({ syntax: "html", value: decoded }));
-        continue;
-      }
-      const candidates = kind === "srcset"
-        ? srcsetTargets(decoded)
-        : spaceSeparatedTargets(decoded);
-      for (const target of candidates) {
-        targets.push(Object.freeze({ syntax: "html", value: target }));
-      }
-    }
-  }
+  appendHtmlLocalTargets(targets, tags, 0, undefined);
   return targets;
 }
 
@@ -3014,6 +3064,15 @@ export function validateDocumentation(context, options = {}) {
         fail("broken local link in " + file + ": " + rawTarget);
       }
       if (target.fragment !== undefined && target.fragment.length > 0) {
+        if (
+          target.sameDocument &&
+          localTarget.fragmentScope !== undefined
+        ) {
+          if (!localTarget.fragmentScope.includes(target.fragment)) {
+            fail("broken local link fragment in " + file + ": " + rawTarget);
+          }
+          continue;
+        }
         const targetText = context.files[target.path];
         if (typeof targetText !== "string") {
           const lineMatch = /^L([1-9][0-9]*)(?:-L([1-9][0-9]*))?$/u.exec(
