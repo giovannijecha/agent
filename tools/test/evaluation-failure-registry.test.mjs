@@ -39,11 +39,13 @@ const exampleRegistry = {
   schemaVersion: 1,
 };
 const evaluationSuite = loadEvaluationSuite(projectRoot);
-const resolutionPath = "docs/ENGINEERING.md";
+const resolutionPath =
+  "tools/test/synthetic-inclusive-range-extra-source.test.mjs";
+const genericResolutionPath = "docs/ENGINEERING.md";
 
 function context(overrides = {}) {
   return {
-    repositoryPaths: [resolutionPath],
+    repositoryPaths: [genericResolutionPath, resolutionPath],
     sourceBytes: registryBytes.length,
     taskExpectedPaths: evaluationSuite.tasks.map((task) => ({
       paths: task.expected.map((entry) => entry.path),
@@ -287,6 +289,15 @@ test("binds lifecycle state to tracked resolution evidence", () => {
     "tools/test/missing-regression.test.mjs";
   assert.throws(
     () => validateEvaluationFailureRegistry(missingResolution, context()),
+    expectCode("invalidLifecycle"),
+  );
+
+  const genericResolution = clone();
+  genericResolution.entries.at(0).occurrences = 2;
+  genericResolution.entries.at(0).status = "resolved";
+  genericResolution.entries.at(0).resolution = genericResolutionPath;
+  assert.throws(
+    () => validateEvaluationFailureRegistry(genericResolution, context()),
     expectCode("invalidLifecycle"),
   );
 

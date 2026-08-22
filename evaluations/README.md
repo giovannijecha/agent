@@ -77,6 +77,9 @@ file, and complete byte allowance but do not parse it or inspect ignored runs.
 Increment only after reviewed recurrence of the same failure. A first occurrence
 remains `observing`; promote it to `actionable` only when frequency or impact
 justifies a correction. `resolved` needs tracked fix and regression evidence.
+Its `resolution` is the exact tracked regression path
+`tools/test/<failure-id>.test.mjs`; prose and generic source paths are not
+resolution evidence.
 Remove evidence if a corpus correction proves its expected snapshot
 could not satisfy its own check; never resolve or use it.
 
